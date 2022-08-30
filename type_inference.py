@@ -63,6 +63,9 @@ class TypedIf(typedstmt, If):
 class TypedExpression(typedexpr, Expression):
     body: typedexpr
 
+class TypedExpr(typedexpr, Expr):
+    value: typedexpr
+
 
 class TypedAssign(typedstmt, Assign):
     targets: typing.List[typedexpr]
@@ -85,6 +88,13 @@ class TypedCompare(typedexpr, Compare):
     left: typedexpr
     ops: typing.List[cmpop]
     comparators: typing.List[typedexpr]
+
+class TypedBinOp(typedexpr, BinOp):
+    left: typedexpr
+    right: typedexpr
+
+class TypedUnaryOp(typedexpr, UnaryOp):
+    operand: typedexpr
 
 class TypeInferenceError(AssertionError):
     pass
@@ -214,15 +224,30 @@ class AggressiveTypeInferencer(NodeTransformer):
         self.exit_scope()
         return tm
     
+    def visit_Expr(self, node: Expr) -> TypedExpr:
+        tn = copy(node)
+        tn.value = self.visit(node.value)
+        tn.typ = tn.value.typ
+        return tn
+    
+    def visit_BinOp(self, node: BinOp) -> TypedBinOp:
+        tb = copy(node)
+        tb.left = self.visit(node.left)
+        tb.right = self.visit(node.right)
+        assert tb.left.typ == tb.right.typ, "Inputs to a binary operation need to have the same type"
+        tb.typ = tb.left.typ
+        return tb
+    
+    def visit_UnaryOp(self, node: UnaryOp) -> TypedUnaryOp:
+        tu = copy(node)
+        tu.operand = self.visit(node.operand)
+        tu.typ = tu.operand.typ
+        return tu
+    
     
     def generic_visit(self, node: AST) -> TypedAST:
         raise NotImplementedError(f"Cannot infer type of non-implemented node {node.__class__}")
 
 
-print(dump(AggressiveTypeInferencer().visit(parse("""\
-e = 1
-if e == 0:
-    a = "str"
-else:
-    a = "bald"
-"""))))
+def typed_ast(ast: AST):
+    return AggressiveTypeInferencer().visit(ast)
