@@ -1,26 +1,31 @@
 from ast import *
 import typing
 from dataclasses import dataclass
+from copy import copy
 
 class Type:
     pass
 
 @dataclass()
-class BuiltinType(Type):
-    typ: typing.Any
+class InstanceType(Type):
+    typ: str
 
 @dataclass()
-class UserClassType(Type):
-    name: str
+class ClassType(Type):
+    typ: str
 
 @dataclass()
 class TupleType(Type):
-    typs: typing.List[str]
+    typs: typing.List[Type]
 
 @dataclass()
 class ListType(Type):
-    typs: typing.List[str]
+    typs: typing.List[Type]
 
+@dataclass()
+class FunctionType(Type):
+    argtyps: typing.List[Type]
+    rettyp: Type
 
 class TypedAST(AST):
     typ: Type
@@ -31,8 +36,24 @@ class typedexpr(TypedAST, expr):
 class typedstmt(TypedAST, stmt):
     pass
 
+class typedarg(TypedAST, arg):
+    pass
+
+class typedarguments(TypedAST, arguments):
+    args: typing.List[typedarg]
+    vararg: typing.Union[typedarg, None]
+    kwonlyargs: typing.List[typedarg]
+    kw_defaults: typing.List[typing.Union[typedexpr,None]]
+    kwarg: typing.Union[typedarg, None]
+    defaults: typing.List[typedexpr]
+
 class TypedModule(typedstmt, Module):
     body: typing.List[typedstmt]
+
+class TypedFunctionDef(typedstmt, FunctionDef):
+    body: typing.List[typedstmt]
+    args: arguments
+    typ: FunctionType
 
 class TypedIf(typedstmt, If):
     cond: typedexpr
@@ -68,6 +89,14 @@ class TypedCompare(typedexpr, Compare):
 class TypeInferenceError(AssertionError):
     pass
 
+def type_from_annotation(ann: expr):
+    if ann is None:
+        return InstanceType(type(None).__name__)
+    if isinstance(ann, Name):
+        return InstanceType(ann.id)
+    if isinstance(ann, Subscript):
+        raise NotImplementedError("Generic types not supported yet")
+
 
 class AggressiveTypeInferencer(NodeTransformer):
     
@@ -95,7 +124,7 @@ class AggressiveTypeInferencer(NodeTransformer):
     def visit_Constant(self, node: Constant):
         tc = TypedConstant()
         assert type(node.value) not in [float, complex, type(...)], "Float, complex numbers and ellipsis currently not supported"
-        tc.typ = BuiltinType(type(node.value))
+        tc.typ = InstanceType(type(node.value).__name__)
         tc.value = node.value
         return tc
 
@@ -116,7 +145,7 @@ class AggressiveTypeInferencer(NodeTransformer):
     
     def visit_Assign(self, node: Assign) -> TypedAssign:
         typed_ass = TypedAssign()
-        typed_ass.typ = BuiltinType(type(None))
+        typed_ass.typ = InstanceType(type(None).__name__)
         typed_ass.value: TypedExpression = self.visit(node.value)
         # Make sure to first set the type of each target name so we can load it when visiting it
         for t in node.targets:
@@ -131,7 +160,7 @@ class AggressiveTypeInferencer(NodeTransformer):
         typed_if.test = self.visit(node.test)
         typed_if.body = [self.visit(s) for s in node.body]
         typed_if.orelse = [self.visit(s) for s in node.orelse]
-        typed_if.typ = BuiltinType(type(None))
+        typed_if.typ = InstanceType(type(None).__name__)
         return typed_if
     
     def visit_Name(self, node: Name) -> TypedName:
@@ -147,9 +176,36 @@ class AggressiveTypeInferencer(NodeTransformer):
         typed_cmp.left = self.visit(node.left)
         typed_cmp.ops = node.ops
         typed_cmp.comparators = [self.visit(s) for s in node.comparators]
-        typed_cmp.typ = BuiltinType(bool)
+        typed_cmp.typ = InstanceType(bool.__name__)
         assert all(typed_cmp.left.typ == c.typ for c in typed_cmp.comparators), "Not all compared expressions have the same type"
         return typed_cmp
+    
+    def visit_arg(self, node: arg) -> typedarg:
+        ta = typedarg()
+        ta.arg = node.arg
+        ta.typ = type_from_annotation(node.annotation)
+        self.set_variable_type(ta.arg, ta.typ)
+    
+    def visit_arguments(self, node: arguments) -> typedarguments:
+        if node.kw_defaults or node.kwarg or node.kwonlyargs or node.defaults:
+            raise NotImplementedError("Keyword arguments and defaults not supported yet")
+        ta = typedarguments()
+        ta.args = [self.visit(a) for a in node.args]
+        return ta
+
+    
+    def visit_FunctionDef(self, node: FunctionDef) -> TypedFunctionDef:
+        tfd = copy(node)
+        self.enter_scope()
+        tfd.args = self.visit(node.args)
+        tfd.body = [self.visit(s) for s in node.body]
+        tfd.typ = FunctionType(
+            [t.typ for t in tfd.args.args],
+            type_from_annotation(tfd.returns),
+        )
+        self.exit_scope()
+        return tfd
+
 
     def visit_Module(self, node: Module) -> TypedModule:
         self.enter_scope()
