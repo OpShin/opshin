@@ -63,6 +63,10 @@ class TypedIf(typedstmt, If):
 class TypedExpression(typedexpr, Expression):
     body: typedexpr
 
+class TypedCall(typedexpr, Call):
+    func: typedexpr
+    args: typing.List[typedexpr]
+
 class TypedExpr(typedexpr, Expr):
     value: typedexpr
 
@@ -70,6 +74,9 @@ class TypedExpr(typedexpr, Expr):
 class TypedAssign(typedstmt, Assign):
     targets: typing.List[typedexpr]
     value: typedexpr
+
+class TypedPass(typedstmt, Pass):
+    pass
 
 class TypedName(typedexpr, Name):
     pass
@@ -100,12 +107,14 @@ class TypeInferenceError(AssertionError):
     pass
 
 def type_from_annotation(ann: expr):
-    if ann is None:
-        return InstanceType(type(None).__name__)
+    if isinstance(ann, Constant):
+        if ann.value is None:
+            return InstanceType(type(None).__name__)
     if isinstance(ann, Name):
         return InstanceType(ann.id)
     if isinstance(ann, Subscript):
         raise NotImplementedError("Generic types not supported yet")
+    raise NotImplementedError(f"Annotation type {ann} is not supported")
 
 
 class AggressiveTypeInferencer(NodeTransformer):
@@ -132,29 +141,26 @@ class AggressiveTypeInferencer(NodeTransformer):
         self.scopes[-1][name] = typ
 
     def visit_Constant(self, node: Constant):
-        tc = TypedConstant()
+        tc = copy(node)
         assert type(node.value) not in [float, complex, type(...)], "Float, complex numbers and ellipsis currently not supported"
         tc.typ = InstanceType(type(node.value).__name__)
-        tc.value = node.value
         return tc
 
     
     def visit_Tuple(self, node: Tuple) -> TypedTuple:
-        tt = TypedTuple()
-        tt.ctx = node.ctx
+        tt = copy(node)
         tt.elts = [self.visit(e) for e in node.elts]
         tt.typ = [e.typ for e in tt.elts]
         return tt
 
     def visit_List(self, node: List) -> TypedList:
-        tt = TypedList()
-        tt.ctx = node.ctx
+        tt = copy(node)
         tt.elts = [self.visit(e) for e in node.elts]
         tt.typ = [e.typ for e in tt.elts]
         return tt
     
     def visit_Assign(self, node: Assign) -> TypedAssign:
-        typed_ass = TypedAssign()
+        typed_ass = copy(node)
         typed_ass.typ = InstanceType(type(None).__name__)
         typed_ass.value: TypedExpression = self.visit(node.value)
         # Make sure to first set the type of each target name so we can load it when visiting it
@@ -166,7 +172,7 @@ class AggressiveTypeInferencer(NodeTransformer):
         return typed_ass
     
     def visit_If(self, node: If) -> TypedAST:
-        typed_if = TypedIf()
+        typed_if = copy(node)
         typed_if.test = self.visit(node.test)
         typed_if.body = [self.visit(s) for s in node.body]
         typed_if.orelse = [self.visit(s) for s in node.orelse]
@@ -174,32 +180,30 @@ class AggressiveTypeInferencer(NodeTransformer):
         return typed_if
     
     def visit_Name(self, node: Name) -> TypedName:
-        tn = TypedName()
-        tn.id = node.id
+        tn = copy(node)
         # Make sure that the rhs of an assign is evaluated first
         tn.typ = self.variable_type(node.id)
         return tn
 
 
     def visit_Compare(self, node: Compare) -> TypedCompare:
-        typed_cmp = TypedCompare()
+        typed_cmp = copy(node)
         typed_cmp.left = self.visit(node.left)
-        typed_cmp.ops = node.ops
         typed_cmp.comparators = [self.visit(s) for s in node.comparators]
         typed_cmp.typ = InstanceType(bool.__name__)
         assert all(typed_cmp.left.typ == c.typ for c in typed_cmp.comparators), "Not all compared expressions have the same type"
         return typed_cmp
     
     def visit_arg(self, node: arg) -> typedarg:
-        ta = typedarg()
-        ta.arg = node.arg
+        ta = copy(node)
         ta.typ = type_from_annotation(node.annotation)
         self.set_variable_type(ta.arg, ta.typ)
+        return ta
     
     def visit_arguments(self, node: arguments) -> typedarguments:
         if node.kw_defaults or node.kwarg or node.kwonlyargs or node.defaults:
             raise NotImplementedError("Keyword arguments and defaults not supported yet")
-        ta = typedarguments()
+        ta = copy(node)
         ta.args = [self.visit(a) for a in node.args]
         return ta
 
@@ -208,18 +212,22 @@ class AggressiveTypeInferencer(NodeTransformer):
         tfd = copy(node)
         self.enter_scope()
         tfd.args = self.visit(node.args)
-        tfd.body = [self.visit(s) for s in node.body]
         tfd.typ = FunctionType(
             [t.typ for t in tfd.args.args],
             type_from_annotation(tfd.returns),
         )
+        # We need the function type inside for recursion
+        self.set_variable_type(node.name, tfd.typ)
+        tfd.body = [self.visit(s) for s in node.body]
         self.exit_scope()
+        # We need the function type outside for usage
+        self.set_variable_type(node.name, tfd.typ)
         return tfd
 
 
     def visit_Module(self, node: Module) -> TypedModule:
         self.enter_scope()
-        tm = TypedModule()
+        tm = copy(node)
         tm.body = [self.visit(n) for n in node.body]
         self.exit_scope()
         return tm
@@ -244,6 +252,19 @@ class AggressiveTypeInferencer(NodeTransformer):
         tu.typ = tu.operand.typ
         return tu
     
+    def visit_Call(self, node: Call) -> TypedCall:
+        assert not node.keywords, "Keyword arguments are not supported yet"
+        tc = copy(node)
+        tc.func = self.visit(node.func)
+        tc.args = [self.visit(a) for a in node.args]
+        assert all(a.typ == ap for a, ap in zip(tc.args, tc.func.typ.argtyps))
+        tc.typ = tc.func.typ.rettyp
+        return tc
+    
+    def visit_Pass(self, node: Pass) -> TypedPass:
+        tp = copy(node)
+        tp.typ = InstanceType(type(None).__name__)
+        return tp
     
     def generic_visit(self, node: AST) -> TypedAST:
         raise NotImplementedError(f"Cannot infer type of non-implemented node {node.__class__}")
