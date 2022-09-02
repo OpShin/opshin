@@ -34,7 +34,8 @@ class typedexpr(TypedAST, expr):
     pass
 
 class typedstmt(TypedAST, stmt):
-    pass
+    # Statements always have type None
+    typ = InstanceType(type(None).__name__)
 
 class typedarg(TypedAST, arg):
     pass
@@ -53,12 +54,14 @@ class TypedModule(typedstmt, Module):
 class TypedFunctionDef(typedstmt, FunctionDef):
     body: typing.List[typedstmt]
     args: arguments
-    typ: FunctionType
 
 class TypedIf(typedstmt, If):
     cond: typedexpr
     body: typing.List[typedstmt]
     orelse: typing.List[typedstmt]
+
+class TypedReturn(typedstmt, Return):
+    value: typedexpr
 
 class TypedExpression(typedexpr, Expression):
     body: typedexpr
@@ -67,7 +70,7 @@ class TypedCall(typedexpr, Call):
     func: typedexpr
     args: typing.List[typedexpr]
 
-class TypedExpr(typedexpr, Expr):
+class TypedExpr(typedstmt, Expr):
     value: typedexpr
 
 
@@ -161,7 +164,6 @@ class AggressiveTypeInferencer(NodeTransformer):
     
     def visit_Assign(self, node: Assign) -> TypedAssign:
         typed_ass = copy(node)
-        typed_ass.typ = InstanceType(type(None).__name__)
         typed_ass.value: TypedExpression = self.visit(node.value)
         # Make sure to first set the type of each target name so we can load it when visiting it
         for t in node.targets:
@@ -176,7 +178,6 @@ class AggressiveTypeInferencer(NodeTransformer):
         typed_if.test = self.visit(node.test)
         typed_if.body = [self.visit(s) for s in node.body]
         typed_if.orelse = [self.visit(s) for s in node.orelse]
-        typed_if.typ = InstanceType(type(None).__name__)
         return typed_if
     
     def visit_Name(self, node: Name) -> TypedName:
@@ -235,7 +236,6 @@ class AggressiveTypeInferencer(NodeTransformer):
     def visit_Expr(self, node: Expr) -> TypedExpr:
         tn = copy(node)
         tn.value = self.visit(node.value)
-        tn.typ = tn.value.typ
         return tn
     
     def visit_BinOp(self, node: BinOp) -> TypedBinOp:
@@ -263,7 +263,11 @@ class AggressiveTypeInferencer(NodeTransformer):
     
     def visit_Pass(self, node: Pass) -> TypedPass:
         tp = copy(node)
-        tp.typ = InstanceType(type(None).__name__)
+        return tp
+
+    def visit_Return(self, node: Return) -> TypedReturn:
+        tp = copy(node)
+        tp.value = self.visit(node.value)
         return tp
     
     def generic_visit(self, node: AST) -> TypedAST:
