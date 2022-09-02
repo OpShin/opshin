@@ -40,19 +40,27 @@ class Lambda(AST):
         return t
 
     def dumps(self) -> str:
-        return f"(\\{' '.join(self.vars)} -> {self.term.dumps()}"
+        return f"(\\{' '.join(self.vars)} -> {self.term.dumps()})"
 
 
 @dataclass
 class Apply(AST):
     f: AST
-    x: AST
+    xs: typing.List[AST]
+
+    def __init__(self, f, *xs) -> None:
+        super().__init__()
+        self.f = f
+        self.xs = xs
 
     def compile(self):
-        return uplc_ast.Apply(self.f.compile(), self.x.compile())
+        f = self.f.compile()
+        for x in self.xs:
+            f = uplc_ast.Apply(f, x.compile())
+        return f
 
     def dumps(self) -> str:
-        return f"({self.f.dumps()} {self.x.dumps()})"
+        return f"({self.f.dumps()} {' '.join(x.dumps() for x in self.xs)})"
 
 
 @dataclass
@@ -124,6 +132,14 @@ class Bool(AST):
     def dumps(self) -> str:
         return "True" if self.x else "False"
 
+@dataclass
+class Unit(AST):
+
+    def compile(self):
+        return uplc_ast.Constant(uplc_ast.ConstantType.unit, "()")
+
+    def dumps(self) -> str:
+        return "()"
 
 @dataclass
 class BuiltIn(AST):
@@ -191,4 +207,4 @@ class Ite(AST):
         )
 
     def dumps(self) -> str:
-        return f"(if {self.i.dumps()} then {self.t.dumps()} else {self.e.dumps()}"
+        return f"(if {self.i.dumps()} then {self.t.dumps()} else {self.e.dumps()})"

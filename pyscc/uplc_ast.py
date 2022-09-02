@@ -1,7 +1,7 @@
 import logging
 from dataclasses import dataclass
 from functools import partial
-from enum import Enum
+from enum import Enum, auto
 
 import frozendict
 
@@ -9,17 +9,45 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class ConstantType(Enum):
-    integer = int
-    bytestring = lambda x: bytes.fromhex(x[1:])
-    str = lambda x: str(x).encode("utf8")
-    unit = lambda _: ()
-    bool = lambda x: x == "True"
+    integer = auto()
+    bytestring = auto()
+    str = auto()
+    unit = auto()
+    bool = auto()
+
+ConstantEvalMap = {
+    ConstantType.integer: int,
+    ConstantType.bytestring: lambda x: bytes.fromhex(x[1:]),
+    ConstantType.str: lambda x: str(x).encode("utf8"),
+    ConstantType.unit: lambda _: (),
+    ConstantType.bool: lambda x: x == "True",
+}
 
 
 class BuiltInFun(Enum):
-    AddInteger = 1 # lambda x, y: x + y
-    Trace = lambda x, y: print(x) or y
-    IfThenElse = lambda x, y, z: y if x else z
+    AddInteger = auto()
+    SubtractInteger = auto()
+    MultiplyInteger = auto()
+    DivideInteger = auto()
+    RemainderInteger = auto()
+    EqualsInteger = auto()
+    EqualsByteString = auto()
+    AppendByteString = auto()
+    Trace = auto()
+    IfThenElse = auto()
+
+BuiltInFunEvalMap = {
+    BuiltInFun.AddInteger : lambda x, y: x + y,
+    BuiltInFun.SubtractInteger : lambda x, y: x - y,
+    BuiltInFun.MultiplyInteger : lambda x, y: x * y,
+    BuiltInFun.DivideInteger : lambda x, y: x // y,
+    BuiltInFun.RemainderInteger : lambda x, y: x % y,
+    BuiltInFun.EqualsInteger : lambda x, y: x == y,
+    BuiltInFun.EqualsByteString : lambda x, y: x == y,
+    BuiltInFun.AppendByteString : lambda x, y: x + y,
+    BuiltInFun.Trace : lambda x, y: print(x) or y,
+    BuiltInFun.IfThenElse : lambda x, y, z: y if x else z,
+}
 
 
 class AST:
@@ -122,7 +150,7 @@ class BuiltIn(AST):
     builtin: BuiltInFun
 
     def eval(self, state):
-        return partial(self.builtin.value)
+        return partial(BuiltInFunEvalMap[self.builtin])
 
     def dumps(self) -> str:
         return f"(builtin {self.builtin.name})"

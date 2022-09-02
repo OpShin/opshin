@@ -1,110 +1,14 @@
-from ast import *
-import typing
-from dataclasses import dataclass
 from copy import copy
+from ast import *
+from frozendict import frozendict
 
-class Type:
-    pass
-
-@dataclass()
-class InstanceType(Type):
-    typ: str
-
-@dataclass()
-class ClassType(Type):
-    typ: str
-
-@dataclass()
-class TupleType(Type):
-    typs: typing.List[Type]
-
-@dataclass()
-class ListType(Type):
-    typs: typing.List[Type]
-
-@dataclass()
-class FunctionType(Type):
-    argtyps: typing.List[Type]
-    rettyp: Type
-
-class TypedAST(AST):
-    typ: Type
-
-class typedexpr(TypedAST, expr):
-    pass
-
-class typedstmt(TypedAST, stmt):
-    # Statements always have type None
-    typ = InstanceType(type(None).__name__)
-
-class typedarg(TypedAST, arg):
-    pass
-
-class typedarguments(TypedAST, arguments):
-    args: typing.List[typedarg]
-    vararg: typing.Union[typedarg, None]
-    kwonlyargs: typing.List[typedarg]
-    kw_defaults: typing.List[typing.Union[typedexpr,None]]
-    kwarg: typing.Union[typedarg, None]
-    defaults: typing.List[typedexpr]
-
-class TypedModule(typedstmt, Module):
-    body: typing.List[typedstmt]
-
-class TypedFunctionDef(typedstmt, FunctionDef):
-    body: typing.List[typedstmt]
-    args: arguments
-
-class TypedIf(typedstmt, If):
-    cond: typedexpr
-    body: typing.List[typedstmt]
-    orelse: typing.List[typedstmt]
-
-class TypedReturn(typedstmt, Return):
-    value: typedexpr
-
-class TypedExpression(typedexpr, Expression):
-    body: typedexpr
-
-class TypedCall(typedexpr, Call):
-    func: typedexpr
-    args: typing.List[typedexpr]
-
-class TypedExpr(typedstmt, Expr):
-    value: typedexpr
+from typed_ast import *
 
 
-class TypedAssign(typedstmt, Assign):
-    targets: typing.List[typedexpr]
-    value: typedexpr
+INITIAL_SCOPE = frozendict({
+    "print": FunctionType([InstanceType(str.__name__)], InstanceType(str.__name__))
+})
 
-class TypedPass(typedstmt, Pass):
-    pass
-
-class TypedName(typedexpr, Name):
-    pass
-
-class TypedConstant(TypedAST, Constant):
-    pass
-
-
-class TypedTuple(typedexpr, Tuple):
-    typ: typing.List[TypedAST]
-
-class TypedList(typedexpr, List):
-    typ: typing.List[TypedAST]
-
-class TypedCompare(typedexpr, Compare):
-    left: typedexpr
-    ops: typing.List[cmpop]
-    comparators: typing.List[typedexpr]
-
-class TypedBinOp(typedexpr, BinOp):
-    left: typedexpr
-    right: typedexpr
-
-class TypedUnaryOp(typedexpr, UnaryOp):
-    operand: typedexpr
 
 class TypeInferenceError(AssertionError):
     pass
@@ -123,7 +27,7 @@ def type_from_annotation(ann: expr):
 class AggressiveTypeInferencer(NodeTransformer):
     
     # A stack of dictionaries for storing scoped knowledge of variable types
-    scopes = []
+    scopes = [INITIAL_SCOPE]
 
     # Obtain the type of a variable name in the current scope
     def variable_type(self, name: str):
