@@ -9,6 +9,12 @@ class Type:
 class InstanceType(Type):
     typ: str
 
+IntegerType = InstanceType(int.__name__)
+StringType = InstanceType(str.__name__)
+ByteStringType = InstanceType(bytes.__name__)
+BoolType = InstanceType(bool.__name__)
+UnitType = InstanceType(type(None).__name__)
+
 @dataclass(unsafe_hash=True)
 class ClassType(Type):
     typ: str
@@ -34,7 +40,7 @@ class typedexpr(TypedAST, expr):
 
 class typedstmt(TypedAST, stmt):
     # Statements always have type None
-    typ = InstanceType(type(None).__name__)
+    typ = UnitType
 
 class typedarg(TypedAST, arg):
     pass
@@ -55,7 +61,7 @@ class TypedFunctionDef(typedstmt, FunctionDef):
     args: arguments
 
 class TypedIf(typedstmt, If):
-    cond: typedexpr
+    test: typedexpr
     body: typing.List[typedstmt]
     orelse: typing.List[typedstmt]
 
@@ -76,6 +82,17 @@ class TypedExpr(typedstmt, Expr):
 class TypedAssign(typedstmt, Assign):
     targets: typing.List[typedexpr]
     value: typedexpr
+
+class TypedWhile(typedstmt, While):
+    test: typedexpr
+    body: typing.List[typedstmt]
+    orelse: typing.List[typedstmt]
+
+class TypedFor(typedstmt, For):
+    target: typedexpr
+    iter: typedexpr
+    body: typing.List[typedstmt]
+    orelse: typing.List[typedstmt]
 
 class TypedPass(typedstmt, Pass):
     pass

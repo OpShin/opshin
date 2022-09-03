@@ -4,27 +4,23 @@ from enum import Enum
 
 STATEMONAD = "s"
 
-IntInstance = InstanceType(int.__name__)
-StrInstance = InstanceType(str.__name__)
-ByteStrInstance = InstanceType(bytes.__name__)
-NoneInstance = InstanceType(type(None).__name__)
 
 BinOpMap = {
     Add: {
-        IntInstance: plt.BuiltInFun.AddInteger,
-        ByteStrInstance: plt.BuiltInFun.AppendByteString,
+        IntegerType: plt.BuiltInFun.AddInteger,
+        ByteStringType: plt.BuiltInFun.AppendByteString,
     },
     Sub: {
-        IntInstance: plt.BuiltInFun.SubtractInteger,
+        IntegerType: plt.BuiltInFun.SubtractInteger,
     },
     Mult: {
-        IntInstance: plt.BuiltInFun.MultiplyInteger,
+        IntegerType: plt.BuiltInFun.MultiplyInteger,
     },
     Div: {
-        IntInstance: plt.BuiltInFun.DivideInteger,
+        IntegerType: plt.BuiltInFun.DivideInteger,
     },
     Mod: {
-        IntInstance: plt.BuiltInFun.RemainderInteger,
+        IntegerType: plt.BuiltInFun.RemainderInteger,
     }
 }
 
@@ -56,17 +52,49 @@ def extend_statemonad(names: typing.List[str], values: typing.List[plt.AST], old
         additional_compares,
     )
 
+def emulate_tuple(*els: plt.AST) -> plt.AST:
+    return plt.Lambda(
+        ["f"],
+        plt.Apply(plt.Var("f"), *els),
+    )
+
+def emulate_nth(t: plt.AST, n: int, size: int) -> plt.AST:
+    return plt.Apply(t, plt.Lambda([f"v{i}" for i in range(size)], plt.Var(f"v{n}")))
+
+
 class PythonBuiltIn(Enum):
     print = plt.Lambda(
-        [STATEMONAD, "x"],
-        plt.Force(
-            plt.Apply(
-                plt.BuiltIn(plt.BuiltInFun.Trace),
-                plt.Apply(plt.Var("x"), plt.Var(STATEMONAD)),
-                plt.Var(STATEMONAD)
+        [STATEMONAD],
+        plt.Lambda(
+            ["x"],
+            plt.Force(
+                plt.Apply(
+                    plt.BuiltIn(plt.BuiltInFun.Trace),
+                    plt.Apply(plt.Var("x"), plt.Var(STATEMONAD)),
+                    plt.Var(STATEMONAD),
                 )
             )
         )
+    ),
+    range = plt.Lambda(
+        [STATEMONAD],
+        plt.Lambda(
+            ["limit"],
+            plt.Let([(
+                    "g",
+                    plt.Lambda(
+                        ["state", "f", "u"],
+                        emulate_tuple(
+                            plt.Apply(plt.BuiltIn(plt.BuiltInFun.LessThanInteger), plt.Var("state"), plt.Var("limit")),
+                            plt.Var("state"),
+                            plt.Apply(plt.Var("f"), plt.Apply(plt.BuiltIn(plt.BuiltInFun.AddInteger), plt.Var("state"), plt.Integer(1)), plt.Var("f"))
+                        )
+                    )
+                )],
+                plt.Apply(plt.Var("g"), plt.Integer(0), plt.Var("g"))
+            )
+        )
+    )
 
 INITIAL_STATE = extend_statemonad(
     [b.name for b in PythonBuiltIn],
@@ -193,6 +221,30 @@ class UPLCCompiler(NodeTransformer):
             )
         )
     
+    def visit_While(self, node: TypedWhile) -> plt.AST:
+        compiled_c = self.cond.compile()
+        compiled_s = self.stmt.compile()
+        # return rf"(\{STATEMONAD} -> let g = (\s f -> if ({compiled_c} s) then f ({compiled_s} s) f else s) in (g {STATEMONAD} g))"
+        return plt.Lambda(
+            [STATEMONAD],
+            plt.Let(
+                bindings=[
+                    (
+                        "g",
+                        plt.Lambda(
+                            ["s", "f"],
+                            plt.Ite(
+                                plt.Apply(compiled_c, plt.Var("s")),
+                                plt.Apply(plt.Var("f"), plt.Apply(compiled_s, plt.Var("s")), plt.Var("f")),
+                                plt.Var("s"),
+                            )
+                        )
+                    ),
+                ],
+                term=plt.Apply(plt.Var("g"), plt.Var(STATEMONAD), plt.Var("g"))
+            )
+        )
+    
     def visit_Return(self, node: TypedReturn) -> plt.AST:
         raise NotImplementedError("Compilation of return statements except for last statement in function is not supported.")
 
@@ -206,6 +258,12 @@ class UPLCCompiler(NodeTransformer):
 program = """
 def foo(a: int) -> int:
     return a
+
+for a in range(4):
+    print("a")
+
+for a in [1, 2]:
+    print("a")
 
 a = 1 + 4
 foo(a)

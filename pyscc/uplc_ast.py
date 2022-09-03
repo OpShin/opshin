@@ -31,6 +31,7 @@ class BuiltInFun(Enum):
     DivideInteger = auto()
     RemainderInteger = auto()
     EqualsInteger = auto()
+    LessThanInteger = auto()
     EqualsByteString = auto()
     AppendByteString = auto()
     Trace = auto()
@@ -43,6 +44,7 @@ BuiltInFunEvalMap = {
     BuiltInFun.DivideInteger : lambda x, y: x // y,
     BuiltInFun.RemainderInteger : lambda x, y: x % y,
     BuiltInFun.EqualsInteger : lambda x, y: x == y,
+    BuiltInFun.LessThanInteger : lambda x, y: x < y,
     BuiltInFun.EqualsByteString : lambda x, y: x == y,
     BuiltInFun.AppendByteString : lambda x, y: x + y,
     BuiltInFun.Trace : lambda x, y: print(x) or y,
