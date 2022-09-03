@@ -2,23 +2,15 @@ from copy import copy
 from ast import *
 from frozendict import frozendict
 
-from pyscc.typed_ast import *
+from .typed_ast import *
 
-
-
-def rec_iter_type(rettyp: Type):
-    # The type of iterators that return (has_next, value, rem_iterator)
-    # it is.. infinite. nice. TODO Check if this breaks __equals__ or __hash__ or both
-    t = FunctionType([UnitType], TupleType([BoolType, rettyp, None]))
-    t.rettyp.typs[2] = t
-    return t
 
 
 INITIAL_SCOPE = frozendict({
     "print": FunctionType([StringType], UnitType),
     "range": FunctionType(
         [IntegerType],
-        rec_iter_type(IntegerType),
+        TupleType([IntegerType, FunctionType([IntegerType], TupleType([BoolType, IntegerType, IntegerType]))])
     ),
 })
 
@@ -38,6 +30,7 @@ def type_from_annotation(ann: expr):
 
 
 class AggressiveTypeInferencer(NodeTransformer):
+    # TODO enforce all elements in a list to have the same type (length is not i.g. statically known!)
     
     # A stack of dictionaries for storing scoped knowledge of variable types
     scopes = [INITIAL_SCOPE]
@@ -115,15 +108,18 @@ class AggressiveTypeInferencer(NodeTransformer):
             vartyp = itertyp.typs[0]
             assert all(itertyp.typs[0] == t for t in typed_for.iter.typ.typs), "Iterating through a list requires the same type for each element"
         if isinstance(itertyp, FunctionType):
-            # the function called should give back an iterator -> the return type has to fulfil iterator specs
-            itertyp = itertyp.rettyp
-            # TODO detect if functions raise StopIteration and rewrite to return tuple of (is_valid, next_value)
-            assert isinstance(itertyp, FunctionType), "Called function for for loop must return iterator function"
+            # the function called should give back an iterator and initial state-> the return type has to fulfil iterator specs
+            assert isinstance(itertyp, TupleType), "Called function for for loop must return (initial state, iterator_function)"
+            assert len(itertyp.typs) == 2, "Called function for for loop must return (initial state, iterator_function)"
+            assert isinstance(itertyp.typs[1], FunctionType), "Called function for for loop must return (initial state, iterator_function)"
+            statetyp = itertyp.typs[0]
+            itertyp = itertyp.rettyp.typs[1]
+            # TODO detect if functions raise StopIteration and rewrite to return tuple of (is_valid, next_value, iter_state)
             assert isinstance(itertyp.rettyp, TupleType), "Iterator function must return a tuple"
-            assert len(itertyp.rettyp.typs) == 3, "Iterator function must return a three-element tuple (has_next, next_value, iter_state)"
+            assert len(itertyp.rettyp.typs) == 3, "Iterator function must return a three-element tuple (is_valid, next_value, iter_state)"
             assert itertyp.rettyp.typs[0] == BoolType, "Iterator function must return a tuple where the first element is a boolean"
             assert len(itertyp.argtypes), "Iterator function must have one argument with the same type as the third returned tuple element"
-            assert itertyp.rettyp.typs[2] == itertyp.argtypes[0], "Iterator function must have one argument with the same type as the third returned tuple element"
+            assert statetyp == itertyp.rettyp.typs[2] == itertyp.argtypes[0], "Iterator function must have one argument with the same type as the third returned tuple element"
             vartyp = itertyp.rettyp.typs[1]
         self.set_variable_type(node.target.id, vartyp)
         typed_for.target = self.visit(node.target)
@@ -202,13 +198,28 @@ class AggressiveTypeInferencer(NodeTransformer):
         tu.operand = self.visit(node.operand)
         tu.typ = tu.operand.typ
         return tu
+
+    def visit_Subscript(self, node: Subscript) -> TypedSubscript:
+        ts = copy(node)
+        ts.value = self.visit(node.value)
+        assert isinstance(ts.slice, Index), "Only single index slices are currently supported"
+        if isinstance(ts.value.typ, TupleType) or isinstance(ts.value.typ, ListType):
+            if all(ts.value.typ.typs[0] == t for t in ts.value.typ.typs):
+                ts.typ = ts.value.typ.typs[0]
+            elif isinstance(ts.slice.value, Constant) and isinstance(ts.slice.value.value, int):
+                ts.typ = ts.value.typ.typs[ts.slice.value.value]
+            else:
+                raise TypeInferenceError(f"Could not infer type of subscript {node}")
+        else:
+            raise TypeInferenceError(f"Could not infer type of subscript {node}")
+        return ts
     
     def visit_Call(self, node: Call) -> TypedCall:
         assert not node.keywords, "Keyword arguments are not supported yet"
         tc = copy(node)
         tc.func = self.visit(node.func)
         tc.args = [self.visit(a) for a in node.args]
-        assert all(a.typ == ap for a, ap in zip(tc.args, tc.func.typ.argtyps))
+        assert all(a.typ == ap for a, ap in zip(tc.args, tc.func.typ.argtyps)), f"Signature of function {node} does not match arguments"
         tc.typ = tc.func.typ.rettyp
         return tc
     

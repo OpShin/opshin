@@ -2,12 +2,11 @@ import enum
 from dataclasses import dataclass
 import typing
 
-from uplc_ast import AST as UPLCAst, BuiltInFun
-import uplc_ast
+from . import uplc_ast
 
 
 class AST:
-    def compile(self) -> UPLCAst:
+    def compile(self) -> uplc_ast.AST:
         raise NotImplementedError()
 
     def dumps(self) -> str:
@@ -60,6 +59,9 @@ class Apply(AST):
         return f
 
     def dumps(self) -> str:
+        for x in self.xs:
+            if isinstance(x, tuple):
+                print("gotcha")
         return f"({self.f.dumps()} {' '.join(x.dumps() for x in self.xs)})"
 
 
@@ -143,7 +145,7 @@ class Unit(AST):
 
 @dataclass
 class BuiltIn(AST):
-    builtin: BuiltInFun
+    builtin: uplc_ast.BuiltInFun
 
     def compile(self):
         return uplc_ast.BuiltIn(self.builtin)

@@ -1,26 +1,43 @@
-from type_inference import *
-import pluto_ast as plt
 from enum import Enum
+
+from .type_inference import *
+from . import pluto_ast as plt
+from .rewrite_for import RewriteFor
+from .rewrite_tuple_assign import RewriteTupleAssign
+from .uplc_ast import BuiltInFun, Program
+from pyscc import type_inference
 
 STATEMONAD = "s"
 
 
 BinOpMap = {
     Add: {
-        IntegerType: plt.BuiltInFun.AddInteger,
-        ByteStringType: plt.BuiltInFun.AppendByteString,
+        IntegerType: BuiltInFun.AddInteger,
+        ByteStringType: BuiltInFun.AppendByteString,
     },
     Sub: {
-        IntegerType: plt.BuiltInFun.SubtractInteger,
+        IntegerType: BuiltInFun.SubtractInteger,
     },
     Mult: {
-        IntegerType: plt.BuiltInFun.MultiplyInteger,
+        IntegerType: BuiltInFun.MultiplyInteger,
     },
     Div: {
-        IntegerType: plt.BuiltInFun.DivideInteger,
+        IntegerType: BuiltInFun.DivideInteger,
     },
     Mod: {
-        IntegerType: plt.BuiltInFun.RemainderInteger,
+        IntegerType: BuiltInFun.RemainderInteger,
+    }
+}
+
+CmpMap = {
+    Eq: {
+        IntegerType: BuiltInFun.EqualsInteger,
+        ByteStringType: BuiltInFun.EqualsByteString,
+        # TODO check how this is really implemented
+        BoolType: BuiltInFun.EqualsInteger,
+    },
+    Lt: {
+        IntegerType: BuiltInFun.LessThanInteger,
     }
 }
 
@@ -28,6 +45,7 @@ ConstantMap = {
     str: plt.Text,
     bytes: plt.ByteString,
     int: plt.Integer,
+    bool: plt.Bool,
     # TODO support higher level Optional type
     type(None): plt.Unit,
 }
@@ -35,12 +53,12 @@ ConstantMap = {
 def extend_statemonad(names: typing.List[str], values: typing.List[plt.AST], old_statemonad: plt.AST):
     additional_compares = plt.Apply(
         old_statemonad,
-        plt.Var("x")
+        plt.Var("x"),
     )
     for name, value in zip(names, values):
         additional_compares = plt.Ite(
             plt.Apply(
-                plt.BuiltIn(plt.BuiltInFun.EqualsByteString),
+                plt.BuiltIn(BuiltInFun.EqualsByteString),
                 plt.Var("x"),
                 plt.ByteString(name.encode()),
             ),
@@ -69,29 +87,27 @@ class PythonBuiltIn(Enum):
             ["x"],
             plt.Force(
                 plt.Apply(
-                    plt.BuiltIn(plt.BuiltInFun.Trace),
+                    plt.BuiltIn(BuiltInFun.Trace),
                     plt.Apply(plt.Var("x"), plt.Var(STATEMONAD)),
                     plt.Var(STATEMONAD),
                 )
             )
         )
-    ),
+    )
     range = plt.Lambda(
         [STATEMONAD],
         plt.Lambda(
             ["limit"],
-            plt.Let([(
-                    "g",
-                    plt.Lambda(
-                        ["state", "f", "u"],
-                        emulate_tuple(
-                            plt.Apply(plt.BuiltIn(plt.BuiltInFun.LessThanInteger), plt.Var("state"), plt.Var("limit")),
-                            plt.Var("state"),
-                            plt.Apply(plt.Var("f"), plt.Apply(plt.BuiltIn(plt.BuiltInFun.AddInteger), plt.Var("state"), plt.Integer(1)), plt.Var("f"))
-                        )
+            emulate_tuple(
+                plt.Integer(0),
+                plt.Lambda(
+                    ["state"],
+                    emulate_tuple(
+                        plt.Apply(plt.BuiltIn(BuiltInFun.LessThanInteger), plt.Var("state"), plt.Var("limit")),
+                        plt.Var("state"),
+                        plt.Apply(plt.BuiltIn(BuiltInFun.AddInteger), plt.Var("state"), plt.Integer(1)),
                     )
-                )],
-                plt.Apply(plt.Var("g"), plt.Integer(0), plt.Var("g"))
+                )
             )
         )
     )
@@ -129,6 +145,24 @@ class UPLCCompiler(NodeTransformer):
                 plt.BuiltIn(op),
                 plt.Apply(self.visit(node.left), plt.Var(STATEMONAD)),
                 plt.Apply(self.visit(node.right), plt.Var(STATEMONAD)),
+            )
+        )
+
+    def visit_Compare(self, node: Compare) -> plt.AST:
+        assert len(node.ops) == 1, "Only single comparisons are supported"
+        assert len(node.comparators) == 1, "Only single comparisons are supported"
+        opmap = CmpMap.get(type(node.ops[0]))
+        if opmap is None:
+            raise NotImplementedError(f"Operation {node.ops[0]} is not implemented")
+        op = opmap.get(node.left.typ)
+        if op is None:
+            raise NotImplementedError(f"Operation {node.ops[0]} is not implemented for type {node.left.typ}")
+        return plt.Lambda(
+            [STATEMONAD],
+            plt.Apply(
+                plt.BuiltIn(op),
+                plt.Apply(self.visit(node.left), plt.Var(STATEMONAD)),
+                plt.Apply(self.visit(node.comparators[0]), plt.Var(STATEMONAD)),
             )
         )
     
@@ -222,8 +256,13 @@ class UPLCCompiler(NodeTransformer):
         )
     
     def visit_While(self, node: TypedWhile) -> plt.AST:
-        compiled_c = self.cond.compile()
-        compiled_s = self.stmt.compile()
+        compiled_c = self.visit(node.test)
+        compiled_s = self.visit_sequence(node.body)
+        if node.orelse:
+            # If there is orelse, transform it to an appended sequence (TODO check if this is correct)
+            cn = copy(node)
+            cn.orelse = []
+            return self.visit_sequence([cn] + node.orelse)
         # return rf"(\{STATEMONAD} -> let g = (\s f -> if ({compiled_c} s) then f ({compiled_s} s) f else s) in (g {STATEMONAD} g))"
         return plt.Lambda(
             [STATEMONAD],
@@ -244,6 +283,12 @@ class UPLCCompiler(NodeTransformer):
                 term=plt.Apply(plt.Var("g"), plt.Var(STATEMONAD), plt.Var("g"))
             )
         )
+
+    def visit_For(self, node: TypedFor) -> plt.AST:
+        # TODO implement for list
+        if isinstance(node.iter.typ, ListType):
+            raise NotImplementedError("Compilation of list iterators not implemented yet.")
+        raise NotImplementedError("Compilation of raw for statements not supported")
     
     def visit_Return(self, node: TypedReturn) -> plt.AST:
         raise NotImplementedError("Compilation of return statements except for last statement in function is not supported.")
@@ -251,25 +296,30 @@ class UPLCCompiler(NodeTransformer):
     
     def visit_Pass(self, node: TypedPass) -> plt.AST:
         return self.visit_sequence([])
+
+    def visit_Subscript(self, node: TypedSubscript) -> plt.AST:
+        assert isinstance(node.slice, Index), "Only single index slices are currently supported"
+        if isinstance(node.value.typ, TupleType):
+            assert isinstance(node.slice.value, Constant), "Only constant index access for tuples is supported"
+            return emulate_nth(
+                self.visit(node.value),
+                node.slice.value.value,
+                len(node.value.typ.typs),
+            )
+        # TODO implement list index access
+        raise NotImplementedError(f"Could not implement subscript of {node}")
     
     def generic_visit(self, node: AST) -> str:
         raise NotImplementedError(f"Can not compile {node}")
 
-program = """
-def foo(a: int) -> int:
-    return a
 
-for a in range(4):
-    print("a")
-
-for a in [1, 2]:
-    print("a")
-
-a = 1 + 4
-foo(a)
-print("hi")
-"""
-print(dump(parse(program)))
-prog = UPLCCompiler().visit(typed_ast(parse(program)))
-print(prog)
-print(prog.dumps())
+def compile(prog: AST):
+    compiler_steps = [
+        RewriteFor,
+        RewriteTupleAssign,
+        AggressiveTypeInferencer,
+        UPLCCompiler
+    ]
+    for s in compiler_steps:
+        prog = s().visit(prog)
+    return prog

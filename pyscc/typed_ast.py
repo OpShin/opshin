@@ -121,3 +121,6 @@ class TypedBinOp(typedexpr, BinOp):
 
 class TypedUnaryOp(typedexpr, UnaryOp):
     operand: typedexpr
+
+class TypedSubscript(typedexpr, Subscript):
+    value: typedexpr
