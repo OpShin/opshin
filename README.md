@@ -15,13 +15,14 @@ Not all language features of python will or can be supported.
 The reasons are mainly of practical nature (i.e. we can't infer types when functions like `eval` are allowed).
 
 For your program to be accepted, make sure to only make use of language constructs supported by the compiler.
-You will be notified of which constructs are not supported when trying to compile the latest.
+You will be notified of which constructs are not supported when trying to compile.
 
 ## Architecture
 
-This program consists of three components:
+This program consists of a few independent components:
 1. An aggressive static type inferencer
-2. A compiler from python into UPLC/pluto
+2. Rewriting tools to simplify complex python expressions
+3. A compiler from a subset of python into UPLC/pluto
 3. The UPLC/pluto toolchain in python
 
 ## Running
@@ -32,4 +33,4 @@ Then run
 python3 -m pyscc compile example.py
 ```
 
-> Note: this is the final desired state. I am currently too lazy to both with setting up the module so just run `python3 compiler.py example.py`
+> Note: this is the final desired state. I am currently too lazy to both with setting up the module so just put your code into the string at `test.py` and run `python3 test.py`
