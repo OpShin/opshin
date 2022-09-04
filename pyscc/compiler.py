@@ -82,39 +82,30 @@ def emulate_nth(t: plt.AST, n: int, size: int) -> plt.AST:
 
 class PythonBuiltIn(Enum):
     print = plt.Lambda(
-        [STATEMONAD],
-        plt.Lambda(
-            ["x"],
-            plt.Force(
-                plt.Apply(
-                    plt.BuiltIn(BuiltInFun.Trace),
-                    plt.Apply(plt.Var("x"), plt.Var(STATEMONAD)),
-                    plt.Var(STATEMONAD),
-                )
+        ["x"],
+            plt.Apply(
+                plt.Force(
+                        plt.BuiltIn(BuiltInFun.Trace),
+                ),
+                plt.Var("x"),
+                plt.Unit(),
             )
         )
-    )
     range = plt.Lambda(
-        [STATEMONAD],
-        plt.Lambda(
-            ["limit"],
-            emulate_tuple(
-                plt.Integer(0),
-                plt.Lambda(
-                    ["state"],
-                    emulate_tuple(
-                        plt.Apply(plt.BuiltIn(BuiltInFun.LessThanInteger), plt.Var("state"), plt.Var("limit")),
-                        plt.Var("state"),
-                        plt.Apply(plt.BuiltIn(BuiltInFun.AddInteger), plt.Var("state"), plt.Integer(1)),
-                    )
+        ["limit"],
+        emulate_tuple(
+            plt.Integer(0),
+            plt.Lambda(
+                ["state"],
+                emulate_tuple(
+                    plt.Apply(plt.BuiltIn(BuiltInFun.LessThanInteger), plt.Var("state"), plt.Var("limit")),
+                    plt.Var("state"),
+                    plt.Apply(plt.BuiltIn(BuiltInFun.AddInteger), plt.Var("state"), plt.Integer(1)),
                 )
             )
         )
     )
-    int = plt.Lambda(
-        [STATEMONAD],
-        plt.Lambda(["x"], plt.Apply( plt.BuiltIn(BuiltInFun.UnIData), plt.Var("x")))
-    )
+    int = plt.Lambda(["x"], plt.Apply(plt.BuiltIn(BuiltInFun.UnIData), plt.Var("x")))
 
 INITIAL_STATE = extend_statemonad(
     [b.name for b in PythonBuiltIn],
@@ -171,7 +162,7 @@ class UPLCCompiler(NodeTransformer):
         )
     
     def visit_Module(self, node: TypedModule) -> plt.AST:
-        return plt.Apply(self.visit_sequence(node.body), INITIAL_STATE)
+        return plt.Apply(plt.Apply(self.visit_sequence(node.body), INITIAL_STATE), plt.ByteString("main".encode("utf8")))
 
     def visit_Constant(self, node: TypedConstant) -> plt.AST:
         plt_type = ConstantMap.get(type(node.value))
@@ -221,7 +212,7 @@ class UPLCCompiler(NodeTransformer):
         return plt.Lambda(
             [STATEMONAD],
             plt.Apply(
-                self.visit(node.func),
+                plt.Apply(self.visit(node.func), plt.Var(STATEMONAD)),
                 *(
                     plt.Apply(
                         self.visit(a),
@@ -236,7 +227,8 @@ class UPLCCompiler(NodeTransformer):
         body = node.body.copy()
         if not isinstance(body[-1], Return):
             tr = Return(None)
-            tr.typ = type(None).__name__
+            tr.typ = UnitType
+            assert node.typ.rettyp == UnitType, "Function has no return statement but is supposed to return not-None value"
             body.append(tr)
         compiled_body = self.visit_sequence(body[:-1])
         compiled_return = self.visit(body[-1].value)
@@ -247,15 +239,27 @@ class UPLCCompiler(NodeTransformer):
         )
         return plt.Lambda(
             [STATEMONAD],
-            plt.Lambda(
-                [f"p{i}" for i in range(len(node.args.args))],
-                plt.Apply(
-                    compiled_return,
+            extend_statemonad(
+                [node.name],
+                [
                     plt.Apply(
-                        compiled_body,
-                        args_state,
+                        plt.Lambda(
+                            [STATEMONAD],
+                            plt.Lambda(
+                                [f"p{i}" for i in range(len(node.args.args))],
+                                plt.Apply(
+                                    compiled_return,
+                                    plt.Apply(
+                                        compiled_body,
+                                        args_state,
+                                    )
+                                )
+                            )
+                        ),
+                        plt.Var(STATEMONAD),
                     )
-                )
+                ],
+                plt.Var(STATEMONAD),
             )
         )
     

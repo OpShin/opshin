@@ -222,6 +222,7 @@ class AggressiveTypeInferencer(NodeTransformer):
         tc = copy(node)
         tc.func = self.visit(node.func)
         tc.args = [self.visit(a) for a in node.args]
+        assert len(tc.args) == len(tc.func.typ.argtyps), f"Signature of function {node} does not match number of arguments"
         assert all(a.typ == ap for a, ap in zip(tc.args, tc.func.typ.argtyps)), f"Signature of function {node} does not match arguments"
         tc.typ = tc.func.typ.rettyp
         return tc
