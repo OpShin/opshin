@@ -2,15 +2,15 @@
 from pyscc.compiler import *
 
 program = """
-def foo(a: int) -> int:
+def f(n: int) -> int:
+    a, b = 0, 1
+    for _ in range(0, n):
+        a, b = b, a + b
     return a
 
-for a in range(4):
-    print("a")
-
-a = 1 + 4
-foo(a)
-print("hi")
+print("computation starts")
+f(9)
+print("computation finished")
 """
 
 print(dump(parse(program)))

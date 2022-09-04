@@ -10,10 +10,10 @@ class RewriteTupleAssign(NodeTransformer):
     unique_id = 0
 
     def visit_Assign(self, node: Assign) -> typing.List[stmt]:
-        uid = self.unique_id
-        self.unique_id += 1
         if not isinstance(node.targets[0], Tuple):
             return [node]
+        uid = self.unique_id
+        self.unique_id += 1
         assignments = [
             Assign([Name(f"__tuple{uid}__", Store())], self.visit(node.value))
         ]

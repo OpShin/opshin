@@ -309,7 +309,12 @@ class UPLCCompiler(NodeTransformer):
         # TODO implement list index access
         raise NotImplementedError(f"Could not implement subscript of {node}")
     
-    def generic_visit(self, node: AST) -> str:
+    def visit_Tuple(self, node: TypedTuple) -> plt.AST:
+        return emulate_tuple(
+            *(self.visit(e) for e in node.elts)
+        )
+    
+    def generic_visit(self, node: AST) -> plt.AST:
         raise NotImplementedError(f"Can not compile {node}")
 
 

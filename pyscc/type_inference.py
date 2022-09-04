@@ -26,6 +26,8 @@ def type_from_annotation(ann: expr):
         return InstanceType(ann.id)
     if isinstance(ann, Subscript):
         raise NotImplementedError("Generic types not supported yet")
+    if ann is None:
+        TypeInferenceError("Type annotation is missing for a function argument or return value")
     raise NotImplementedError(f"Annotation type {ann} is not supported")
 
 
@@ -63,13 +65,13 @@ class AggressiveTypeInferencer(NodeTransformer):
     def visit_Tuple(self, node: Tuple) -> TypedTuple:
         tt = copy(node)
         tt.elts = [self.visit(e) for e in node.elts]
-        tt.typ = [e.typ for e in tt.elts]
+        tt.typ = TupleType([e.typ for e in tt.elts])
         return tt
 
     def visit_List(self, node: List) -> TypedList:
         tt = copy(node)
         tt.elts = [self.visit(e) for e in node.elts]
-        tt.typ = [e.typ for e in tt.elts]
+        tt.typ = ListType([e.typ for e in tt.elts])
         return tt
     
     def visit_Assign(self, node: Assign) -> TypedAssign:
