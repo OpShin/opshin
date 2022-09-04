@@ -36,6 +36,7 @@ class BuiltInFun(Enum):
     AppendByteString = auto()
     Trace = auto()
     IfThenElse = auto()
+    UnIData = auto()
 
 BuiltInFunEvalMap = {
     BuiltInFun.AddInteger : lambda x, y: x + y,

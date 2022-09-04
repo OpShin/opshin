@@ -111,6 +111,10 @@ class PythonBuiltIn(Enum):
             )
         )
     )
+    int = plt.Lambda(
+        [STATEMONAD],
+        plt.Lambda(["x"], plt.Apply( plt.BuiltIn(BuiltInFun.UnIData), plt.Var("x")))
+    )
 
 INITIAL_STATE = extend_statemonad(
     [b.name for b in PythonBuiltIn],

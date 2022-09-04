@@ -14,6 +14,7 @@ StringType = InstanceType(str.__name__)
 ByteStringType = InstanceType(bytes.__name__)
 BoolType = InstanceType(bool.__name__)
 UnitType = InstanceType(type(None).__name__)
+PlutusDataType = InstanceType("PlutusData")
 
 @dataclass(unsafe_hash=True)
 class ClassType(Type):

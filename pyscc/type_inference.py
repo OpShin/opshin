@@ -12,6 +12,7 @@ INITIAL_SCOPE = frozendict({
         [IntegerType],
         TupleType([IntegerType, FunctionType([IntegerType], TupleType([BoolType, IntegerType, IntegerType]))])
     ),
+    "int": FunctionType([PlutusDataType], IntegerType)
 })
 
 
