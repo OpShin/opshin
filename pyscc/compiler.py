@@ -122,7 +122,7 @@ class UPLCCompiler(NodeTransformer):
 
     def visit_sequence(self, node_seq: typing.List[typedstmt]) -> plt.AST:
         s = plt.Var(STATEMONAD)
-        for n in reversed(node_seq):
+        for n in node_seq:
             compiled_stmt = self.visit(n)
             s = plt.Apply(compiled_stmt, s)
         return plt.Lambda([STATEMONAD], s)

@@ -10,7 +10,9 @@ def main(n: PlutusData) -> int:
 """
 program = """
 def main(n: PlutusData) -> None:
-    print("hello")
+    a = 1
+    a = a + int(n)
+    return a
 """
 
 # print(dump(parse(program)))
