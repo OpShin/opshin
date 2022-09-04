@@ -194,7 +194,9 @@ class UPLCCompiler(NodeTransformer):
         raise NotImplementedError(f"Context {node.ctx} not supported")
 
     def visit_Expr(self, node: TypedExpr) -> plt.AST:
-        # We can't guarantee side effects? check if this expression is evaluated
+        # we exploit UPLCs eager evaluation here
+        # the expression is computed even though its value is eventually discarded
+        # Note this really only makes sense for Trace
         return plt.Lambda(
             [STATEMONAD],
             plt.Apply(
@@ -202,7 +204,7 @@ class UPLCCompiler(NodeTransformer):
                     ["_"],
                     plt.Var(STATEMONAD)
                 ),
-                self.visit(node.value),
+                plt.Apply(self.visit(node.value), plt.Var(STATEMONAD)),
             )
         )
 
