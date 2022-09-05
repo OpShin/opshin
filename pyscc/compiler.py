@@ -82,7 +82,7 @@ def emulate_nth(t: plt.AST, n: int, size: int) -> plt.AST:
 
 class PythonBuiltIn(Enum):
     print = plt.Lambda(
-        ["x"],
+        ["f", "x"],
             plt.Apply(
                 plt.Force(
                         plt.BuiltIn(BuiltInFun.Trace),
@@ -91,21 +91,21 @@ class PythonBuiltIn(Enum):
                 plt.Unit(),
             )
         )
-    range = plt.Lambda(
-        ["limit"],
-        emulate_tuple(
-            plt.Integer(0),
-            plt.Lambda(
-                ["state"],
-                emulate_tuple(
-                    plt.Apply(plt.BuiltIn(BuiltInFun.LessThanInteger), plt.Var("state"), plt.Var("limit")),
-                    plt.Var("state"),
-                    plt.Apply(plt.BuiltIn(BuiltInFun.AddInteger), plt.Var("state"), plt.Integer(1)),
-                )
-            )
-        )
-    )
-    int = plt.Lambda(["x"], plt.Apply(plt.BuiltIn(BuiltInFun.UnIData), plt.Var("x")))
+    # range = plt.Lambda(
+    #     ["limit"],
+    #     emulate_tuple(
+    #         plt.Integer(0),
+    #         plt.Lambda(
+    #             ["state"],
+    #             emulate_tuple(
+    #                 plt.Apply(plt.BuiltIn(BuiltInFun.LessThanInteger), plt.Var("state"), plt.Var("limit")),
+    #                 plt.Var("state"),
+    #                 plt.Apply(plt.BuiltIn(BuiltInFun.AddInteger), plt.Var("state"), plt.Integer(1)),
+    #             )
+    #         )
+    #     )
+    # )
+    int = plt.Lambda(["f", "x"], plt.Apply(plt.BuiltIn(BuiltInFun.UnIData), plt.Var("x")))
 
 INITIAL_STATE = extend_statemonad(
     [b.name for b in PythonBuiltIn],
@@ -162,7 +162,11 @@ class UPLCCompiler(NodeTransformer):
         )
     
     def visit_Module(self, node: TypedModule) -> plt.AST:
-        return plt.Apply(plt.Apply(self.visit_sequence(node.body), INITIAL_STATE), plt.ByteString("main".encode("utf8")))
+        return plt.Let([(
+                "g",
+                plt.Apply(plt.Apply(self.visit_sequence(node.body), INITIAL_STATE), plt.ByteString("main".encode("utf8")))
+            )],
+            plt.Apply(plt.Var("g"), plt.Var("g")))
 
     def visit_Constant(self, node: TypedConstant) -> plt.AST:
         plt_type = ConstantMap.get(type(node.value))
@@ -213,14 +217,19 @@ class UPLCCompiler(NodeTransformer):
         # return rf"(\{STATEMONAD} -> ({self.visit(node.func)} {compiled_args})"
         return plt.Lambda(
             [STATEMONAD],
-            plt.Apply(
-                plt.Apply(self.visit(node.func), plt.Var(STATEMONAD)),
-                *(
-                    plt.Apply(
-                        self.visit(a),
-                        plt.Var(STATEMONAD)
+            plt.Let(
+                [("g", plt.Apply(self.visit(node.func), plt.Var(STATEMONAD)))],
+                plt.Apply(
+                    plt.Var("g"),
+                    # pass the function to itself for recursion
+                    plt.Var("g"),
+                    *(
+                        plt.Apply(
+                            self.visit(a),
+                            plt.Var(STATEMONAD)
+                        )
+                        for a in node.args
                     )
-                    for a in node.args
                 )
             )
         )
@@ -235,8 +244,9 @@ class UPLCCompiler(NodeTransformer):
         compiled_body = self.visit_sequence(body[:-1])
         compiled_return = self.visit(body[-1].value)
         args_state = extend_statemonad(
-            (a.arg for a in node.args.args),
-            (plt.Var(f"p{i}") for i in range(len(node.args.args))),
+            # under the name of the function, it can access itself
+            [node.name] + [a.arg for a in node.args.args],
+            [plt.Var("f")] + [plt.Var(f"p{i}") for i in range(len(node.args.args))],
             plt.Var(STATEMONAD),
         )
         return plt.Lambda(
@@ -244,21 +254,15 @@ class UPLCCompiler(NodeTransformer):
             extend_statemonad(
                 [node.name],
                 [
-                    plt.Apply(
-                        plt.Lambda(
-                            [STATEMONAD],
-                            plt.Lambda(
-                                [f"p{i}" for i in range(len(node.args.args))],
-                                plt.Apply(
-                                    compiled_return,
-                                    plt.Apply(
-                                        compiled_body,
-                                        args_state,
-                                    )
-                                )
+                    plt.Lambda(
+                        ["f"] + [f"p{i}" for i in range(len(node.args.args))],
+                        plt.Apply(
+                            compiled_return,
+                            plt.Apply(
+                                compiled_body,
+                                args_state,
                             )
-                        ),
-                        plt.Var(STATEMONAD),
+                        )
                     )
                 ],
                 plt.Var(STATEMONAD),

@@ -10,8 +10,9 @@ def main(n: PlutusData) -> int:
 """
 program = """
 def main(n: PlutusData) -> None:
-    a = 1
-    a = a + int(n)
+    a = 0
+    while a < 2:
+        a = a + 1
     return a
 """
 

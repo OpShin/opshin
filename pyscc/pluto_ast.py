@@ -59,9 +59,6 @@ class Apply(AST):
         return f
 
     def dumps(self) -> str:
-        for x in self.xs:
-            if isinstance(x, tuple):
-                print("gotcha")
         return f"({self.f.dumps()} {' '.join(x.dumps() for x in self.xs)})"
 
 
