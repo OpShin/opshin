@@ -303,6 +303,16 @@ class UPLCCompiler(NodeTransformer):
         if isinstance(node.iter.typ, ListType):
             raise NotImplementedError("Compilation of list iterators not implemented yet.")
         raise NotImplementedError("Compilation of raw for statements not supported")
+
+    def visit_If(self, node: TypedIf) -> plt.AST:
+        return plt.Lambda(
+            [STATEMONAD],
+            plt.Ite(
+                plt.Apply(self.visit(node.test), plt.Var(STATEMONAD)),
+                plt.Apply(self.visit_sequence(node.body), plt.Var(STATEMONAD)),
+                plt.Apply(self.visit_sequence(node.orelse), plt.Var(STATEMONAD)),
+            )
+        )
     
     def visit_Return(self, node: TypedReturn) -> plt.AST:
         raise NotImplementedError("Compilation of return statements except for last statement in function is not supported.")

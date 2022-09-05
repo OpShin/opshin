@@ -4,6 +4,19 @@ from frozendict import frozendict
 
 from .typed_ast import *
 
+"""
+An aggressive type inference based on the work of Aycock [1].
+It only allows a subset of legal python operations which
+allow us to infer the type of all involved variables
+statically.
+Using this we can resolve overloaded functions when translating Python
+into UPLC where there is no dynamic type checking.
+Additionally, this conveniently implements an additional layer of
+security into the Smart Contract by checking type correctness.
+
+
+[1]: https://legacy.python.org/workshops/2000-01/proceedings/papers/aycock/aycock.html
+"""
 
 
 INITIAL_SCOPE = frozendict({
@@ -89,6 +102,7 @@ class AggressiveTypeInferencer(NodeTransformer):
     def visit_If(self, node: If) -> TypedIf:
         typed_if = copy(node)
         typed_if.test = self.visit(node.test)
+        assert typed_if.test.typ == BoolType, "Branching condition must have boolean type"
         typed_if.body = [self.visit(s) for s in node.body]
         typed_if.orelse = [self.visit(s) for s in node.orelse]
         return typed_if
@@ -96,6 +110,7 @@ class AggressiveTypeInferencer(NodeTransformer):
     def visit_While(self, node: While) -> TypedWhile:
         typed_while = copy(node)
         typed_while.test = self.visit(node.test)
+        assert typed_while.test.typ == BoolType, "Branching condition must have boolean type"
         typed_while.body = [self.visit(s) for s in node.body]
         typed_while.orelse = [self.visit(s) for s in node.orelse]
         return typed_while
@@ -104,26 +119,14 @@ class AggressiveTypeInferencer(NodeTransformer):
         typed_for = copy(node)
         typed_for.iter = self.visit(node.iter)
         if isinstance(node.target, Tuple):
-            raise NotImplementedError("Type deconstruction not supported yet")
+            raise NotImplementedError("Type deconstruction in for loops is not supported yet")
         vartyp = None
         itertyp = typed_for.iter.typ
-        if isinstance(itertyp, ListType):
+        if isinstance(itertyp, ListType) or isinstance(itertyp, TupleType):
             vartyp = itertyp.typs[0]
             assert all(itertyp.typs[0] == t for t in typed_for.iter.typ.typs), "Iterating through a list requires the same type for each element"
-        if isinstance(itertyp, FunctionType):
-            # the function called should give back an iterator and initial state-> the return type has to fulfil iterator specs
-            assert isinstance(itertyp, TupleType), "Called function for for loop must return (initial state, iterator_function)"
-            assert len(itertyp.typs) == 2, "Called function for for loop must return (initial state, iterator_function)"
-            assert isinstance(itertyp.typs[1], FunctionType), "Called function for for loop must return (initial state, iterator_function)"
-            statetyp = itertyp.typs[0]
-            itertyp = itertyp.rettyp.typs[1]
-            # TODO detect if functions raise StopIteration and rewrite to return tuple of (is_valid, next_value, iter_state)
-            assert isinstance(itertyp.rettyp, TupleType), "Iterator function must return a tuple"
-            assert len(itertyp.rettyp.typs) == 3, "Iterator function must return a three-element tuple (is_valid, next_value, iter_state)"
-            assert itertyp.rettyp.typs[0] == BoolType, "Iterator function must return a tuple where the first element is a boolean"
-            assert len(itertyp.argtypes), "Iterator function must have one argument with the same type as the third returned tuple element"
-            assert statetyp == itertyp.rettyp.typs[2] == itertyp.argtypes[0], "Iterator function must have one argument with the same type as the third returned tuple element"
-            vartyp = itertyp.rettyp.typs[1]
+        else:
+            raise NotImplementedError("Type inference for non-list objects is not supported")
         self.set_variable_type(node.target.id, vartyp)
         typed_for.target = self.visit(node.target)
         typed_for.body = [self.visit(s) for s in node.body]
