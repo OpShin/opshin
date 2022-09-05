@@ -4,6 +4,7 @@ from .type_inference import *
 from . import pluto_ast as plt
 from .rewrite_for import RewriteFor
 from .rewrite_tuple_assign import RewriteTupleAssign
+from .rewrite_augassign import RewriteAugAssign
 from .uplc_ast import BuiltInFun, Program
 from pyscc import type_inference
 
@@ -344,6 +345,7 @@ class UPLCCompiler(NodeTransformer):
 
 def compile(prog: AST):
     compiler_steps = [
+        RewriteAugAssign,
         RewriteFor,
         RewriteTupleAssign,
         AggressiveTypeInferencer,

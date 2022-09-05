@@ -56,7 +56,7 @@ class AggressiveTypeInferencer(NodeTransformer):
         for scope in reversed(self.scopes):
             if name in scope:
                 return scope[name]
-        return None
+        raise TypeInferenceError(f"Variable {name} not initialized at access")
     
     def enter_scope(self):
         self.scopes.append({})
