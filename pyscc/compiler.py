@@ -163,11 +163,14 @@ class UPLCCompiler(NodeTransformer):
         )
     
     def visit_Module(self, node: TypedModule) -> plt.AST:
-        return plt.Let([(
+        return plt.Program(
+            "0.0.1",
+            plt.Let([(
                 "g",
                 plt.Apply(plt.Apply(self.visit_sequence(node.body), INITIAL_STATE), plt.ByteString("main".encode("utf8")))
             )],
             plt.Apply(plt.Var("g"), plt.Var("g")))
+        )
 
     def visit_Constant(self, node: TypedConstant) -> plt.AST:
         plt_type = ConstantMap.get(type(node.value))
@@ -326,17 +329,21 @@ class UPLCCompiler(NodeTransformer):
         assert isinstance(node.slice, Index), "Only single index slices are currently supported"
         if isinstance(node.value.typ, TupleType):
             assert isinstance(node.slice.value, Constant), "Only constant index access for tuples is supported"
-            return emulate_nth(
-                self.visit(node.value),
+            assert isinstance(node.ctx, Load), "Tuples are read-only"
+            return plt.Lambda([STATEMONAD], emulate_nth(
+                plt.Apply(self.visit(node.value), plt.Var(STATEMONAD)),
                 node.slice.value.value,
                 len(node.value.typ.typs),
-            )
+            ))
         # TODO implement list index access
         raise NotImplementedError(f"Could not implement subscript of {node}")
     
     def visit_Tuple(self, node: TypedTuple) -> plt.AST:
-        return emulate_tuple(
-            *(self.visit(e) for e in node.elts)
+        return plt.Lambda(
+            [STATEMONAD],
+            emulate_tuple(
+                *(plt.Apply(self.visit(e), plt.Var(STATEMONAD)) for e in node.elts)
+            )
         )
     
     def generic_visit(self, node: AST) -> plt.AST:

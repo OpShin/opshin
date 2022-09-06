@@ -11,14 +11,14 @@ _LOGGER = logging.getLogger(__name__)
 class ConstantType(Enum):
     integer = auto()
     bytestring = auto()
-    str = auto()
+    string = auto()
     unit = auto()
     bool = auto()
 
 ConstantEvalMap = {
     ConstantType.integer: int,
     ConstantType.bytestring: lambda x: bytes.fromhex(x[1:]),
-    ConstantType.str: lambda x: str(x).encode("utf8"),
+    ConstantType.string: lambda x: str(x).encode("utf8"),
     ConstantType.unit: lambda _: (),
     ConstantType.bool: lambda x: x == "True",
 }
@@ -156,7 +156,7 @@ class BuiltIn(AST):
         return partial(BuiltInFunEvalMap[self.builtin])
 
     def dumps(self) -> str:
-        return f"(builtin {self.builtin.name})"
+        return f"(builtin {self.builtin.name[0].lower()}{self.builtin.name[1:]})"
 
 
 @dataclass

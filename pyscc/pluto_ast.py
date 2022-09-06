@@ -12,6 +12,17 @@ class AST:
     def dumps(self) -> str:
         raise NotImplementedError()
 
+@dataclass
+class Program(AST):
+    version: str
+    prog: AST
+
+    def compile(self):
+        return uplc_ast.Program(self.version, self.prog.compile())
+
+    def dumps(self) -> str:
+        # There is no equivalent in "pure" pluto
+        return self.prog.dumps()
 
 @dataclass
 class Var(AST):
@@ -112,7 +123,7 @@ class Text(AST):
 
     def compile(self):
         return uplc_ast.Constant(
-            uplc_ast.ConstantType.bytestring, f"#{self.x.encode('utf8').hex()}"
+            uplc_ast.ConstantType.string, f"\"{self.x}\""
         )
 
     def dumps(self) -> str:
