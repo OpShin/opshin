@@ -35,7 +35,7 @@ class RewriteFor(NodeTransformer):
             ),
         ]
         w = While(
-            test=Compare(Name(f"__isvalid{uid}__", Load()), [Eq()], [Constant(True)]),
+            test=Name(f"__isvalid{uid}__", Load()),
             body=[
                     # Initialize the current value with what the iterator gave us
                     Assign([node.target], Name(f"__curval{uid}__", Load()))

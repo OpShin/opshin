@@ -5,8 +5,7 @@ from . import pluto_ast as plt
 from .rewrite_for import RewriteFor
 from .rewrite_tuple_assign import RewriteTupleAssign
 from .rewrite_augassign import RewriteAugAssign
-from .uplc_ast import BuiltInFun, Program
-from pyscc import type_inference
+from .uplc_ast import BuiltInFun
 
 STATEMONAD = "s"
 
@@ -34,8 +33,6 @@ CmpMap = {
     Eq: {
         IntegerType: BuiltInFun.EqualsInteger,
         ByteStringType: BuiltInFun.EqualsByteString,
-        # TODO check how this is really implemented
-        BoolType: BuiltInFun.EqualsInteger,
     },
     Lt: {
         IntegerType: BuiltInFun.LessThanInteger,
@@ -84,28 +81,28 @@ def emulate_nth(t: plt.AST, n: int, size: int) -> plt.AST:
 class PythonBuiltIn(Enum):
     print = plt.Lambda(
         ["f", "x"],
-            plt.Apply(
-                plt.Force(
-                        plt.BuiltIn(BuiltInFun.Trace),
-                ),
-                plt.Var("x"),
-                plt.Unit(),
+        plt.Apply(
+            plt.Force(
+                    plt.BuiltIn(BuiltInFun.Trace),
+            ),
+            plt.Var("x"),
+            plt.Unit(),
+        )
+    )
+    range = plt.Lambda(
+        ["f", "limit"],
+        emulate_tuple(
+            plt.Integer(0),
+            plt.Lambda(
+                ["f", "state"],
+                emulate_tuple(
+                    plt.Apply(plt.BuiltIn(BuiltInFun.LessThanInteger), plt.Var("state"), plt.Var("limit")),
+                    plt.Var("state"),
+                    plt.Apply(plt.BuiltIn(BuiltInFun.AddInteger), plt.Var("state"), plt.Integer(1)),
+                )
             )
         )
-    # range = plt.Lambda(
-    #     ["limit"],
-    #     emulate_tuple(
-    #         plt.Integer(0),
-    #         plt.Lambda(
-    #             ["state"],
-    #             emulate_tuple(
-    #                 plt.Apply(plt.BuiltIn(BuiltInFun.LessThanInteger), plt.Var("state"), plt.Var("limit")),
-    #                 plt.Var("state"),
-    #                 plt.Apply(plt.BuiltIn(BuiltInFun.AddInteger), plt.Var("state"), plt.Integer(1)),
-    #             )
-    #         )
-    #     )
-    # )
+    )
     int = plt.Lambda(["f", "x"], plt.Apply(plt.BuiltIn(BuiltInFun.UnIData), plt.Var("x")))
 
 INITIAL_STATE = extend_statemonad(
@@ -238,7 +235,7 @@ class UPLCCompiler(NodeTransformer):
             )
         )
 
-    def visit_FunctionDef(self, node: TypedFunctionDef) -> str:
+    def visit_FunctionDef(self, node: TypedFunctionDef) -> plt.AST:
         body = node.body.copy()
         if not isinstance(body[-1], Return):
             tr = Return(None)
