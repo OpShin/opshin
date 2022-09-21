@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from functools import partial
 from enum import Enum, auto
 
-import frozendict
+# import frozendict
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -54,7 +54,7 @@ BuiltInFunEvalMap = {
 
 
 class AST:
-    def eval(self, state: frozendict.frozendict):
+    def eval(self, state: dict):
         raise NotImplementedError()
 
     def dumps(self) -> str:

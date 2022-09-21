@@ -1,6 +1,6 @@
 from copy import copy
 from ast import *
-from frozendict import frozendict
+# from frozendict import frozendict
 
 from .typed_ast import *
 
@@ -19,7 +19,7 @@ security into the Smart Contract by checking type correctness.
 """
 
 
-INITIAL_SCOPE = frozendict({
+INITIAL_SCOPE = dict({
     "print": FunctionType([StringType], UnitType),
     "range": FunctionType(
         [IntegerType],
@@ -44,7 +44,6 @@ def type_from_annotation(ann: expr):
         TypeInferenceError("Type annotation is missing for a function argument or return value")
     raise NotImplementedError(f"Annotation type {ann} is not supported")
 
-
 class AggressiveTypeInferencer(NodeTransformer):
     # TODO enforce all elements in a list to have the same type (length is not i.g. statically known!)
     
@@ -68,6 +67,13 @@ class AggressiveTypeInferencer(NodeTransformer):
         if name in self.scopes[-1] and typ != self.scopes[-1][name]:
             raise TypeInferenceError(f"Type of variable {name} in local scope does not match inferred type {typ}")
         self.scopes[-1][name] = typ
+
+    def visit_ClassDef(self, node: ClassDef) -> ClassDef:
+        class_record = RecordReader.extract(node)
+        self.set_variable_type(node.name, ClassType(class_record))
+        return node
+
+    # TODO type inference for classDef
 
     def visit_Constant(self, node: Constant):
         tc = copy(node)

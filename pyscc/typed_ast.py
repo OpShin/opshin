@@ -16,9 +16,15 @@ BoolType = InstanceType(bool.__name__)
 UnitType = InstanceType(type(None).__name__)
 PlutusDataType = InstanceType("PlutusData")
 
+
+@dataclass(frozen=True, unsafe_hash=True)
+class Record:
+    name: str
+    attributes: typing.List[typing.Tuple[str, Type]]
+
 @dataclass(unsafe_hash=True)
 class ClassType(Type):
-    typ: str
+    record: Record
 
 @dataclass(unsafe_hash=True)
 class TupleType(Type):
@@ -125,3 +131,28 @@ class TypedUnaryOp(typedexpr, UnaryOp):
 
 class TypedSubscript(typedexpr, Subscript):
     value: typedexpr
+
+class TypedAttribute(typedexpr, Attribute):
+    value: typedexpr
+
+class RecordReader(NodeVisitor):
+    name: str
+    attributes: typing.List[typing.Tuple[str, Type]]
+
+    @classmethod
+    def extract(cls, c: ClassDef) -> Record:
+        f = cls().visit(c)
+        return Record(f.name, f.attributes)
+
+    def visit_AnnAssign(self, node: AnnAssign) -> None:
+        assert isinstance(node.target, Name), "Record elements must have named attributes"
+        self.attributes.append(
+            (node.target.id, type_from_annotation(node.type_comment))
+        )
+
+    def visit_ClassDef(self, node: ClassDef) -> None:
+        self.name = node.name
+        for s in node.body:
+            self.visit(s)
+    def generic_visit(self, node: AST) -> None:
+        raise NotImplementedError(f"Can not compile {node} inside of a class")

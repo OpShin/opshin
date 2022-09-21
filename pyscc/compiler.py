@@ -5,6 +5,7 @@ from . import pluto_ast as plt
 from .rewrite_for import RewriteFor
 from .rewrite_tuple_assign import RewriteTupleAssign
 from .rewrite_augassign import RewriteAugAssign
+from .rewrite_dataclass import RewriteDataclasses
 from .uplc_ast import BuiltInFun
 
 STATEMONAD = "s"
@@ -160,7 +161,7 @@ class UPLCCompiler(NodeTransformer):
         )
     
     def visit_Module(self, node: TypedModule) -> plt.AST:
-        return plt.Program(
+        cp = plt.Program(
             "0.0.1",
             plt.Let([(
                 "g",
@@ -168,6 +169,8 @@ class UPLCCompiler(NodeTransformer):
             )],
             plt.Apply(plt.Var("g"), plt.Var("g")))
         )
+        assert node.module == "dataclasses", "The program must contain one 'from dataclasses import dataclass'"
+        return cp
 
     def visit_Constant(self, node: TypedConstant) -> plt.AST:
         plt_type = ConstantMap.get(type(node.value))
@@ -352,6 +355,7 @@ def compile(prog: AST):
         RewriteAugAssign,
         RewriteFor,
         RewriteTupleAssign,
+        RewriteDataclasses,
         AggressiveTypeInferencer,
         UPLCCompiler
     ]
