@@ -29,20 +29,6 @@ INITIAL_SCOPE = dict({
 })
 
 
-class TypeInferenceError(AssertionError):
-    pass
-
-def type_from_annotation(ann: expr):
-    if isinstance(ann, Constant):
-        if ann.value is None:
-            return UnitType
-    if isinstance(ann, Name):
-        return InstanceType(ann.id)
-    if isinstance(ann, Subscript):
-        raise NotImplementedError("Generic types not supported yet")
-    if ann is None:
-        TypeInferenceError("Type annotation is missing for a function argument or return value")
-    raise NotImplementedError(f"Annotation type {ann} is not supported")
 
 class AggressiveTypeInferencer(NodeTransformer):
     # TODO enforce all elements in a list to have the same type (length is not i.g. statically known!)
@@ -179,6 +165,7 @@ class AggressiveTypeInferencer(NodeTransformer):
         # We need the function type inside for recursion
         self.set_variable_type(node.name, tfd.typ)
         tfd.body = [self.visit(s) for s in node.body]
+        # TODO detect return type and compare
         self.exit_scope()
         # We need the function type outside for usage
         self.set_variable_type(node.name, tfd.typ)

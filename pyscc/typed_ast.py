@@ -2,6 +2,7 @@ from ast import *
 from dataclasses import dataclass
 import typing
 
+
 class Type:
     pass
 
@@ -135,24 +136,44 @@ class TypedSubscript(typedexpr, Subscript):
 class TypedAttribute(typedexpr, Attribute):
     value: typedexpr
 
+class TypeInferenceError(AssertionError):
+    pass
+
+def type_from_annotation(ann: expr):
+    if isinstance(ann, Constant):
+        if ann.value is None:
+            return UnitType
+    if isinstance(ann, Name):
+        return InstanceType(ann.id)
+    if isinstance(ann, Subscript):
+        raise NotImplementedError("Generic types not supported yet")
+    if ann is None:
+        TypeInferenceError("Type annotation is missing for a function argument or return value")
+    raise NotImplementedError(f"Annotation type {ann} is not supported")
+
 class RecordReader(NodeVisitor):
     name: str
     attributes: typing.List[typing.Tuple[str, Type]]
 
+    def __init__(self):
+        self.attributes = []
+
     @classmethod
     def extract(cls, c: ClassDef) -> Record:
-        f = cls().visit(c)
+        f = cls()
+        f.visit(c)
         return Record(f.name, f.attributes)
 
     def visit_AnnAssign(self, node: AnnAssign) -> None:
         assert isinstance(node.target, Name), "Record elements must have named attributes"
         self.attributes.append(
-            (node.target.id, type_from_annotation(node.type_comment))
+            (node.target.id, type_from_annotation(node.annotation))
         )
 
     def visit_ClassDef(self, node: ClassDef) -> None:
         self.name = node.name
         for s in node.body:
             self.visit(s)
+
     def generic_visit(self, node: AST) -> None:
         raise NotImplementedError(f"Can not compile {node} inside of a class")

@@ -169,7 +169,6 @@ class UPLCCompiler(NodeTransformer):
             )],
             plt.Apply(plt.Var("g"), plt.Var("g")))
         )
-        assert node.module == "dataclasses", "The program must contain one 'from dataclasses import dataclass'"
         return cp
 
     def visit_Constant(self, node: TypedConstant) -> plt.AST:
@@ -345,7 +344,11 @@ class UPLCCompiler(NodeTransformer):
                 *(plt.Apply(self.visit(e), plt.Var(STATEMONAD)) for e in node.elts)
             )
         )
-    
+
+    def visit_ClassDef(self, node: ClassDef) -> plt.AST:
+        return self.visit_sequence([])
+
+
     def generic_visit(self, node: AST) -> plt.AST:
         raise NotImplementedError(f"Can not compile {node}")
 
