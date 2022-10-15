@@ -165,7 +165,11 @@ class AggressiveTypeInferencer(NodeTransformer):
         # We need the function type inside for recursion
         self.set_variable_type(node.name, tfd.typ)
         tfd.body = [self.visit(s) for s in node.body]
-        # TODO detect return type and compare
+        # Check that return type and annotated return type match
+        if not isinstance(node.body[-1], Return):
+            assert tfd.typ.rettyp == UnitType, f"Function '{node.name}' has no return statement but is supposed to return not-None value"
+        else:
+            assert tfd.typ.rettyp == tfd.body[-1].typ, f"Function '{node.name}' annotated return type does not match actual return type"
         self.exit_scope()
         # We need the function type outside for usage
         self.set_variable_type(node.name, tfd.typ)
@@ -230,6 +234,7 @@ class AggressiveTypeInferencer(NodeTransformer):
     def visit_Return(self, node: Return) -> TypedReturn:
         tp = copy(node)
         tp.value = self.visit(node.value)
+        tp.typ = tp.value.typ
         return tp
     
     def generic_visit(self, node: AST) -> TypedAST:
