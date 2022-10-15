@@ -236,7 +236,20 @@ class AggressiveTypeInferencer(NodeTransformer):
         tp.value = self.visit(node.value)
         tp.typ = tp.value.typ
         return tp
-    
+
+    def visit_Attribute(self, node: Attribute) -> TypedAttribute:
+        tp = copy(node)
+        tp.value = self.visit(node.value)
+        # TODO look up class type of instance type in local scope!
+        assert isinstance(tp.value.typ, ClassType), "Accessing attribute of non-classtype"
+        tp.typ = None
+        for attr_name, attr_type in tp.value.typ.record.attributes:
+            if attr_name == tp.attr:
+                tp.typ = attr_type
+        if tp.typ is None:
+            assert tp.attr in tp.value.typ.record.attributes, "Accessing undefined attribute of class-type"
+        return tp
+
     def generic_visit(self, node: AST) -> TypedAST:
         raise NotImplementedError(f"Cannot infer type of non-implemented node {node.__class__}")
 
