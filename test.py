@@ -9,15 +9,15 @@ def main(n: PlutusData) -> int:
     return a
 """
 program = """
-def main(n: PlutusData) -> None:
-    a, b = 0, int(n)
-    if b < 5:
-        print("add")
-        a += 5
-    else:
-        print("sub")
-        a -= b
-    return a
+from dataclasses import dataclass
+
+@dataclass(frozen=True)
+class PlutusDate:
+    f1: int
+    f2: str
+
+def main(n: PlutusData) -> PlutusData:
+    return n
 """
 
 # print(dump(parse(program)))
