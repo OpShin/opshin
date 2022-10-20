@@ -240,12 +240,16 @@ class AggressiveTypeInferencer(NodeTransformer):
     def visit_Attribute(self, node: Attribute) -> TypedAttribute:
         tp = copy(node)
         tp.value = self.visit(node.value)
-        # TODO look up class type of instance type in local scope!
-        assert isinstance(tp.value.typ, ClassType), "Accessing attribute of non-classtype"
+        owner = tp.value.typ
+        assert isinstance(owner, InstanceType), "Accessing attribute of non-instance"
+        # look up class type in local scope
+        owner_typ = self.variable_type(owner.typ)
+        assert isinstance(owner_typ, ClassType), "Accessing attribute of instance of a non-class"
         tp.typ = None
-        for attr_name, attr_type in tp.value.typ.record.attributes:
+        for i, (attr_name, attr_type) in enumerate(owner_typ.record.attributes):
             if attr_name == tp.attr:
                 tp.typ = attr_type
+                tp.pos = i
         if tp.typ is None:
             assert tp.attr in tp.value.typ.record.attributes, "Accessing undefined attribute of class-type"
         return tp

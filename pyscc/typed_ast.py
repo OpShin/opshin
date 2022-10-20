@@ -135,6 +135,7 @@ class TypedSubscript(typedexpr, Subscript):
 
 class TypedAttribute(typedexpr, Attribute):
     value: typedexpr
+    pos: int
 
 class TypeInferenceError(AssertionError):
     pass

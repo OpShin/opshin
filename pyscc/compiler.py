@@ -105,6 +105,7 @@ class PythonBuiltIn(Enum):
         )
     )
     int = plt.Lambda(["f", "x"], plt.Apply(plt.BuiltIn(BuiltInFun.UnIData), plt.Var("x")))
+    __fields__ = plt.Lambda(["f", "x"],  plt.Apply(plt.Force(plt.Force(plt.BuiltIn(BuiltInFun.SndPair))), plt.Apply(plt.BuiltIn(BuiltInFun.UnConstrData), plt.Var("x"))))
 
 INITIAL_STATE = extend_statemonad(
     [b.name for b in PythonBuiltIn],
@@ -117,6 +118,14 @@ class UPLCCompiler(NodeTransformer):
     """
     Expects a TypedAST and returns UPLC/Pluto like code
     """
+    def visit(self, node):
+        """Visit a node."""
+        node_class_name = node.__class__.__name__
+        if node_class_name.startswith("Typed"):
+            node_class_name = node_class_name[len("Typed"):]
+        method = 'visit_' + node_class_name
+        visitor = getattr(self, method, self.generic_visit)
+        return visitor(node)
 
 
     def visit_sequence(self, node_seq: typing.List[typedstmt]) -> plt.AST:
@@ -334,7 +343,38 @@ class UPLCCompiler(NodeTransformer):
                 node.slice.value.value,
                 len(node.value.typ.typs),
             ))
-        # TODO implement list index access
+        if isinstance(node.value.typ, ListType):
+            # rf'(\{STATEMONAD} -> let g = (\i xs f -> if (!NullList xs) then (!Trace "OOB" (Error ())) else (if i ==i 0 then (!HeadList xs) else f (i -i 1) (!TailList xs) f)) in (g ({compiled_i} {STATEMONAD}) ({compiled_v} {STATEMONAD}) g))'
+            return plt.Lambda(
+                [STATEMONAD],
+                plt.Let(
+                    [
+                        ("g",
+                        plt.Lambda(["i", "xs", "f"],
+                           plt.Ite(
+                               plt.Force(plt.Apply(plt.BuiltIn(BuiltInFun.NullList), plt.Var("xs"))),
+                               self.visit(TypedCall(TypedName("print", ctx=Load()), [TypedConstant("Out of bounds", InstanceType("str"))])),
+                               plt.Ite(
+                                   plt.Apply(plt.BuiltIn(BuiltInFun.EqualsInteger), plt.Var("i"), plt.Integer(0)),
+                                   plt.Force(plt.Apply(plt.BuiltIn(BuiltInFun.HeadList), plt.Var("xs"))),
+                                   plt.Apply(
+                                       plt.Var("f"),
+                                       plt.Apply(plt.BuiltIn(BuiltInFun.SubtractInteger), plt.Var("i"), plt.Integer(1)),
+                                       plt.Force(plt.Apply(plt.BuiltIn(BuiltInFun.TailList), plt.Var("xs"))),
+                                       plt.Var("f"),
+                                   )
+                               )
+                           )
+                       ))
+                    ],
+                    plt.Apply(
+                        plt.Var("g"),
+                        plt.Apply(self.visit(node.slice.value), plt.Var(STATEMONAD)),
+                        plt.Apply(self.visit(node.value), plt.Var(STATEMONAD)),
+                        plt.Var("g")
+                    )
+                )
+              )
         raise NotImplementedError(f"Could not implement subscript of {node}")
     
     def visit_Tuple(self, node: TypedTuple) -> plt.AST:
@@ -347,6 +387,15 @@ class UPLCCompiler(NodeTransformer):
 
     def visit_ClassDef(self, node: ClassDef) -> plt.AST:
         return self.visit_sequence([])
+
+    def visit_Attribute(self, node: TypedAttribute) -> plt.AST:
+        # rewrite to access the field at position node.pos
+        # (use the internal function for fields)
+        return self.visit(TypedSubscript(
+            value=TypedCall(TypedName(id="__fields__", ctx=Load(),typ=FunctionType([InstanceType], ListType([]))), [node.value], typ=ListType([])),
+            slice=Index(value=TypedConstant(value=node.pos, typ=InstanceType("int"))),
+            typ=node.typ,
+        ))
 
 
     def generic_visit(self, node: AST) -> plt.AST:

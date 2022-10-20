@@ -37,6 +37,13 @@ class BuiltInFun(Enum):
     Trace = auto()
     IfThenElse = auto()
     UnIData = auto()
+    UnBData = auto()
+    UnConstrData = auto()
+    FstPair = auto()
+    SndPair = auto()
+    NullList = auto()
+    HeadList = auto()
+    TailList = auto()
 
 BuiltInFunEvalMap = {
     BuiltInFun.AddInteger : lambda x, y: x + y,
@@ -50,6 +57,12 @@ BuiltInFunEvalMap = {
     BuiltInFun.AppendByteString : lambda x, y: x + y,
     BuiltInFun.Trace : lambda x, y: print(x) or y,
     BuiltInFun.IfThenElse : lambda x, y, z: y if x else z,
+    BuiltInFun.UnIData : lambda x: int(x),
+    BuiltInFun.UnConstrData : lambda x: (0, x.__dict__.keys()),
+    BuiltInFun.SndPair : lambda x: lambda _: lambda _: x[1],
+    BuiltInFun.NullList : lambda x: lambda _: x == [],
+    BuiltInFun.HeadList : lambda x: lambda _: x[0],
+    BuiltInFun.TailList : lambda x: lambda _: x[1:],
 }
 
 

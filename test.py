@@ -12,12 +12,12 @@ program = """
 from dataclasses import dataclass
 
 @dataclass(frozen=True)
-class PlutusDate:
+class PlutusData:
     f1: int
     f2: str
 
-def main(n: PlutusData) -> PlutusData:
-    return n
+def main(n: PlutusData) -> str:
+    return n.f2
 """
 
 # print(dump(parse(program)))
