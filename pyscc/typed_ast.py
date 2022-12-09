@@ -176,5 +176,8 @@ class RecordReader(NodeVisitor):
         for s in node.body:
             self.visit(s)
 
+    def visit_Pass(self, node: Pass) -> None:
+        pass
+
     def generic_visit(self, node: AST) -> None:
         raise NotImplementedError(f"Can not compile {node} inside of a class")

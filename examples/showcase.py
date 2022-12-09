@@ -1,3 +1,10 @@
+from dataclasses import dataclass
+
+@dataclass(frozen=True)
+class PlutusData:
+    pass
+
+
 def main(n: PlutusData) -> None:
     a, b = 0, int(n)
     if b < 5:

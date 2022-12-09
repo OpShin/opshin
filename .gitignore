@@ -1,3 +1,6 @@
 venv
 __pycache__
 .vscode
+.idea
+__tmp_pyscc.py
+test.py
