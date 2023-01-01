@@ -49,34 +49,8 @@ ConstantMap = {
     type(None): plt.Unit,
 }
 
-def extend_statemonad(names: typing.List[str], values: typing.List[plt.AST], old_statemonad: plt.AST):
-    additional_compares = plt.Apply(
-        old_statemonad,
-        plt.Var("x"),
-    )
-    for name, value in zip(names, values):
-        additional_compares = plt.Ite(
-            plt.Apply(
-                plt.BuiltIn(BuiltInFun.EqualsByteString),
-                plt.Var("x"),
-                plt.ByteString(name.encode()),
-            ),
-            value,
-            additional_compares,
-        )
-    return plt.Lambda(
-        ["x"],
-        additional_compares,
-    )
-
-def emulate_tuple(*els: plt.AST) -> plt.AST:
-    return plt.Lambda(
-        ["f"],
-        plt.Apply(plt.Var("f"), *els),
-    )
-
-def emulate_nth(t: plt.AST, n: int, size: int) -> plt.AST:
-    return plt.Apply(t, plt.Lambda([f"v{i}" for i in range(size)], plt.Var(f"v{n}")))
+def extend_statemonad(names: typing.List[str], values: typing.List[plt.AST], old_statemonad: plt.UpdatableMap):
+    return plt.extend_map([n.encode() for n in names], values, old_statemonad)
 
 
 class PythonBuiltIn(Enum):
@@ -92,11 +66,11 @@ class PythonBuiltIn(Enum):
     )
     range = plt.Lambda(
         ["f", "limit"],
-        emulate_tuple(
+        plt.Tuple(
             plt.Integer(0),
             plt.Lambda(
                 ["f", "state"],
-                emulate_tuple(
+                plt.Tuple(
                     plt.Apply(plt.BuiltIn(BuiltInFun.LessThanInteger), plt.Var("state"), plt.Var("limit")),
                     plt.Var("state"),
                     plt.Apply(plt.BuiltIn(BuiltInFun.AddInteger), plt.Var("state"), plt.Integer(1)),
@@ -110,7 +84,7 @@ class PythonBuiltIn(Enum):
 INITIAL_STATE = extend_statemonad(
     [b.name for b in PythonBuiltIn],
     [b.value for b in PythonBuiltIn],
-    plt.Lambda(["x"], plt.Error()),
+    plt.UpdatableMap(),
 )
 
 
@@ -380,7 +354,7 @@ class UPLCCompiler(NodeTransformer):
     def visit_Tuple(self, node: TypedTuple) -> plt.AST:
         return plt.Lambda(
             [STATEMONAD],
-            emulate_tuple(
+            plt.Tuple(
                 *(plt.Apply(self.visit(e), plt.Var(STATEMONAD)) for e in node.elts)
             )
         )

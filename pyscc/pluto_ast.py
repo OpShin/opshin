@@ -218,3 +218,50 @@ class Ite(AST):
 
     def dumps(self) -> str:
         return f"(if {self.i.dumps()} then {self.t.dumps()} else {self.e.dumps()})"
+
+########## Pluto Abstractions that simplify handling complex structures ####################
+
+class Tuple(AST):
+
+    def __new__(cls, *vs: AST):
+        # idea: just construct a nested if/else comparison
+        if not vs:
+            return Unit()
+        param = Var("__f__")
+        return Lambda([param.name], Apply(param, vs))
+
+class TupleAccess(AST):
+
+    def __new__(cls, tuple: AST, index: int, size: int):
+        return Apply(Lambda([f"v{i}" for i in range(size)], Var(f"v{index}")), tuple)
+
+
+class UpdatableMap(AST):
+
+    def __new__(cls):
+        return Lambda(["x"], Error())
+
+EQUALS_MAP = {
+    ByteString: uplc_ast.BuiltInFun.EqualsByteString,
+    Integer: uplc_ast.BuiltInFun.EqualsInteger,
+}
+
+def extend_map(names: typing.List[typing.Any], values: typing.List[AST], old_statemonad: UpdatableMap, keytype = ByteString):
+    additional_compares = Apply(
+        old_statemonad,
+        Var("x"),
+    )
+    for name, value in zip(names, values):
+        additional_compares = Ite(
+            Apply(
+                BuiltIn(EQUALS_MAP[keytype]),
+                Var("x"),
+                keytype(name),
+            ),
+            value,
+            additional_compares,
+        )
+    return Lambda(
+        ["x"],
+        additional_compares,
+    )
