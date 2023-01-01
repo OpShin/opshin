@@ -223,7 +223,7 @@ class Ite(AST):
 
 class Tuple(AST):
 
-    def __new__(cls, *vs: AST):
+    def __new__(cls, *vs: AST) -> "Tuple":
         # idea: just construct a nested if/else comparison
         if not vs:
             return Unit()
@@ -238,7 +238,7 @@ class TupleAccess(AST):
 
 class UpdatableMap(AST):
 
-    def __new__(cls):
+    def __new__(cls) -> "UpdatableMap":
         return Lambda(["x"], Error())
 
 EQUALS_MAP = {
@@ -246,7 +246,12 @@ EQUALS_MAP = {
     Integer: uplc_ast.BuiltInFun.EqualsInteger,
 }
 
-def extend_map(names: typing.List[typing.Any], values: typing.List[AST], old_statemonad: UpdatableMap, keytype = ByteString):
+def extend_map(
+    names: typing.List[typing.Any],
+    values: typing.List[AST],
+    old_statemonad: UpdatableMap,
+    keytype = ByteString
+) -> UpdatableMap:
     additional_compares = Apply(
         old_statemonad,
         Var("x"),
@@ -265,3 +270,50 @@ def extend_map(names: typing.List[typing.Any], values: typing.List[AST], old_sta
         ["x"],
         additional_compares,
     )
+
+
+TOPRIMITIVEVALUE = b"0"
+DICT = b"1"
+
+class WrappedValue():
+
+    def __new__(cls, uplc_obj: AST, attributes: UpdatableMap):
+        updated_map = extend_map([TOPRIMITIVEVALUE, DICT], [uplc_obj, attributes], attributes)
+        return updated_map
+
+
+def to_primitive_value(wv: WrappedValue):
+    return Apply(wv, TOPRIMITIVEVALUE)
+
+def to_dict(wv: WrappedValue) -> UpdatableMap:
+    return Apply(wv, DICT)
+
+class AttributeAccess():
+
+    def __new__(cls, wv: WrappedValue, attribute_name: str):
+        return Apply(wv, attribute_name.encode())
+
+
+# self is the simplest source of non-infinitely recursing, complete, integer attributes
+INTEGER_ATTRIBUTES_MAP = {
+    "__add__": Lambda(
+        ["self", "other"],
+        WrappedValue(Apply(uplc_ast.BuiltInFun.AddInteger, to_primitive_value(Var("self")), to_primitive_value(Var("other"))), to_dict(Var("self")))
+    ),
+    "__sub__": Lambda(
+        ["self", "other"],
+        WrappedValue(Apply(uplc_ast.BuiltInFun.SubtractInteger, to_primitive_value(Var("self")), to_primitive_value(Var("other"))), to_dict(Var("self")))
+    ),
+    "__eq__": Lambda(
+        ["self", "other"],
+        WrappedValue(Apply(uplc_ast.BuiltInFun.EqualsInteger, to_primitive_value(Var("self")), to_primitive_value(Var("other"))), to_dict(Var("self")))
+    ),
+}
+INTEGER_ATTRIBUTES = extend_map(
+    [k.encode() for k in INTEGER_ATTRIBUTES_MAP.keys()],
+    INTEGER_ATTRIBUTES_MAP.values(),
+    UpdatableMap(),
+)
+
+def from_primitive_int(i: Integer):
+    return WrappedValue(i, INTEGER_ATTRIBUTES)

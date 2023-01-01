@@ -43,7 +43,7 @@ CmpMap = {
 ConstantMap = {
     str: plt.Text,
     bytes: plt.ByteString,
-    int: plt.Integer,
+    int: plt.from_primitive_int,
     bool: plt.Bool,
     # TODO support higher level Optional type
     type(None): plt.Unit,
