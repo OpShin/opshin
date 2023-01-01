@@ -2,6 +2,7 @@ import logging
 from dataclasses import dataclass
 from functools import partial
 from enum import Enum, auto
+import hashlib
 
 # import frozendict
 
@@ -24,42 +25,98 @@ ConstantEvalMap = {
 }
 
 
+# As found in https://plutonomicon.github.io/plutonomicon/builtin-functions
 class BuiltInFun(Enum):
     AddInteger = auto()
     SubtractInteger = auto()
     MultiplyInteger = auto()
     DivideInteger = auto()
+    QuotientInteger = auto()
     RemainderInteger = auto()
+    ModInteger = auto()
     EqualsInteger = auto()
     LessThanInteger = auto()
-    EqualsByteString = auto()
+    LessThanEqualsInteger = auto()
     AppendByteString = auto()
-    Trace = auto()
+    ConsByteString = auto()
+    SliceByteString = auto()
+    LengthOfByteString = auto()
+    IndexByteString = auto()
+    EqualsByteString = auto()
+    LessThanByteString = auto()
+    LessThanEqualsByteString = auto()
+    Sha2_256 = auto()
+    Sha3_256 = auto()
+    Blake2b_256 = auto()
+    VerifySignature = auto()
+    AppendString = auto()
+    EqualsString = auto()
+    EncodeUtf8 = auto()
+    DecodeUtf8 = auto()
     IfThenElse = auto()
-    UnIData = auto()
-    UnBData = auto()
-    UnConstrData = auto()
+    ChooseUnit = auto()
+    Trace = auto()
     FstPair = auto()
     SndPair = auto()
-    NullList = auto()
+    ChooseList = auto()
+    MkCons = auto()
     HeadList = auto()
     TailList = auto()
+    NullList = auto()
+    ChooseData = auto()
+    ConstrData = auto()
+    MapData = auto()
+    ListData = auto()
+    IData = auto()
+    BData = auto()
+    UnConstrData = auto()
+    UnMapData = auto()
+    UnListData = auto()
+    UnIData = auto()
+    EqualsData = auto()
+    MkPairData = auto()
+    MkNilData = auto()
+    MkNilPairData = auto()
+
 
 BuiltInFunEvalMap = {
     BuiltInFun.AddInteger : lambda x, y: x + y,
     BuiltInFun.SubtractInteger : lambda x, y: x - y,
     BuiltInFun.MultiplyInteger : lambda x, y: x * y,
+    # TODO difference with negative values?
     BuiltInFun.DivideInteger : lambda x, y: x // y,
+    BuiltInFun.QuotientInteger : lambda x, y: x // y,
+    # TODO difference with negative values?
     BuiltInFun.RemainderInteger : lambda x, y: x % y,
+    BuiltInFun.ModInteger : lambda x, y: x % y,
     BuiltInFun.EqualsInteger : lambda x, y: x == y,
     BuiltInFun.LessThanInteger : lambda x, y: x < y,
-    BuiltInFun.EqualsByteString : lambda x, y: x == y,
+    BuiltInFun.LessThanEqualsInteger : lambda x, y: x <= y,
     BuiltInFun.AppendByteString : lambda x, y: x + y,
-    BuiltInFun.Trace : lambda x, y: print(x) or y,
+    BuiltInFun.ConsByteString : lambda x, y: bytes([x]) + y,
+    BuiltInFun.SliceByteString : lambda x, y, z: z[x:y+1],
+    BuiltInFun.LengthOfByteString : lambda x: len(x),
+    BuiltInFun.IndexByteString : lambda x, y: x[y],
+    BuiltInFun.EqualsByteString : lambda x, y: x == y,
+    BuiltInFun.LessThanByteString : lambda x, y: x < y,
+    BuiltInFun.LessThanEqualsByteString : lambda x, y: x <= y,
+    BuiltInFun.Sha2_256 : lambda x: hashlib.sha256(x).digest(),
+    BuiltInFun.Sha3_256 : lambda x: hashlib.sha3_256(x).digest(),
+    BuiltInFun.Blake2b_256 : lambda x: hashlib.blake2b(x).digest(),
+    # TODO how to emulate this?
+    BuiltInFun.VerifySignature : lambda pk, m, s: True,
+    BuiltInFun.AppendString: lambda x, y: x + y,
+    BuiltInFun.EqualsString: lambda x, y: x == y,
+    BuiltInFun.EncodeUtf8: lambda x: x.encode("utf8"),
+    BuiltInFun.DecodeUtf8: lambda x: x.decode("utf8"),
     BuiltInFun.IfThenElse : lambda x, y, z: y if x else z,
+    BuiltInFun.ChooseUnit : lambda x, y: y,
+    BuiltInFun.Trace : lambda x, y: print(x) or y,
+    BuiltInFun.FstPair : lambda x: lambda _: lambda _: x[0],
+    BuiltInFun.SndPair : lambda x: lambda _: lambda _: x[1],
+    # TODO proper implementation
     BuiltInFun.UnIData : lambda x: int(x),
     BuiltInFun.UnConstrData : lambda x: (0, x.__dict__.keys()),
-    BuiltInFun.SndPair : lambda x: lambda _: lambda _: x[1],
     BuiltInFun.NullList : lambda x: lambda _: x == [],
     BuiltInFun.HeadList : lambda x: lambda _: x[0],
     BuiltInFun.TailList : lambda x: lambda _: x[1:],

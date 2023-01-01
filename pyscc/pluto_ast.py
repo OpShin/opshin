@@ -235,34 +235,42 @@ class TupleAccess(AST):
     def __new__(cls, tuple: AST, index: int, size: int):
         return Apply(Lambda([f"v{i}" for i in range(size)], Var(f"v{index}")), tuple)
 
+BUILTIN_TYPE_MAP = {
+    bytes: (ByteString, id),
+    str: (ByteString, lambda x: x.encode()),
+    int: (Integer, id),
+    bool: (Bool, id)
+}
 
-class UpdatableMap(AST):
+class Not(AST):
 
-    def __new__(cls) -> "UpdatableMap":
-        return Lambda(["x"], Error())
+    def __new__(cls, x: AST):
+        return Ite(x, Bool(False), Bool(True))
+
+class Iff(AST):
+
+    def __new__(cls, x: AST, y: AST):
+        return Ite(x, y, Not(y))
 
 EQUALS_MAP = {
-    ByteString: uplc_ast.BuiltInFun.EqualsByteString,
-    Integer: uplc_ast.BuiltInFun.EqualsInteger,
+    ByteString: (lambda x, y: Apply(BuiltIn(uplc_ast.BuiltInFun.EqualsByteString), x, y)),
+    Integer: (lambda x, y: Apply(BuiltIn(uplc_ast.BuiltInFun.EqualsInteger), x, y)),
+    Bool: (lambda x, y: Iff(x, y))
 }
 
 def extend_map(
-    names: typing.List[typing.Any],
-    values: typing.List[AST],
-    old_statemonad: UpdatableMap,
-    keytype = ByteString
-) -> UpdatableMap:
+        names: typing.List[typing.Any],
+        values: typing.List[AST],
+        old_statemonad: "MutableMap",
+) -> "MutableMap":
     additional_compares = Apply(
         old_statemonad,
         Var("x"),
     )
     for name, value in zip(names, values):
+        keytype, transform = BUILTIN_TYPE_MAP[type(name)]
         additional_compares = Ite(
-            Apply(
-                BuiltIn(EQUALS_MAP[keytype]),
-                Var("x"),
-                keytype(name),
-            ),
+            EQUALS_MAP[keytype](Var("x"), keytype(transform(name))),
             value,
             additional_compares,
         )
@@ -271,13 +279,21 @@ def extend_map(
         additional_compares,
     )
 
+class MutableMap(AST):
+
+    def __new__(cls, kv: typing.Optional[typing.Dict[typing.Any, AST]]=None) -> "MutableMap":
+        res = Lambda(["x"], Error())
+        if kv is not None:
+            res = extend_map(kv.keys(), kv.values(), res)
+        return res
+
 
 TOPRIMITIVEVALUE = b"0"
 DICT = b"1"
 
-class WrappedValue():
+class WrappedValue(AST):
 
-    def __new__(cls, uplc_obj: AST, attributes: UpdatableMap):
+    def __new__(cls, uplc_obj: AST, attributes: MutableMap):
         updated_map = extend_map([TOPRIMITIVEVALUE, DICT], [uplc_obj, attributes], attributes)
         return updated_map
 
@@ -285,10 +301,10 @@ class WrappedValue():
 def to_primitive_value(wv: WrappedValue):
     return Apply(wv, TOPRIMITIVEVALUE)
 
-def to_dict(wv: WrappedValue) -> UpdatableMap:
+def to_dict(wv: WrappedValue) -> MutableMap:
     return Apply(wv, DICT)
 
-class AttributeAccess():
+class AttributeAccess(AST):
 
     def __new__(cls, wv: WrappedValue, attribute_name: str):
         return Apply(wv, attribute_name.encode())
@@ -312,7 +328,7 @@ INTEGER_ATTRIBUTES_MAP = {
 INTEGER_ATTRIBUTES = extend_map(
     [k.encode() for k in INTEGER_ATTRIBUTES_MAP.keys()],
     INTEGER_ATTRIBUTES_MAP.values(),
-    UpdatableMap(),
+    MutableMap(),
 )
 
 def from_primitive_int(i: Integer):

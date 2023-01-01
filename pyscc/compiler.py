@@ -49,7 +49,7 @@ ConstantMap = {
     type(None): plt.Unit,
 }
 
-def extend_statemonad(names: typing.List[str], values: typing.List[plt.AST], old_statemonad: plt.UpdatableMap):
+def extend_statemonad(names: typing.List[str], values: typing.List[plt.AST], old_statemonad: plt.MutableMap):
     return plt.extend_map([n.encode() for n in names], values, old_statemonad)
 
 
@@ -84,7 +84,7 @@ class PythonBuiltIn(Enum):
 INITIAL_STATE = extend_statemonad(
     [b.name for b in PythonBuiltIn],
     [b.value for b in PythonBuiltIn],
-    plt.UpdatableMap(),
+    plt.MutableMap(),
 )
 
 

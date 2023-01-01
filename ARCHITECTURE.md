@@ -21,7 +21,8 @@ Arrays and objects may be represented by consecutive natural number allocationss
 
 ## Objects
 
-When being passed to the contract, every object is wrapped with a thin mapping from attribute/method names to
+Generally, all primitive objects are kept wrapped in `Data`, which allows distinguishing dynamic types of objects.
+In addition, every object is wrapped with a thin mapping from attribute/method names to
 constants/lambda functions that evaluate to the equivalent value if passed "self".
 
 Inside the code we assume every object to be wrapped and can hence translate everything to self(attributename).
