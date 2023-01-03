@@ -46,6 +46,8 @@ def extend_statemonad(
 
 INTEGER_ATTRIBUTE_VARNAME = b"\0int_attribute"
 BOOL_ATTRIBUTE_VARNAME = b"\0bool_attribute"
+NONE_ATTRIBUTE_VARNAME = b"\0None_attribute"
+TYPE_ATTRIBUTE_VARNAME = b"\0type_attribute"
 
 to_primitive_int = plt.to_primitive
 to_primitive_bool = plt.to_primitive
@@ -350,9 +352,26 @@ BOOL_ATTRIBUTES = plt.extend_map(
     plt.MutableMap(),
 )
 
+NONE_CLASS = b"NoneType"
+
+NONE_ATTRIBUTES_MAP = {
+    # TODO properly define __eq__
+    "__bool__": Lambda(
+        [STATEMONAD, "self"],
+        normal_return(plt.Var(STATEMONAD), from_primitive_bool(plt.Bool(False))),
+    ),
+}
+
+NONE_ATTRIBUTES = plt.extend_map(
+    [k.encode() for k in NONE_ATTRIBUTES_MAP.keys()],
+    NONE_ATTRIBUTES_MAP.values(),
+    plt.MutableMap(),
+)
+
 INITIAL_ATTRIBUTES = {
     INTEGER_ATTRIBUTE_VARNAME: INTEGER_ATTRIBUTES,
     BOOL_ATTRIBUTE_VARNAME: BOOL_ATTRIBUTES,
+    NONE_ATTRIBUTE_VARNAME: NONE_ATTRIBUTES,
 }
 
 INITIAL_STATE = plt.extend_map(
@@ -362,56 +381,51 @@ INITIAL_STATE = plt.extend_map(
 )
 
 
-class PythonBuiltIn(Enum):
-    print = plt.Lambda(
-        ["f", "x"],
-        plt.Apply(
-            plt.Force(
-                plt.BuiltIn(BuiltInFun.Trace),
-            ),
-            plt.Var("x"),
-            plt.Unit(),
+PYTHON_BUILT_INS = {
+    "None": plt.Lambda(
+        [STATEMONAD],
+        normal_return(
+            plt.Var(STATEMONAD), plt.Apply(plt.Var(STATEMONAD), NONE_ATTRIBUTE_VARNAME)
         ),
-    )
-    range = plt.Lambda(
-        ["f", "limit"],
-        plt.Tuple(
-            plt.Integer(0),
-            plt.Lambda(
-                ["f", "state"],
-                plt.Tuple(
-                    plt.Apply(
-                        plt.BuiltIn(BuiltInFun.LessThanInteger),
-                        plt.Var("state"),
-                        plt.Var("limit"),
+    ),
+    "print": plt.Lambda(
+        [STATEMONAD, "x"],
+        normal_return(
+            plt.Var(STATEMONAD),
+            plt.Apply(
+                plt.Lambda(["a", "b"], plt.Var("b")),
+                plt.Apply(
+                    plt.Force(
+                        plt.BuiltIn(BuiltInFun.Trace),
                     ),
-                    plt.Var("state"),
-                    plt.Apply(
-                        plt.BuiltIn(BuiltInFun.AddInteger),
-                        plt.Var("state"),
-                        plt.Integer(1),
-                    ),
+                    plt.Var("x"),
+                    plt.Unit(),
                 ),
-            ),
+                plt.Apply(plt.Var(STATEMONAD), NONE_ATTRIBUTE_VARNAME)
+            )
         ),
-    )
-    int = plt.Lambda(
-        ["f", "x"], plt.Apply(plt.BuiltIn(BuiltInFun.UnIData), plt.Var("x"))
-    )
-    __fields__ = plt.Lambda(
-        ["f", "x"],
-        plt.Apply(
-            plt.Force(plt.Force(plt.BuiltIn(BuiltInFun.SndPair))),
-            plt.Apply(plt.BuiltIn(BuiltInFun.UnConstrData), plt.Var("x")),
-        ),
-    )
+    ),
+    "int": plt.Lambda(
+        [STATEMONAD, "x"],
+        # TODO fall back to trying to parse str -> int
+        MethodCall(plt.Var("x"), plt.Var(STATEMONAD), "__int__"),
+    ),
+}
 
 
 INITIAL_STATE = extend_statemonad(
-    [b.name for b in PythonBuiltIn],
-    [b.value for b in PythonBuiltIn],
+    PYTHON_BUILT_INS.keys(),
+    PYTHON_BUILT_INS.values(),
     INITIAL_STATE,
 )
+
+
+BinOpMap = {
+    Add: "__add__",
+    Sub: "__sub__",
+    Mult: "__mul__",
+    FloorDiv: "__div__",
+}
 
 
 class UPLCCompiler(NodeTransformer):
@@ -432,7 +446,8 @@ class UPLCCompiler(NodeTransformer):
         s = plt.Var(STATEMONAD)
         for n in node_seq:
             compiled_stmt = self.visit(n)
-            s = plt.Apply(compiled_stmt, s)
+            # TODO also abort with return
+            s = chain(s, compiled_stmt)
         return plt.Lambda([STATEMONAD], s)
 
     def visit_BinOp(self, node: TypedBinOp) -> plt.AST:
