@@ -8,13 +8,16 @@ from .rewrite_augassign import RewriteAugAssign
 from .rewrite_dataclass import RewriteDataclasses
 from .uplc_ast import BuiltInFun
 
-STATEMONAD = "s"
+VARS = "v"
+SUBVARS = "sv"
+HEAP = "h"
 
 
 class ReturnTupleElem(Enum):
     STATE_FLAG = 0
-    STATE_MONAD = 1
-    RETURN_VALUE = 2
+    LOCAL_VARS = 1
+    HEAP = 2
+    RETURN_VALUE = 3
 
 
 RETURN_TUPLE_SIZE = len(ReturnTupleElem)
@@ -53,24 +56,32 @@ to_primitive_int = plt.to_primitive
 to_primitive_bool = plt.to_primitive
 
 
-def from_primitive_int(statemonad: plt.AST, p: plt.AST):
+def from_primitive_int(local_vars: plt.AST, p: plt.AST):
     return plt.from_primitive(
-        p, plt.Apply(statemonad, INTEGER_ATTRIBUTE_VARNAME)
+        p, plt.Apply(local_vars, INTEGER_ATTRIBUTE_VARNAME, plt.Unit())
     )
 
 
-def from_primitive_bool(statemonad: plt.AST, p: plt.AST):
-    return plt.from_primitive(p, plt.Apply(statemonad, BOOL_ATTRIBUTE_VARNAME))
+def from_primitive_bool(local_vars: plt.AST, p: plt.AST):
+    return plt.from_primitive(
+        p, plt.Apply(local_vars, BOOL_ATTRIBUTE_VARNAME, plt.Unit())
+    )
 
-def from_primitive_none(statemonad: plt.AST):
-    return plt.Apply(statemonad, NONE_ATTRIBUTE_VARNAME)
+
+def from_primitive_none(local_vars: plt.AST):
+    return plt.Apply(local_vars, NONE_ATTRIBUTE_VARNAME, plt.Unit())
+
 
 def state_flag(ret: plt.AST):
     return plt.TupleAccess(ret, ReturnTupleElem.STATE_FLAG.value, RETURN_TUPLE_SIZE)
 
 
-def state_monad(ret: plt.AST):
-    return plt.TupleAccess(ret, ReturnTupleElem.STATE_MONAD.value, RETURN_TUPLE_SIZE)
+def local_vars(ret: plt.AST):
+    return plt.TupleAccess(ret, ReturnTupleElem.LOCAL_VARS.value, RETURN_TUPLE_SIZE)
+
+
+def heap(ret: plt.AST):
+    return plt.TupleAccess(ret, ReturnTupleElem.HEAP.value, RETURN_TUPLE_SIZE)
 
 
 def return_value(ret: plt.AST):
@@ -85,68 +96,95 @@ def exception_isset(ret: plt.AST):
     return plt.EqualsInteger(state_flag(ret), plt.Integer(StateFlags.ABORT.value))
 
 
-def normal_return(state_monad: plt.AST, return_value: plt.AST):
+def normal_return(local_vars: plt.AST, heap: plt.AST, return_value: plt.AST):
     return plt.Tuple(
         plt.Integer(StateFlags.RETURN.value),
-        state_monad,
+        local_vars,
+        heap,
         return_value,
     )
 
 
-def except_return(state_monad: plt.AST, exception: plt.AST):
+def except_return(local_vars: plt.AST, heap: plt.AST, exception: plt.AST):
     return plt.Tuple(
         plt.Integer(StateFlags.ABORT.value),
-        state_monad,
+        local_vars,
+        heap,
         exception,
     )
 
 
-def MethodCall(wv: plt.WrappedValue, statemonad: plt.AST, method_name: str, *args: plt.AST):
+# TODO make sure that only unmodified variables are returned
+def MethodCall(
+    wv: plt.WrappedValue,
+    local_vars: plt.AST,
+    heap: plt.AST,
+    method_name: str,
+    *args: plt.AST,
+):
     return plt.Apply(
         plt.Apply(
             wv,
             method_name.encode(),
             plt.Lambda(
-                [STATEMONAD, "self", [str(i) for i, _ in enumerate(args)]],
+                ["self", [str(i) for i, _ in enumerate(args)], VARS, HEAP],
                 # TODO exceptions could also be a bit more fancy wrapped objects
-                except_return(plt.Var("self"), plt.Text("AttributeError")),
+                except_return(plt.Var(VARS), plt.Var(HEAP), plt.Text("AttributeError")),
             ),
         ),
-        statemonad,
         wv,
         *args,
+        local_vars,
+        heap,
     )
 
 
-def AttributeAccess(wv: plt.WrappedValue, statemonad: plt.Var, attribute_name: str):
-    return MethodCall(wv, statemonad, attribute_name)
+def AttributeAccess(
+    wv: plt.WrappedValue, local_vars: plt.AST, heap: plt.AST, attribute_name: str
+):
+    return MethodCall(wv, local_vars, heap, attribute_name)
 
 
 def chain_except(a: plt.AST, b: plt.AST, c: plt.AST):
     """
     The monad combinator
-    b/c must expect statemonad and return value of a as first two arguments
+    b/c must expect local vars, heap and return value of a as first two arguments
     """
     return plt.Apply(
         plt.Lambda(
             ["r"],
             plt.Ite(
                 exception_isset(plt.Var("r")),
-                plt.Apply(c, state_monad(plt.Var("r")), return_value(plt.Var("r"))),
-                plt.Apply(b, state_monad(plt.Var("r")), return_value(plt.Var("r"))),
+                plt.Apply(
+                    c,
+                    local_vars(plt.Var("r")),
+                    heap(plt.Var("r")),
+                    return_value(plt.Var("r")),
+                ),
+                plt.Apply(
+                    b,
+                    local_vars(plt.Var("r")),
+                    heap(plt.Var("r")),
+                    return_value(plt.Var("r")),
+                ),
             ),
         ),
         a,
     )
 
 
-def chain(a: plt.AST, b: plt.AST):
+def chain(a: plt.AST, *b: plt.AST):
     # clean but inefficient implementation
-    return chain_except(
+    if len(b) == 0:
+        return a
+    res = chain_except(
         a,
-        b,
-        plt.Lambda([STATEMONAD, "e"], except_return(plt.Var(STATEMONAD), plt.Var("e"))),
+        b[0],
+        plt.Lambda(
+            [VARS, HEAP, "e"], except_return(plt.Var(VARS), plt.Var(HEAP), plt.Var("e"))
+        ),
     )
+    return chain(res, *b[1:])
 
 
 def try_catch(t: plt.AST, c: plt.AST):
@@ -159,7 +197,9 @@ def try_catch(t: plt.AST, c: plt.AST):
     # clean but inefficient implementation
     return chain_except(
         t,
-        plt.Lambda([STATEMONAD, "r"], normal_return(plt.Var(STATEMONAD), plt.Var("r"))),
+        plt.Lambda(
+            [VARS, HEAP, "r"], normal_return(plt.Var(VARS), plt.Var(HEAP), plt.Var("r"))
+        ),
         c,
     )
     # unclean but efficient implementation
@@ -179,79 +219,85 @@ def try_catch(t: plt.AST, c: plt.AST):
 # self is the simplest source of non-infinitely recursing, complete, integer attributes
 INTEGER_ATTRIBUTES_MAP = {
     "__add__": Lambda(
-        [STATEMONAD, "self", "other"],
+        ["self", "other", VARS, HEAP],
         chain(
-            MethodCall(plt.Var("other"), plt.Var(STATEMONAD), "__int__"),
+            MethodCall(plt.Var("other"), plt.Var(VARS), plt.Var(HEAP), "__int__"),
             plt.Lambda(
-                [STATEMONAD, "other_int"],
+                [VARS, HEAP, "other_int"],
                 normal_return(
-                    plt.Var(STATEMONAD),
+                    plt.Var(VARS),
+                    plt.Var(HEAP),
                     from_primitive_int(
-                        plt.Var(STATEMONAD),
+                        plt.Var(VARS),
                         plt.AddInteger(
                             to_primitive_int(plt.Var("self")),
                             to_primitive_int(plt.Var("other_int")),
-                        )
+                        ),
                     ),
                 ),
             ),
         ),
     ),
     "__sub__": Lambda(
-        [STATEMONAD, "self", "other"],
+        ["self", "other", VARS, HEAP],
         chain(
-            MethodCall(plt.Var("other"), plt.Var(STATEMONAD), "__int__"),
+            MethodCall(plt.Var("other"), plt.Var(VARS), plt.Var(HEAP), "__int__"),
             plt.Lambda(
-                [STATEMONAD, "other_int"],
+                [VARS, HEAP, "other_int"],
                 normal_return(
-                    plt.Var(STATEMONAD),
+                    plt.Var(VARS),
+                    plt.Var(HEAP),
                     from_primitive_int(
-                        plt.Var(STATEMONAD),
+                        plt.Var(VARS),
                         plt.SubtractInteger(
                             to_primitive_int(plt.Var("self")),
                             to_primitive_int(plt.Var("other_int")),
-                        )
+                        ),
                     ),
                 ),
             ),
         ),
     ),
     "__eq__": Lambda(
-        [STATEMONAD, "self", "other"],
+        ["self", "other", VARS, HEAP],
         chain_except(
-            plt.MethodCall(plt.Var("other"), plt.Var(STATEMONAD), "__int__"),
+            plt.MethodCall(plt.Var("other"), plt.Var(VARS), plt.Var(HEAP), "__int__"),
             plt.Lambda(
-                [STATEMONAD, "other_int"],
+                [VARS, HEAP, "other_int"],
                 normal_return(
-                    plt.Var(STATEMONAD),
+                    plt.Var(VARS),
+                    plt.Var(HEAP),
                     from_primitive_bool(
-                        plt.Var(STATEMONAD),
+                        plt.Var(VARS),
                         plt.EqualsInteger(
                             to_primitive_int(plt.Var("self")),
                             to_primitive_int(plt.Var("other_int")),
-                        )
+                        ),
                     ),
                 ),
             ),
             plt.Lambda(
-                [STATEMONAD, "other_int"],
+                [VARS, HEAP, "other_int"],
                 normal_return(
-                    plt.Var(STATEMONAD), from_primitive_bool(plt.Var(STATEMONAD), plt.Bool(False))
+                    plt.Var(VARS),
+                    plt.Var(HEAP),
+                    from_primitive_bool(plt.Var(VARS), plt.Bool(False)),
                 ),
             ),
         ),
     ),
     "__int__": Lambda(
-        [STATEMONAD, "self"],
-        normal_return(plt.Var(STATEMONAD), plt.Var("self")),
+        ["self", VARS, HEAP],
+        normal_return(plt.Var(VARS), plt.Var(HEAP), plt.Var("self")),
     ),
     "__bool__": Lambda(
-        [STATEMONAD, "self"],
+        ["self", VARS, HEAP],
         normal_return(
-            plt.Var(STATEMONAD),
+            plt.Var(VARS),
+            plt.Var(HEAP),
             from_primitive_bool(
-                plt.Var(STATEMONAD),
-                plt.NotEqualsInteger(to_primitive_int(plt.Var("self")), plt.Integer(0))
+                plt.Var(VARS),
+                plt.NotEqualsInteger(to_primitive_int(plt.Var("self")), plt.Integer(0)),
             ),
         ),
     ),
@@ -265,97 +311,109 @@ INTEGER_ATTRIBUTES = plt.extend_map(
 
 BOOL_ATTRIBUTES_MAP = {
     "__add__": Lambda(
-        [STATEMONAD, "self", "other"],
+        ["self", "other", VARS, HEAP],
         chain(
-            MethodCall(plt.Var("other"), plt.Var(STATEMONAD), "__int__"),
+            MethodCall(plt.Var("other"), plt.Var(VARS), plt.Var(HEAP), "__int__"),
             plt.Lambda(
-                [STATEMONAD, "other_int"],
+                [VARS, HEAP, "other_int"],
                 normal_return(
-                    plt.Var(STATEMONAD),
+                    plt.Var(VARS),
+                    plt.Var(HEAP),
                     from_primitive_int(
-                        plt.Var(STATEMONAD),
+                        plt.Var(VARS),
                         plt.AddInteger(
                             # shortcut because we know there wont be an exception here
                             to_primitive_int(
                                 return_value(
                                     MethodCall(
-                                        plt.Var("self"), plt.Var(STATEMONAD), "__int__"
+                                        plt.Var("self"),
+                                        plt.Var(VARS),
+                                        plt.Var(HEAP),
+                                        "__int__",
                                     )
                                 )
                             ),
                             to_primitive_int(plt.Var("other_int")),
-                        )
+                        ),
                     ),
                 ),
             ),
         ),
     ),
     "__sub__": Lambda(
-        [STATEMONAD, "self", "other"],
+        ["_", "self", "other", VARS, HEAP],
         chain(
-            MethodCall(plt.Var("other"), plt.Var(STATEMONAD), "__int__"),
+            MethodCall(plt.Var("other"), plt.Var(VARS), plt.Var(HEAP), "__int__"),
             plt.Lambda(
-                [STATEMONAD, "other_int"],
+                [VARS, HEAP, "other_int"],
                 normal_return(
-                    plt.Var(STATEMONAD),
+                    plt.Var(VARS),
+                    plt.Var(HEAP),
                     from_primitive_int(
-                        plt.Var(STATEMONAD),
+                        plt.Var(VARS),
                         plt.SubtractInteger(
                             # shortcut because we know there wont be an exception here
                             to_primitive_int(
                                 return_value(
                                     MethodCall(
-                                        plt.Var("self"), plt.Var(STATEMONAD), "__int__"
+                                        plt.Var("self"),
+                                        plt.Var(VARS),
+                                        plt.Var(HEAP),
+                                        "__int__",
                                     )
                                 )
                             ),
                             to_primitive_int(plt.Var("other_int")),
-                        )
+                        ),
                     ),
                 ),
             ),
         ),
     ),
     "__eq__": Lambda(
-        [STATEMONAD, "self", "other"],
+        ["_", "self", "other", VARS, HEAP],
         chain_except(
-            plt.MethodCall(plt.Var("other"), plt.Var(STATEMONAD), "__bool__"),
+            plt.MethodCall(plt.Var("other"), plt.Var(VARS), plt.Var(HEAP), "__bool__"),
             plt.Lambda(
-                [STATEMONAD, "other_bool"],
+                [VARS, HEAP, "other_bool"],
                 normal_return(
-                    plt.Var(STATEMONAD),
+                    plt.Var(VARS),
+                    plt.Var(HEAP),
                     from_primitive_bool(
-                        plt.Var(STATEMONAD),
+                        plt.Var(VARS),
                         plt.EqualsBool(
                             to_primitive_bool(plt.Var("self")),
                             to_primitive_bool(plt.Var("other_bool")),
-                        )
+                        ),
                     ),
                 ),
             ),
             plt.Lambda(
-                [STATEMONAD, "other_bool"],
+                [VARS, HEAP, "other_bool"],
                 normal_return(
-                    plt.Var(STATEMONAD), from_primitive_bool(plt.Var(STATEMONAD), plt.Bool(False))
+                    plt.Var(VARS),
+                    plt.Var(HEAP),
+                    from_primitive_bool(plt.Var(VARS), plt.Bool(False)),
                 ),
             ),
         ),
     ),
     "__int__": Lambda(
-        [STATEMONAD, "self"],
+        ["_", "self", VARS, HEAP],
         normal_return(
-            plt.Var(STATEMONAD),
+            plt.Var(VARS),
+            plt.Var(HEAP),
             from_primitive_int(
-                plt.Var(STATEMONAD),
+                plt.Var(HEAP),
                 plt.Ite(
                     to_primitive_bool(plt.Var("self")), plt.Integer(1), plt.Integer(0)
-                )
+                ),
             ),
         ),
     ),
     "__bool__": Lambda(
-        [STATEMONAD, "self"],
-        normal_return(plt.Var(STATEMONAD), plt.Var("self")),
+        ["_", "self", VARS, HEAP],
+        normal_return(plt.Var(VARS), plt.Var(HEAP), plt.Var("self")),
     ),
 }
 
@@ -370,8 +428,12 @@ NONE_CLASS = b"NoneType"
 NONE_ATTRIBUTES_MAP = {
     # TODO properly define __eq__
     "__bool__": Lambda(
-        [STATEMONAD, "self"],
-        normal_return(plt.Var(STATEMONAD), from_primitive_bool(plt.Var(STATEMONAD), plt.Bool(False))),
+        ["_", "self", VARS, HEAP],
+        normal_return(
+            plt.Var(VARS),
+            plt.Var(HEAP),
+            from_primitive_bool(plt.Var(VARS), plt.Bool(False)),
+        ),
     ),
 }
 
@@ -387,24 +449,28 @@ INITIAL_ATTRIBUTES = {
     NONE_ATTRIBUTE_VARNAME: NONE_ATTRIBUTES,
 }
 
-INITIAL_STATE = plt.extend_map(
+INITIAL_VARS = plt.extend_map(
     INITIAL_ATTRIBUTES.keys(),
     INITIAL_ATTRIBUTES.values(),
-    plt.MutableMap,
+    plt.MutableMap(),
 )
+INITIAL_HEAP = plt.MutableMap()
 
 
 PYTHON_BUILT_INS = {
     "None": plt.Lambda(
-        [STATEMONAD],
+        [VARS, HEAP],
         normal_return(
-            plt.Var(STATEMONAD), plt.Apply(plt.Var(STATEMONAD), NONE_ATTRIBUTE_VARNAME)
+            plt.Var(VARS),
+            plt.Var(HEAP),
+            from_primitive_none(plt.Var(VARS)),
         ),
     ),
     "print": plt.Lambda(
-        [STATEMONAD, "x"],
+        ["_", "x", VARS, HEAP],
         normal_return(
-            plt.Var(STATEMONAD),
+            plt.Var(VARS),
+            plt.Var(HEAP),
             plt.Apply(
                 plt.Lambda(["a", "b"], plt.Var("b")),
                 plt.Trace(
@@ -412,22 +478,22 @@ PYTHON_BUILT_INS = {
                     plt.Var("x"),
                     plt.Unit(),
                 ),
-                plt.Apply(plt.Var(STATEMONAD), NONE_ATTRIBUTE_VARNAME)
-            )
+                from_primitive_none(plt.Var(VARS)),
+            ),
         ),
     ),
     "int": plt.Lambda(
-        [STATEMONAD, "x"],
+        ["_", "x", VARS, HEAP],
         # TODO fall back to trying to parse str -> int
-        MethodCall(plt.Var("x"), plt.Var(STATEMONAD), "__int__"),
+        MethodCall(plt.Var("x"), plt.Var(VARS), plt.Var(HEAP), "__int__"),
     ),
 }
 
 
-INITIAL_STATE = extend_statemonad(
+INITIAL_VARS = extend_statemonad(
     PYTHON_BUILT_INS.keys(),
     PYTHON_BUILT_INS.values(),
-    INITIAL_STATE,
+    INITIAL_VARS,
 )
 
 
@@ -462,7 +528,9 @@ class UPLCCompiler(NodeTransformer):
         return visitor(node)
 
     def visit_sequence(self, node_seq: typing.List[typedstmt]) -> plt.AST:
-        s = plt.Var(STATEMONAD)
+        s = normal_return(
+            plt.Var(VARS), plt.Var(HEAP), from_primitive_none(plt.Var(VARS))
+        )
         for n in node_seq:
             compiled_stmt = self.visit(n)
             # TODO also abort with return
@@ -470,23 +538,40 @@ class UPLCCompiler(NodeTransformer):
                 plt.Lambda(
                     ["r"],
                     plt.Ite(
-                        plt.EqualsInteger(state_flag(plt.Var("r")), plt.Integer(StateFlags.CONTINUE.value)),
-                        plt.Apply(compiled_stmt, state_monad(plt.Var("r"))),
+                        plt.EqualsInteger(
+                            state_flag(plt.Var("r")),
+                            plt.Integer(StateFlags.CONTINUE.value),
+                        ),
+                        plt.Apply(
+                            compiled_stmt, local_vars(plt.Var("r")), heap(plt.Var("r"))
+                        ),
                         # Either it is abort or return - in both cases, just return whatever that step returned
                         plt.Var("r"),
                     ),
                 ),
                 s,
             )
-        return plt.Lambda([STATEMONAD], s)
+        return plt.Lambda([VARS, HEAP], s)
 
     def visit_BinOp(self, node: TypedBinOp) -> plt.AST:
         opmet = BinOpMap.get(type(node.op))
         if opmet is None:
             raise NotImplementedError(f"Operation {node.op} is not implemented")
         return plt.Lambda(
-            [STATEMONAD],
-            MethodCall(self.visit(node.left), plt.Var(STATEMONAD), opmet, plt.Apply(self.visit(node.right), plt.Var(STATEMONAD))),
+            [VARS, HEAP],
+            chain(
+                plt.Apply(self.visit(node.right), plt.Var(VARS), plt.Var(HEAP)),
+                plt.Lambda(
+                    [VARS, HEAP, "r"],
+                    MethodCall(
+                        self.visit(node.left),
+                        plt.Var(VARS),
+                        plt.Var(HEAP),
+                        opmet,
+                        plt.Var("r"),
+                    ),
+                ),
+            ),
         )
 
     def visit_Compare(self, node: Compare) -> plt.AST:
@@ -496,35 +581,66 @@ class UPLCCompiler(NodeTransformer):
         if opmet is None:
             raise NotImplementedError(f"Operation {node.ops[0]} is not implemented")
         return plt.Lambda(
-            [STATEMONAD],
-            MethodCall(self.visit(node.left), plt.Var(STATEMONAD), opmet, plt.Apply(self.visit(node.comparators[0]), plt.Var(STATEMONAD))),
+            [VARS, HEAP],
+            chain(
+                plt.Apply(
+                    self.visit(node.comparators[0]), plt.Var(VARS), plt.Var(HEAP)
+                ),
+                plt.Lambda(
+                    [VARS, HEAP, "r"],
+                    MethodCall(
+                        self.visit(node.left),
+                        plt.Var(VARS),
+                        plt.Var(HEAP),
+                        opmet,
+                        plt.Var("r"),
+                    ),
+                ),
+            ),
         )
 
     def visit_Module(self, node: TypedModule) -> plt.AST:
+        # TODO insert data un-wrapping for byte/int
+        # TODO insert wrapping in wrapped value types
+        # TODO pass program arguments to the validator
         cp = plt.Program(
             "0.0.1",
             try_catch(
-                plt.Let(
-                    [
-                        (
-                            "g",
+                chain(
+                    plt.Apply(
+                        self.visit_sequence(node.body),
+                        INITIAL_VARS,
+                        INITIAL_HEAP,
+                    ),
+                    plt.Lambda(
+                        [VARS, HEAP, "r"],
+                        normal_return(
+                            plt.Var(VARS),
+                            plt.Var(HEAP),
+                            # vm => Validator function missing
                             plt.Apply(
-                                plt.Apply(self.visit_sequence(node.body), INITIAL_STATE),
+                                plt.Var("r"),
                                 plt.ByteString("validator".encode("utf8")),
+                                plt.Lambda(["_"], plt.Trace("vm", plt.Error())),
                             ),
-                        )
-                    ],
-                    plt.Apply(plt.Var("g"), plt.Var("g")),
+                        ),
+                    ),
+                    plt.Lambda(
+                        [VARS, HEAP, "g"],
+                        # TODO program paramters need to be passed in here
+                        plt.Apply(
+                            plt.Var("g"), plt.Var("g"), plt.Var(VARS), plt.Var(HEAP)
+                        ),
+                    ),
                 ),
                 plt.Lambda(
-                    [STATEMONAD, "e"],
+                    [VARS, HEAP, "e"],
                     plt.Trace(
                         plt.Var("e"),
                         plt.Error(),
-                    )
-                )
-
-            )
+                    ),
+                ),
+            ),
         )
         return cp
 
@@ -534,10 +650,22 @@ class UPLCCompiler(NodeTransformer):
             raise NotImplementedError(
                 f"Constants of type {type(node.value)} are not supported"
             )
-        return plt.Lambda([STATEMONAD], plt_type(node.value))
+        return plt.Lambda(
+            [VARS, HEAP],
+            normal_return(
+                plt.Var(VARS),
+                plt.Var(HEAP),
+                plt_type(node.value),
+            ),
+        )
 
     def visit_NoneType(self, _: typing.Optional[typing.Any]) -> plt.AST:
-        return plt.Lambda([STATEMONAD], from_primitive_none(plt.Var(STATEMONAD)))
+        return plt.Lambda(
+            [VARS, HEAP],
+            normal_return(
+                plt.Var(VARS), plt.Var(HEAP), from_primitive_none(plt.Var(VARS))
+            ),
+        )
 
     def visit_Assign(self, node: TypedAssign) -> plt.AST:
         assert (
@@ -549,11 +677,21 @@ class UPLCCompiler(NodeTransformer):
         compiled_e = self.visit(node.value)
         # (\{STATEMONAD} -> (\x -> if (x ==b {self.visit(node.targets[0])}) then ({compiled_e} {STATEMONAD}) else ({STATEMONAD} x)))
         return plt.Lambda(
-            [STATEMONAD],
-            extend_statemonad(
-                [node.targets[0].id],
-                [plt.Apply(compiled_e, plt.Var(STATEMONAD))],
-                plt.Var(STATEMONAD),
+            [VARS, HEAP],
+            chain(
+                plt.Apply(compiled_e, plt.Var(VARS), plt.Var(HEAP)),
+                plt.Lambda(
+                    [VARS, HEAP, "r"],
+                    normal_return(
+                        extend_statemonad(
+                            [node.targets[0].id],
+                            [plt.Var("r")],
+                            plt.Var(VARS),
+                        ),
+                        plt.Var(HEAP),
+                        from_primitive_none(plt.Var(VARS)),
+                    ),
+                ),
             ),
         )
 
@@ -561,20 +699,33 @@ class UPLCCompiler(NodeTransformer):
         # depending on load or store context, return the value of the variable or its name
         if isinstance(node.ctx, Load):
             return plt.Lambda(
-                [STATEMONAD],
-                plt.Apply(plt.Var(STATEMONAD), plt.ByteString(node.id.encode())),
+                [VARS, HEAP],
+                normal_return(
+                    plt.Var(VARS),
+                    plt.Var(HEAP),
+                    # vnd => Variable name not defined yet
+                    plt.Apply(
+                        plt.Var(VARS),
+                        plt.ByteString(node.id.encode()),
+                        plt.Lambda(["_"], plt.Trace("vnd", plt.Error())),
+                    ),
+                ),
             )
         raise NotImplementedError(f"Context {node.ctx} not supported")
 
     def visit_Expr(self, node: TypedExpr) -> plt.AST:
-        # we exploit UPLCs eager evaluation here
-        # the expression is computed even though its value is eventually discarded
-        # Note this really only makes sense for Trace
         return plt.Lambda(
-            [STATEMONAD],
-            plt.Apply(
-                plt.Lambda(["_"], plt.Var(STATEMONAD)),
-                plt.Apply(self.visit(node.value), plt.Var(STATEMONAD)),
+            [VARS, HEAP],
+            chain(
+                plt.Apply(self.visit(node.value), plt.Var(VARS), plt.Var(HEAP)),
+                plt.Lambda(
+                    [VARS, HEAP, "_"],
+                    normal_return(
+                        plt.Var(VARS),
+                        plt.Var(HEAP),
+                        from_primitive_none(plt.Var(VARS)),
+                    ),
+                ),
             ),
         )
 
@@ -582,52 +733,84 @@ class UPLCCompiler(NodeTransformer):
         # compiled_args = " ".join(f"({self.visit(a)} {STATEMONAD})" for a in node.args)
         # return rf"(\{STATEMONAD} -> ({self.visit(node.func)} {compiled_args})"
         return plt.Lambda(
-            [STATEMONAD],
-            plt.Let(
-                [("g", plt.Apply(self.visit(node.func), plt.Var(STATEMONAD)))],
-                plt.Apply(
-                    plt.Var("g"),
-                    # pass the function to itself for recursion
-                    plt.Var("g"),
-                    *(plt.Apply(self.visit(a), plt.Var(STATEMONAD)) for a in node.args),
+            [VARS, HEAP],
+            chain(
+                plt.Apply(self.visit(node.func), plt.Var(VARS), plt.Var(HEAP)),
+                plt.Lambda(
+                    [VARS, HEAP, "g"],
+                    normal_return(
+                        plt.Var(VARS),
+                        plt.Var(HEAP),
+                        plt.Apply(
+                            plt.Var("g"),
+                            # pass the function to itself for recursion
+                            plt.Var("g"),
+                        ),
+                    ),
+                ),
+                *(
+                    plt.Lambda(
+                        [VARS, HEAP, "g"],
+                        chain(
+                            plt.Apply(self.visit(a), plt.Var(VARS), plt.Var(HEAP)),
+                            plt.Lambda(
+                                [VARS, HEAP, "a"],
+                                normal_return(
+                                    plt.Var(VARS),
+                                    plt.Var(HEAP),
+                                    plt.Apply(plt.Var("g"), plt.Var("a")),
+                                ),
+                            ),
+                        ),
+                    )
+                    for a in node.args
+                ),
+                # finally pass the statemonad from the last argument to the function being called
+                plt.Lambda(
+                    [VARS, HEAP, "g"],
+                    plt.Apply(plt.Var("g"), plt.Var(VARS), plt.Var(HEAP)),
                 ),
             ),
         )
 
     def visit_FunctionDef(self, node: TypedFunctionDef) -> plt.AST:
         body = node.body.copy()
-        if not isinstance(body[-1], Return):
-            tr = Return(None)
-            tr.typ = UnitType
-            assert (
-                node.typ.rettyp == UnitType
-            ), "Function has no return statement but is supposed to return not-None value"
-            body.append(tr)
-        compiled_body = self.visit_sequence(body[:-1])
-        compiled_return = self.visit(body[-1].value)
+        compiled_body = self.visit_sequence(body)
         args_state = extend_statemonad(
             # under the name of the function, it can access itself
             [node.name] + [a.arg for a in node.args.args],
             [plt.Var("f")] + [plt.Var(f"p{i}") for i in range(len(node.args.args))],
-            plt.Var(STATEMONAD),
+            plt.Var(VARS),
         )
         return plt.Lambda(
-            [STATEMONAD],
-            extend_statemonad(
-                [node.name],
-                [
-                    plt.Lambda(
-                        ["f"] + [f"p{i}" for i in range(len(node.args.args))],
-                        plt.Apply(
-                            compiled_return,
-                            plt.Apply(
-                                compiled_body,
-                                args_state,
+            [VARS, HEAP],
+            normal_return(
+                extend_statemonad(
+                    [node.name],
+                    [
+                        plt.Lambda(
+                            ["f"]
+                            + [f"p{i}" for i in range(len(node.args.args))]
+                            + [VARS, HEAP],
+                            chain(
+                                # calls the function that will return a triple
+                                plt.Apply(compiled_body, args_state, plt.Var(HEAP)),
+                                # if successful, clean return flag and return ORIGINAL local vars, as well as MODIFIED heap
+                                plt.Lambda(
+                                    [SUBVARS, HEAP, "r"],
+                                    normal_return(
+                                        plt.Var(VARS),
+                                        plt.Var(HEAP),
+                                        plt.Var("r"),
+                                    ),
+                                ),
                             ),
-                        ),
-                    )
-                ],
-                plt.Var(STATEMONAD),
+                        )
+                    ],
+                    plt.Var(VARS),
+                ),
+                plt.Var(HEAP),
+                from_primitive_none(plt.Var(VARS)),
             ),
         )
 
@@ -641,26 +824,49 @@ class UPLCCompiler(NodeTransformer):
             return self.visit_sequence([cn] + node.orelse)
         # return rf"(\{STATEMONAD} -> let g = (\s f -> if ({compiled_c} s) then f ({compiled_s} s) f else s) in (g {STATEMONAD} g))"
         return plt.Lambda(
-            [STATEMONAD],
+            [VARS, HEAP],
             plt.Let(
                 bindings=[
                     (
                         "g",
                         plt.Lambda(
-                            ["s", "f"],
-                            plt.Ite(
-                                plt.Apply(compiled_c, plt.Var("s")),
-                                plt.Apply(
-                                    plt.Var("f"),
-                                    plt.Apply(compiled_s, plt.Var("s")),
-                                    plt.Var("f"),
+                            [VARS, HEAP, "f"],
+                            chain(
+                                plt.Apply(compiled_c, plt.Var(VARS), plt.Var(HEAP)),
+                                plt.Lambda(
+                                    [VARS, HEAP, "cond"],
+                                    plt.Ite(
+                                        from_primitive_bool(
+                                            plt.Var(VARS), plt.Var("cond")
+                                        ),
+                                        chain(
+                                            plt.Apply(
+                                                compiled_s, plt.Var(VARS), plt.Var(HEAP)
+                                            ),
+                                            plt.Lambda(
+                                                [VARS, HEAP, "_"],
+                                                plt.Apply(
+                                                    plt.Var("f"),
+                                                    plt.Var(VARS),
+                                                    plt.Var(HEAP),
+                                                    plt.Var("f"),
+                                                ),
+                                            ),
+                                        ),
+                                        normal_return(
+                                            plt.Var(VARS),
+                                            plt.Var(HEAP),
+                                            from_primitive_none(plt.Var(VARS)),
+                                        ),
+                                    ),
                                 ),
-                                plt.Var("s"),
                             ),
                         ),
                     ),
                 ],
-                term=plt.Apply(plt.Var("g"), plt.Var(STATEMONAD), plt.Var("g")),
+                term=plt.Apply(
+                    plt.Var("g"), plt.Var(VARS), plt.Var(HEAP), plt.Var("g")
+                ),
             ),
         )
 

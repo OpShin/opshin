@@ -323,11 +323,14 @@ def EqualsInteger(a: AST, b: AST):
 def NotEqualsInteger(a: AST, b: AST):
     return Not(EqualsInteger(a, b))
 
+
 def LessThanInteger(a: AST, b: AST):
     return Apply(uplc_ast.BuiltInFun.LessThanInteger, a, b)
 
+
 def LessThanEqualsInteger(a: AST, b: AST):
     return Apply(uplc_ast.BuiltInFun.LessThanEqualsInteger, a, b)
+
 
 def AddInteger(a: AST, b: AST):
     return Apply(uplc_ast.BuiltInFun.AddInteger, a, b)
@@ -342,6 +345,7 @@ def EqualsBytestring(a: AST, b: AST):
 
 
 EqualsBool = Iff
+
 
 def Trace(a: AST, b: AST):
     return Apply(

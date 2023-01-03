@@ -6,10 +6,11 @@ The general concept is as follows:
 
 Every evaluated part of the python expression tree results in a tuple of
 - state flag (0 = continue, 1 = computation stopped normally, 2 = error occurred)
-- statemonad
+- local vars (statemonad)
+- heap (statemonad)
 - return value / exception state, depending on the state flag
 
-Functions are always passed the statemonad as first argument.
+Functions are always passed the heap and shadow the local variables, but modify only a copy of the latter.
 In a return value, the state flag is only relevant if set to 2.
 
 ## Memory
@@ -17,10 +18,12 @@ In a return value, the state flag is only relevant if set to 2.
 Memory is represented in a statemonad.
 The statemonad is a natural number (the current size of allocated heap) and a nested (lambda x: if x == y then z else f(x)) comparison.
 It consists of two parts conceptually.
-One part has natural numbers (pointers) as variable names and maps these numbers to atomic values.
-The other part has bytestrings as variable names and maps these to atomic values.
+One part has natural numbers (pointers) as variable names and maps these numbers to atomic values (the heap).
+Moreover, this part is dragged along through all executions and stores side effects.
+
+The other part has bytestrings as variable names and maps these to atomic values (local vars).
 The byte strings are local variable names and map directly to respective pointers or atomic values.
-Arrays and objects may be represented by consecutive natural number allocationss in the pointer part of the statemonad.
+Arrays and objects may be represented by consecutive natural number allocationss in the heap.
 
 ## Objects
 
