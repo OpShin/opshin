@@ -16,6 +16,7 @@ class ConstantType(Enum):
     unit = auto()
     bool = auto()
 
+
 ConstantEvalMap = {
     ConstantType.integer: int,
     ConstantType.bytestring: lambda x: bytes.fromhex(x[1:]),
@@ -80,46 +81,46 @@ class BuiltInFun(Enum):
 
 
 BuiltInFunEvalMap = {
-    BuiltInFun.AddInteger : lambda x, y: x + y,
-    BuiltInFun.SubtractInteger : lambda x, y: x - y,
-    BuiltInFun.MultiplyInteger : lambda x, y: x * y,
+    BuiltInFun.AddInteger: lambda x, y: x + y,
+    BuiltInFun.SubtractInteger: lambda x, y: x - y,
+    BuiltInFun.MultiplyInteger: lambda x, y: x * y,
     # TODO difference with negative values?
-    BuiltInFun.DivideInteger : lambda x, y: x // y,
-    BuiltInFun.QuotientInteger : lambda x, y: x // y,
+    BuiltInFun.DivideInteger: lambda x, y: x // y,
+    BuiltInFun.QuotientInteger: lambda x, y: x // y,
     # TODO difference with negative values?
-    BuiltInFun.RemainderInteger : lambda x, y: x % y,
-    BuiltInFun.ModInteger : lambda x, y: x % y,
-    BuiltInFun.EqualsInteger : lambda x, y: x == y,
-    BuiltInFun.LessThanInteger : lambda x, y: x < y,
-    BuiltInFun.LessThanEqualsInteger : lambda x, y: x <= y,
-    BuiltInFun.AppendByteString : lambda x, y: x + y,
-    BuiltInFun.ConsByteString : lambda x, y: bytes([x]) + y,
-    BuiltInFun.SliceByteString : lambda x, y, z: z[x:y+1],
-    BuiltInFun.LengthOfByteString : lambda x: len(x),
-    BuiltInFun.IndexByteString : lambda x, y: x[y],
-    BuiltInFun.EqualsByteString : lambda x, y: x == y,
-    BuiltInFun.LessThanByteString : lambda x, y: x < y,
-    BuiltInFun.LessThanEqualsByteString : lambda x, y: x <= y,
-    BuiltInFun.Sha2_256 : lambda x: hashlib.sha256(x).digest(),
-    BuiltInFun.Sha3_256 : lambda x: hashlib.sha3_256(x).digest(),
-    BuiltInFun.Blake2b_256 : lambda x: hashlib.blake2b(x).digest(),
+    BuiltInFun.RemainderInteger: lambda x, y: x % y,
+    BuiltInFun.ModInteger: lambda x, y: x % y,
+    BuiltInFun.EqualsInteger: lambda x, y: x == y,
+    BuiltInFun.LessThanInteger: lambda x, y: x < y,
+    BuiltInFun.LessThanEqualsInteger: lambda x, y: x <= y,
+    BuiltInFun.AppendByteString: lambda x, y: x + y,
+    BuiltInFun.ConsByteString: lambda x, y: bytes([x]) + y,
+    BuiltInFun.SliceByteString: lambda x, y, z: z[x : y + 1],
+    BuiltInFun.LengthOfByteString: lambda x: len(x),
+    BuiltInFun.IndexByteString: lambda x, y: x[y],
+    BuiltInFun.EqualsByteString: lambda x, y: x == y,
+    BuiltInFun.LessThanByteString: lambda x, y: x < y,
+    BuiltInFun.LessThanEqualsByteString: lambda x, y: x <= y,
+    BuiltInFun.Sha2_256: lambda x: hashlib.sha256(x).digest(),
+    BuiltInFun.Sha3_256: lambda x: hashlib.sha3_256(x).digest(),
+    BuiltInFun.Blake2b_256: lambda x: hashlib.blake2b(x).digest(),
     # TODO how to emulate this?
-    BuiltInFun.VerifySignature : lambda pk, m, s: True,
+    BuiltInFun.VerifySignature: lambda pk, m, s: True,
     BuiltInFun.AppendString: lambda x, y: x + y,
     BuiltInFun.EqualsString: lambda x, y: x == y,
     BuiltInFun.EncodeUtf8: lambda x: x.encode("utf8"),
     BuiltInFun.DecodeUtf8: lambda x: x.decode("utf8"),
-    BuiltInFun.IfThenElse : lambda x, y, z: y if x else z,
-    BuiltInFun.ChooseUnit : lambda x, y: y,
-    BuiltInFun.Trace : lambda x, y: print(x) or y,
-    BuiltInFun.FstPair : lambda x: lambda _: lambda _: x[0],
-    BuiltInFun.SndPair : lambda x: lambda _: lambda _: x[1],
+    BuiltInFun.IfThenElse: lambda x, y, z: y if x else z,
+    BuiltInFun.ChooseUnit: lambda x, y: y,
+    BuiltInFun.Trace: lambda x, y: print(x) or y,
+    BuiltInFun.FstPair: lambda x: lambda _: lambda _: x[0],
+    BuiltInFun.SndPair: lambda x: lambda _: lambda _: x[1],
     # TODO proper implementation
-    BuiltInFun.UnIData : lambda x: int(x),
-    BuiltInFun.UnConstrData : lambda x: (0, x.__dict__.keys()),
-    BuiltInFun.NullList : lambda x: lambda _: x == [],
-    BuiltInFun.HeadList : lambda x: lambda _: x[0],
-    BuiltInFun.TailList : lambda x: lambda _: x[1:],
+    BuiltInFun.UnIData: lambda x: int(x),
+    BuiltInFun.UnConstrData: lambda x: (0, x.__dict__.keys()),
+    BuiltInFun.NullList: lambda x: lambda _: x == [],
+    BuiltInFun.HeadList: lambda x: lambda _: x[0],
+    BuiltInFun.TailList: lambda x: lambda _: x[1:],
 }
 
 

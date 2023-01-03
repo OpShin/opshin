@@ -13,10 +13,24 @@ class Command(enum.Enum):
 
 
 def main():
-    a = argparse.ArgumentParser(description="An evaluator and compiler from python into UPLC. Translate imperative programs into functional quasi-assembly.")
-    a.add_argument("command", type=str, choices=Command.__members__.keys(), help="The command to execute on the input file.")
-    a.add_argument("input_file", type=str, help="The input program to parse. Set to - for stdin.")
-    a.add_argument("args", nargs="*", default=[], help="Input parameters for the function, in case the command is eval.")
+    a = argparse.ArgumentParser(
+        description="An evaluator and compiler from python into UPLC. Translate imperative programs into functional quasi-assembly."
+    )
+    a.add_argument(
+        "command",
+        type=str,
+        choices=Command.__members__.keys(),
+        help="The command to execute on the input file.",
+    )
+    a.add_argument(
+        "input_file", type=str, help="The input program to parse. Set to - for stdin."
+    )
+    a.add_argument(
+        "args",
+        nargs="*",
+        default=[],
+        help="Input parameters for the function, in case the command is eval.",
+    )
     args = a.parse_args()
     command = Command(args.command)
     input_file = args.input_file if args.input_file != "-" else sys.stdin
@@ -47,5 +61,6 @@ def main():
         code = compiler.compile(ast)
         print(code.dumps())
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()

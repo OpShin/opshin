@@ -11,46 +11,39 @@ from .uplc_ast import BuiltInFun
 STATEMONAD = "s"
 
 
-BinOpMap = {
-    Add: {
-        IntegerType: BuiltInFun.AddInteger,
-        ByteStringType: BuiltInFun.AppendByteString,
-    },
-    Sub: {
-        IntegerType: BuiltInFun.SubtractInteger,
-    },
-    Mult: {
-        IntegerType: BuiltInFun.MultiplyInteger,
-    },
-    Div: {
-        IntegerType: BuiltInFun.DivideInteger,
-    },
-    Mod: {
-        IntegerType: BuiltInFun.RemainderInteger,
-    }
-}
+class ReturnTupleElem(Enum):
+    STATE_FLAG = 0
+    STATE_MONAD = 1
+    RETURN_VALUE = 2
+    EXCEPTION = 3
 
-CmpMap = {
-    Eq: {
-        IntegerType: BuiltInFun.EqualsInteger,
-        ByteStringType: BuiltInFun.EqualsByteString,
-    },
-    Lt: {
-        IntegerType: BuiltInFun.LessThanInteger,
-    }
-}
+
+RETURN_TUPLE_SIZE = len(ReturnTupleElem)
+
+
+class StateFlags(Enum):
+    CONTINUE = 0
+    ABORT = 1
+    RETURN = 2
+
 
 ConstantMap = {
     str: plt.Text,
     bytes: plt.ByteString,
-    int: plt.from_primitive_int,
-    bool: plt.Bool,
+    int: lambda x: from_primitive_int(plt.Integer(x)),
+    bool: lambda x: from_primitive_bool(plt.Bool(x)),
     # TODO support higher level Optional type
     type(None): plt.Unit,
 }
 
-def extend_statemonad(names: typing.List[str], values: typing.List[plt.AST], old_statemonad: plt.MutableMap):
+
+def extend_statemonad(
+    names: typing.List[str],
+    values: typing.List[plt.AST],
+    old_statemonad: plt.MutableMap,
+):
     return plt.extend_map([n.encode() for n in names], values, old_statemonad)
+
 
 INTEGER_ATTRIBUTE_VARNAME = b"\0int_attribute"
 BOOL_ATTRIBUTE_VARNAME = b"\0bool_attribute"
@@ -58,26 +51,107 @@ BOOL_ATTRIBUTE_VARNAME = b"\0bool_attribute"
 to_primitive_int = plt.to_primitive
 to_primitive_bool = plt.to_primitive
 
+
 def from_primitive_int(p: plt.AST):
-    return plt.from_primitive(p, plt.Apply(plt.Var(STATEMONAD), INTEGER_ATTRIBUTE_VARNAME))
+    return plt.from_primitive(
+        p, plt.Apply(plt.Var(STATEMONAD), INTEGER_ATTRIBUTE_VARNAME)
+    )
+
 
 def from_primitive_bool(p: plt.AST):
     return plt.from_primitive(p, plt.Apply(plt.Var(STATEMONAD), BOOL_ATTRIBUTE_VARNAME))
+
+
+def state_flag(ret: plt.AST):
+    return plt.TupleAccess(ret, ReturnTupleElem.STATE_FLAG.value, RETURN_TUPLE_SIZE)
+
+
+def state_monad(ret: plt.AST):
+    return plt.TupleAccess(ret, ReturnTupleElem.STATE_MONAD.value, RETURN_TUPLE_SIZE)
+
+
+def return_value(ret: plt.AST):
+    return plt.TupleAccess(ret, ReturnTupleElem.RETURN_VALUE.value, RETURN_TUPLE_SIZE)
+
+
+def exception(ret: plt.AST):
+    return plt.TupleAccess(ret, ReturnTupleElem.EXCEPTION.value, RETURN_TUPLE_SIZE)
+
+
+def exception_isset(ret: plt.AST):
+    return plt.EqualsInteger(state_flag(ret), plt.Integer(StateFlags.ABORT.value))
+
+
+def try_catch(t: plt.AST, c: plt.AST):
+    """
+    Try evaluating code t.
+    If t raises an exception, compare to e, if matches, evaluate c, otherwise pass on return value.
+    c has to expect the raised exception as second parameter (after the state monad)
+    Expects the statemonad as first argument
+    """
+    plt.Lambda(
+        [STATEMONAD],
+        plt.Let(
+            [("res", plt.Apply(t, plt.Var(STATEMONAD)))],
+            plt.Ite(
+                exception_isset(plt.Var("res")),
+                plt.Apply(c, plt.Var(STATEMONAD), exception(plt.Var("res"))),
+                plt.Var("res"),
+            ),
+        ),
+    )
+
+
+def normal_return(state_monad: plt.AST, return_value: plt.AST):
+    return plt.Tuple(
+        StateFlags.RETURN.value,
+        state_monad,
+        return_value,
+        plt.Unit(),
+    )
 
 
 # self is the simplest source of non-infinitely recursing, complete, integer attributes
 INTEGER_ATTRIBUTES_MAP = {
     "__add__": Lambda(
         [STATEMONAD, "self", "other"],
-        from_primitive_int(plt.AddInteger(to_primitive_int(plt.Var("self")),to_primitive_int(plt.MethodCall(plt.Var("other"), plt.Var(STATEMONAD), "__int__")))),
+        normal_return(
+            plt.Var(STATEMONAD),
+            from_primitive_int(
+                plt.AddInteger(
+                    to_primitive_int(plt.Var("self")),
+                    to_primitive_int(
+                        plt.MethodCall(plt.Var("other"), plt.Var(STATEMONAD), "__int__")
+                    ),
+                )
+            ),
+        ),
     ),
     "__sub__": Lambda(
         [STATEMONAD, "self", "other"],
-        from_primitive_int(plt.SubtractInteger(to_primitive_int(plt.Var("self")), to_primitive_int(plt.MethodCall(plt.Var("other"), plt.Var(STATEMONAD), "__int__")))),
+        from_primitive_int(
+            plt.SubtractInteger(
+                to_primitive_int(plt.Var("self")),
+                to_primitive_int(
+                    plt.MethodCall(plt.Var("other"), plt.Var(STATEMONAD), "__int__")
+                ),
+            )
+        ),
     ),
     "__eq__": Lambda(
         [STATEMONAD, "self", "other"],
-        from_primitive_bool(plt.EqualsInteger(to_primitive_int(plt.Var("self")), to_primitive_int(plt.MethodCall(plt.Var("other"), plt.Var(STATEMONAD), "__int__")))),
+        # TODO in a proper implementation, returns False if __int__ is not defined
+        try_catch(
+            from_primitive_bool(
+                plt.EqualsInteger(
+                    to_primitive_int(plt.Var("self")),
+                    to_primitive_int(
+                        plt.MethodCall(plt.Var("other"), plt.Var(STATEMONAD), "__int__")
+                    ),
+                )
+            ),
+            from_primitive_bool(plt.Bool(False)),
+        ),
     ),
     "__int__": Lambda(
         [STATEMONAD, "self"],
@@ -85,9 +159,12 @@ INTEGER_ATTRIBUTES_MAP = {
     ),
     "__bool__": Lambda(
         [STATEMONAD, "self"],
-        from_primitive_bool(plt.NotEqualsInteger(to_primitive_int(plt.Var("self")), plt.Integer(0))),
+        from_primitive_bool(
+            plt.NotEqualsInteger(to_primitive_int(plt.Var("self")), plt.Integer(0))
+        ),
     ),
 }
+
 INTEGER_ATTRIBUTES = plt.extend_map(
     [k.encode() for k in INTEGER_ATTRIBUTES_MAP.keys()],
     INTEGER_ATTRIBUTES_MAP.values(),
@@ -97,15 +174,41 @@ INTEGER_ATTRIBUTES = plt.extend_map(
 BOOL_ATTRIBUTES_MAP = {
     "__add__": Lambda(
         [STATEMONAD, "self", "other"],
-        from_primitive_int(plt.AddInteger(to_primitive_int(plt.MethodCall(plt.Var("self"), plt.Var(STATEMONAD), "__int__")),to_primitive_int(plt.MethodCall(plt.Var("other"), plt.Var(STATEMONAD), "__int__")))),
+        from_primitive_int(
+            plt.AddInteger(
+                to_primitive_int(
+                    plt.MethodCall(plt.Var("self"), plt.Var(STATEMONAD), "__int__")
+                ),
+                to_primitive_int(
+                    plt.MethodCall(plt.Var("other"), plt.Var(STATEMONAD), "__int__")
+                ),
+            )
+        ),
     ),
     "__sub__": Lambda(
         [STATEMONAD, "self", "other"],
-        from_primitive_int(plt.SubtractInteger(to_primitive_int(plt.MethodCall(plt.Var("self"), plt.Var(STATEMONAD), "__int__")), to_primitive_int(plt.MethodCall(plt.Var("other"), plt.Var(STATEMONAD), "__int__")))),
+        from_primitive_int(
+            plt.SubtractInteger(
+                to_primitive_int(
+                    plt.MethodCall(plt.Var("self"), plt.Var(STATEMONAD), "__int__")
+                ),
+                to_primitive_int(
+                    plt.MethodCall(plt.Var("other"), plt.Var(STATEMONAD), "__int__")
+                ),
+            )
+        ),
     ),
     "__eq__": Lambda(
         [STATEMONAD, "self", "other"],
-        from_primitive_bool(plt.EqualsBool(to_primitive_bool(plt.Var("self")), to_primitive_bool(plt.MethodCall(plt.Var("other"), plt.Var(STATEMONAD), "__bool__")))),
+        # TODO in a proper implementation, returns False if __bool__ is not defined
+        from_primitive_bool(
+            plt.EqualsBool(
+                to_primitive_bool(plt.Var("self")),
+                to_primitive_bool(
+                    plt.MethodCall(plt.Var("other"), plt.Var(STATEMONAD), "__bool__")
+                ),
+            )
+        ),
     ),
     "__int__": Lambda(
         [STATEMONAD, "self"],
@@ -116,6 +219,7 @@ BOOL_ATTRIBUTES_MAP = {
         plt.Var("self"),
     ),
 }
+
 BOOL_ATTRIBUTES = plt.extend_map(
     [k.encode() for k in BOOL_ATTRIBUTES_MAP.keys()],
     BOOL_ATTRIBUTES_MAP.values(),
@@ -139,11 +243,11 @@ class PythonBuiltIn(Enum):
         ["f", "x"],
         plt.Apply(
             plt.Force(
-                    plt.BuiltIn(BuiltInFun.Trace),
+                plt.BuiltIn(BuiltInFun.Trace),
             ),
             plt.Var("x"),
             plt.Unit(),
-        )
+        ),
     )
     range = plt.Lambda(
         ["f", "limit"],
@@ -152,15 +256,32 @@ class PythonBuiltIn(Enum):
             plt.Lambda(
                 ["f", "state"],
                 plt.Tuple(
-                    plt.Apply(plt.BuiltIn(BuiltInFun.LessThanInteger), plt.Var("state"), plt.Var("limit")),
+                    plt.Apply(
+                        plt.BuiltIn(BuiltInFun.LessThanInteger),
+                        plt.Var("state"),
+                        plt.Var("limit"),
+                    ),
                     plt.Var("state"),
-                    plt.Apply(plt.BuiltIn(BuiltInFun.AddInteger), plt.Var("state"), plt.Integer(1)),
-                )
-            )
-        )
+                    plt.Apply(
+                        plt.BuiltIn(BuiltInFun.AddInteger),
+                        plt.Var("state"),
+                        plt.Integer(1),
+                    ),
+                ),
+            ),
+        ),
     )
-    int = plt.Lambda(["f", "x"], plt.Apply(plt.BuiltIn(BuiltInFun.UnIData), plt.Var("x")))
-    __fields__ = plt.Lambda(["f", "x"],  plt.Apply(plt.Force(plt.Force(plt.BuiltIn(BuiltInFun.SndPair))), plt.Apply(plt.BuiltIn(BuiltInFun.UnConstrData), plt.Var("x"))))
+    int = plt.Lambda(
+        ["f", "x"], plt.Apply(plt.BuiltIn(BuiltInFun.UnIData), plt.Var("x"))
+    )
+    __fields__ = plt.Lambda(
+        ["f", "x"],
+        plt.Apply(
+            plt.Force(plt.Force(plt.BuiltIn(BuiltInFun.SndPair))),
+            plt.Apply(plt.BuiltIn(BuiltInFun.UnConstrData), plt.Var("x")),
+        ),
+    )
+
 
 INITIAL_STATE = extend_statemonad(
     [b.name for b in PythonBuiltIn],
@@ -173,15 +294,15 @@ class UPLCCompiler(NodeTransformer):
     """
     Expects a TypedAST and returns UPLC/Pluto like code
     """
+
     def visit(self, node):
         """Visit a node."""
         node_class_name = node.__class__.__name__
         if node_class_name.startswith("Typed"):
-            node_class_name = node_class_name[len("Typed"):]
-        method = 'visit_' + node_class_name
+            node_class_name = node_class_name[len("Typed") :]
+        method = "visit_" + node_class_name
         visitor = getattr(self, method, self.generic_visit)
         return visitor(node)
-
 
     def visit_sequence(self, node_seq: typing.List[typedstmt]) -> plt.AST:
         s = plt.Var(STATEMONAD)
@@ -196,14 +317,16 @@ class UPLCCompiler(NodeTransformer):
             raise NotImplementedError(f"Operation {node.op} is not implemented")
         op = opmap.get(node.typ)
         if op is None:
-            raise NotImplementedError(f"Operation {node.op} is not implemented for type {node.typ}")
+            raise NotImplementedError(
+                f"Operation {node.op} is not implemented for type {node.typ}"
+            )
         return plt.Lambda(
             [STATEMONAD],
             plt.Apply(
                 plt.BuiltIn(op),
                 plt.Apply(self.visit(node.left), plt.Var(STATEMONAD)),
                 plt.Apply(self.visit(node.right), plt.Var(STATEMONAD)),
-            )
+            ),
         )
 
     def visit_Compare(self, node: Compare) -> plt.AST:
@@ -214,39 +337,54 @@ class UPLCCompiler(NodeTransformer):
             raise NotImplementedError(f"Operation {node.ops[0]} is not implemented")
         op = opmap.get(node.left.typ)
         if op is None:
-            raise NotImplementedError(f"Operation {node.ops[0]} is not implemented for type {node.left.typ}")
+            raise NotImplementedError(
+                f"Operation {node.ops[0]} is not implemented for type {node.left.typ}"
+            )
         return plt.Lambda(
             [STATEMONAD],
             plt.Apply(
                 plt.BuiltIn(op),
                 plt.Apply(self.visit(node.left), plt.Var(STATEMONAD)),
                 plt.Apply(self.visit(node.comparators[0]), plt.Var(STATEMONAD)),
-            )
+            ),
         )
-    
+
     def visit_Module(self, node: TypedModule) -> plt.AST:
         cp = plt.Program(
             "0.0.1",
-            plt.Let([(
-                "g",
-                plt.Apply(plt.Apply(self.visit_sequence(node.body), INITIAL_STATE), plt.ByteString("main".encode("utf8")))
-            )],
-            plt.Apply(plt.Var("g"), plt.Var("g")))
+            plt.Let(
+                [
+                    (
+                        "g",
+                        plt.Apply(
+                            plt.Apply(self.visit_sequence(node.body), INITIAL_STATE),
+                            plt.ByteString("main".encode("utf8")),
+                        ),
+                    )
+                ],
+                plt.Apply(plt.Var("g"), plt.Var("g")),
+            ),
         )
         return cp
 
     def visit_Constant(self, node: TypedConstant) -> plt.AST:
         plt_type = ConstantMap.get(type(node.value))
         if plt_type is None:
-            raise NotImplementedError(f"Constants of type {type(node.value)} are not supported")
+            raise NotImplementedError(
+                f"Constants of type {type(node.value)} are not supported"
+            )
         return plt.Lambda([STATEMONAD], plt_type(node.value))
 
     def visit_NoneType(self, _: typing.Optional[typing.Any]) -> plt.AST:
         return plt.Lambda([STATEMONAD], plt.Unit())
 
     def visit_Assign(self, node: TypedAssign) -> plt.AST:
-        assert len(node.targets) == 1, "Assignments to more than one variable not supported yet"
-        assert isinstance(node.targets[0], Name), "Assignments to other things then names are not supported"
+        assert (
+            len(node.targets) == 1
+        ), "Assignments to more than one variable not supported yet"
+        assert isinstance(
+            node.targets[0], Name
+        ), "Assignments to other things then names are not supported"
         compiled_e = self.visit(node.value)
         # (\{STATEMONAD} -> (\x -> if (x ==b {self.visit(node.targets[0])}) then ({compiled_e} {STATEMONAD}) else ({STATEMONAD} x)))
         return plt.Lambda(
@@ -255,13 +393,16 @@ class UPLCCompiler(NodeTransformer):
                 [node.targets[0].id],
                 [plt.Apply(compiled_e, plt.Var(STATEMONAD))],
                 plt.Var(STATEMONAD),
-            )
+            ),
         )
 
     def visit_Name(self, node: TypedName) -> plt.AST:
         # depending on load or store context, return the value of the variable or its name
         if isinstance(node.ctx, Load):
-            return plt.Lambda([STATEMONAD], plt.Apply(plt.Var(STATEMONAD), plt.ByteString(node.id.encode())))
+            return plt.Lambda(
+                [STATEMONAD],
+                plt.Apply(plt.Var(STATEMONAD), plt.ByteString(node.id.encode())),
+            )
         raise NotImplementedError(f"Context {node.ctx} not supported")
 
     def visit_Expr(self, node: TypedExpr) -> plt.AST:
@@ -271,12 +412,9 @@ class UPLCCompiler(NodeTransformer):
         return plt.Lambda(
             [STATEMONAD],
             plt.Apply(
-                plt.Lambda(
-                    ["_"],
-                    plt.Var(STATEMONAD)
-                ),
+                plt.Lambda(["_"], plt.Var(STATEMONAD)),
                 plt.Apply(self.visit(node.value), plt.Var(STATEMONAD)),
-            )
+            ),
         )
 
     def visit_Call(self, node: TypedCall) -> plt.AST:
@@ -290,15 +428,9 @@ class UPLCCompiler(NodeTransformer):
                     plt.Var("g"),
                     # pass the function to itself for recursion
                     plt.Var("g"),
-                    *(
-                        plt.Apply(
-                            self.visit(a),
-                            plt.Var(STATEMONAD)
-                        )
-                        for a in node.args
-                    )
-                )
-            )
+                    *(plt.Apply(self.visit(a), plt.Var(STATEMONAD)) for a in node.args),
+                ),
+            ),
         )
 
     def visit_FunctionDef(self, node: TypedFunctionDef) -> plt.AST:
@@ -306,7 +438,9 @@ class UPLCCompiler(NodeTransformer):
         if not isinstance(body[-1], Return):
             tr = Return(None)
             tr.typ = UnitType
-            assert node.typ.rettyp == UnitType, "Function has no return statement but is supposed to return not-None value"
+            assert (
+                node.typ.rettyp == UnitType
+            ), "Function has no return statement but is supposed to return not-None value"
             body.append(tr)
         compiled_body = self.visit_sequence(body[:-1])
         compiled_return = self.visit(body[-1].value)
@@ -328,14 +462,14 @@ class UPLCCompiler(NodeTransformer):
                             plt.Apply(
                                 compiled_body,
                                 args_state,
-                            )
-                        )
+                            ),
+                        ),
                     )
                 ],
                 plt.Var(STATEMONAD),
-            )
+            ),
         )
-    
+
     def visit_While(self, node: TypedWhile) -> plt.AST:
         compiled_c = self.visit(node.test)
         compiled_s = self.visit_sequence(node.body)
@@ -355,20 +489,26 @@ class UPLCCompiler(NodeTransformer):
                             ["s", "f"],
                             plt.Ite(
                                 plt.Apply(compiled_c, plt.Var("s")),
-                                plt.Apply(plt.Var("f"), plt.Apply(compiled_s, plt.Var("s")), plt.Var("f")),
+                                plt.Apply(
+                                    plt.Var("f"),
+                                    plt.Apply(compiled_s, plt.Var("s")),
+                                    plt.Var("f"),
+                                ),
                                 plt.Var("s"),
-                            )
-                        )
+                            ),
+                        ),
                     ),
                 ],
-                term=plt.Apply(plt.Var("g"), plt.Var(STATEMONAD), plt.Var("g"))
-            )
+                term=plt.Apply(plt.Var("g"), plt.Var(STATEMONAD), plt.Var("g")),
+            ),
         )
 
     def visit_For(self, node: TypedFor) -> plt.AST:
         # TODO implement for list
         if isinstance(node.iter.typ, ListType):
-            raise NotImplementedError("Compilation of list iterators not implemented yet.")
+            raise NotImplementedError(
+                "Compilation of list iterators not implemented yet."
+            )
         raise NotImplementedError("Compilation of raw for statements not supported")
 
     def visit_If(self, node: TypedIf) -> plt.AST:
@@ -378,66 +518,109 @@ class UPLCCompiler(NodeTransformer):
                 plt.Apply(self.visit(node.test), plt.Var(STATEMONAD)),
                 plt.Apply(self.visit_sequence(node.body), plt.Var(STATEMONAD)),
                 plt.Apply(self.visit_sequence(node.orelse), plt.Var(STATEMONAD)),
-            )
+            ),
         )
-    
-    def visit_Return(self, node: TypedReturn) -> plt.AST:
-        raise NotImplementedError("Compilation of return statements except for last statement in function is not supported.")
 
-    
+    def visit_Return(self, node: TypedReturn) -> plt.AST:
+        raise NotImplementedError(
+            "Compilation of return statements except for last statement in function is not supported."
+        )
+
     def visit_Pass(self, node: TypedPass) -> plt.AST:
         return self.visit_sequence([])
 
     def visit_Subscript(self, node: TypedSubscript) -> plt.AST:
-        assert isinstance(node.slice, Index), "Only single index slices are currently supported"
+        assert isinstance(
+            node.slice, Index
+        ), "Only single index slices are currently supported"
         if isinstance(node.value.typ, TupleType):
-            assert isinstance(node.slice.value, Constant), "Only constant index access for tuples is supported"
+            assert isinstance(
+                node.slice.value, Constant
+            ), "Only constant index access for tuples is supported"
             assert isinstance(node.ctx, Load), "Tuples are read-only"
-            return plt.Lambda([STATEMONAD], emulate_nth(
-                plt.Apply(self.visit(node.value), plt.Var(STATEMONAD)),
-                node.slice.value.value,
-                len(node.value.typ.typs),
-            ))
+            return plt.Lambda(
+                [STATEMONAD],
+                emulate_nth(
+                    plt.Apply(self.visit(node.value), plt.Var(STATEMONAD)),
+                    node.slice.value.value,
+                    len(node.value.typ.typs),
+                ),
+            )
         if isinstance(node.value.typ, ListType):
             # rf'(\{STATEMONAD} -> let g = (\i xs f -> if (!NullList xs) then (!Trace "OOB" (Error ())) else (if i ==i 0 then (!HeadList xs) else f (i -i 1) (!TailList xs) f)) in (g ({compiled_i} {STATEMONAD}) ({compiled_v} {STATEMONAD}) g))'
             return plt.Lambda(
                 [STATEMONAD],
                 plt.Let(
                     [
-                        ("g",
-                        plt.Lambda(["i", "xs", "f"],
-                           plt.Ite(
-                               plt.Force(plt.Apply(plt.BuiltIn(BuiltInFun.NullList), plt.Var("xs"))),
-                               self.visit(TypedCall(TypedName("print", ctx=Load()), [TypedConstant("Out of bounds", InstanceType("str"))])),
-                               plt.Ite(
-                                   plt.Apply(plt.BuiltIn(BuiltInFun.EqualsInteger), plt.Var("i"), plt.Integer(0)),
-                                   plt.Force(plt.Apply(plt.BuiltIn(BuiltInFun.HeadList), plt.Var("xs"))),
-                                   plt.Apply(
-                                       plt.Var("f"),
-                                       plt.Apply(plt.BuiltIn(BuiltInFun.SubtractInteger), plt.Var("i"), plt.Integer(1)),
-                                       plt.Force(plt.Apply(plt.BuiltIn(BuiltInFun.TailList), plt.Var("xs"))),
-                                       plt.Var("f"),
-                                   )
-                               )
-                           )
-                       ))
+                        (
+                            "g",
+                            plt.Lambda(
+                                ["i", "xs", "f"],
+                                plt.Ite(
+                                    plt.Force(
+                                        plt.Apply(
+                                            plt.BuiltIn(BuiltInFun.NullList),
+                                            plt.Var("xs"),
+                                        )
+                                    ),
+                                    self.visit(
+                                        TypedCall(
+                                            TypedName("print", ctx=Load()),
+                                            [
+                                                TypedConstant(
+                                                    "Out of bounds", InstanceType("str")
+                                                )
+                                            ],
+                                        )
+                                    ),
+                                    plt.Ite(
+                                        plt.Apply(
+                                            plt.BuiltIn(BuiltInFun.EqualsInteger),
+                                            plt.Var("i"),
+                                            plt.Integer(0),
+                                        ),
+                                        plt.Force(
+                                            plt.Apply(
+                                                plt.BuiltIn(BuiltInFun.HeadList),
+                                                plt.Var("xs"),
+                                            )
+                                        ),
+                                        plt.Apply(
+                                            plt.Var("f"),
+                                            plt.Apply(
+                                                plt.BuiltIn(BuiltInFun.SubtractInteger),
+                                                plt.Var("i"),
+                                                plt.Integer(1),
+                                            ),
+                                            plt.Force(
+                                                plt.Apply(
+                                                    plt.BuiltIn(BuiltInFun.TailList),
+                                                    plt.Var("xs"),
+                                                )
+                                            ),
+                                            plt.Var("f"),
+                                        ),
+                                    ),
+                                ),
+                            ),
+                        )
                     ],
                     plt.Apply(
                         plt.Var("g"),
                         plt.Apply(self.visit(node.slice.value), plt.Var(STATEMONAD)),
                         plt.Apply(self.visit(node.value), plt.Var(STATEMONAD)),
-                        plt.Var("g")
-                    )
-                )
-              )
+                        plt.Var("g"),
+                    ),
+                ),
+            )
         raise NotImplementedError(f"Could not implement subscript of {node}")
-    
+
     def visit_Tuple(self, node: TypedTuple) -> plt.AST:
         return plt.Lambda(
             [STATEMONAD],
             plt.Tuple(
                 *(plt.Apply(self.visit(e), plt.Var(STATEMONAD)) for e in node.elts)
-            )
+            ),
         )
 
     def visit_ClassDef(self, node: ClassDef) -> plt.AST:
@@ -446,12 +629,23 @@ class UPLCCompiler(NodeTransformer):
     def visit_Attribute(self, node: TypedAttribute) -> plt.AST:
         # rewrite to access the field at position node.pos
         # (use the internal function for fields)
-        return self.visit(TypedSubscript(
-            value=TypedCall(TypedName(id="__fields__", ctx=Load(),typ=FunctionType([InstanceType], ListType([]))), [node.value], typ=ListType([])),
-            slice=Index(value=TypedConstant(value=node.pos, typ=InstanceType("int"))),
-            typ=node.typ,
-        ))
-
+        return self.visit(
+            TypedSubscript(
+                value=TypedCall(
+                    TypedName(
+                        id="__fields__",
+                        ctx=Load(),
+                        typ=FunctionType([InstanceType], ListType([])),
+                    ),
+                    [node.value],
+                    typ=ListType([]),
+                ),
+                slice=Index(
+                    value=TypedConstant(value=node.pos, typ=InstanceType("int"))
+                ),
+                typ=node.typ,
+            )
+        )
 
     def generic_visit(self, node: AST) -> plt.AST:
         raise NotImplementedError(f"Can not compile {node}")
@@ -464,7 +658,7 @@ def compile(prog: AST):
         RewriteTupleAssign,
         RewriteDataclasses,
         AggressiveTypeInferencer,
-        UPLCCompiler
+        UPLCCompiler,
     ]
     for s in compiler_steps:
         prog = s().visit(prog)

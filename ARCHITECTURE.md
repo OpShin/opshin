@@ -5,9 +5,13 @@ The general concept is as follows:
 ## Execution
 
 Every evaluated part of the python expression tree results in a tuple of
+- state flag (0 = continue, 1 = computation stopped normally, 2 = error occurred)
 - statemonad
 - return value
 - exception state
+
+Functions are always passed the statemonad as first argument.
+In a return value, the state flag is only relevant if set to 2.
 
 ## Memory
 
@@ -21,10 +25,12 @@ Arrays and objects may be represented by consecutive natural number allocationss
 
 ## Objects
 
-Generally, all primitive objects are kept wrapped in `Data`, which allows distinguishing dynamic types of objects.
-In addition, every object is wrapped with a thin mapping from attribute/method names to
+In general, every python object is wrapped with a thin mapping from attribute/method names to
 constants/lambda functions that evaluate to the equivalent value if passed "self".
 
 Inside the code we assume every object to be wrapped and can hence translate everything to self(attributename).
 
 In that sense, every object is a statemonad again.
+
+In general, subtyping is not supported in the sense that isinstance/etc do not check for subtyping relationships.
+This also means that Exception handling does only work with "Exception" as catch type.

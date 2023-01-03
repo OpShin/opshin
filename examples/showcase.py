@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 
+
 @dataclass(frozen=True)
 class PlutusData:
     pass
@@ -14,9 +15,3 @@ def main(n: PlutusData) -> None:
         print("sub")
         a -= b
     return a
-
-
-
-
-
-
