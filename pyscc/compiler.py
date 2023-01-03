@@ -81,26 +81,6 @@ def exception_isset(ret: plt.AST):
     return plt.EqualsInteger(state_flag(ret), plt.Integer(StateFlags.ABORT.value))
 
 
-def try_catch(t: plt.AST, c: plt.AST):
-    """
-    Try evaluating code t.
-    If t raises an exception, compare to e, if matches, evaluate c, otherwise pass on return value.
-    c has to expect the raised exception as second parameter (after the state monad)
-    Expects the statemonad as first argument
-    """
-    plt.Lambda(
-        [STATEMONAD],
-        plt.Let(
-            [("res", plt.Apply(t, plt.Var(STATEMONAD)))],
-            plt.Ite(
-                exception_isset(plt.Var("res")),
-                plt.Apply(c, plt.Var(STATEMONAD), exception(plt.Var("res"))),
-                plt.Var("res"),
-            ),
-        ),
-    )
-
-
 def normal_return(state_monad: plt.AST, return_value: plt.AST):
     return plt.Tuple(
         plt.Integer(StateFlags.RETURN.value),
@@ -124,6 +104,7 @@ def MethodCall(wv: plt.WrappedValue, statemonad: plt.AST, method_name: str, *arg
             method_name.encode(),
             plt.Lambda(
                 [STATEMONAD, "self", [str(i) for i, _ in enumerate(args)]],
+                # TODO exceptions could also be a bit more fancy wrapped objects
                 except_return(plt.Var("self"), plt.ByteString(b"AttributeError")),
             ),
         ),
@@ -137,56 +118,130 @@ def AttributeAccess(wv: plt.WrappedValue, statemonad: plt.Var, attribute_name: s
     return MethodCall(wv, statemonad, attribute_name)
 
 
+def chain_except(a: plt.AST, b: plt.AST, c: plt.AST):
+    """
+    The monad combinator
+    b/c must expect statemonad and return value of a as first two arguments
+    """
+    return plt.Let(
+        [("r", a)],
+        plt.Ite(
+            exception_isset(plt.Var("r")),
+            plt.Apply(c, state_monad(plt.Var("r")), return_value(plt.Var("r"))),
+            plt.Apply(b, state_monad(plt.Var("r")), return_value(plt.Var("r"))),
+        ),
+    )
+
+
+def chain(a: plt.AST, b: plt.AST):
+    # clean but inefficient implementation
+    return chain_except(
+        a,
+        b,
+        plt.Lambda([STATEMONAD, "e"], except_return(plt.Var(STATEMONAD), plt.Var("e"))),
+    )
+
+
+def try_catch(t: plt.AST, c: plt.AST):
+    """
+    Try evaluating code t.
+    If t raises an exception, compare to e, if matches, evaluate c, otherwise pass on return value.
+    c has to expect the raised exception as second parameter (after the state monad)
+    Expects the statemonad as first argument
+    """
+    # clean but inefficient implementation
+    return chain_except(
+        t,
+        plt.Lambda([STATEMONAD, "r"], normal_return(plt.Var(STATEMONAD), plt.Var("r"))),
+        c,
+    )
+    # unclean but efficient implementation
+    # plt.Lambda(
+    #     [STATEMONAD],
+    #     plt.Let(
+    #         [("res", plt.Apply(t, plt.Var(STATEMONAD)))],
+    #         plt.Ite(
+    #             exception_isset(plt.Var("res")),
+    #             plt.Apply(c, plt.Var(STATEMONAD), exception(plt.Var("res"))),
+    #             plt.Var("res"),
+    #         ),
+    #     ),
+    # )
+
+
 # self is the simplest source of non-infinitely recursing, complete, integer attributes
 INTEGER_ATTRIBUTES_MAP = {
     "__add__": Lambda(
         [STATEMONAD, "self", "other"],
-        normal_return(
-            plt.Var(STATEMONAD),
-            from_primitive_int(
-                plt.AddInteger(
-                    to_primitive_int(plt.Var("self")),
-                    to_primitive_int(
-                        plt.MethodCall(plt.Var("other"), plt.Var(STATEMONAD), "__int__")
+        chain(
+            MethodCall(plt.Var("other"), plt.Var(STATEMONAD), "__int__"),
+            plt.Lambda(
+                [STATEMONAD, "other_int"],
+                normal_return(
+                    plt.Var(STATEMONAD),
+                    from_primitive_int(
+                        plt.AddInteger(
+                            to_primitive_int(plt.Var("self")),
+                            to_primitive_int(plt.Var("other_int")),
+                        )
                     ),
-                )
+                ),
             ),
         ),
     ),
     "__sub__": Lambda(
         [STATEMONAD, "self", "other"],
-        from_primitive_int(
-            plt.SubtractInteger(
-                to_primitive_int(plt.Var("self")),
-                to_primitive_int(
-                    plt.MethodCall(plt.Var("other"), plt.Var(STATEMONAD), "__int__")
+        chain(
+            MethodCall(plt.Var("other"), plt.Var(STATEMONAD), "__int__"),
+            plt.Lambda(
+                [STATEMONAD, "other_int"],
+                normal_return(
+                    plt.Var(STATEMONAD),
+                    from_primitive_int(
+                        plt.SubtractInteger(
+                            to_primitive_int(plt.Var("self")),
+                            to_primitive_int(plt.Var("other_int")),
+                        )
+                    ),
                 ),
-            )
+            ),
         ),
     ),
     "__eq__": Lambda(
         [STATEMONAD, "self", "other"],
-        # TODO in a proper implementation, returns False if __int__ is not defined
-        try_catch(
-            from_primitive_bool(
-                plt.EqualsInteger(
-                    to_primitive_int(plt.Var("self")),
-                    to_primitive_int(
-                        plt.MethodCall(plt.Var("other"), plt.Var(STATEMONAD), "__int__")
+        chain_except(
+            plt.MethodCall(plt.Var("other"), plt.Var(STATEMONAD), "__int__"),
+            plt.Lambda(
+                [STATEMONAD, "other_int"],
+                normal_return(
+                    plt.Var(STATEMONAD),
+                    from_primitive_bool(
+                        plt.EqualsInteger(
+                            to_primitive_int(plt.Var("self")),
+                            to_primitive_int(plt.Var("other_int")),
+                        )
                     ),
-                )
+                ),
             ),
-            from_primitive_bool(plt.Bool(False)),
+            plt.Lambda(
+                [STATEMONAD, "other_int"],
+                normal_return(
+                    plt.Var(STATEMONAD), from_primitive_bool(plt.Bool(False))
+                ),
+            ),
         ),
     ),
     "__int__": Lambda(
         [STATEMONAD, "self"],
-        plt.Var("self"),
+        normal_return(plt.Var(STATEMONAD), plt.Var("self")),
     ),
     "__bool__": Lambda(
         [STATEMONAD, "self"],
-        from_primitive_bool(
-            plt.NotEqualsInteger(to_primitive_int(plt.Var("self")), plt.Integer(0))
+        normal_return(
+            plt.Var(STATEMONAD),
+            from_primitive_bool(
+                plt.NotEqualsInteger(to_primitive_int(plt.Var("self")), plt.Integer(0))
+            ),
         ),
     ),
 }
@@ -200,49 +255,92 @@ INTEGER_ATTRIBUTES = plt.extend_map(
 BOOL_ATTRIBUTES_MAP = {
     "__add__": Lambda(
         [STATEMONAD, "self", "other"],
-        from_primitive_int(
-            plt.AddInteger(
-                to_primitive_int(
-                    plt.MethodCall(plt.Var("self"), plt.Var(STATEMONAD), "__int__")
+        chain(
+            MethodCall(plt.Var("other"), plt.Var(STATEMONAD), "__int__"),
+            plt.Lambda(
+                [STATEMONAD, "other_int"],
+                normal_return(
+                    plt.Var(STATEMONAD),
+                    from_primitive_int(
+                        plt.AddInteger(
+                            # shortcut because we know there wont be an exception here
+                            to_primitive_int(
+                                return_value(
+                                    MethodCall(
+                                        plt.Var("self"), plt.Var(STATEMONAD), "__int__"
+                                    )
+                                )
+                            ),
+                            to_primitive_int(plt.Var("other_int")),
+                        )
+                    ),
                 ),
-                to_primitive_int(
-                    plt.MethodCall(plt.Var("other"), plt.Var(STATEMONAD), "__int__")
-                ),
-            )
+            ),
         ),
     ),
     "__sub__": Lambda(
         [STATEMONAD, "self", "other"],
-        from_primitive_int(
-            plt.SubtractInteger(
-                to_primitive_int(
-                    plt.MethodCall(plt.Var("self"), plt.Var(STATEMONAD), "__int__")
+        chain(
+            MethodCall(plt.Var("other"), plt.Var(STATEMONAD), "__int__"),
+            plt.Lambda(
+                [STATEMONAD, "other_int"],
+                normal_return(
+                    plt.Var(STATEMONAD),
+                    from_primitive_int(
+                        plt.SubtractInteger(
+                            # shortcut because we know there wont be an exception here
+                            to_primitive_int(
+                                return_value(
+                                    MethodCall(
+                                        plt.Var("self"), plt.Var(STATEMONAD), "__int__"
+                                    )
+                                )
+                            ),
+                            to_primitive_int(plt.Var("other_int")),
+                        )
+                    ),
                 ),
-                to_primitive_int(
-                    plt.MethodCall(plt.Var("other"), plt.Var(STATEMONAD), "__int__")
-                ),
-            )
+            ),
         ),
     ),
     "__eq__": Lambda(
         [STATEMONAD, "self", "other"],
-        # TODO in a proper implementation, returns False if __bool__ is not defined
-        from_primitive_bool(
-            plt.EqualsBool(
-                to_primitive_bool(plt.Var("self")),
-                to_primitive_bool(
-                    plt.MethodCall(plt.Var("other"), plt.Var(STATEMONAD), "__bool__")
+        chain_except(
+            plt.MethodCall(plt.Var("other"), plt.Var(STATEMONAD), "__bool__"),
+            plt.Lambda(
+                [STATEMONAD, "other_bool"],
+                normal_return(
+                    plt.Var(STATEMONAD),
+                    from_primitive_bool(
+                        plt.EqualsBool(
+                            to_primitive_bool(plt.Var("self")),
+                            to_primitive_bool(plt.Var("other_bool")),
+                        )
+                    ),
                 ),
-            )
+            ),
+            plt.Lambda(
+                [STATEMONAD, "other_bool"],
+                normal_return(
+                    plt.Var(STATEMONAD), from_primitive_bool(plt.Bool(False))
+                ),
+            ),
         ),
     ),
     "__int__": Lambda(
         [STATEMONAD, "self"],
-        plt.Ite(to_primitive_bool(plt.Var("self")), plt.Integer(1), plt.Integer(0)),
+        normal_return(
+            plt.Var(STATEMONAD),
+            from_primitive_int(
+                plt.Ite(
+                    to_primitive_bool(plt.Var("self")), plt.Integer(1), plt.Integer(0)
+                )
+            ),
+        ),
     ),
     "__bool__": Lambda(
         [STATEMONAD, "self"],
-        plt.Var("self"),
+        normal_return(plt.Var(STATEMONAD), plt.Var("self")),
     ),
 }
 
