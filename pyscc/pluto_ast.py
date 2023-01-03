@@ -323,3 +323,4 @@ def SubtractInteger(a: AST, b: AST):
 def EqualsBytestring(a: AST, b: AST):
     return Apply(uplc_ast.BuiltInFun.EqualsByteString, a, b)
 
+EqualsBool = Iff

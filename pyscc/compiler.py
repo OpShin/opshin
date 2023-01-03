@@ -69,15 +69,14 @@ def from_primitive_bool(p: plt.AST):
 INTEGER_ATTRIBUTES_MAP = {
     "__add__": Lambda(
         [STATEMONAD, "self", "other"],
-        from_primitive_int(plt.AddInteger(to_primitive_int(plt.Var("self")),to_primitive_int(plt.Var("other")))),
+        from_primitive_int(plt.AddInteger(to_primitive_int(plt.Var("self")),to_primitive_int(plt.MethodCall(plt.Var("other"), plt.Var(STATEMONAD), "__int__")))),
     ),
     "__sub__": Lambda(
         [STATEMONAD, "self", "other"],
-        from_primitive_int(plt.SubtractInteger(to_primitive_int(plt.Var("self")), to_primitive_int(plt.Var("other")))),
+        from_primitive_int(plt.SubtractInteger(to_primitive_int(plt.Var("self")), to_primitive_int(plt.MethodCall(plt.Var("other"), plt.Var(STATEMONAD), "__int__")))),
     ),
     "__eq__": Lambda(
         [STATEMONAD, "self", "other"],
-        # TODO in proper implementations, this would first check for the existence of int, then index, then trunc
         from_primitive_bool(plt.EqualsInteger(to_primitive_int(plt.Var("self")), to_primitive_int(plt.MethodCall(plt.Var("other"), plt.Var(STATEMONAD), "__int__")))),
     ),
     "__int__": Lambda(
@@ -89,10 +88,37 @@ INTEGER_ATTRIBUTES_MAP = {
         from_primitive_bool(plt.NotEqualsInteger(to_primitive_int(plt.Var("self")), plt.Integer(0))),
     ),
 }
-
 INTEGER_ATTRIBUTES = plt.extend_map(
     [k.encode() for k in INTEGER_ATTRIBUTES_MAP.keys()],
     INTEGER_ATTRIBUTES_MAP.values(),
+    plt.MutableMap(),
+)
+
+BOOL_ATTRIBUTES_MAP = {
+    "__add__": Lambda(
+        [STATEMONAD, "self", "other"],
+        from_primitive_int(plt.AddInteger(to_primitive_int(plt.MethodCall(plt.Var("self"), plt.Var(STATEMONAD), "__int__")),to_primitive_int(plt.MethodCall(plt.Var("other"), plt.Var(STATEMONAD), "__int__")))),
+    ),
+    "__sub__": Lambda(
+        [STATEMONAD, "self", "other"],
+        from_primitive_int(plt.SubtractInteger(to_primitive_int(plt.MethodCall(plt.Var("self"), plt.Var(STATEMONAD), "__int__")), to_primitive_int(plt.MethodCall(plt.Var("other"), plt.Var(STATEMONAD), "__int__")))),
+    ),
+    "__eq__": Lambda(
+        [STATEMONAD, "self", "other"],
+        from_primitive_bool(plt.EqualsBool(to_primitive_bool(plt.Var("self")), to_primitive_bool(plt.MethodCall(plt.Var("other"), plt.Var(STATEMONAD), "__bool__")))),
+    ),
+    "__int__": Lambda(
+        [STATEMONAD, "self"],
+        plt.Ite(to_primitive_bool(plt.Var("self")), plt.Integer(1), plt.Integer(0)),
+    ),
+    "__bool__": Lambda(
+        [STATEMONAD, "self"],
+        plt.Var("self"),
+    ),
+}
+BOOL_ATTRIBUTES = plt.extend_map(
+    [k.encode() for k in BOOL_ATTRIBUTES_MAP.keys()],
+    BOOL_ATTRIBUTES_MAP.values(),
     plt.MutableMap(),
 )
 
