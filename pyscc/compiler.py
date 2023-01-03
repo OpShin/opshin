@@ -271,7 +271,7 @@ INTEGER_ATTRIBUTES_MAP = {
     "__eq__": Lambda(
         ["self", "other", VARS, HEAP],
         chain_except(
-            plt.MethodCall(plt.Var("other"), plt.Var(VARS), plt.Var(HEAP), "__int__"),
+            MethodCall(plt.Var("other"), plt.Var(VARS), plt.Var(HEAP), "__int__"),
             plt.Lambda(
                 [VARS, HEAP, "other_int"],
                 continue_return(
@@ -383,7 +383,7 @@ BOOL_ATTRIBUTES_MAP = {
     "__eq__": Lambda(
         ["_", "self", "other", VARS, HEAP],
         chain_except(
-            plt.MethodCall(plt.Var("other"), plt.Var(VARS), plt.Var(HEAP), "__bool__"),
+            MethodCall(plt.Var("other"), plt.Var(VARS), plt.Var(HEAP), "__bool__"),
             plt.Lambda(
                 [VARS, HEAP, "other_bool"],
                 continue_return(
