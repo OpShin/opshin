@@ -96,9 +96,9 @@ def exception_isset(ret: plt.AST):
     return plt.EqualsInteger(state_flag(ret), plt.Integer(StateFlags.ABORT.value))
 
 
-def normal_return(local_vars: plt.AST, heap: plt.AST, return_value: plt.AST):
+def continue_return(local_vars: plt.AST, heap: plt.AST, return_value: plt.AST):
     return plt.Tuple(
-        plt.Integer(StateFlags.RETURN.value),
+        plt.Integer(StateFlags.CONTINUE.value),
         local_vars,
         heap,
         return_value,
@@ -111,6 +111,15 @@ def except_return(local_vars: plt.AST, heap: plt.AST, exception: plt.AST):
         local_vars,
         heap,
         exception,
+    )
+
+
+def return_return(local_vars: plt.AST, heap: plt.AST, return_value: plt.AST):
+    return plt.Tuple(
+        plt.Integer(StateFlags.RETURN.value),
+        local_vars,
+        heap,
+        return_value,
     )
 
 
@@ -198,7 +207,8 @@ def try_catch(t: plt.AST, c: plt.AST):
     return chain_except(
         t,
         plt.Lambda(
-            [VARS, HEAP, "r"], normal_return(plt.Var(VARS), plt.Var(HEAP), plt.Var("r"))
+            [VARS, HEAP, "r"],
+            continue_return(plt.Var(VARS), plt.Var(HEAP), plt.Var("r")),
         ),
         c,
     )
@@ -224,7 +234,7 @@ INTEGER_ATTRIBUTES_MAP = {
             MethodCall(plt.Var("other"), plt.Var(VARS), plt.Var(HEAP), "__int__"),
             plt.Lambda(
                 [VARS, HEAP, "other_int"],
-                normal_return(
+                continue_return(
                     plt.Var(VARS),
                     plt.Var(HEAP),
                     from_primitive_int(
@@ -244,7 +254,7 @@ INTEGER_ATTRIBUTES_MAP = {
             MethodCall(plt.Var("other"), plt.Var(VARS), plt.Var(HEAP), "__int__"),
             plt.Lambda(
                 [VARS, HEAP, "other_int"],
-                normal_return(
+                continue_return(
                     plt.Var(VARS),
                     plt.Var(HEAP),
                     from_primitive_int(
@@ -264,7 +274,7 @@ INTEGER_ATTRIBUTES_MAP = {
             plt.MethodCall(plt.Var("other"), plt.Var(VARS), plt.Var(HEAP), "__int__"),
             plt.Lambda(
                 [VARS, HEAP, "other_int"],
-                normal_return(
+                continue_return(
                     plt.Var(VARS),
                     plt.Var(HEAP),
                     from_primitive_bool(
@@ -278,7 +288,7 @@ INTEGER_ATTRIBUTES_MAP = {
             ),
             plt.Lambda(
                 [VARS, HEAP, "other_int"],
-                normal_return(
+                continue_return(
                     plt.Var(VARS),
                     plt.Var(HEAP),
                     from_primitive_bool(plt.Var(VARS), plt.Bool(False)),
@@ -288,11 +298,11 @@ INTEGER_ATTRIBUTES_MAP = {
     ),
     "__int__": Lambda(
         ["self", VARS, HEAP],
-        normal_return(plt.Var(VARS), plt.Var(HEAP), plt.Var("self")),
+        continue_return(plt.Var(VARS), plt.Var(HEAP), plt.Var("self")),
     ),
     "__bool__": Lambda(
         ["self", VARS, HEAP],
-        normal_return(
+        continue_return(
             plt.Var(VARS),
             plt.Var(HEAP),
             from_primitive_bool(
@@ -316,7 +326,7 @@ BOOL_ATTRIBUTES_MAP = {
             MethodCall(plt.Var("other"), plt.Var(VARS), plt.Var(HEAP), "__int__"),
             plt.Lambda(
                 [VARS, HEAP, "other_int"],
-                normal_return(
+                continue_return(
                     plt.Var(VARS),
                     plt.Var(HEAP),
                     from_primitive_int(
@@ -346,7 +356,7 @@ BOOL_ATTRIBUTES_MAP = {
             MethodCall(plt.Var("other"), plt.Var(VARS), plt.Var(HEAP), "__int__"),
             plt.Lambda(
                 [VARS, HEAP, "other_int"],
-                normal_return(
+                continue_return(
                     plt.Var(VARS),
                     plt.Var(HEAP),
                     from_primitive_int(
@@ -376,7 +386,7 @@ BOOL_ATTRIBUTES_MAP = {
             plt.MethodCall(plt.Var("other"), plt.Var(VARS), plt.Var(HEAP), "__bool__"),
             plt.Lambda(
                 [VARS, HEAP, "other_bool"],
-                normal_return(
+                continue_return(
                     plt.Var(VARS),
                     plt.Var(HEAP),
                     from_primitive_bool(
@@ -390,7 +400,7 @@ BOOL_ATTRIBUTES_MAP = {
             ),
             plt.Lambda(
                 [VARS, HEAP, "other_bool"],
-                normal_return(
+                continue_return(
                     plt.Var(VARS),
                     plt.Var(HEAP),
                     from_primitive_bool(plt.Var(VARS), plt.Bool(False)),
@@ -400,7 +410,7 @@ BOOL_ATTRIBUTES_MAP = {
     ),
     "__int__": Lambda(
         ["_", "self", VARS, HEAP],
-        normal_return(
+        continue_return(
             plt.Var(VARS),
             plt.Var(HEAP),
             from_primitive_int(
@@ -413,7 +423,7 @@ BOOL_ATTRIBUTES_MAP = {
     ),
     "__bool__": Lambda(
         ["_", "self", VARS, HEAP],
-        normal_return(plt.Var(VARS), plt.Var(HEAP), plt.Var("self")),
+        continue_return(plt.Var(VARS), plt.Var(HEAP), plt.Var("self")),
     ),
 }
 
@@ -429,7 +439,7 @@ NONE_ATTRIBUTES_MAP = {
     # TODO properly define __eq__
     "__bool__": Lambda(
         ["_", "self", VARS, HEAP],
-        normal_return(
+        continue_return(
             plt.Var(VARS),
             plt.Var(HEAP),
             from_primitive_bool(plt.Var(VARS), plt.Bool(False)),
@@ -460,7 +470,7 @@ INITIAL_HEAP = plt.MutableMap()
 PYTHON_BUILT_INS = {
     "None": plt.Lambda(
         [VARS, HEAP],
-        normal_return(
+        continue_return(
             plt.Var(VARS),
             plt.Var(HEAP),
             from_primitive_none(plt.Var(VARS)),
@@ -468,7 +478,7 @@ PYTHON_BUILT_INS = {
     ),
     "print": plt.Lambda(
         ["_", "x", VARS, HEAP],
-        normal_return(
+        continue_return(
             plt.Var(VARS),
             plt.Var(HEAP),
             plt.Apply(
@@ -528,7 +538,7 @@ class UPLCCompiler(NodeTransformer):
         return visitor(node)
 
     def visit_sequence(self, node_seq: typing.List[typedstmt]) -> plt.AST:
-        s = normal_return(
+        s = continue_return(
             plt.Var(VARS), plt.Var(HEAP), from_primitive_none(plt.Var(VARS))
         )
         for n in node_seq:
@@ -614,7 +624,7 @@ class UPLCCompiler(NodeTransformer):
                     ),
                     plt.Lambda(
                         [VARS, HEAP, "r"],
-                        normal_return(
+                        continue_return(
                             plt.Var(VARS),
                             plt.Var(HEAP),
                             # vm => Validator function missing
@@ -652,7 +662,7 @@ class UPLCCompiler(NodeTransformer):
             )
         return plt.Lambda(
             [VARS, HEAP],
-            normal_return(
+            continue_return(
                 plt.Var(VARS),
                 plt.Var(HEAP),
                 plt_type(node.value),
@@ -662,7 +672,7 @@ class UPLCCompiler(NodeTransformer):
     def visit_NoneType(self, _: typing.Optional[typing.Any]) -> plt.AST:
         return plt.Lambda(
             [VARS, HEAP],
-            normal_return(
+            continue_return(
                 plt.Var(VARS), plt.Var(HEAP), from_primitive_none(plt.Var(VARS))
             ),
         )
@@ -682,7 +692,7 @@ class UPLCCompiler(NodeTransformer):
                 plt.Apply(compiled_e, plt.Var(VARS), plt.Var(HEAP)),
                 plt.Lambda(
                     [VARS, HEAP, "r"],
-                    normal_return(
+                    continue_return(
                         extend_statemonad(
                             [node.targets[0].id],
                             [plt.Var("r")],
@@ -700,7 +710,7 @@ class UPLCCompiler(NodeTransformer):
         if isinstance(node.ctx, Load):
             return plt.Lambda(
                 [VARS, HEAP],
-                normal_return(
+                continue_return(
                     plt.Var(VARS),
                     plt.Var(HEAP),
                     # vnd => Variable name not defined yet
@@ -720,7 +730,7 @@ class UPLCCompiler(NodeTransformer):
                 plt.Apply(self.visit(node.value), plt.Var(VARS), plt.Var(HEAP)),
                 plt.Lambda(
                     [VARS, HEAP, "_"],
-                    normal_return(
+                    continue_return(
                         plt.Var(VARS),
                         plt.Var(HEAP),
                         from_primitive_none(plt.Var(VARS)),
@@ -738,7 +748,7 @@ class UPLCCompiler(NodeTransformer):
                 plt.Apply(self.visit(node.func), plt.Var(VARS), plt.Var(HEAP)),
                 plt.Lambda(
                     [VARS, HEAP, "g"],
-                    normal_return(
+                    continue_return(
                         plt.Var(VARS),
                         plt.Var(HEAP),
                         plt.Apply(
@@ -755,7 +765,7 @@ class UPLCCompiler(NodeTransformer):
                             plt.Apply(self.visit(a), plt.Var(VARS), plt.Var(HEAP)),
                             plt.Lambda(
                                 [VARS, HEAP, "a"],
-                                normal_return(
+                                continue_return(
                                     plt.Var(VARS),
                                     plt.Var(HEAP),
                                     plt.Apply(plt.Var("g"), plt.Var("a")),
@@ -784,7 +794,7 @@ class UPLCCompiler(NodeTransformer):
         )
         return plt.Lambda(
             [VARS, HEAP],
-            normal_return(
+            continue_return(
                 extend_statemonad(
                     [node.name],
                     [
@@ -798,7 +808,7 @@ class UPLCCompiler(NodeTransformer):
                                 # if successful, clean return flag and return ORIGINAL local vars, as well as MODIFIED heap
                                 plt.Lambda(
                                     [SUBVARS, HEAP, "r"],
-                                    normal_return(
+                                    continue_return(
                                         plt.Var(VARS),
                                         plt.Var(HEAP),
                                         plt.Var("r"),
@@ -836,9 +846,7 @@ class UPLCCompiler(NodeTransformer):
                                 plt.Lambda(
                                     [VARS, HEAP, "cond"],
                                     plt.Ite(
-                                        from_primitive_bool(
-                                            plt.Var(VARS), plt.Var("cond")
-                                        ),
+                                        to_primitive_bool(plt.Var("cond")),
                                         chain(
                                             plt.Apply(
                                                 compiled_s, plt.Var(VARS), plt.Var(HEAP)
@@ -853,7 +861,7 @@ class UPLCCompiler(NodeTransformer):
                                                 ),
                                             ),
                                         ),
-                                        normal_return(
+                                        continue_return(
                                             plt.Var(VARS),
                                             plt.Var(HEAP),
                                             from_primitive_none(plt.Var(VARS)),
@@ -880,17 +888,41 @@ class UPLCCompiler(NodeTransformer):
 
     def visit_If(self, node: TypedIf) -> plt.AST:
         return plt.Lambda(
-            [STATEMONAD],
-            plt.Ite(
-                plt.Apply(self.visit(node.test), plt.Var(STATEMONAD)),
-                plt.Apply(self.visit_sequence(node.body), plt.Var(STATEMONAD)),
-                plt.Apply(self.visit_sequence(node.orelse), plt.Var(STATEMONAD)),
+            [VARS, HEAP],
+            chain(
+                # TODO rewrite all expressions in If/While to be wrapped with a call to bool(...)
+                plt.Apply(self.visit(node.test), plt.Var(VARS), plt.Var(HEAP)),
+                plt.Lambda(
+                    [VARS, HEAP, "cond"],
+                    plt.Ite(
+                        to_primitive_bool(plt.Var("cond")),
+                        plt.Apply(
+                            self.visit_sequence(node.body), plt.Var(VARS), plt.Var(HEAP)
+                        ),
+                        plt.Apply(
+                            self.visit_sequence(node.orelse),
+                            plt.Var(VARS),
+                            plt.Var(HEAP),
+                        ),
+                    ),
+                ),
             ),
         )
 
     def visit_Return(self, node: TypedReturn) -> plt.AST:
-        raise NotImplementedError(
-            "Compilation of return statements except for last statement in function is not supported."
+        return plt.Lambda(
+            [VARS, HEAP],
+            chain(
+                self.visit(node.value),
+                plt.Lambda(
+                    [VARS, HEAP, "r"],
+                    return_return(
+                        VARS,
+                        HEAP,
+                        plt.Var("r"),
+                    ),
+                ),
+            ),
         )
 
     def visit_Pass(self, node: TypedPass) -> plt.AST:
@@ -983,19 +1015,22 @@ class UPLCCompiler(NodeTransformer):
         raise NotImplementedError(f"Could not implement subscript of {node}")
 
     def visit_Tuple(self, node: TypedTuple) -> plt.AST:
+        # TODO write pythonic wrapper
         return plt.Lambda(
-            [STATEMONAD],
+            [VARS, HEAP],
             plt.Tuple(
                 *(plt.Apply(self.visit(e), plt.Var(STATEMONAD)) for e in node.elts)
             ),
         )
 
     def visit_ClassDef(self, node: ClassDef) -> plt.AST:
+        # TODO populate variable monad with initializer
         return self.visit_sequence([])
 
     def visit_Attribute(self, node: TypedAttribute) -> plt.AST:
         # rewrite to access the field at position node.pos
         # (use the internal function for fields)
+        # TODO rewrite to method access
         return self.visit(
             TypedSubscript(
                 value=TypedCall(
