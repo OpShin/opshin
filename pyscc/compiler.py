@@ -29,10 +29,10 @@ class StateFlags(Enum):
 ConstantMap = {
     str: plt.Text,
     bytes: plt.ByteString,
-    int: lambda x: from_primitive_int(plt.Integer(x)),
-    bool: lambda x: from_primitive_bool(plt.Bool(x)),
+    int: lambda s, x: from_primitive_int(s, plt.Integer(x)),
+    bool: lambda s, x: from_primitive_bool(s, plt.Bool(x)),
     # TODO support higher level Optional type
-    type(None): plt.Unit,
+    type(None): lambda s, x: from_primitive_none(s),
 }
 
 
@@ -53,15 +53,17 @@ to_primitive_int = plt.to_primitive
 to_primitive_bool = plt.to_primitive
 
 
-def from_primitive_int(p: plt.AST):
+def from_primitive_int(statemonad: plt.AST, p: plt.AST):
     return plt.from_primitive(
-        p, plt.Apply(plt.Var(STATEMONAD), INTEGER_ATTRIBUTE_VARNAME)
+        p, plt.Apply(statemonad, INTEGER_ATTRIBUTE_VARNAME)
     )
 
 
-def from_primitive_bool(p: plt.AST):
-    return plt.from_primitive(p, plt.Apply(plt.Var(STATEMONAD), BOOL_ATTRIBUTE_VARNAME))
+def from_primitive_bool(statemonad: plt.AST, p: plt.AST):
+    return plt.from_primitive(p, plt.Apply(statemonad, BOOL_ATTRIBUTE_VARNAME))
 
+def from_primitive_none(statemonad: plt.AST):
+    return plt.Apply(statemonad, NONE_ATTRIBUTE_VARNAME)
 
 def state_flag(ret: plt.AST):
     return plt.TupleAccess(ret, ReturnTupleElem.STATE_FLAG.value, RETURN_TUPLE_SIZE)
@@ -99,7 +101,7 @@ def except_return(state_monad: plt.AST, exception: plt.AST):
     )
 
 
-def MethodCall(wv: plt.WrappedValue, statemonad: plt.AST, method_name: str, *args: AST):
+def MethodCall(wv: plt.WrappedValue, statemonad: plt.AST, method_name: str, *args: plt.AST):
     return plt.Apply(
         plt.Apply(
             wv,
@@ -107,7 +109,7 @@ def MethodCall(wv: plt.WrappedValue, statemonad: plt.AST, method_name: str, *arg
             plt.Lambda(
                 [STATEMONAD, "self", [str(i) for i, _ in enumerate(args)]],
                 # TODO exceptions could also be a bit more fancy wrapped objects
-                except_return(plt.Var("self"), plt.ByteString(b"AttributeError")),
+                except_return(plt.Var("self"), plt.Text("AttributeError")),
             ),
         ),
         statemonad,
@@ -125,13 +127,16 @@ def chain_except(a: plt.AST, b: plt.AST, c: plt.AST):
     The monad combinator
     b/c must expect statemonad and return value of a as first two arguments
     """
-    return plt.Let(
-        [("r", a)],
-        plt.Ite(
-            exception_isset(plt.Var("r")),
-            plt.Apply(c, state_monad(plt.Var("r")), return_value(plt.Var("r"))),
-            plt.Apply(b, state_monad(plt.Var("r")), return_value(plt.Var("r"))),
+    return plt.Apply(
+        plt.Lambda(
+            ["r"],
+            plt.Ite(
+                exception_isset(plt.Var("r")),
+                plt.Apply(c, state_monad(plt.Var("r")), return_value(plt.Var("r"))),
+                plt.Apply(b, state_monad(plt.Var("r")), return_value(plt.Var("r"))),
+            ),
         ),
+        a,
     )
 
 
@@ -182,6 +187,7 @@ INTEGER_ATTRIBUTES_MAP = {
                 normal_return(
                     plt.Var(STATEMONAD),
                     from_primitive_int(
+                        plt.Var(STATEMONAD),
                         plt.AddInteger(
                             to_primitive_int(plt.Var("self")),
                             to_primitive_int(plt.Var("other_int")),
@@ -200,6 +206,7 @@ INTEGER_ATTRIBUTES_MAP = {
                 normal_return(
                     plt.Var(STATEMONAD),
                     from_primitive_int(
+                        plt.Var(STATEMONAD),
                         plt.SubtractInteger(
                             to_primitive_int(plt.Var("self")),
                             to_primitive_int(plt.Var("other_int")),
@@ -218,6 +225,7 @@ INTEGER_ATTRIBUTES_MAP = {
                 normal_return(
                     plt.Var(STATEMONAD),
                     from_primitive_bool(
+                        plt.Var(STATEMONAD),
                         plt.EqualsInteger(
                             to_primitive_int(plt.Var("self")),
                             to_primitive_int(plt.Var("other_int")),
@@ -228,7 +236,7 @@ INTEGER_ATTRIBUTES_MAP = {
             plt.Lambda(
                 [STATEMONAD, "other_int"],
                 normal_return(
-                    plt.Var(STATEMONAD), from_primitive_bool(plt.Bool(False))
+                    plt.Var(STATEMONAD), from_primitive_bool(plt.Var(STATEMONAD), plt.Bool(False))
                 ),
             ),
         ),
@@ -242,6 +250,7 @@ INTEGER_ATTRIBUTES_MAP = {
         normal_return(
             plt.Var(STATEMONAD),
             from_primitive_bool(
+                plt.Var(STATEMONAD),
                 plt.NotEqualsInteger(to_primitive_int(plt.Var("self")), plt.Integer(0))
             ),
         ),
@@ -264,6 +273,7 @@ BOOL_ATTRIBUTES_MAP = {
                 normal_return(
                     plt.Var(STATEMONAD),
                     from_primitive_int(
+                        plt.Var(STATEMONAD),
                         plt.AddInteger(
                             # shortcut because we know there wont be an exception here
                             to_primitive_int(
@@ -289,6 +299,7 @@ BOOL_ATTRIBUTES_MAP = {
                 normal_return(
                     plt.Var(STATEMONAD),
                     from_primitive_int(
+                        plt.Var(STATEMONAD),
                         plt.SubtractInteger(
                             # shortcut because we know there wont be an exception here
                             to_primitive_int(
@@ -314,6 +325,7 @@ BOOL_ATTRIBUTES_MAP = {
                 normal_return(
                     plt.Var(STATEMONAD),
                     from_primitive_bool(
+                        plt.Var(STATEMONAD),
                         plt.EqualsBool(
                             to_primitive_bool(plt.Var("self")),
                             to_primitive_bool(plt.Var("other_bool")),
@@ -324,7 +336,7 @@ BOOL_ATTRIBUTES_MAP = {
             plt.Lambda(
                 [STATEMONAD, "other_bool"],
                 normal_return(
-                    plt.Var(STATEMONAD), from_primitive_bool(plt.Bool(False))
+                    plt.Var(STATEMONAD), from_primitive_bool(plt.Var(STATEMONAD), plt.Bool(False))
                 ),
             ),
         ),
@@ -334,6 +346,7 @@ BOOL_ATTRIBUTES_MAP = {
         normal_return(
             plt.Var(STATEMONAD),
             from_primitive_int(
+                plt.Var(STATEMONAD),
                 plt.Ite(
                     to_primitive_bool(plt.Var("self")), plt.Integer(1), plt.Integer(0)
                 )
@@ -358,7 +371,7 @@ NONE_ATTRIBUTES_MAP = {
     # TODO properly define __eq__
     "__bool__": Lambda(
         [STATEMONAD, "self"],
-        normal_return(plt.Var(STATEMONAD), from_primitive_bool(plt.Bool(False))),
+        normal_return(plt.Var(STATEMONAD), from_primitive_bool(plt.Var(STATEMONAD), plt.Bool(False))),
     ),
 }
 
@@ -394,10 +407,8 @@ PYTHON_BUILT_INS = {
             plt.Var(STATEMONAD),
             plt.Apply(
                 plt.Lambda(["a", "b"], plt.Var("b")),
-                plt.Apply(
-                    plt.Force(
-                        plt.BuiltIn(BuiltInFun.Trace),
-                    ),
+                plt.Trace(
+                    # TODO call str(x)
                     plt.Var("x"),
                     plt.Unit(),
                 ),
@@ -424,7 +435,15 @@ BinOpMap = {
     Add: "__add__",
     Sub: "__sub__",
     Mult: "__mul__",
-    FloorDiv: "__div__",
+}
+
+CmpMap = {
+    Eq: "__eq__",
+    NotEq: "__neq__",
+    LtE: "__lte__",
+    Lt: "__lt__",
+    Gt: "__gt__",
+    GtE: "__gte__",
 }
 
 
@@ -447,62 +466,65 @@ class UPLCCompiler(NodeTransformer):
         for n in node_seq:
             compiled_stmt = self.visit(n)
             # TODO also abort with return
-            s = chain(s, compiled_stmt)
+            s = plt.Apply(
+                plt.Lambda(
+                    ["r"],
+                    plt.Ite(
+                        plt.EqualsInteger(state_flag(plt.Var("r")), plt.Integer(StateFlags.CONTINUE.value)),
+                        plt.Apply(compiled_stmt, state_monad(plt.Var("r"))),
+                        # Either it is abort or return - in both cases, just return whatever that step returned
+                        plt.Var("r"),
+                    ),
+                ),
+                s,
+            )
         return plt.Lambda([STATEMONAD], s)
 
     def visit_BinOp(self, node: TypedBinOp) -> plt.AST:
-        opmap = BinOpMap.get(type(node.op))
-        if opmap is None:
+        opmet = BinOpMap.get(type(node.op))
+        if opmet is None:
             raise NotImplementedError(f"Operation {node.op} is not implemented")
-        op = opmap.get(node.typ)
-        if op is None:
-            raise NotImplementedError(
-                f"Operation {node.op} is not implemented for type {node.typ}"
-            )
         return plt.Lambda(
             [STATEMONAD],
-            plt.Apply(
-                plt.BuiltIn(op),
-                plt.Apply(self.visit(node.left), plt.Var(STATEMONAD)),
-                plt.Apply(self.visit(node.right), plt.Var(STATEMONAD)),
-            ),
+            MethodCall(self.visit(node.left), plt.Var(STATEMONAD), opmet, plt.Apply(self.visit(node.right), plt.Var(STATEMONAD))),
         )
 
     def visit_Compare(self, node: Compare) -> plt.AST:
         assert len(node.ops) == 1, "Only single comparisons are supported"
         assert len(node.comparators) == 1, "Only single comparisons are supported"
-        opmap = CmpMap.get(type(node.ops[0]))
-        if opmap is None:
+        opmet = CmpMap.get(type(node.ops[0]))
+        if opmet is None:
             raise NotImplementedError(f"Operation {node.ops[0]} is not implemented")
-        op = opmap.get(node.left.typ)
-        if op is None:
-            raise NotImplementedError(
-                f"Operation {node.ops[0]} is not implemented for type {node.left.typ}"
-            )
         return plt.Lambda(
             [STATEMONAD],
-            plt.Apply(
-                plt.BuiltIn(op),
-                plt.Apply(self.visit(node.left), plt.Var(STATEMONAD)),
-                plt.Apply(self.visit(node.comparators[0]), plt.Var(STATEMONAD)),
-            ),
+            MethodCall(self.visit(node.left), plt.Var(STATEMONAD), opmet, plt.Apply(self.visit(node.comparators[0]), plt.Var(STATEMONAD))),
         )
 
     def visit_Module(self, node: TypedModule) -> plt.AST:
         cp = plt.Program(
             "0.0.1",
-            plt.Let(
-                [
-                    (
-                        "g",
-                        plt.Apply(
-                            plt.Apply(self.visit_sequence(node.body), INITIAL_STATE),
-                            plt.ByteString("main".encode("utf8")),
-                        ),
+            try_catch(
+                plt.Let(
+                    [
+                        (
+                            "g",
+                            plt.Apply(
+                                plt.Apply(self.visit_sequence(node.body), INITIAL_STATE),
+                                plt.ByteString("validator".encode("utf8")),
+                            ),
+                        )
+                    ],
+                    plt.Apply(plt.Var("g"), plt.Var("g")),
+                ),
+                plt.Lambda(
+                    [STATEMONAD, "e"],
+                    plt.Trace(
+                        plt.Var("e"),
+                        plt.Error(),
                     )
-                ],
-                plt.Apply(plt.Var("g"), plt.Var("g")),
-            ),
+                )
+
+            )
         )
         return cp
 
@@ -515,7 +537,7 @@ class UPLCCompiler(NodeTransformer):
         return plt.Lambda([STATEMONAD], plt_type(node.value))
 
     def visit_NoneType(self, _: typing.Optional[typing.Any]) -> plt.AST:
-        return plt.Lambda([STATEMONAD], plt.Unit())
+        return plt.Lambda([STATEMONAD], from_primitive_none(plt.Var(STATEMONAD)))
 
     def visit_Assign(self, node: TypedAssign) -> plt.AST:
         assert (
