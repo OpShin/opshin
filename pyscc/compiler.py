@@ -1,7 +1,7 @@
 from enum import Enum
 
 from .type_inference import *
-from . import pluto_ast as plt
+from . import pluto_ast as plt, uplc_ast
 from .rewrite_for import RewriteFor
 from .rewrite_tuple_assign import RewriteTupleAssign
 from .rewrite_augassign import RewriteAugAssign
@@ -52,6 +52,61 @@ ConstantMap = {
 def extend_statemonad(names: typing.List[str], values: typing.List[plt.AST], old_statemonad: plt.MutableMap):
     return plt.extend_map([n.encode() for n in names], values, old_statemonad)
 
+INTEGER_ATTRIBUTE_VARNAME = b"\0int_attribute"
+BOOL_ATTRIBUTE_VARNAME = b"\0bool_attribute"
+
+to_primitive_int = plt.to_primitive
+to_primitive_bool = plt.to_primitive
+
+def from_primitive_int(p: plt.AST):
+    return plt.from_primitive(p, plt.Apply(plt.Var(STATEMONAD), INTEGER_ATTRIBUTE_VARNAME))
+
+def from_primitive_bool(p: plt.AST):
+    return plt.from_primitive(p, plt.Apply(plt.Var(STATEMONAD), BOOL_ATTRIBUTE_VARNAME))
+
+
+# self is the simplest source of non-infinitely recursing, complete, integer attributes
+INTEGER_ATTRIBUTES_MAP = {
+    "__add__": Lambda(
+        [STATEMONAD, "self", "other"],
+        from_primitive_int(plt.AddInteger(to_primitive_int(plt.Var("self")),to_primitive_int(plt.Var("other")))),
+    ),
+    "__sub__": Lambda(
+        [STATEMONAD, "self", "other"],
+        from_primitive_int(plt.SubtractInteger(to_primitive_int(plt.Var("self")), to_primitive_int(plt.Var("other")))),
+    ),
+    "__eq__": Lambda(
+        [STATEMONAD, "self", "other"],
+        # TODO in proper implementations, this would first check for the existence of int, then index, then trunc
+        from_primitive_bool(plt.EqualsInteger(to_primitive_int(plt.Var("self")), to_primitive_int(plt.MethodCall(plt.Var("other"), plt.Var(STATEMONAD), "__int__")))),
+    ),
+    "__int__": Lambda(
+        [STATEMONAD, "self"],
+        plt.Var("self"),
+    ),
+    "__bool__": Lambda(
+        [STATEMONAD, "self"],
+        from_primitive_bool(plt.NotEqualsInteger(to_primitive_int(plt.Var("self")), plt.Integer(0))),
+    ),
+}
+
+INTEGER_ATTRIBUTES = plt.extend_map(
+    [k.encode() for k in INTEGER_ATTRIBUTES_MAP.keys()],
+    INTEGER_ATTRIBUTES_MAP.values(),
+    plt.MutableMap(),
+)
+
+INITIAL_ATTRIBUTES = {
+    INTEGER_ATTRIBUTE_VARNAME: INTEGER_ATTRIBUTES,
+    BOOL_ATTRIBUTE_VARNAME: BOOL_ATTRIBUTES,
+}
+
+INITIAL_STATE = plt.extend_map(
+    INITIAL_ATTRIBUTES.keys(),
+    INITIAL_ATTRIBUTES.values(),
+    plt.MutableMap,
+)
+
 
 class PythonBuiltIn(Enum):
     print = plt.Lambda(
@@ -84,7 +139,7 @@ class PythonBuiltIn(Enum):
 INITIAL_STATE = extend_statemonad(
     [b.name for b in PythonBuiltIn],
     [b.value for b in PythonBuiltIn],
-    plt.MutableMap(),
+    INITIAL_STATE,
 )
 
 

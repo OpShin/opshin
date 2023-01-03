@@ -289,47 +289,37 @@ class MutableMap(AST):
 
 
 TOPRIMITIVEVALUE = b"0"
-DICT = b"1"
 
 class WrappedValue(AST):
 
     def __new__(cls, uplc_obj: AST, attributes: MutableMap):
-        updated_map = extend_map([TOPRIMITIVEVALUE, DICT], [uplc_obj, attributes], attributes)
+        updated_map = extend_map([TOPRIMITIVEVALUE], [uplc_obj], attributes)
         return updated_map
 
+def from_primitive(p: AST, attributes: AST):
+    return WrappedValue(p, attributes)
 
-def to_primitive_value(wv: WrappedValue):
+def to_primitive(wv: WrappedValue):
     return Apply(wv, TOPRIMITIVEVALUE)
 
-def to_dict(wv: WrappedValue) -> MutableMap:
-    return Apply(wv, DICT)
+def MethodCall(wv: WrappedValue, statemonad: Var, method_name: str, *args: AST):
+    return Apply(Apply(wv, method_name.encode()), statemonad, wv, *args)
 
-class AttributeAccess(AST):
+def AttributeAccess(wv: WrappedValue, statemonad: Var, attribute_name: str):
+    return MethodCall(wv, statemonad, attribute_name)
 
-    def __new__(cls, wv: WrappedValue, attribute_name: str):
-        return Apply(wv, attribute_name.encode())
+def EqualsInteger(a: AST, b: AST):
+    return Apply(uplc_ast.BuiltInFun.EqualsInteger, a, b)
 
+def NotEqualsInteger(a: AST, b: AST):
+    return Not(EqualsInteger(a, b))
 
-# self is the simplest source of non-infinitely recursing, complete, integer attributes
-INTEGER_ATTRIBUTES_MAP = {
-    "__add__": Lambda(
-        ["self", "other"],
-        WrappedValue(Apply(uplc_ast.BuiltInFun.AddInteger, to_primitive_value(Var("self")), to_primitive_value(Var("other"))), to_dict(Var("self")))
-    ),
-    "__sub__": Lambda(
-        ["self", "other"],
-        WrappedValue(Apply(uplc_ast.BuiltInFun.SubtractInteger, to_primitive_value(Var("self")), to_primitive_value(Var("other"))), to_dict(Var("self")))
-    ),
-    "__eq__": Lambda(
-        ["self", "other"],
-        WrappedValue(Apply(uplc_ast.BuiltInFun.EqualsInteger, to_primitive_value(Var("self")), to_primitive_value(Var("other"))), to_dict(Var("self")))
-    ),
-}
-INTEGER_ATTRIBUTES = extend_map(
-    [k.encode() for k in INTEGER_ATTRIBUTES_MAP.keys()],
-    INTEGER_ATTRIBUTES_MAP.values(),
-    MutableMap(),
-)
+def AddInteger(a: AST, b: AST):
+    return Apply(uplc_ast.BuiltInFun.AddInteger, a, b)
 
-def from_primitive_int(i: Integer):
-    return WrappedValue(i, INTEGER_ATTRIBUTES)
+def SubtractInteger(a: AST, b: AST):
+    return Apply(uplc_ast.BuiltInFun.SubtractInteger, a, b)
+
+def EqualsBytestring(a: AST, b: AST):
+    return Apply(uplc_ast.BuiltInFun.EqualsByteString, a, b)
+
