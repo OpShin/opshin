@@ -15,7 +15,6 @@ class ReturnTupleElem(Enum):
     STATE_FLAG = 0
     STATE_MONAD = 1
     RETURN_VALUE = 2
-    EXCEPTION = 3
 
 
 RETURN_TUPLE_SIZE = len(ReturnTupleElem)
@@ -75,7 +74,7 @@ def return_value(ret: plt.AST):
 
 
 def exception(ret: plt.AST):
-    return plt.TupleAccess(ret, ReturnTupleElem.EXCEPTION.value, RETURN_TUPLE_SIZE)
+    return plt.TupleAccess(ret, ReturnTupleElem.RETURN_VALUE.value, RETURN_TUPLE_SIZE)
 
 
 def exception_isset(ret: plt.AST):
@@ -104,11 +103,38 @@ def try_catch(t: plt.AST, c: plt.AST):
 
 def normal_return(state_monad: plt.AST, return_value: plt.AST):
     return plt.Tuple(
-        StateFlags.RETURN.value,
+        plt.Integer(StateFlags.RETURN.value),
         state_monad,
         return_value,
-        plt.Unit(),
     )
+
+
+def except_return(state_monad: plt.AST, exception: plt.AST):
+    return plt.Tuple(
+        plt.Integer(StateFlags.ABORT.value),
+        state_monad,
+        exception,
+    )
+
+
+def MethodCall(wv: plt.WrappedValue, statemonad: plt.AST, method_name: str, *args: AST):
+    return plt.Apply(
+        plt.Apply(
+            wv,
+            method_name.encode(),
+            plt.Lambda(
+                [STATEMONAD, "self", [str(i) for i, _ in enumerate(args)]],
+                except_return(plt.Var("self"), plt.ByteString(b"AttributeError")),
+            ),
+        ),
+        statemonad,
+        wv,
+        *args,
+    )
+
+
+def AttributeAccess(wv: plt.WrappedValue, statemonad: plt.Var, attribute_name: str):
+    return MethodCall(wv, statemonad, attribute_name)
 
 
 # self is the simplest source of non-infinitely recursing, complete, integer attributes

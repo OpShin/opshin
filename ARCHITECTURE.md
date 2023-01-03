@@ -7,8 +7,7 @@ The general concept is as follows:
 Every evaluated part of the python expression tree results in a tuple of
 - state flag (0 = continue, 1 = computation stopped normally, 2 = error occurred)
 - statemonad
-- return value
-- exception state
+- return value / exception state, depending on the state flag
 
 Functions are always passed the statemonad as first argument.
 In a return value, the state flag is only relevant if set to 2.

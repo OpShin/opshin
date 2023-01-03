@@ -265,6 +265,7 @@ EQUALS_MAP = {
 }
 
 
+# low level maps that only support equal type keys
 def extend_map(
     names: typing.List[typing.Any],
     values: typing.List[AST],
@@ -273,6 +274,7 @@ def extend_map(
     additional_compares = Apply(
         old_statemonad,
         Var("x"),
+        Var("def"),
     )
     for name, value in zip(names, values):
         keytype, transform = BUILTIN_TYPE_MAP[type(name)]
@@ -282,7 +284,7 @@ def extend_map(
             additional_compares,
         )
     return Lambda(
-        ["x"],
+        ["x", "def"],
         additional_compares,
     )
 
@@ -291,7 +293,7 @@ class MutableMap(AST):
     def __new__(
         cls, kv: typing.Optional[typing.Dict[typing.Any, AST]] = None
     ) -> "MutableMap":
-        res = Lambda(["x"], Error())
+        res = Lambda(["x", "def"], Var("def"))
         if kv is not None:
             res = extend_map(kv.keys(), kv.values(), res)
         return res
@@ -311,15 +313,7 @@ def from_primitive(p: AST, attributes: AST):
 
 
 def to_primitive(wv: WrappedValue):
-    return Apply(wv, TOPRIMITIVEVALUE)
-
-
-def MethodCall(wv: WrappedValue, statemonad: Var, method_name: str, *args: AST):
-    return Apply(Apply(wv, method_name.encode()), statemonad, wv, *args)
-
-
-def AttributeAccess(wv: WrappedValue, statemonad: Var, attribute_name: str):
-    return MethodCall(wv, statemonad, attribute_name)
+    return Apply(wv, TOPRIMITIVEVALUE, Unit())
 
 
 def EqualsInteger(a: AST, b: AST):
