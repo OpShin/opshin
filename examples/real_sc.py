@@ -1,4 +1,4 @@
-from pyscc.prelude import *
+from eopsin.prelude import *
 
 
 class CancelDatum(PlutusData):

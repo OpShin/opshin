@@ -1,5 +1,4 @@
-import pyscc.prelude
-
+from eopsin.prelude import *
 
 def main(n: int, m: int) -> bool:
     fine = False

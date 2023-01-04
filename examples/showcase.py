@@ -1,12 +1,7 @@
-from dataclasses import dataclass
+from eopsin.prelude import *
 
 
-@dataclass(frozen=True)
-class PlutusData:
-    pass
-
-
-def main(n: PlutusData) -> None:
+def main(n: int) -> None:
     a, b = 0, int(n)
     if b < 5:
         print("add")

@@ -1,10 +1,5 @@
-from dataclasses import dataclass
+from eopsin.prelude import *
 
 
-@dataclass(frozen=True)
-class PlutusData:
-    pass
-
-
-def main(a: PlutusData, b: PlutusData) -> int:
+def main(a: int, b: int) -> int:
     return int(a) + int(b)
