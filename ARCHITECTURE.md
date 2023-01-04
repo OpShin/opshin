@@ -1,38 +1,21 @@
 The general concept is as follows:
 
-
-
 ## Execution / ABI
 
-Every evaluated part of the python expression tree results in a tuple of
-- state flag (0 = continue, 1 = computation stopped normally, 2 = error occurred)
-- local vars (statemonad)
-- heap (statemonad)
-- return value / exception state, depending on the state flag
-
-Functions are always passed the heap and shadow the local variables, but modify only a copy of the latter.
-In a return value, the state flag is only relevant if set to 2.
+Every evaluated part of the python expression tree results in a statemonad of local variables.
+As a consequence, eopsin may only allow a pure subset of python.
+Exceptions and Catching are not supported.
 
 ## Memory
 
 Memory is represented in a statemonad.
-The statemonad is a natural number (the current size of allocated heap) and a nested (lambda x: if x == y then z else f(x)) comparison.
-It consists of two parts conceptually.
-One part has natural numbers (pointers) as variable names and maps these numbers to atomic values (the heap).
-Moreover, this part is dragged along through all executions and stores side effects.
-
-The other part has bytestrings as variable names and maps these to atomic values (local vars).
-The byte strings are local variable names and map directly to respective pointers or atomic values.
-Arrays and objects may be represented by consecutive natural number allocationss in the heap.
+The memory monad has bytestrings as variable names and maps these to atomic values (local vars).
+The byte strings are local variable names and map directly to respective uplc values.
+This means that wrong applications of functions to variables may cause uncatchable errors.
+The strict typing system tries to avoid such issues.
 
 ## Objects
 
-In general, every python object is wrapped with a thin mapping from attribute/method names to
-constants/lambda functions that evaluate to the equivalent value if passed "self".
-
-Inside the code we assume every object to be wrapped and can hence translate everything to self(attributename).
-
-In that sense, every object is a statemonad again.
-
-In general, subtyping is not supported in the sense that isinstance/etc do not check for subtyping relationships.
-This also means that Exception handling does only work with "Exception" as catch type.
+In general, python objects are represented by equivalent UPLC counterparts.
+This means, only an immutable subset of python values is allows.
+Also, no subtyping is allowed.
