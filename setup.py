@@ -24,10 +24,7 @@ setup(
     url=eopsin.__url__,
     py_modules=["eopsin"],
     packages=find_packages(),
-    install_requires=[
-        "pluthon",
-        "uplc"
-    ],
+    install_requires=["pluthon", "uplc"],
     long_description=long_description,
     long_description_content_type="text/markdown",
     license=eopsin.__license__,

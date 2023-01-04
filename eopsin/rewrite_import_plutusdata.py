@@ -7,7 +7,7 @@ Checks that there was an import of dataclass if there are any class definitions
 """
 
 
-class RewritePlutusData(NodeTransformer):
+class RewriteImportPlutusData(NodeTransformer):
 
     imports_plutus_data = False
 
@@ -27,7 +27,7 @@ class RewritePlutusData(NodeTransformer):
             node.names[1].name == "PlutusData"
         ), "The program must contain one 'from pycardano import Datum, PlutusData'"
         assert (
-                node.names[1].asname == None
+            node.names[1].asname == None
         ), "The program must contain one 'from pycardano import Datum, PlutusData'"
         self.imports_plutus_data = True
         return None
@@ -39,13 +39,11 @@ class RewritePlutusData(NodeTransformer):
         assert (
             len(node.bases) == 0
         ), "Class definitions must inherit only from PlutusData"
-        assert(
+        assert (
             isinstance(node.bases[0], Name),
         ), "The inheritance must be direct, using the name PlutusData"
         base: Name = node.bases[0]
-        assert (
-            base.id == "PlutusData"
-        ), "Class definitions must inherit from PlutusData"
+        assert base.id == "PlutusData", "Class definitions must inherit from PlutusData"
         assert (
             self.imports_plutus_data
         ), "PlutusData must be imported in order to use datum classes"
