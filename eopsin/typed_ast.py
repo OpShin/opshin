@@ -23,6 +23,7 @@ PlutusDataType = InstanceType("PlutusData")
 @dataclass(frozen=True, unsafe_hash=True)
 class Record:
     name: str
+    constructor: int
     attributes: typing.List[typing.Tuple[str, Type]]
 
 
@@ -188,22 +189,38 @@ def type_from_annotation(ann: expr):
 
 class RecordReader(NodeVisitor):
     name: str
+    constructor: int
     attributes: typing.List[typing.Tuple[str, Type]]
 
     def __init__(self):
+        self.constructor = 0
         self.attributes = []
 
     @classmethod
     def extract(cls, c: ClassDef) -> Record:
         f = cls()
         f.visit(c)
-        return Record(f.name, f.attributes)
+        return Record(f.name, f.constructor, f.attributes)
 
     def visit_AnnAssign(self, node: AnnAssign) -> None:
         assert isinstance(
             node.target, Name
         ), "Record elements must have named attributes"
-        self.attributes.append((node.target.id, type_from_annotation(node.annotation)))
+        if node.target.id != "CONSTRUCTOR":
+            assert (
+                node.value is None
+            ), f"PlutusData attribute {node.target.id} may not have a default value"
+            self.attributes.append(
+                (node.target.id, type_from_annotation(node.annotation))
+            )
+            return
+        assert isinstance(
+            node.value, Constant
+        ), "CONSTRUCTOR must be assigned a constant"
+        assert isinstance(
+            node.value.value, int
+        ), "CONSTRUCTOR must be assigned an integer"
+        self.constructor = node.value.value
 
     def visit_ClassDef(self, node: ClassDef) -> None:
         self.name = node.name
