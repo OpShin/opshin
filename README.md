@@ -30,7 +30,7 @@ This program consists of a few independent components:
 Write your program in python. You may start with the `example.py`.
 Then run 
 ```bash
-python3 -m pyscc compile example.py
+python3 -m uplc compile example.py
 ```
 
 > Note: this is the final desired state. I am currently too lazy to both with setting up the module so just put your code into the string at `test.py` and run `python3 test.py`

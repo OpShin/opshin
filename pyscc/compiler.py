@@ -1,12 +1,13 @@
 from enum import Enum
 
 from .type_inference import *
-from . import pluto_ast as plt, uplc_ast
 from .rewrite_for import RewriteFor
 from .rewrite_tuple_assign import RewriteTupleAssign
 from .rewrite_augassign import RewriteAugAssign
 from .rewrite_dataclass import RewriteDataclasses
-from .uplc_ast import BuiltInFun
+
+from pluthon import pluthon_ast as plt
+from uplc import uplc_ast
 
 VARS = "v"
 SUBVARS = "sv"
@@ -958,7 +959,7 @@ class UPLCCompiler(NodeTransformer):
                                 plt.Ite(
                                     plt.Force(
                                         plt.Apply(
-                                            plt.BuiltIn(BuiltInFun.NullList),
+                                            plt.BuiltIn(uplc_ast.BuiltInFun.NullList),
                                             plt.Var("xs"),
                                         )
                                     ),
@@ -974,26 +975,26 @@ class UPLCCompiler(NodeTransformer):
                                     ),
                                     plt.Ite(
                                         plt.Apply(
-                                            plt.BuiltIn(BuiltInFun.EqualsInteger),
+                                            plt.BuiltIn(uplc_ast.BuiltInFun.EqualsInteger),
                                             plt.Var("i"),
                                             plt.Integer(0),
                                         ),
                                         plt.Force(
                                             plt.Apply(
-                                                plt.BuiltIn(BuiltInFun.HeadList),
+                                                plt.BuiltIn(uplc_ast.BuiltInFun.HeadList),
                                                 plt.Var("xs"),
                                             )
                                         ),
                                         plt.Apply(
                                             plt.Var("f"),
                                             plt.Apply(
-                                                plt.BuiltIn(BuiltInFun.SubtractInteger),
+                                                plt.BuiltIn(uplc_ast.BuiltInFun.SubtractInteger),
                                                 plt.Var("i"),
                                                 plt.Integer(1),
                                             ),
                                             plt.Force(
                                                 plt.Apply(
-                                                    plt.BuiltIn(BuiltInFun.TailList),
+                                                    plt.BuiltIn(uplc_ast.BuiltInFun.TailList),
                                                     plt.Var("xs"),
                                                 )
                                             ),
