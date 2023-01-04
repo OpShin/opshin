@@ -17,30 +17,61 @@ STATEMONAD = "s"
 
 BinOpMap = {
     Add: {
-        IntegerType: BuiltInFun.AddInteger,
-        ByteStringType: BuiltInFun.AppendByteString,
+        IntegerType: {
+            IntegerType: {
+                plt.AddInteger,
+            }
+        },
+        ByteStringType: {
+            ByteStringType: plt.AppendByteString,
+        },
     },
     Sub: {
-        IntegerType: BuiltInFun.SubtractInteger,
+        IntegerType: {
+            IntegerType: plt.SubtractInteger,
+        }
     },
     Mult: {
-        IntegerType: BuiltInFun.MultiplyInteger,
+        IntegerType: {
+            IntegerType: plt.MultiplyInteger,
+        }
     },
     Div: {
-        IntegerType: BuiltInFun.DivideInteger,
+        IntegerType: {
+            IntegerType: plt.DivideInteger,
+        }
     },
     Mod: {
-        IntegerType: BuiltInFun.RemainderInteger,
+        IntegerType: {
+            IntegerType: plt.ModInteger,
+        }
     },
 }
 
 CmpMap = {
     Eq: {
-        IntegerType: BuiltInFun.EqualsInteger,
-        ByteStringType: BuiltInFun.EqualsByteString,
+        IntegerType: {
+            IntegerType: {
+                plt.EqualsInteger,
+            }
+        },
+        ByteStringType: {
+            ByteStringType: {
+                plt.EqualsByteString,
+            }
+        },
+        BoolType: {
+            BoolType: {
+                plt.EqualsBool,
+            }
+        },
     },
     Lt: {
-        IntegerType: BuiltInFun.LessThanInteger,
+        IntegerType: {
+            IntegerType: {
+                BuiltInFun.LessThanInteger,
+            }
+        },
     },
 }
 
@@ -57,7 +88,7 @@ ConstantMap = {
 def extend_statemonad(
     names: typing.List[str],
     values: typing.List[plt.AST],
-    old_statemonad: plt.UpdatableMap,
+    old_statemonad: plt.MutableMap,
 ):
     return plt.extend_map([n.encode() for n in names], values, old_statemonad)
 
@@ -73,6 +104,7 @@ class PythonBuiltIn(Enum):
             plt.Unit(),
         ),
     )
+    # TODO rewrite such that returns BuiltInList
     range = plt.Lambda(
         ["f", "limit"],
         plt.Tuple(
@@ -95,6 +127,7 @@ class PythonBuiltIn(Enum):
             ),
         ),
     )
+    # TODO rewrite
     int = plt.Lambda(
         ["f", "x"], plt.Apply(plt.BuiltIn(BuiltInFun.UnIData), plt.Var("x"))
     )
@@ -110,7 +143,7 @@ class PythonBuiltIn(Enum):
 INITIAL_STATE = extend_statemonad(
     [b.name for b in PythonBuiltIn],
     [b.value for b in PythonBuiltIn],
-    plt.UpdatableMap(),
+    plt.MutableMap(),
 )
 
 
@@ -139,15 +172,19 @@ class UPLCCompiler(NodeTransformer):
         opmap = BinOpMap.get(type(node.op))
         if opmap is None:
             raise NotImplementedError(f"Operation {node.op} is not implemented")
-        op = opmap.get(node.typ)
-        if op is None:
+        opmap2 = opmap.get(node.left.typ)
+        if opmap2 is None:
             raise NotImplementedError(
-                f"Operation {node.op} is not implemented for type {node.typ}"
+                f"Operation {node.op} is not implemented for left type {node.left.typ}"
+            )
+        op = opmap2.get(node.right.typ)
+        if opmap2 is None:
+            raise NotImplementedError(
+                f"Operation {node.op} is not implemented for left type {node.left.typ} and right type {node.right.typ}"
             )
         return plt.Lambda(
             [STATEMONAD],
-            plt.Apply(
-                plt.BuiltIn(op),
+            op(
                 plt.Apply(self.visit(node.left), plt.Var(STATEMONAD)),
                 plt.Apply(self.visit(node.right), plt.Var(STATEMONAD)),
             ),
@@ -159,15 +196,19 @@ class UPLCCompiler(NodeTransformer):
         opmap = CmpMap.get(type(node.ops[0]))
         if opmap is None:
             raise NotImplementedError(f"Operation {node.ops[0]} is not implemented")
-        op = opmap.get(node.left.typ)
+        opmap2 = opmap.get(node.left.typ)
+        if opmap2 is None:
+            raise NotImplementedError(
+                f"Operation {node.ops[0]} is not implemented for left type {node.left.typ}"
+            )
+        op = opmap2.get(node.comparators[0].typ)
         if op is None:
             raise NotImplementedError(
-                f"Operation {node.ops[0]} is not implemented for type {node.left.typ}"
+                f"Operation {node.ops[0]} is not implemented for left type {node.left.typ} and right type {node.comparators[0].typ}"
             )
         return plt.Lambda(
             [STATEMONAD],
-            plt.Apply(
-                plt.BuiltIn(op),
+            op(
                 plt.Apply(self.visit(node.left), plt.Var(STATEMONAD)),
                 plt.Apply(self.visit(node.comparators[0]), plt.Var(STATEMONAD)),
             ),
@@ -478,7 +519,7 @@ class UPLCCompiler(NodeTransformer):
 def compile(prog: AST):
     compiler_steps = [
         # Important to call this one first - it imports all further files
-        RewriteImport
+        RewriteImport,
         # The remaining order is almost arbitrary
         RewriteAugAssign,
         RewriteFor,
