@@ -217,6 +217,7 @@ class UPLCCompiler(NodeTransformer):
     def visit_Module(self, node: TypedModule) -> plt.AST:
         cp = plt.Program(
             "0.0.1",
+            # TODO directly unwrap supposedly int/byte data? how?
             plt.Let(
                 [
                     (
@@ -405,7 +406,7 @@ class UPLCCompiler(NodeTransformer):
             assert isinstance(node.ctx, Load), "Tuples are read-only"
             return plt.Lambda(
                 [STATEMONAD],
-                emulate_nth(
+                plt.TupleAccess(
                     plt.Apply(self.visit(node.value), plt.Var(STATEMONAD)),
                     node.slice.value.value,
                     len(node.value.typ.typs),
@@ -489,6 +490,7 @@ class UPLCCompiler(NodeTransformer):
         )
 
     def visit_ClassDef(self, node: ClassDef) -> plt.AST:
+        # TODO add initializer to state monad
         return self.visit_sequence([])
 
     def visit_Attribute(self, node: TypedAttribute) -> plt.AST:
