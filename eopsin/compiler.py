@@ -4,7 +4,7 @@ from .type_inference import *
 from .rewrite_for import RewriteFor
 from .rewrite_tuple_assign import RewriteTupleAssign
 from .rewrite_augassign import RewriteAugAssign
-from .rewrite_dataclass import RewriteDataclasses
+from .rewrite_plutusdata import RewritePlutusData
 
 from pluthon import pluthon_ast as plt
 from uplc.uplc_ast import BuiltInFun
@@ -382,7 +382,7 @@ def compile(prog: AST):
         RewriteAugAssign,
         RewriteFor,
         RewriteTupleAssign,
-        RewriteDataclasses,
+        RewritePlutusData,
         AggressiveTypeInferencer,
         UPLCCompiler
     ]
