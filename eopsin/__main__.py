@@ -3,7 +3,7 @@ import enum
 import sys
 import importlib
 
-from pyscc import compiler
+from eopsin import compiler
 
 
 class Command(enum.Enum):

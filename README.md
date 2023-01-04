@@ -27,15 +27,22 @@ This program consists of a few independent components:
 2. Rewriting tools to simplify complex python expressions
 3. A compiler from a subset of python into UPLC
 
+## Installation
+
+Install Python 3.10. Then run
+
+```bash
+python3 -m pip install eopsin-lang
+```
+
 ## Running
 
 Write your program in python. You may start with the `example.py`.
+
 Then run 
 ```bash
 python3 -m eopsin compile example.py
 ```
-
-> Note: this is the final desired state. I am currently too lazy to both with setting up the module so just put your code into the string at `test.py` and run `python3 test.py`
 
 
 ## Name
