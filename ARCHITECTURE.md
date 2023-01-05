@@ -3,7 +3,22 @@ The general concept is as follows:
 ## Execution / ABI
 
 Every evaluated part of the python expression tree results in a statemonad of local variables.
-As a consequence, eopsin may only allow a pure subset of python.
+The exception are functions:
+
+The ABI for functions is that they are a lambda function with `n + 2` arguments:
+ - `f`: the function itself
+ - the original `n` arguments of the function
+ - `s`: the statemonad of the callee
+
+They should return only one value, their return value.
+As a direct consequence, eopsin may only allow a pure subset of python (except for `print`).
+Arguments are fully evaluated, they do not require another application of the statemonad.
+
+
+
+Note that this means the function has access to all variables defined in the surrounding code _at the time of the function being called_.
+This is consistent with the way it is done in python.
+
 Exceptions and Catching are not supported.
 
 ## Memory
