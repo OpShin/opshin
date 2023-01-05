@@ -80,8 +80,7 @@ ConstantMap = {
     bytes: plt.ByteString,
     int: plt.Integer,
     bool: plt.Bool,
-    # TODO support higher level Optional type
-    type(None): plt.Unit,
+    type(None): lambda _: plt.NoneData(),
 }
 
 
@@ -95,42 +94,10 @@ def extend_statemonad(
 
 class PythonBuiltIn(Enum):
     print = plt.Lambda(
-        ["f", "x"],
-        plt.Apply(
-            plt.Force(
-                plt.BuiltIn(BuiltInFun.Trace),
-            ),
-            plt.Var("x"),
-            plt.Unit(),
-        ),
+        ["f", "x", STATEMONAD],
+        plt.Trace(plt.Var("x"), plt.NoneData()),
     )
-    # TODO rewrite such that returns BuiltInList
-    range = plt.Lambda(
-        ["f", "limit"],
-        plt.FunctionalTuple(
-            plt.Integer(0),
-            plt.Lambda(
-                ["f", "state"],
-                plt.FunctionalTuple(
-                    plt.Apply(
-                        plt.BuiltIn(BuiltInFun.LessThanInteger),
-                        plt.Var("state"),
-                        plt.Var("limit"),
-                    ),
-                    plt.Var("state"),
-                    plt.Apply(
-                        plt.BuiltIn(BuiltInFun.AddInteger),
-                        plt.Var("state"),
-                        plt.Integer(1),
-                    ),
-                ),
-            ),
-        ),
-    )
-    # TODO rewrite
-    int = plt.Lambda(
-        ["f", "x"], plt.Apply(plt.BuiltIn(BuiltInFun.UnIData), plt.Var("x"))
-    )
+    range = plt.Lambda(["f", "limit", STATEMONAD], plt.Range(plt.Var("limit")))
 
 
 INITIAL_STATE = extend_statemonad(
@@ -260,7 +227,11 @@ class UPLCCompiler(NodeTransformer):
         if isinstance(node.ctx, Load):
             return plt.Lambda(
                 [STATEMONAD],
-                plt.FunctionalMapAccess(plt.Var(STATEMONAD), plt.ByteString(node.id.encode()), plt.Trace("NameError", plt.Error())),
+                plt.FunctionalMapAccess(
+                    plt.Var(STATEMONAD),
+                    plt.ByteString(node.id.encode()),
+                    plt.Trace("NameError", plt.Error()),
+                ),
             )
         raise NotImplementedError(f"Context {node.ctx} not supported")
 
