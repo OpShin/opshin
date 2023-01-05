@@ -9,7 +9,7 @@ from .rewrite_import_plutusdata import RewriteImportPlutusData
 from .rewrite_import_typing import RewriteImportTyping
 from .rewrite_import import RewriteImport
 
-from pluthon import pluthon_ast as plt
+import pluthon as plt
 from uplc.uplc_ast import BuiltInFun
 
 STATEMONAD = "s"
@@ -90,7 +90,7 @@ def extend_statemonad(
     values: typing.List[plt.AST],
     old_statemonad: plt.MutableMap,
 ):
-    return plt.extend_map([n.encode() for n in names], values, old_statemonad)
+    return plt.Extend(old_statemonad, [n.encode() for n in names], values)
 
 
 class PythonBuiltIn(Enum):
@@ -107,11 +107,11 @@ class PythonBuiltIn(Enum):
     # TODO rewrite such that returns BuiltInList
     range = plt.Lambda(
         ["f", "limit"],
-        plt.Tuple(
+        plt.FunctionalTuple(
             plt.Integer(0),
             plt.Lambda(
                 ["f", "state"],
-                plt.Tuple(
+                plt.FunctionalTuple(
                     plt.Apply(
                         plt.BuiltIn(BuiltInFun.LessThanInteger),
                         plt.Var("state"),
@@ -130,13 +130,6 @@ class PythonBuiltIn(Enum):
     # TODO rewrite
     int = plt.Lambda(
         ["f", "x"], plt.Apply(plt.BuiltIn(BuiltInFun.UnIData), plt.Var("x"))
-    )
-    __fields__ = plt.Lambda(
-        ["f", "x"],
-        plt.Apply(
-            plt.Force(plt.Force(plt.BuiltIn(BuiltInFun.SndPair))),
-            plt.Apply(plt.BuiltIn(BuiltInFun.UnConstrData), plt.Var("x")),
-        ),
     )
 
 
@@ -267,7 +260,7 @@ class UPLCCompiler(NodeTransformer):
         if isinstance(node.ctx, Load):
             return plt.Lambda(
                 [STATEMONAD],
-                plt.Apply(plt.Var(STATEMONAD), plt.ByteString(node.id.encode())),
+                plt.MutableMapAccess(plt.Var(STATEMONAD), plt.ByteString(node.id.encode()), plt.Trace("NameError", plt.Error())),
             )
         raise NotImplementedError(f"Context {node.ctx} not supported")
 
@@ -406,7 +399,7 @@ class UPLCCompiler(NodeTransformer):
             assert isinstance(node.ctx, Load), "Tuples are read-only"
             return plt.Lambda(
                 [STATEMONAD],
-                plt.TupleAccess(
+                plt.FunctionalTupleAccess(
                     plt.Apply(self.visit(node.value), plt.Var(STATEMONAD)),
                     node.slice.value.value,
                     len(node.value.typ.typs),
@@ -484,7 +477,7 @@ class UPLCCompiler(NodeTransformer):
     def visit_Tuple(self, node: TypedTuple) -> plt.AST:
         return plt.Lambda(
             [STATEMONAD],
-            plt.Tuple(
+            plt.FunctionalTuple(
                 *(plt.Apply(self.visit(e), plt.Var(STATEMONAD)) for e in node.elts)
             ),
         )
