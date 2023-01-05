@@ -2,7 +2,7 @@ Eopsin
 ======
 [![Build Status](https://app.travis-ci.com/ImperatorLang/eopsin.svg?branch=master)](https://app.travis-ci.com/ImperatorLang/eopsin)
 [![PyPI version](https://badge.fury.io/py/eopsin-lang.svg)](https://pypi.org/project/eopsin-lang/)
-![PyPI - Python Version](https://img.shields.io/pypi/pyversions/eopsin.svg)
+![PyPI - Python Version](https://img.shields.io/pypi/pyversions/eopsin-lang.svg)
 [![PyPI - Status](https://img.shields.io/pypi/status/eopsin-lang.svg)](https://pypi.org/project/eopsin-lang/)
 
 This is a prototypical implementation of smart contracts
