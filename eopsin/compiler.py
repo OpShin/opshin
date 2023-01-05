@@ -88,9 +88,9 @@ ConstantMap = {
 def extend_statemonad(
     names: typing.List[str],
     values: typing.List[plt.AST],
-    old_statemonad: plt.MutableMap,
+    old_statemonad: plt.FunctionalMap,
 ):
-    return plt.Extend(old_statemonad, [n.encode() for n in names], values)
+    return plt.FunctionalMapExtend(old_statemonad, [n.encode() for n in names], values)
 
 
 class PythonBuiltIn(Enum):
@@ -136,7 +136,7 @@ class PythonBuiltIn(Enum):
 INITIAL_STATE = extend_statemonad(
     [b.name for b in PythonBuiltIn],
     [b.value for b in PythonBuiltIn],
-    plt.MutableMap(),
+    plt.FunctionalMap(),
 )
 
 
@@ -260,7 +260,7 @@ class UPLCCompiler(NodeTransformer):
         if isinstance(node.ctx, Load):
             return plt.Lambda(
                 [STATEMONAD],
-                plt.MutableMapAccess(plt.Var(STATEMONAD), plt.ByteString(node.id.encode()), plt.Trace("NameError", plt.Error())),
+                plt.FunctionalMapAccess(plt.Var(STATEMONAD), plt.ByteString(node.id.encode()), plt.Trace("NameError", plt.Error())),
             )
         raise NotImplementedError(f"Context {node.ctx} not supported")
 
