@@ -46,10 +46,12 @@ class TupleType(Type):
 class ListType(Type):
     typ: Type
 
+
 @dataclass(unsafe_hash=True)
 class DictType(Type):
     key_typ: Type
     value_typ: Type
+
 
 @dataclass(unsafe_hash=True)
 class FunctionType(Type):
