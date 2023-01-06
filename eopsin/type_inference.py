@@ -22,19 +22,11 @@ security into the Smart Contract by checking type correctness.
 
 INITIAL_SCOPE = dict(
     {
-        "print": FunctionType([StringType], UnitType),
+        "print": FunctionType([StringType], NoneType),
         "range": FunctionType(
             [IntegerType],
-            TupleType(
-                [
-                    IntegerType,
-                    FunctionType(
-                        [IntegerType], TupleType([BoolType, IntegerType, IntegerType])
-                    ),
-                ]
-            ),
+            ListType(IntegerType),
         ),
-        "int": FunctionType([PlutusDataType], IntegerType),
     }
 )
 
@@ -79,13 +71,19 @@ class AggressiveTypeInferencer(NodeTransformer):
             complex,
             type(...),
         ], "Float, complex numbers and ellipsis currently not supported"
-        tc.typ = InstanceType(type(node.value).__name__)
+        if tc.value is None:
+            tc.typ = NoneType()
+        else:
+            tc.typ = InstanceType(type(node.value).__name__)
         return tc
 
     def visit_Tuple(self, node: Tuple) -> TypedTuple:
         tt = copy(node)
-        tt.elts = [self.visit(e) for e in node.elts]
-        tt.typ = TupleType([e.typ for e in tt.elts])
+        if not tt.elts:
+            tt.typ = UnitType()
+        else:
+            tt.elts = [self.visit(e) for e in node.elts]
+            tt.typ = TupleType([e.typ for e in tt.elts])
         return tt
 
     def visit_List(self, node: List) -> TypedList:
@@ -194,7 +192,7 @@ class AggressiveTypeInferencer(NodeTransformer):
         # Check that return type and annotated return type match
         if not isinstance(node.body[-1], Return):
             assert (
-                tfd.typ.rettyp == UnitType
+                tfd.typ.rettyp == NoneType
             ), f"Function '{node.name}' has no return statement but is supposed to return not-None value"
         else:
             assert (
@@ -287,13 +285,13 @@ class AggressiveTypeInferencer(NodeTransformer):
             owner_typ, ClassType
         ), "Accessing attribute of instance of a non-class"
         tp.typ = None
-        for i, (attr_name, attr_type) in enumerate(owner_typ.record.attributes):
+        for i, (attr_name, attr_type) in enumerate(owner_typ.record.fields):
             if attr_name == tp.attr:
                 tp.typ = attr_type
                 tp.pos = i
         if tp.typ is None:
             assert (
-                tp.attr in tp.value.typ.record.attributes
+                tp.attr in tp.value.typ.record.fields
             ), "Accessing undefined attribute of class-type"
         return tp
 

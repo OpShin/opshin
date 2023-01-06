@@ -1,15 +1,20 @@
+import json
+
 import argparse
 import enum
 import sys
 import importlib
 
 from eopsin import compiler
+from uplc import data_from_json
 
 
 class Command(enum.Enum):
     compile = "compile"
+    compile_uplc = "compile_uplc"
     eval = "eval"
     parse = "parse"
+    eval_uplc = "eval_uplc"
 
 
 def main():
@@ -40,11 +45,11 @@ def main():
     if command == Command.eval:
         with open("__tmp_pyscc.py", "w") as fp:
             fp.write(source_code)
-        sc = importlib.import_module("__tmp_pyscc")
+        sc = importlib.import_module("__tmp_eopsin")
         print("Starting execution")
         print("------------------")
         try:
-            ret = sc.main(*args.args)
+            ret = sc.validator(*args.args)
         except Exception as e:
             print(f"Exception of type {type(e).__name__} caused")
             ret = e
@@ -57,9 +62,19 @@ def main():
         print("Parsed successfully.")
         return
 
+    code = compiler.compile(ast)
     if command == Command.compile:
-        code = compiler.compile(ast)
         print(code.dumps())
+    if command == Command.compile_uplc:
+        print(code.compile().dumps())
+
+    if command == Command.eval_uplc:
+        print("Starting execution")
+        print("------------------")
+        f = code.eval()
+        ret = f(*map(data_from_json, map(json.loads, args.args)))
+        print("------------------")
+        print(ret)
 
 
 if __name__ == "__main__":

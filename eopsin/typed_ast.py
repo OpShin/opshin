@@ -1,3 +1,5 @@
+import ast
+
 from ast import *
 from dataclasses import dataclass
 import typing
@@ -16,20 +18,23 @@ IntegerType = InstanceType(int.__name__)
 StringType = InstanceType(str.__name__)
 ByteStringType = InstanceType(bytes.__name__)
 BoolType = InstanceType(bool.__name__)
-UnitType = InstanceType(type(None).__name__)
-PlutusDataType = InstanceType("PlutusData")
+UnitType = InstanceType("Unit")
 
 
 @dataclass(frozen=True, unsafe_hash=True)
 class Record:
     name: str
     constructor: int
-    attributes: typing.List[typing.Tuple[str, Type]]
+    fields: typing.List[typing.Tuple[str, Type]]
 
 
 @dataclass(unsafe_hash=True)
 class ClassType(Type):
     record: Record
+
+
+NoneRecord = Record("None", 0, [])
+NoneType = ClassType(NoneRecord)
 
 
 @dataclass(unsafe_hash=True)
@@ -39,8 +44,12 @@ class TupleType(Type):
 
 @dataclass(unsafe_hash=True)
 class ListType(Type):
-    typs: typing.List[Type]
+    typ: Type
 
+@dataclass(unsafe_hash=True)
+class DictType(Type):
+    key_typ: Type
+    value_typ: Type
 
 @dataclass(unsafe_hash=True)
 class FunctionType(Type):
@@ -58,7 +67,7 @@ class typedexpr(TypedAST, expr):
 
 class typedstmt(TypedAST, stmt):
     # Statements always have type None
-    typ = UnitType
+    typ = NoneType
 
 
 class typedarg(TypedAST, arg):
@@ -175,6 +184,10 @@ class TypeInferenceError(AssertionError):
 def type_from_annotation(ann: expr):
     if isinstance(ann, Constant):
         if ann.value is None:
+            return NoneType
+    if isinstance(ann, Tuple):
+        if not ann.elts:
+            # This is ()
             return UnitType
     if isinstance(ann, Name):
         return InstanceType(ann.id)
