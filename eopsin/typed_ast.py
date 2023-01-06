@@ -44,8 +44,12 @@ class TupleType(Type):
 
 @dataclass(unsafe_hash=True)
 class ListType(Type):
-    typs: typing.List[Type]
+    typ: Type
 
+@dataclass(unsafe_hash=True)
+class DictType(Type):
+    key_typ: Type
+    value_typ: Type
 
 @dataclass(unsafe_hash=True)
 class FunctionType(Type):
