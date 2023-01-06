@@ -10,7 +10,6 @@ from .rewrite_import_typing import RewriteImportTyping
 from .rewrite_import import RewriteImport
 
 import pluthon as plt
-from uplc.uplc_ast import BuiltInFun
 
 STATEMONAD = "s"
 
@@ -18,9 +17,7 @@ STATEMONAD = "s"
 BinOpMap = {
     Add: {
         IntegerType: {
-            IntegerType: {
-                plt.AddInteger,
-            }
+            IntegerType: plt.AddInteger,
         },
         ByteStringType: {
             ByteStringType: plt.AppendByteString,
@@ -51,26 +48,18 @@ BinOpMap = {
 CmpMap = {
     Eq: {
         IntegerType: {
-            IntegerType: {
-                plt.EqualsInteger,
-            }
+            IntegerType: plt.EqualsInteger,
         },
         ByteStringType: {
-            ByteStringType: {
-                plt.EqualsByteString,
-            }
+            ByteStringType: plt.EqualsByteString,
         },
         BoolType: {
-            BoolType: {
-                plt.EqualsBool,
-            }
+            BoolType: plt.EqualsBool,
         },
     },
     Lt: {
         IntegerType: {
-            IntegerType: {
-                BuiltInFun.LessThanInteger,
-            }
+            IntegerType: plt.LessThanInteger,
         },
     },
 }
@@ -100,10 +89,10 @@ class PythonBuiltIn(Enum):
     range = plt.Lambda(["f", "limit", STATEMONAD], plt.Range(plt.Var("limit")))
 
 
-INITIAL_STATE = extend_statemonad(
+INITIAL_STATE = plt.FunctionalMapExtend(
+    plt.FunctionalMap(),
     [b.name for b in PythonBuiltIn],
     [b.value for b in PythonBuiltIn],
-    plt.FunctionalMap(),
 )
 
 
@@ -182,9 +171,10 @@ class UPLCCompiler(NodeTransformer):
                 [
                     (
                         "g",
-                        plt.Apply(
+                        plt.FunctionalMapAccess(
                             plt.Apply(self.visit_sequence(node.body), INITIAL_STATE),
-                            plt.ByteString("main".encode("utf8")),
+                            plt.ByteString("validator".encode("utf8")),
+                            plt.TraceError("NameError"),
                         ),
                     )
                 ],
@@ -202,7 +192,7 @@ class UPLCCompiler(NodeTransformer):
         return plt.Lambda([STATEMONAD], plt_type(node.value))
 
     def visit_NoneType(self, _: typing.Optional[typing.Any]) -> plt.AST:
-        return plt.Lambda([STATEMONAD], plt.Unit())
+        return plt.Lambda([STATEMONAD], plt.NoneData())
 
     def visit_Assign(self, node: TypedAssign) -> plt.AST:
         assert (
@@ -215,10 +205,10 @@ class UPLCCompiler(NodeTransformer):
         # (\{STATEMONAD} -> (\x -> if (x ==b {self.visit(node.targets[0])}) then ({compiled_e} {STATEMONAD}) else ({STATEMONAD} x)))
         return plt.Lambda(
             [STATEMONAD],
-            extend_statemonad(
+            plt.FunctionalMapExtend(
+                plt.Var(STATEMONAD),
                 [node.targets[0].id],
                 [plt.Apply(compiled_e, plt.Var(STATEMONAD))],
-                plt.Var(STATEMONAD),
             ),
         )
 
@@ -230,7 +220,7 @@ class UPLCCompiler(NodeTransformer):
                 plt.FunctionalMapAccess(
                     plt.Var(STATEMONAD),
                     plt.ByteString(node.id.encode()),
-                    plt.Trace("NameError", plt.Error()),
+                    plt.TraceError("NameError"),
                 ),
             )
         raise NotImplementedError(f"Context {node.ctx} not supported")
@@ -267,22 +257,23 @@ class UPLCCompiler(NodeTransformer):
         body = node.body.copy()
         if not isinstance(body[-1], Return):
             tr = Return(None)
-            tr.typ = UnitType
+            tr.typ = NoneType
             assert (
-                node.typ.rettyp == UnitType
+                node.typ.rettyp == NoneType
             ), "Function has no return statement but is supposed to return not-None value"
             body.append(tr)
         compiled_body = self.visit_sequence(body[:-1])
         compiled_return = self.visit(body[-1].value)
-        args_state = extend_statemonad(
+        args_state = plt.FunctionalMapExtend(
+            plt.Var(STATEMONAD),
             # under the name of the function, it can access itself
             [node.name] + [a.arg for a in node.args.args],
             [plt.Var("f")] + [plt.Var(f"p{i}") for i in range(len(node.args.args))],
-            plt.Var(STATEMONAD),
         )
         return plt.Lambda(
             [STATEMONAD],
-            extend_statemonad(
+            plt.FunctionalMapExtend(
+                plt.Var(STATEMONAD),
                 [node.name],
                 [
                     plt.Lambda(
@@ -296,7 +287,6 @@ class UPLCCompiler(NodeTransformer):
                         ),
                     )
                 ],
-                plt.Var(STATEMONAD),
             ),
         )
 
@@ -387,11 +377,8 @@ class UPLCCompiler(NodeTransformer):
                             plt.Lambda(
                                 ["i", "xs", "f"],
                                 plt.Ite(
-                                    plt.Force(
-                                        plt.Apply(
-                                            plt.BuiltIn(BuiltInFun.NullList),
-                                            plt.Var("xs"),
-                                        )
+                                    plt.NullList(
+                                        plt.Var("xs")
                                     ),
                                     self.visit(
                                         TypedCall(
@@ -404,29 +391,21 @@ class UPLCCompiler(NodeTransformer):
                                         )
                                     ),
                                     plt.Ite(
-                                        plt.Apply(
-                                            plt.BuiltIn(BuiltInFun.EqualsInteger),
+                                        plt.EqualsInteger(
                                             plt.Var("i"),
                                             plt.Integer(0),
                                         ),
-                                        plt.Force(
-                                            plt.Apply(
-                                                plt.BuiltIn(BuiltInFun.HeadList),
-                                                plt.Var("xs"),
-                                            )
+                                        plt.HeadList(
+                                            plt.Var("xs"),
                                         ),
                                         plt.Apply(
                                             plt.Var("f"),
-                                            plt.Apply(
-                                                plt.BuiltIn(BuiltInFun.SubtractInteger),
+                                            plt.SubtractInteger(
                                                 plt.Var("i"),
                                                 plt.Integer(1),
                                             ),
-                                            plt.Force(
-                                                plt.Apply(
-                                                    plt.BuiltIn(BuiltInFun.TailList),
-                                                    plt.Var("xs"),
-                                                )
+                                            plt.TailList(
+                                                plt.Var("xs"),
                                             ),
                                             plt.Var("f"),
                                         ),
