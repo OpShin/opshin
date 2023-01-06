@@ -71,6 +71,7 @@ TransformExtParamsMap = {
     ListType: lambda x: plt.UnListData(x),
     DictType: lambda x: plt.UnMapData(x),
     UnitType: lambda x: plt.Lambda(["_"], plt.Unit()),
+    BoolType: lambda x: plt.NotEqualsInteger(plt.UnIData(x), plt.Integer(0)),
 }
 TransformOutputMap = {
     IntegerType: lambda x: plt.IData(x),
@@ -79,6 +80,7 @@ TransformOutputMap = {
     ListType: lambda x: plt.ListData(x),
     DictType: lambda x: plt.MapData(x),
     UnitType: lambda x: plt.Lambda(["_"], plt.Unit()),
+    BoolType: lambda x: plt.IData(plt.IfThenElse(x, plt.Integer(1), plt.Integer(0))),
 }
 
 ConstantMap = {
