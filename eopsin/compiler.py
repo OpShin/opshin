@@ -64,6 +64,17 @@ CmpMap = {
     },
 }
 
+TransformExtParamsMap = {
+    IntegerType: lambda x: plt.UnIData(x),
+    StringType: lambda x: plt.DecodeUtf8(plt.UnBData(x)),
+    ByteStringType: lambda x: plt.UnBData(x),
+}
+TransformOutputMap = {
+    IntegerType: lambda x: plt.IData(x),
+    StringType: lambda x: plt.BData(plt.EncodeUtf8(x)),
+    ByteStringType: lambda x: plt.BData(x),
+}
+
 ConstantMap = {
     str: plt.Text,
     bytes: plt.ByteString,
@@ -164,21 +175,45 @@ class UPLCCompiler(NodeTransformer):
         )
 
     def visit_Module(self, node: TypedModule) -> plt.AST:
+        # find main function
+        # TODO can use more sophisiticated procedure here i.e. functions marked by comment
+        main_fun = None
+        for s in node.body:
+            if isinstance(s, FunctionDef) and s.name == "validator":
+                main_fun = s
         cp = plt.Program(
             "0.0.1",
             # TODO directly unwrap supposedly int/byte data? how?
-            plt.Let(
-                [
-                    (
-                        "g",
-                        plt.FunctionalMapAccess(
-                            plt.Apply(self.visit_sequence(node.body), INITIAL_STATE),
-                            plt.ByteString("validator".encode("utf8")),
-                            plt.TraceError("NameError"),
+            TransformOutputMap.get(main_fun.returns, lambda x: x)(
+                plt.Lambda(
+                    [f"p{i}" for i, _ in enumerate(main_fun.args.args)],
+                    plt.Let(
+                        [
+                            ("s", INITIAL_STATE),
+                            (
+                                "g",
+                                plt.FunctionalMapAccess(
+                                    plt.Apply(
+                                        self.visit_sequence(node.body), plt.Var("s")
+                                    ),
+                                    plt.ByteString("validator".encode("utf8")),
+                                    plt.TraceError("NameError"),
+                                ),
+                            ),
+                        ],
+                        plt.Apply(
+                            plt.Var("g"),
+                            plt.Var("g"),
+                            *[
+                                TransformExtParamsMap.get(a.typ, lambda x: x)(
+                                    plt.Var(f"p{i}")
+                                )
+                                for i, a in enumerate(main_fun.args.args)
+                            ],
+                            plt.Var("s"),
                         ),
-                    )
-                ],
-                plt.Apply(plt.Var("g"), plt.Var("g")),
+                    ),
+                ),
             ),
         )
         return cp
@@ -248,7 +283,10 @@ class UPLCCompiler(NodeTransformer):
                     plt.Var("g"),
                     # pass the function to itself for recursion
                     plt.Var("g"),
+                    # pass in all arguments evaluated with the statemonad
                     *(plt.Apply(self.visit(a), plt.Var(STATEMONAD)) for a in node.args),
+                    # eventually pass in the state monad as well
+                    plt.Var(STATEMONAD),
                 ),
             ),
         )
@@ -277,7 +315,10 @@ class UPLCCompiler(NodeTransformer):
                 [node.name],
                 [
                     plt.Lambda(
-                        ["f"] + [f"p{i}" for i in range(len(node.args.args))],
+                        # expect the statemonad again -> this is the basis for internally available values
+                        ["f"]
+                        + [f"p{i}" for i in range(len(node.args.args))]
+                        + [STATEMONAD],
                         plt.Apply(
                             compiled_return,
                             plt.Apply(
@@ -377,9 +418,7 @@ class UPLCCompiler(NodeTransformer):
                             plt.Lambda(
                                 ["i", "xs", "f"],
                                 plt.Ite(
-                                    plt.NullList(
-                                        plt.Var("xs")
-                                    ),
+                                    plt.NullList(plt.Var("xs")),
                                     self.visit(
                                         TypedCall(
                                             TypedName("print", ctx=Load()),

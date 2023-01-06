@@ -1,9 +1,12 @@
+import json
+
 import argparse
 import enum
 import sys
 import importlib
 
 from eopsin import compiler
+from uplc import data_from_json
 
 
 class Command(enum.Enum):
@@ -69,10 +72,9 @@ def main():
         print("Starting execution")
         print("------------------")
         f = code.eval()
-        ret = f(*args.args)
+        ret = f(*map(data_from_json, map(json.loads, args.args)))
         print("------------------")
         print(ret)
-
 
 
 if __name__ == "__main__":

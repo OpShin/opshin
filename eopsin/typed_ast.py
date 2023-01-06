@@ -32,6 +32,7 @@ class Record:
 class ClassType(Type):
     record: Record
 
+
 NoneRecord = Record("None", 0, [])
 NoneType = ClassType(NoneRecord)
 

@@ -1,8 +1,6 @@
-from eopsin.prelude import *
-
-
-def main(n: int) -> None:
-    a, b = 0, int(n)
+def validator(n: int) -> int:
+    a = 0
+    b = n
     if b < 5:
         print("add")
         a += 5
