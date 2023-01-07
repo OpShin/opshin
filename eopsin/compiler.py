@@ -2,7 +2,6 @@ from enum import Enum
 from ast import parse
 
 from .type_inference import *
-from .rewrite_for import RewriteFor
 from .rewrite_tuple_assign import RewriteTupleAssign
 from .rewrite_augassign import RewriteAugAssign
 from .rewrite_import_plutusdata import RewriteImportPlutusData
@@ -514,7 +513,6 @@ def compile(prog: AST):
         RewriteImport,
         # The remaining order is almost arbitrary
         RewriteAugAssign,
-        RewriteFor,
         RewriteTupleAssign,
         RewriteImportPlutusData,
         RewriteImportTyping,
