@@ -15,9 +15,7 @@ class RewriteTupleAssign(NodeTransformer):
             return [node]
         uid = self.unique_id
         self.unique_id += 1
-        assignments = [
-            Assign([Name(f"{uid}_tup", Store())], self.visit(node.value))
-        ]
+        assignments = [Assign([Name(f"{uid}_tup", Store())], self.visit(node.value))]
         for i, t in enumerate(node.targets[0].elts):
             assignments.append(
                 Assign(
