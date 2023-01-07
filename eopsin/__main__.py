@@ -2,9 +2,12 @@ import json
 
 import argparse
 import enum
+import pycardano
 import sys
 import importlib
+import typing
 
+import uplc
 from eopsin import compiler
 from uplc import data_from_json
 
@@ -15,6 +18,33 @@ class Command(enum.Enum):
     eval = "eval"
     parse = "parse"
     eval_uplc = "eval_uplc"
+
+
+def plutus_data_from_json(annotation: typing.Type, x: dict):
+    try:
+        if annotation == int:
+            return int(x["int"])
+        if annotation == bytes:
+            return bytes.fromhex(x["bytes"])
+        if isinstance(annotation, typing._GenericAlias):
+            # Annotation is a List or Dict
+            if annotation._name == "List":
+                annotation_ann = annotation.__dict__["__args__"][0]
+                return [plutus_data_from_json(annotation_ann, k) for k in x["list"]]
+            if annotation._name == "Dict":
+                annotation_key, annotation_val = annotation.__dict__["__args__"]
+                return {
+                    plutus_data_from_json(
+                        annotation_key, d["k"]
+                    ): plutus_data_from_json(annotation_val, d["v"])
+                    for d in x["map"]
+                }
+        if issubclass(annotation, pycardano.PlutusData):
+            return annotation.from_dict(x)
+    except (KeyError, ValueError):
+        raise ValueError(
+            f"Annotation {annotation} does not match provided plutus datum {json.dumps(x)}"
+        )
 
 
 def main():
@@ -43,13 +73,17 @@ def main():
         source_code = "".join(l for l in f)
 
     if command == Command.eval:
-        with open("__tmp_pyscc.py", "w") as fp:
+        with open("__tmp_eopsin.py", "w") as fp:
             fp.write(source_code)
         sc = importlib.import_module("__tmp_eopsin")
         print("Starting execution")
         print("------------------")
         try:
-            ret = sc.validator(*args.args)
+            parsed_args = [
+                plutus_data_from_json(c, json.loads(a))
+                for c, a, in zip(sc.validator.__annotations__.values(), args.args)
+            ]
+            ret = sc.validator(*parsed_args)
         except Exception as e:
             print(f"Exception of type {type(e).__name__} caused")
             ret = e

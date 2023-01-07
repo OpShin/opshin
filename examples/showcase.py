@@ -1,5 +1,5 @@
 def validator(n: int) -> int:
-    a = 0
+    a = 3
     b = n
     if b < 5:
         print("add")
