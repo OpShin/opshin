@@ -79,7 +79,7 @@ TransformOutputMap = {
     ListType: lambda x: plt.ListData(x),
     DictType: lambda x: plt.MapData(x),
     UnitType: lambda x: plt.Lambda(["_"], plt.Unit()),
-    BoolType: lambda x: plt.IData(plt.IfThenElse(x, plt.Integer(1), plt.Integer(0))),
+    BoolType: lambda x: plt.Ite(x, plt.Unit(), plt.TraceError("ValidationError")),
 }
 
 ConstantMap = {
@@ -191,9 +191,9 @@ class UPLCCompiler(NodeTransformer):
         cp = plt.Program(
             "0.0.1",
             # TODO directly unwrap supposedly int/byte data? how?
-            TransformOutputMap.get(main_fun.returns, lambda x: x)(
-                plt.Lambda(
-                    [f"p{i}" for i, _ in enumerate(main_fun.args.args)],
+            plt.Lambda(
+                [f"p{i}" for i, _ in enumerate(main_fun.args.args)],
+                TransformOutputMap.get(main_fun.typ.rettyp, lambda x: x)(
                     plt.Let(
                         [
                             ("s", INITIAL_STATE),
