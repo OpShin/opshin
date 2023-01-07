@@ -483,22 +483,21 @@ class UPLCCompiler(NodeTransformer):
         return self.visit_sequence([])
 
     def visit_Attribute(self, node: TypedAttribute) -> plt.AST:
-        # rewrite to access the field at position node.pos
+        # TODO rewrite to access the field at position node.pos, directly in pluthon
         # (use the internal function for fields)
+        # TODO cover case where constr should be accessed
         return self.visit(
             TypedSubscript(
                 value=TypedCall(
                     TypedName(
                         id="__fields__",
                         ctx=Load(),
-                        typ=FunctionType([InstanceType], ListType([])),
+                        typ=FunctionType([InstanceType], ListType(node.typ)),
                     ),
                     [node.value],
-                    typ=ListType([]),
+                    typ=ListType(node.typ),
                 ),
-                slice=Index(
-                    value=TypedConstant(value=node.pos, typ=InstanceType("int"))
-                ),
+                slice=Index(value=TypedConstant(value=node.pos, typ=IntegerType)),
                 typ=node.typ,
             )
         )

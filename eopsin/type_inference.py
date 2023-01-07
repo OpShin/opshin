@@ -59,7 +59,7 @@ class AggressiveTypeInferencer(NodeTransformer):
 
     def visit_ClassDef(self, node: ClassDef) -> ClassDef:
         class_record = RecordReader.extract(node)
-        self.set_variable_type(node.name, ClassType(class_record))
+        self.set_variable_type(node.name, RecordType(class_record))
         return node
 
     # TODO type inference for classDef
@@ -233,10 +233,36 @@ class AggressiveTypeInferencer(NodeTransformer):
 
     def visit_Subscript(self, node: Subscript) -> TypedSubscript:
         ts = copy(node)
-        ts.value = self.visit(node.value)
         assert isinstance(
             ts.slice, Index
         ), "Only single index slices are currently supported"
+        # special case: Subscript of Union / Optional
+        if isinstance(ts.value, Name) and ts.value.id in ["Union", "Optional"]:
+            if ts.value.id == "Union":
+                assert isinstance(
+                    ts.slice.value, Tuple
+                ), "Union must combine multiple classes"
+                typs = self.visit(node.slice.value)
+                eltyps = [e.typ for e in typs.elts]
+                assert all(
+                    isinstance(e, ClassType) for e in eltyps
+                ), "Union must combine classes"
+                ts.value = UnionType(eltyps)
+                ts.typ = UnionType(eltyps)
+                return ts
+            if ts.value.id == "Optional":
+                assert isinstance(
+                    ts.slice.value, Name
+                ), "Optional must have a single type as parameter"
+                e = self.visit(node.slice.value)
+                assert isinstance(
+                    e.typ, ClassType
+                ), "Optional must have a type as parameter"
+                ts.value = OptionalType(e)
+                ts.typ = OptionalType(e)
+                return ts
+
+        ts.value = self.visit(node.value)
         if isinstance(ts.value.typ, TupleType) or isinstance(ts.value.typ, ListType):
             if all(ts.value.typ.typs[0] == t for t in ts.value.typ.typs):
                 ts.typ = ts.value.typ.typs[0]
@@ -282,9 +308,10 @@ class AggressiveTypeInferencer(NodeTransformer):
         # look up class type in local scope
         owner_typ = self.variable_type(owner.typ)
         assert isinstance(
-            owner_typ, ClassType
+            owner_typ, RecordType
         ), "Accessing attribute of instance of a non-class"
         tp.typ = None
+        # TODO rewrite access to constructor
         for i, (attr_name, attr_type) in enumerate(owner_typ.record.fields):
             if attr_name == tp.attr:
                 tp.typ = attr_type

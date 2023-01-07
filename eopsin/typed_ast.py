@@ -30,11 +30,26 @@ class Record:
 
 @dataclass(unsafe_hash=True)
 class ClassType(Type):
+    pass
+
+
+@dataclass(unsafe_hash=True)
+class RecordType(ClassType):
     record: Record
 
 
+@dataclass(unsafe_hash=True)
+class UnionType(Type):
+    typs: typing.List[ClassType]
+
+
+@dataclass(unsafe_hash=True)
+class OptionalType(Type):
+    typ: ClassType
+
+
 NoneRecord = Record("None", 0, [])
-NoneType = ClassType(NoneRecord)
+NoneType = RecordType(NoneRecord)
 
 
 @dataclass(unsafe_hash=True)
