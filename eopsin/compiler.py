@@ -375,12 +375,36 @@ class UPLCCompiler(NodeTransformer):
         )
 
     def visit_For(self, node: TypedFor) -> plt.AST:
-        # TODO implement for list
+        if node.orelse:
+            # If there is orelse, transform it to an appended sequence (TODO check if this is correct)
+            cn = copy(node)
+            cn.orelse = []
+            return self.visit_sequence([cn] + node.orelse)
         if isinstance(node.iter.typ, ListType):
-            raise NotImplementedError(
-                "Compilation of list iterators not implemented yet."
+            assert isinstance(
+                node.target, Name
+            ), "Can only assign value to singleton element"
+            return plt.Lambda(
+                [STATEMONAD],
+                plt.FoldList(
+                    plt.Apply(self.visit(node.iter), plt.Var(STATEMONAD)),
+                    plt.Lambda(
+                        [STATEMONAD, "e"],
+                        plt.Apply(
+                            self.visit_sequence(node.body),
+                            plt.FunctionalMapExtend(
+                                plt.Var(STATEMONAD),
+                                [node.target.id],
+                                [plt.Var("e")],
+                            ),
+                        ),
+                    ),
+                    plt.Var(STATEMONAD),
+                ),
             )
-        raise NotImplementedError("Compilation of raw for statements not supported")
+        raise NotImplementedError(
+            "Compilation of for statements for anything but lists not implemented yet"
+        )
 
     def visit_If(self, node: TypedIf) -> plt.AST:
         return plt.Lambda(
