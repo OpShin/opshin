@@ -74,7 +74,7 @@ class AggressiveTypeInferencer(NodeTransformer):
         if tc.value is None:
             tc.typ = NoneType()
         else:
-            tc.typ = InstanceType(type(node.value).__name__)
+            tc.typ = RecordInstanceType(type(node.value).__name__)
         return tc
 
     def visit_Tuple(self, node: Tuple) -> TypedTuple:
@@ -304,7 +304,9 @@ class AggressiveTypeInferencer(NodeTransformer):
         tp = copy(node)
         tp.value = self.visit(node.value)
         owner = tp.value.typ
-        assert isinstance(owner, InstanceType), "Accessing attribute of non-instance"
+        assert isinstance(
+            owner, RecordInstanceType
+        ), "Accessing attribute of non-instance"
         # look up class type in local scope
         owner_typ = self.variable_type(owner.typ)
         assert isinstance(

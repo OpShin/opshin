@@ -431,7 +431,8 @@ class UPLCCompiler(NodeTransformer):
                                             TypedName("print", ctx=Load()),
                                             [
                                                 TypedConstant(
-                                                    "Out of bounds", InstanceType("str")
+                                                    "Out of bounds",
+                                                    RecordInstanceType("str"),
                                                 )
                                             ],
                                         )
@@ -492,7 +493,7 @@ class UPLCCompiler(NodeTransformer):
                     TypedName(
                         id="__fields__",
                         ctx=Load(),
-                        typ=FunctionType([InstanceType], ListType(node.typ)),
+                        typ=FunctionType([RecordInstanceType], ListType(node.typ)),
                     ),
                     [node.value],
                     typ=ListType(node.typ),
