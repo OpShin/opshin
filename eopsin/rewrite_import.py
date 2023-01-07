@@ -1,10 +1,8 @@
 import pathlib
-from ast import parse
 import importlib
 
 from ast import *
-from copy import copy
-from typing import Union
+import typing
 
 """
 Checks that there was an import of dataclass if there are any class definitions
@@ -12,7 +10,9 @@ Checks that there was an import of dataclass if there are any class definitions
 
 
 class RewriteImport(NodeTransformer):
-    def visit_ImportFrom(self, node: ImportFrom) -> Union[ImportFrom, AST]:
+    def visit_ImportFrom(
+        self, node: ImportFrom
+    ) -> typing.Union[ImportFrom, typing.List[AST]]:
         if node.module in ["pycardano", "typing"]:
             return node
         assert (
@@ -32,4 +32,7 @@ class RewriteImport(NodeTransformer):
         # visit the imported file again - make sure that recursive imports are resolved accordingly
         with module_file.open("r") as fp:
             module_content = fp.read()
-        return self.visit(parse(module_content, filename=module_file.name))
+        recursively_resolved: Module = self.visit(
+            parse(module_content, filename=module_file.name)
+        )
+        return recursively_resolved.body

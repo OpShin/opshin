@@ -243,6 +243,9 @@ class UPLCCompiler(NodeTransformer):
         assert isinstance(
             node.targets[0], Name
         ), "Assignments to other things then names are not supported"
+        if isinstance(node.targets[0].typ, ClassType):
+            # Assigning a class type to another class type is equivalent to a ClassDef - a nop
+            return self.visit_sequence([])
         compiled_e = self.visit(node.value)
         # (\{STATEMONAD} -> (\x -> if (x ==b {self.visit(node.targets[0])}) then ({compiled_e} {STATEMONAD}) else ({STATEMONAD} x)))
         return plt.Lambda(

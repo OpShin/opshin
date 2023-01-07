@@ -132,11 +132,13 @@ class AggressiveTypeInferencer(NodeTransformer):
             )
         vartyp = None
         itertyp = typed_for.iter.typ
-        if isinstance(itertyp, ListType) or isinstance(itertyp, TupleType):
+        if isinstance(itertyp, TupleType):
             vartyp = itertyp.typs[0]
             assert all(
                 itertyp.typs[0] == t for t in typed_for.iter.typ.typs
-            ), "Iterating through a list requires the same type for each element"
+            ), "Iterating through a tuple requires the same type for each element"
+        elif isinstance(itertyp, ListType):
+            vartyp = itertyp.typ
         else:
             raise NotImplementedError(
                 "Type inference for non-list objects is not supported"

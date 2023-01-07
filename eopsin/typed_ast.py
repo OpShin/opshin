@@ -54,12 +54,12 @@ class RecordType(ClassType):
 
 
 @dataclass(unsafe_hash=True)
-class UnionType(Type):
+class UnionType(ClassType):
     typs: typing.List[ClassType]
 
 
 @dataclass(unsafe_hash=True)
-class OptionalType(Type):
+class OptionalType(ClassType):
     typ: ClassType
 
 
