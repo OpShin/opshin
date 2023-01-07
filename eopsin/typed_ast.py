@@ -221,7 +221,7 @@ class RecordReader(NodeVisitor):
         assert isinstance(
             node.target, Name
         ), "Record elements must have named attributes"
-        if node.target.id != "CONSTRUCTOR":
+        if node.target.id != "CONSTR_ID":
             assert (
                 node.value is None
             ), f"PlutusData attribute {node.target.id} may not have a default value"
@@ -231,10 +231,10 @@ class RecordReader(NodeVisitor):
             return
         assert isinstance(
             node.value, Constant
-        ), "CONSTRUCTOR must be assigned a constant"
+        ), "CONSTR_ID must be assigned a constant integer"
         assert isinstance(
             node.value.value, int
-        ), "CONSTRUCTOR must be assigned an integer"
+        ), "CONSTR_ID must be assigned an integer"
         self.constructor = node.value.value
 
     def visit_ClassDef(self, node: ClassDef) -> None:
@@ -244,6 +244,21 @@ class RecordReader(NodeVisitor):
 
     def visit_Pass(self, node: Pass) -> None:
         pass
+
+    def visit_Assign(self, node: Assign) -> None:
+        assert len(node.targets) == 1, "Record elements must be assigned one by one"
+        target = node.targets[0]
+        assert isinstance(target, Name), "Record elements must have named attributes"
+        assert (
+            target.id == "CONSTR_ID"
+        ), "Type annotations may only be omitted for CONSTRUCTOR"
+        assert isinstance(
+            node.value, Constant
+        ), "CONSTR_ID must be assigned a constant integer"
+        assert isinstance(
+            node.value.value, int
+        ), "CONSTR_ID must be assigned an integer"
+        self.constructor = node.value.value
 
     def generic_visit(self, node: AST) -> None:
         raise NotImplementedError(f"Can not compile {node} inside of a class")
