@@ -37,7 +37,7 @@ class RewriteImportPlutusData(NodeTransformer):
             len(node.decorator_list) == 0
         ), "Class definitions must have no decorators"
         assert (
-            len(node.bases) == 0
+            len(node.bases) == 1
         ), "Class definitions must inherit only from PlutusData"
         assert (
             isinstance(node.bases[0], Name),

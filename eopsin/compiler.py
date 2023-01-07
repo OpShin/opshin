@@ -2,7 +2,6 @@ from enum import Enum
 from ast import parse
 
 from .type_inference import *
-from .rewrite_for import RewriteFor
 from .rewrite_tuple_assign import RewriteTupleAssign
 from .rewrite_augassign import RewriteAugAssign
 from .rewrite_import_plutusdata import RewriteImportPlutusData
@@ -80,7 +79,7 @@ TransformOutputMap = {
     ListType: lambda x: plt.ListData(x),
     DictType: lambda x: plt.MapData(x),
     UnitType: lambda x: plt.Lambda(["_"], plt.Unit()),
-    BoolType: lambda x: plt.IData(plt.IfThenElse(x, plt.Integer(1), plt.Integer(0))),
+    BoolType: lambda x: plt.Ite(x, plt.Unit(), plt.TraceError("ValidationError")),
 }
 
 ConstantMap = {
@@ -192,9 +191,9 @@ class UPLCCompiler(NodeTransformer):
         cp = plt.Program(
             "0.0.1",
             # TODO directly unwrap supposedly int/byte data? how?
-            TransformOutputMap.get(main_fun.returns, lambda x: x)(
-                plt.Lambda(
-                    [f"p{i}" for i, _ in enumerate(main_fun.args.args)],
+            plt.Lambda(
+                [f"p{i}" for i, _ in enumerate(main_fun.args.args)],
+                TransformOutputMap.get(main_fun.typ.rettyp, lambda x: x)(
                     plt.Let(
                         [
                             ("s", INITIAL_STATE),
@@ -244,6 +243,9 @@ class UPLCCompiler(NodeTransformer):
         assert isinstance(
             node.targets[0], Name
         ), "Assignments to other things then names are not supported"
+        if isinstance(node.targets[0].typ, ClassType):
+            # Assigning a class type to another class type is equivalent to a ClassDef - a nop
+            return self.visit_sequence([])
         compiled_e = self.visit(node.value)
         # (\{STATEMONAD} -> (\x -> if (x ==b {self.visit(node.targets[0])}) then ({compiled_e} {STATEMONAD}) else ({STATEMONAD} x)))
         return plt.Lambda(
@@ -373,12 +375,36 @@ class UPLCCompiler(NodeTransformer):
         )
 
     def visit_For(self, node: TypedFor) -> plt.AST:
-        # TODO implement for list
+        if node.orelse:
+            # If there is orelse, transform it to an appended sequence (TODO check if this is correct)
+            cn = copy(node)
+            cn.orelse = []
+            return self.visit_sequence([cn] + node.orelse)
         if isinstance(node.iter.typ, ListType):
-            raise NotImplementedError(
-                "Compilation of list iterators not implemented yet."
+            assert isinstance(
+                node.target, Name
+            ), "Can only assign value to singleton element"
+            return plt.Lambda(
+                [STATEMONAD],
+                plt.FoldList(
+                    plt.Apply(self.visit(node.iter), plt.Var(STATEMONAD)),
+                    plt.Lambda(
+                        [STATEMONAD, "e"],
+                        plt.Apply(
+                            self.visit_sequence(node.body),
+                            plt.FunctionalMapExtend(
+                                plt.Var(STATEMONAD),
+                                [node.target.id],
+                                [plt.Var("e")],
+                            ),
+                        ),
+                    ),
+                    plt.Var(STATEMONAD),
+                ),
             )
-        raise NotImplementedError("Compilation of raw for statements not supported")
+        raise NotImplementedError(
+            "Compilation of for statements for anything but lists not implemented yet"
+        )
 
     def visit_If(self, node: TypedIf) -> plt.AST:
         return plt.Lambda(
@@ -432,7 +458,8 @@ class UPLCCompiler(NodeTransformer):
                                             TypedName("print", ctx=Load()),
                                             [
                                                 TypedConstant(
-                                                    "Out of bounds", InstanceType("str")
+                                                    "Out of bounds",
+                                                    RecordInstanceType("str"),
                                                 )
                                             ],
                                         )
@@ -484,22 +511,21 @@ class UPLCCompiler(NodeTransformer):
         return self.visit_sequence([])
 
     def visit_Attribute(self, node: TypedAttribute) -> plt.AST:
-        # rewrite to access the field at position node.pos
+        # TODO rewrite to access the field at position node.pos, directly in pluthon
         # (use the internal function for fields)
+        # TODO cover case where constr should be accessed
         return self.visit(
             TypedSubscript(
                 value=TypedCall(
                     TypedName(
                         id="__fields__",
                         ctx=Load(),
-                        typ=FunctionType([InstanceType], ListType([])),
+                        typ=FunctionType([RecordInstanceType], ListType(node.typ)),
                     ),
                     [node.value],
-                    typ=ListType([]),
+                    typ=ListType(node.typ),
                 ),
-                slice=Index(
-                    value=TypedConstant(value=node.pos, typ=InstanceType("int"))
-                ),
+                slice=Index(value=TypedConstant(value=node.pos, typ=IntegerType)),
                 typ=node.typ,
             )
         )
@@ -514,7 +540,6 @@ def compile(prog: AST):
         RewriteImport,
         # The remaining order is almost arbitrary
         RewriteAugAssign,
-        RewriteFor,
         RewriteTupleAssign,
         RewriteImportPlutusData,
         RewriteImportTyping,

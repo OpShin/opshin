@@ -51,7 +51,8 @@ python3 -m eopsin compile example.py
 
 ## Name
 
-> Eopsin (Korean: 업신; Hanja: 業神) is the goddess of the storage and wealth in Korean mythology and shamanism. [[1]](https://en.wikipedia.org/wiki/Eopsin)
+> Eopsin (Korean: 업신; Hanja: 業神) is the goddess of the storage and wealth in Korean mythology and shamanism. 
+> [...] Eopsin was believed to be a pitch-black snake that had ears. [[1]](https://en.wikipedia.org/wiki/Eopsin)
 
-Since this tries to merge Python (a large serpent) and Pluto/Plutus (Greek wealth gods), the name appears fitting.
-Also there are no naming conflicts.
+Since this project tries to merge Python (a large serpent) and Pluto/Plutus (Greek wealth gods), the name appears fitting.
+
