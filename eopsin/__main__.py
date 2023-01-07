@@ -106,9 +106,11 @@ def main():
         print("Starting execution")
         print("------------------")
         f = code.eval()
-        ret = f(*map(data_from_json, map(json.loads, args.args)))
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        for d in map(data_from_json, map(json.loads, args.args)):
+            f = f(d)
         print("------------------")
-        print(ret)
+        print(f)
 
 
 if __name__ == "__main__":
