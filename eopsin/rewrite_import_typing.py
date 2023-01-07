@@ -17,13 +17,13 @@ class RewriteImportTyping(NodeTransformer):
         assert (
             len(node.names) == 4
         ), "The program must contain one 'from typing import List, Dict, Optional, Union'"
-        for n in ["List", "Dict", "Optional", "Union"]:
+        for i, n in enumerate(["List", "Dict", "Optional", "Union"]):
             assert (
-                node.names[0].name == n
-            ), "The program must contain one 'from pycardano import Datum, PlutusData'"
+                node.names[i].name == n
+            ), "The program must contain one 'from typing import List, Dict, Optional, Union'"
             assert (
-                node.names[0].asname == None
-            ), "The program must contain one 'from pycardano import Datum, PlutusData'"
+                node.names[i].asname == None
+            ), "The program must contain one 'from typing import List, Dict, Optional, Union'"
         self.imports_typing = True
         return None
 
