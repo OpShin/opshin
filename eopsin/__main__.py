@@ -13,8 +13,8 @@ from uplc import data_from_json
 
 
 class Command(enum.Enum):
+    compile_pluto = "compile_pluto"
     compile = "compile"
-    compile_uplc = "compile_uplc"
     eval = "eval"
     parse = "parse"
     eval_uplc = "eval_uplc"
@@ -97,9 +97,9 @@ def main():
         return
 
     code = compiler.compile(ast)
-    if command == Command.compile:
+    if command == Command.compile_pluto:
         print(code.dumps())
-    if command == Command.compile_uplc:
+    if command == Command.compile:
         print(code.compile().dumps())
 
     if command == Command.eval_uplc:
