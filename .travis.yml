@@ -8,8 +8,6 @@ sudo: true
 os: linux
 arch:
   - arm64
-  - ppc64le
-  - s390x
 matrix:
   fast_finish: true
 install:
