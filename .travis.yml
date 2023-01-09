@@ -4,12 +4,12 @@ python:
 - '3.9'
 - '3.10'
 dist: bionic
-sudo: true
 os: linux
 arch:
   - arm64
-matrix:
+jobs:
   fast_finish: true
+
 install:
 - if [[ $TRAVIS_PYTHON_VERSION == 3.7 ]]; then pip install -U importlib_metadata;
   fi
