@@ -5,6 +5,11 @@ python:
 - '3.10'
 dist: bionic
 sudo: true
+os: linux
+arch:
+  - arm64
+  - ppc64le
+  - s390x
 matrix:
   fast_finish: true
 install:
