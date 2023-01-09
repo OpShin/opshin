@@ -99,18 +99,20 @@ def main():
     code = compiler.compile(ast)
     if command == Command.compile_pluto:
         print(code.dumps())
+    code = code.compile()
     if command == Command.compile:
-        print(code.compile().dumps())
+        print(code.dumps())
 
     if command == Command.eval_uplc:
         print("Starting execution")
         print("------------------")
+        assert isinstance(code, uplc.Program)
         try:
-            f = code.eval()
+            f = code.term
             # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
             for d in map(data_from_json, map(json.loads, args.args)):
-                f = f(d)
-            ret = f
+                f = uplc.Apply(f, d)
+            ret = uplc.Machine(f).eval()
         except Exception as e:
             ret = e
         print("------------------")
