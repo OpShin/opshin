@@ -131,8 +131,8 @@ This program consists of a few independent components:
 ### Debugging artefacts
 
 For debugging purposes, you can also run
-```
 
+```bash
 # Compile script to 'uplc', and evaluate the script in UPLC (for debugging purposes)
 python3 -m eopsin eval_uplc examples/sum_sc.py "{\"int\": 4}" "{\"int\": 38}" "{\"constructor\": 0, \"fields\": []}"
 
