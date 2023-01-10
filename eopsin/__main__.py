@@ -70,7 +70,7 @@ def main():
     command = Command(args.command)
     input_file = args.input_file if args.input_file != "-" else sys.stdin
     with open(input_file, "r") as f:
-        source_code = "".join(l for l in f)
+        source_code = f.read()
 
     if command == Command.eval:
         with open("__tmp_eopsin.py", "w") as fp:
