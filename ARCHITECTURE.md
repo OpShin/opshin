@@ -14,10 +14,11 @@ They should return only one value, their return value.
 As a direct consequence, eopsin may only allow a pure subset of python (except for `print`).
 Arguments are fully evaluated, they do not require another application of the statemonad.
 
-
-
 Note that this means the function has access to all variables defined in the surrounding code _at the time of the function being called_.
 This is consistent with the way it is done in python.
+
+The python atomic types map to the UPLC builtin equivalents. The exception are `int` and `bytes` which are mapped to the PlutusData equivalent.
+The reason is that there is no way to distinguish the two and pycardano considers `int` and `bytes` as PlutusData objects.
 
 Exceptions and Catching are not supported.
 
