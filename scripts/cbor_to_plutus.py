@@ -2,10 +2,8 @@ import json
 from sys import stdin
 import cbor2
 
-inp = stdin.buffer.read().strip()
+inp = stdin.buffer.read()
 cbor = cbor2.dumps(inp)
-# double wrap
-cbor = cbor2.dumps(cbor)
 cbor_hex = cbor.hex()
 d = {
     "type": "PlutusScriptV2",

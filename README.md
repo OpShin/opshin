@@ -86,6 +86,15 @@ cardano-cli address build --payment-script-file assert_sum.plutus --mainnet
 
 Now you can continue and send/spend ADA with this address following [the official documentation](https://github.com/input-output-hk/cardano-node/blob/master/doc/reference/plutus/plutus-spending-script-example.md)!
 
+### Deploying via pluto
+
+You may alternatively use [`pluto`](https://github.com/Plutonomicon/pluto) to compile the contracts.
+Beware that it might not be very fast.
+
+```bash
+cat examples/smart_contracts/assert_sum.py | bash scripts/python_to_plutus_via_pluto.sh > assert_sum.plutus
+```
+
 
 ### The small print
 
