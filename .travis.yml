@@ -24,7 +24,7 @@ deploy:
   provider: pypi
   on:
     branch: master
-    python: '3.10'
+    python: '3.8'
   distributions: sdist bdist_wheel
   skip_existing: true
   username: __token__
