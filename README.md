@@ -1,5 +1,10 @@
-Eopsin
+
+<p style="text-align: center;">Eopsin</p>
 ======
+<p align="center">
+  <img src="./eopsin.png" width="240" />
+</p>
+
 [![Build Status](https://app.travis-ci.com/ImperatorLang/eopsin.svg?branch=master)](https://app.travis-ci.com/ImperatorLang/eopsin)
 [![PyPI version](https://badge.fury.io/py/eopsin-lang.svg)](https://pypi.org/project/eopsin-lang/)
 ![PyPI - Python Version](https://img.shields.io/pypi/pyversions/eopsin-lang.svg)
