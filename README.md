@@ -8,6 +8,7 @@
 [![PyPI version](https://badge.fury.io/py/eopsin-lang.svg)](https://pypi.org/project/eopsin-lang/)
 ![PyPI - Python Version](https://img.shields.io/pypi/pyversions/eopsin-lang.svg)
 [![PyPI - Status](https://img.shields.io/pypi/status/eopsin-lang.svg)](https://pypi.org/project/eopsin-lang/)
+[![Coverage Status](https://coveralls.io/repos/github/ImperatorLang/eopsin/badge.svg?branch=master)](https://coveralls.io/github/ImperatorLang/eopsin?branch=master)
 
 </div>
 
