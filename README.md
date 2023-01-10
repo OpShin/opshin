@@ -44,12 +44,12 @@ class CancelDatum(PlutusData):
     pubkeyhash: bytes
 
 
-def validator(datum: CancelDatum, redeemer: None, context: ScriptContext) -> bool:
-    res = False
+def validator(datum: CancelDatum, redeemer: None, context: ScriptContext) -> None:
+    sig_present = False
     for s in context.tx_info.signatories:
         if datum.pubkeyhash == s.value:
-            res = True
-    return res
+            sig_present = True
+    assert sig_present
 ```
 
 All contracts written in eopsin are 100% valid python.
