@@ -1,17 +1,17 @@
 
-<p style="text-align: center;">Eopsin</p>
-======
-<p align="center">
-  <img src="./eopsin.png" width="240" />
-</p>
+<div align="center">
+
+<img  src="./eopsin.png" width="240" />
+<h1 style="text-align: center;">Eopsin</h1></br>
 
 [![Build Status](https://app.travis-ci.com/ImperatorLang/eopsin.svg?branch=master)](https://app.travis-ci.com/ImperatorLang/eopsin)
 [![PyPI version](https://badge.fury.io/py/eopsin-lang.svg)](https://pypi.org/project/eopsin-lang/)
 ![PyPI - Python Version](https://img.shields.io/pypi/pyversions/eopsin-lang.svg)
 [![PyPI - Status](https://img.shields.io/pypi/status/eopsin-lang.svg)](https://pypi.org/project/eopsin-lang/)
 
-This is a prototypical implementation of smart contracts
-for Cardano which are written in a very strict subset of valid Python.
+</div>
+
+This is an implementation of smart contracts for Cardano which are written in a very strict subset of valid Python.
 The general philosophy of this project is to write a compiler that 
 ensure the following:
 
