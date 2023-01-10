@@ -63,10 +63,10 @@ Arguments to scripts are passed in as Plutus Data objects in JSON notation.
 You can run any of the following commands
 ```bash
 # Evaluate script in Python - this can be used to make sure there are no obvious errors
-python3 -m eopsin eval examples/sum_sc.py "{\"int\": 4}" "{\"int\": 38}" "{\"constructor\": 0, \"fields\": []}"
+python3 -m eopsin eval examples/smart_contracts/sum_sc.py "{\"int\": 4}" "{\"int\": 38}" "{\"constructor\": 0, \"fields\": []}"
 
 # Compile script to 'uplc', the Cardano Smart Contract assembly
-python3 -m eopsin compile examples/sum_sc.py > sum_sc.uplc
+python3 -m eopsin compile examples/smart_contracts/assert_sum.py > assert_sum.uplc
 ```
 
 ### Deploying
@@ -76,12 +76,12 @@ Run the following to obtain a `cardano-cli` compatible version of your smart con
 > This requires you to install [`aiken`](https://github.com/aiken-lang/aiken)
 
 ```bash
-cat examples/sum_sc.py | bash scripts/python_to_plutus.sh > sum_sc.plutus
+cat examples/smart_contracts/assert_sum.py | bash scripts/python_to_plutus.sh > assert_sum.plutus
 ```
 
 You can generate a script address from this using the official [cardano-cli](https://github.com/input-output-hk/cardano-node#using-cardano-cli)
 ```bash
-cardano-cli address build --payment-script-file sum_sc.plutus --mainnet
+cardano-cli address build --payment-script-file assert_sum.plutus --mainnet
 ```
 
 Now you can continue and send/spend ADA with this address following [the official documentation](https://github.com/input-output-hk/cardano-node/blob/master/doc/reference/plutus/plutus-spending-script-example.md)!

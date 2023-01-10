@@ -86,7 +86,7 @@ TransformOutputMap = {
     ListType: lambda x: plt.ListData(x),
     DictType: lambda x: plt.MapData(x),
     UnitType: lambda x: plt.Lambda(["_"], plt.Unit()),
-    BoolType: lambda x: plt.Ite(x, plt.Unit(), plt.TraceError("ValidationError")),
+    BoolType: lambda x: plt.IfThenElse(x, plt.Integer(1), plt.Integer(0)),
 }
 
 ConstantMap = {
@@ -482,6 +482,20 @@ class UPLCCompiler(NodeTransformer):
             plt.NthField(
                 plt.Apply(self.visit(node.value), plt.Var(STATEMONAD)),
                 plt.Integer(node.pos),
+            ),
+        )
+
+    def visit_Assert(self, node: TypedAssert) -> plt.AST:
+        return plt.Lambda(
+            [STATEMONAD],
+            plt.Ite(
+                plt.Apply(self.visit(node.test), plt.Var(STATEMONAD)),
+                plt.Var(STATEMONAD),
+                plt.Apply(
+                    plt.Error(),
+                    plt.Trace(plt.Apply(self.visit(node.msg), plt.Var(STATEMONAD))),
+                    plt.Unit(),
+                ),
             ),
         )
 

@@ -210,6 +210,11 @@ class TypedAttribute(typedexpr, Attribute):
     pos: int
 
 
+class TypedAssert(typedstmt, Assert):
+    test: typedexpr
+    msg: typedexpr
+
+
 class TypeInferenceError(AssertionError):
     pass
 

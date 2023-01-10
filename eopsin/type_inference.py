@@ -326,6 +326,19 @@ class AggressiveTypeInferencer(NodeTransformer):
             ), "Accessing undefined attribute of class-type"
         return tp
 
+    def visit_Assert(self, node: Assert) -> TypedAssert:
+        ta = copy(node)
+        ta.test = self.visit(node.test)
+        assert isinstance(
+            ta.test.typ, BoolType
+        ), "Assertions must result in a boolean type"
+        if ta.msg is not None:
+            ta.msg = self.visit(node.msg)
+            assert isinstance(
+                ta.msg.typ, StringType
+            ), "Assertions must has a string message (or None)"
+        return ta
+
     def generic_visit(self, node: AST) -> TypedAST:
         raise NotImplementedError(
             f"Cannot infer type of non-implemented node {node.__class__}"
