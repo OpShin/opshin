@@ -324,7 +324,7 @@ class RecordReader(NodeVisitor):
         assert isinstance(target, Name), "Record elements must have named attributes"
         assert (
             target.id == "CONSTR_ID"
-        ), "Type annotations may only be omitted for CONSTRUCTOR"
+        ), "Type annotations may only be omitted for CONSTR_ID"
         assert isinstance(
             node.value, Constant
         ), "CONSTR_ID must be assigned a constant integer"
