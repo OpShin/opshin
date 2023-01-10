@@ -43,4 +43,5 @@ setup(
     ],
     keywords="python cardano smart contract blockchain verification haskell",
     python_requires=">=3",
+    test_suite="eopsin.tests",
 )
