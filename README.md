@@ -30,7 +30,7 @@ If the program compiles then:
 
 #### Installation
 
-Install Python 3.10. Then run
+Install Python 3.8. Then run
 
 ```bash
 python3 -m pip install eopsin-lang
