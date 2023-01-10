@@ -329,13 +329,11 @@ class AggressiveTypeInferencer(NodeTransformer):
     def visit_Assert(self, node: Assert) -> TypedAssert:
         ta = copy(node)
         ta.test = self.visit(node.test)
-        assert isinstance(
-            ta.test.typ, BoolType
-        ), "Assertions must result in a boolean type"
+        assert ta.test.typ == BoolType, "Assertions must result in a boolean type"
         if ta.msg is not None:
             ta.msg = self.visit(node.msg)
-            assert isinstance(
-                ta.msg.typ, StringType
+            assert (
+                ta.msg.typ == StringType
             ), "Assertions must has a string message (or None)"
         return ta
 

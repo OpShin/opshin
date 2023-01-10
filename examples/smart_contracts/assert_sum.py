@@ -2,4 +2,4 @@ from eopsin.prelude import *
 
 
 def validator(datum: int, redeemer: int, context: ScriptContext) -> None:
-    assert datum + redeemer == 42
+    assert datum + redeemer == 42, "Redeemer and datum do not sum to 42"

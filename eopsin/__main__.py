@@ -112,8 +112,9 @@ def main():
             # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
             for d in map(data_from_json, map(json.loads, args.args)):
                 f = uplc.Apply(f, d)
-            ret = uplc.Machine(f).eval()
+            ret = uplc.Machine(f).eval().dumps()
         except Exception as e:
+            print("An exception was raised")
             ret = e
         print("------------------")
         print(ret)

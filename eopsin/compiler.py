@@ -16,30 +16,42 @@ STATEMONAD = "s"
 BinOpMap = {
     Add: {
         IntegerType: {
-            IntegerType: plt.AddInteger,
+            IntegerType: lambda x, y: plt.IData(
+                plt.AddInteger(plt.UnIData(x), plt.UnIData(y))
+            ),
         },
         ByteStringType: {
-            ByteStringType: plt.AppendByteString,
+            ByteStringType: lambda x, y: plt.BData(
+                plt.AppendByteString(plt.UnBData(x), plt.UnBData(y))
+            ),
         },
     },
     Sub: {
         IntegerType: {
-            IntegerType: plt.SubtractInteger,
+            IntegerType: lambda x, y: plt.IData(
+                plt.SubtractInteger(plt.UnIData(x), plt.UnIData(y))
+            ),
         }
     },
     Mult: {
         IntegerType: {
-            IntegerType: plt.MultiplyInteger,
+            IntegerType: lambda x, y: plt.IData(
+                plt.MultiplyInteger(plt.UnIData(x), plt.UnIData(y))
+            ),
         }
     },
     Div: {
         IntegerType: {
-            IntegerType: plt.DivideInteger,
+            IntegerType: lambda x, y: plt.IData(
+                plt.DivideInteger(plt.UnIData(x), plt.UnIData(y))
+            ),
         }
     },
     Mod: {
         IntegerType: {
-            IntegerType: plt.ModInteger,
+            IntegerType: lambda x, y: plt.IData(
+                plt.ModInteger(plt.UnIData(x), plt.UnIData(y))
+            ),
         }
     },
 }
@@ -113,7 +125,10 @@ class PythonBuiltIn(Enum):
     )
     range = plt.Lambda(
         ["f", "limit", STATEMONAD],
-        plt.MapList(plt.Range(plt.UnIData(plt.Var("limit"))), plt.IData),
+        plt.MapList(
+            plt.Range(plt.UnIData(plt.Var("limit"))),
+            plt.Lambda(["x"], plt.IData(plt.Var("x"))),
+        ),
     )
 
 
@@ -200,7 +215,6 @@ class UPLCCompiler(NodeTransformer):
                 main_fun = s
         cp = plt.Program(
             "0.0.1",
-            # TODO directly unwrap supposedly int/byte data? how?
             plt.Lambda(
                 [f"p{i}" for i, _ in enumerate(main_fun.args.args)],
                 TransformOutputMap.get(main_fun.typ.rettyp, lambda x: x)(
@@ -493,8 +507,11 @@ class UPLCCompiler(NodeTransformer):
                 plt.Var(STATEMONAD),
                 plt.Apply(
                     plt.Error(),
-                    plt.Trace(plt.Apply(self.visit(node.msg), plt.Var(STATEMONAD))),
-                    plt.Unit(),
+                    plt.Trace(
+                        plt.Apply(self.visit(node.msg), plt.Var(STATEMONAD)), plt.Unit()
+                    )
+                    if node.msg is not None
+                    else plt.Unit(),
                 ),
             ),
         )

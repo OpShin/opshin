@@ -1,8 +1,15 @@
 import ast
+from frozenlist import FrozenList
 
 from ast import *
 from dataclasses import dataclass
 import typing
+
+
+def FrozenFrozenList(l: list):
+    fl = FrozenList(l)
+    fl.freeze()
+    return fl
 
 
 class Type:
@@ -40,7 +47,7 @@ UnitType = RecordInstanceType("Unit")
 class Record:
     name: str
     constructor: int
-    fields: typing.List[typing.Tuple[str, Type]]
+    fields: typing.Union[typing.List[typing.Tuple[str, Type]], FrozenList]
 
 
 @dataclass(unsafe_hash=True)
@@ -63,7 +70,7 @@ class OptionalType(ClassType):
     typ: ClassType
 
 
-NoneRecord = Record("None", 0, [])
+NoneRecord = Record("None", 0, FrozenFrozenList([]))
 NoneInstanceType = RecordInstanceType("None")
 NoneType = RecordType(NoneRecord)
 
@@ -281,7 +288,7 @@ class RecordReader(NodeVisitor):
     def extract(cls, c: ClassDef) -> Record:
         f = cls()
         f.visit(c)
-        return Record(f.name, f.constructor, f.attributes)
+        return Record(f.name, f.constructor, FrozenFrozenList(f.attributes))
 
     def visit_AnnAssign(self, node: AnnAssign) -> None:
         assert isinstance(
