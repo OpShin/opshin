@@ -16,30 +16,42 @@ STATEMONAD = "s"
 BinOpMap = {
     Add: {
         IntegerType: {
-            IntegerType: plt.AddInteger,
+            IntegerType: lambda x, y: plt.IData(
+                plt.AddInteger(plt.UnIData(x), plt.UnIData(y))
+            ),
         },
         ByteStringType: {
-            ByteStringType: plt.AppendByteString,
+            ByteStringType: lambda x, y: plt.BData(
+                plt.AppendByteString(plt.UnBData(x), plt.UnBData(y))
+            ),
         },
     },
     Sub: {
         IntegerType: {
-            IntegerType: plt.SubtractInteger,
+            IntegerType: lambda x, y: plt.IData(
+                plt.SubtractInteger(plt.UnIData(x), plt.UnIData(y))
+            ),
         }
     },
     Mult: {
         IntegerType: {
-            IntegerType: plt.MultiplyInteger,
+            IntegerType: lambda x, y: plt.IData(
+                plt.MultiplyInteger(plt.UnIData(x), plt.UnIData(y))
+            ),
         }
     },
     Div: {
         IntegerType: {
-            IntegerType: plt.DivideInteger,
+            IntegerType: lambda x, y: plt.IData(
+                plt.DivideInteger(plt.UnIData(x), plt.UnIData(y))
+            ),
         }
     },
     Mod: {
         IntegerType: {
-            IntegerType: plt.ModInteger,
+            IntegerType: lambda x, y: plt.IData(
+                plt.ModInteger(plt.UnIData(x), plt.UnIData(y))
+            ),
         }
     },
 }
@@ -47,10 +59,13 @@ BinOpMap = {
 CmpMap = {
     Eq: {
         IntegerType: {
-            IntegerType: plt.EqualsInteger,
+            IntegerType: plt.EqualsData,
         },
         ByteStringType: {
-            ByteStringType: plt.EqualsByteString,
+            ByteStringType: plt.EqualsData,
+        },
+        StringType: {
+            StringType: plt.EqualsString,
         },
         BoolType: {
             BoolType: plt.EqualsBool,
@@ -58,34 +73,38 @@ CmpMap = {
     },
     Lt: {
         IntegerType: {
-            IntegerType: plt.LessThanInteger,
+            IntegerType: lambda x, y: plt.IData(
+                plt.LessThanInteger(plt.UnIData(x), plt.UnIData(y))
+            ),
+        },
+        ByteStringType: {
+            ByteStringType: lambda x, y: plt.BData(
+                plt.LessThanByteString(plt.UnBData(x), plt.UnBData(y))
+            ),
         },
     },
 }
 
 TransformExtParamsMap = {
-    IntegerType: lambda x: plt.UnIData(x),
+    # Note integer/bytes are not transformed!
     StringType: lambda x: plt.DecodeUtf8(plt.UnBData(x)),
-    ByteStringType: lambda x: plt.UnBData(x),
     ListType: lambda x: plt.UnListData(x),
     DictType: lambda x: plt.UnMapData(x),
     UnitType: lambda x: plt.Lambda(["_"], plt.Unit()),
     BoolType: lambda x: plt.NotEqualsInteger(plt.UnIData(x), plt.Integer(0)),
 }
 TransformOutputMap = {
-    IntegerType: lambda x: plt.IData(x),
     StringType: lambda x: plt.BData(plt.EncodeUtf8(x)),
-    ByteStringType: lambda x: plt.BData(x),
     ListType: lambda x: plt.ListData(x),
     DictType: lambda x: plt.MapData(x),
     UnitType: lambda x: plt.Lambda(["_"], plt.Unit()),
-    BoolType: lambda x: plt.Ite(x, plt.Unit(), plt.TraceError("ValidationError")),
+    BoolType: lambda x: plt.IfThenElse(x, plt.Integer(1), plt.Integer(0)),
 }
 
 ConstantMap = {
     str: plt.Text,
-    bytes: plt.ByteString,
-    int: plt.Integer,
+    bytes: lambda x: plt.BData(plt.ByteString(x)),
+    int: lambda x: plt.IData(plt.Integer(x)),
     bool: plt.Bool,
     type(None): lambda _: plt.NoneData(),
 }
@@ -104,7 +123,13 @@ class PythonBuiltIn(Enum):
         ["f", "x", STATEMONAD],
         plt.Trace(plt.Var("x"), plt.NoneData()),
     )
-    range = plt.Lambda(["f", "limit", STATEMONAD], plt.Range(plt.Var("limit")))
+    range = plt.Lambda(
+        ["f", "limit", STATEMONAD],
+        plt.MapList(
+            plt.Range(plt.UnIData(plt.Var("limit"))),
+            plt.Lambda(["x"], plt.IData(plt.Var("x"))),
+        ),
+    )
 
 
 INITIAL_STATE = plt.FunctionalMapExtend(
@@ -190,7 +215,6 @@ class UPLCCompiler(NodeTransformer):
                 main_fun = s
         cp = plt.Program(
             "0.0.1",
-            # TODO directly unwrap supposedly int/byte data? how?
             plt.Lambda(
                 [f"p{i}" for i, _ in enumerate(main_fun.args.args)],
                 TransformOutputMap.get(main_fun.typ.rettyp, lambda x: x)(
@@ -442,58 +466,13 @@ class UPLCCompiler(NodeTransformer):
                 ),
             )
         if isinstance(node.value.typ, ListType):
-            # rf'(\{STATEMONAD} -> let g = (\i xs f -> if (!NullList xs) then (!Trace "OOB" (Error ())) else (if i ==i 0 then (!HeadList xs) else f (i -i 1) (!TailList xs) f)) in (g ({compiled_i} {STATEMONAD}) ({compiled_v} {STATEMONAD}) g))'
-            return plt.Lambda(
-                [STATEMONAD],
-                plt.Let(
-                    [
-                        (
-                            "g",
-                            plt.Lambda(
-                                ["i", "xs", "f"],
-                                plt.Ite(
-                                    plt.NullList(plt.Var("xs")),
-                                    self.visit(
-                                        TypedCall(
-                                            TypedName("print", ctx=Load()),
-                                            [
-                                                TypedConstant(
-                                                    "Out of bounds",
-                                                    RecordInstanceType("str"),
-                                                )
-                                            ],
-                                        )
-                                    ),
-                                    plt.Ite(
-                                        plt.EqualsInteger(
-                                            plt.Var("i"),
-                                            plt.Integer(0),
-                                        ),
-                                        plt.HeadList(
-                                            plt.Var("xs"),
-                                        ),
-                                        plt.Apply(
-                                            plt.Var("f"),
-                                            plt.SubtractInteger(
-                                                plt.Var("i"),
-                                                plt.Integer(1),
-                                            ),
-                                            plt.TailList(
-                                                plt.Var("xs"),
-                                            ),
-                                            plt.Var("f"),
-                                        ),
-                                    ),
-                                ),
-                            ),
-                        )
-                    ],
-                    plt.Apply(
-                        plt.Var("g"),
-                        plt.Apply(self.visit(node.slice.value), plt.Var(STATEMONAD)),
-                        plt.Apply(self.visit(node.value), plt.Var(STATEMONAD)),
-                        plt.Var("g"),
-                    ),
+            assert isinstance(
+                node.slice.value.typ, IntegerType
+            ), "Only single element list index access supported"
+            return plt.IndexAccessList(
+                plt.Apply(self.visit(node.value), plt.Var(STATEMONAD)),
+                plt.UnIData(
+                    plt.Apply(self.visit(node.slice.value), plt.Var(STATEMONAD))
                 ),
             )
         raise NotImplementedError(f"Could not implement subscript of {node}")
@@ -511,23 +490,30 @@ class UPLCCompiler(NodeTransformer):
         return self.visit_sequence([])
 
     def visit_Attribute(self, node: TypedAttribute) -> plt.AST:
-        # TODO rewrite to access the field at position node.pos, directly in pluthon
-        # (use the internal function for fields)
         # TODO cover case where constr should be accessed
-        return self.visit(
-            TypedSubscript(
-                value=TypedCall(
-                    TypedName(
-                        id="__fields__",
-                        ctx=Load(),
-                        typ=FunctionType([RecordInstanceType], ListType(node.typ)),
-                    ),
-                    [node.value],
-                    typ=ListType(node.typ),
+        return plt.Lambda(
+            [STATEMONAD],
+            plt.NthField(
+                plt.Apply(self.visit(node.value), plt.Var(STATEMONAD)),
+                plt.Integer(node.pos),
+            ),
+        )
+
+    def visit_Assert(self, node: TypedAssert) -> plt.AST:
+        return plt.Lambda(
+            [STATEMONAD],
+            plt.Ite(
+                plt.Apply(self.visit(node.test), plt.Var(STATEMONAD)),
+                plt.Var(STATEMONAD),
+                plt.Apply(
+                    plt.Error(),
+                    plt.Trace(
+                        plt.Apply(self.visit(node.msg), plt.Var(STATEMONAD)), plt.Unit()
+                    )
+                    if node.msg is not None
+                    else plt.Unit(),
                 ),
-                slice=Index(value=TypedConstant(value=node.pos, typ=IntegerType)),
-                typ=node.typ,
-            )
+            ),
         )
 
     def generic_visit(self, node: AST) -> plt.AST:
