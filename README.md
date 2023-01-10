@@ -81,7 +81,7 @@ Run the following to obtain a `cardano-cli` compatible version of your smart con
 > This requires you to install [`aiken`](https://github.com/aiken-lang/aiken)
 
 ```bash
-cat examples/smart_contracts/assert_sum.py | bash scripts/python_to_plutus.sh > assert_sum.plutus
+cat examples/smart_contracts/assert_sum.py | bash scripts/python_to_plutus_via_aiken.sh > assert_sum.plutus
 ```
 
 You can generate a script address from this using the official [cardano-cli](https://github.com/input-output-hk/cardano-node#using-cardano-cli)

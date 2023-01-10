@@ -214,7 +214,7 @@ class UPLCCompiler(NodeTransformer):
             if isinstance(s, FunctionDef) and s.name == "validator":
                 main_fun = s
         cp = plt.Program(
-            "0.0.1",
+            "1.0.0",
             plt.Lambda(
                 [f"p{i}" for i, _ in enumerate(main_fun.args.args)],
                 TransformOutputMap.get(main_fun.typ.rettyp, lambda x: x)(
