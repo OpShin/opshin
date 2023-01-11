@@ -58,3 +58,21 @@ class MiscTest(unittest.TestCase):
             f = uplc.Apply(f, d)
         ret = uplc.Machine(f).eval()
         self.assertEqual(ret, uplc.PlutusInteger(a * b))
+
+    @given(
+        a=st.integers(),
+        b=st.integers(),
+    )
+    def test_sum_contract(self, a: int, b: int):
+        input_file = "examples/sum.py"
+        with open(input_file) as fp:
+            source_code = fp.read()
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        for d in [uplc.PlutusInteger(a), uplc.PlutusInteger(b)]:
+            f = uplc.Apply(f, d)
+        ret = uplc.Machine(f).eval()
+        self.assertEqual(ret, uplc.PlutusInteger(a + b))
