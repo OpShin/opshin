@@ -60,6 +60,24 @@ class MiscTest(unittest.TestCase):
         self.assertEqual(ret, uplc.PlutusInteger(a * b))
 
     @given(
+        a=st.integers(min_value=-10, max_value=10),
+        b=st.integers(min_value=0, max_value=10),
+    )
+    def test_mult_while(self, a: int, b: int):
+        input_file = "examples/mult_while.py"
+        with open(input_file) as fp:
+            source_code = fp.read()
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        for d in [uplc.PlutusInteger(a), uplc.PlutusInteger(b)]:
+            f = uplc.Apply(f, d)
+        ret = uplc.Machine(f).eval()
+        self.assertEqual(ret, uplc.PlutusInteger(a * b))
+
+    @given(
         a=st.integers(),
         b=st.integers(),
     )
