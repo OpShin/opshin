@@ -115,8 +115,14 @@ def transform_output_map(p: Type):
     if p in TransformOutputMap:
         return TransformOutputMap[p]
     if isinstance(p.typ, ListType):
-        return plt.ListData
+        list_int_typ = p.typ.typ
+        return lambda x: plt.ListData(
+            plt.MapList(
+                x, plt.Lambda(["x"], transform_output_map(list_int_typ)(plt.Var("x")))
+            ),
+        )
     if isinstance(p.typ, DictType):
+        # TODO also remap in the style the list is mapped as input
         return plt.MapData
     return lambda x: x
 
@@ -239,7 +245,7 @@ class UPLCCompiler(NodeTransformer):
             "1.0.0",
             plt.Lambda(
                 [f"p{i}" for i, _ in enumerate(main_fun_typ.argtyps)],
-                TransformOutputMap.get(main_fun_typ.rettyp, lambda x: x)(
+                transform_output_map(main_fun_typ.rettyp)(
                     plt.Let(
                         [
                             ("s", INITIAL_STATE),
