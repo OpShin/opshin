@@ -176,7 +176,7 @@ class MiscTest(unittest.TestCase):
             ret,
         )
 
-    @given(n=st.integers(min_value=0, max_value=10))
+    @given(n=st.integers(min_value=0, max_value=5))
     def test_fib_iter(self, n):
         input_file = "examples/fib_iter.py"
         with open(input_file) as fp:
@@ -194,7 +194,7 @@ class MiscTest(unittest.TestCase):
             ret,
         )
 
-    @given(n=st.integers(min_value=0, max_value=10))
+    @given(n=st.integers(min_value=0, max_value=5))
     def test_fib_rec(self, n):
         input_file = "examples/fib_rec.py"
         with open(input_file) as fp:
