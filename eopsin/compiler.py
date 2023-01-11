@@ -16,42 +16,30 @@ STATEMONAD = "s"
 BinOpMap = {
     Add: {
         IntegerType: {
-            IntegerType: lambda x, y: plt.IData(
-                plt.AddInteger(plt.UnIData(x), plt.UnIData(y))
-            ),
+            IntegerType: plt.AddInteger,
         },
         ByteStringType: {
-            ByteStringType: lambda x, y: plt.BData(
-                plt.AppendByteString(plt.UnBData(x), plt.UnBData(y))
-            ),
+            ByteStringType: plt.AppendString,
         },
     },
     Sub: {
         IntegerType: {
-            IntegerType: lambda x, y: plt.IData(
-                plt.SubtractInteger(plt.UnIData(x), plt.UnIData(y))
-            ),
+            IntegerType: plt.SubtractInteger,
         }
     },
     Mult: {
         IntegerType: {
-            IntegerType: lambda x, y: plt.IData(
-                plt.MultiplyInteger(plt.UnIData(x), plt.UnIData(y))
-            ),
+            IntegerType: plt.MultiplyInteger,
         }
     },
     Div: {
         IntegerType: {
-            IntegerType: lambda x, y: plt.IData(
-                plt.DivideInteger(plt.UnIData(x), plt.UnIData(y))
-            ),
+            IntegerType: plt.DivideInteger,
         }
     },
     Mod: {
         IntegerType: {
-            IntegerType: lambda x, y: plt.IData(
-                plt.ModInteger(plt.UnIData(x), plt.UnIData(y))
-            ),
+            IntegerType: plt.ModInteger,
         }
     },
 }
@@ -59,10 +47,10 @@ BinOpMap = {
 CmpMap = {
     Eq: {
         IntegerType: {
-            IntegerType: plt.EqualsData,
+            IntegerType: plt.EqualsInteger,
         },
         ByteStringType: {
-            ByteStringType: plt.EqualsData,
+            ByteStringType: plt.EqualsByteString,
         },
         StringType: {
             StringType: plt.EqualsString,
@@ -73,38 +61,37 @@ CmpMap = {
     },
     Lt: {
         IntegerType: {
-            IntegerType: lambda x, y: plt.IData(
-                plt.LessThanInteger(plt.UnIData(x), plt.UnIData(y))
-            ),
+            IntegerType: plt.LessThanInteger,
         },
         ByteStringType: {
-            ByteStringType: lambda x, y: plt.BData(
-                plt.LessThanByteString(plt.UnBData(x), plt.UnBData(y))
-            ),
+            ByteStringType: plt.LessThanByteString,
         },
     },
 }
 
 TransformExtParamsMap = {
-    # Note integer/bytes are not transformed!
+    IntegerType: lambda x: plt.UnIData(x),
+    ByteStringType: lambda x: plt.UnBData(x),
     StringType: lambda x: plt.DecodeUtf8(plt.UnBData(x)),
     ListType: lambda x: plt.UnListData(x),
     DictType: lambda x: plt.UnMapData(x),
     UnitType: lambda x: plt.Lambda(["_"], plt.Unit()),
-    BoolType: lambda x: plt.NotEqualsInteger(plt.UnIData(x), plt.Integer(0)),
+    BoolType: lambda x: plt.NotEqualsInteger(x, plt.Integer(0)),
 }
 TransformOutputMap = {
     StringType: lambda x: plt.BData(plt.EncodeUtf8(x)),
+    IntegerType: lambda x: plt.IData(x),
+    ByteStringType: lambda x: plt.BData(x),
     ListType: lambda x: plt.ListData(x),
     DictType: lambda x: plt.MapData(x),
     UnitType: lambda x: plt.Lambda(["_"], plt.Unit()),
-    BoolType: lambda x: plt.IfThenElse(x, plt.Integer(1), plt.Integer(0)),
+    BoolType: lambda x: plt.IData(plt.IfThenElse(x, plt.Integer(1), plt.Integer(0))),
 }
 
 ConstantMap = {
     str: plt.Text,
-    bytes: lambda x: plt.BData(plt.ByteString(x)),
-    int: lambda x: plt.IData(plt.Integer(x)),
+    bytes: lambda x: plt.ByteString(x),
+    int: lambda x: plt.Integer(x),
     bool: plt.Bool,
     type(None): lambda _: plt.NoneData(),
 }
@@ -125,10 +112,7 @@ class PythonBuiltIn(Enum):
     )
     range = plt.Lambda(
         ["f", "limit", STATEMONAD],
-        plt.MapList(
-            plt.Range(plt.UnIData(plt.Var("limit"))),
-            plt.Lambda(["x"], plt.IData(plt.Var("x"))),
-        ),
+        plt.Range(plt.Var("limit")),
     )
 
 
@@ -471,9 +455,7 @@ class UPLCCompiler(NodeTransformer):
             ), "Only single element list index access supported"
             return plt.IndexAccessList(
                 plt.Apply(self.visit(node.value), plt.Var(STATEMONAD)),
-                plt.UnIData(
-                    plt.Apply(self.visit(node.slice.value), plt.Var(STATEMONAD))
-                ),
+                plt.Apply(self.visit(node.slice.value), plt.Var(STATEMONAD)),
             )
         raise NotImplementedError(f"Could not implement subscript of {node}")
 
@@ -493,9 +475,11 @@ class UPLCCompiler(NodeTransformer):
         # TODO cover case where constr should be accessed
         return plt.Lambda(
             [STATEMONAD],
-            plt.NthField(
-                plt.Apply(self.visit(node.value), plt.Var(STATEMONAD)),
-                plt.Integer(node.pos),
+            TransformExtParamsMap.get(node.typ, lambda x: x)(
+                plt.NthField(
+                    plt.Apply(self.visit(node.value), plt.Var(STATEMONAD)),
+                    plt.Integer(node.pos),
+                ),
             ),
         )
 
