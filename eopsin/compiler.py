@@ -503,7 +503,13 @@ class UPLCCompiler(NodeTransformer):
         return self.visit_sequence([])
 
     def visit_Attribute(self, node: TypedAttribute) -> plt.AST:
-        # TODO cover case where constr should be accessed
+        if node.pos == -1:
+            # access to constructor
+            return plt.Lambda(
+                [STATEMONAD],
+                plt.Constructor(plt.Apply(self.visit(node.value), plt.Var(STATEMONAD))),
+            )
+        # access to normal fields
         return plt.Lambda(
             [STATEMONAD],
             transform_ext_params_map(node.typ)(

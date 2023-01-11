@@ -23,59 +23,59 @@ class Record:
     fields: typing.Union[typing.List[typing.Tuple[str, Type]], FrozenList]
 
 
-@dataclass(unsafe_hash=True)
+@dataclass(frozen=True, unsafe_hash=True)
 class ClassType(Type):
     pass
 
 
-@dataclass(unsafe_hash=True)
+@dataclass(frozen=True, unsafe_hash=True)
 class AtomicType(ClassType):
     typ: str
 
 
-@dataclass(unsafe_hash=True)
+@dataclass(frozen=True, unsafe_hash=True)
 class RecordType(ClassType):
     record: Record
 
 
-@dataclass(unsafe_hash=True)
+@dataclass(frozen=True, unsafe_hash=True)
 class UnionType(ClassType):
     typs: typing.List[ClassType]
 
 
-@dataclass(unsafe_hash=True)
+@dataclass(frozen=True, unsafe_hash=True)
 class OptionalType(ClassType):
     typ: ClassType
 
 
-@dataclass(unsafe_hash=True)
+@dataclass(frozen=True, unsafe_hash=True)
 class TupleType(ClassType):
     typs: typing.List[Type]
 
 
-@dataclass(unsafe_hash=True)
+@dataclass(frozen=True, unsafe_hash=True)
 class ListType(ClassType):
     typ: Type
 
 
-@dataclass(unsafe_hash=True)
+@dataclass(frozen=True, unsafe_hash=True)
 class DictType(ClassType):
     key_typ: Type
     value_typ: Type
 
 
-@dataclass(unsafe_hash=True)
+@dataclass(frozen=True, unsafe_hash=True)
 class FunctionType(ClassType):
     argtyps: typing.List[Type]
     rettyp: Type
 
 
-@dataclass(unsafe_hash=True)
+@dataclass(frozen=True, unsafe_hash=True)
 class InstanceType(Type):
     typ: ClassType
 
 
-@dataclass(unsafe_hash=True)
+@dataclass(frozen=True, unsafe_hash=True)
 class OptionalInstanceType(InstanceType):
     typ: OptionalType
 

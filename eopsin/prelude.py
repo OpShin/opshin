@@ -2,8 +2,7 @@ from pycardano import Datum, PlutusData
 from typing import List, Dict, Optional, Union
 
 # Plutus V2
-class TxId(PlutusData):
-    id: bytes
+TxId = bytes
 
 
 class TxOutRef(PlutusData):
@@ -11,8 +10,7 @@ class TxOutRef(PlutusData):
     idx: int
 
 
-class PubKeyHash(PlutusData):
-    value: bytes
+PubKeyHash = bytes
 
 
 class PubKeyCredential(PlutusData):
@@ -20,9 +18,7 @@ class PubKeyCredential(PlutusData):
     pubkeyhash: PubKeyHash
 
 
-class ValidatorHash(PlutusData):
-    CONSTR_ID = 0
-    value: bytes
+ValidatorHash = bytes
 
 
 class ScriptCredential(PlutusData):
@@ -60,20 +56,13 @@ class Address(PlutusData):
     staking_credential: Optional[StakingCredential]
 
 
-class CurrencySymbol(PlutusData):
-    value: bytes
+CurrencySymbol = bytes
 
+TokenName = bytes
 
-class TokenName(PlutusData):
-    value: bytes
+Value = Dict[CurrencySymbol, Dict[TokenName, int]]
 
-
-class Value(PlutusData):
-    value: Dict[CurrencySymbol, Dict[TokenName, int]]
-
-
-class DatumHash(PlutusData):
-    value: bytes
+DatumHash = bytes
 
 
 class TxOut(PlutusData):
@@ -134,8 +123,7 @@ DCert = Union[
 ]
 
 
-class POSIXTime(PlutusData):
-    value: int
+POSIXTime = int
 
 
 class POSIXTimeRange(PlutusData):
@@ -168,12 +156,10 @@ class BuiltinData(PlutusData):
     pass
 
 
-class Redeemer(PlutusData):
-    value: BuiltinData
+Redeemer = BuiltinData
 
 
-class Datum(PlutusData):
-    value: BuiltinData
+Datum = BuiltinData
 
 
 class TxInfo(PlutusData):

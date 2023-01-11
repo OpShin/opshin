@@ -22,6 +22,15 @@ security into the Smart Contract by checking type correctness.
 
 INITIAL_SCOPE = dict(
     {
+        # class annotations
+        "bytes": ByteStringType,
+        "int": IntegerType,
+        # just to block overwriting
+        "List": ListType(NoneInstanceType),
+        "Dict": DictType(NoneInstanceType, NoneInstanceType),
+        "Optional": OptionalType(NoneInstanceType),
+        "Union": UnionType(NoneInstanceType),
+        # builtin functions
         "print": InstanceType(FunctionType([StringInstanceType], NoneInstanceType)),
         "range": InstanceType(
             FunctionType(
@@ -53,8 +62,8 @@ class AggressiveTypeInferencer(NodeTransformer):
     def exit_scope(self):
         self.scopes.pop()
 
-    def set_variable_type(self, name: str, typ: Type):
-        if name in self.scopes[-1] and typ != self.scopes[-1][name]:
+    def set_variable_type(self, name: str, typ: Type, force=False):
+        if not force and name in self.scopes[-1] and typ != self.scopes[-1][name]:
             raise TypeInferenceError(
                 f"Type of variable {name} in local scope does not match inferred type {typ}"
             )
@@ -167,11 +176,12 @@ class AggressiveTypeInferencer(NodeTransformer):
 
     def visit_Assign(self, node: Assign) -> TypedAssign:
         typed_ass = copy(node)
-        typed_ass.value: TypedExpression = self.visit(node.value)
-        # Make sure to first set the type of each target name so we can load it when visiting it
         for t in node.targets:
             if isinstance(t, Tuple):
                 raise NotImplementedError("Type deconstruction not supported yet")
+        typed_ass.value: TypedExpression = self.visit(node.value)
+        # Make sure to first set the type of each target name so we can load it when visiting it
+        for t in node.targets:
             self.set_variable_type(t.id, typed_ass.value.typ)
         typed_ass.targets = [self.visit(t) for t in node.targets]
         return typed_ass
@@ -191,11 +201,38 @@ class AggressiveTypeInferencer(NodeTransformer):
             assert isinstance(
                 tc.args[1], Name
             ), "Target 1 of an isinstance cast must be a class name"
-        typed_if.test = self.visit(node.test)
-        assert (
-            typed_if.test.typ == BoolInstanceType
-        ), "Branching condition must have boolean type"
-        typed_if.body = [self.visit(s) for s in node.body]
+            target_class: RecordType = self.variable_type(tc.args[1].id)
+            target_inst = self.visit(tc.args[0])
+            target_inst_class = target_inst.typ
+            assert isinstance(
+                target_inst_class, InstanceType
+            ), "Can only cast instances, not classes"
+            assert isinstance(
+                target_inst_class.typ, UnionType
+            ), "Can only cast instances of Union types"
+            assert isinstance(target_class, RecordType), "Can only cast to PlutusData"
+            assert (
+                target_class in target_inst_class.typ.typs
+            ), f"Trying to cast an instance of Union type to non-instance of union type"
+            typed_if.test = self.visit(
+                Compare(
+                    left=Attribute(tc.args[0], "CONSTR_ID"),
+                    ops=[Eq()],
+                    comparators=[Constant(target_class.record.constructor)],
+                )
+            )
+            # for the time of this if branch set the variable type to the specialized type
+            self.set_variable_type(
+                tc.args[0].id, InstanceType(target_class), force=True
+            )
+            typed_if.body = [self.visit(s) for s in node.body]
+            self.set_variable_type(tc.args[0].id, target_inst_class, force=True)
+        else:
+            typed_if.test = self.visit(node.test)
+            assert (
+                typed_if.test.typ == BoolInstanceType
+            ), "Branching condition must have boolean type"
+            typed_if.body = [self.visit(s) for s in node.body]
         typed_if.orelse = [self.visit(s) for s in node.orelse]
         return typed_if
 
@@ -328,31 +365,15 @@ class AggressiveTypeInferencer(NodeTransformer):
         assert isinstance(
             ts.slice, Index
         ), "Only single index slices are currently supported"
-        # special case: Subscript of Union / Optional
-        if isinstance(ts.value, Name) and ts.value.id in ["Union", "Optional"]:
-            if ts.value.id == "Union":
-                assert isinstance(
-                    ts.slice.value, Tuple
-                ), "Union must combine multiple classes"
-                typs = self.visit(node.slice.value)
-                eltyps = [e.typ for e in typs.elts]
-                assert all(
-                    isinstance(e, ClassType) for e in eltyps
-                ), "Union must combine classes"
-                ts.value = UnionType(FrozenFrozenList(eltyps))
-                ts.typ = UnionType(FrozenFrozenList(eltyps))
-                return ts
-            if ts.value.id == "Optional":
-                assert isinstance(
-                    ts.slice.value, Name
-                ), "Optional must have a single type as parameter"
-                e = self.visit(node.slice.value)
-                assert isinstance(
-                    e.typ, ClassType
-                ), "Optional must have a type as parameter"
-                ts.value = OptionalType(e)
-                ts.typ = OptionalType(e)
-                return ts
+        # special case: Subscript of Union / Optional / Dict / List and atomic types
+        if isinstance(ts.value, Name) and ts.value.id in [
+            "Union",
+            "Optional",
+            "Dict",
+            "List",
+        ]:
+            ts.value = ts.typ = self.type_from_annotation(ts)
+            return ts
 
         ts.value = self.visit(node.value)
         assert isinstance(ts.value.typ, InstanceType), "Can only subscript instances"
@@ -407,13 +428,20 @@ class AggressiveTypeInferencer(NodeTransformer):
         tp = copy(node)
         tp.value = self.visit(node.value)
         owner = tp.value.typ
-        assert isinstance(owner, InstanceType) and isinstance(
-            owner.typ, RecordType
+        assert isinstance(owner, InstanceType) and (
+            isinstance(owner.typ, RecordType)
+            or isinstance(owner.typ, UnionType)
+            or isinstance(owner.typ, OptionalType)
         ), "Accessing attribute of non-instance"
-        # look up class type in local scope
         owner_typ = owner.typ
+
+        # access to constructor
+        if tp.attr == "CONSTR_ID":
+            tp.typ = IntegerInstanceType
+            tp.pos = -1
+            return tp
+        # accesses to field
         tp.typ = None
-        # TODO rewrite access to constructor
         for i, (attr_name, attr_type) in enumerate(owner_typ.record.fields):
             if attr_name == tp.attr:
                 tp.typ = attr_type
