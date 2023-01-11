@@ -15,96 +15,110 @@ STATEMONAD = "s"
 
 BinOpMap = {
     Add: {
-        IntegerType: {
-            IntegerType: lambda x, y: plt.IData(
-                plt.AddInteger(plt.UnIData(x), plt.UnIData(y))
-            ),
+        IntegerInstanceType: {
+            IntegerInstanceType: plt.AddInteger,
         },
-        ByteStringType: {
-            ByteStringType: lambda x, y: plt.BData(
-                plt.AppendByteString(plt.UnBData(x), plt.UnBData(y))
-            ),
+        ByteStringInstanceType: {
+            ByteStringInstanceType: plt.AppendString,
         },
     },
     Sub: {
-        IntegerType: {
-            IntegerType: lambda x, y: plt.IData(
-                plt.SubtractInteger(plt.UnIData(x), plt.UnIData(y))
-            ),
+        IntegerInstanceType: {
+            IntegerInstanceType: plt.SubtractInteger,
         }
     },
     Mult: {
-        IntegerType: {
-            IntegerType: lambda x, y: plt.IData(
-                plt.MultiplyInteger(plt.UnIData(x), plt.UnIData(y))
-            ),
+        IntegerInstanceType: {
+            IntegerInstanceType: plt.MultiplyInteger,
         }
     },
     Div: {
-        IntegerType: {
-            IntegerType: lambda x, y: plt.IData(
-                plt.DivideInteger(plt.UnIData(x), plt.UnIData(y))
-            ),
+        IntegerInstanceType: {
+            IntegerInstanceType: plt.DivideInteger,
         }
     },
     Mod: {
-        IntegerType: {
-            IntegerType: lambda x, y: plt.IData(
-                plt.ModInteger(plt.UnIData(x), plt.UnIData(y))
-            ),
+        IntegerInstanceType: {
+            IntegerInstanceType: plt.ModInteger,
         }
     },
 }
 
 CmpMap = {
     Eq: {
-        IntegerType: {
-            IntegerType: plt.EqualsData,
+        IntegerInstanceType: {
+            IntegerInstanceType: plt.EqualsInteger,
         },
-        ByteStringType: {
-            ByteStringType: plt.EqualsData,
+        ByteStringInstanceType: {
+            ByteStringInstanceType: plt.EqualsByteString,
         },
-        StringType: {
-            StringType: plt.EqualsString,
+        StringInstanceType: {
+            StringInstanceType: plt.EqualsString,
         },
-        BoolType: {
-            BoolType: plt.EqualsBool,
+        BoolInstanceType: {
+            BoolInstanceType: plt.EqualsBool,
         },
     },
     Lt: {
-        IntegerType: {
-            IntegerType: lambda x, y: plt.IData(
-                plt.LessThanInteger(plt.UnIData(x), plt.UnIData(y))
-            ),
+        IntegerInstanceType: {
+            IntegerInstanceType: plt.LessThanInteger,
         },
-        ByteStringType: {
-            ByteStringType: lambda x, y: plt.BData(
-                plt.LessThanByteString(plt.UnBData(x), plt.UnBData(y))
-            ),
+        ByteStringInstanceType: {
+            ByteStringInstanceType: plt.LessThanByteString,
         },
     },
 }
 
 TransformExtParamsMap = {
-    # Note integer/bytes are not transformed!
-    StringType: lambda x: plt.DecodeUtf8(plt.UnBData(x)),
-    ListType: lambda x: plt.UnListData(x),
-    DictType: lambda x: plt.UnMapData(x),
-    UnitType: lambda x: plt.Lambda(["_"], plt.Unit()),
-    BoolType: lambda x: plt.NotEqualsInteger(plt.UnIData(x), plt.Integer(0)),
+    IntegerInstanceType: lambda x: plt.UnIData(x),
+    ByteStringInstanceType: lambda x: plt.UnBData(x),
+    StringInstanceType: lambda x: plt.DecodeUtf8(plt.UnBData(x)),
+    UnitInstanceType: lambda x: plt.Lambda(["_"], plt.Unit()),
+    BoolInstanceType: lambda x: plt.NotEqualsInteger(x, plt.Integer(0)),
 }
+
+
+def transform_ext_params_map(p: Type):
+    assert isinstance(
+        p, InstanceType
+    ), "Can only transform instances, not classes as input"
+    if p in TransformExtParamsMap:
+        return TransformExtParamsMap[p]
+    if isinstance(p.typ, ListType):
+        return plt.UnListData
+    if isinstance(p.typ, DictType):
+        return plt.UnMapData
+    return lambda x: x
+
+
 TransformOutputMap = {
-    StringType: lambda x: plt.BData(plt.EncodeUtf8(x)),
-    ListType: lambda x: plt.ListData(x),
-    DictType: lambda x: plt.MapData(x),
-    UnitType: lambda x: plt.Lambda(["_"], plt.Unit()),
-    BoolType: lambda x: plt.IfThenElse(x, plt.Integer(1), plt.Integer(0)),
+    StringInstanceType: lambda x: plt.BData(plt.EncodeUtf8(x)),
+    IntegerInstanceType: lambda x: plt.IData(x),
+    ByteStringInstanceType: lambda x: plt.BData(x),
+    UnitInstanceType: lambda x: plt.Lambda(["_"], plt.Unit()),
+    BoolInstanceType: lambda x: plt.IData(
+        plt.IfThenElse(x, plt.Integer(1), plt.Integer(0))
+    ),
 }
+
+
+def transform_output_map(p: Type):
+    assert isinstance(
+        p, InstanceType
+    ), "Can only transform instances, not classes as input"
+    if p in TransformOutputMap:
+        return TransformOutputMap[p]
+    if isinstance(p.typ, ListType):
+        return plt.ListData
+    if isinstance(p.typ, DictType):
+        return plt.MapData
+    return lambda x: x
+
 
 ConstantMap = {
     str: plt.Text,
-    bytes: lambda x: plt.BData(plt.ByteString(x)),
-    int: lambda x: plt.IData(plt.Integer(x)),
+    bytes: lambda x: plt.ByteString(x),
+    int: lambda x: plt.Integer(x),
     bool: plt.Bool,
     type(None): lambda _: plt.NoneData(),
 }
@@ -125,10 +139,7 @@ class PythonBuiltIn(Enum):
     )
     range = plt.Lambda(
         ["f", "limit", STATEMONAD],
-        plt.MapList(
-            plt.Range(plt.UnIData(plt.Var("limit"))),
-            plt.Lambda(["x"], plt.IData(plt.Var("x"))),
-        ),
+        plt.Range(plt.Var("limit")),
     )
 
 
@@ -209,15 +220,20 @@ class UPLCCompiler(NodeTransformer):
     def visit_Module(self, node: TypedModule) -> plt.AST:
         # find main function
         # TODO can use more sophisiticated procedure here i.e. functions marked by comment
-        main_fun = None
+        main_fun: typing.Optional[InstanceType] = None
         for s in node.body:
             if isinstance(s, FunctionDef) and s.name == "validator":
                 main_fun = s
+        assert main_fun is not None, "Could not find function named validator"
+        main_fun_typ: FunctionType = main_fun.typ.typ
+        assert isinstance(
+            main_fun_typ, FunctionType
+        ), "Variable named validator is not of type function"
         cp = plt.Program(
             "1.0.0",
             plt.Lambda(
-                [f"p{i}" for i, _ in enumerate(main_fun.args.args)],
-                TransformOutputMap.get(main_fun.typ.rettyp, lambda x: x)(
+                [f"p{i}" for i, _ in enumerate(main_fun_typ.argtyps)],
+                TransformOutputMap.get(main_fun_typ.rettyp, lambda x: x)(
                     plt.Let(
                         [
                             ("s", INITIAL_STATE),
@@ -236,10 +252,8 @@ class UPLCCompiler(NodeTransformer):
                             plt.Var("g"),
                             plt.Var("g"),
                             *[
-                                TransformExtParamsMap.get(a.typ, lambda x: x)(
-                                    plt.Var(f"p{i}")
-                                )
-                                for i, a in enumerate(main_fun.args.args)
+                                transform_ext_params_map(a)(plt.Var(f"p{i}"))
+                                for i, a in enumerate(main_fun_typ.argtyps)
                             ],
                             plt.Var("s"),
                         ),
@@ -329,9 +343,9 @@ class UPLCCompiler(NodeTransformer):
         body = node.body.copy()
         if not isinstance(body[-1], Return):
             tr = Return(None)
-            tr.typ = NoneType
+            tr.typ = NoneInstanceType
             assert (
-                node.typ.rettyp == NoneType
+                node.typ.typ.rettyp == NoneInstanceType
             ), "Function has no return statement but is supposed to return not-None value"
             body.append(tr)
         compiled_body = self.visit_sequence(body[:-1])
@@ -404,7 +418,8 @@ class UPLCCompiler(NodeTransformer):
             cn = copy(node)
             cn.orelse = []
             return self.visit_sequence([cn] + node.orelse)
-        if isinstance(node.iter.typ, ListType):
+        assert isinstance(node.iter.typ, InstanceType)
+        if isinstance(node.iter.typ.typ, ListType):
             assert isinstance(
                 node.target, Name
             ), "Can only assign value to singleton element"
@@ -467,13 +482,11 @@ class UPLCCompiler(NodeTransformer):
             )
         if isinstance(node.value.typ, ListType):
             assert isinstance(
-                node.slice.value.typ, IntegerType
+                node.slice.value.typ, IntegerInstanceType
             ), "Only single element list index access supported"
             return plt.IndexAccessList(
                 plt.Apply(self.visit(node.value), plt.Var(STATEMONAD)),
-                plt.UnIData(
-                    plt.Apply(self.visit(node.slice.value), plt.Var(STATEMONAD))
-                ),
+                plt.Apply(self.visit(node.slice.value), plt.Var(STATEMONAD)),
             )
         raise NotImplementedError(f"Could not implement subscript of {node}")
 
@@ -490,12 +503,20 @@ class UPLCCompiler(NodeTransformer):
         return self.visit_sequence([])
 
     def visit_Attribute(self, node: TypedAttribute) -> plt.AST:
-        # TODO cover case where constr should be accessed
+        if node.pos == -1:
+            # access to constructor
+            return plt.Lambda(
+                [STATEMONAD],
+                plt.Constructor(plt.Apply(self.visit(node.value), plt.Var(STATEMONAD))),
+            )
+        # access to normal fields
         return plt.Lambda(
             [STATEMONAD],
-            plt.NthField(
-                plt.Apply(self.visit(node.value), plt.Var(STATEMONAD)),
-                plt.Integer(node.pos),
+            transform_ext_params_map(node.typ)(
+                plt.NthField(
+                    plt.Apply(self.visit(node.value), plt.Var(STATEMONAD)),
+                    plt.Integer(node.pos),
+                ),
             ),
         )
 
