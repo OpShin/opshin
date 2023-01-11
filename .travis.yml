@@ -23,9 +23,9 @@ script:
 - >
   coverage run --source=eopsin -m eopsin compile examples/smart_contracts/assert_sum.py > assert_sum.uplc
 - >
-  coverage run --source=eopsin -m eopsin eval_uplc examples/assert_sum.py "{\"int\": 4}" "{\"int\": 38}" "{\"constructor\": 0, \"fields\": []}"
+  coverage run --source=eopsin -m eopsin eval_uplc examples/smart_contracts/assert_sum.py "{\"int\": 4}" "{\"int\": 38}" "{\"constructor\": 0, \"fields\": []}"
 - >
-  coverage run --source=eopsin -m eopsin compile_pluto examples/assert_sum.py
+  coverage run --source=eopsin -m eopsin compile_pluto examples/smart_contracts/assert_sum.py
 
 after_success:
 - coverage report

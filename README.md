@@ -135,10 +135,10 @@ For debugging purposes, you can also run
 
 ```bash
 # Compile script to 'uplc', and evaluate the script in UPLC (for debugging purposes)
-python3 -m eopsin eval_uplc examples/assert_sum.py "{\"int\": 4}" "{\"int\": 38}" "{\"constructor\": 0, \"fields\": []}"
+python3 -m eopsin eval_uplc examples/smart_contracts/assert_sum.py "{\"int\": 4}" "{\"int\": 38}" "{\"constructor\": 0, \"fields\": []}"
 
 # Compile script to 'pluto', an intermediate language (for debugging purposes)
-python3 -m eopsin compile_pluto examples/assert_sum.py
+python3 -m eopsin compile_pluto examples/smart_contracts/assert_sum.py
 ```
 
 ### Sponsoring
