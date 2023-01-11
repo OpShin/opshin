@@ -1,11 +1,12 @@
 import unittest
+from hypothesis import example, given, strategies as st
 
 import uplc
 from .. import compiler, type_inference
 
 
 class MiscTest(unittest.TestCase):
-    def test_simple_contract_succeed(self):
+    def test_assert_sum_contract_succeed(self):
         input_file = "examples/smart_contracts/assert_sum.py"
         with open(input_file) as fp:
             source_code = fp.read()
@@ -19,7 +20,7 @@ class MiscTest(unittest.TestCase):
         ret = uplc.Machine(f).eval()
         self.assertEqual(ret, uplc.PlutusConstr(0, []))
 
-    def test_simple_contract_fail(self):
+    def test_assert_sum_contract_fail(self):
         input_file = "examples/smart_contracts/assert_sum.py"
         with open(input_file) as fp:
             source_code = fp.read()
@@ -39,3 +40,21 @@ class MiscTest(unittest.TestCase):
             self.fail("Machine did validate the content")
         except Exception as e:
             pass
+
+    @given(
+        a=st.integers(min_value=-10, max_value=10),
+        b=st.integers(min_value=0, max_value=10),
+    )
+    def test_mult_contract(self, a: int, b: int):
+        input_file = "examples/mult.py"
+        with open(input_file) as fp:
+            source_code = fp.read()
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        for d in [uplc.PlutusInteger(a), uplc.PlutusInteger(b)]:
+            f = uplc.Apply(f, d)
+        ret = uplc.Machine(f).eval()
+        self.assertEqual(ret, uplc.PlutusInteger(a * b))
