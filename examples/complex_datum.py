@@ -29,7 +29,8 @@ class BatchOrder(PlutusData):
 
 def validator(d: BatchOrder) -> bytes:
     c = d.sender.credential
-    res = b""
     if isinstance(c, PubKeyCredential):
         res = c.pubkeyhash
+    else:
+        res = b""
     return res
