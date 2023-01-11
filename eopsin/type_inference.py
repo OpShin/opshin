@@ -378,12 +378,12 @@ class AggressiveTypeInferencer(NodeTransformer):
         ts.value = self.visit(node.value)
         assert isinstance(ts.value.typ, InstanceType), "Can only subscript instances"
         if isinstance(ts.value.typ.typ, TupleType):
-            if all(ts.value.typ.typs[0] == t for t in ts.value.typ.typs):
-                ts.typ = ts.value.typ.typs[0]
+            if all(ts.value.typ.typ.typs[0] == t for t in ts.value.typ.typ.typs):
+                ts.typ = ts.value.typ.typ.typs[0]
             elif isinstance(ts.slice.value, Constant) and isinstance(
                 ts.slice.value.value, int
             ):
-                ts.typ = ts.value.typ.typs[ts.slice.value.value]
+                ts.typ = ts.value.typ.typ.typs[ts.slice.value.value]
             else:
                 raise TypeInferenceError(f"Could not infer type of subscript {node}")
         elif isinstance(ts.value.typ.typ, ListType):
