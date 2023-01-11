@@ -492,7 +492,7 @@ class UPLCCompiler(NodeTransformer):
                 plt.FunctionalTupleAccess(
                     plt.Apply(self.visit(node.value), plt.Var(STATEMONAD)),
                     node.slice.value.value,
-                    len(node.value.typ.typs),
+                    len(node.value.typ.typ.typs),
                 ),
             )
         if isinstance(node.value.typ.typ, ListType):

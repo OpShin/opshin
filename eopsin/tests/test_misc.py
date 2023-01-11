@@ -151,3 +151,20 @@ class MiscTest(unittest.TestCase):
             uplc.PlutusInteger(1),
             ret,
         )
+
+    def test_showcase(self):
+        input_file = "examples/showcase.py"
+        with open(input_file) as fp:
+            source_code = fp.read()
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        for d in [uplc.PlutusInteger(1)]:
+            f = uplc.Apply(f, d)
+        ret = uplc.Machine(f).eval()
+        self.assertEqual(
+            uplc.PlutusInteger(8),
+            ret,
+        )
