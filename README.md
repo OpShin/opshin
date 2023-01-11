@@ -39,7 +39,7 @@ python3 -m pip install eopsin-lang
 
 #### Writing a Smart Contract
 
-A simple contract called the "Cancel Contract" verifies that only specific wallets can withdraw money.
+A simple contract called the "Gift Contract" verifies that only specific wallets can withdraw money.
 They are authenticated by a signature.
 
 ```python3
