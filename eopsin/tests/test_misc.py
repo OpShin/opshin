@@ -5,6 +5,13 @@ import uplc
 from .. import compiler, type_inference
 
 
+def fib(n):
+    a, b = 0, 1
+    for _ in range(n):
+        a, b = b, a + b
+    return a
+
+
 class MiscTest(unittest.TestCase):
     def test_assert_sum_contract_succeed(self):
         input_file = "examples/smart_contracts/assert_sum.py"
@@ -46,7 +53,7 @@ class MiscTest(unittest.TestCase):
         b=st.integers(min_value=0, max_value=10),
     )
     def test_mult(self, a: int, b: int):
-        input_file = "examples/mult.py"
+        input_file = "examples/mult_for.py"
         with open(input_file) as fp:
             source_code = fp.read()
         ast = compiler.parse(source_code)
@@ -166,5 +173,41 @@ class MiscTest(unittest.TestCase):
         ret = uplc.Machine(f).eval()
         self.assertEqual(
             uplc.PlutusInteger(8),
+            ret,
+        )
+
+    @given(n=st.integers(min_value=0, max_value=5))
+    def test_fib_iter(self, n):
+        input_file = "examples/fib_iter.py"
+        with open(input_file) as fp:
+            source_code = fp.read()
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        for d in [uplc.PlutusInteger(n)]:
+            f = uplc.Apply(f, d)
+        ret = uplc.Machine(f).eval()
+        self.assertEqual(
+            uplc.PlutusInteger(fib(n)),
+            ret,
+        )
+
+    @given(n=st.integers(min_value=0, max_value=5))
+    def test_fib_rec(self, n):
+        input_file = "examples/fib_rec.py"
+        with open(input_file) as fp:
+            source_code = fp.read()
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        for d in [uplc.PlutusInteger(n)]:
+            f = uplc.Apply(f, d)
+        ret = uplc.Machine(f).eval()
+        self.assertEqual(
+            uplc.PlutusInteger(fib(n)),
             ret,
         )

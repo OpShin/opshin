@@ -248,15 +248,18 @@ class UPLCCompiler(NodeTransformer):
                 transform_output_map(main_fun_typ.rettyp)(
                     plt.Let(
                         [
-                            ("s", INITIAL_STATE),
+                            (
+                                "s",
+                                plt.Apply(
+                                    self.visit_sequence(node.body), INITIAL_STATE
+                                ),
+                            ),
                             (
                                 "g",
                                 plt.FunctionalMapAccess(
-                                    plt.Apply(
-                                        self.visit_sequence(node.body), plt.Var("s")
-                                    ),
+                                    plt.Var("s"),
                                     plt.ByteString("validator".encode("utf8")),
-                                    plt.TraceError("NameError"),
+                                    plt.TraceError("NameError: validator"),
                                 ),
                             ),
                         ],
@@ -315,7 +318,7 @@ class UPLCCompiler(NodeTransformer):
                 plt.FunctionalMapAccess(
                     plt.Var(STATEMONAD),
                     plt.ByteString(node.id.encode()),
-                    plt.TraceError("NameError"),
+                    plt.TraceError(f"NameError: {node.id}"),
                 ),
             )
         raise NotImplementedError(f"Context {node.ctx} not supported")
