@@ -5,6 +5,7 @@ from .type_inference import *
 from .rewrite_tuple_assign import RewriteTupleAssign
 from .rewrite_augassign import RewriteAugAssign
 from .rewrite_import_plutusdata import RewriteImportPlutusData
+from .rewrite_import_dataclasses import RewriteImportDataclasses
 from .rewrite_import_typing import RewriteImportTyping
 from .rewrite_import import RewriteImport
 
@@ -85,8 +86,13 @@ def transform_ext_params_map(p: Type):
     if p in TransformExtParamsMap:
         return TransformExtParamsMap[p]
     if isinstance(p.typ, ListType):
-        return plt.UnListData
+        list_int_typ = p.typ.typ
+        return lambda x: plt.MapList(
+            plt.UnListData(x),
+            plt.Lambda(["x"], transform_ext_params_map(list_int_typ)(plt.Var("x"))),
+        )
     if isinstance(p.typ, DictType):
+        # TODO also remap in the style the list is mapped (but on pairs)
         return plt.UnMapData
     return lambda x: x
 
@@ -467,7 +473,10 @@ class UPLCCompiler(NodeTransformer):
         assert isinstance(
             node.slice, Index
         ), "Only single index slices are currently supported"
-        if isinstance(node.value.typ, TupleType):
+        assert isinstance(
+            node.value.typ, InstanceType
+        ), "Can only access elements of instances, not classes"
+        if isinstance(node.value.typ.typ, TupleType):
             assert isinstance(
                 node.slice.value, Constant
             ), "Only constant index access for tuples is supported"
@@ -480,13 +489,16 @@ class UPLCCompiler(NodeTransformer):
                     len(node.value.typ.typs),
                 ),
             )
-        if isinstance(node.value.typ, ListType):
-            assert isinstance(
-                node.slice.value.typ, IntegerInstanceType
+        if isinstance(node.value.typ.typ, ListType):
+            assert (
+                node.slice.value.typ == IntegerInstanceType
             ), "Only single element list index access supported"
-            return plt.IndexAccessList(
-                plt.Apply(self.visit(node.value), plt.Var(STATEMONAD)),
-                plt.Apply(self.visit(node.slice.value), plt.Var(STATEMONAD)),
+            return plt.Lambda(
+                [STATEMONAD],
+                plt.IndexAccessList(
+                    plt.Apply(self.visit(node.value), plt.Var(STATEMONAD)),
+                    plt.Apply(self.visit(node.slice.value), plt.Var(STATEMONAD)),
+                ),
             )
         raise NotImplementedError(f"Could not implement subscript of {node}")
 
@@ -550,6 +562,7 @@ def compile(prog: AST):
         RewriteTupleAssign,
         RewriteImportPlutusData,
         RewriteImportTyping,
+        RewriteImportDataclasses,
         AggressiveTypeInferencer,
         UPLCCompiler,
     ]

@@ -30,6 +30,8 @@ INITIAL_SCOPE = dict(
         "Dict": DictType(NoneInstanceType, NoneInstanceType),
         "Optional": OptionalType(NoneInstanceType),
         "Union": UnionType(NoneInstanceType),
+        "dataclass": NoneInstanceType,
+        "PlutusData": NoneInstanceType,
         # builtin functions
         "print": InstanceType(FunctionType([StringInstanceType], NoneInstanceType)),
         "range": InstanceType(
@@ -101,19 +103,17 @@ class AggressiveTypeInferencer(NodeTransformer):
                 assert isinstance(
                     ann.slice.value, Tuple
                 ), "Union must combine multiple classes"
-                ann_types = FrozenFrozenList(
-                    [self.type_from_annotation(e) for e in ann.slice.value.elts]
-                )
+                ann_types = [self.type_from_annotation(e) for e in ann.slice.value.elts]
                 assert all(
                     isinstance(e, ClassType) for e in ann_types
                 ), "Union must combine multiple classes"
-                return UnionType(ann_types)
+                return UnionType(FrozenFrozenList(FrozenFrozenList(ann_types)))
             if ann.value.id == "List":
                 ann_type = self.type_from_annotation(ann.slice.value)
                 assert isinstance(
                     ann_type, ClassType
                 ), "List must have a single type as parameter"
-                return ListType(ann_type)
+                return ListType(InstanceType(ann_type))
             if ann.value.id == "Dict":
                 assert isinstance(
                     ann.slice.value, Tuple
@@ -125,7 +125,7 @@ class AggressiveTypeInferencer(NodeTransformer):
                 assert all(
                     isinstance(e, ClassType) for e in ann_types
                 ), "Dict must combine two classes"
-                return DictType(*ann_types)
+                return DictType(*(InstanceType(a) for a in ann_types))
             raise NotImplementedError(
                 "Only Optional, Union, Dict and List are allowed as Generic types"
             )
@@ -388,6 +388,10 @@ class AggressiveTypeInferencer(NodeTransformer):
                 raise TypeInferenceError(f"Could not infer type of subscript {node}")
         elif isinstance(ts.value.typ.typ, ListType):
             ts.typ = ts.value.typ.typ.typ
+            ts.slice.value = self.visit(node.slice.value)
+            assert (
+                ts.slice.value.typ == IntegerInstanceType
+            ), "List indices must be integers"
         else:
             raise TypeInferenceError(f"Could not infer type of subscript {node}")
         return ts

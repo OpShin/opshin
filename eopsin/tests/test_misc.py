@@ -116,3 +116,20 @@ class MiscTest(unittest.TestCase):
         for d in [uplc.PlutusInteger(0)]:
             f = uplc.Apply(f, d)
         ret = uplc.Machine(f).eval()
+
+    def test_list_datum_correct_vals(self):
+        input_file = "examples/list_datum.py"
+        with open(input_file) as fp:
+            source_code = fp.read()
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        for d in [uplc.data_from_cbor(bytes.fromhex("d8799f9f41014102ffff"))]:
+            f = uplc.Apply(f, d)
+        ret = uplc.Machine(f).eval()
+        self.assertEqual(
+            uplc.PlutusInteger(1),
+            ret,
+        )

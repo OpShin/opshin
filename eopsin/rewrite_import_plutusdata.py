@@ -34,8 +34,8 @@ class RewriteImportPlutusData(NodeTransformer):
 
     def visit_ClassDef(self, node: ClassDef) -> ClassDef:
         assert (
-            len(node.decorator_list) == 0
-        ), "Class definitions must have no decorators"
+            len(node.decorator_list) == 1
+        ), "Class definitions must have no decorators but @dataclass"
         assert (
             len(node.bases) == 1
         ), "Class definitions must inherit only from PlutusData"

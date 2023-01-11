@@ -1,10 +1,12 @@
 from pycardano import Datum, PlutusData
 from typing import List, Dict, Optional, Union
+from dataclasses import dataclass
 
 # Plutus V2
 TxId = bytes
 
 
+@dataclass()
 class TxOutRef(PlutusData):
     id: TxId
     idx: int
@@ -13,6 +15,7 @@ class TxOutRef(PlutusData):
 PubKeyHash = bytes
 
 
+@dataclass()
 class PubKeyCredential(PlutusData):
     CONSTR_ID = 0
     pubkeyhash: PubKeyHash
@@ -21,6 +24,7 @@ class PubKeyCredential(PlutusData):
 ValidatorHash = bytes
 
 
+@dataclass()
 class ScriptCredential(PlutusData):
     CONSTR_ID = 1
     validator_hash: ValidatorHash
@@ -29,11 +33,13 @@ class ScriptCredential(PlutusData):
 Credential = Union[PubKeyCredential, ScriptCredential]
 
 
+@dataclass()
 class StakingHash(PlutusData):
     CONSTR_ID = 0
     value: Credential
 
 
+@dataclass()
 class StakingPtr(PlutusData):
     """
     In an address, a chain pointer refers to a point of the chain containing a stake key registration certificate. A point is identified by 3 coordinates.
@@ -51,6 +57,7 @@ class StakingPtr(PlutusData):
 StakingCredential = Union[StakingHash, StakingPtr]
 
 
+@dataclass()
 class Address(PlutusData):
     credential: Credential
     staking_credential: Optional[StakingCredential]
@@ -65,49 +72,58 @@ Value = Dict[CurrencySymbol, Dict[TokenName, int]]
 DatumHash = bytes
 
 
+@dataclass()
 class TxOut(PlutusData):
     address: Address
     value: Value
     datum_hash: Optional[DatumHash]
 
 
+@dataclass()
 class TxInInfo(PlutusData):
     out_ref: TxOutRef
     resolved: TxOut
 
 
+@dataclass()
 class DCertDelegRegKey(PlutusData):
     CONSTR_ID = 0
     value: StakingCredential
 
 
+@dataclass()
 class DCertDelegDeRegKey(PlutusData):
     CONSTR_ID = 1
     value: StakingCredential
 
 
+@dataclass()
 class DCertDelegDelegate(PlutusData):
     CONSTR_ID = 2
     delegator: StakingCredential
     delegatee: PubKeyHash
 
 
+@dataclass()
 class DCertPoolRegister(PlutusData):
     CONSTR_ID = 3
     pool_id: PubKeyHash
     pool_vfr: PubKeyHash
 
 
+@dataclass()
 class DCertPoolRetire(PlutusData):
     CONSTR_ID = 4
     retirement_certificate: PubKeyHash
     epoch: int
 
 
+@dataclass()
 class DCertGenesis(PlutusData):
     CONSTR_ID = 5
 
 
+@dataclass()
 class DCertMir(PlutusData):
     CONSTR_ID = 6
 
@@ -126,23 +142,28 @@ DCert = Union[
 POSIXTime = int
 
 
+@dataclass()
 class POSIXTimeRange(PlutusData):
     lower_bound: POSIXTime
     upper_bound: POSIXTime
 
 
+@dataclass()
 class Minting(PlutusData):
     currency_symbol: CurrencySymbol
 
 
+@dataclass()
 class Spending(PlutusData):
     tx_out_ref: TxOutRef
 
 
+@dataclass()
 class Rewarding(PlutusData):
     staking_credential: StakingCredential
 
 
+@dataclass()
 class Certifying(PlutusData):
     d_cert: DCert
 
@@ -150,6 +171,7 @@ class Certifying(PlutusData):
 ScriptPurpose = Union[Minting, Spending, Rewarding, Certifying]
 
 
+@dataclass()
 class BuiltinData(PlutusData):
     # TODO how to represent this -> should be possible to compare to other PlutusData
     # value: Datum
@@ -162,6 +184,7 @@ Redeemer = BuiltinData
 Datum = BuiltinData
 
 
+@dataclass()
 class TxInfo(PlutusData):
     inputs: List[TxInInfo]
     outputs: List[TxOut]
@@ -176,6 +199,7 @@ class TxInfo(PlutusData):
     id: TxId
 
 
+@dataclass()
 class ScriptContext(PlutusData):
     tx_info: TxInfo
     purpose: ScriptPurpose
