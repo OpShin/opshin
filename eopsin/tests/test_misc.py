@@ -52,7 +52,7 @@ class MiscTest(unittest.TestCase):
         a=st.integers(min_value=-10, max_value=10),
         b=st.integers(min_value=0, max_value=10),
     )
-    def test_mult(self, a: int, b: int):
+    def test_mult_for(self, a: int, b: int):
         input_file = "examples/mult_for.py"
         with open(input_file) as fp:
             source_code = fp.read()
@@ -130,7 +130,7 @@ class MiscTest(unittest.TestCase):
         )
 
     def test_hello_world(self):
-        input_file = "examples/sum.py"
+        input_file = "examples/hello_world.py"
         with open(input_file) as fp:
             source_code = fp.read()
         ast = compiler.parse(source_code)
@@ -138,7 +138,7 @@ class MiscTest(unittest.TestCase):
         code = code.compile()
         f = code.term
         # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
-        for d in [uplc.PlutusInteger(0)]:
+        for d in [uplc.PlutusConstr(0, [])]:
             f = uplc.Apply(f, d)
         ret = uplc.Machine(f).eval()
 
