@@ -17,6 +17,16 @@ install:
 script:
 - black --check .
 - coverage run --source=eopsin setup.py test
+# the samples from the README file
+- >
+  coverage run --source=eopsin -m eopsin eval examples/smart_contracts/assert_sum.py "{\"int\": 4}" "{\"int\": 38}" "{\"constructor\": 0, \"fields\": []}"
+- >
+  coverage run --source=eopsin -m eopsin compile examples/smart_contracts/assert_sum.py > assert_sum.uplc
+- >
+  coverage run --source=eopsin -m eopsin eval_uplc examples/assert_sum.py "{\"int\": 4}" "{\"int\": 38}" "{\"constructor\": 0, \"fields\": []}"
+- >
+  coverage run --source=eopsin -m eopsin compile_pluto examples/assert_sum.py
+
 after_success:
 - coverage report
 - coveralls

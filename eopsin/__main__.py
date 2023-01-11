@@ -26,6 +26,8 @@ def plutus_data_from_json(annotation: typing.Type, x: dict):
             return int(x["int"])
         if annotation == bytes:
             return bytes.fromhex(x["bytes"])
+        if annotation is None:
+            return None
         if isinstance(annotation, typing._GenericAlias):
             # Annotation is a List or Dict
             if annotation._name == "List":

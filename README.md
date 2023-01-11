@@ -69,7 +69,7 @@ Arguments to scripts are passed in as Plutus Data objects in JSON notation.
 You can run any of the following commands
 ```bash
 # Evaluate script in Python - this can be used to make sure there are no obvious errors
-python3 -m eopsin eval examples/smart_contracts/sum_sc.py "{\"int\": 4}" "{\"int\": 38}" "{\"constructor\": 0, \"fields\": []}"
+python3 -m eopsin eval examples/smart_contracts/assert_sum.py "{\"int\": 4}" "{\"int\": 38}" "{\"constructor\": 0, \"fields\": []}"
 
 # Compile script to 'uplc', the Cardano Smart Contract assembly
 python3 -m eopsin compile examples/smart_contracts/assert_sum.py > assert_sum.uplc
@@ -135,10 +135,10 @@ For debugging purposes, you can also run
 
 ```bash
 # Compile script to 'uplc', and evaluate the script in UPLC (for debugging purposes)
-python3 -m eopsin eval_uplc examples/sum_sc.py "{\"int\": 4}" "{\"int\": 38}" "{\"constructor\": 0, \"fields\": []}"
+python3 -m eopsin eval_uplc examples/assert_sum.py "{\"int\": 4}" "{\"int\": 38}" "{\"constructor\": 0, \"fields\": []}"
 
 # Compile script to 'pluto', an intermediate language (for debugging purposes)
-python3 -m eopsin compile_pluto examples/sum_sc.py
+python3 -m eopsin compile_pluto examples/assert_sum.py
 ```
 
 ### Sponsoring
