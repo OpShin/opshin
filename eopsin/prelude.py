@@ -163,7 +163,9 @@ ScriptPurpose = Union[Minting, Spending, Rewarding, Certifying]
 
 
 class BuiltinData(PlutusData):
-    value: Datum
+    # TODO how to represent this -> should be possible to compare to other PlutusData
+    # value: Datum
+    pass
 
 
 class Redeemer(PlutusData):

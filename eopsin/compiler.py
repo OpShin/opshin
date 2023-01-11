@@ -15,78 +15,105 @@ STATEMONAD = "s"
 
 BinOpMap = {
     Add: {
-        IntegerType: {
-            IntegerType: plt.AddInteger,
+        IntegerInstanceType: {
+            IntegerInstanceType: plt.AddInteger,
         },
-        ByteStringType: {
-            ByteStringType: plt.AppendString,
+        ByteStringInstanceType: {
+            ByteStringInstanceType: plt.AppendString,
         },
     },
     Sub: {
-        IntegerType: {
-            IntegerType: plt.SubtractInteger,
+        IntegerInstanceType: {
+            IntegerInstanceType: plt.SubtractInteger,
         }
     },
     Mult: {
-        IntegerType: {
-            IntegerType: plt.MultiplyInteger,
+        IntegerInstanceType: {
+            IntegerInstanceType: plt.MultiplyInteger,
         }
     },
     Div: {
-        IntegerType: {
-            IntegerType: plt.DivideInteger,
+        IntegerInstanceType: {
+            IntegerInstanceType: plt.DivideInteger,
         }
     },
     Mod: {
-        IntegerType: {
-            IntegerType: plt.ModInteger,
+        IntegerInstanceType: {
+            IntegerInstanceType: plt.ModInteger,
         }
     },
 }
 
 CmpMap = {
     Eq: {
-        IntegerType: {
-            IntegerType: plt.EqualsInteger,
+        IntegerInstanceType: {
+            IntegerInstanceType: plt.EqualsInteger,
         },
-        ByteStringType: {
-            ByteStringType: plt.EqualsByteString,
+        ByteStringInstanceType: {
+            ByteStringInstanceType: plt.EqualsByteString,
         },
-        StringType: {
-            StringType: plt.EqualsString,
+        StringInstanceType: {
+            StringInstanceType: plt.EqualsString,
         },
-        BoolType: {
-            BoolType: plt.EqualsBool,
+        BoolInstanceType: {
+            BoolInstanceType: plt.EqualsBool,
         },
     },
     Lt: {
-        IntegerType: {
-            IntegerType: plt.LessThanInteger,
+        IntegerInstanceType: {
+            IntegerInstanceType: plt.LessThanInteger,
         },
-        ByteStringType: {
-            ByteStringType: plt.LessThanByteString,
+        ByteStringInstanceType: {
+            ByteStringInstanceType: plt.LessThanByteString,
         },
     },
 }
 
 TransformExtParamsMap = {
-    IntegerType: lambda x: plt.UnIData(x),
-    ByteStringType: lambda x: plt.UnBData(x),
-    StringType: lambda x: plt.DecodeUtf8(plt.UnBData(x)),
-    ListType: lambda x: plt.UnListData(x),
-    DictType: lambda x: plt.UnMapData(x),
-    UnitType: lambda x: plt.Lambda(["_"], plt.Unit()),
-    BoolType: lambda x: plt.NotEqualsInteger(x, plt.Integer(0)),
+    IntegerInstanceType: lambda x: plt.UnIData(x),
+    ByteStringInstanceType: lambda x: plt.UnBData(x),
+    StringInstanceType: lambda x: plt.DecodeUtf8(plt.UnBData(x)),
+    UnitInstanceType: lambda x: plt.Lambda(["_"], plt.Unit()),
+    BoolInstanceType: lambda x: plt.NotEqualsInteger(x, plt.Integer(0)),
 }
+
+
+def transform_ext_params_map(p: Type):
+    assert isinstance(
+        p, InstanceType
+    ), "Can only transform instances, not classes as input"
+    if p in TransformExtParamsMap:
+        return TransformExtParamsMap[p]
+    if isinstance(p.typ, ListType):
+        return plt.UnListData
+    if isinstance(p.typ, DictType):
+        return plt.UnMapData
+    return lambda x: x
+
+
 TransformOutputMap = {
-    StringType: lambda x: plt.BData(plt.EncodeUtf8(x)),
-    IntegerType: lambda x: plt.IData(x),
-    ByteStringType: lambda x: plt.BData(x),
-    ListType: lambda x: plt.ListData(x),
-    DictType: lambda x: plt.MapData(x),
-    UnitType: lambda x: plt.Lambda(["_"], plt.Unit()),
-    BoolType: lambda x: plt.IData(plt.IfThenElse(x, plt.Integer(1), plt.Integer(0))),
+    StringInstanceType: lambda x: plt.BData(plt.EncodeUtf8(x)),
+    IntegerInstanceType: lambda x: plt.IData(x),
+    ByteStringInstanceType: lambda x: plt.BData(x),
+    UnitInstanceType: lambda x: plt.Lambda(["_"], plt.Unit()),
+    BoolInstanceType: lambda x: plt.IData(
+        plt.IfThenElse(x, plt.Integer(1), plt.Integer(0))
+    ),
 }
+
+
+def transform_output_map(p: Type):
+    assert isinstance(
+        p, InstanceType
+    ), "Can only transform instances, not classes as input"
+    if p in TransformOutputMap:
+        return TransformOutputMap[p]
+    if isinstance(p.typ, ListType):
+        return plt.ListData
+    if isinstance(p.typ, DictType):
+        return plt.MapData
+    return lambda x: x
+
 
 ConstantMap = {
     str: plt.Text,
@@ -193,15 +220,20 @@ class UPLCCompiler(NodeTransformer):
     def visit_Module(self, node: TypedModule) -> plt.AST:
         # find main function
         # TODO can use more sophisiticated procedure here i.e. functions marked by comment
-        main_fun = None
+        main_fun: typing.Optional[InstanceType] = None
         for s in node.body:
             if isinstance(s, FunctionDef) and s.name == "validator":
                 main_fun = s
+        assert main_fun is not None, "Could not find function named validator"
+        main_fun_typ: FunctionType = main_fun.typ.typ
+        assert isinstance(
+            main_fun_typ, FunctionType
+        ), "Variable named validator is not of type function"
         cp = plt.Program(
             "1.0.0",
             plt.Lambda(
-                [f"p{i}" for i, _ in enumerate(main_fun.args.args)],
-                TransformOutputMap.get(main_fun.typ.rettyp, lambda x: x)(
+                [f"p{i}" for i, _ in enumerate(main_fun_typ.argtyps)],
+                TransformOutputMap.get(main_fun_typ.rettyp, lambda x: x)(
                     plt.Let(
                         [
                             ("s", INITIAL_STATE),
@@ -220,10 +252,8 @@ class UPLCCompiler(NodeTransformer):
                             plt.Var("g"),
                             plt.Var("g"),
                             *[
-                                TransformExtParamsMap.get(a.typ, lambda x: x)(
-                                    plt.Var(f"p{i}")
-                                )
-                                for i, a in enumerate(main_fun.args.args)
+                                transform_ext_params_map(a)(plt.Var(f"p{i}"))
+                                for i, a in enumerate(main_fun_typ.argtyps)
                             ],
                             plt.Var("s"),
                         ),
@@ -313,9 +343,9 @@ class UPLCCompiler(NodeTransformer):
         body = node.body.copy()
         if not isinstance(body[-1], Return):
             tr = Return(None)
-            tr.typ = NoneType
+            tr.typ = NoneInstanceType
             assert (
-                node.typ.rettyp == NoneType
+                node.typ.typ.rettyp == NoneInstanceType
             ), "Function has no return statement but is supposed to return not-None value"
             body.append(tr)
         compiled_body = self.visit_sequence(body[:-1])
@@ -388,7 +418,8 @@ class UPLCCompiler(NodeTransformer):
             cn = copy(node)
             cn.orelse = []
             return self.visit_sequence([cn] + node.orelse)
-        if isinstance(node.iter.typ, ListType):
+        assert isinstance(node.iter.typ, InstanceType)
+        if isinstance(node.iter.typ.typ, ListType):
             assert isinstance(
                 node.target, Name
             ), "Can only assign value to singleton element"
@@ -451,7 +482,7 @@ class UPLCCompiler(NodeTransformer):
             )
         if isinstance(node.value.typ, ListType):
             assert isinstance(
-                node.slice.value.typ, IntegerType
+                node.slice.value.typ, IntegerInstanceType
             ), "Only single element list index access supported"
             return plt.IndexAccessList(
                 plt.Apply(self.visit(node.value), plt.Var(STATEMONAD)),
@@ -475,7 +506,7 @@ class UPLCCompiler(NodeTransformer):
         # TODO cover case where constr should be accessed
         return plt.Lambda(
             [STATEMONAD],
-            TransformExtParamsMap.get(node.typ, lambda x: x)(
+            transform_ext_params_map(node.typ)(
                 plt.NthField(
                     plt.Apply(self.visit(node.value), plt.Var(STATEMONAD)),
                     plt.Integer(node.pos),
