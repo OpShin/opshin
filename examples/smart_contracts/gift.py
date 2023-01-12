@@ -1,6 +1,7 @@
 from eopsin.prelude import *
 
 
+@dataclass()
 class CancelDatum(PlutusData):
     pubkeyhash: bytes
 

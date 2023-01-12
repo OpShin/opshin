@@ -1,6 +1,11 @@
 venv
 .vscode
 __tmp_eopsin.py
+test.py
+test/
+*.uplc
+*.cbor
+*.plutus
 # Created by https://www.toptal.com/developers/gitignore/api/python,pycharm+all
 # Edit at https://www.toptal.com/developers/gitignore?templates=python,pycharm+all
 
