@@ -77,6 +77,20 @@ python3 -m eopsin compile examples/smart_contracts/assert_sum.py > assert_sum.up
 
 ### Deploying
 
+The deploy process generates all artifacts required for usage with common libraries like [pycardano](https://github.com/Python-Cardano/pycardano), [lucid](https://github.com/spacebudz/lucid) and the [cardano-cli](https://github.com/input-output-hk/cardano-node).
+
+```bash
+# Install this additional dependency
+python3 -m pip install pyaiken
+
+# Automatically generate all artifacts needed for using this contract
+python3 -m eopsin build examples/smart_contracts/assert_sum.py
+```
+
+### Deploying manually
+
+#### Deploying via aiken
+
 Run the following to obtain a `cardano-cli` compatible version of your smart contract:
 
 > This requires you to install [`aiken`](https://github.com/aiken-lang/aiken)
@@ -92,7 +106,7 @@ cardano-cli address build --payment-script-file assert_sum.plutus --mainnet
 
 Now you can continue and send/spend ADA with this address following [the official documentation](https://github.com/input-output-hk/cardano-node/blob/master/doc/reference/plutus/plutus-spending-script-example.md)!
 
-### Deploying via pluto
+#### Deploying via pluto
 
 You may alternatively use [`pluto`](https://github.com/Plutonomicon/pluto) to compile the contracts.
 Beware that it might not be very fast.
