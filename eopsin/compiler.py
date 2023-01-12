@@ -10,6 +10,7 @@ from .rewrite_import_typing import RewriteImportTyping
 from .rewrite_import import RewriteImport
 
 import pluthon as plt
+import uplc
 
 STATEMONAD = "s"
 
@@ -70,6 +71,35 @@ CmpMap = {
     },
 }
 
+EmptyListMap = {
+    IntegerInstanceType: plt.EmptyIntegerList(),
+    ByteStringInstanceType: plt.EmptyByteStringList(),
+    StringInstanceType: plt.EmptyTextList(),
+    UnitInstanceType: plt.EmptyUnitList(),
+    BoolInstanceType: plt.EmptyBoolList(),
+}
+
+
+def empty_list(p: Type):
+    if p in EmptyListMap:
+        return EmptyListMap[p]
+    assert isinstance(p, InstanceType), "Can only create lists of instances"
+    if isinstance(p.typ, ListType):
+        el = empty_list(p.typ.typ)
+        return plt.EmptyListList(uplc.BuiltinList([], el.sample_value))
+    if isinstance(p.typ, DictType):
+        el_key = empty_list(p.typ.key_typ)
+        el_value = empty_list(p.typ.value_typ)
+        return plt.EmptyListList(
+            uplc.BuiltinList(
+                [], uplc.BuiltinPair(el_key.sample_value, el_value.sample_value)
+            )
+        )
+    if isinstance(p.typ, RecordType):
+        return plt.EmptyDataList()
+    raise NotImplementedError(f"Empty lists of type {p} can't be constructed yet")
+
+
 TransformExtParamsMap = {
     IntegerInstanceType: lambda x: plt.UnIData(x),
     ByteStringInstanceType: lambda x: plt.UnBData(x),
@@ -90,6 +120,7 @@ def transform_ext_params_map(p: Type):
         return lambda x: plt.MapList(
             plt.UnListData(x),
             plt.Lambda(["x"], transform_ext_params_map(list_int_typ)(plt.Var("x"))),
+            empty_list(p.typ.typ),
         )
     if isinstance(p.typ, DictType):
         # TODO also remap in the style the list is mapped (but on pairs)
@@ -118,7 +149,8 @@ def transform_output_map(p: Type):
         list_int_typ = p.typ.typ
         return lambda x: plt.ListData(
             plt.MapList(
-                x, plt.Lambda(["x"], transform_output_map(list_int_typ)(plt.Var("x")))
+                x,
+                plt.Lambda(["x"], transform_output_map(list_int_typ)(plt.Var("x"))),
             ),
         )
     if isinstance(p.typ, DictType):
