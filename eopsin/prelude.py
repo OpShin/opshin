@@ -150,21 +150,25 @@ class POSIXTimeRange(PlutusData):
 
 @dataclass()
 class Minting(PlutusData):
+    CONSTR_ID = 0
     currency_symbol: CurrencySymbol
 
 
 @dataclass()
 class Spending(PlutusData):
+    CONSTR_ID = 1
     tx_out_ref: TxOutRef
 
 
 @dataclass()
 class Rewarding(PlutusData):
+    CONSTR_ID = 2
     staking_credential: StakingCredential
 
 
 @dataclass()
 class Certifying(PlutusData):
+    CONSTR_ID = 3
     d_cert: DCert
 
 
@@ -187,6 +191,7 @@ Datum = BuiltinData
 @dataclass()
 class TxInfo(PlutusData):
     inputs: List[TxInInfo]
+    reference_inputs: List[TxInInfo]
     outputs: List[TxOut]
     fee: Value
     mint: Value

@@ -1,3 +1,4 @@
 #!/usr/bin/env bash
-
-aiken uplc flat /dev/stdin -o /dev/stdout -c
+set -e
+cd "$(dirname "$0")"
+aiken uplc flat /dev/stdin -p -c | python3 hex_to_bytes.py
