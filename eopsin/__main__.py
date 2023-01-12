@@ -1,9 +1,11 @@
+import cbor2
 import json
 
 import argparse
 import enum
 import pycardano
 import sys
+import pathlib
 import importlib
 import typing
 
@@ -18,6 +20,7 @@ class Command(enum.Enum):
     eval = "eval"
     parse = "parse"
     eval_uplc = "eval_uplc"
+    build = "build"
 
 
 def plutus_data_from_json(annotation: typing.Type, x: dict):
@@ -63,6 +66,13 @@ def main():
         "input_file", type=str, help="The input program to parse. Set to - for stdin."
     )
     a.add_argument(
+        "-o",
+        "--output-directory",
+        default="",
+        type=str,
+        help="The output directory for artefacts of the build command. Defaults to the filename of the compiled contract. of the compiled contract.",
+    )
+    a.add_argument(
         "args",
         nargs="*",
         default=[],
@@ -101,9 +111,53 @@ def main():
     code = compiler.compile(ast)
     if command == Command.compile_pluto:
         print(code.dumps())
+        return
     code = code.compile()
     if command == Command.compile:
         print(code.dumps())
+        return
+
+    if command == Command.build:
+        try:
+            import pyaiken
+        except ImportError:
+            print(
+                "Package pyaiken is not installed. The build command is not available. Install via `pip install pyaiken`."
+            )
+            exit(-1)
+        if args.output_directory == "":
+            if args.input_file == "-":
+                print(
+                    "Please supply an output directory if no input file is specified."
+                )
+                exit(-1)
+            target_dir = pathlib.Path(pathlib.Path(input_file).stem)
+        else:
+            target_dir = pathlib.Path(args.output_directory)
+        target_dir.mkdir(exist_ok=True)
+        uplc_dump = code.dumps()
+        cbor_hex = pyaiken.uplc.flat(uplc_dump)
+        with (target_dir / "script.cbor").open("w") as fp:
+            fp.write(cbor_hex)
+        cbor = bytes.fromhex(cbor_hex)
+        # double wrap
+        cbor_wrapped = cbor2.dumps(cbor)
+        cbor_wrapped_hex = cbor_wrapped.hex()
+        d = {
+            "type": "PlutusScriptV2",
+            "description": "Eopsin Smart Contract",
+            "cborHex": cbor_wrapped_hex,
+        }
+        with (target_dir / "script.plutus").open("w") as fp:
+            json.dump(d, fp)
+        addr_mainnet = pyaiken.script_address.build_mainnet(cbor_hex)
+        with (target_dir / "mainnet.addr").open("w") as fp:
+            fp.write(addr_mainnet)
+        addr_testnet = pyaiken.script_address.build_testnet(cbor_hex)
+        with (target_dir / "testnet.addr").open("w") as fp:
+            fp.write(addr_testnet)
+        print(f"Wrote script artifacts to {target_dir}/")
+        return
 
     if command == Command.eval_uplc:
         print("Starting execution")
