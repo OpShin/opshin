@@ -10,7 +10,7 @@ import importlib
 import typing
 
 import uplc
-from eopsin import compiler
+from eopsin import compiler, __version__
 from uplc import data_from_json
 
 
@@ -145,7 +145,7 @@ def main():
         cbor_wrapped_hex = cbor_wrapped.hex()
         d = {
             "type": "PlutusScriptV2",
-            "description": "Eopsin Smart Contract",
+            "description": f"Eopsin {__version__} Smart Contract",
             "cborHex": cbor_wrapped_hex,
         }
         with (target_dir / "script.plutus").open("w") as fp:
