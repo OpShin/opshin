@@ -124,7 +124,9 @@ def transform_ext_params_map(p: Type):
         )
     if isinstance(p.typ, DictType):
         # TODO also remap in the style the list is mapped (but on pairs)
-        return plt.UnMapData
+        raise NotImplementedError(
+            "Dictionaries can currently not be parsed from PlutusData"
+        )
     return lambda x: x
 
 
@@ -155,7 +157,9 @@ def transform_output_map(p: Type):
         )
     if isinstance(p.typ, DictType):
         # TODO also remap in the style the list is mapped as input
-        return plt.MapData
+        raise NotImplementedError(
+            "Dictionaries can currently not be mapped to PlutusData"
+        )
     return lambda x: x
 
 
