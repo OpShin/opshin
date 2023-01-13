@@ -45,7 +45,7 @@ They are authenticated by a signature.
 ```python3
 from eopsin.prelude import *
 
-
+@dataclass()
 class CancelDatum(PlutusData):
     pubkeyhash: bytes
 

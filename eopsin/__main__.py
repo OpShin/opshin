@@ -150,10 +150,15 @@ def main():
         }
         with (target_dir / "script.plutus").open("w") as fp:
             json.dump(d, fp)
-        addr_mainnet = pyaiken.script_address.build_mainnet(cbor_hex)
+        script_hash = pycardano.plutus_script_hash(pycardano.PlutusV2Script(cbor))
+        addr_mainnet = pycardano.Address(
+            script_hash, network=pycardano.Network.MAINNET
+        ).encode()
         with (target_dir / "mainnet.addr").open("w") as fp:
             fp.write(addr_mainnet)
-        addr_testnet = pyaiken.script_address.build_testnet(cbor_hex)
+        addr_testnet = pycardano.Address(
+            script_hash, network=pycardano.Network.TESTNET
+        ).encode()
         with (target_dir / "testnet.addr").open("w") as fp:
             fp.write(addr_testnet)
         print(f"Wrote script artifacts to {target_dir}/")
