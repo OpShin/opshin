@@ -150,7 +150,7 @@ class AggressiveTypeInferencer(NodeTransformer):
             type(...),
         ], "Float, complex numbers and ellipsis currently not supported"
         if tc.value is None:
-            tc.typ = NoneType()
+            tc.typ = NoneInstanceType
         else:
             tc.typ = InstanceType(AtomicType(type(node.value).__name__))
         return tc
