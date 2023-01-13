@@ -41,6 +41,8 @@ python3 -m pip install eopsin-lang
 
 A simple contract called the "Gift Contract" verifies that only specific wallets can withdraw money.
 They are authenticated by a signature.
+See the [tutorial by `pycardano`](https://pycardano.readthedocs.io/en/latest/guides/plutus.html) for explanations on what each of the parameters to the validator means
+and how to build transactions with the contract.
 
 ```python3
 from eopsin.prelude import *
@@ -72,7 +74,7 @@ You can run any of the following commands
 python3 -m eopsin eval examples/smart_contracts/assert_sum.py "{\"int\": 4}" "{\"int\": 38}" "{\"constructor\": 0, \"fields\": []}"
 
 # Compile script to 'uplc', the Cardano Smart Contract assembly
-python3 -m eopsin compile examples/smart_contracts/assert_sum.py > assert_sum.uplc
+python3 -m eopsin compile examples/smart_contracts/assert_sum.py
 ```
 
 ### Deploying
@@ -86,6 +88,8 @@ python3 -m pip install pyaiken
 # Automatically generate all artifacts needed for using this contract
 python3 -m eopsin build examples/smart_contracts/assert_sum.py
 ```
+
+See the [tutorial by `pycardano`](https://pycardano.readthedocs.io/en/latest/guides/plutus.html) for explanations how to build transactions with `eopsin` contracts.
 
 ### Deploying manually
 
