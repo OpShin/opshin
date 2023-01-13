@@ -182,11 +182,11 @@ def extend_statemonad(
 
 class PythonBuiltIn(Enum):
     print = plt.Lambda(
-        ["f", "x", STATEMONAD],
+        ["x", STATEMONAD],
         plt.Trace(plt.Var("x"), plt.NoneData()),
     )
     range = plt.Lambda(
-        ["f", "limit", STATEMONAD],
+        ["limit", STATEMONAD],
         plt.Range(plt.Var("limit")),
     )
 
@@ -301,7 +301,6 @@ class UPLCCompiler(NodeTransformer):
                         ],
                         plt.Apply(
                             plt.Var("g"),
-                            plt.Var("g"),
                             *[
                                 transform_ext_params_map(a)(plt.Var(f"p{i}"))
                                 for i, a in enumerate(main_fun_typ.argtyps)
@@ -376,17 +375,12 @@ class UPLCCompiler(NodeTransformer):
         # return rf"(\{STATEMONAD} -> ({self.visit(node.func)} {compiled_args})"
         return plt.Lambda(
             [STATEMONAD],
-            plt.Let(
-                [("g", plt.Apply(self.visit(node.func), plt.Var(STATEMONAD)))],
-                plt.Apply(
-                    plt.Var("g"),
-                    # pass the function to itself for recursion
-                    plt.Var("g"),
-                    # pass in all arguments evaluated with the statemonad
-                    *(plt.Apply(self.visit(a), plt.Var(STATEMONAD)) for a in node.args),
-                    # eventually pass in the state monad as well
-                    plt.Var(STATEMONAD),
-                ),
+            plt.Apply(
+                plt.Apply(self.visit(node.func), plt.Var(STATEMONAD)),
+                # pass in all arguments evaluated with the statemonad
+                *(plt.Apply(self.visit(a), plt.Var(STATEMONAD)) for a in node.args),
+                # eventually pass in the state monad as well
+                plt.Var(STATEMONAD),
             ),
         )
 
@@ -403,9 +397,9 @@ class UPLCCompiler(NodeTransformer):
         compiled_return = self.visit(body[-1].value)
         args_state = plt.FunctionalMapExtend(
             plt.Var(STATEMONAD),
-            # under the name of the function, it can access itself
-            [node.name] + [a.arg for a in node.args.args],
-            [plt.Var("f")] + [plt.Var(f"p{i}") for i in range(len(node.args.args))],
+            # the function can see its argument under the argument names
+            [a.arg for a in node.args.args],
+            [plt.Var(f"p{i}") for i in range(len(node.args.args))],
         )
         return plt.Lambda(
             [STATEMONAD],
@@ -415,9 +409,7 @@ class UPLCCompiler(NodeTransformer):
                 [
                     plt.Lambda(
                         # expect the statemonad again -> this is the basis for internally available values
-                        ["f"]
-                        + [f"p{i}" for i in range(len(node.args.args))]
-                        + [STATEMONAD],
+                        [f"p{i}" for i in range(len(node.args.args))] + [STATEMONAD],
                         plt.Apply(
                             compiled_return,
                             plt.Apply(
