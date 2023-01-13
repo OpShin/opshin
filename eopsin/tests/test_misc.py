@@ -301,3 +301,28 @@ class MiscTest(unittest.TestCase):
             self.fail("Machine did validate the content")
         except Exception as e:
             pass
+
+    def test_recursion(self):
+        source_code = """
+def validator(_: None) -> int:
+    def a(n: int) -> int:
+      if n == 0:
+        res = 0
+      else:
+        res = a(n-1)
+      return res
+    b = a
+    def a(x: int) -> int:
+      return 100
+    return b(1)
+        """
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        for d in [
+            uplc.PlutusConstr(0, []),
+        ]:
+            f = uplc.Apply(f, d)
+        ret = uplc.Machine(f).eval()
+        self.assertEqual(uplc.PlutusInteger(100), ret)
