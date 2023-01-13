@@ -55,7 +55,7 @@ def validator(datum: CancelDatum, redeemer: None, context: ScriptContext) -> Non
     for s in context.tx_info.signatories:
         if datum.pubkeyhash == s:
             sig_present = True
-    assert sig_present
+    assert sig_present, "Required signature missing"
 ```
 
 All contracts written in eopsin are 100% valid python.
