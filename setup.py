@@ -51,4 +51,7 @@ setup(
     keywords="python cardano smart contract blockchain verification haskell",
     python_requires=">=3",
     test_suite="eopsin.tests",
+    entry_points={
+        "console_scripts": ["eopsin=eopsin.__main__:main"],
+    },
 )

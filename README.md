@@ -34,7 +34,7 @@ If the program compiles then:
 Install Python 3.8. Then run
 
 ```bash
-python3 -m pip install eopsin-lang
+python3.8 -m pip install eopsin-lang
 ```
 
 #### Writing a Smart Contract
@@ -71,10 +71,10 @@ Arguments to scripts are passed in as Plutus Data objects in JSON notation.
 You can run any of the following commands
 ```bash
 # Evaluate script in Python - this can be used to make sure there are no obvious errors
-python3 -m eopsin eval examples/smart_contracts/assert_sum.py "{\"int\": 4}" "{\"int\": 38}" "{\"constructor\": 0, \"fields\": []}"
+eopsin eval examples/smart_contracts/assert_sum.py "{\"int\": 4}" "{\"int\": 38}" "{\"constructor\": 0, \"fields\": []}"
 
 # Compile script to 'uplc', the Cardano Smart Contract assembly
-python3 -m eopsin compile examples/smart_contracts/assert_sum.py
+eopsin compile examples/smart_contracts/assert_sum.py
 ```
 
 ### Deploying
@@ -83,10 +83,10 @@ The deploy process generates all artifacts required for usage with common librar
 
 ```bash
 # Install this additional dependency
-python3 -m pip install pyaiken
+python3.8 -m pip install pyaiken
 
 # Automatically generate all artifacts needed for using this contract
-python3 -m eopsin build examples/smart_contracts/assert_sum.py
+eopsin build examples/smart_contracts/assert_sum.py
 ```
 
 See the [tutorial by `pycardano`](https://pycardano.readthedocs.io/en/latest/guides/plutus.html) for explanations how to build transactions with `eopsin` contracts.
