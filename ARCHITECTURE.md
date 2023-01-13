@@ -5,10 +5,11 @@ The general concept is as follows:
 Every evaluated part of the python expression tree results in a statemonad of local variables.
 The exception are functions:
 
-The ABI for functions is that they are a lambda function with `n + 2` arguments:
- - `f`: the function itself
+The ABI for functions is that they are a lambda function with `n + 1` arguments:
  - the original `n` arguments of the function
- - `s`: the statemonad of the callee
+ - `s`: the statemonad of the callee 
+   - this may or may not include the defined function, as the name might be overwritten
+   - functions that need to be recursive should bind to themselves before being exposed to the python ABI
 
 They should return only one value, their return value.
 As a direct consequence, eopsin may only allow a pure subset of python (except for `print`).
