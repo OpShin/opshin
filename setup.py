@@ -29,6 +29,7 @@ setup(
         "pluthon==0.2.0",
         "pycardano==0.7.2",
         "frozenlist==1.3.3",
+        "pyaiken==0.2.1",
     ],
     tests_require=[
         "hypothesis==6.62.0",

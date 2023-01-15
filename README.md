@@ -82,9 +82,6 @@ eopsin compile examples/smart_contracts/assert_sum.py
 The deploy process generates all artifacts required for usage with common libraries like [pycardano](https://github.com/Python-Cardano/pycardano), [lucid](https://github.com/spacebudz/lucid) and the [cardano-cli](https://github.com/input-output-hk/cardano-node).
 
 ```bash
-# Install this additional dependency
-python3.8 -m pip install pyaiken
-
 # Automatically generate all artifacts needed for using this contract
 eopsin build examples/smart_contracts/assert_sum.py
 ```

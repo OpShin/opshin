@@ -12,6 +12,7 @@ import typing
 import uplc
 from eopsin import compiler, __version__
 from uplc import data_from_json
+import pyaiken
 
 
 class Command(enum.Enum):
@@ -118,13 +119,6 @@ def main():
         return
 
     if command == Command.build:
-        try:
-            import pyaiken
-        except ImportError:
-            print(
-                "Package pyaiken is not installed. The build command is not available. Install via `pip install pyaiken`."
-            )
-            exit(-1)
         if args.output_directory == "":
             if args.input_file == "-":
                 print(

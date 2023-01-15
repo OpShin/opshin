@@ -26,7 +26,6 @@ script:
   coverage run -a --source=eopsin -m eopsin eval_uplc examples/smart_contracts/assert_sum.py "{\"int\": 4}" "{\"int\": 38}" "{\"constructor\": 0, \"fields\": []}"
 - >
   coverage run -a --source=eopsin -m eopsin compile_pluto examples/smart_contracts/assert_sum.py
-- pip install pyaiken
 - >
   coverage run -a --source=eopsin -m eopsin build examples/smart_contracts/assert_sum.py
 
