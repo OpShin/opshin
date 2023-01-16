@@ -4,6 +4,7 @@ import uplc
 from .rewrite.rewrite_augassign import RewriteAugAssign
 from .rewrite.rewrite_import import RewriteImport
 from .rewrite.rewrite_import_dataclasses import RewriteImportDataclasses
+from .rewrite.rewrite_import_hashlib import RewriteImportHashlib
 from .rewrite.rewrite_import_plutusdata import RewriteImportPlutusData
 from .rewrite.rewrite_import_typing import RewriteImportTyping
 from .rewrite.rewrite_inject_builtins import RewriteInjectBuiltins
@@ -580,6 +581,7 @@ def compile(prog: AST):
         RewriteAugAssign,
         RewriteTupleAssign,
         RewriteImportPlutusData,
+        RewriteImportHashlib,
         RewriteImportTyping,
         RewriteImportDataclasses,
         # The type inference needs to be run after complex python operations were rewritten

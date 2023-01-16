@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Union
+from hashlib import sha256, sha3_256, blake2b
 
 from pycardano import Datum, PlutusData
 

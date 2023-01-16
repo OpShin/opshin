@@ -12,7 +12,7 @@ class RewriteImport(NodeTransformer):
     def visit_ImportFrom(
         self, node: ImportFrom
     ) -> typing.Union[ImportFrom, typing.List[AST]]:
-        if node.module in ["pycardano", "typing", "dataclasses"]:
+        if node.module in ["pycardano", "typing", "dataclasses", "hashlib"]:
             return node
         assert (
             len(node.names) == 1
