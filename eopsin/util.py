@@ -1,5 +1,6 @@
-import pluthon as plt
 from enum import Enum
+
+import pluthon as plt
 
 from .typed_ast import *
 

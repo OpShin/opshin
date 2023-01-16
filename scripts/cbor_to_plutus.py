@@ -1,6 +1,8 @@
 import json
 from sys import stdin
+
 import cbor2
+
 from eopsin import __version__
 
 inp = stdin.buffer.read()

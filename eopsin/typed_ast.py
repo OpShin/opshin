@@ -1,8 +1,8 @@
-from frozenlist import FrozenList
-
+import typing
 from ast import *
 from dataclasses import dataclass
-import typing
+
+from frozenlist import FrozenList
 
 
 def FrozenFrozenList(l: list):

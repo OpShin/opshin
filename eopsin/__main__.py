@@ -1,18 +1,18 @@
-import cbor2
-import json
-
 import argparse
 import enum
-import pycardano
-import sys
-import pathlib
 import importlib
+import json
+import pathlib
+import sys
 import typing
 
-import uplc
-from eopsin import compiler, __version__
-from uplc import data_from_json
+import cbor2
 import pyaiken
+import pycardano
+import uplc
+from uplc import data_from_json
+
+from eopsin import __version__, compiler
 
 
 class Command(enum.Enum):

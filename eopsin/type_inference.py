@@ -1,9 +1,10 @@
 from copy import copy
 
-# from frozendict import frozendict
-
 from .typed_ast import *
 from .util import PythonBuiltInTypes
+
+# from frozendict import frozendict
+
 
 """
 An aggressive type inference based on the work of Aycock [1].

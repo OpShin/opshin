@@ -1,6 +1,7 @@
-from pycardano import Datum, PlutusData
-from typing import List, Dict, Optional, Union
 from dataclasses import dataclass
+from typing import Dict, List, Optional, Union
+
+from pycardano import Datum, PlutusData
 
 # Plutus V2
 TxId = bytes

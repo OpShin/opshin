@@ -1,8 +1,7 @@
-import pathlib
 import importlib
-
-from ast import *
+import pathlib
 import typing
+from ast import *
 
 """
 Checks that there was an import of dataclass if there are any class definitions

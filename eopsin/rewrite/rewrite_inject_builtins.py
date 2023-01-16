@@ -1,9 +1,9 @@
 from copy import copy
 
-from eopsin.typed_ast import *
-from eopsin.util import PythonBuiltIn, PythonBuiltInTypes, RawPlutoExpr
-
 import pluthon as plt
+
+from ..typed_ast import *
+from ..util import PythonBuiltIn, PythonBuiltInTypes, RawPlutoExpr
 
 """
 Inject initialising the builtin functions

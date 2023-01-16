@@ -1,9 +1,11 @@
 import unittest
-from hypothesis import example, given, strategies as st
-from parameterized import parameterized
 
 import uplc
-from .. import compiler, type_inference, prelude
+from hypothesis import example, given
+from hypothesis import strategies as st
+from parameterized import parameterized
+
+from .. import compiler, prelude, type_inference
 
 
 def fib(n):

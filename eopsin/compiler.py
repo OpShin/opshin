@@ -1,14 +1,14 @@
-from .type_inference import *
-from eopsin.rewrite.rewrite_tuple_assign import RewriteTupleAssign
-from eopsin.rewrite.rewrite_augassign import RewriteAugAssign
-from eopsin.rewrite.rewrite_import_plutusdata import RewriteImportPlutusData
-from eopsin.rewrite.rewrite_import_dataclasses import RewriteImportDataclasses
-from eopsin.rewrite.rewrite_import_typing import RewriteImportTyping
-from eopsin.rewrite.rewrite_import import RewriteImport
-from eopsin.rewrite.rewrite_inject_builtins import RewriteInjectBuiltins
-
 import pluthon as plt
 import uplc
+
+from .rewrite.rewrite_augassign import RewriteAugAssign
+from .rewrite.rewrite_import import RewriteImport
+from .rewrite.rewrite_import_dataclasses import RewriteImportDataclasses
+from .rewrite.rewrite_import_plutusdata import RewriteImportPlutusData
+from .rewrite.rewrite_import_typing import RewriteImportTyping
+from .rewrite.rewrite_inject_builtins import RewriteInjectBuiltins
+from .rewrite.rewrite_tuple_assign import RewriteTupleAssign
+from .type_inference import *
 from .util import RawPlutoExpr
 
 STATEMONAD = "s"

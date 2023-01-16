@@ -1,5 +1,5 @@
-from ast import *
 import typing
+from ast import *
 
 """
 Rewrites all occurences of assignments to tuples to assignments to single values
