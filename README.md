@@ -159,3 +159,7 @@ python3 -m eopsin compile_pluto examples/smart_contracts/assert_sum.py
 ### Sponsoring
 
 You can sponsor the development of eopsin. Just drop me a message on social media and let me know what it is for.
+
+### Supporters
+
+<img  src="https://avatars.githubusercontent.com/u/91151317?v=4" width="50" />
