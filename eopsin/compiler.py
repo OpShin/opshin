@@ -8,9 +8,11 @@ from .rewrite_import_plutusdata import RewriteImportPlutusData
 from .rewrite_import_dataclasses import RewriteImportDataclasses
 from .rewrite_import_typing import RewriteImportTyping
 from .rewrite_import import RewriteImport
+from .rewrite_inject_builtins import RewriteInjectBuiltins
 
 import pluthon as plt
 import uplc
+from .util import RawPlutoExpr
 
 STATEMONAD = "s"
 
@@ -180,22 +182,7 @@ def extend_statemonad(
     return plt.FunctionalMapExtend(old_statemonad, [n.encode() for n in names], values)
 
 
-class PythonBuiltIn(Enum):
-    print = plt.Lambda(
-        ["x", STATEMONAD],
-        plt.Trace(plt.Var("x"), plt.NoneData()),
-    )
-    range = plt.Lambda(
-        ["limit", STATEMONAD],
-        plt.Range(plt.Var("limit")),
-    )
-
-
-INITIAL_STATE = plt.FunctionalMapExtend(
-    plt.FunctionalMap(),
-    [b.name for b in PythonBuiltIn],
-    [b.value for b in PythonBuiltIn],
-)
+INITIAL_STATE = plt.FunctionalMap()
 
 
 class UPLCCompiler(NodeTransformer):
@@ -586,6 +573,9 @@ class UPLCCompiler(NodeTransformer):
             ),
         )
 
+    def visit_RawPlutoExpr(self, node: RawPlutoExpr) -> plt.AST:
+        return node.expr
+
     def generic_visit(self, node: AST) -> plt.AST:
         raise NotImplementedError(f"Can not compile {node}")
 
@@ -600,7 +590,11 @@ def compile(prog: AST):
         RewriteImportPlutusData,
         RewriteImportTyping,
         RewriteImportDataclasses,
+        # The type inference needs to be run after complex python operations were rewritten
         AggressiveTypeInferencer,
+        # inject typed builtins
+        RewriteInjectBuiltins,
+        # the compiler runs last
         UPLCCompiler,
     ]
     for s in compiler_steps:

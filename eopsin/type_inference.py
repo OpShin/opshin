@@ -1,9 +1,9 @@
 from copy import copy
-from ast import *
 
 # from frozendict import frozendict
 
 from .typed_ast import *
+from .util import PythonBuiltInTypes
 
 """
 An aggressive type inference based on the work of Aycock [1].
@@ -32,14 +32,14 @@ INITIAL_SCOPE = dict(
         "Union": UnionType(NoneInstanceType),
         "dataclass": NoneInstanceType,
         "PlutusData": NoneInstanceType,
+    }
+)
+
+INITIAL_SCOPE.update(
+    {
         # builtin functions
-        "print": InstanceType(FunctionType([StringInstanceType], NoneInstanceType)),
-        "range": InstanceType(
-            FunctionType(
-                [IntegerInstanceType],
-                InstanceType(ListType(IntegerInstanceType)),
-            )
-        ),
+        k.name: v
+        for k, v in PythonBuiltInTypes.items()
     }
 )
 
