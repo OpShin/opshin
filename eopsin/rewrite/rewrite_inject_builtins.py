@@ -17,7 +17,7 @@ class RewriteInjectBuiltins(TypedNodeTransformer):
             typ = PythonBuiltInTypes[b]
             additional_assigns.append(
                 TypedAssign(
-                    targets=[TypedName(id=b.name, typ=typ)],
+                    targets=[TypedName(id=b.name, typ=typ, ctx=Store())],
                     value=RawPlutoExpr(typ=typ, expr=plt.Lambda(["_"], b.value)),
                 )
             )
