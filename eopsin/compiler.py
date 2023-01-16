@@ -8,6 +8,7 @@ from .rewrite.rewrite_import_plutusdata import RewriteImportPlutusData
 from .rewrite.rewrite_import_typing import RewriteImportTyping
 from .rewrite.rewrite_inject_builtins import RewriteInjectBuiltins
 from .rewrite.rewrite_tuple_assign import RewriteTupleAssign
+from .optimize.optimize_varlen import OptimizeVarlen
 from .type_inference import *
 from .util import RawPlutoExpr
 
@@ -591,6 +592,8 @@ def compile(prog: AST):
         AggressiveTypeInferencer,
         # inject typed builtins
         RewriteInjectBuiltins,
+        # Apply optimizations
+        OptimizeVarlen,
         # the compiler runs last
         UPLCCompiler,
     ]

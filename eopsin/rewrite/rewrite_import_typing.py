@@ -16,7 +16,7 @@ class RewriteImportTyping(NodeTransformer):
         assert (
             len(node.names) == 4
         ), "The program must contain one 'from typing import List, Dict, Optional, Union'"
-        for i, n in enumerate(["List", "Dict", "Optional", "Union"]):
+        for i, n in enumerate(["Dict", "List", "Optional", "Union"]):
             assert (
                 node.names[i].name == n
             ), "The program must contain one 'from typing import List, Dict, Optional, Union'"
