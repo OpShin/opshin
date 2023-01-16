@@ -309,6 +309,7 @@ class AggressiveTypeInferencer(NodeTransformer):
 
     def visit_FunctionDef(self, node: FunctionDef) -> TypedFunctionDef:
         tfd = copy(node)
+        assert not node.decorator_list, "Functions may not have decorators"
         self.enter_scope()
         tfd.args = self.visit(node.args)
         functyp = FunctionType(
