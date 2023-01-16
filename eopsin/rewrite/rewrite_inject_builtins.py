@@ -1,7 +1,7 @@
 from copy import copy
 
-from .typed_ast import *
-from .util import PythonBuiltIn, PythonBuiltInTypes, RawPlutoExpr
+from eopsin.typed_ast import *
+from eopsin.util import PythonBuiltIn, PythonBuiltInTypes, RawPlutoExpr
 
 import pluthon as plt
 

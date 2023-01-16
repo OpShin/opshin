@@ -39,8 +39,8 @@ class RewriteImportPlutusData(NodeTransformer):
         assert (
             len(node.bases) == 1
         ), "Class definitions must inherit only from PlutusData"
-        assert (
-            isinstance(node.bases[0], Name),
+        assert isinstance(
+            node.bases[0], Name
         ), "The inheritance must be direct, using the name PlutusData"
         base: Name = node.bases[0]
         assert base.id == "PlutusData", "Class definitions must inherit from PlutusData"

@@ -1,14 +1,11 @@
-from enum import Enum
-from ast import parse
-
 from .type_inference import *
-from .rewrite_tuple_assign import RewriteTupleAssign
-from .rewrite_augassign import RewriteAugAssign
-from .rewrite_import_plutusdata import RewriteImportPlutusData
-from .rewrite_import_dataclasses import RewriteImportDataclasses
-from .rewrite_import_typing import RewriteImportTyping
-from .rewrite_import import RewriteImport
-from .rewrite_inject_builtins import RewriteInjectBuiltins
+from eopsin.rewrite.rewrite_tuple_assign import RewriteTupleAssign
+from eopsin.rewrite.rewrite_augassign import RewriteAugAssign
+from eopsin.rewrite.rewrite_import_plutusdata import RewriteImportPlutusData
+from eopsin.rewrite.rewrite_import_dataclasses import RewriteImportDataclasses
+from eopsin.rewrite.rewrite_import_typing import RewriteImportTyping
+from eopsin.rewrite.rewrite_import import RewriteImport
+from eopsin.rewrite.rewrite_inject_builtins import RewriteInjectBuiltins
 
 import pluthon as plt
 import uplc
