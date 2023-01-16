@@ -9,6 +9,7 @@ from .rewrite.rewrite_import_typing import RewriteImportTyping
 from .rewrite.rewrite_inject_builtins import RewriteInjectBuiltins
 from .rewrite.rewrite_remove_type_stuff import RewriteRemoveTypeStuff
 from .rewrite.rewrite_tuple_assign import RewriteTupleAssign
+from .optimize.optimize_remove_pass import OptimizeRemovePass
 from .optimize.optimize_remove_deadvars import OptimizeRemoveDeadvars
 from .optimize.optimize_varlen import OptimizeVarlen
 from .type_inference import *
@@ -589,6 +590,7 @@ def compile(prog: AST):
         # Apply optimizations
         OptimizeRemoveDeadvars,
         OptimizeVarlen,
+        OptimizeRemovePass,
         # the compiler runs last
         UPLCCompiler,
     ]
