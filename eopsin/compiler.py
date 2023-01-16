@@ -7,10 +7,11 @@ from .rewrite.rewrite_import_dataclasses import RewriteImportDataclasses
 from .rewrite.rewrite_import_plutusdata import RewriteImportPlutusData
 from .rewrite.rewrite_import_typing import RewriteImportTyping
 from .rewrite.rewrite_inject_builtins import RewriteInjectBuiltins
+from .rewrite.rewrite_remove_type_stuff import RewriteRemoveTypeStuff
 from .rewrite.rewrite_tuple_assign import RewriteTupleAssign
 from .optimize.optimize_varlen import OptimizeVarlen
 from .type_inference import *
-from .util import RawPlutoExpr
+from .util import RawPlutoExpr, TypedNodeTransformer
 
 STATEMONAD = "s"
 
@@ -177,25 +178,16 @@ def extend_statemonad(
     values: typing.List[plt.AST],
     old_statemonad: plt.FunctionalMap,
 ):
-    return plt.FunctionalMapExtend(old_statemonad, [n.encode() for n in names], values)
+    return plt.FunctionalMapExtend(old_statemonad, [n for n in names], values)
 
 
 INITIAL_STATE = plt.FunctionalMap()
 
 
-class UPLCCompiler(NodeTransformer):
+class UPLCCompiler(TypedNodeTransformer):
     """
     Expects a TypedAST and returns UPLC/Pluto like code
     """
-
-    def visit(self, node):
-        """Visit a node."""
-        node_class_name = node.__class__.__name__
-        if node_class_name.startswith("Typed"):
-            node_class_name = node_class_name[len("Typed") :]
-        method = "visit_" + node_class_name
-        visitor = getattr(self, method, self.generic_visit)
-        return visitor(node)
 
     def visit_sequence(self, node_seq: typing.List[typedstmt]) -> plt.AST:
         s = plt.Var(STATEMONAD)
@@ -255,7 +247,7 @@ class UPLCCompiler(NodeTransformer):
         # TODO can use more sophisiticated procedure here i.e. functions marked by comment
         main_fun: typing.Optional[InstanceType] = None
         for s in node.body:
-            if isinstance(s, FunctionDef) and s.name == "validator":
+            if isinstance(s, FunctionDef) and s.orig_name == "validator":
                 main_fun = s
         assert main_fun is not None, "Could not find function named validator"
         main_fun_typ: FunctionType = main_fun.typ.typ
@@ -279,7 +271,7 @@ class UPLCCompiler(NodeTransformer):
                                 "g",
                                 plt.FunctionalMapAccess(
                                     plt.Var("s"),
-                                    plt.ByteString("validator".encode("utf8")),
+                                    plt.ByteString(main_fun.name),
                                     plt.TraceError("NameError: validator"),
                                 ),
                             ),
@@ -337,8 +329,8 @@ class UPLCCompiler(NodeTransformer):
                 [STATEMONAD],
                 plt.FunctionalMapAccess(
                     plt.Var(STATEMONAD),
-                    plt.ByteString(node.id.encode()),
-                    plt.TraceError(f"NameError: {node.id}"),
+                    plt.ByteString(node.id),
+                    plt.TraceError(f"NameError: {node.orig_id}"),
                 ),
             )
         raise NotImplementedError(f"Context {node.ctx} not supported")
@@ -582,7 +574,7 @@ def compile(prog: AST):
     compiler_steps = [
         # Important to call this one first - it imports all further files
         RewriteImport,
-        # The remaining order is almost arbitrary
+        # Rewrites that simplify the python code
         RewriteAugAssign,
         RewriteTupleAssign,
         RewriteImportPlutusData,
@@ -590,7 +582,8 @@ def compile(prog: AST):
         RewriteImportDataclasses,
         # The type inference needs to be run after complex python operations were rewritten
         AggressiveTypeInferencer,
-        # inject typed builtins
+        # Rewrites that circumvent the type inference or use its results
+        RewriteRemoveTypeStuff,
         RewriteInjectBuiltins,
         # Apply optimizations
         OptimizeVarlen,

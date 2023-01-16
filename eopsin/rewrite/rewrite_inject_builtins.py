@@ -3,14 +3,14 @@ from copy import copy
 import pluthon as plt
 
 from ..typed_ast import *
-from ..util import PythonBuiltIn, PythonBuiltInTypes, RawPlutoExpr
+from ..util import PythonBuiltIn, PythonBuiltInTypes, RawPlutoExpr, TypedNodeTransformer
 
 """
 Inject initialising the builtin functions
 """
 
 
-class RewriteInjectBuiltins(NodeTransformer):
+class RewriteInjectBuiltins(TypedNodeTransformer):
     def visit_Module(self, node: TypedModule) -> TypedModule:
         additional_assigns = []
         for b in PythonBuiltIn:
