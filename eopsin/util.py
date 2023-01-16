@@ -19,6 +19,18 @@ class PythonBuiltIn(Enum):
         ["limit", "_"],
         plt.Range(plt.Var("limit")),
     )
+    sha256 = plt.Lambda(["x", "_"], plt.Sha2_256(plt.Var("x")))
+    sha3_256 = plt.Lambda(["x", "_"], plt.Sha3_256(plt.Var("x")))
+    blake2b = plt.Lambda(["x", "_"], plt.Blake2b_256(plt.Var("x")))
+
+
+HashDigestType = RecordType(
+    Record(
+        "HashDigest",
+        0,
+        [("digest", InstanceType(FunctionType([], ByteStringInstanceType)))],
+    )
+)
 
 
 PythonBuiltInTypes = {
@@ -29,6 +41,24 @@ PythonBuiltInTypes = {
         FunctionType(
             [IntegerInstanceType],
             InstanceType(ListType(IntegerInstanceType)),
+        )
+    ),
+    PythonBuiltIn.sha256: InstanceType(
+        FunctionType(
+            [ByteStringType],
+            HashDigestType,
+        )
+    ),
+    PythonBuiltIn.sha3_256: InstanceType(
+        FunctionType(
+            [ByteStringType],
+            HashDigestType,
+        )
+    ),
+    PythonBuiltIn.blake2b: InstanceType(
+        FunctionType(
+            [ByteStringType],
+            HashDigestType,
         )
     ),
 }

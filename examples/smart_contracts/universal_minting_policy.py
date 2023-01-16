@@ -23,9 +23,9 @@ def validator(dn: int, redeemer: Union[Mint, Burn], ctx: ScriptContext) -> None:
         cs = purpose.currency_symbol
 
         if isinstance(redeemer, Mint):
-            tokenNameTail = hash(
+            tokenNameTail = sha256(
                 redeemer.ref.out_ref.id + bytes([redeemer.ref.out_ref.idx])
-            )[dn:]
+            ).digest()[dn:]
             assert redeemer.ref in ctx.tx_info.inputs, "Reference UTxO not consumed"
             mintPrecNFT = ctx.tx_info.mint[precNFT]
             for name, amount in ctx.tx_info.mint[cs].items():

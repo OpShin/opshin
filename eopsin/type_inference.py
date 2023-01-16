@@ -24,6 +24,7 @@ security into the Smart Contract by checking type correctness.
 INITIAL_SCOPE = dict(
     {
         # class annotations
+        # TODO seperate from Class initilizer signatures
         "bytes": ByteStringType,
         "int": IntegerType,
         # just to block overwriting
@@ -364,9 +365,6 @@ class AggressiveTypeInferencer(NodeTransformer):
 
     def visit_Subscript(self, node: Subscript) -> TypedSubscript:
         ts = copy(node)
-        assert isinstance(
-            ts.slice, Index
-        ), "Only single index slices are currently supported"
         # special case: Subscript of Union / Optional / Dict / List and atomic types
         if isinstance(ts.value, Name) and ts.value.id in [
             "Union",
@@ -374,12 +372,18 @@ class AggressiveTypeInferencer(NodeTransformer):
             "Dict",
             "List",
         ]:
+            assert isinstance(
+                ts.slice, Index
+            ), "Only single index slices for generic types are currently supported"
             ts.value = ts.typ = self.type_from_annotation(ts)
             return ts
 
         ts.value = self.visit(node.value)
         assert isinstance(ts.value.typ, InstanceType), "Can only subscript instances"
         if isinstance(ts.value.typ.typ, TupleType):
+            assert isinstance(
+                ts.slice, Index
+            ), "Only single index slices for tuples are currently supported"
             if all(ts.value.typ.typ.typs[0] == t for t in ts.value.typ.typ.typs):
                 ts.typ = ts.value.typ.typ.typs[0]
             elif isinstance(ts.slice.value, Constant) and isinstance(
@@ -389,11 +393,35 @@ class AggressiveTypeInferencer(NodeTransformer):
             else:
                 raise TypeInferenceError(f"Could not infer type of subscript {node}")
         elif isinstance(ts.value.typ.typ, ListType):
+            assert isinstance(
+                ts.slice, Index
+            ), "Only single index slices for lists are currently supported"
             ts.typ = ts.value.typ.typ.typ
             ts.slice.value = self.visit(node.slice.value)
             assert (
                 ts.slice.value.typ == IntegerInstanceType
             ), "List indices must be integers"
+        elif isinstance(ts.value.typ.typ, ByteStringType):
+            if isinstance(ts.slice, Index):
+                ts.typ = IntegerInstanceType
+                ts.slice.value = self.visit(node.slice.value)
+                assert (
+                    ts.slice.value.typ == IntegerInstanceType
+                ), "bytes indices must be integers"
+            elif isinstance(ts.slice, Slice):
+                ts.typ = ByteStringInstanceType
+                if ts.slice.lower is None:
+                    ts.slice.lower = Constant(0)
+                ts.slice.lower = self.visit(node.slice.lower)
+                assert (
+                    ts.slice.lower.typ == IntegerInstanceType
+                ), "lower slice indices for bytes must be integers"
+                if ts.slice.upper is None:
+                    ts.slice.upper = Call(Name(id="len", ctx=Load()), ts.value)
+                ts.slice.upper = self.visit(node.slice.upper)
+                assert (
+                    ts.slice.upper.typ == IntegerInstanceType
+                ), "upper slice indices for bytes must be integers"
         else:
             raise TypeInferenceError(f"Could not infer type of subscript {node}")
         return ts
@@ -402,7 +430,9 @@ class AggressiveTypeInferencer(NodeTransformer):
         assert not node.keywords, "Keyword arguments are not supported yet"
         tc = copy(node)
         tc.func = self.visit(node.func)
+        # might be a cast
         if isinstance(tc.func.typ, ClassType):
+            tc.typ = InstanceType(tc.func.typ)
             # TODO make sure that arguments to class init are filled
             raise NotImplementedError("Class initialization not implemented yet")
         if isinstance(tc.func.typ, InstanceType) and isinstance(
