@@ -162,4 +162,4 @@ You can sponsor the development of eopsin. Just drop me a message on social medi
 
 ### Supporters
 
-<img  src="https://avatars.githubusercontent.com/u/91151317?v=4" width="50" />
+<a href="https://github.com/MuesliSwapTeam/"><img  src="https://avatars.githubusercontent.com/u/91151317?v=4" width="50" /></a>
