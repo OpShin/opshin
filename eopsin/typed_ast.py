@@ -15,7 +15,7 @@ def FrozenFrozenList(l: list):
 
 
 class Type:
-    def constr_type(self) -> FunctionType:
+    def constr_type(self) -> "InstanceType":
         """The type of the constructor for this class"""
         raise TypeInferenceError(f"Object of type {self} does not have a constructor")
 
@@ -55,8 +55,8 @@ class AtomicType(ClassType):
 class RecordType(ClassType):
     record: Record
 
-    def constr_type(self) -> FunctionType:
-        return FunctionType(self.record.fields, InstanceType(self))
+    def constr_type(self) -> "InstanceType":
+        return InstanceType(FunctionType(self.record.fields, InstanceType(self)))
 
     def constr(self) -> plt.AST:
         # wrap all constructor values to PlutusData
@@ -178,7 +178,12 @@ class StringType(AtomicType):
 
 @dataclass(frozen=True, unsafe_hash=True)
 class ByteStringType(AtomicType):
-    pass
+    def constr_type(self) -> InstanceType:
+        return InstanceType(
+            FunctionType(
+                [InstanceType(ListType(IntegerInstanceType))], InstanceType(self)
+            )
+        )
 
 
 @dataclass(frozen=True, unsafe_hash=True)

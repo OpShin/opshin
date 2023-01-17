@@ -161,11 +161,11 @@ class AggressiveTypeInferencer(NodeTransformer):
     def visit_List(self, node: List) -> TypedList:
         tt = copy(node)
         tt.elts = [self.visit(e) for e in node.elts]
-        l_typ = tt.elts[0]
+        l_typ = tt.elts[0].typ
         assert all(
             e.typ == l_typ for e in tt.elts
         ), "All elements of a list must have the same type"
-        tt.typ = ListType(l_typ)
+        tt.typ = InstanceType(ListType(l_typ))
         return tt
 
     def visit_Assign(self, node: Assign) -> TypedAssign:
@@ -408,7 +408,9 @@ class AggressiveTypeInferencer(NodeTransformer):
                     ts.slice.lower.typ == IntegerInstanceType
                 ), "lower slice indices for bytes must be integers"
                 if ts.slice.upper is None:
-                    ts.slice.upper = Call(Name(id="len", ctx=Load()), ts.value)
+                    ts.slice.upper = Call(
+                        func=Name(id="len", ctx=Load()), args=ts.value, keywords=[]
+                    )
                 ts.slice.upper = self.visit(node.slice.upper)
                 assert (
                     ts.slice.upper.typ == IntegerInstanceType
@@ -423,8 +425,7 @@ class AggressiveTypeInferencer(NodeTransformer):
         tc.func = self.visit(node.func)
         # might be a cast
         if isinstance(tc.func.typ, ClassType):
-            tc.typ = InstanceType(tc.func.typ)
-            tc.func = tc.func.typ.constr_type()
+            tc.func.typ = tc.func.typ.constr_type()
         if isinstance(tc.func.typ, InstanceType) and isinstance(
             tc.func.typ.typ, FunctionType
         ):
@@ -454,13 +455,8 @@ class AggressiveTypeInferencer(NodeTransformer):
         tp = copy(node)
         tp.value = self.visit(node.value)
         owner = tp.value.typ
-        assert isinstance(owner, InstanceType) and (
-            isinstance(owner.typ, RecordType) or isinstance(owner.typ, UnionType)
-        ), "Accessing attribute of non-instance"
-        owner_typ = owner.typ
-
         # accesses to field
-        tp.typ = owner_typ.attribute_type(node.attr)
+        tp.typ = owner.attribute_type(node.attr)
         return tp
 
     def visit_Assert(self, node: Assert) -> TypedAssert:

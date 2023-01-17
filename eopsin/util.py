@@ -30,13 +30,16 @@ class HashType(ClassType):
 
     def attribute_type(self, attr) -> "Type":
         if attr == "digest":
-            return FunctionType([], ByteStringInstanceType)
+            return InstanceType(FunctionType([], ByteStringInstanceType))
         raise NotImplementedError("HashType only has attribute 'digest'")
 
     def attribute(self, attr) -> plt.AST:
         if attr == "digest":
             return plt.Lambda(["self"], plt.Var("self"))
         raise NotImplementedError("HashType only has attribute 'digest'")
+
+
+HashInstanceType = InstanceType(HashType())
 
 
 PythonBuiltInTypes = {
@@ -52,19 +55,19 @@ PythonBuiltInTypes = {
     PythonBuiltIn.sha256: InstanceType(
         FunctionType(
             [ByteStringInstanceType],
-            HashType,
+            HashInstanceType,
         )
     ),
     PythonBuiltIn.sha3_256: InstanceType(
         FunctionType(
             [ByteStringInstanceType],
-            HashType,
+            HashInstanceType,
         )
     ),
     PythonBuiltIn.blake2b: InstanceType(
         FunctionType(
             [ByteStringInstanceType],
-            HashType,
+            HashInstanceType,
         )
     ),
 }
