@@ -48,7 +48,7 @@ class ClassType(Type):
 
 @dataclass(frozen=True, unsafe_hash=True)
 class AtomicType(ClassType):
-    typ: str
+    pass
 
 
 @dataclass(frozen=True, unsafe_hash=True)
@@ -166,24 +166,44 @@ class InstanceType(Type):
         return self.typ.attribute(attr)
 
 
-IntegerType = AtomicType(int.__name__)
-StringType = AtomicType(str.__name__)
-ByteStringType = AtomicType(bytes.__name__)
-BoolType = AtomicType(bool.__name__)
-UnitType = AtomicType("Unit")
-IntegerInstanceType = InstanceType(IntegerType)
-StringInstanceType = InstanceType(StringType)
-ByteStringInstanceType = InstanceType(ByteStringType)
-BoolInstanceType = InstanceType(BoolType)
-UnitInstanceType = InstanceType(UnitType)
+@dataclass(frozen=True, unsafe_hash=True)
+class IntegerType(AtomicType):
+    pass
 
-ATOMIC_TYPES = [
-    IntegerType.typ,
-    StringType.typ,
-    ByteStringType.typ,
-    BoolType.typ,
-    UnitType.typ,
-]
+
+@dataclass(frozen=True, unsafe_hash=True)
+class StringType(AtomicType):
+    pass
+
+
+@dataclass(frozen=True, unsafe_hash=True)
+class ByteStringType(AtomicType):
+    pass
+
+
+@dataclass(frozen=True, unsafe_hash=True)
+class BoolType(AtomicType):
+    pass
+
+
+@dataclass(frozen=True, unsafe_hash=True)
+class UnitType(AtomicType):
+    pass
+
+
+IntegerInstanceType = InstanceType(IntegerType())
+StringInstanceType = InstanceType(StringType())
+ByteStringInstanceType = InstanceType(ByteStringType())
+BoolInstanceType = InstanceType(BoolType())
+UnitInstanceType = InstanceType(UnitType())
+
+ATOMIC_TYPES = {
+    int.__name__: IntegerType(),
+    str.__name__: StringType(),
+    bytes.__name__: ByteStringType(),
+    "Unit": UnitType(),
+    bool.__name__: BoolType(),
+}
 
 
 NoneRecord = Record("None", 0, FrozenFrozenList([]))

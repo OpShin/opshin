@@ -19,18 +19,24 @@ class PythonBuiltIn(Enum):
         ["limit", "_"],
         plt.Range(plt.Var("limit")),
     )
-    sha256 = plt.Lambda(["x", "_"], plt.Sha2_256(plt.Var("x")))
-    sha3_256 = plt.Lambda(["x", "_"], plt.Sha3_256(plt.Var("x")))
-    blake2b = plt.Lambda(["x", "_"], plt.Blake2b_256(plt.Var("x")))
+    sha256 = plt.Lambda(["x", "_"], plt.Lambda(["_"], plt.Sha2_256(plt.Var("x"))))
+    sha3_256 = plt.Lambda(["x", "_"], plt.Lambda(["_"], plt.Sha3_256(plt.Var("x"))))
+    blake2b = plt.Lambda(["x", "_"], plt.Lambda(["_"], plt.Blake2b_256(plt.Var("x"))))
 
 
-HashDigestType = RecordType(
-    Record(
-        "HashDigest",
-        0,
-        [("digest", InstanceType(FunctionType([], ByteStringInstanceType)))],
-    )
-)
+@dataclass(frozen=True, unsafe_hash=True)
+class HashType(ClassType):
+    """A pseudo class that is the result of python hash functions that need a 'digest' call"""
+
+    def attribute_type(self, attr) -> "Type":
+        if attr == "digest":
+            return FunctionType([], ByteStringInstanceType)
+        raise NotImplementedError("HashType only has attribute 'digest'")
+
+    def attribute(self, attr) -> plt.AST:
+        if attr == "digest":
+            return plt.Lambda(["self"], plt.Var("self"))
+        raise NotImplementedError("HashType only has attribute 'digest'")
 
 
 PythonBuiltInTypes = {
@@ -45,20 +51,20 @@ PythonBuiltInTypes = {
     ),
     PythonBuiltIn.sha256: InstanceType(
         FunctionType(
-            [ByteStringType],
-            HashDigestType,
+            [ByteStringInstanceType],
+            HashType,
         )
     ),
     PythonBuiltIn.sha3_256: InstanceType(
         FunctionType(
-            [ByteStringType],
-            HashDigestType,
+            [ByteStringInstanceType],
+            HashType,
         )
     ),
     PythonBuiltIn.blake2b: InstanceType(
         FunctionType(
-            [ByteStringType],
-            HashDigestType,
+            [ByteStringInstanceType],
+            HashType,
         )
     ),
 }

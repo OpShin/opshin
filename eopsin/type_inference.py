@@ -24,9 +24,8 @@ security into the Smart Contract by checking type correctness.
 INITIAL_SCOPE = dict(
     {
         # class annotations
-        # TODO seperate from Class initilizer signatures
-        "bytes": ByteStringType,
-        "int": IntegerType,
+        "bytes": ByteStringType(),
+        "int": IntegerType(),
         # just to block overwriting
         "List": ListType(NoneInstanceType),
         "Dict": DictType(NoneInstanceType, NoneInstanceType),
@@ -79,10 +78,10 @@ class AggressiveTypeInferencer(NodeTransformer):
         if isinstance(ann, Tuple):
             if not ann.elts:
                 # This is ()
-                return UnitType
+                return UnitType()
         if isinstance(ann, Name):
             if ann.id in ATOMIC_TYPES:
-                return AtomicType(ann.id)
+                return ATOMIC_TYPES[ann.id]
             v_t = self.variable_type(ann.id)
             if isinstance(v_t, ClassType):
                 return v_t
@@ -147,7 +146,7 @@ class AggressiveTypeInferencer(NodeTransformer):
         if tc.value is None:
             tc.typ = NoneInstanceType
         else:
-            tc.typ = InstanceType(AtomicType(type(node.value).__name__))
+            tc.typ = InstanceType(ATOMIC_TYPES[type(node.value).__name__])
         return tc
 
     def visit_Tuple(self, node: Tuple) -> TypedTuple:
