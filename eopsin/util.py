@@ -58,7 +58,7 @@ class Len(PolymorphicFunction):
         assert isinstance(arg, InstanceType), "Can only determine length of instances"
         if arg == ByteStringInstanceType:
             return plt.Lambda(["x", "_"], plt.LengthOfByteString(plt.Var("x")))
-        elif isinstance(arg, ListType):
+        elif isinstance(arg.typ, ListType):
             # simple list length function
             return plt.Lambda(
                 ["x", "_"],

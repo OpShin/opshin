@@ -87,7 +87,7 @@ class RecordType(ClassType):
     def attribute_type(self, attr: str) -> Type:
         """The types of the named attributes of this class"""
         if attr == "CONSTR_ID":
-            return InstanceType(IntegerType)
+            return IntegerInstanceType
         for n, t in self.record.fields:
             if n == attr:
                 return t
@@ -280,6 +280,12 @@ class PolymorphicFunction:
 class PolymorphicFunctionType(ClassType):
     """A special type of builtin that may act differently on different parameters"""
 
+    polymorphic_function: PolymorphicFunction
+
+
+@dataclass(frozen=True, unsafe_hash=True)
+class PolymorphicFunctionInstanceType(InstanceType):
+    typ: FunctionType
     polymorphic_function: PolymorphicFunction
 
 

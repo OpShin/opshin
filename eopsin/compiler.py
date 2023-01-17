@@ -268,10 +268,10 @@ class UPLCCompiler(TypedNodeTransformer):
         # compiled_args = " ".join(f"({self.visit(a)} {STATEMONAD})" for a in node.args)
         # return rf"(\{STATEMONAD} -> ({self.visit(node.func)} {compiled_args})"
         # TODO function is actually not of type polymorphic function type here anymore
-        if isinstance(node.func.typ, PolymorphicFunctionType):
+        if isinstance(node.func.typ, PolymorphicFunctionInstanceType):
             # edge case for weird builtins that are polymorphic
             func_plt = node.func.typ.polymorphic_function.impl_from_args(
-                node.func.typ.argtyps
+                node.func.typ.typ.argtyps
             )
         else:
             func_plt = plt.Apply(self.visit(node.func), plt.Var(STATEMONAD))
@@ -455,7 +455,6 @@ class UPLCCompiler(TypedNodeTransformer):
                 return plt.Lambda(
                     [STATEMONAD],
                     plt.SliceByteString(
-                        plt.Apply(self.visit(node.value), plt.Var(STATEMONAD)),
                         plt.Apply(self.visit(node.slice.lower), plt.Var(STATEMONAD)),
                         plt.SubtractInteger(
                             plt.Apply(
@@ -463,6 +462,7 @@ class UPLCCompiler(TypedNodeTransformer):
                             ),
                             plt.Integer(1),
                         ),
+                        plt.Apply(self.visit(node.value), plt.Var(STATEMONAD)),
                     ),
                 )
         raise NotImplementedError(f"Could not implement subscript of {node}")

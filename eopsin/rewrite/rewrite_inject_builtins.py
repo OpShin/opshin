@@ -15,6 +15,9 @@ class RewriteInjectBuiltins(TypedNodeTransformer):
         additional_assigns = []
         for b in PythonBuiltIn:
             typ = PythonBuiltInTypes[b]
+            if isinstance(b.value, int):
+                # skip polymorphic functions
+                continue
             additional_assigns.append(
                 TypedAssign(
                     targets=[TypedName(id=b.name, typ=typ, ctx=Store())],

@@ -175,7 +175,7 @@ class MiscTest(unittest.TestCase):
             f = uplc.Apply(f, d)
         ret = uplc.Machine(f).eval()
         self.assertEqual(
-            uplc.PlutusInteger(8),
+            uplc.PlutusInteger(42),
             ret,
         )
 
