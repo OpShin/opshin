@@ -266,16 +266,22 @@ class UPLCCompiler(TypedNodeTransformer):
 
     def visit_Name(self, node: TypedName) -> plt.AST:
         # depending on load or store context, return the value of the variable or its name
-        if isinstance(node.ctx, Load):
+        if not isinstance(node.ctx, Load):
+            raise NotImplementedError(f"Context {node.ctx} not supported")
+        if isinstance(node.typ, ClassType):
+            # if this is not an instance but a class, call the constructor
             return plt.Lambda(
                 [STATEMONAD],
-                plt.FunctionalMapAccess(
-                    plt.Var(STATEMONAD),
-                    plt.ByteString(node.id),
-                    plt.TraceError(f"NameError: {node.orig_id}"),
-                ),
+                node.typ.constr(),
             )
-        raise NotImplementedError(f"Context {node.ctx} not supported")
+        return plt.Lambda(
+            [STATEMONAD],
+            plt.FunctionalMapAccess(
+                plt.Var(STATEMONAD),
+                plt.ByteString(node.id),
+                plt.TraceError(f"NameError: {node.orig_id}"),
+            ),
+        )
 
     def visit_Expr(self, node: TypedExpr) -> plt.AST:
         # we exploit UPLCs eager evaluation here
@@ -471,21 +477,13 @@ class UPLCCompiler(TypedNodeTransformer):
         return self.visit_sequence([])
 
     def visit_Attribute(self, node: TypedAttribute) -> plt.AST:
-        if node.pos == -1:
-            # access to constructor
-            return plt.Lambda(
-                [STATEMONAD],
-                plt.Constructor(plt.Apply(self.visit(node.value), plt.Var(STATEMONAD))),
-            )
-        # access to normal fields
+        assert isinstance(
+            node.typ, InstanceType
+        ), "Can only access attributes of instances"
+        obj = self.visit(node)
+        attr = node.typ.attribute(node.attr)
         return plt.Lambda(
-            [STATEMONAD],
-            transform_ext_params_map(node.typ)(
-                plt.NthField(
-                    plt.Apply(self.visit(node.value), plt.Var(STATEMONAD)),
-                    plt.Integer(node.pos),
-                ),
-            ),
+            [STATEMONAD], plt.Apply(attr, plt.Apply(obj, plt.Var(STATEMONAD)))
         )
 
     def visit_Assert(self, node: TypedAssert) -> plt.AST:

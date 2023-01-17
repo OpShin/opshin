@@ -30,7 +30,6 @@ INITIAL_SCOPE = dict(
         # just to block overwriting
         "List": ListType(NoneInstanceType),
         "Dict": DictType(NoneInstanceType, NoneInstanceType),
-        "Optional": OptionalType(NoneInstanceType),
         "Union": UnionType(NoneInstanceType),
         "dataclass": NoneInstanceType,
         "PlutusData": NoneInstanceType,
@@ -93,14 +92,8 @@ class AggressiveTypeInferencer(NodeTransformer):
         if isinstance(ann, Subscript):
             assert isinstance(
                 ann.value, Name
-            ), "Only Optional, Union, Dict and List are allowed as Generic types"
+            ), "Only Union, Dict and List are allowed as Generic types"
             assert isinstance(ann.slice, Index), "Generic types must be parameterized"
-            if ann.value.id == "Optional":
-                ann_type = self.type_from_annotation(ann.slice.value)
-                assert isinstance(
-                    ann_type, ClassType
-                ), "Optional must have a single type as parameter"
-                return OptionalType(ann_type)
             if ann.value.id == "Union":
                 assert isinstance(
                     ann.slice.value, Tuple
@@ -129,7 +122,7 @@ class AggressiveTypeInferencer(NodeTransformer):
                 ), "Dict must combine two classes"
                 return DictType(*(InstanceType(a) for a in ann_types))
             raise NotImplementedError(
-                "Only Optional, Union, Dict and List are allowed as Generic types"
+                "Only Union, Dict and List are allowed as Generic types"
             )
         if ann is None:
             TypeInferenceError(
@@ -196,7 +189,7 @@ class AggressiveTypeInferencer(NodeTransformer):
             and typed_if.test.func.id == "isinstance"
         ):
             tc = typed_if.test
-            # special case for Optional and Union
+            # special case for Union
             assert isinstance(
                 tc.args[0], Name
             ), "Target 0 of an isinstance cast must be a variable name"
@@ -365,10 +358,9 @@ class AggressiveTypeInferencer(NodeTransformer):
 
     def visit_Subscript(self, node: Subscript) -> TypedSubscript:
         ts = copy(node)
-        # special case: Subscript of Union / Optional / Dict / List and atomic types
+        # special case: Subscript of Union / Dict / List and atomic types
         if isinstance(ts.value, Name) and ts.value.id in [
             "Union",
-            "Optional",
             "Dict",
             "List",
         ]:
@@ -433,8 +425,7 @@ class AggressiveTypeInferencer(NodeTransformer):
         # might be a cast
         if isinstance(tc.func.typ, ClassType):
             tc.typ = InstanceType(tc.func.typ)
-            # TODO make sure that arguments to class init are filled
-            raise NotImplementedError("Class initialization not implemented yet")
+            tc.func = tc.func.typ.constr_type()
         if isinstance(tc.func.typ, InstanceType) and isinstance(
             tc.func.typ.typ, FunctionType
         ):
@@ -466,8 +457,6 @@ class AggressiveTypeInferencer(NodeTransformer):
         owner = tp.value.typ
         assert isinstance(owner, InstanceType) and (
             isinstance(owner.typ, RecordType)
-            or isinstance(owner.typ, UnionType)
-            or isinstance(owner.typ, OptionalType)
         ), "Accessing attribute of non-instance"
         owner_typ = owner.typ
 

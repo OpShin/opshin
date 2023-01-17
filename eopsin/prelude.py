@@ -1,11 +1,17 @@
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Union
 from hashlib import sha256, sha3_256, blake2b
 
 from pycardano import Datum, PlutusData
 
 # Plutus V2
 TxId = bytes
+
+
+@dataclass()
+class Nothing(PlutusData):
+    CONSTR_ID = 0
+    pass
 
 
 @dataclass()
@@ -60,9 +66,15 @@ StakingCredential = Union[StakingHash, StakingPtr]
 
 
 @dataclass()
+class SomeStakingCredential(PlutusData):
+    CONSTR_ID = 1
+    staking_credential: StakingCredential
+
+
+@dataclass()
 class Address(PlutusData):
     credential: Credential
-    staking_credential: Optional[StakingCredential]
+    staking_credential: Union[Nothing, SomeStakingCredential]
 
 
 CurrencySymbol = bytes
@@ -75,10 +87,16 @@ DatumHash = bytes
 
 
 @dataclass()
+class SomeDatumHash(PlutusData):
+    CONSTR_ID = 1
+    datum_hash: DatumHash
+
+
+@dataclass()
 class TxOut(PlutusData):
     address: Address
     value: Value
-    datum_hash: Optional[DatumHash]
+    datum_hash: Union[Nothing, SomeDatumHash]
 
 
 @dataclass()

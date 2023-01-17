@@ -15,7 +15,23 @@ def FrozenFrozenList(l: list):
 
 
 class Type:
-    pass
+    def constr_type(self) -> FunctionType:
+        """The type of the constructor for this class"""
+        raise TypeInferenceError(f"Object of type {self} does not have a constructor")
+
+    def constr(self) -> plt.AST:
+        """The constructor for this class"""
+        raise NotImplementedError(f"Constructor of {self} not implemented")
+
+    def attribute_type(self, attr) -> "Type":
+        """The types of the named attributes of this class"""
+        raise TypeInferenceError(
+            f"Object of type {self} does not have attribute {attr}"
+        )
+
+    def attribute(self, attr) -> plt.AST:
+        """The attributes of this class. Needs to be a lambda that expects as first argument the object itself"""
+        raise NotImplementedError(f"Attribute {attr} not implemented for type {self}")
 
 
 @dataclass(frozen=True, unsafe_hash=True)
@@ -28,14 +44,6 @@ class Record:
 @dataclass(frozen=True, unsafe_hash=True)
 class ClassType(Type):
     pass
-
-    def constr_type(self) -> FunctionType:
-        """The type of the constructor for this class"""
-        raise NotImplementedError
-
-    def constr(self) -> plt.AST:
-        """The constructor for this class"""
-        raise NotImplementedError
 
 
 @dataclass(frozen=True, unsafe_hash=True)
@@ -65,15 +73,40 @@ class RecordType(ClassType):
             ),
         )
 
+    def attribute_type(self, attr: str) -> Type:
+        """The types of the named attributes of this class"""
+        if attr == "CONSTR_ID":
+            return InstanceType(IntegerType)
+        for n, t in self.record.fields:
+            if n == attr:
+                return t
+        raise TypeInferenceError(f"Type {self} does not have attribute {attr}")
+
+    def attribute(self, attr: str) -> plt.AST:
+        """The attributes of this class. Need to be a lambda that expects as first argument the object itself and as last argument the statemonad"""
+        if attr == "CONSTR_ID":
+            # access to constructor
+            return plt.Lambda(
+                ["self", "_"],
+                plt.Constructor(plt.Var("self")),
+            )
+        attr_typ = self.attribute_type(attr)
+        pos = next(i for i, (n, _) in enumerate(self.record.fields) if n == attr)
+        # access to normal fields
+        return plt.Lambda(
+            ["self", "_"],
+            transform_ext_params_map(attr_typ)(
+                plt.NthField(
+                    plt.Var("self"),
+                    plt.Integer(pos),
+                ),
+            ),
+        )
+
 
 @dataclass(frozen=True, unsafe_hash=True)
 class UnionType(ClassType):
     typs: typing.List[ClassType]
-
-
-@dataclass(frozen=True, unsafe_hash=True)
-class OptionalType(ClassType):
-    typ: ClassType
 
 
 @dataclass(frozen=True, unsafe_hash=True)
@@ -102,10 +135,17 @@ class FunctionType(ClassType):
 class InstanceType(Type):
     typ: ClassType
 
+    def constr_type(self) -> FunctionType:
+        raise TypeInferenceError(f"Can not construct an instance {self}")
 
-@dataclass(frozen=True, unsafe_hash=True)
-class OptionalInstanceType(InstanceType):
-    typ: OptionalType
+    def constr(self) -> plt.AST:
+        raise NotImplementedError(f"Can not construct an instance {self}")
+
+    def attribute_type(self, attr) -> Type:
+        return self.typ.attribute_type(attr)
+
+    def attribute(self, attr) -> plt.AST:
+        return self.typ.attribute(attr)
 
 
 IntegerType = AtomicType(int.__name__)
