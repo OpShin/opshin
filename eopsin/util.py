@@ -1,4 +1,4 @@
-from enum import Enum
+from enum import Enum, auto
 
 from .typed_ast import *
 
@@ -22,6 +22,7 @@ class PythonBuiltIn(Enum):
     sha256 = plt.Lambda(["x", "_"], plt.Lambda(["_"], plt.Sha2_256(plt.Var("x"))))
     sha3_256 = plt.Lambda(["x", "_"], plt.Lambda(["_"], plt.Sha3_256(plt.Var("x"))))
     blake2b = plt.Lambda(["x", "_"], plt.Lambda(["_"], plt.Blake2b_256(plt.Var("x"))))
+    len = auto()
 
 
 @dataclass(frozen=True, unsafe_hash=True)
@@ -40,6 +41,36 @@ class HashType(ClassType):
 
 
 HashInstanceType = InstanceType(HashType())
+
+
+class Len(PolymorphicFunction):
+    def type_from_args(self, args: typing.List[Type]) -> FunctionType:
+        assert (
+            len(args) == 1
+        ), f"'len' takes only one argument, but {len(args)} were given"
+        assert isinstance(
+            args[0], InstanceType
+        ), "Can only determine length of instances"
+        return FunctionType(args, IntegerInstanceType)
+
+    def impl_from_args(self, args: typing.List[Type]) -> plt.AST:
+        arg = args[0]
+        assert isinstance(arg, InstanceType), "Can only determine length of instances"
+        if arg == ByteStringInstanceType:
+            return plt.Lambda(["x", "_"], plt.LengthOfByteString(plt.Var("x")))
+        elif isinstance(arg, ListType):
+            # simple list length function
+            return plt.Lambda(
+                ["x", "_"],
+                plt.FoldList(
+                    plt.Var("x"),
+                    plt.Lambda(
+                        ["a", "_"], plt.AddInteger(plt.Var("a"), plt.Integer(1))
+                    ),
+                    plt.Integer(0),
+                ),
+            )
+        raise NotImplementedError(f"'len' is not implemented for type {arg}")
 
 
 PythonBuiltInTypes = {
@@ -70,6 +101,7 @@ PythonBuiltInTypes = {
             HashInstanceType,
         )
     ),
+    PythonBuiltIn.len: InstanceType(PolymorphicFunctionType(Len())),
 }
 
 

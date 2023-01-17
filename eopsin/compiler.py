@@ -267,10 +267,17 @@ class UPLCCompiler(TypedNodeTransformer):
     def visit_Call(self, node: TypedCall) -> plt.AST:
         # compiled_args = " ".join(f"({self.visit(a)} {STATEMONAD})" for a in node.args)
         # return rf"(\{STATEMONAD} -> ({self.visit(node.func)} {compiled_args})"
+        if isinstance(node.func.typ, PolymorphicFunctionType):
+            # edge case for weird builtins that are polymorphic
+            func_plt = node.func.typ.polymorphic_function.impl_from_args(
+                node.func.typ.argtyps
+            )
+        else:
+            func_plt = plt.Apply(self.visit(node.func), plt.Var(STATEMONAD))
         return plt.Lambda(
             [STATEMONAD],
             plt.Apply(
-                plt.Apply(self.visit(node.func), plt.Var(STATEMONAD)),
+                func_plt,
                 # pass in all arguments evaluated with the statemonad
                 *(plt.Apply(self.visit(a), plt.Var(STATEMONAD)) for a in node.args),
                 # eventually pass in the state monad as well

@@ -403,7 +403,7 @@ class AggressiveTypeInferencer(NodeTransformer):
                 ), "lower slice indices for bytes must be integers"
                 if ts.slice.upper is None:
                     ts.slice.upper = Call(
-                        func=Name(id="len", ctx=Load()), args=ts.value, keywords=[]
+                        func=Name(id="len", ctx=Load()), args=[ts.value], keywords=[]
                     )
                 ts.slice.upper = self.visit(node.slice.upper)
                 assert (
@@ -421,6 +421,15 @@ class AggressiveTypeInferencer(NodeTransformer):
         # might be a cast
         if isinstance(tc.func.typ, ClassType):
             tc.func.typ = tc.func.typ.constr_type()
+        # type might only turn out after the initialization (note the constr could be polymorphic)
+        if isinstance(tc.func.typ, InstanceType) and isinstance(
+            tc.func.typ.typ, PolymorphicFunctionType
+        ):
+            tc.func.typ = InstanceType(
+                tc.func.typ.typ.polymorphic_function.type_from_args(
+                    [a.typ for a in tc.args]
+                )
+            )
         if isinstance(tc.func.typ, InstanceType) and isinstance(
             tc.func.typ.typ, FunctionType
         ):

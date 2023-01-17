@@ -268,10 +268,19 @@ class InaccessibleType(ClassType):
     pass
 
 
-class PolymorphicBuiltinType(FunctionType):
+class PolymorphicFunction:
+    def type_from_args(self, args: typing.List[Type]) -> FunctionType:
+        raise NotImplementedError()
+
+    def impl_from_args(self, args: typing.List[Type]) -> plt.AST:
+        raise NotImplementedError()
+
+
+@dataclass(frozen=True, unsafe_hash=True)
+class PolymorphicFunctionType(ClassType):
     """A special type of builtin that may act differently on different parameters"""
 
-    pass
+    polymorphic_function: PolymorphicFunction
 
 
 class TypedAST(AST):
