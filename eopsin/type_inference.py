@@ -456,25 +456,12 @@ class AggressiveTypeInferencer(NodeTransformer):
         tp.value = self.visit(node.value)
         owner = tp.value.typ
         assert isinstance(owner, InstanceType) and (
-            isinstance(owner.typ, RecordType)
+            isinstance(owner.typ, RecordType) or isinstance(owner.typ, UnionType)
         ), "Accessing attribute of non-instance"
         owner_typ = owner.typ
 
-        # access to constructor
-        if tp.attr == "CONSTR_ID":
-            tp.typ = IntegerInstanceType
-            tp.pos = -1
-            return tp
         # accesses to field
-        tp.typ = None
-        for i, (attr_name, attr_type) in enumerate(owner_typ.record.fields):
-            if attr_name == tp.attr:
-                tp.typ = attr_type
-                tp.pos = i
-        if tp.typ is None:
-            assert (
-                tp.attr in tp.value.typ.record.fields
-            ), "Accessing undefined attribute of class-type"
+        tp.typ = owner_typ.attribute_type(node.attr)
         return tp
 
     def visit_Assert(self, node: Assert) -> TypedAssert:

@@ -19,7 +19,7 @@ OrderStep = Union[Deposit, Withdraw]
 class BatchOrder(PlutusData):
     sender: Address
     receiver: Address
-    receiver_datum_hash: Optional[DatumHash]
+    receiver_datum_hash: Union[Nothing, SomeDatumHash]
     order_step: OrderStep
     batcher_fee: int
     output_ada: int

@@ -1,6 +1,3 @@
-import uplc
-import pluthon as plt
-
 from .rewrite.rewrite_augassign import RewriteAugAssign
 from .rewrite.rewrite_import import RewriteImport
 from .rewrite.rewrite_import_dataclasses import RewriteImportDataclasses
@@ -76,35 +73,6 @@ CmpMap = {
         },
     },
 }
-
-EmptyListMap = {
-    IntegerInstanceType: plt.EmptyIntegerList(),
-    ByteStringInstanceType: plt.EmptyByteStringList(),
-    StringInstanceType: plt.EmptyTextList(),
-    UnitInstanceType: plt.EmptyUnitList(),
-    BoolInstanceType: plt.EmptyBoolList(),
-}
-
-
-def empty_list(p: Type):
-    if p in EmptyListMap:
-        return EmptyListMap[p]
-    assert isinstance(p, InstanceType), "Can only create lists of instances"
-    if isinstance(p.typ, ListType):
-        el = empty_list(p.typ.typ)
-        return plt.EmptyListList(uplc.BuiltinList([], el.sample_value))
-    if isinstance(p.typ, DictType):
-        el_key = empty_list(p.typ.key_typ)
-        el_value = empty_list(p.typ.value_typ)
-        return plt.EmptyListList(
-            uplc.BuiltinList(
-                [], uplc.BuiltinPair(el_key.sample_value, el_value.sample_value)
-            )
-        )
-    if isinstance(p.typ, RecordType):
-        return plt.EmptyDataList()
-    raise NotImplementedError(f"Empty lists of type {p} can't be constructed yet")
-
 
 ConstantMap = {
     str: plt.Text,
@@ -480,8 +448,8 @@ class UPLCCompiler(TypedNodeTransformer):
         assert isinstance(
             node.typ, InstanceType
         ), "Can only access attributes of instances"
-        obj = self.visit(node)
-        attr = node.typ.attribute(node.attr)
+        obj = self.visit(node.value)
+        attr = node.value.typ.attribute(node.attr)
         return plt.Lambda(
             [STATEMONAD], plt.Apply(attr, plt.Apply(obj, plt.Var(STATEMONAD)))
         )

@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from frozenlist import FrozenList
 
 import pluthon as plt
-from eopsin import empty_list
+import uplc
 
 
 def FrozenFrozenList(l: list):
@@ -83,18 +83,18 @@ class RecordType(ClassType):
         raise TypeInferenceError(f"Type {self} does not have attribute {attr}")
 
     def attribute(self, attr: str) -> plt.AST:
-        """The attributes of this class. Need to be a lambda that expects as first argument the object itself and as last argument the statemonad"""
+        """The attributes of this class. Need to be a lambda that expects as first argument the object itself"""
         if attr == "CONSTR_ID":
             # access to constructor
             return plt.Lambda(
-                ["self", "_"],
+                ["self"],
                 plt.Constructor(plt.Var("self")),
             )
         attr_typ = self.attribute_type(attr)
         pos = next(i for i, (n, _) in enumerate(self.record.fields) if n == attr)
         # access to normal fields
         return plt.Lambda(
-            ["self", "_"],
+            ["self"],
             transform_ext_params_map(attr_typ)(
                 plt.NthField(
                     plt.Var("self"),
@@ -107,6 +107,24 @@ class RecordType(ClassType):
 @dataclass(frozen=True, unsafe_hash=True)
 class UnionType(ClassType):
     typs: typing.List[ClassType]
+
+    def attribute_type(self, attr) -> "Type":
+        if attr == "CONSTR_ID":
+            return IntegerInstanceType
+        raise TypeInferenceError(
+            f"Can not access attribute {attr} of Union type. Cast to desired type with an 'if isinstance(_, _):' branch."
+        )
+
+    def attribute(self, attr: str) -> plt.AST:
+        if attr == "CONSTR_ID":
+            # access to constructor
+            return plt.Lambda(
+                ["self"],
+                plt.Constructor(plt.Var("self")),
+            )
+        raise NotImplementedError(
+            f"Can not access attribute {attr} of Union type. Cast to desired type with an 'if isinstance(_, _):' branch."
+        )
 
 
 @dataclass(frozen=True, unsafe_hash=True)
@@ -300,6 +318,35 @@ class TypedAssert(typedstmt, Assert):
 
 class TypeInferenceError(AssertionError):
     pass
+
+
+EmptyListMap = {
+    IntegerInstanceType: plt.EmptyIntegerList(),
+    ByteStringInstanceType: plt.EmptyByteStringList(),
+    StringInstanceType: plt.EmptyTextList(),
+    UnitInstanceType: plt.EmptyUnitList(),
+    BoolInstanceType: plt.EmptyBoolList(),
+}
+
+
+def empty_list(p: Type):
+    if p in EmptyListMap:
+        return EmptyListMap[p]
+    assert isinstance(p, InstanceType), "Can only create lists of instances"
+    if isinstance(p.typ, ListType):
+        el = empty_list(p.typ.typ)
+        return plt.EmptyListList(uplc.BuiltinList([], el.sample_value))
+    if isinstance(p.typ, DictType):
+        el_key = empty_list(p.typ.key_typ)
+        el_value = empty_list(p.typ.value_typ)
+        return plt.EmptyListList(
+            uplc.BuiltinList(
+                [], uplc.BuiltinPair(el_key.sample_value, el_value.sample_value)
+            )
+        )
+    if isinstance(p.typ, RecordType):
+        return plt.EmptyDataList()
+    raise NotImplementedError(f"Empty lists of type {p} can't be constructed yet")
 
 
 TransformExtParamsMap = {
