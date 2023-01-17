@@ -93,8 +93,8 @@ class AggressiveTypeInferencer(NodeTransformer):
                 ), "Union must combine multiple classes"
                 ann_types = [self.type_from_annotation(e) for e in ann.slice.value.elts]
                 assert all(
-                    isinstance(e, ClassType) for e in ann_types
-                ), "Union must combine multiple classes"
+                    isinstance(e, RecordType) for e in ann_types
+                ), "Union must combine multiple PlutusData classes"
                 return UnionType(FrozenFrozenList(FrozenFrozenList(ann_types)))
             if ann.value.id == "List":
                 ann_type = self.type_from_annotation(ann.slice.value)
