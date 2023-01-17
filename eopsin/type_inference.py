@@ -430,6 +430,7 @@ class AggressiveTypeInferencer(NodeTransformer):
                     [a.typ for a in tc.args]
                 )
             )
+            tc.func.polymorphic
         if isinstance(tc.func.typ, InstanceType) and isinstance(
             tc.func.typ.typ, FunctionType
         ):

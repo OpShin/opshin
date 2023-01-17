@@ -267,6 +267,7 @@ class UPLCCompiler(TypedNodeTransformer):
     def visit_Call(self, node: TypedCall) -> plt.AST:
         # compiled_args = " ".join(f"({self.visit(a)} {STATEMONAD})" for a in node.args)
         # return rf"(\{STATEMONAD} -> ({self.visit(node.func)} {compiled_args})"
+        # TODO function is actually not of type polymorphic function type here anymore
         if isinstance(node.func.typ, PolymorphicFunctionType):
             # edge case for weird builtins that are polymorphic
             func_plt = node.func.typ.polymorphic_function.impl_from_args(
@@ -409,12 +410,12 @@ class UPLCCompiler(TypedNodeTransformer):
 
     def visit_Subscript(self, node: TypedSubscript) -> plt.AST:
         assert isinstance(
-            node.slice, Index
-        ), "Only single index slices are currently supported"
-        assert isinstance(
             node.value.typ, InstanceType
         ), "Can only access elements of instances, not classes"
         if isinstance(node.value.typ.typ, TupleType):
+            assert isinstance(
+                node.slice, Index
+            ), "Only single index slices for tuples are currently supported"
             assert isinstance(
                 node.slice.value, Constant
             ), "Only constant index access for tuples is supported"
@@ -428,6 +429,9 @@ class UPLCCompiler(TypedNodeTransformer):
                 ),
             )
         if isinstance(node.value.typ.typ, ListType):
+            assert isinstance(
+                node.slice, Index
+            ), "Only single index slices for lists are currently supported"
             assert (
                 node.slice.value.typ == IntegerInstanceType
             ), "Only single element list index access supported"
@@ -438,6 +442,29 @@ class UPLCCompiler(TypedNodeTransformer):
                     plt.Apply(self.visit(node.slice.value), plt.Var(STATEMONAD)),
                 ),
             )
+        elif isinstance(node.value.typ.typ, ByteStringType):
+            if isinstance(node.slice, Index):
+                return plt.Lambda(
+                    [STATEMONAD],
+                    plt.IndexByteString(
+                        plt.Apply(self.visit(node.value), plt.Var(STATEMONAD)),
+                        plt.Apply(self.visit(node.slice.value), plt.Var(STATEMONAD)),
+                    ),
+                )
+            elif isinstance(node.slice, Slice):
+                return plt.Lambda(
+                    [STATEMONAD],
+                    plt.SliceByteString(
+                        plt.Apply(self.visit(node.value), plt.Var(STATEMONAD)),
+                        plt.Apply(self.visit(node.slice.lower), plt.Var(STATEMONAD)),
+                        plt.SubtractInteger(
+                            plt.Apply(
+                                self.visit(node.slice.upper), plt.Var(STATEMONAD)
+                            ),
+                            plt.Integer(1),
+                        ),
+                    ),
+                )
         raise NotImplementedError(f"Could not implement subscript of {node}")
 
     def visit_Tuple(self, node: TypedTuple) -> plt.AST:
@@ -481,6 +508,14 @@ class UPLCCompiler(TypedNodeTransformer):
 
     def visit_RawPlutoExpr(self, node: RawPlutoExpr) -> plt.AST:
         return node.expr
+
+    def visit_List(self, node: TypedList) -> plt.AST:
+        assert isinstance(node.typ, InstanceType)
+        assert isinstance(node.typ.typ, ListType)
+        l = empty_list(node.typ.typ.typ)
+        for e in node.elts:
+            l = plt.MkCons(plt.Apply(self.visit(e), plt.Var(STATEMONAD)), l)
+        return plt.Lambda([STATEMONAD], l)
 
     def generic_visit(self, node: AST) -> plt.AST:
         raise NotImplementedError(f"Can not compile {node}")
