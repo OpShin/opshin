@@ -42,13 +42,24 @@ class Record:
 
 
 @dataclass(frozen=True, unsafe_hash=True)
+class AnyType(Type):
+    """The top element in the partial order on types"""
+
+    def __ge__(self, other):
+        return True
+
+
+@dataclass(frozen=True, unsafe_hash=True)
 class ClassType(Type):
-    pass
+    def __ge__(self, other):
+        raise NotImplementedError("Comparison between raw classtypes impossible")
 
 
 @dataclass(frozen=True, unsafe_hash=True)
 class AtomicType(ClassType):
-    pass
+    def __ge__(self, other):
+        # Can only substitute for its own type (also subtypes)
+        return isinstance(other, self.__class__)
 
 
 @dataclass(frozen=True, unsafe_hash=True)
@@ -103,6 +114,11 @@ class RecordType(ClassType):
             ),
         )
 
+    def __ge__(self, other):
+        # Can only substitute for its own type, records need to be equal
+        # if someone wants to be funny, they can implement <= to be true if all fields match up to some point
+        return isinstance(other, self.__class__) and other.record == self.record
+
 
 @dataclass(frozen=True, unsafe_hash=True)
 class UnionType(ClassType):
@@ -126,15 +142,28 @@ class UnionType(ClassType):
             f"Can not access attribute {attr} of Union type. Cast to desired type with an 'if isinstance(_, _):' branch."
         )
 
+    def __ge__(self, other):
+        if isinstance(other, UnionType):
+            return all(any(t >= ot for ot in other.typs) for t in self.typs)
+        return any(t >= other for t in self.typs)
+
 
 @dataclass(frozen=True, unsafe_hash=True)
 class TupleType(ClassType):
     typs: typing.List[Type]
 
+    def __ge__(self, other):
+        return isinstance(other, TupleType) and all(
+            t >= ot for t, ot in zip(self.typs, other.typs)
+        )
+
 
 @dataclass(frozen=True, unsafe_hash=True)
 class ListType(ClassType):
     typ: Type
+
+    def __ge__(self, other):
+        return isinstance(other, ListType) and self.typ >= other.typ
 
 
 @dataclass(frozen=True, unsafe_hash=True)
@@ -142,11 +171,25 @@ class DictType(ClassType):
     key_typ: Type
     value_typ: Type
 
+    def __ge__(self, other):
+        return (
+            isinstance(other, DictType)
+            and self.key_typ >= other.key_typ
+            and self.value_typ >= other.value_typ
+        )
+
 
 @dataclass(frozen=True, unsafe_hash=True)
 class FunctionType(ClassType):
     argtyps: typing.List[Type]
     rettyp: Type
+
+    def __ge__(self, other):
+        return (
+            isinstance(other, FunctionType)
+            and all(a >= oa for a, oa in zip(self.argtyps, other.argtyps))
+            and other.rettyp >= self.rettyp
+        )
 
 
 @dataclass(frozen=True, unsafe_hash=True)
@@ -164,6 +207,9 @@ class InstanceType(Type):
 
     def attribute(self, attr) -> plt.AST:
         return self.typ.attribute(attr)
+
+    def __ge__(self, other):
+        return isinstance(other, InstanceType) and self.typ >= other.typ
 
 
 @dataclass(frozen=True, unsafe_hash=True)
@@ -214,6 +260,18 @@ ATOMIC_TYPES = {
 NoneRecord = Record("None", 0, FrozenFrozenList([]))
 NoneType = RecordType(NoneRecord)
 NoneInstanceType = InstanceType(NoneType)
+
+
+class InaccessibleType(ClassType):
+    """A type that blocks overwriting of a function"""
+
+    pass
+
+
+class PolymorphicBuiltinType(FunctionType):
+    """A special type of builtin that may act differently on different parameters"""
+
+    pass
 
 
 class TypedAST(AST):

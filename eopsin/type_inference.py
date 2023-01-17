@@ -26,12 +26,6 @@ INITIAL_SCOPE = dict(
         # class annotations
         "bytes": ByteStringType(),
         "int": IntegerType(),
-        # just to block overwriting
-        "List": ListType(NoneInstanceType),
-        "Dict": DictType(NoneInstanceType, NoneInstanceType),
-        "Union": UnionType(NoneInstanceType),
-        "dataclass": NoneInstanceType,
-        "PlutusData": NoneInstanceType,
     }
 )
 
@@ -422,6 +416,7 @@ class AggressiveTypeInferencer(NodeTransformer):
     def visit_Call(self, node: Call) -> TypedCall:
         assert not node.keywords, "Keyword arguments are not supported yet"
         tc = copy(node)
+        tc.args = [self.visit(a) for a in node.args]
         tc.func = self.visit(node.func)
         # might be a cast
         if isinstance(tc.func.typ, ClassType):
@@ -430,12 +425,12 @@ class AggressiveTypeInferencer(NodeTransformer):
             tc.func.typ.typ, FunctionType
         ):
             functyp = tc.func.typ.typ
-            tc.args = [self.visit(a) for a in node.args]
             assert len(tc.args) == len(
                 functyp.argtyps
             ), f"Signature of function {node} does not match number of arguments"
+            # all arguments need to be supertypes of the given type
             assert all(
-                a.typ == ap for a, ap in zip(tc.args, functyp.argtyps)
+                ap >= a.typ for a, ap in zip(tc.args, functyp.argtyps)
             ), f"Signature of function {node} does not match arguments"
             tc.typ = functyp.rettyp
             return tc

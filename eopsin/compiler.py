@@ -1,4 +1,5 @@
 from .rewrite.rewrite_augassign import RewriteAugAssign
+from .rewrite.rewrite_forbidden_overwrites import RewriteForbiddenOverwrites
 from .rewrite.rewrite_import import RewriteImport
 from .rewrite.rewrite_import_dataclasses import RewriteImportDataclasses
 from .rewrite.rewrite_import_hashlib import RewriteImportHashlib
@@ -488,6 +489,7 @@ def compile(prog: AST):
         RewriteImportPlutusData,
         RewriteImportHashlib,
         RewriteImportTyping,
+        RewriteForbiddenOverwrites,
         RewriteImportDataclasses,
         # The type inference needs to be run after complex python operations were rewritten
         AggressiveTypeInferencer,
