@@ -25,7 +25,7 @@ setup(
     py_modules=["eopsin"],
     packages=find_packages(),
     install_requires=[
-        "uplc==0.2.5",
+        "uplc==0.2.6",
         "pluthon==0.2.0",
         "pycardano==0.7.2",
         "frozenlist==1.3.3",
