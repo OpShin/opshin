@@ -1,8 +1,8 @@
 from enum import Enum
 
-import pluthon as plt
-
 from .typed_ast import *
+
+import pluthon as plt
 
 
 class RawPlutoExpr(typedexpr):

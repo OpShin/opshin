@@ -1,5 +1,5 @@
-import pluthon as plt
 import uplc
+import pluthon as plt
 
 from .rewrite.rewrite_augassign import RewriteAugAssign
 from .rewrite.rewrite_import import RewriteImport
@@ -15,6 +15,8 @@ from .optimize.optimize_remove_deadvars import OptimizeRemoveDeadvars
 from .optimize.optimize_varlen import OptimizeVarlen
 from .type_inference import *
 from .util import RawPlutoExpr, TypedNodeTransformer
+from .typed_ast import transform_ext_params_map, transform_output_map
+
 
 STATEMONAD = "s"
 
@@ -102,69 +104,6 @@ def empty_list(p: Type):
     if isinstance(p.typ, RecordType):
         return plt.EmptyDataList()
     raise NotImplementedError(f"Empty lists of type {p} can't be constructed yet")
-
-
-TransformExtParamsMap = {
-    IntegerInstanceType: lambda x: plt.UnIData(x),
-    ByteStringInstanceType: lambda x: plt.UnBData(x),
-    StringInstanceType: lambda x: plt.DecodeUtf8(plt.UnBData(x)),
-    UnitInstanceType: lambda x: plt.Lambda(["_"], plt.Unit()),
-    BoolInstanceType: lambda x: plt.NotEqualsInteger(x, plt.Integer(0)),
-}
-
-
-def transform_ext_params_map(p: Type):
-    assert isinstance(
-        p, InstanceType
-    ), "Can only transform instances, not classes as input"
-    if p in TransformExtParamsMap:
-        return TransformExtParamsMap[p]
-    if isinstance(p.typ, ListType):
-        list_int_typ = p.typ.typ
-        return lambda x: plt.MapList(
-            plt.UnListData(x),
-            plt.Lambda(["x"], transform_ext_params_map(list_int_typ)(plt.Var("x"))),
-            empty_list(p.typ.typ),
-        )
-    if isinstance(p.typ, DictType):
-        # TODO also remap in the style the list is mapped (but on pairs)
-        raise NotImplementedError(
-            "Dictionaries can currently not be parsed from PlutusData"
-        )
-    return lambda x: x
-
-
-TransformOutputMap = {
-    StringInstanceType: lambda x: plt.BData(plt.EncodeUtf8(x)),
-    IntegerInstanceType: lambda x: plt.IData(x),
-    ByteStringInstanceType: lambda x: plt.BData(x),
-    UnitInstanceType: lambda x: plt.Lambda(["_"], plt.Unit()),
-    BoolInstanceType: lambda x: plt.IData(
-        plt.IfThenElse(x, plt.Integer(1), plt.Integer(0))
-    ),
-}
-
-
-def transform_output_map(p: Type):
-    assert isinstance(
-        p, InstanceType
-    ), "Can only transform instances, not classes as input"
-    if p in TransformOutputMap:
-        return TransformOutputMap[p]
-    if isinstance(p.typ, ListType):
-        list_int_typ = p.typ.typ
-        return lambda x: plt.ListData(
-            plt.MapList(
-                x,
-                plt.Lambda(["x"], transform_output_map(list_int_typ)(plt.Var("x"))),
-            ),
-        )
-    if isinstance(p.typ, DictType):
-        # TODO also remap in the style the list is mapped as input
-        raise NotImplementedError(
-            "Dictionaries can currently not be mapped to PlutusData"
-        )
-    return lambda x: x
 
 
 ConstantMap = {

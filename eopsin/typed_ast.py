@@ -4,6 +4,9 @@ from dataclasses import dataclass
 
 from frozenlist import FrozenList
 
+import pluthon as plt
+from eopsin import empty_list
+
 
 def FrozenFrozenList(l: list):
     fl = FrozenList(l)
@@ -26,6 +29,14 @@ class Record:
 class ClassType(Type):
     pass
 
+    def constr_type(self) -> FunctionType:
+        """The type of the constructor for this class"""
+        raise NotImplementedError
+
+    def constr(self) -> plt.AST:
+        """The constructor for this class"""
+        raise NotImplementedError
+
 
 @dataclass(frozen=True, unsafe_hash=True)
 class AtomicType(ClassType):
@@ -35,6 +46,24 @@ class AtomicType(ClassType):
 @dataclass(frozen=True, unsafe_hash=True)
 class RecordType(ClassType):
     record: Record
+
+    def constr_type(self) -> FunctionType:
+        return FunctionType(self.record.fields, InstanceType(self))
+
+    def constr(self) -> plt.AST:
+        # wrap all constructor values to PlutusData
+        build_constr_params = plt.EmptyDataList()
+        for n, t in reversed(self.record.fields):
+            build_constr_params = plt.MkCons(
+                transform_output_map(t)(plt.Var(n)), build_constr_params
+            )
+        # then build a constr type with this PlutusData
+        return plt.Lambda(
+            [n for n, _ in self.record.fields] + ["_"],
+            plt.ConstrData(
+                plt.Integer(self.record.constructor), plt.ListData(build_constr_params)
+            ),
+        )
 
 
 @dataclass(frozen=True, unsafe_hash=True)
@@ -231,3 +260,66 @@ class TypedAssert(typedstmt, Assert):
 
 class TypeInferenceError(AssertionError):
     pass
+
+
+TransformExtParamsMap = {
+    IntegerInstanceType: lambda x: plt.UnIData(x),
+    ByteStringInstanceType: lambda x: plt.UnBData(x),
+    StringInstanceType: lambda x: plt.DecodeUtf8(plt.UnBData(x)),
+    UnitInstanceType: lambda x: plt.Lambda(["_"], plt.Unit()),
+    BoolInstanceType: lambda x: plt.NotEqualsInteger(x, plt.Integer(0)),
+}
+
+
+def transform_ext_params_map(p: Type):
+    assert isinstance(
+        p, InstanceType
+    ), "Can only transform instances, not classes as input"
+    if p in TransformExtParamsMap:
+        return TransformExtParamsMap[p]
+    if isinstance(p.typ, ListType):
+        list_int_typ = p.typ.typ
+        return lambda x: plt.MapList(
+            plt.UnListData(x),
+            plt.Lambda(["x"], transform_ext_params_map(list_int_typ)(plt.Var("x"))),
+            empty_list(p.typ.typ),
+        )
+    if isinstance(p.typ, DictType):
+        # TODO also remap in the style the list is mapped (but on pairs)
+        raise NotImplementedError(
+            "Dictionaries can currently not be parsed from PlutusData"
+        )
+    return lambda x: x
+
+
+TransformOutputMap = {
+    StringInstanceType: lambda x: plt.BData(plt.EncodeUtf8(x)),
+    IntegerInstanceType: lambda x: plt.IData(x),
+    ByteStringInstanceType: lambda x: plt.BData(x),
+    UnitInstanceType: lambda x: plt.Lambda(["_"], plt.Unit()),
+    BoolInstanceType: lambda x: plt.IData(
+        plt.IfThenElse(x, plt.Integer(1), plt.Integer(0))
+    ),
+}
+
+
+def transform_output_map(p: Type):
+    assert isinstance(
+        p, InstanceType
+    ), "Can only transform instances, not classes as input"
+    if p in TransformOutputMap:
+        return TransformOutputMap[p]
+    if isinstance(p.typ, ListType):
+        list_int_typ = p.typ.typ
+        return lambda x: plt.ListData(
+            plt.MapList(
+                x,
+                plt.Lambda(["x"], transform_output_map(list_int_typ)(plt.Var("x"))),
+            ),
+        )
+    if isinstance(p.typ, DictType):
+        # TODO also remap in the style the list is mapped as input
+        raise NotImplementedError(
+            "Dictionaries can currently not be mapped to PlutusData"
+        )
+    return lambda x: x
