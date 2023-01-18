@@ -67,7 +67,9 @@ class RecordType(ClassType):
     record: Record
 
     def constr_type(self) -> "InstanceType":
-        return InstanceType(FunctionType(self.record.fields, InstanceType(self)))
+        return InstanceType(
+            FunctionType([f[1] for f in self.record.fields], InstanceType(self))
+        )
 
     def constr(self) -> plt.AST:
         # wrap all constructor values to PlutusData
