@@ -234,8 +234,27 @@ class UPLCCompiler(TypedNodeTransformer):
         )
 
     def visit_AnnAssign(self, node: AnnAssign) -> plt.AST:
-        pseudo_assign = Assign(targets=[node.target], value=node.value)
-        return self.visit(pseudo_assign)
+        assert isinstance(
+            node.target, Name
+        ), "Assignments to other things then names are not supported"
+        assert isinstance(
+            node.target.typ, InstanceType
+        ), "Can only assign instances to instances"
+        compiled_e = self.visit(node.value)
+        # we need to map this as it will originate from PlutusData
+        # (\{STATEMONAD} -> (\x -> if (x ==b {self.visit(node.targets[0])}) then ({compiled_e} {STATEMONAD}) else ({STATEMONAD} x)))
+        return plt.Lambda(
+            [STATEMONAD],
+            plt.FunctionalMapExtend(
+                plt.Var(STATEMONAD),
+                [node.target.id],
+                [
+                    transform_ext_params_map(node.target.typ)(
+                        plt.Apply(compiled_e, plt.Var(STATEMONAD))
+                    )
+                ],
+            ),
+        )
 
     def visit_Name(self, node: TypedName) -> plt.AST:
         # depending on load or store context, return the value of the variable or its name
