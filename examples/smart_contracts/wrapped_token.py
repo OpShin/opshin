@@ -80,4 +80,5 @@ def validator(_datum: None, _redeemer: None, ctx: ScriptContext) -> None:
         assert (
             all_unlocked * WRAPPING_FACTOR
         ) == -all_burned, "Wrong amount of tokens burnt"
-    assert False, "Incorrect spending purpose given"
+    else:
+        assert False, "Incorrect purpose given"
