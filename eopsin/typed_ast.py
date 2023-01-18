@@ -42,17 +42,17 @@ class Record:
 
 
 @dataclass(frozen=True, unsafe_hash=True)
-class AnyType(Type):
+class ClassType(Type):
+    def __ge__(self, other):
+        raise NotImplementedError("Comparison between raw classtypes impossible")
+
+
+@dataclass(frozen=True, unsafe_hash=True)
+class AnyType(ClassType):
     """The top element in the partial order on types"""
 
     def __ge__(self, other):
         return True
-
-
-@dataclass(frozen=True, unsafe_hash=True)
-class ClassType(Type):
-    def __ge__(self, other):
-        raise NotImplementedError("Comparison between raw classtypes impossible")
 
 
 @dataclass(frozen=True, unsafe_hash=True)

@@ -1,4 +1,5 @@
 from copy import copy
+import ast
 
 from .typed_ast import *
 from .util import PythonBuiltInTypes
@@ -26,6 +27,7 @@ INITIAL_SCOPE = dict(
         # class annotations
         "bytes": ByteStringType(),
         "int": IntegerType(),
+        "Anything": AnyType(),
     }
 )
 
@@ -61,7 +63,7 @@ class AggressiveTypeInferencer(NodeTransformer):
     def set_variable_type(self, name: str, typ: Type, force=False):
         if not force and name in self.scopes[-1] and typ != self.scopes[-1][name]:
             raise TypeInferenceError(
-                f"Type of variable {name} in local scope does not match inferred type {typ}"
+                f"Type {self.scopes[-1][name]} of variable {name} in local scope does not match inferred type {typ}"
             )
         self.scopes[-1][name] = typ
 
@@ -376,7 +378,9 @@ class AggressiveTypeInferencer(NodeTransformer):
             ):
                 ts.typ = ts.value.typ.typ.typs[ts.slice.value.value]
             else:
-                raise TypeInferenceError(f"Could not infer type of subscript {node}")
+                raise TypeInferenceError(
+                    f"Could not infer type of subscript of typ {ts.value.typ} in {ast.dump(node)}"
+                )
         elif isinstance(ts.value.typ.typ, ListType):
             assert isinstance(
                 ts.slice, Index
@@ -409,8 +413,14 @@ class AggressiveTypeInferencer(NodeTransformer):
                 assert (
                     ts.slice.upper.typ == IntegerInstanceType
                 ), "upper slice indices for bytes must be integers"
+            else:
+                raise TypeInferenceError(
+                    f"Could not infer type of subscript of typ {ts.value.typ} in {ast.dump(node)}"
+                )
         else:
-            raise TypeInferenceError(f"Could not infer type of subscript {node}")
+            raise TypeInferenceError(
+                f"Could not infer type of subscript of typ {ts.value.typ} in {ast.dump(node)}"
+            )
         return ts
 
     def visit_Call(self, node: Call) -> TypedCall:
@@ -437,11 +447,11 @@ class AggressiveTypeInferencer(NodeTransformer):
             functyp = tc.func.typ.typ
             assert len(tc.args) == len(
                 functyp.argtyps
-            ), f"Signature of function {node} does not match number of arguments"
+            ), f"Signature of function {ast.dump(node)} does not match number of arguments"
             # all arguments need to be supertypes of the given type
             assert all(
                 ap >= a.typ for a, ap in zip(tc.args, functyp.argtyps)
-            ), f"Signature of function {node} does not match arguments"
+            ), f"Signature of function {ast.dump(node)} does not match arguments"
             tc.typ = functyp.rettyp
             return tc
         raise TypeInferenceError("Could not infer type of call")
@@ -555,7 +565,7 @@ class RecordReader(NodeVisitor):
         return None
 
     def generic_visit(self, node: AST) -> None:
-        raise NotImplementedError(f"Can not compile {node} inside of a class")
+        raise NotImplementedError(f"Can not compile {ast.dump(node)} inside of a class")
 
 
 def typed_ast(ast: AST):
