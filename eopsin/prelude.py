@@ -10,7 +10,7 @@ TxId = bytes
 
 @dataclass()
 class Nothing(PlutusData):
-    CONSTR_ID = 0
+    CONSTR_ID = 1
     pass
 
 
@@ -67,7 +67,7 @@ StakingCredential = Union[StakingHash, StakingPtr]
 
 @dataclass()
 class SomeStakingCredential(PlutusData):
-    CONSTR_ID = 1
+    CONSTR_ID = 0
     staking_credential: StakingCredential
 
 
@@ -88,7 +88,7 @@ DatumHash = bytes
 
 @dataclass()
 class SomeDatumHash(PlutusData):
-    CONSTR_ID = 1
+    CONSTR_ID = 0
     datum_hash: DatumHash
 
 

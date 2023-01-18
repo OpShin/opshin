@@ -233,6 +233,10 @@ class UPLCCompiler(TypedNodeTransformer):
             ),
         )
 
+    def visit_AnnAssign(self, node: AnnAssign) -> plt.AST:
+        pseudo_assign = Assign(targets=[node.target], value=node.value)
+        return self.visit(pseudo_assign)
+
     def visit_Name(self, node: TypedName) -> plt.AST:
         # depending on load or store context, return the value of the variable or its name
         if not isinstance(node.ctx, Load):

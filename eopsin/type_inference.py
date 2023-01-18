@@ -166,14 +166,30 @@ class AggressiveTypeInferencer(NodeTransformer):
 
     def visit_Assign(self, node: Assign) -> TypedAssign:
         typed_ass = copy(node)
-        for t in node.targets:
-            if isinstance(t, Tuple):
-                raise NotImplementedError("Type deconstruction not supported yet")
         typed_ass.value: TypedExpression = self.visit(node.value)
         # Make sure to first set the type of each target name so we can load it when visiting it
         for t in node.targets:
+            assert isinstance(
+                t, Name
+            ), "Can only assign to variable names, no type deconstruction"
             self.set_variable_type(t.id, typed_ass.value.typ)
         typed_ass.targets = [self.visit(t) for t in node.targets]
+        return typed_ass
+
+    def visit_AnnAssign(self, node: AnnAssign) -> TypedAnnAssign:
+        typed_ass = copy(node)
+        typed_ass.value: TypedExpression = self.visit(node.value)
+        typed_ass.annotation = self.type_from_annotation(node.annotation)
+        assert isinstance(
+            node.target, Name
+        ), "Can only assign to variable names, no type deconstruction"
+        self.set_variable_type(
+            node.target.id, InstanceType(typed_ass.annotation), force=True
+        )
+        typed_ass.target = self.visit(node.target)
+        assert typed_ass.value.typ >= InstanceType(
+            typed_ass.annotation
+        ), "Can only downcast to a specialized type"
         return typed_ass
 
     def visit_If(self, node: If) -> TypedIf:

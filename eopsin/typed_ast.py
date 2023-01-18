@@ -354,6 +354,12 @@ class TypedAssign(typedstmt, Assign):
     value: typedexpr
 
 
+class TypedAnnAssign(typedstmt, AnnAssign):
+    target: typedexpr
+    annotation: Type
+    value: typedexpr
+
+
 class TypedWhile(typedstmt, While):
     test: typedexpr
     body: typing.List[typedstmt]
