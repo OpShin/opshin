@@ -17,36 +17,24 @@ def all_tokens_unlocked_from_address(
     return res
 
 
-@dataclass()
-class SomeTxOut(PlutusData):
-    CONSTR_ID = 1
-    tx_out: TxOut
-
-
-def own_spent_utxo(txins: List[TxInInfo], p: Spending) -> Union[Nothing, SomeTxOut]:
-    res = Nothing
+def own_spent_utxo(txins: List[TxInInfo], p: Spending) -> TxOut:
     for txi in txins:
         if txi.out_ref == p.tx_out_ref:
-            res = SomeTxOut(txi.resolved)
-    return res
+            own_txout = txi.resolved
+    # This throws a name error if the txout was not found
+    return own_txout
 
 
-@dataclass()
-class SomePolicyId(PlutusData):
-    CONSTR_ID = 1
-    policy_id: PolicyId
-
-
-def own_policy_id(own_spent_utxo: TxOut) -> Union[Nothing, SomePolicyId]:
+def own_policy_id(own_spent_utxo: TxOut) -> PolicyId:
     cred = own_spent_utxo.address.credential
-    res = Nothing
     if isinstance(cred, ScriptCredential):
-        res = SomePolicyId(cred.validator_hash)
-    return res
+        policy_id = PolicyId(cred.validator_hash)
+    # This throws a name error if the credential is not a ScriptCredential instance
+    return policy_id
 
 
 def own_address(own_policy_id: PolicyId) -> Address:
-    return Address(ScriptCredential(own_policy_id), Nothing)
+    return Address(ScriptCredential(own_policy_id), Nothing())
 
 
 def all_tokens_locked_at_address(
@@ -80,18 +68,12 @@ def validator(_datum: None, _redeemer: None, ctx: ScriptContext) -> None:
     elif isinstance(purpose, Spending):
         # whenever something is unlocked from the contract, the spending purpose will be triggered
         own_utxo = own_spent_utxo(ctx.tx_info.inputs, purpose)
-        if isinstance(own_utxo, SomeTxOut):
-            pid = own_policy_id(own_utxo.tx_out)
-            if isinstance(pid, SomePolicyId):
-                all_unlocked = all_tokens_unlocked_from_address(
-                    ctx.tx_info.inputs, own_utxo.tx_out.address, TOKEN
-                )
-                all_burned = ctx.tx_info.mint[pid.policy_id][TOKEN_NAME]
-                assert (
-                    all_unlocked * WRAPPING_FACTOR
-                ) == -all_burned, "Wrong amount of tokens burnt"
-            else:
-                assert False, "Could not determine own policy id"
-        else:
-            assert False, "Could not determine spent utxo"
+        pid = own_policy_id(own_utxo)
+        all_unlocked = all_tokens_unlocked_from_address(
+            ctx.tx_info.inputs, own_utxo.tx_out.address, TOKEN
+        )
+        all_burned = ctx.tx_info.mint[pid][TOKEN_NAME]
+        assert (
+            all_unlocked * WRAPPING_FACTOR
+        ) == -all_burned, "Wrong amount of tokens burnt"
     assert False, "Incorrect spending purpose given"
