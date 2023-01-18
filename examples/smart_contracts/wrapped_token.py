@@ -7,14 +7,6 @@ WRAPPING_FACTOR = 1000000
 TOKEN = Token(TOKEN_POLICYID, TOKEN_NAME)
 
 
-def all_utxos_from_address(txins: List[TxInInfo], address: Address) -> List[TxInInfo]:
-    filtered_txins = []
-    for txi in txins:
-        if txi.resolved.address == address:
-            filtered_txins += [txi]
-    return filtered_txins
-
-
 def all_tokens_unlocked_from_address(
     txins: List[TxInInfo], address: Address, token: Token
 ) -> int:
