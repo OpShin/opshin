@@ -10,6 +10,7 @@ TOKEN = Token(TOKEN_POLICYID, TOKEN_NAME)
 def all_tokens_unlocked_from_address(
     txins: List[TxInInfo], address: Address, token: Token
 ) -> int:
+    # generally always iterate over all inputs to avoid double spending
     res = 0
     for txi in txins:
         if txi.resolved.address == address:
@@ -18,6 +19,7 @@ def all_tokens_unlocked_from_address(
 
 
 def own_spent_utxo(txins: List[TxInInfo], p: Spending) -> TxOut:
+    # obtain the resolved txout that is going to be spent from this contract address
     for txi in txins:
         if txi.out_ref == p.tx_out_ref:
             own_txout = txi.resolved
@@ -26,6 +28,7 @@ def own_spent_utxo(txins: List[TxInInfo], p: Spending) -> TxOut:
 
 
 def own_policy_id(own_spent_utxo: TxOut) -> PolicyId:
+    # obtain the policy id for which this contract can validate minting/burning
     cred = own_spent_utxo.address.credential
     if isinstance(cred, ScriptCredential):
         policy_id = PolicyId(cred.validator_hash)
@@ -50,6 +53,7 @@ def all_tokens_locked_at_address(
 def validator(_datum: None, _redeemer: None, ctx: ScriptContext) -> None:
     purpose = ctx.purpose
     if isinstance(purpose, Minting):
+        # whenever tokens should be burned/minted, the minting purpose will be triggered
         own_addr = own_address(purpose.policy_id)
         all_locked = all_tokens_locked_at_address(ctx.tx_info.outputs, own_addr, TOKEN)
         all_minted = ctx.tx_info.mint[purpose.policy_id][TOKEN_NAME]
