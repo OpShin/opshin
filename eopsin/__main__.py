@@ -149,7 +149,7 @@ def main():
         script_hash = pycardano.plutus_script_hash(pycardano.PlutusV2Script(cbor))
         # generate policy ids
         with (target_dir / "script.policy_id").open("w") as fp:
-            json.dump(script_hash.to_primitive().hex(), fp)
+            fp.write(script_hash.to_primitive().hex())
         addr_mainnet = pycardano.Address(
             script_hash, network=pycardano.Network.MAINNET
         ).encode()
