@@ -61,6 +61,7 @@ def validator(datum: CancelDatum, redeemer: None, context: ScriptContext) -> Non
 ```
 
 All contracts written in eopsin are 100% valid python.
+Minting policies follow the same structure, but expect `None` as first argument.
 See the `examples` directory for more.
 
 ### Compiling
