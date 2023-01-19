@@ -433,6 +433,11 @@ class AggressiveTypeInferencer(NodeTransformer):
                 raise TypeInferenceError(
                     f"Could not infer type of subscript of typ {ts.value.typ} in {ast.dump(node)}"
                 )
+        elif isinstance(ts.value.typ.typ, DictType):
+            # TODO could be implemented with potentially just erroring. It might be desired to avoid this though.
+            raise TypeInferenceError(
+                f"Could not infer type of subscript of dict. Use 'get' with a default value instead."
+            )
         else:
             raise TypeInferenceError(
                 f"Could not infer type of subscript of typ {ts.value.typ} in {ast.dump(node)}"

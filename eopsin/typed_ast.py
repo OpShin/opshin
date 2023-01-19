@@ -173,6 +173,18 @@ class DictType(ClassType):
     key_typ: Type
     value_typ: Type
 
+    def attribute_type(self, attr) -> "Type":
+        if attr == "get":
+            return InstanceType(
+                FunctionType([self.key_typ, self.value_typ], self.value_typ)
+            )
+        raise TypeInferenceError(
+            f"Type of attribute '{attr}' is unknown for type Dict."
+        )
+
+    def attribute(self, attr) -> plt.AST:
+        raise NotImplementedError(f"Attribute '{attr}' of Dict is unknown.")
+
     def __ge__(self, other):
         return (
             isinstance(other, DictType)
