@@ -14,7 +14,7 @@ def all_tokens_unlocked_from_address(
     res = 0
     for txi in txins:
         if txi.resolved.address == address:
-            res += txi.resolved.value[token.policy_id][token.token_name]
+            res += txi.resolved.value.get(token.policy_id, {}).get(token.token_name, 0)
     return res
 
 
@@ -46,7 +46,7 @@ def all_tokens_locked_at_address(
     res = 0
     for txo in txouts:
         if txo.address == address:
-            res += txo.value[token.policy_id][token.token_name]
+            res += txo.value.get(token.policy_id, {}).get(token.token_name, 0)
     return res
 
 
@@ -65,7 +65,7 @@ def validator(_datum: None, _redeemer: None, ctx: ScriptContext) -> None:
         assert False, "Incorrect purpose given"
     all_locked = all_tokens_locked_at_address(ctx.tx_info.outputs, own_addr, TOKEN)
     all_unlocked = all_tokens_unlocked_from_address(ctx.tx_info.inputs, own_addr, TOKEN)
-    all_minted = ctx.tx_info.mint[own_pid][TOKEN_NAME]
+    all_minted = ctx.tx_info.mint.get(own_pid, {}).get(TOKEN_NAME, 0)
     assert (
         (all_locked - all_unlocked) * WRAPPING_FACTOR
     ) == all_minted, "Wrong amount of tokens minted"
