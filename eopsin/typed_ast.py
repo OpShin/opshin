@@ -210,7 +210,11 @@ class DictType(ClassType):
                 plt.FindList(
                     plt.Var("self"),
                     plt.Lambda(
-                        ["x"], plt.EqualsData(plt.Var("key"), plt.FstPair(plt.Var("x")))
+                        ["x"],
+                        plt.EqualsData(
+                            transform_output_map(self.key_typ)(plt.Var("key")),
+                            plt.FstPair(plt.Var("x")),
+                        ),
                     ),
                     plt.Var("default"),
                 ),
