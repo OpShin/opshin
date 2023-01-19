@@ -1,3 +1,6 @@
+import logging
+from logging import getLogger
+
 from .rewrite.rewrite_augassign import RewriteAugAssign
 from .rewrite.rewrite_forbidden_overwrites import RewriteForbiddenOverwrites
 from .rewrite.rewrite_import import RewriteImport
@@ -15,6 +18,7 @@ from .type_inference import *
 from .util import RawPlutoExpr, TypedNodeTransformer
 from .typed_ast import transform_ext_params_map, transform_output_map
 
+_LOGGER = logging.getLogger(__name__)
 
 STATEMONAD = "s"
 
@@ -82,6 +86,28 @@ ConstantMap = {
     bool: plt.Bool,
     type(None): lambda _: plt.NoneData(),
 }
+
+
+def wrap_validator_double_function(x: plt.AST):
+    """Wraps the validator function to enable a double function as minting script"""
+    return plt.Lambda(
+        ["a0", "a1"],
+        plt.Ite(
+            # if the second argument has constructor 0 = script context
+            plt.DelayedChooseData(
+                plt.Var("a1"),
+                plt.EqualsInteger(plt.Constructor(plt.Var("a1")), plt.Integer(0)),
+                plt.Bool(False),
+                plt.Bool(False),
+                plt.Bool(False),
+                plt.Bool(False),
+            ),
+            # call the validator with a0, a1, and plug in Unit for data
+            plt.Apply(x, plt.Unit(), plt.Var("a0"), plt.Var("a1")),
+            # else call the validator with a0, a1 and return (now partially bound)
+            plt.Apply(x, plt.Var("a0"), plt.Var("a1")),
+        ),
+    )
 
 
 def extend_statemonad(
@@ -165,40 +191,60 @@ class UPLCCompiler(TypedNodeTransformer):
         assert isinstance(
             main_fun_typ, FunctionType
         ), "Variable named validator is not of type function"
-        cp = plt.Program(
-            "1.0.0",
-            plt.Lambda(
-                [f"p{i}" for i, _ in enumerate(main_fun_typ.argtyps)],
-                transform_output_map(main_fun_typ.rettyp)(
-                    plt.Let(
-                        [
-                            (
-                                "s",
-                                plt.Apply(
-                                    self.visit_sequence(node.body), INITIAL_STATE
-                                ),
-                            ),
-                            (
-                                "g",
-                                plt.FunctionalMapAccess(
-                                    plt.Var("s"),
-                                    plt.ByteString(main_fun.name),
-                                    plt.TraceError("NameError: validator"),
-                                ),
-                            ),
-                        ],
-                        plt.Apply(
-                            plt.Var("g"),
-                            *[
-                                transform_ext_params_map(a)(plt.Var(f"p{i}"))
-                                for i, a in enumerate(main_fun_typ.argtyps)
-                            ],
-                            plt.Var("s"),
+
+        # check if this is a contract written to double function
+        enable_double_func_mint_spend = False
+        if len(main_fun_typ.argtyps) == 3:
+            # check if is possible
+            second_arg = main_fun_typ.argtyps[1]
+            assert isinstance(
+                second_arg, InstanceType
+            ), "Can not pass Class into validator"
+            if isinstance(second_arg.typ, UnionType):
+                possible_types = second_arg.typ.typs
+            else:
+                possible_types = [second_arg.typ]
+            enable_double_func_mint_spend = all(
+                not isinstance(t, RecordType) or t.record.constructor != 0
+                for t in possible_types
+            )
+            if not enable_double_func_mint_spend:
+                _LOGGER.warning(
+                    "The second argument to the validator function potentially has constructor id 0. The validator will not be able to double function as minting script and spending script."
+                )
+
+        validator = plt.Lambda(
+            [f"p{i}" for i, _ in enumerate(main_fun_typ.argtyps)],
+            transform_output_map(main_fun_typ.rettyp)(
+                plt.Let(
+                    [
+                        (
+                            "s",
+                            plt.Apply(self.visit_sequence(node.body), INITIAL_STATE),
                         ),
+                        (
+                            "g",
+                            plt.FunctionalMapAccess(
+                                plt.Var("s"),
+                                plt.ByteString(main_fun.name),
+                                plt.TraceError("NameError: validator"),
+                            ),
+                        ),
+                    ],
+                    plt.Apply(
+                        plt.Var("g"),
+                        *[
+                            transform_ext_params_map(a)(plt.Var(f"p{i}"))
+                            for i, a in enumerate(main_fun_typ.argtyps)
+                        ],
+                        plt.Var("s"),
                     ),
                 ),
             ),
         )
+        if enable_double_func_mint_spend:
+            validator = wrap_validator_double_function(validator)
+        cp = plt.Program("1.0.0", validator)
         return cp
 
     def visit_Constant(self, node: TypedConstant) -> plt.AST:
@@ -230,6 +276,29 @@ class UPLCCompiler(TypedNodeTransformer):
                 plt.Var(STATEMONAD),
                 [node.targets[0].id],
                 [plt.Apply(compiled_e, plt.Var(STATEMONAD))],
+            ),
+        )
+
+    def visit_AnnAssign(self, node: AnnAssign) -> plt.AST:
+        assert isinstance(
+            node.target, Name
+        ), "Assignments to other things then names are not supported"
+        assert isinstance(
+            node.target.typ, InstanceType
+        ), "Can only assign instances to instances"
+        compiled_e = self.visit(node.value)
+        # we need to map this as it will originate from PlutusData
+        # (\{STATEMONAD} -> (\x -> if (x ==b {self.visit(node.targets[0])}) then ({compiled_e} {STATEMONAD}) else ({STATEMONAD} x)))
+        return plt.Lambda(
+            [STATEMONAD],
+            plt.FunctionalMapExtend(
+                plt.Var(STATEMONAD),
+                [node.target.id],
+                [
+                    transform_ext_params_map(node.target.typ)(
+                        plt.Apply(compiled_e, plt.Var(STATEMONAD))
+                    )
+                ],
             ),
         )
 

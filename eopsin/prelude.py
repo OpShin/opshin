@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from typing import Dict, List, Union
 from hashlib import sha256, sha3_256, blake2b
 
-from pycardano import Datum, PlutusData
+from pycardano import Datum as Anything, PlutusData
 
 # Plutus V2
 TxId = bytes
@@ -10,7 +10,7 @@ TxId = bytes
 
 @dataclass()
 class Nothing(PlutusData):
-    CONSTR_ID = 0
+    CONSTR_ID = 1
     pass
 
 
@@ -67,7 +67,7 @@ StakingCredential = Union[StakingHash, StakingPtr]
 
 @dataclass()
 class SomeStakingCredential(PlutusData):
-    CONSTR_ID = 1
+    CONSTR_ID = 0
     staking_credential: StakingCredential
 
 
@@ -88,7 +88,7 @@ DatumHash = bytes
 
 @dataclass()
 class SomeDatumHash(PlutusData):
-    CONSTR_ID = 1
+    CONSTR_ID = 0
     datum_hash: DatumHash
 
 
@@ -195,11 +195,7 @@ class Certifying(PlutusData):
 ScriptPurpose = Union[Minting, Spending, Rewarding, Certifying]
 
 
-@dataclass()
-class BuiltinData(PlutusData):
-    # TODO how to represent this -> should be possible to compare to other PlutusData
-    # value: Datum
-    pass
+BuiltinData = Anything
 
 
 Redeemer = BuiltinData

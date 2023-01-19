@@ -15,19 +15,19 @@ class RewriteImportPlutusData(NodeTransformer):
             return node
         assert (
             len(node.names) == 2
-        ), "The program must contain one 'from pycardano import Datum, PlutusData'"
+        ), "The program must contain one 'from pycardano import Datum as Anything, PlutusData'"
         assert (
             node.names[0].name == "Datum"
-        ), "The program must contain one 'from pycardano import Datum, PlutusData'"
+        ), "The program must contain one 'from pycardano import Datum as Anything, PlutusData'"
         assert (
-            node.names[0].asname == None
-        ), "The program must contain one 'from pycardano import Datum, PlutusData'"
+            node.names[0].asname == "Anything"
+        ), "The program must contain one 'from pycardano import Datum as Anything, PlutusData'"
         assert (
             node.names[1].name == "PlutusData"
-        ), "The program must contain one 'from pycardano import Datum, PlutusData'"
+        ), "The program must contain one 'from pycardano import Datum as Anything, PlutusData'"
         assert (
             node.names[1].asname == None
-        ), "The program must contain one 'from pycardano import Datum, PlutusData'"
+        ), "The program must contain one 'from pycardano import Datum as Anything, PlutusData'"
         self.imports_plutus_data = True
         return None
 
