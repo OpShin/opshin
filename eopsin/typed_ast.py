@@ -206,17 +206,21 @@ class DictType(ClassType):
     def attribute(self, attr) -> plt.AST:
         if attr == "get":
             return plt.Lambda(
-                ["self", "key", "default"],
-                plt.FindList(
-                    plt.Var("self"),
-                    plt.Lambda(
-                        ["x"],
-                        plt.EqualsData(
-                            transform_output_map(self.key_typ)(plt.Var("key")),
-                            plt.FstPair(plt.Var("x")),
+                ["self", "key", "default", "_"],
+                transform_ext_params_map(self.value_typ)(
+                    plt.SndPair(
+                        plt.FindList(
+                            plt.Var("self"),
+                            plt.Lambda(
+                                ["x"],
+                                plt.EqualsData(
+                                    transform_output_map(self.key_typ)(plt.Var("key")),
+                                    plt.FstPair(plt.Var("x")),
+                                ),
+                            ),
+                            plt.Var("default"),
                         ),
                     ),
-                    plt.Var("default"),
                 ),
             )
         raise NotImplementedError(f"Attribute '{attr}' of Dict is unknown.")
