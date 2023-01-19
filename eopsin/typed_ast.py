@@ -85,9 +85,7 @@ class RecordType(ClassType):
         # then build a constr type with this PlutusData
         return plt.Lambda(
             [n for n, _ in self.record.fields] + ["_"],
-            plt.ConstrData(
-                plt.Integer(self.record.constructor), plt.ListData(build_constr_params)
-            ),
+            plt.ConstrData(plt.Integer(self.record.constructor), build_constr_params),
         )
 
     def attribute_type(self, attr: str) -> Type:
