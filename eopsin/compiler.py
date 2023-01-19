@@ -511,9 +511,15 @@ class UPLCCompiler(TypedNodeTransformer):
             ),
         )
 
-    def visit_ClassDef(self, node: ClassDef) -> plt.AST:
-        # TODO add initializer to state monad
-        return self.visit_sequence([])
+    def visit_ClassDef(self, node: TypedClassDef) -> plt.AST:
+        return plt.Lambda(
+            [STATEMONAD],
+            plt.FunctionalMapExtend(
+                plt.Var(STATEMONAD),
+                [node.name],
+                [node.class_typ.constr()],
+            ),
+        )
 
     def visit_Attribute(self, node: TypedAttribute) -> plt.AST:
         assert isinstance(

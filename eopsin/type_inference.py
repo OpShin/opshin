@@ -125,14 +125,15 @@ class AggressiveTypeInferencer(NodeTransformer):
             )
         raise NotImplementedError(f"Annotation type {ann} is not supported")
 
-    def visit_ClassDef(self, node: ClassDef) -> ClassDef:
+    def visit_ClassDef(self, node: ClassDef) -> TypedClassDef:
         class_record = RecordReader.extract(node, self)
-        self.set_variable_type(node.name, RecordType(class_record))
-        return node
+        typ = RecordType(class_record)
+        self.set_variable_type(node.name, typ)
+        typed_node = copy(node)
+        typed_node.class_typ = typ
+        return typed_node
 
-    # TODO type inference for classDef
-
-    def visit_Constant(self, node: Constant):
+    def visit_Constant(self, node: Constant) -> TypedConstant:
         tc = copy(node)
         assert type(node.value) not in [
             float,
