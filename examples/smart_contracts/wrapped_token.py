@@ -14,7 +14,9 @@ def all_tokens_unlocked_from_address(
     res = 0
     for txi in txins:
         if txi.resolved.address == address:
-            res += txi.resolved.value.get(token.policy_id, {}).get(token.token_name, 0)
+            res += txi.resolved.value.get(token.policy_id, {b"": 0}).get(
+                token.token_name, 0
+            )
     return res
 
 
@@ -31,7 +33,7 @@ def own_policy_id(own_spent_utxo: TxOut) -> PolicyId:
     # obtain the policy id for which this contract can validate minting/burning
     cred = own_spent_utxo.address.credential
     if isinstance(cred, ScriptCredential):
-        policy_id = PolicyId(cred.validator_hash)
+        policy_id = cred.validator_hash
     # This throws a name error if the credential is not a ScriptCredential instance
     return policy_id
 
@@ -46,7 +48,7 @@ def all_tokens_locked_at_address(
     res = 0
     for txo in txouts:
         if txo.address == address:
-            res += txo.value.get(token.policy_id, {}).get(token.token_name, 0)
+            res += txo.value.get(token.policy_id, {b"": 0}).get(token.token_name, 0)
     return res
 
 
@@ -65,7 +67,7 @@ def validator(_datum: None, _redeemer: None, ctx: ScriptContext) -> None:
         assert False, "Incorrect purpose given"
     all_locked = all_tokens_locked_at_address(ctx.tx_info.outputs, own_addr, TOKEN)
     all_unlocked = all_tokens_unlocked_from_address(ctx.tx_info.inputs, own_addr, TOKEN)
-    all_minted = ctx.tx_info.mint.get(own_pid, {}).get(TOKEN_NAME, 0)
+    all_minted = ctx.tx_info.mint.get(own_pid, {b"": 0}).get(TOKEN_NAME, 0)
     assert (
         (all_locked - all_unlocked) * WRAPPING_FACTOR
     ) == all_minted, "Wrong amount of tokens minted"

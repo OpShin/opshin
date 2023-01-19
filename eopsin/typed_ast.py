@@ -398,11 +398,15 @@ class TypedConstant(TypedAST, Constant):
 
 
 class TypedTuple(typedexpr, Tuple):
-    typ: typing.List[TypedAST]
+    pass
 
 
 class TypedList(typedexpr, List):
-    typ: typing.List[TypedAST]
+    pass
+
+
+class TypedDict(typedexpr, Dict):
+    pass
 
 
 class TypedCompare(typedexpr, Compare):
