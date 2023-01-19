@@ -67,7 +67,7 @@ def validator(_datum: Nothing, _redeemer: Nothing, ctx: ScriptContext) -> None:
         assert False, "Incorrect purpose given"
     all_locked = all_tokens_locked_at_address(ctx.tx_info.outputs, own_addr, TOKEN)
     all_unlocked = all_tokens_unlocked_from_address(ctx.tx_info.inputs, own_addr, TOKEN)
-    all_minted = ctx.tx_info.mint.get(own_pid, {b"": 0}).get(TOKEN_NAME, 0)
+    all_minted = ctx.tx_info.mint.get(own_pid, {b"": 0}).get(b"w" + TOKEN_NAME, 0)
     if all_unlocked == 0:
         print("only minting")
     if all_locked == 0:

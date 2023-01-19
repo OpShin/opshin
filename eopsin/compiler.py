@@ -29,7 +29,10 @@ BinOpMap = {
             IntegerInstanceType: plt.AddInteger,
         },
         ByteStringInstanceType: {
-            ByteStringInstanceType: plt.AppendString,
+            ByteStringInstanceType: plt.AppendByteString,
+        },
+        StringInstanceType: {
+            StringInstanceType: plt.AppendString,
         },
     },
     Sub: {
