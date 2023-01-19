@@ -55,30 +55,17 @@ def validator(_datum: None, _redeemer: None, ctx: ScriptContext) -> None:
     if isinstance(purpose, Minting):
         # whenever tokens should be burned/minted, the minting purpose will be triggered
         own_addr = own_address(purpose.policy_id)
-        all_locked = all_tokens_locked_at_address(ctx.tx_info.outputs, own_addr, TOKEN)
-        all_minted = ctx.tx_info.mint[purpose.policy_id][TOKEN_NAME]
-        if all_minted < 0:
-            # negative mint indicates burning. reproduce check that spending script does
-            all_unlocked = all_tokens_unlocked_from_address(
-                ctx.tx_info.inputs, own_addr, TOKEN
-            )
-            assert (
-                all_unlocked * WRAPPING_FACTOR
-            ) == -all_minted, "Wrong amount of tokens burnt"
-        else:
-            assert (
-                all_locked * WRAPPING_FACTOR
-            ) == all_minted, "Wrong amount of tokens minted"
+        own_pid = purpose.policy_id
     elif isinstance(purpose, Spending):
         # whenever something is unlocked from the contract, the spending purpose will be triggered
         own_utxo = own_spent_utxo(ctx.tx_info.inputs, purpose)
-        pid = own_policy_id(own_utxo)
-        all_unlocked = all_tokens_unlocked_from_address(
-            ctx.tx_info.inputs, own_utxo.tx_out.address, TOKEN
-        )
-        all_burned = ctx.tx_info.mint[pid][TOKEN_NAME]
-        assert (
-            all_unlocked * WRAPPING_FACTOR
-        ) == -all_burned, "Wrong amount of tokens burnt"
+        own_pid = own_policy_id(own_utxo)
+        own_addr = own_utxo.address
     else:
         assert False, "Incorrect purpose given"
+    all_locked = all_tokens_locked_at_address(ctx.tx_info.outputs, own_addr, TOKEN)
+    all_unlocked = all_tokens_unlocked_from_address(ctx.tx_info.inputs, own_addr, TOKEN)
+    all_minted = ctx.tx_info.mint[own_pid][TOKEN_NAME]
+    assert (
+        (all_locked - all_unlocked) * WRAPPING_FACTOR
+    ) == all_minted, "Wrong amount of tokens minted"
