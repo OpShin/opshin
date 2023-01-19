@@ -206,6 +206,17 @@ class DictType(ClassType):
         )
 
     def attribute(self, attr) -> plt.AST:
+        if attr == "get":
+            return plt.Lambda(
+                ["self", "key", "default"],
+                plt.FindList(
+                    plt.Var("self"),
+                    plt.Lambda(
+                        ["x"], plt.EqualsData(plt.Var("key"), plt.FstPair(plt.Var("x")))
+                    ),
+                    plt.Var("default"),
+                ),
+            )
         raise NotImplementedError(f"Attribute '{attr}' of Dict is unknown.")
 
     def __ge__(self, other):
@@ -579,13 +590,7 @@ def empty_list(p: Type):
         el = empty_list(p.typ.typ)
         return plt.EmptyListList(uplc.BuiltinList([], el.sample_value))
     if isinstance(p.typ, DictType):
-        el_key = empty_list(p.typ.key_typ)
-        el_value = empty_list(p.typ.value_typ)
-        return plt.EmptyListList(
-            uplc.BuiltinList(
-                [], uplc.BuiltinPair(el_key.sample_value, el_value.sample_value)
-            )
-        )
+        plt.EmptyDataPairList()
     if isinstance(p.typ, RecordType):
         return plt.EmptyDataList()
     raise NotImplementedError(f"Empty lists of type {p} can't be constructed yet")
@@ -614,10 +619,9 @@ def transform_ext_params_map(p: Type):
             empty_list(p.typ.typ),
         )
     if isinstance(p.typ, DictType):
-        # TODO also remap in the style the list is mapped (but on pairs)
-        raise NotImplementedError(
-            "Dictionaries can currently not be parsed from PlutusData"
-        )
+        # there doesn't appear to be a constructor function to make Pair a b for any types
+        # so pairs will always contain Data
+        return lambda x: plt.UnMapData(x)
     return lambda x: x
 
 
@@ -647,8 +651,7 @@ def transform_output_map(p: Type):
             ),
         )
     if isinstance(p.typ, DictType):
-        # TODO also remap in the style the list is mapped as input
-        raise NotImplementedError(
-            "Dictionaries can currently not be mapped to PlutusData"
-        )
+        # there doesn't appear to be a constructor function to make Pair a b for any types
+        # so pairs will always contain Data
+        return lambda x: plt.MapData(x)
     return lambda x: x

@@ -329,8 +329,8 @@ def validator(_: None) -> int:
         ret = uplc.Machine(f).eval()
         self.assertEqual(uplc.PlutusInteger(100), ret)
 
-    def test_wrapping_contract_fail(self):
-        input_file = "examples/smart_contracts/wrapped_token.py"
+    def test_datum_cast(self):
+        input_file = "examples/datum_cast.py"
         with open(input_file) as fp:
             source_code = fp.read()
         ast = compiler.parse(source_code)
@@ -358,8 +358,8 @@ def validator(_: None) -> int:
             ret,
         )
 
-    def test_datum_cast(self):
-        input_file = "examples/datum_cast.py"
+    def test_wrapping_contract_fail(self):
+        input_file = "examples/smart_contracts/wrapped_token.py"
         with open(input_file) as fp:
             source_code = fp.read()
         ast = compiler.parse(source_code)

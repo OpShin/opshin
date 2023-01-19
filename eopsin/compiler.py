@@ -553,6 +553,26 @@ class UPLCCompiler(TypedNodeTransformer):
             l = plt.MkCons(plt.Apply(self.visit(e), plt.Var(STATEMONAD)), l)
         return plt.Lambda([STATEMONAD], l)
 
+    def visit_Dict(self, node: TypedDict) -> plt.AST:
+        assert isinstance(node.typ, InstanceType)
+        assert isinstance(node.typ.typ, DictType)
+        key_type = node.typ.typ.key_typ
+        value_type = node.typ.typ.value_typ
+        l = plt.EmptyDataPairList()
+        for k, v in zip(node.keys, node.values):
+            l = plt.MkCons(
+                plt.MkPairData(
+                    transform_output_map(key_type)(
+                        plt.Apply(self.visit(k), plt.Var(STATEMONAD))
+                    ),
+                    transform_output_map(value_type)(
+                        plt.Apply(self.visit(v), plt.Var(STATEMONAD))
+                    ),
+                ),
+                l,
+            )
+        return plt.Lambda([STATEMONAD], l)
+
     def generic_visit(self, node: AST) -> plt.AST:
         raise NotImplementedError(f"Can not compile {node}")
 
