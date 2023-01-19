@@ -218,7 +218,13 @@ class DictType(ClassType):
                                     plt.FstPair(plt.Var("x")),
                                 ),
                             ),
-                            plt.Var("default"),
+                            # this is a bit ugly... we wrap - only to later unwrap again
+                            plt.MkPairData(
+                                transform_output_map(self.key_typ)(plt.Var("key")),
+                                transform_output_map(self.value_typ)(
+                                    plt.Var("default")
+                                ),
+                            ),
                         ),
                     ),
                 ),

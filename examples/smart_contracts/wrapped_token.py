@@ -1,6 +1,6 @@
 from eopsin.prelude import *
 
-TOKEN_POLICYID = b"\x8a\x1c\xfa\xe2\x13h\xb8\xbe\xbb\xbe\xd9\x80\x0f\xec0N\x95\xcc\xe3\x9a*W\xdc5\xe2\xe3\xeb\xaa"
+TOKEN_POLICYID = b"\xae\x81\x071\xb5\xd2\x1c\r\x18-\x89\xc6\n\x1e\xffp\x95\xdf\xfd\x1c\r\xce\x87\x07\xa8a\x10\x99"
 TOKEN_NAME = b"MILK"
 WRAPPING_FACTOR = 1000000
 
@@ -68,6 +68,12 @@ def validator(_datum: Nothing, _redeemer: Nothing, ctx: ScriptContext) -> None:
     all_locked = all_tokens_locked_at_address(ctx.tx_info.outputs, own_addr, TOKEN)
     all_unlocked = all_tokens_unlocked_from_address(ctx.tx_info.inputs, own_addr, TOKEN)
     all_minted = ctx.tx_info.mint.get(own_pid, {b"": 0}).get(TOKEN_NAME, 0)
+    if all_unlocked == 0:
+        print("only minting")
+    if all_locked == 0:
+        print("only burning")
+    if all_minted == 0:
+        print("not minting")
     assert (
         (all_locked - all_unlocked) * WRAPPING_FACTOR
     ) == all_minted, "Wrong amount of tokens minted"
