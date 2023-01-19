@@ -54,30 +54,6 @@ BinOpMap = {
     },
 }
 
-CmpMap = {
-    Eq: {
-        IntegerInstanceType: {
-            IntegerInstanceType: plt.EqualsInteger,
-        },
-        ByteStringInstanceType: {
-            ByteStringInstanceType: plt.EqualsByteString,
-        },
-        StringInstanceType: {
-            StringInstanceType: plt.EqualsString,
-        },
-        BoolInstanceType: {
-            BoolInstanceType: plt.EqualsBool,
-        },
-    },
-    Lt: {
-        IntegerInstanceType: {
-            IntegerInstanceType: plt.LessThanInteger,
-        },
-        ByteStringInstanceType: {
-            ByteStringInstanceType: plt.LessThanByteString,
-        },
-    },
-}
 
 ConstantMap = {
     str: plt.Text,
@@ -155,25 +131,16 @@ class UPLCCompiler(TypedNodeTransformer):
             ),
         )
 
-    def visit_Compare(self, node: Compare) -> plt.AST:
+    def visit_Compare(self, node: TypedCompare) -> plt.AST:
         assert len(node.ops) == 1, "Only single comparisons are supported"
         assert len(node.comparators) == 1, "Only single comparisons are supported"
-        opmap = CmpMap.get(type(node.ops[0]))
-        if opmap is None:
-            raise NotImplementedError(f"Operation {node.ops[0]} is not implemented")
-        opmap2 = opmap.get(node.left.typ)
-        if opmap2 is None:
-            raise NotImplementedError(
-                f"Operation {node.ops[0]} is not implemented for left type {node.left.typ}"
-            )
-        op = opmap2.get(node.comparators[0].typ)
-        if op is None:
-            raise NotImplementedError(
-                f"Operation {node.ops[0]} is not implemented for left type {node.left.typ} and right type {node.comparators[0].typ}"
-            )
+        cmpop = node.ops[0]
+        comparator = node.comparators[0].typ
+        op = node.left.typ.cmp(cmpop, comparator)
         return plt.Lambda(
             [STATEMONAD],
-            op(
+            plt.Apply(
+                op,
                 plt.Apply(self.visit(node.left), plt.Var(STATEMONAD)),
                 plt.Apply(self.visit(node.comparators[0]), plt.Var(STATEMONAD)),
             ),

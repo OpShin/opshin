@@ -33,6 +33,10 @@ class Type:
         """The attributes of this class. Needs to be a lambda that expects as first argument the object itself"""
         raise NotImplementedError(f"Attribute {attr} not implemented for type {self}")
 
+    def cmp(self, op: cmpop, o: "Type") -> plt.AST:
+        """The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second the comparison."""
+        raise NotImplementedError(f"Comparison {type(op).__name__} for {self} and {o}")
+
 
 @dataclass(frozen=True, unsafe_hash=True)
 class Record:
@@ -115,6 +119,25 @@ class RecordType(ClassType):
                 ),
             ),
         )
+
+    def cmp(self, op: cmpop, o: "Type") -> plt.AST:
+        """The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second the comparison."""
+        if isinstance(o, RecordType):
+            if isinstance(op, Eq):
+                # TODO can print a warning if records are different and this will always return false
+                return plt.BuiltIn(uplc.BuiltInFun.EqualsData)
+            if isinstance(op, NotEq):
+                return plt.Lambda(
+                    ["x", "y"],
+                    plt.Not(
+                        plt.Apply(
+                            plt.BuiltIn(uplc.BuiltInFun.EqualsData),
+                            plt.Var("x"),
+                            plt.Var("y"),
+                        )
+                    ),
+                )
+        return super().cmp(op, o)
 
     def __ge__(self, other):
         # Can only substitute for its own type, records need to be equal
@@ -222,18 +245,66 @@ class InstanceType(Type):
     def attribute(self, attr) -> plt.AST:
         return self.typ.attribute(attr)
 
+    def cmp(self, op: cmpop, o: "Type") -> plt.AST:
+        """The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second the comparison."""
+        if isinstance(o, InstanceType):
+            return self.typ.cmp(op, o.typ)
+        return super().cmp(op, o)
+
     def __ge__(self, other):
         return isinstance(other, InstanceType) and self.typ >= other.typ
 
 
 @dataclass(frozen=True, unsafe_hash=True)
 class IntegerType(AtomicType):
-    pass
+    def cmp(self, op: cmpop, o: "Type") -> plt.AST:
+        """The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second the comparison."""
+        if isinstance(o, IntegerType):
+            if isinstance(op, Eq):
+                return plt.BuiltIn(uplc.BuiltInFun.EqualsInteger)
+            if isinstance(op, NotEq):
+                return plt.Lambda(
+                    ["x", "y"],
+                    plt.Not(
+                        plt.Apply(
+                            plt.BuiltIn(uplc.BuiltInFun.EqualsInteger),
+                            plt.Var("y"),
+                            plt.Var("x"),
+                        )
+                    ),
+                )
+            if isinstance(op, LtE):
+                return plt.BuiltIn(uplc.BuiltInFun.LessThanEqualsInteger)
+            if isinstance(op, Lt):
+                return plt.BuiltIn(uplc.BuiltInFun.LessThanInteger)
+            if isinstance(op, Gt):
+                return plt.Lambda(
+                    ["x", "y"],
+                    plt.Apply(
+                        plt.BuiltIn(uplc.BuiltInFun.LessThanInteger),
+                        plt.Var("y"),
+                        plt.Var("x"),
+                    ),
+                )
+            if isinstance(op, GtE):
+                return plt.Lambda(
+                    ["x", "y"],
+                    plt.Apply(
+                        plt.BuiltIn(uplc.BuiltInFun.LessThanEqualsInteger),
+                        plt.Var("y"),
+                        plt.Var("x"),
+                    ),
+                )
+        return super().cmp(op, o)
 
 
 @dataclass(frozen=True, unsafe_hash=True)
 class StringType(AtomicType):
-    pass
+    def cmp(self, op: cmpop, o: "Type") -> plt.AST:
+        if isinstance(o, StringType):
+            if isinstance(op, Eq):
+                return plt.BuiltIn(uplc.BuiltInFun.EqualsString)
+        return super().cmp(op, o)
 
 
 @dataclass(frozen=True, unsafe_hash=True)
@@ -245,15 +316,64 @@ class ByteStringType(AtomicType):
             )
         )
 
+    def cmp(self, op: cmpop, o: "Type") -> plt.AST:
+        if isinstance(o, ByteStringType):
+            if isinstance(op, Eq):
+                return plt.BuiltIn(uplc.BuiltInFun.EqualsByteString)
+            if isinstance(op, NotEq):
+                return plt.Lambda(
+                    ["x", "y"],
+                    plt.Not(
+                        plt.Apply(
+                            plt.BuiltIn(uplc.BuiltInFun.EqualsByteString),
+                            plt.Var("y"),
+                            plt.Var("x"),
+                        )
+                    ),
+                )
+            if isinstance(op, Lt):
+                return plt.BuiltIn(uplc.BuiltInFun.LessThanByteString)
+            if isinstance(op, LtE):
+                return plt.BuiltIn(uplc.BuiltInFun.LessThanEqualsByteString)
+            if isinstance(op, Gt):
+                return plt.Lambda(
+                    ["x", "y"],
+                    plt.Apply(
+                        plt.BuiltIn(uplc.BuiltInFun.LessThanByteString),
+                        plt.Var("y"),
+                        plt.Var("x"),
+                    ),
+                )
+            if isinstance(op, GtE):
+                return plt.Lambda(
+                    ["x", "y"],
+                    plt.Apply(
+                        plt.BuiltIn(uplc.BuiltInFun.LessThanEqualsByteString),
+                        plt.Var("y"),
+                        plt.Var("x"),
+                    ),
+                )
+        return super().cmp(op, o)
+
 
 @dataclass(frozen=True, unsafe_hash=True)
 class BoolType(AtomicType):
-    pass
+    def cmp(self, op: cmpop, o: "Type") -> plt.AST:
+        if isinstance(o, BoolType):
+            if isinstance(op, Eq):
+                return plt.Lambda(["x", "y"], plt.Iff(plt.Var("x"), plt.Var("y")))
+        return super().cmp(op, o)
 
 
 @dataclass(frozen=True, unsafe_hash=True)
 class UnitType(AtomicType):
-    pass
+    def cmp(self, op: cmpop, o: "Type") -> plt.AST:
+        if isinstance(o, UnitType):
+            if isinstance(op, Eq):
+                return plt.Lambda(["x", "y"], plt.Bool(True))
+            if isinstance(op, NotEq):
+                return plt.Lambda(["x", "y"], plt.Bool(False))
+        return super().cmp(op, o)
 
 
 IntegerInstanceType = InstanceType(IntegerType())
