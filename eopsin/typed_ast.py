@@ -359,6 +359,26 @@ class IntegerType(AtomicType):
                         plt.Var("x"),
                     ),
                 )
+        if (
+            isinstance(o, ListType)
+            and isinstance(o.typ, InstanceType)
+            and isinstance(o.typ.typ, IntegerType)
+        ):
+            if isinstance(op, In):
+                return plt.Lambda(
+                    ["x", "y"],
+                    plt.EqualsInteger(
+                        plt.Var("x"),
+                        plt.FindList(
+                            plt.Var("y"),
+                            plt.Apply(
+                                plt.BuiltIn(uplc.BuiltInFun.EqualsInteger), plt.Var("x")
+                            ),
+                            # this simply ensures the default is always unequal to the searched value
+                            plt.AddInteger(plt.Var("x"), plt.Integer(1)),
+                        ),
+                    ),
+                )
         return super().cmp(op, o)
 
 
@@ -415,6 +435,27 @@ class ByteStringType(AtomicType):
                         plt.BuiltIn(uplc.BuiltInFun.LessThanEqualsByteString),
                         plt.Var("y"),
                         plt.Var("x"),
+                    ),
+                )
+        if (
+            isinstance(o, ListType)
+            and isinstance(o.typ, InstanceType)
+            and isinstance(o.typ.typ, ByteStringType)
+        ):
+            if isinstance(op, In):
+                return plt.Lambda(
+                    ["x", "y"],
+                    plt.EqualsByteString(
+                        plt.Var("x"),
+                        plt.FindList(
+                            plt.Var("y"),
+                            plt.Apply(
+                                plt.BuiltIn(uplc.BuiltInFun.EqualsByteString),
+                                plt.Var("x"),
+                            ),
+                            # this simply ensures the default is always unequal to the searched value
+                            plt.ConsByteString(plt.Integer(0), plt.Var("x")),
+                        ),
                     ),
                 )
         return super().cmp(op, o)

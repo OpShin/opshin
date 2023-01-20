@@ -7,8 +7,5 @@ class CancelDatum(PlutusData):
 
 
 def validator(datum: CancelDatum, redeemer: None, context: ScriptContext) -> None:
-    sig_present = False
-    for s in context.tx_info.signatories:
-        if datum.pubkeyhash == s:
-            sig_present = True
+    sig_present = datum.pubkeyhash in context.tx_info.signatories
     assert sig_present, "Required signature missing"
