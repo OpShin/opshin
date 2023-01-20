@@ -49,6 +49,15 @@ def all_tokens_locked_at_address(
     for txo in txouts:
         if txo.address == address:
             res += txo.value.get(token.policy_id, {b"": 0}).get(token.token_name, 0)
+            dh = txo.datum_hash
+            if isinstance(dh, SomeDatumHash):
+                # the datum hash of the Nothing plutus datum
+                assert (
+                    txo.datum_hash.datum_hash
+                    == b"\x83\x92\xf0\xc9@C\\\x06\x88\x8f\x9b\xdb\x8ct\xa9]\xc6\x9f\x15cg\xd6\xa0\x89\xcf\x00\x8a\xe0\\\xaa\xe0\x1e"
+                )
+            else:
+                assert False, "Does not attach correct datum to script output"
     return res
 
 
