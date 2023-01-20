@@ -131,12 +131,14 @@ def main():
         target_dir.mkdir(exist_ok=True)
         uplc_dump = code.dumps()
         cbor_hex = pyaiken.uplc.flat(uplc_dump)
+        # create cbor file for use with pycardano/lucid
         with (target_dir / "script.cbor").open("w") as fp:
             fp.write(cbor_hex)
         cbor = bytes.fromhex(cbor_hex)
         # double wrap
         cbor_wrapped = cbor2.dumps(cbor)
         cbor_wrapped_hex = cbor_wrapped.hex()
+        # create plutus file
         d = {
             "type": "PlutusScriptV2",
             "description": f"Eopsin {__version__} Smart Contract",
@@ -145,9 +147,13 @@ def main():
         with (target_dir / "script.plutus").open("w") as fp:
             json.dump(d, fp)
         script_hash = pycardano.plutus_script_hash(pycardano.PlutusV2Script(cbor))
+        # generate policy ids
+        with (target_dir / "script.policy_id").open("w") as fp:
+            fp.write(script_hash.to_primitive().hex())
         addr_mainnet = pycardano.Address(
             script_hash, network=pycardano.Network.MAINNET
         ).encode()
+        # generate addresses
         with (target_dir / "mainnet.addr").open("w") as fp:
             fp.write(addr_mainnet)
         addr_testnet = pycardano.Address(
@@ -155,9 +161,9 @@ def main():
         ).encode()
         with (target_dir / "testnet.addr").open("w") as fp:
             fp.write(addr_testnet)
+
         print(f"Wrote script artifacts to {target_dir}/")
         return
-
     if command == Command.eval_uplc:
         print("Starting execution")
         print("------------------")

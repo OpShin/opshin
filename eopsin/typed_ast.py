@@ -33,6 +33,10 @@ class Type:
         """The attributes of this class. Needs to be a lambda that expects as first argument the object itself"""
         raise NotImplementedError(f"Attribute {attr} not implemented for type {self}")
 
+    def cmp(self, op: cmpop, o: "Type") -> plt.AST:
+        """The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second the comparison."""
+        raise NotImplementedError(f"Comparison {type(op).__name__} for {self} and {o}")
+
 
 @dataclass(frozen=True, unsafe_hash=True)
 class Record:
@@ -42,17 +46,17 @@ class Record:
 
 
 @dataclass(frozen=True, unsafe_hash=True)
-class AnyType(Type):
+class ClassType(Type):
+    def __ge__(self, other):
+        raise NotImplementedError("Comparison between raw classtypes impossible")
+
+
+@dataclass(frozen=True, unsafe_hash=True)
+class AnyType(ClassType):
     """The top element in the partial order on types"""
 
     def __ge__(self, other):
         return True
-
-
-@dataclass(frozen=True, unsafe_hash=True)
-class ClassType(Type):
-    def __ge__(self, other):
-        raise NotImplementedError("Comparison between raw classtypes impossible")
 
 
 @dataclass(frozen=True, unsafe_hash=True)
@@ -67,7 +71,9 @@ class RecordType(ClassType):
     record: Record
 
     def constr_type(self) -> "InstanceType":
-        return InstanceType(FunctionType(self.record.fields, InstanceType(self)))
+        return InstanceType(
+            FunctionType([f[1] for f in self.record.fields], InstanceType(self))
+        )
 
     def constr(self) -> plt.AST:
         # wrap all constructor values to PlutusData
@@ -79,9 +85,7 @@ class RecordType(ClassType):
         # then build a constr type with this PlutusData
         return plt.Lambda(
             [n for n, _ in self.record.fields] + ["_"],
-            plt.ConstrData(
-                plt.Integer(self.record.constructor), plt.ListData(build_constr_params)
-            ),
+            plt.ConstrData(plt.Integer(self.record.constructor), build_constr_params),
         )
 
     def attribute_type(self, attr: str) -> Type:
@@ -113,6 +117,25 @@ class RecordType(ClassType):
                 ),
             ),
         )
+
+    def cmp(self, op: cmpop, o: "Type") -> plt.AST:
+        """The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second the comparison."""
+        if isinstance(o, RecordType):
+            if isinstance(op, Eq):
+                # TODO can print a warning if records are different and this will always return false
+                return plt.BuiltIn(uplc.BuiltInFun.EqualsData)
+            if isinstance(op, NotEq):
+                return plt.Lambda(
+                    ["x", "y"],
+                    plt.Not(
+                        plt.Apply(
+                            plt.BuiltIn(uplc.BuiltInFun.EqualsData),
+                            plt.Var("x"),
+                            plt.Var("y"),
+                        )
+                    ),
+                )
+        return super().cmp(op, o)
 
     def __ge__(self, other):
         # Can only substitute for its own type, records need to be equal
@@ -171,6 +194,43 @@ class DictType(ClassType):
     key_typ: Type
     value_typ: Type
 
+    def attribute_type(self, attr) -> "Type":
+        if attr == "get":
+            return InstanceType(
+                FunctionType([self.key_typ, self.value_typ], self.value_typ)
+            )
+        raise TypeInferenceError(
+            f"Type of attribute '{attr}' is unknown for type Dict."
+        )
+
+    def attribute(self, attr) -> plt.AST:
+        if attr == "get":
+            return plt.Lambda(
+                ["self", "key", "default", "_"],
+                transform_ext_params_map(self.value_typ)(
+                    plt.SndPair(
+                        plt.FindList(
+                            plt.Var("self"),
+                            plt.Lambda(
+                                ["x"],
+                                plt.EqualsData(
+                                    transform_output_map(self.key_typ)(plt.Var("key")),
+                                    plt.FstPair(plt.Var("x")),
+                                ),
+                            ),
+                            # this is a bit ugly... we wrap - only to later unwrap again
+                            plt.MkPairData(
+                                transform_output_map(self.key_typ)(plt.Var("key")),
+                                transform_output_map(self.value_typ)(
+                                    plt.Var("default")
+                                ),
+                            ),
+                        ),
+                    ),
+                ),
+            )
+        raise NotImplementedError(f"Attribute '{attr}' of Dict is unknown.")
+
     def __ge__(self, other):
         return (
             isinstance(other, DictType)
@@ -208,18 +268,66 @@ class InstanceType(Type):
     def attribute(self, attr) -> plt.AST:
         return self.typ.attribute(attr)
 
+    def cmp(self, op: cmpop, o: "Type") -> plt.AST:
+        """The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second the comparison."""
+        if isinstance(o, InstanceType):
+            return self.typ.cmp(op, o.typ)
+        return super().cmp(op, o)
+
     def __ge__(self, other):
         return isinstance(other, InstanceType) and self.typ >= other.typ
 
 
 @dataclass(frozen=True, unsafe_hash=True)
 class IntegerType(AtomicType):
-    pass
+    def cmp(self, op: cmpop, o: "Type") -> plt.AST:
+        """The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second the comparison."""
+        if isinstance(o, IntegerType):
+            if isinstance(op, Eq):
+                return plt.BuiltIn(uplc.BuiltInFun.EqualsInteger)
+            if isinstance(op, NotEq):
+                return plt.Lambda(
+                    ["x", "y"],
+                    plt.Not(
+                        plt.Apply(
+                            plt.BuiltIn(uplc.BuiltInFun.EqualsInteger),
+                            plt.Var("y"),
+                            plt.Var("x"),
+                        )
+                    ),
+                )
+            if isinstance(op, LtE):
+                return plt.BuiltIn(uplc.BuiltInFun.LessThanEqualsInteger)
+            if isinstance(op, Lt):
+                return plt.BuiltIn(uplc.BuiltInFun.LessThanInteger)
+            if isinstance(op, Gt):
+                return plt.Lambda(
+                    ["x", "y"],
+                    plt.Apply(
+                        plt.BuiltIn(uplc.BuiltInFun.LessThanInteger),
+                        plt.Var("y"),
+                        plt.Var("x"),
+                    ),
+                )
+            if isinstance(op, GtE):
+                return plt.Lambda(
+                    ["x", "y"],
+                    plt.Apply(
+                        plt.BuiltIn(uplc.BuiltInFun.LessThanEqualsInteger),
+                        plt.Var("y"),
+                        plt.Var("x"),
+                    ),
+                )
+        return super().cmp(op, o)
 
 
 @dataclass(frozen=True, unsafe_hash=True)
 class StringType(AtomicType):
-    pass
+    def cmp(self, op: cmpop, o: "Type") -> plt.AST:
+        if isinstance(o, StringType):
+            if isinstance(op, Eq):
+                return plt.BuiltIn(uplc.BuiltInFun.EqualsString)
+        return super().cmp(op, o)
 
 
 @dataclass(frozen=True, unsafe_hash=True)
@@ -231,15 +339,64 @@ class ByteStringType(AtomicType):
             )
         )
 
+    def cmp(self, op: cmpop, o: "Type") -> plt.AST:
+        if isinstance(o, ByteStringType):
+            if isinstance(op, Eq):
+                return plt.BuiltIn(uplc.BuiltInFun.EqualsByteString)
+            if isinstance(op, NotEq):
+                return plt.Lambda(
+                    ["x", "y"],
+                    plt.Not(
+                        plt.Apply(
+                            plt.BuiltIn(uplc.BuiltInFun.EqualsByteString),
+                            plt.Var("y"),
+                            plt.Var("x"),
+                        )
+                    ),
+                )
+            if isinstance(op, Lt):
+                return plt.BuiltIn(uplc.BuiltInFun.LessThanByteString)
+            if isinstance(op, LtE):
+                return plt.BuiltIn(uplc.BuiltInFun.LessThanEqualsByteString)
+            if isinstance(op, Gt):
+                return plt.Lambda(
+                    ["x", "y"],
+                    plt.Apply(
+                        plt.BuiltIn(uplc.BuiltInFun.LessThanByteString),
+                        plt.Var("y"),
+                        plt.Var("x"),
+                    ),
+                )
+            if isinstance(op, GtE):
+                return plt.Lambda(
+                    ["x", "y"],
+                    plt.Apply(
+                        plt.BuiltIn(uplc.BuiltInFun.LessThanEqualsByteString),
+                        plt.Var("y"),
+                        plt.Var("x"),
+                    ),
+                )
+        return super().cmp(op, o)
+
 
 @dataclass(frozen=True, unsafe_hash=True)
 class BoolType(AtomicType):
-    pass
+    def cmp(self, op: cmpop, o: "Type") -> plt.AST:
+        if isinstance(o, BoolType):
+            if isinstance(op, Eq):
+                return plt.Lambda(["x", "y"], plt.Iff(plt.Var("x"), plt.Var("y")))
+        return super().cmp(op, o)
 
 
 @dataclass(frozen=True, unsafe_hash=True)
 class UnitType(AtomicType):
-    pass
+    def cmp(self, op: cmpop, o: "Type") -> plt.AST:
+        if isinstance(o, UnitType):
+            if isinstance(op, Eq):
+                return plt.Lambda(["x", "y"], plt.Bool(True))
+            if isinstance(op, NotEq):
+                return plt.Lambda(["x", "y"], plt.Bool(False))
+        return super().cmp(op, o)
 
 
 IntegerInstanceType = InstanceType(IntegerType())
@@ -352,6 +509,16 @@ class TypedAssign(typedstmt, Assign):
     value: typedexpr
 
 
+class TypedClassDef(typedstmt, ClassDef):
+    class_typ: Type
+
+
+class TypedAnnAssign(typedstmt, AnnAssign):
+    target: typedexpr
+    annotation: Type
+    value: typedexpr
+
+
 class TypedWhile(typedstmt, While):
     test: typedexpr
     body: typing.List[typedstmt]
@@ -378,11 +545,15 @@ class TypedConstant(TypedAST, Constant):
 
 
 class TypedTuple(typedexpr, Tuple):
-    typ: typing.List[TypedAST]
+    pass
 
 
 class TypedList(typedexpr, List):
-    typ: typing.List[TypedAST]
+    pass
+
+
+class TypedDict(typedexpr, Dict):
+    pass
 
 
 class TypedCompare(typedexpr, Compare):
@@ -435,13 +606,7 @@ def empty_list(p: Type):
         el = empty_list(p.typ.typ)
         return plt.EmptyListList(uplc.BuiltinList([], el.sample_value))
     if isinstance(p.typ, DictType):
-        el_key = empty_list(p.typ.key_typ)
-        el_value = empty_list(p.typ.value_typ)
-        return plt.EmptyListList(
-            uplc.BuiltinList(
-                [], uplc.BuiltinPair(el_key.sample_value, el_value.sample_value)
-            )
-        )
+        plt.EmptyDataPairList()
     if isinstance(p.typ, RecordType):
         return plt.EmptyDataList()
     raise NotImplementedError(f"Empty lists of type {p} can't be constructed yet")
@@ -470,10 +635,9 @@ def transform_ext_params_map(p: Type):
             empty_list(p.typ.typ),
         )
     if isinstance(p.typ, DictType):
-        # TODO also remap in the style the list is mapped (but on pairs)
-        raise NotImplementedError(
-            "Dictionaries can currently not be parsed from PlutusData"
-        )
+        # there doesn't appear to be a constructor function to make Pair a b for any types
+        # so pairs will always contain Data
+        return lambda x: plt.UnMapData(x)
     return lambda x: x
 
 
@@ -503,8 +667,7 @@ def transform_output_map(p: Type):
             ),
         )
     if isinstance(p.typ, DictType):
-        # TODO also remap in the style the list is mapped as input
-        raise NotImplementedError(
-            "Dictionaries can currently not be mapped to PlutusData"
-        )
+        # there doesn't appear to be a constructor function to make Pair a b for any types
+        # so pairs will always contain Data
+        return lambda x: plt.MapData(x)
     return lambda x: x

@@ -50,6 +50,11 @@ class OptimizeRemoveDeadvars(TypedNodeTransformer):
             return self.generic_visit(node)
         return Pass()
 
+    def visit_AnnAssign(self, node: AnnAssign):
+        if not isinstance(node.target, Name) or node.target.id in self.loaded_vars:
+            return self.generic_visit(node)
+        return Pass()
+
     def visit_ClassDef(self, node: ClassDef):
         if node.name in self.loaded_vars:
             return node

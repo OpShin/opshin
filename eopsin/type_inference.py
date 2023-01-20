@@ -1,4 +1,5 @@
 from copy import copy
+import ast
 
 from .typed_ast import *
 from .util import PythonBuiltInTypes
@@ -26,6 +27,7 @@ INITIAL_SCOPE = dict(
         # class annotations
         "bytes": ByteStringType(),
         "int": IntegerType(),
+        "Anything": AnyType(),
     }
 )
 
@@ -61,7 +63,7 @@ class AggressiveTypeInferencer(NodeTransformer):
     def set_variable_type(self, name: str, typ: Type, force=False):
         if not force and name in self.scopes[-1] and typ != self.scopes[-1][name]:
             raise TypeInferenceError(
-                f"Type of variable {name} in local scope does not match inferred type {typ}"
+                f"Type {self.scopes[-1][name]} of variable {name} in local scope does not match inferred type {typ}"
             )
         self.scopes[-1][name] = typ
 
@@ -123,14 +125,15 @@ class AggressiveTypeInferencer(NodeTransformer):
             )
         raise NotImplementedError(f"Annotation type {ann} is not supported")
 
-    def visit_ClassDef(self, node: ClassDef) -> ClassDef:
+    def visit_ClassDef(self, node: ClassDef) -> TypedClassDef:
         class_record = RecordReader.extract(node, self)
-        self.set_variable_type(node.name, RecordType(class_record))
-        return node
+        typ = RecordType(class_record)
+        self.set_variable_type(node.name, typ)
+        typed_node = copy(node)
+        typed_node.class_typ = typ
+        return typed_node
 
-    # TODO type inference for classDef
-
-    def visit_Constant(self, node: Constant):
+    def visit_Constant(self, node: Constant) -> TypedConstant:
         tc = copy(node)
         assert type(node.value) not in [
             float,
@@ -157,21 +160,50 @@ class AggressiveTypeInferencer(NodeTransformer):
         tt.elts = [self.visit(e) for e in node.elts]
         l_typ = tt.elts[0].typ
         assert all(
-            e.typ == l_typ for e in tt.elts
+            l_typ >= e.typ for e in tt.elts
         ), "All elements of a list must have the same type"
         tt.typ = InstanceType(ListType(l_typ))
         return tt
 
+    def visit_Dict(self, node: Dict) -> TypedDict:
+        tt = copy(node)
+        tt.keys = [self.visit(k) for k in node.keys]
+        tt.values = [self.visit(v) for v in node.values]
+        k_typ = tt.keys[0].typ
+        assert all(k_typ >= k.typ for k in tt.keys), "All keys must have the same type"
+        v_typ = tt.values[0].typ
+        assert all(
+            v_typ >= v.typ for v in tt.values
+        ), "All values must have the same type"
+        tt.typ = InstanceType(DictType(k_typ, v_typ))
+        return tt
+
     def visit_Assign(self, node: Assign) -> TypedAssign:
         typed_ass = copy(node)
-        for t in node.targets:
-            if isinstance(t, Tuple):
-                raise NotImplementedError("Type deconstruction not supported yet")
         typed_ass.value: TypedExpression = self.visit(node.value)
         # Make sure to first set the type of each target name so we can load it when visiting it
         for t in node.targets:
+            assert isinstance(
+                t, Name
+            ), "Can only assign to variable names, no type deconstruction"
             self.set_variable_type(t.id, typed_ass.value.typ)
         typed_ass.targets = [self.visit(t) for t in node.targets]
+        return typed_ass
+
+    def visit_AnnAssign(self, node: AnnAssign) -> TypedAnnAssign:
+        typed_ass = copy(node)
+        typed_ass.value: TypedExpression = self.visit(node.value)
+        typed_ass.annotation = self.type_from_annotation(node.annotation)
+        assert isinstance(
+            node.target, Name
+        ), "Can only assign to variable names, no type deconstruction"
+        self.set_variable_type(
+            node.target.id, InstanceType(typed_ass.annotation), force=True
+        )
+        typed_ass.target = self.visit(node.target)
+        assert typed_ass.value.typ >= InstanceType(
+            typed_ass.annotation
+        ), "Can only downcast to a specialized type"
         return typed_ass
 
     def visit_If(self, node: If) -> TypedIf:
@@ -376,7 +408,9 @@ class AggressiveTypeInferencer(NodeTransformer):
             ):
                 ts.typ = ts.value.typ.typ.typs[ts.slice.value.value]
             else:
-                raise TypeInferenceError(f"Could not infer type of subscript {node}")
+                raise TypeInferenceError(
+                    f"Could not infer type of subscript of typ {ts.value.typ} in {ast.dump(node)}"
+                )
         elif isinstance(ts.value.typ.typ, ListType):
             assert isinstance(
                 ts.slice, Index
@@ -409,8 +443,19 @@ class AggressiveTypeInferencer(NodeTransformer):
                 assert (
                     ts.slice.upper.typ == IntegerInstanceType
                 ), "upper slice indices for bytes must be integers"
+            else:
+                raise TypeInferenceError(
+                    f"Could not infer type of subscript of typ {ts.value.typ} in {ast.dump(node)}"
+                )
+        elif isinstance(ts.value.typ.typ, DictType):
+            # TODO could be implemented with potentially just erroring. It might be desired to avoid this though.
+            raise TypeInferenceError(
+                f"Could not infer type of subscript of dict. Use 'get' with a default value instead."
+            )
         else:
-            raise TypeInferenceError(f"Could not infer type of subscript {node}")
+            raise TypeInferenceError(
+                f"Could not infer type of subscript of typ {ts.value.typ} in {ast.dump(node)}"
+            )
         return ts
 
     def visit_Call(self, node: Call) -> TypedCall:
@@ -437,11 +482,11 @@ class AggressiveTypeInferencer(NodeTransformer):
             functyp = tc.func.typ.typ
             assert len(tc.args) == len(
                 functyp.argtyps
-            ), f"Signature of function {node} does not match number of arguments"
+            ), f"Signature of function {ast.dump(node)} does not match number of arguments"
             # all arguments need to be supertypes of the given type
             assert all(
                 ap >= a.typ for a, ap in zip(tc.args, functyp.argtyps)
-            ), f"Signature of function {node} does not match arguments"
+            ), f"Signature of function {ast.dump(node)} does not match arguments"
             tc.typ = functyp.rettyp
             return tc
         raise TypeInferenceError("Could not infer type of call")
@@ -555,7 +600,7 @@ class RecordReader(NodeVisitor):
         return None
 
     def generic_visit(self, node: AST) -> None:
-        raise NotImplementedError(f"Can not compile {node} inside of a class")
+        raise NotImplementedError(f"Can not compile {ast.dump(node)} inside of a class")
 
 
 def typed_ast(ast: AST):
