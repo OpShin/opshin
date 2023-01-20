@@ -77,11 +77,11 @@ class Address(PlutusData):
     staking_credential: Union[Nothing, SomeStakingCredential]
 
 
-CurrencySymbol = bytes
+PolicyId = bytes
 
 TokenName = bytes
 
-Value = Dict[CurrencySymbol, Dict[TokenName, int]]
+Value = Dict[PolicyId, Dict[TokenName, int]]
 
 DatumHash = bytes
 
@@ -171,7 +171,7 @@ class POSIXTimeRange(PlutusData):
 @dataclass()
 class Minting(PlutusData):
     CONSTR_ID = 0
-    currency_symbol: CurrencySymbol
+    policy_id: PolicyId
 
 
 @dataclass()
@@ -224,3 +224,9 @@ class TxInfo(PlutusData):
 class ScriptContext(PlutusData):
     tx_info: TxInfo
     purpose: ScriptPurpose
+
+
+@dataclass()
+class Token(PlutusData):
+    policy_id: PolicyId
+    token_name: TokenName

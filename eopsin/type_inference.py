@@ -125,14 +125,15 @@ class AggressiveTypeInferencer(NodeTransformer):
             )
         raise NotImplementedError(f"Annotation type {ann} is not supported")
 
-    def visit_ClassDef(self, node: ClassDef) -> ClassDef:
+    def visit_ClassDef(self, node: ClassDef) -> TypedClassDef:
         class_record = RecordReader.extract(node, self)
-        self.set_variable_type(node.name, RecordType(class_record))
-        return node
+        typ = RecordType(class_record)
+        self.set_variable_type(node.name, typ)
+        typed_node = copy(node)
+        typed_node.class_typ = typ
+        return typed_node
 
-    # TODO type inference for classDef
-
-    def visit_Constant(self, node: Constant):
+    def visit_Constant(self, node: Constant) -> TypedConstant:
         tc = copy(node)
         assert type(node.value) not in [
             float,
@@ -159,9 +160,22 @@ class AggressiveTypeInferencer(NodeTransformer):
         tt.elts = [self.visit(e) for e in node.elts]
         l_typ = tt.elts[0].typ
         assert all(
-            e.typ == l_typ for e in tt.elts
+            l_typ >= e.typ for e in tt.elts
         ), "All elements of a list must have the same type"
         tt.typ = InstanceType(ListType(l_typ))
+        return tt
+
+    def visit_Dict(self, node: Dict) -> TypedDict:
+        tt = copy(node)
+        tt.keys = [self.visit(k) for k in node.keys]
+        tt.values = [self.visit(v) for v in node.values]
+        k_typ = tt.keys[0].typ
+        assert all(k_typ >= k.typ for k in tt.keys), "All keys must have the same type"
+        v_typ = tt.values[0].typ
+        assert all(
+            v_typ >= v.typ for v in tt.values
+        ), "All values must have the same type"
+        tt.typ = InstanceType(DictType(k_typ, v_typ))
         return tt
 
     def visit_Assign(self, node: Assign) -> TypedAssign:

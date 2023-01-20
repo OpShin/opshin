@@ -29,7 +29,10 @@ BinOpMap = {
             IntegerInstanceType: plt.AddInteger,
         },
         ByteStringInstanceType: {
-            ByteStringInstanceType: plt.AppendString,
+            ByteStringInstanceType: plt.AppendByteString,
+        },
+        StringInstanceType: {
+            StringInstanceType: plt.AppendString,
         },
     },
     Sub: {
@@ -54,30 +57,6 @@ BinOpMap = {
     },
 }
 
-CmpMap = {
-    Eq: {
-        IntegerInstanceType: {
-            IntegerInstanceType: plt.EqualsInteger,
-        },
-        ByteStringInstanceType: {
-            ByteStringInstanceType: plt.EqualsByteString,
-        },
-        StringInstanceType: {
-            StringInstanceType: plt.EqualsString,
-        },
-        BoolInstanceType: {
-            BoolInstanceType: plt.EqualsBool,
-        },
-    },
-    Lt: {
-        IntegerInstanceType: {
-            IntegerInstanceType: plt.LessThanInteger,
-        },
-        ByteStringInstanceType: {
-            ByteStringInstanceType: plt.LessThanByteString,
-        },
-    },
-}
 
 ConstantMap = {
     str: plt.Text,
@@ -155,25 +134,16 @@ class UPLCCompiler(TypedNodeTransformer):
             ),
         )
 
-    def visit_Compare(self, node: Compare) -> plt.AST:
+    def visit_Compare(self, node: TypedCompare) -> plt.AST:
         assert len(node.ops) == 1, "Only single comparisons are supported"
         assert len(node.comparators) == 1, "Only single comparisons are supported"
-        opmap = CmpMap.get(type(node.ops[0]))
-        if opmap is None:
-            raise NotImplementedError(f"Operation {node.ops[0]} is not implemented")
-        opmap2 = opmap.get(node.left.typ)
-        if opmap2 is None:
-            raise NotImplementedError(
-                f"Operation {node.ops[0]} is not implemented for left type {node.left.typ}"
-            )
-        op = opmap2.get(node.comparators[0].typ)
-        if op is None:
-            raise NotImplementedError(
-                f"Operation {node.ops[0]} is not implemented for left type {node.left.typ} and right type {node.comparators[0].typ}"
-            )
+        cmpop = node.ops[0]
+        comparator = node.comparators[0].typ
+        op = node.left.typ.cmp(cmpop, comparator)
         return plt.Lambda(
             [STATEMONAD],
-            op(
+            plt.Apply(
+                op,
                 plt.Apply(self.visit(node.left), plt.Var(STATEMONAD)),
                 plt.Apply(self.visit(node.comparators[0]), plt.Var(STATEMONAD)),
             ),
@@ -544,9 +514,15 @@ class UPLCCompiler(TypedNodeTransformer):
             ),
         )
 
-    def visit_ClassDef(self, node: ClassDef) -> plt.AST:
-        # TODO add initializer to state monad
-        return self.visit_sequence([])
+    def visit_ClassDef(self, node: TypedClassDef) -> plt.AST:
+        return plt.Lambda(
+            [STATEMONAD],
+            plt.FunctionalMapExtend(
+                plt.Var(STATEMONAD),
+                [node.name],
+                [node.class_typ.constr()],
+            ),
+        )
 
     def visit_Attribute(self, node: TypedAttribute) -> plt.AST:
         assert isinstance(
@@ -584,6 +560,26 @@ class UPLCCompiler(TypedNodeTransformer):
         l = empty_list(node.typ.typ.typ)
         for e in node.elts:
             l = plt.MkCons(plt.Apply(self.visit(e), plt.Var(STATEMONAD)), l)
+        return plt.Lambda([STATEMONAD], l)
+
+    def visit_Dict(self, node: TypedDict) -> plt.AST:
+        assert isinstance(node.typ, InstanceType)
+        assert isinstance(node.typ.typ, DictType)
+        key_type = node.typ.typ.key_typ
+        value_type = node.typ.typ.value_typ
+        l = plt.EmptyDataPairList()
+        for k, v in zip(node.keys, node.values):
+            l = plt.MkCons(
+                plt.MkPairData(
+                    transform_output_map(key_type)(
+                        plt.Apply(self.visit(k), plt.Var(STATEMONAD))
+                    ),
+                    transform_output_map(value_type)(
+                        plt.Apply(self.visit(v), plt.Var(STATEMONAD))
+                    ),
+                ),
+                l,
+            )
         return plt.Lambda([STATEMONAD], l)
 
     def generic_visit(self, node: AST) -> plt.AST:
