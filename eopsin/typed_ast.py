@@ -137,7 +137,9 @@ class RecordType(ClassType):
                         )
                     ),
                 )
-        return super().cmp(op, o)
+        raise NotImplementedError(
+            f"Can not compare {o} and {self} with operation {op.__class__}. Note that comparisons that always return false are also rejected."
+        )
 
     def __ge__(self, other):
         # Can only substitute for its own type, records need to be equal
@@ -192,7 +194,9 @@ class UnionType(ClassType):
                         )
                     ),
                 )
-        return super().cmp(op, o)
+        raise NotImplementedError(
+            f"Can not compare {o} and {self} with operation {op.__class__}. Note that comparisons that always return false are also rejected."
+        )
 
 
 @dataclass(frozen=True, unsafe_hash=True)
@@ -306,6 +310,19 @@ class InstanceType(Type):
 class IntegerType(AtomicType):
     def cmp(self, op: cmpop, o: "Type") -> plt.AST:
         """The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second the comparison."""
+        if isinstance(o, BoolType):
+            if isinstance(op, Eq):
+                # 1 == True
+                # 0 == False
+                # all other comparisons are False
+                return plt.Lambda(
+                    ["x", "y"],
+                    plt.Ite(
+                        plt.Var("y"),
+                        plt.EqualsInteger(plt.Var("x"), plt.Integer(1)),
+                        plt.EqualsInteger(plt.Var("x"), plt.Integer(0)),
+                    ),
+                )
         if isinstance(o, IntegerType):
             if isinstance(op, Eq):
                 return plt.BuiltIn(uplc.BuiltInFun.EqualsInteger)
@@ -406,6 +423,19 @@ class ByteStringType(AtomicType):
 @dataclass(frozen=True, unsafe_hash=True)
 class BoolType(AtomicType):
     def cmp(self, op: cmpop, o: "Type") -> plt.AST:
+        if isinstance(o, IntegerType):
+            if isinstance(op, Eq):
+                # 1 == True
+                # 0 == False
+                # all other comparisons are False
+                return plt.Lambda(
+                    ["y", "x"],
+                    plt.Ite(
+                        plt.Var("y"),
+                        plt.EqualsInteger(plt.Var("x"), plt.Integer(1)),
+                        plt.EqualsInteger(plt.Var("x"), plt.Integer(0)),
+                    ),
+                )
         if isinstance(o, BoolType):
             if isinstance(op, Eq):
                 return plt.Lambda(["x", "y"], plt.Iff(plt.Var("x"), plt.Var("y")))
