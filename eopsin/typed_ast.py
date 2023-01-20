@@ -120,9 +120,11 @@ class RecordType(ClassType):
 
     def cmp(self, op: cmpop, o: "Type") -> plt.AST:
         """The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second the comparison."""
-        if isinstance(o, RecordType):
+        # this will reject comparisons that will always be false - most likely due to faults during programming
+        if (isinstance(o, RecordType) and o.record == self.record) or (
+            isinstance(o, UnionType) and self in o.typs
+        ):
             if isinstance(op, Eq):
-                # TODO can print a warning if records are different and this will always return false
                 return plt.BuiltIn(uplc.BuiltInFun.EqualsData)
             if isinstance(op, NotEq):
                 return plt.Lambda(
@@ -169,6 +171,28 @@ class UnionType(ClassType):
         if isinstance(other, UnionType):
             return all(any(t >= ot for ot in other.typs) for t in self.typs)
         return any(t >= other for t in self.typs)
+
+    def cmp(self, op: cmpop, o: "Type") -> plt.AST:
+        """The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second the comparison."""
+        # this will reject comparisons that will always be false - most likely due to faults during programming
+        # note we require that there is an overlapt between the possible types for unions
+        if (isinstance(o, RecordType) and o in self.typs) or (
+            isinstance(o, UnionType) and set(self.typs).intersection(o.typs)
+        ):
+            if isinstance(op, Eq):
+                return plt.BuiltIn(uplc.BuiltInFun.EqualsData)
+            if isinstance(op, NotEq):
+                return plt.Lambda(
+                    ["x", "y"],
+                    plt.Not(
+                        plt.Apply(
+                            plt.BuiltIn(uplc.BuiltInFun.EqualsData),
+                            plt.Var("x"),
+                            plt.Var("y"),
+                        )
+                    ),
+                )
+        return super().cmp(op, o)
 
 
 @dataclass(frozen=True, unsafe_hash=True)

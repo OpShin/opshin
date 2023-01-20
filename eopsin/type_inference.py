@@ -97,7 +97,7 @@ class AggressiveTypeInferencer(NodeTransformer):
                 assert all(
                     isinstance(e, RecordType) for e in ann_types
                 ), "Union must combine multiple PlutusData classes"
-                return UnionType(FrozenFrozenList(FrozenFrozenList(ann_types)))
+                return UnionType(FrozenFrozenList(ann_types))
             if ann.value.id == "List":
                 ann_type = self.type_from_annotation(ann.slice.value)
                 assert isinstance(
@@ -306,9 +306,7 @@ class AggressiveTypeInferencer(NodeTransformer):
         typed_cmp.left = self.visit(node.left)
         typed_cmp.comparators = [self.visit(s) for s in node.comparators]
         typed_cmp.typ = BoolInstanceType
-        assert all(
-            typed_cmp.left.typ == c.typ for c in typed_cmp.comparators
-        ), "Not all compared expressions have the same type"
+        # the actual required types are being taken care of in the implementation
         return typed_cmp
 
     def visit_arg(self, node: arg) -> typedarg:
@@ -369,6 +367,7 @@ class AggressiveTypeInferencer(NodeTransformer):
         tb = copy(node)
         tb.left = self.visit(node.left)
         tb.right = self.visit(node.right)
+        # TODO the outcome of the operation may depend on the input types
         assert (
             tb.left.typ == tb.right.typ
         ), "Inputs to a binary operation need to have the same type"
