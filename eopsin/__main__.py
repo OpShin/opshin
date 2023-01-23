@@ -122,7 +122,10 @@ def main():
         pos_in_line = source_lines.find(source_seg)
         overwrite_syntaxerror = len("SyntaxError: ") * "\b"
         raise SyntaxError(
-            f"{overwrite_syntaxerror}{c.orig_err.__class__.__name__}: {c.orig_err}\nError occurred in compilation step '{c.compilation_step}'.\nNote that eopsin errors may be overly restrictive as they aim to prevent code with unintended consequences.",
+            f"""\
+{overwrite_syntaxerror}{c.orig_err.__class__.__name__}: {c.orig_err}
+Note that eopsin errors may be overly restrictive as they aim to prevent code with unintended consequences.
+""",
             (
                 args.input_file,
                 c.node.lineno,
