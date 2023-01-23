@@ -121,6 +121,8 @@ class CompilingNodeTransformer(TypedNodeTransformer):
         try:
             return super().visit(node)
         except Exception as e:
+            if isinstance(e, CompilerError):
+                raise e
             raise CompilerError(e, node, self.step)
 
 
@@ -131,4 +133,6 @@ class CompilingNodeVisitor(TypedNodeVisitor):
         try:
             return super().visit(node)
         except Exception as e:
+            if isinstance(e, CompilerError):
+                raise e
             raise CompilerError(e, node, self.step)

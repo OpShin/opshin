@@ -17,16 +17,18 @@ def FrozenFrozenList(l: list):
 class Type:
     def constr_type(self) -> "InstanceType":
         """The type of the constructor for this class"""
-        raise TypeInferenceError(f"Object of type {self} does not have a constructor")
+        raise TypeInferenceError(
+            f"Object of type {self.__class__} does not have a constructor"
+        )
 
     def constr(self) -> plt.AST:
         """The constructor for this class"""
-        raise NotImplementedError(f"Constructor of {self} not implemented")
+        raise NotImplementedError(f"Constructor of {self.__class__} not implemented")
 
     def attribute_type(self, attr) -> "Type":
         """The types of the named attributes of this class"""
         raise TypeInferenceError(
-            f"Object of type {self} does not have attribute {attr}"
+            f"Object of type {self.__class__} does not have attribute {attr}"
         )
 
     def attribute(self, attr) -> plt.AST:
@@ -35,7 +37,9 @@ class Type:
 
     def cmp(self, op: cmpop, o: "Type") -> plt.AST:
         """The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second the comparison."""
-        raise NotImplementedError(f"Comparison {type(op).__name__} for {self} and {o}")
+        raise NotImplementedError(
+            f"Comparison {type(op).__name__} for {self.__class__.__name__} and {o.__class__.__name__} is not implemented. This is likely intended because it would always evaluate to False."
+        )
 
 
 @dataclass(frozen=True, unsafe_hash=True)
@@ -95,7 +99,9 @@ class RecordType(ClassType):
         for n, t in self.record.fields:
             if n == attr:
                 return t
-        raise TypeInferenceError(f"Type {self} does not have attribute {attr}")
+        raise TypeInferenceError(
+            f"Type {self.record.name} does not have attribute {attr}"
+        )
 
     def attribute(self, attr: str) -> plt.AST:
         """The attributes of this class. Need to be a lambda that expects as first argument the object itself"""
@@ -137,9 +143,7 @@ class RecordType(ClassType):
                         )
                     ),
                 )
-        raise NotImplementedError(
-            f"Can not compare {o} and {self} with operation {op.__class__}. Note that comparisons that always return false are also rejected."
-        )
+        return super().cmp(op, o)
 
     def __ge__(self, other):
         # Can only substitute for its own type, records need to be equal

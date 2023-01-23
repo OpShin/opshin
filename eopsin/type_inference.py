@@ -41,7 +41,7 @@ INITIAL_SCOPE.update(
 
 
 class AggressiveTypeInferencer(CompilingNodeTransformer):
-    step = "Inferring static typed"
+    step = "Static Type Inference"
 
     # A stack of dictionaries for storing scoped knowledge of variable types
     scopes = [INITIAL_SCOPE]
@@ -408,7 +408,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                 ts.typ = ts.value.typ.typ.typs[ts.slice.value.value]
             else:
                 raise TypeInferenceError(
-                    f"Could not infer type of subscript of typ {ts.value.typ} in {ast.dump(node)}"
+                    f"Could not infer type of subscript of typ {ts.value.typ.__class__}"
                 )
         elif isinstance(ts.value.typ.typ, ListType):
             assert isinstance(
@@ -444,7 +444,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                 ), "upper slice indices for bytes must be integers"
             else:
                 raise TypeInferenceError(
-                    f"Could not infer type of subscript of typ {ts.value.typ} in {ast.dump(node)}"
+                    f"Could not infer type of subscript of typ {ts.value.typ.__class__}"
                 )
         elif isinstance(ts.value.typ.typ, DictType):
             # TODO could be implemented with potentially just erroring. It might be desired to avoid this though.
@@ -453,7 +453,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             )
         else:
             raise TypeInferenceError(
-                f"Could not infer type of subscript of typ {ts.value.typ} in {ast.dump(node)}"
+                f"Could not infer type of subscript of typ {ts.value.typ.__class__}"
             )
         return ts
 

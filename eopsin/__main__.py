@@ -5,6 +5,7 @@ import json
 import pathlib
 import sys
 import typing
+from ast import get_source_segment
 
 import cbor2
 import pyaiken
@@ -13,6 +14,7 @@ import uplc
 from uplc import data_from_json
 
 from eopsin import __version__, compiler
+from eopsin.util import CompilerError
 
 
 class Command(enum.Enum):
@@ -109,7 +111,27 @@ def main():
         print("Parsed successfully.")
         return
 
-    code = compiler.compile(ast)
+    try:
+        code = compiler.compile(ast)
+    except CompilerError as c:
+        # Generate nice error message from compiler error
+        source_seg = get_source_segment(source_code, c.node)
+        start_line = c.node.lineno - 1
+        end_line = start_line + len(source_seg.splitlines())
+        source_lines = "\n".join(source_code.splitlines()[start_line:end_line])
+        pos_in_line = source_lines.find(source_seg)
+        overwrite_syntaxerror = len("SyntaxError: ") * "\b"
+        raise SyntaxError(
+            f"{overwrite_syntaxerror}{c.orig_err.__class__.__name__}: {c.orig_err}\nError occurred in compilation step '{c.compilation_step}'.\nNote that eopsin errors may be overly restrictive as they aim to prevent code with unintended consequences.",
+            (
+                args.input_file,
+                c.node.lineno,
+                pos_in_line + c.node.col_offset,
+                source_lines,
+            )
+            # we remove chaining so that users to not see the internal trace back,
+        ) from None
+
     if command == Command.compile_pluto:
         print(code.dumps())
         return

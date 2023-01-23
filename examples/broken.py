@@ -15,12 +15,7 @@ class BatchOrder(PlutusData):
 
 def validator(d: Anything, r: Anything) -> bytes:
     # this casts the input to BatchOrder - in the type system! In the contract this is a no-op
-    # this means that the contract never actually checks if the type fully matches!
-    # there may be errors only arising from this implicit cast further downstream
-    e: BatchOrder = d
-    # this casts the input to bytes - in the type system! In the contract this is a no-op
-    r2: bytes = r
-    c = e.sender.abc
-    if isinstance(c, PubKeyCredential):
-        res = c.pubkeyhash
-    return res + r2
+    if "s" == 4:
+        e: BatchOrder = d
+        c = e.sender.credential
+    return b""

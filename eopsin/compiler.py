@@ -1,5 +1,6 @@
 import logging
 from logging import getLogger
+from ast import fix_missing_locations
 
 from .rewrite.rewrite_augassign import RewriteAugAssign
 from .rewrite.rewrite_forbidden_overwrites import RewriteForbiddenOverwrites
@@ -19,8 +20,8 @@ from .util import RawPlutoExpr, CompilingNodeTransformer
 from .typed_ast import (
     transform_ext_params_map,
     transform_output_map,
-    TypedNodeTransformer,
 )
+
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -593,7 +594,7 @@ class UPLCCompiler(CompilingNodeTransformer):
 
 
 def compile(prog: AST):
-    compiler_steps = [
+    rewrite_steps = [
         # Important to call this one first - it imports all further files
         RewriteImport,
         # Rewrites that simplify the python code
@@ -609,6 +610,13 @@ def compile(prog: AST):
         # Rewrites that circumvent the type inference or use its results
         RewriteRemoveTypeStuff,
         RewriteInjectBuiltins,
+    ]
+    for s in rewrite_steps:
+        prog = s().visit(prog)
+        prog = fix_missing_locations(prog)
+
+    # from here on raw uplc may occur, so we dont attempt to fix locations
+    compile_pipeline = [
         # Apply optimizations
         OptimizeRemoveDeadvars,
         OptimizeVarlen,
@@ -616,6 +624,7 @@ def compile(prog: AST):
         # the compiler runs last
         UPLCCompiler,
     ]
-    for s in compiler_steps:
+    for s in compile_pipeline:
         prog = s().visit(prog)
+
     return prog
