@@ -120,7 +120,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                 "Only Union, Dict and List are allowed as Generic types"
             )
         if ann is None:
-            TypeInferenceError(
+            raise TypeInferenceError(
                 "Type annotation is missing for a function argument or return value"
             )
         raise NotImplementedError(f"Annotation type {ann} is not supported")

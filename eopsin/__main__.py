@@ -116,7 +116,7 @@ def main():
     except CompilerError as c:
         # Generate nice error message from compiler error
         if not isinstance(c.node, ast.Module):
-            source_seg = source_ast.get_source_segment(source_code, c.node)
+            source_seg = ast.get_source_segment(source_code, c.node)
             start_line = c.node.lineno - 1
             end_line = start_line + len(source_seg.splitlines())
             source_lines = "\n".join(source_code.splitlines()[start_line:end_line])
