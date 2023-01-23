@@ -684,6 +684,11 @@ class TypedAssert(typedstmt, Assert):
     msg: typedexpr
 
 
+class RawPlutoExpr(typedexpr):
+    typ: Type
+    expr: plt.AST
+
+
 class TypeInferenceError(AssertionError):
     pass
 

@@ -4,7 +4,6 @@ from ..typed_ast import *
 from ..util import (
     PythonBuiltIn,
     PythonBuiltInTypes,
-    RawPlutoExpr,
     CompilingNodeTransformer,
 )
 

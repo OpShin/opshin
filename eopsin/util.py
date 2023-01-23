@@ -7,11 +7,6 @@ from .typed_ast import *
 import pluthon as plt
 
 
-class RawPlutoExpr(typedexpr):
-    typ: Type
-    expr: plt.AST
-
-
 class PythonBuiltIn(Enum):
     print = plt.Lambda(
         ["x", "_"],
@@ -21,28 +16,7 @@ class PythonBuiltIn(Enum):
         ["limit", "_"],
         plt.Range(plt.Var("limit")),
     )
-    sha256 = plt.Lambda(["x", "_"], plt.Lambda(["_"], plt.Sha2_256(plt.Var("x"))))
-    sha3_256 = plt.Lambda(["x", "_"], plt.Lambda(["_"], plt.Sha3_256(plt.Var("x"))))
-    blake2b = plt.Lambda(["x", "_"], plt.Lambda(["_"], plt.Blake2b_256(plt.Var("x"))))
     len = auto()
-
-
-@dataclass(frozen=True, unsafe_hash=True)
-class HashType(ClassType):
-    """A pseudo class that is the result of python hash functions that need a 'digest' call"""
-
-    def attribute_type(self, attr) -> "Type":
-        if attr == "digest":
-            return InstanceType(FunctionType([], ByteStringInstanceType))
-        raise NotImplementedError("HashType only has attribute 'digest'")
-
-    def attribute(self, attr) -> plt.AST:
-        if attr == "digest":
-            return plt.Lambda(["self"], plt.Var("self"))
-        raise NotImplementedError("HashType only has attribute 'digest'")
-
-
-HashInstanceType = InstanceType(HashType())
 
 
 class Len(PolymorphicFunction):
@@ -83,24 +57,6 @@ PythonBuiltInTypes = {
         FunctionType(
             [IntegerInstanceType],
             InstanceType(ListType(IntegerInstanceType)),
-        )
-    ),
-    PythonBuiltIn.sha256: InstanceType(
-        FunctionType(
-            [ByteStringInstanceType],
-            HashInstanceType,
-        )
-    ),
-    PythonBuiltIn.sha3_256: InstanceType(
-        FunctionType(
-            [ByteStringInstanceType],
-            HashInstanceType,
-        )
-    ),
-    PythonBuiltIn.blake2b: InstanceType(
-        FunctionType(
-            [ByteStringInstanceType],
-            HashInstanceType,
         )
     ),
     PythonBuiltIn.len: InstanceType(PolymorphicFunctionType(Len())),

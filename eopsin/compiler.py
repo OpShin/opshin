@@ -16,11 +16,8 @@ from .optimize.optimize_remove_pass import OptimizeRemovePass
 from .optimize.optimize_remove_deadvars import OptimizeRemoveDeadvars
 from .optimize.optimize_varlen import OptimizeVarlen
 from .type_inference import *
-from .util import RawPlutoExpr, CompilingNodeTransformer
-from .typed_ast import (
-    transform_ext_params_map,
-    transform_output_map,
-)
+from .util import CompilingNodeTransformer
+from .typed_ast import transform_ext_params_map, transform_output_map, RawPlutoExpr
 
 
 _LOGGER = logging.getLogger(__name__)

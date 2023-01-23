@@ -521,6 +521,10 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             ), "Assertions must has a string message (or None)"
         return ta
 
+    def visit_RawPlutoExpr(self, node: RawPlutoExpr) -> RawPlutoExpr:
+        assert node.typ is not None, "Raw Pluto Expression is missing type annotation"
+        return node
+
     def generic_visit(self, node: AST) -> TypedAST:
         raise NotImplementedError(
             f"Cannot infer type of non-implemented node {node.__class__}"
