@@ -5,7 +5,7 @@ import json
 import pathlib
 import sys
 import typing
-from ast import get_source_segment
+from ast import get_source_segment, dump
 
 import cbor2
 import pyaiken
@@ -126,7 +126,7 @@ def main():
             (
                 args.input_file,
                 c.node.lineno,
-                pos_in_line + c.node.col_offset,
+                pos_in_line,
                 source_lines,
             )
             # we remove chaining so that users to not see the internal trace back,
