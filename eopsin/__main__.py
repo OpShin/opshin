@@ -5,7 +5,7 @@ import json
 import pathlib
 import sys
 import typing
-from ast import get_source_segment, dump
+import ast
 
 import cbor2
 import pyaiken
@@ -105,21 +105,26 @@ def main():
         print("------------------")
         print(ret)
 
-    ast = compiler.parse(source_code)
+    source_ast = compiler.parse(source_code)
 
     if command == Command.parse:
         print("Parsed successfully.")
         return
 
     try:
-        code = compiler.compile(ast)
+        code = compiler.compile(source_ast)
     except CompilerError as c:
         # Generate nice error message from compiler error
-        source_seg = get_source_segment(source_code, c.node)
-        start_line = c.node.lineno - 1
-        end_line = start_line + len(source_seg.splitlines())
-        source_lines = "\n".join(source_code.splitlines()[start_line:end_line])
-        pos_in_line = source_lines.find(source_seg)
+        if not isinstance(c.node, ast.Module):
+            source_seg = source_ast.get_source_segment(source_code, c.node)
+            start_line = c.node.lineno - 1
+            end_line = start_line + len(source_seg.splitlines())
+            source_lines = "\n".join(source_code.splitlines()[start_line:end_line])
+            pos_in_line = source_lines.find(source_seg)
+        else:
+            start_line = 0
+            pos_in_line = 0
+            source_lines = source_code.splitlines()[0]
         overwrite_syntaxerror = len("SyntaxError: ") * "\b"
         raise SyntaxError(
             f"""\
@@ -128,7 +133,7 @@ Note that eopsin errors may be overly restrictive as they aim to prevent code wi
 """,
             (
                 args.input_file,
-                c.node.lineno,
+                start_line + 1,
                 pos_in_line,
                 source_lines,
             )
