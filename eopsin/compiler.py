@@ -15,8 +15,12 @@ from .optimize.optimize_remove_pass import OptimizeRemovePass
 from .optimize.optimize_remove_deadvars import OptimizeRemoveDeadvars
 from .optimize.optimize_varlen import OptimizeVarlen
 from .type_inference import *
-from .util import RawPlutoExpr, TypedNodeTransformer
-from .typed_ast import transform_ext_params_map, transform_output_map
+from .util import RawPlutoExpr, CompilingNodeTransformer
+from .typed_ast import (
+    transform_ext_params_map,
+    transform_output_map,
+    TypedNodeTransformer,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -100,10 +104,12 @@ def extend_statemonad(
 INITIAL_STATE = plt.FunctionalMap()
 
 
-class UPLCCompiler(TypedNodeTransformer):
+class UPLCCompiler(CompilingNodeTransformer):
     """
     Expects a TypedAST and returns UPLC/Pluto like code
     """
+
+    step = "Compiling python statements to UPLC"
 
     def visit_sequence(self, node_seq: typing.List[typedstmt]) -> plt.AST:
         s = plt.Var(STATEMONAD)

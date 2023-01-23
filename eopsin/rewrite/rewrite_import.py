@@ -3,12 +3,16 @@ import pathlib
 import typing
 from ast import *
 
+from ..util import CompilingNodeTransformer
+
 """
 Checks that there was an import of dataclass if there are any class definitions
 """
 
 
-class RewriteImport(NodeTransformer):
+class RewriteImport(CompilingNodeTransformer):
+    step = "Resolving imports"
+
     def visit_ImportFrom(
         self, node: ImportFrom
     ) -> typing.Union[ImportFrom, typing.List[AST]]:

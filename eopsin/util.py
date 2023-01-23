@@ -1,3 +1,5 @@
+import ast
+
 from enum import Enum, auto
 
 from .typed_ast import *
@@ -105,23 +107,28 @@ PythonBuiltInTypes = {
 }
 
 
-class TypedNodeTransformer(NodeTransformer):
-    def visit(self, node):
-        """Visit a node."""
-        node_class_name = node.__class__.__name__
-        if node_class_name.startswith("Typed"):
-            node_class_name = node_class_name[len("Typed") :]
-        method = "visit_" + node_class_name
-        visitor = getattr(self, method, self.generic_visit)
-        return visitor(node)
+class CompilerError(Exception):
+    def __init__(self, orig_err: Exception, node: ast.AST, compilation_step: str):
+        self.orig_err = orig_err
+        self.node = node
+        self.compilation_step = compilation_step
 
 
-class TypedNodeVisitor(NodeVisitor):
+class CompilingNodeTransformer(TypedNodeTransformer):
+    step = "Node transformation"
+
     def visit(self, node):
-        """Visit a node."""
-        node_class_name = node.__class__.__name__
-        if node_class_name.startswith("Typed"):
-            node_class_name = node_class_name[len("Typed") :]
-        method = "visit_" + node_class_name
-        visitor = getattr(self, method, self.generic_visit)
-        return visitor(node)
+        try:
+            return super().visit(node)
+        except Exception as e:
+            raise CompilerError(e, node, self.step)
+
+
+class CompilingNodeVisitor(TypedNodeVisitor):
+    step = "Node visiting"
+
+    def visit(self, node):
+        try:
+            return super().visit(node)
+        except Exception as e:
+            raise CompilerError(e, node, self.step)

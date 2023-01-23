@@ -2,7 +2,7 @@ from copy import copy
 import ast
 
 from .typed_ast import *
-from .util import PythonBuiltInTypes
+from .util import PythonBuiltInTypes, CompilingNodeTransformer
 
 # from frozendict import frozendict
 
@@ -40,8 +40,8 @@ INITIAL_SCOPE.update(
 )
 
 
-class AggressiveTypeInferencer(NodeTransformer):
-    # TODO enforce all elements in a list to have the same type (length is not i.g. statically known!)
+class AggressiveTypeInferencer(CompilingNodeTransformer):
+    step = "Inferring static typed"
 
     # A stack of dictionaries for storing scoped knowledge of variable types
     scopes = [INITIAL_SCOPE]

@@ -1,12 +1,15 @@
 from ast import *
 from typing import Optional
 
+from ..util import CompilingNodeTransformer
+
 """
 Checks that there was an import of dataclass if there are any class definitions
 """
 
 
-class RewriteImportHashlib(NodeTransformer):
+class RewriteImportHashlib(CompilingNodeTransformer):
+    step = "Resolving imports and usage of hashlib"
 
     imports_hashlib = False
 
