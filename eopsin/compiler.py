@@ -178,8 +178,13 @@ class UPLCCompiler(CompilingNodeTransformer):
                 possible_types = second_arg.typ.typs
             else:
                 possible_types = [second_arg.typ]
-            enable_double_func_mint_spend = all(
-                not isinstance(t, RecordType) or t.record.constructor != 0
+            if any(isinstance(t, UnitType) for t in possible_types):
+                _LOGGER.warning(
+                    "The redeemer is annotated to be 'None'. This value is usually encoded in PlutusData with constructor id 0 and no fields. If you want the script to double function as minting and spending script, annotate the second argument with 'NoRedeemer'."
+                )
+            enable_double_func_mint_spend = not any(
+                (isinstance(t, RecordType) and t.record.constructor != 0)
+                or isinstance(t, UnitType)
                 for t in possible_types
             )
             if not enable_double_func_mint_spend:

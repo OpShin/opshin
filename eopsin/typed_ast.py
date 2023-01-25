@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from frozenlist import FrozenList
 
 import pluthon as plt
-import uplc
+import uplc.ast as uplc
 
 
 def FrozenFrozenList(l: list):
@@ -718,7 +718,7 @@ TransformExtParamsMap = {
     IntegerInstanceType: lambda x: plt.UnIData(x),
     ByteStringInstanceType: lambda x: plt.UnBData(x),
     StringInstanceType: lambda x: plt.DecodeUtf8(plt.UnBData(x)),
-    UnitInstanceType: lambda x: plt.Lambda(["_"], plt.Unit()),
+    UnitInstanceType: lambda x: plt.Apply(plt.Lambda(["_"], plt.Unit())),
     BoolInstanceType: lambda x: plt.NotEqualsInteger(x, plt.Integer(0)),
 }
 
@@ -747,7 +747,7 @@ TransformOutputMap = {
     StringInstanceType: lambda x: plt.BData(plt.EncodeUtf8(x)),
     IntegerInstanceType: lambda x: plt.IData(x),
     ByteStringInstanceType: lambda x: plt.BData(x),
-    UnitInstanceType: lambda x: plt.Lambda(["_"], plt.Unit()),
+    UnitInstanceType: lambda x: plt.Apply(plt.Lambda(["_"], plt.Unit()), x),
     BoolInstanceType: lambda x: plt.IData(
         plt.IfThenElse(x, plt.Integer(1), plt.Integer(0))
     ),

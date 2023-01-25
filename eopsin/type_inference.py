@@ -70,7 +70,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
     def type_from_annotation(self, ann: expr):
         if isinstance(ann, Constant):
             if ann.value is None:
-                return UnitType
+                return UnitType()
         if isinstance(ann, Name):
             if ann.id in ATOMIC_TYPES:
                 return ATOMIC_TYPES[ann.id]
@@ -119,7 +119,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             raise TypeInferenceError(
                 "Type annotation is missing for a function argument or return value"
             )
-        raise NotImplementedError(f"Annotation type {ann} is not supported")
+        raise NotImplementedError(f"Annotation type {ann.__class__} is not supported")
 
     def visit_ClassDef(self, node: ClassDef) -> TypedClassDef:
         class_record = RecordReader.extract(node, self)
@@ -392,7 +392,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         assert isinstance(ts.value.typ, InstanceType), "Can only subscript instances"
         if isinstance(ts.value.typ.typ, TupleType):
             assert (
-                ts.value.tyo.typs
+                ts.value.typ.typ.typs
             ), "Accessing elements from the empty tuple is not allowed"
             assert isinstance(
                 ts.slice, Index

@@ -261,5 +261,6 @@ class Token(PlutusData):
 
 @dataclass()
 class NoRedeemer(PlutusData):
+    """A datatype that allows double minting/spending usage of the script"""
+
     CONSTR_ID = 1
-    pass
