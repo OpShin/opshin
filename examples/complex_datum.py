@@ -3,11 +3,13 @@ from eopsin.prelude import *
 
 @dataclass()
 class Deposit(PlutusData):
+    CONSTR_ID = 0
     minimum_lp: int
 
 
 @dataclass()
 class Withdraw(PlutusData):
+    CONSTR_ID = 1
     minimum_coin_a: int
     minimum_coin_b: int
 
