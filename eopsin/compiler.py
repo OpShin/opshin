@@ -65,7 +65,7 @@ ConstantMap = {
     bytes: lambda x: plt.ByteString(x),
     int: lambda x: plt.Integer(x),
     bool: plt.Bool,
-    type(None): lambda _: plt.NoneData(),
+    type(None): lambda _: plt.Unit(),
 }
 
 
@@ -230,7 +230,7 @@ class UPLCCompiler(CompilingNodeTransformer):
         return plt.Lambda([STATEMONAD], plt_type(node.value))
 
     def visit_NoneType(self, _: typing.Optional[typing.Any]) -> plt.AST:
-        return plt.Lambda([STATEMONAD], plt.NoneData())
+        return plt.Lambda([STATEMONAD], plt.Unit())
 
     def visit_Assign(self, node: TypedAssign) -> plt.AST:
         assert (

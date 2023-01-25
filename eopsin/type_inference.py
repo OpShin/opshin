@@ -70,11 +70,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
     def type_from_annotation(self, ann: expr):
         if isinstance(ann, Constant):
             if ann.value is None:
-                return NoneType
-        if isinstance(ann, Tuple):
-            if not ann.elts:
-                # This is ()
-                return UnitType()
+                return UnitType
         if isinstance(ann, Name):
             if ann.id in ATOMIC_TYPES:
                 return ATOMIC_TYPES[ann.id]
@@ -148,11 +144,8 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
 
     def visit_Tuple(self, node: Tuple) -> TypedTuple:
         tt = copy(node)
-        if not tt.elts:
-            tt.typ = UnitInstanceType()
-        else:
-            tt.elts = [self.visit(e) for e in node.elts]
-            tt.typ = InstanceType(TupleType([e.typ for e in tt.elts]))
+        tt.elts = [self.visit(e) for e in node.elts]
+        tt.typ = InstanceType(TupleType([e.typ for e in tt.elts]))
         return tt
 
     def visit_List(self, node: List) -> TypedList:
@@ -279,6 +272,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             itertyp, InstanceType
         ), "Can only iterate over instances, not classes"
         if isinstance(itertyp.typ, TupleType):
+            assert itertyp.typ.typs, "Iterating over an empty tuple is not allowed"
             vartyp = itertyp.typ.typs[0]
             assert all(
                 itertyp.typ.typs[0] == t for t in typed_for.iter.typ.typs
@@ -397,6 +391,9 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         ts.value = self.visit(node.value)
         assert isinstance(ts.value.typ, InstanceType), "Can only subscript instances"
         if isinstance(ts.value.typ.typ, TupleType):
+            assert (
+                ts.value.tyo.typs
+            ), "Accessing elements from the empty tuple is not allowed"
             assert isinstance(
                 ts.slice, Index
             ), "Only single index slices for tuples are currently supported"

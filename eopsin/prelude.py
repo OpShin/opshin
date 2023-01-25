@@ -10,7 +10,7 @@ TxId = bytes
 
 @dataclass()
 class Nothing(PlutusData):
-    CONSTR_ID = 1
+    CONSTR_ID = 0
     pass
 
 
@@ -67,7 +67,7 @@ StakingCredential = Union[StakingHash, StakingPtr]
 
 @dataclass()
 class SomeStakingCredential(PlutusData):
-    CONSTR_ID = 0
+    CONSTR_ID = 1
     staking_credential: StakingCredential
 
 
@@ -88,15 +88,51 @@ DatumHash = bytes
 
 @dataclass()
 class SomeDatumHash(PlutusData):
-    CONSTR_ID = 0
+    CONSTR_ID = 1
     datum_hash: DatumHash
+
+
+@dataclass()
+class SomeScriptHash(PlutusData):
+    CONSTR_ID = 1
+    script_hash: DatumHash
+
+
+BuiltinData = Anything
+
+
+Redeemer = BuiltinData
+
+
+Datum = BuiltinData
+
+
+@dataclass()
+class NoOutputDatum(PlutusData):
+    CONSTR_ID = 0
+
+
+@dataclass()
+class SomeOutputDatumHash(PlutusData):
+    CONSTR_ID = 1
+    datum_hash: DatumHash
+
+
+@dataclass()
+class SomeOutputDatum(PlutusData):
+    CONSTR_ID = 2
+    datum: Datum
+
+
+OutputDatum = Union[NoOutputDatum, SomeOutputDatumHash, SomeOutputDatum]
 
 
 @dataclass()
 class TxOut(PlutusData):
     address: Address
     value: Value
-    datum_hash: Union[Nothing, SomeDatumHash]
+    datum: OutputDatum
+    reference_script: Union[Nothing, SomeScriptHash]
 
 
 @dataclass()
@@ -195,15 +231,6 @@ class Certifying(PlutusData):
 ScriptPurpose = Union[Minting, Spending, Rewarding, Certifying]
 
 
-BuiltinData = Anything
-
-
-Redeemer = BuiltinData
-
-
-Datum = BuiltinData
-
-
 @dataclass()
 class TxInfo(PlutusData):
     inputs: List[TxInInfo]
@@ -230,3 +257,9 @@ class ScriptContext(PlutusData):
 class Token(PlutusData):
     policy_id: PolicyId
     token_name: TokenName
+
+
+@dataclass()
+class NoRedeemer(PlutusData):
+    CONSTR_ID = 1
+    pass

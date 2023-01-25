@@ -513,9 +513,7 @@ ATOMIC_TYPES = {
 }
 
 
-NoneRecord = Record("None", 0, FrozenFrozenList([]))
-NoneType = RecordType(NoneRecord)
-NoneInstanceType = InstanceType(NoneType)
+NoneInstanceType = UnitInstanceType
 
 
 class InaccessibleType(ClassType):
@@ -555,7 +553,7 @@ class typedexpr(TypedAST, expr):
 
 class typedstmt(TypedAST, stmt):
     # Statements always have type None
-    typ = NoneType
+    typ = NoneInstanceType
 
 
 class typedarg(TypedAST, arg):
