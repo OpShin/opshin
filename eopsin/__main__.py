@@ -11,7 +11,7 @@ import cbor2
 import pyaiken
 import pycardano
 import uplc
-from uplc import data_from_json
+import uplc.ast
 
 from eopsin import __version__, compiler
 from eopsin.util import CompilerError
@@ -197,13 +197,13 @@ Note that eopsin errors may be overly restrictive as they aim to prevent code wi
     if command == Command.eval_uplc:
         print("Starting execution")
         print("------------------")
-        assert isinstance(code, uplc.Program)
+        assert isinstance(code, uplc.ast.Program)
         try:
             f = code.term
             # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
-            for d in map(data_from_json, map(json.loads, args.args)):
-                f = uplc.Apply(f, d)
-            ret = uplc.Machine(f).eval().dumps()
+            for d in map(uplc.ast.data_from_json, map(json.loads, args.args)):
+                f = uplc.ast.Apply(f, d)
+            ret = uplc.dumps(uplc.eval(f))
         except Exception as e:
             print("An exception was raised")
             ret = e
