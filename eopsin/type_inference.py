@@ -568,9 +568,6 @@ class RecordReader(NodeVisitor):
         assert isinstance(
             node.value.value, int
         ), "CONSTR_ID must be assigned an integer"
-        assert (
-            0 <= node.value.value <= 255 - 121
-        ), f"CONST_ID must be between 0 and {255-121}. Other constructor ids do not have a safe CBOR representation."
         self.constructor = node.value.value
 
     def visit_ClassDef(self, node: ClassDef) -> None:

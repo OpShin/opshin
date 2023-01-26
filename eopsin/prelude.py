@@ -10,8 +10,8 @@ TxId = bytes
 
 @dataclass()
 class Nothing(PlutusData):
-    # The maximimum constructor ID. Chosen such that it should be possible to Union Nothing with almost every other class *directly*
-    CONSTR_ID = 134
+    # The maximimum constructor ID for simple cbor types, chosen to minimize probability of collision while keeping the corresponding cbor small
+    CONSTR_ID = 6
 
 
 @dataclass()
