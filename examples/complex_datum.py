@@ -21,6 +21,8 @@ OrderStep = Union[Deposit, Withdraw]
 class BatchOrder(PlutusData):
     sender: Address
     receiver: Address
+    # If some property might be ommited, just Union with Nothing and check for the instance at runtime!
+    # Make sure the property is a PlutusData type, if not, wrap it
     receiver_datum_hash: Union[Nothing, SomeDatumHash]
     order_step: OrderStep
     batcher_fee: int
@@ -29,10 +31,13 @@ class BatchOrder(PlutusData):
     script_version: bytes
 
 
-def validator(d: BatchOrder) -> bytes:
-    c = d.sender.credential
-    if isinstance(c, PubKeyCredential):
-        res = c.pubkeyhash
-    else:
+# If some parameter might be ommited, just Union with Nothing and check for the instance at runtime!
+def validator(d: Union[Nothing, BatchOrder]) -> bytes:
+    if isinstance(d, BatchOrder):
+        c = d.sender.credential
+        if isinstance(c, PubKeyCredential):
+            res = c.pubkeyhash
+    elif isinstance(d, Nothing):
         res = b""
+    # Throws a NameError if the instances don't match - this is fine, it means that the contract was not invoked correctly!
     return res

@@ -10,8 +10,8 @@ TxId = bytes
 
 @dataclass()
 class Nothing(PlutusData):
-    CONSTR_ID = 0
-    pass
+    # The maximimum constructor ID. Chosen such that it should be possible to Union Nothing with almost every other class *directly*
+    CONSTR_ID = 134
 
 
 @dataclass()
@@ -66,6 +66,11 @@ StakingCredential = Union[StakingHash, StakingPtr]
 
 
 @dataclass()
+class NoStakingCredential(PlutusData):
+    CONSTR_ID = 0
+
+
+@dataclass()
 class SomeStakingCredential(PlutusData):
     CONSTR_ID = 1
     staking_credential: StakingCredential
@@ -74,7 +79,7 @@ class SomeStakingCredential(PlutusData):
 @dataclass()
 class Address(PlutusData):
     credential: Credential
-    staking_credential: Union[Nothing, SomeStakingCredential]
+    staking_credential: Union[NoStakingCredential, SomeStakingCredential]
 
 
 PolicyId = bytes
@@ -128,11 +133,16 @@ OutputDatum = Union[NoOutputDatum, SomeOutputDatumHash, SomeOutputDatum]
 
 
 @dataclass()
+class NoScriptHash(PlutusData):
+    CONSTR_ID = 0
+
+
+@dataclass()
 class TxOut(PlutusData):
     address: Address
     value: Value
     datum: OutputDatum
-    reference_script: Union[Nothing, SomeScriptHash]
+    reference_script: Union[NoScriptHash, SomeScriptHash]
 
 
 @dataclass()

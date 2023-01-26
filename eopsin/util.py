@@ -95,7 +95,7 @@ class CompilingNodeVisitor(TypedNodeVisitor):
             raise CompilerError(e, node, self.step)
 
 
-def data_from_json(j: typing.Dict[str, ...]) -> uplc.PlutusData:
+def data_from_json(j: typing.Dict[str, typing.Any]) -> uplc.PlutusData:
     if "bytes" in j:
         return uplc.PlutusByteString(bytes.fromhex(j["bytes"]))
     if "int" in j:

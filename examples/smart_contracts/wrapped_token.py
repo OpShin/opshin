@@ -39,7 +39,7 @@ def own_policy_id(own_spent_utxo: TxOut) -> PolicyId:
 
 
 def own_address(own_policy_id: PolicyId) -> Address:
-    return Address(ScriptCredential(own_policy_id), Nothing())
+    return Address(ScriptCredential(own_policy_id), NoStakingCredential())
 
 
 def all_tokens_locked_at_address(
