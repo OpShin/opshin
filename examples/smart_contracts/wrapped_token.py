@@ -55,7 +55,9 @@ def all_tokens_locked_at_address(
     return res
 
 
-def validator(_datum: None, _redeemer: NoRedeemer, ctx: ScriptContext) -> None:
+def validator(
+    _datum: Union[NoDatum, SomeDatum], _redeemer: NoRedeemer, ctx: ScriptContext
+) -> None:
     purpose = ctx.purpose
     if isinstance(purpose, Minting):
         # whenever tokens should be burned/minted, the minting purpose will be triggered

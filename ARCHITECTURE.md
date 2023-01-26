@@ -58,3 +58,7 @@ and returned, expecting as only argument the remaining script context.
 
 The single only drawback of this approach is that the second argument to a validator
 may never be PlutusData with constructor id 0 - which is bearable.
+
+> To make the developer aware of the fact that a script might _not_ receive a datum (in the case of minting etc)
+> the signature of the Datum is Union[NoDatum, SomeDatum] (both defined in the prelude)
+> This also aligns writing contracts with [CIP ??? - Maybe Datum](https://github.com/cardano-foundation/CIPs/pull/440)

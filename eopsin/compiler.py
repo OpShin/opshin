@@ -83,8 +83,13 @@ def wrap_validator_double_function(x: plt.AST):
                 plt.Bool(False),
                 plt.Bool(False),
             ),
-            # call the validator with a0, a1, and plug in Unit for data
-            plt.Apply(x, plt.Unit(), plt.Var("a0"), plt.Var("a1")),
+            # call the validator with a0, a1, and plug in NoDatum for data
+            plt.Apply(
+                x,
+                plt.ConstrData(plt.Integer(0), plt.EmptyDataList()),
+                plt.Var("a0"),
+                plt.Var("a1"),
+            ),
             # else call the validator with a0, a1 and return (now partially bound)
             plt.Apply(x, plt.Var("a0"), plt.Var("a1")),
         ),
@@ -167,30 +172,46 @@ class UPLCCompiler(CompilingNodeTransformer):
         ), "Variable named validator is not of type function"
 
         # check if this is a contract written to double function
+        # TODO only enable if user explicitly asks for this feature/ always enable and make user turn off if not needed
         enable_double_func_mint_spend = False
         if len(main_fun_typ.argtyps) == 3:
             # check if is possible
+            first_arg = main_fun_typ.argtyps[0]
             second_arg = main_fun_typ.argtyps[1]
+            assert isinstance(
+                first_arg, InstanceType
+            ), "Can not pass Class into validator"
             assert isinstance(
                 second_arg, InstanceType
             ), "Can not pass Class into validator"
             if isinstance(second_arg.typ, UnionType):
-                possible_types = second_arg.typ.typs
+                second_arg_possible_types = second_arg.typ.typs
             else:
-                possible_types = [second_arg.typ]
-            if any(isinstance(t, UnitType) for t in possible_types):
-                _LOGGER.warning(
-                    "The redeemer is annotated to be 'None'. This value is usually encoded in PlutusData with constructor id 0 and no fields. If you want the script to double function as minting and spending script, annotate the second argument with 'NoRedeemer'."
-                )
-            enable_double_func_mint_spend = not any(
+                second_arg_possible_types = [second_arg.typ]
+            if any(
                 (isinstance(t, RecordType) and t.record.constructor != 0)
                 or isinstance(t, UnitType)
-                for t in possible_types
-            )
-            if not enable_double_func_mint_spend:
+                for t in second_arg_possible_types
+            ):
+                if any(isinstance(t, UnitType) for t in second_arg_possible_types):
+                    _LOGGER.warning(
+                        "The redeemer is annotated to be 'None'. This value is usually encoded in PlutusData with constructor id 0 and no fields. If you want the script to double function as minting and spending script, annotate the second argument with 'NoRedeemer'."
+                    )
                 _LOGGER.warning(
                     "The second argument to the validator function potentially has constructor id 0. The validator will not be able to double function as minting script and spending script."
                 )
+            else:
+                if isinstance(first_arg.typ, UnionType) and any(
+                    isinstance(t, RecordType)
+                    and t.record.constructor == 0
+                    and not t.record.fields
+                    for t in first_arg.typ.typs
+                ):
+                    enable_double_func_mint_spend = True
+                else:
+                    _LOGGER.warning(
+                        "The first argument to the validator does not take into account that the datum may be NoDatum. The validator will not be able to double function as minting script and spending script."
+                    )
 
         validator = plt.Lambda(
             [f"p{i}" for i, _ in enumerate(main_fun_typ.argtyps)],

@@ -274,3 +274,18 @@ class NoRedeemer(PlutusData):
     """A datatype that allows double minting/spending usage of the script"""
 
     CONSTR_ID = 1
+
+
+@dataclass()
+class NoDatum(PlutusData):
+    """A datatype that signifies a Datum may be empty"""
+
+    CONSTR_ID = 0
+
+
+@dataclass()
+class SomeDatum(PlutusData):
+    """A datatype that signifies a Datum may be empty"""
+
+    CONSTR_ID = 1
+    datum: Anything
