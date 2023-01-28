@@ -67,12 +67,12 @@ StakingCredential = Union[StakingHash, StakingPtr]
 
 @dataclass()
 class NoStakingCredential(PlutusData):
-    CONSTR_ID = 0
+    CONSTR_ID = 1
 
 
 @dataclass()
 class SomeStakingCredential(PlutusData):
-    CONSTR_ID = 1
+    CONSTR_ID = 0
     staking_credential: StakingCredential
 
 
@@ -99,7 +99,7 @@ class SomeDatumHash(PlutusData):
 
 @dataclass()
 class SomeScriptHash(PlutusData):
-    CONSTR_ID = 1
+    CONSTR_ID = 0
     script_hash: DatumHash
 
 
@@ -134,7 +134,7 @@ OutputDatum = Union[NoOutputDatum, SomeOutputDatumHash, SomeOutputDatum]
 
 @dataclass()
 class NoScriptHash(PlutusData):
-    CONSTR_ID = 0
+    CONSTR_ID = 1
 
 
 @dataclass()
@@ -269,8 +269,4 @@ class Token(PlutusData):
     token_name: TokenName
 
 
-@dataclass()
-class NoRedeemer(PlutusData):
-    """A datatype that allows double minting/spending usage of the script"""
-
-    CONSTR_ID = 1
+NoRedeemer = Nothing
