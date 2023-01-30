@@ -4,6 +4,7 @@
 <img  src="https://raw.githubusercontent.com/ImperatorLang/eopsin/c485feda7b5e7eb0d835f3ad39eed679b96aa05c/eopsin.png" width="240" />
 <h1 style="text-align: center;">eopsin</h1></br>
 
+
 [![Build Status](https://app.travis-ci.com/ImperatorLang/eopsin.svg?branch=master)](https://app.travis-ci.com/ImperatorLang/eopsin)
 [![PyPI version](https://badge.fury.io/py/eopsin-lang.svg)](https://pypi.org/project/eopsin-lang/)
 ![PyPI - Python Version](https://img.shields.io/pypi/pyversions/eopsin-lang.svg)
@@ -135,6 +136,8 @@ You will be notified of which constructs are not supported when trying to compil
 > [...] Eopsin was believed to be a pitch-black snake that had ears. [[1]](https://en.wikipedia.org/wiki/Eopsin)
 
 Since this project tries to merge Python (a large serpent) and Pluto/Plutus (Greek wealth gods), the name appears fitting.
+
+The name is pronounced _op-shin_.
 
 ## Contributing
 
