@@ -30,6 +30,14 @@ If the program compiles then:
 
 ### Getting Started
 
+#### Developer Community and Questions
+
+This repository contains a discussions page.
+Feel free to open up a new discussion with questions regarding development using eopsin and using certain features.
+Others may be able to help you and will also benefit from the previously shared questions.
+
+Check out the community [here](https://github.com/ImperatorLang/eopsin/discussions)
+
 #### Installation
 
 Install Python 3.8. Then run
