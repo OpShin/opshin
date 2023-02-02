@@ -12,7 +12,7 @@ class Burn(PlutusData):
     CONSTR_ID = 1
 
 
-def validator(
+def validator_template(
     dn: int, prec_NFT: TokenName, redeemer: Union[Mint, Burn], ctx: ScriptContext
 ) -> None:
     purpose = ctx.purpose
@@ -43,5 +43,15 @@ def validator(
         elif isinstance(redeemer, Burn):
             for amount in own_mints.values():
                 assert amount == -1, "Own currency needs to be burnt"
+        else:
+            assert False, "Wrong redeemer passed in"
     else:
         assert False, "Purpose of mint call must be minting"
+
+
+SLICED = 1
+PREC_NFT = b""
+
+
+def validator(redeemer: Union[Mint, Burn], ctx: ScriptContext) -> None:
+    return validator_template(SLICED, PREC_NFT, redeemer, ctx)
