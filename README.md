@@ -4,6 +4,7 @@
 <img  src="https://raw.githubusercontent.com/ImperatorLang/eopsin/c485feda7b5e7eb0d835f3ad39eed679b96aa05c/eopsin.png" width="240" />
 <h1 style="text-align: center;">eopsin</h1></br>
 
+
 [![Build Status](https://app.travis-ci.com/ImperatorLang/eopsin.svg?branch=master)](https://app.travis-ci.com/ImperatorLang/eopsin)
 [![PyPI version](https://badge.fury.io/py/eopsin-lang.svg)](https://pypi.org/project/eopsin-lang/)
 ![PyPI - Python Version](https://img.shields.io/pypi/pyversions/eopsin-lang.svg)
@@ -29,6 +30,14 @@ If the program compiles then:
 
 ### Getting Started
 
+#### Developer Community and Questions
+
+This repository contains a discussions page.
+Feel free to open up a new discussion with questions regarding development using eopsin and using certain features.
+Others may be able to help you and will also benefit from the previously shared questions.
+
+Check out the community [here](https://github.com/ImperatorLang/eopsin/discussions)
+
 #### Installation
 
 Install Python 3.8. Then run
@@ -38,6 +47,13 @@ python3.8 -m pip install eopsin-lang
 ```
 
 #### Writing a Smart Contract
+
+A short non-complete introduction in starting to write smart contracts follows.
+
+1. Make sure you understand python. Eopsin works like python and uses python. There are tons of tutorials for python, choose what suits you best.
+2. Make sure your contract is valid python and the types check out. Write simple contracts first and run them using `eopsin eval` to get a feeling for how they work.
+3. Make sure your contract is valid eopsin code. Run `eopsin compile` and look at the compiler erros for guidance along what works and doesn't work and why.
+4. Dig into the examples to understand common patterns. Check out the [`prelude`](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py) for understanding how the Script Context is structured and how complex datums are defined.
 
 A simple contract called the "Gift Contract" verifies that only specific wallets can withdraw money.
 They are authenticated by a signature.
@@ -136,6 +152,8 @@ You will be notified of which constructs are not supported when trying to compil
 
 Since this project tries to merge Python (a large serpent) and Pluto/Plutus (Greek wealth gods), the name appears fitting.
 
+The name is pronounced _op-shin_.
+
 ## Contributing
 
 ### Architecture
@@ -160,6 +178,7 @@ python3 -m eopsin compile_pluto examples/smart_contracts/assert_sum.py
 ### Sponsoring
 
 You can sponsor the development of eopsin. Just drop me a message on social media and let me know what it is for.
+Donation in ADA can be submitted to `$imperatorlang` or `addr1qyz3vgd5xxevjy2rvqevz9n7n7dney8n6hqggp23479fm6vwpj9clsvsf85cd4xc59zjztr5zwpummwckmzr2myjwjns74lhmr`.
 
 ### Supporters
 

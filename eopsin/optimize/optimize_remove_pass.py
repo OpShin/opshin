@@ -1,13 +1,14 @@
 from ast import *
-from copy import copy
 
-from ..util import TypedNodeTransformer
+from ..util import CompilingNodeTransformer
 
 """
 Removes pass statements
 """
 
 
-class OptimizeRemovePass(TypedNodeTransformer):
+class OptimizeRemovePass(CompilingNodeTransformer):
+    step = "Removing occurrences of 'pass'"
+
     def visit_Pass(self, node: Pass):
         return None

@@ -1,12 +1,15 @@
 from ast import *
 from typing import Optional
 
+from ..util import CompilingNodeTransformer
+
 """
 Checks that there was an import of dataclass if there are any class definitions
 """
 
 
-class RewriteImportDataclasses(NodeTransformer):
+class RewriteImportDataclasses(CompilingNodeTransformer):
+    step = "Resolving the import and usage of dataclass"
 
     imports_dataclasses = False
 

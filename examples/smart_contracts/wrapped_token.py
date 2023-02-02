@@ -39,7 +39,7 @@ def own_policy_id(own_spent_utxo: TxOut) -> PolicyId:
 
 
 def own_address(own_policy_id: PolicyId) -> Address:
-    return Address(ScriptCredential(own_policy_id), Nothing())
+    return Address(ScriptCredential(own_policy_id), NoStakingCredential())
 
 
 def all_tokens_locked_at_address(
@@ -49,10 +49,13 @@ def all_tokens_locked_at_address(
     for txo in txouts:
         if txo.address == address:
             res += txo.value.get(token.policy_id, {b"": 0}).get(token.token_name, 0)
+            assert txo.datum == SomeOutputDatumHash(
+                b"\x83\x92\xf0\xc9@C\\\x06\x88\x8f\x9b\xdb\x8ct\xa9]\xc6\x9f\x15cg\xd6\xa0\x89\xcf\x00\x8a\xe0\\\xaa\xe0\x1e"
+            ), "Does not attach correct datum to script output"
     return res
 
 
-def validator(_datum: Nothing, _redeemer: Nothing, ctx: ScriptContext) -> None:
+def validator(_datum: None, _redeemer: NoRedeemer, ctx: ScriptContext) -> None:
     purpose = ctx.purpose
     if isinstance(purpose, Minting):
         # whenever tokens should be burned/minted, the minting purpose will be triggered

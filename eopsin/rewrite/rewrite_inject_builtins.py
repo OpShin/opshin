@@ -1,16 +1,20 @@
 from copy import copy
 
-import pluthon as plt
-
 from ..typed_ast import *
-from ..util import PythonBuiltIn, PythonBuiltInTypes, RawPlutoExpr, TypedNodeTransformer
+from ..util import (
+    PythonBuiltIn,
+    PythonBuiltInTypes,
+    CompilingNodeTransformer,
+)
 
 """
 Inject initialising the builtin functions
 """
 
 
-class RewriteInjectBuiltins(TypedNodeTransformer):
+class RewriteInjectBuiltins(CompilingNodeTransformer):
+    step = "Injecting builtin functions"
+
     def visit_Module(self, node: TypedModule) -> TypedModule:
         additional_assigns = []
         for b in PythonBuiltIn:

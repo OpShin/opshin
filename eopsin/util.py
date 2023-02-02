@@ -1,13 +1,11 @@
+import ast
+
 from enum import Enum, auto
 
 from .typed_ast import *
 
 import pluthon as plt
-
-
-class RawPlutoExpr(typedexpr):
-    typ: Type
-    expr: plt.AST
+import uplc.ast as uplc
 
 
 class PythonBuiltIn(Enum):
@@ -19,28 +17,7 @@ class PythonBuiltIn(Enum):
         ["limit", "_"],
         plt.Range(plt.Var("limit")),
     )
-    sha256 = plt.Lambda(["x", "_"], plt.Lambda(["_"], plt.Sha2_256(plt.Var("x"))))
-    sha3_256 = plt.Lambda(["x", "_"], plt.Lambda(["_"], plt.Sha3_256(plt.Var("x"))))
-    blake2b = plt.Lambda(["x", "_"], plt.Lambda(["_"], plt.Blake2b_256(plt.Var("x"))))
     len = auto()
-
-
-@dataclass(frozen=True, unsafe_hash=True)
-class HashType(ClassType):
-    """A pseudo class that is the result of python hash functions that need a 'digest' call"""
-
-    def attribute_type(self, attr) -> "Type":
-        if attr == "digest":
-            return InstanceType(FunctionType([], ByteStringInstanceType))
-        raise NotImplementedError("HashType only has attribute 'digest'")
-
-    def attribute(self, attr) -> plt.AST:
-        if attr == "digest":
-            return plt.Lambda(["self"], plt.Var("self"))
-        raise NotImplementedError("HashType only has attribute 'digest'")
-
-
-HashInstanceType = InstanceType(HashType())
 
 
 class Len(PolymorphicFunction):
@@ -83,45 +60,50 @@ PythonBuiltInTypes = {
             InstanceType(ListType(IntegerInstanceType)),
         )
     ),
-    PythonBuiltIn.sha256: InstanceType(
-        FunctionType(
-            [ByteStringInstanceType],
-            HashInstanceType,
-        )
-    ),
-    PythonBuiltIn.sha3_256: InstanceType(
-        FunctionType(
-            [ByteStringInstanceType],
-            HashInstanceType,
-        )
-    ),
-    PythonBuiltIn.blake2b: InstanceType(
-        FunctionType(
-            [ByteStringInstanceType],
-            HashInstanceType,
-        )
-    ),
     PythonBuiltIn.len: InstanceType(PolymorphicFunctionType(Len())),
 }
 
 
-class TypedNodeTransformer(NodeTransformer):
-    def visit(self, node):
-        """Visit a node."""
-        node_class_name = node.__class__.__name__
-        if node_class_name.startswith("Typed"):
-            node_class_name = node_class_name[len("Typed") :]
-        method = "visit_" + node_class_name
-        visitor = getattr(self, method, self.generic_visit)
-        return visitor(node)
+class CompilerError(Exception):
+    def __init__(self, orig_err: Exception, node: ast.AST, compilation_step: str):
+        self.orig_err = orig_err
+        self.node = node
+        self.compilation_step = compilation_step
 
 
-class TypedNodeVisitor(NodeVisitor):
+class CompilingNodeTransformer(TypedNodeTransformer):
+    step = "Node transformation"
+
     def visit(self, node):
-        """Visit a node."""
-        node_class_name = node.__class__.__name__
-        if node_class_name.startswith("Typed"):
-            node_class_name = node_class_name[len("Typed") :]
-        method = "visit_" + node_class_name
-        visitor = getattr(self, method, self.generic_visit)
-        return visitor(node)
+        try:
+            return super().visit(node)
+        except Exception as e:
+            if isinstance(e, CompilerError):
+                raise e
+            raise CompilerError(e, node, self.step)
+
+
+class CompilingNodeVisitor(TypedNodeVisitor):
+    step = "Node visiting"
+
+    def visit(self, node):
+        try:
+            return super().visit(node)
+        except Exception as e:
+            if isinstance(e, CompilerError):
+                raise e
+            raise CompilerError(e, node, self.step)
+
+
+def data_from_json(j: typing.Dict[str, typing.Any]) -> uplc.PlutusData:
+    if "bytes" in j:
+        return uplc.PlutusByteString(bytes.fromhex(j["bytes"]))
+    if "int" in j:
+        return uplc.PlutusInteger(int(j["int"]))
+    if "list" in j:
+        return uplc.PlutusList(list(map(data_from_json, j["list"])))
+    if "map" in j:
+        return uplc.PlutusMap({d["k"]: d["v"] for d in j["map"]})
+    if "constructor" in j and "fields" in j:
+        return uplc.PlutusConstr(j["constructor"], j["fields"])
+    raise NotImplementedError(f"Unknown datum representation {j}")

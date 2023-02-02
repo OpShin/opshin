@@ -1,12 +1,15 @@
 import typing
 from ast import *
 
+from ..util import CompilingNodeTransformer
+
 """
 Rewrites all occurences of assignments to tuples to assignments to single values
 """
 
 
-class RewriteTupleAssign(NodeTransformer):
+class RewriteTupleAssign(CompilingNodeTransformer):
+    step = "Rewriting tuple deconstruction in assignments"
 
     unique_id = 0
 

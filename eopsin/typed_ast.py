@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from frozenlist import FrozenList
 
 import pluthon as plt
-import uplc
+import uplc.ast as uplc
 
 
 def FrozenFrozenList(l: list):
@@ -17,16 +17,18 @@ def FrozenFrozenList(l: list):
 class Type:
     def constr_type(self) -> "InstanceType":
         """The type of the constructor for this class"""
-        raise TypeInferenceError(f"Object of type {self} does not have a constructor")
+        raise TypeInferenceError(
+            f"Object of type {self.__class__} does not have a constructor"
+        )
 
     def constr(self) -> plt.AST:
         """The constructor for this class"""
-        raise NotImplementedError(f"Constructor of {self} not implemented")
+        raise NotImplementedError(f"Constructor of {self.__class__} not implemented")
 
     def attribute_type(self, attr) -> "Type":
         """The types of the named attributes of this class"""
         raise TypeInferenceError(
-            f"Object of type {self} does not have attribute {attr}"
+            f"Object of type {self.__class__} does not have attribute {attr}"
         )
 
     def attribute(self, attr) -> plt.AST:
@@ -35,7 +37,9 @@ class Type:
 
     def cmp(self, op: cmpop, o: "Type") -> plt.AST:
         """The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second the comparison."""
-        raise NotImplementedError(f"Comparison {type(op).__name__} for {self} and {o}")
+        raise NotImplementedError(
+            f"Comparison {type(op).__name__} for {self.__class__.__name__} and {o.__class__.__name__} is not implemented. This is likely intended because it would always evaluate to False."
+        )
 
 
 @dataclass(frozen=True, unsafe_hash=True)
@@ -95,7 +99,9 @@ class RecordType(ClassType):
         for n, t in self.record.fields:
             if n == attr:
                 return t
-        raise TypeInferenceError(f"Type {self} does not have attribute {attr}")
+        raise TypeInferenceError(
+            f"Type {self.record.name} does not have attribute {attr}"
+        )
 
     def attribute(self, attr: str) -> plt.AST:
         """The attributes of this class. Need to be a lambda that expects as first argument the object itself"""
@@ -120,9 +126,11 @@ class RecordType(ClassType):
 
     def cmp(self, op: cmpop, o: "Type") -> plt.AST:
         """The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second the comparison."""
-        if isinstance(o, RecordType):
+        # this will reject comparisons that will always be false - most likely due to faults during programming
+        if (isinstance(o, RecordType) and o.record == self.record) or (
+            isinstance(o, UnionType) and self in o.typs
+        ):
             if isinstance(op, Eq):
-                # TODO can print a warning if records are different and this will always return false
                 return plt.BuiltIn(uplc.BuiltInFun.EqualsData)
             if isinstance(op, NotEq):
                 return plt.Lambda(
@@ -133,6 +141,31 @@ class RecordType(ClassType):
                             plt.Var("x"),
                             plt.Var("y"),
                         )
+                    ),
+                )
+        if (
+            isinstance(o, ListType)
+            and isinstance(o.typ, InstanceType)
+            and o.typ.typ >= self
+        ):
+            if isinstance(op, In):
+                return plt.Lambda(
+                    ["x", "y"],
+                    plt.EqualsData(
+                        plt.Var("x"),
+                        plt.FindList(
+                            plt.Var("y"),
+                            plt.Apply(
+                                plt.BuiltIn(uplc.BuiltInFun.EqualsData), plt.Var("x")
+                            ),
+                            # this simply ensures the default is always unequal to the searched value
+                            plt.ConstrData(
+                                plt.AddInteger(
+                                    plt.Constructor(plt.Var("x")), plt.Integer(1)
+                                ),
+                                plt.MkNilData(plt.Unit()),
+                            ),
+                        ),
                     ),
                 )
         return super().cmp(op, o)
@@ -170,6 +203,30 @@ class UnionType(ClassType):
             return all(any(t >= ot for ot in other.typs) for t in self.typs)
         return any(t >= other for t in self.typs)
 
+    def cmp(self, op: cmpop, o: "Type") -> plt.AST:
+        """The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second the comparison."""
+        # this will reject comparisons that will always be false - most likely due to faults during programming
+        # note we require that there is an overlapt between the possible types for unions
+        if (isinstance(o, RecordType) and o in self.typs) or (
+            isinstance(o, UnionType) and set(self.typs).intersection(o.typs)
+        ):
+            if isinstance(op, Eq):
+                return plt.BuiltIn(uplc.BuiltInFun.EqualsData)
+            if isinstance(op, NotEq):
+                return plt.Lambda(
+                    ["x", "y"],
+                    plt.Not(
+                        plt.Apply(
+                            plt.BuiltIn(uplc.BuiltInFun.EqualsData),
+                            plt.Var("x"),
+                            plt.Var("y"),
+                        )
+                    ),
+                )
+        raise NotImplementedError(
+            f"Can not compare {o} and {self} with operation {op.__class__}. Note that comparisons that always return false are also rejected."
+        )
+
 
 @dataclass(frozen=True, unsafe_hash=True)
 class TupleType(ClassType):
@@ -199,6 +256,12 @@ class DictType(ClassType):
             return InstanceType(
                 FunctionType([self.key_typ, self.value_typ], self.value_typ)
             )
+        if attr == "keys":
+            return InstanceType(FunctionType([], InstanceType(ListType(self.key_typ))))
+        if attr == "values":
+            return InstanceType(
+                FunctionType([], InstanceType(ListType(self.value_typ)))
+            )
         raise TypeInferenceError(
             f"Type of attribute '{attr}' is unknown for type Dict."
         )
@@ -227,6 +290,34 @@ class DictType(ClassType):
                             ),
                         ),
                     ),
+                ),
+            )
+        if attr == "keys":
+            return plt.Lambda(
+                ["self", "_"],
+                plt.MapList(
+                    plt.Var("self"),
+                    plt.Lambda(
+                        ["x"],
+                        transform_ext_params_map(self.key_typ)(
+                            plt.FstPair(plt.Var("x"))
+                        ),
+                    ),
+                    empty_list(self.key_typ),
+                ),
+            )
+        if attr == "values":
+            return plt.Lambda(
+                ["self", "_"],
+                plt.MapList(
+                    plt.Var("self"),
+                    plt.Lambda(
+                        ["x"],
+                        transform_ext_params_map(self.value_typ)(
+                            plt.SndPair(plt.Var("x"))
+                        ),
+                    ),
+                    empty_list(self.value_typ),
                 ),
             )
         raise NotImplementedError(f"Attribute '{attr}' of Dict is unknown.")
@@ -282,6 +373,19 @@ class InstanceType(Type):
 class IntegerType(AtomicType):
     def cmp(self, op: cmpop, o: "Type") -> plt.AST:
         """The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second the comparison."""
+        if isinstance(o, BoolType):
+            if isinstance(op, Eq):
+                # 1 == True
+                # 0 == False
+                # all other comparisons are False
+                return plt.Lambda(
+                    ["x", "y"],
+                    plt.Ite(
+                        plt.Var("y"),
+                        plt.EqualsInteger(plt.Var("x"), plt.Integer(1)),
+                        plt.EqualsInteger(plt.Var("x"), plt.Integer(0)),
+                    ),
+                )
         if isinstance(o, IntegerType):
             if isinstance(op, Eq):
                 return plt.BuiltIn(uplc.BuiltInFun.EqualsInteger)
@@ -316,6 +420,26 @@ class IntegerType(AtomicType):
                         plt.BuiltIn(uplc.BuiltInFun.LessThanEqualsInteger),
                         plt.Var("y"),
                         plt.Var("x"),
+                    ),
+                )
+        if (
+            isinstance(o, ListType)
+            and isinstance(o.typ, InstanceType)
+            and isinstance(o.typ.typ, IntegerType)
+        ):
+            if isinstance(op, In):
+                return plt.Lambda(
+                    ["x", "y"],
+                    plt.EqualsInteger(
+                        plt.Var("x"),
+                        plt.FindList(
+                            plt.Var("y"),
+                            plt.Apply(
+                                plt.BuiltIn(uplc.BuiltInFun.EqualsInteger), plt.Var("x")
+                            ),
+                            # this simply ensures the default is always unequal to the searched value
+                            plt.AddInteger(plt.Var("x"), plt.Integer(1)),
+                        ),
                     ),
                 )
         return super().cmp(op, o)
@@ -376,12 +500,46 @@ class ByteStringType(AtomicType):
                         plt.Var("x"),
                     ),
                 )
+        if (
+            isinstance(o, ListType)
+            and isinstance(o.typ, InstanceType)
+            and isinstance(o.typ.typ, ByteStringType)
+        ):
+            if isinstance(op, In):
+                return plt.Lambda(
+                    ["x", "y"],
+                    plt.EqualsByteString(
+                        plt.Var("x"),
+                        plt.FindList(
+                            plt.Var("y"),
+                            plt.Apply(
+                                plt.BuiltIn(uplc.BuiltInFun.EqualsByteString),
+                                plt.Var("x"),
+                            ),
+                            # this simply ensures the default is always unequal to the searched value
+                            plt.ConsByteString(plt.Integer(0), plt.Var("x")),
+                        ),
+                    ),
+                )
         return super().cmp(op, o)
 
 
 @dataclass(frozen=True, unsafe_hash=True)
 class BoolType(AtomicType):
     def cmp(self, op: cmpop, o: "Type") -> plt.AST:
+        if isinstance(o, IntegerType):
+            if isinstance(op, Eq):
+                # 1 == True
+                # 0 == False
+                # all other comparisons are False
+                return plt.Lambda(
+                    ["y", "x"],
+                    plt.Ite(
+                        plt.Var("y"),
+                        plt.EqualsInteger(plt.Var("x"), plt.Integer(1)),
+                        plt.EqualsInteger(plt.Var("x"), plt.Integer(0)),
+                    ),
+                )
         if isinstance(o, BoolType):
             if isinstance(op, Eq):
                 return plt.Lambda(["x", "y"], plt.Iff(plt.Var("x"), plt.Var("y")))
@@ -414,9 +572,7 @@ ATOMIC_TYPES = {
 }
 
 
-NoneRecord = Record("None", 0, FrozenFrozenList([]))
-NoneType = RecordType(NoneRecord)
-NoneInstanceType = InstanceType(NoneType)
+NoneInstanceType = UnitInstanceType
 
 
 class InaccessibleType(ClassType):
@@ -456,7 +612,7 @@ class typedexpr(TypedAST, expr):
 
 class typedstmt(TypedAST, stmt):
     # Statements always have type None
-    typ = NoneType
+    typ = NoneInstanceType
 
 
 class typedarg(TypedAST, arg):
@@ -567,6 +723,10 @@ class TypedBinOp(typedexpr, BinOp):
     right: typedexpr
 
 
+class TypedBoolOp(typedexpr, BoolOp):
+    values: typing.List[typedexpr]
+
+
 class TypedUnaryOp(typedexpr, UnaryOp):
     operand: typedexpr
 
@@ -583,6 +743,11 @@ class TypedAttribute(typedexpr, Attribute):
 class TypedAssert(typedstmt, Assert):
     test: typedexpr
     msg: typedexpr
+
+
+class RawPlutoExpr(typedexpr):
+    typ: Type
+    expr: plt.AST
 
 
 class TypeInferenceError(AssertionError):
@@ -616,7 +781,7 @@ TransformExtParamsMap = {
     IntegerInstanceType: lambda x: plt.UnIData(x),
     ByteStringInstanceType: lambda x: plt.UnBData(x),
     StringInstanceType: lambda x: plt.DecodeUtf8(plt.UnBData(x)),
-    UnitInstanceType: lambda x: plt.Lambda(["_"], plt.Unit()),
+    UnitInstanceType: lambda x: plt.Apply(plt.Lambda(["_"], plt.Unit())),
     BoolInstanceType: lambda x: plt.NotEqualsInteger(x, plt.Integer(0)),
 }
 
@@ -645,7 +810,7 @@ TransformOutputMap = {
     StringInstanceType: lambda x: plt.BData(plt.EncodeUtf8(x)),
     IntegerInstanceType: lambda x: plt.IData(x),
     ByteStringInstanceType: lambda x: plt.BData(x),
-    UnitInstanceType: lambda x: plt.Lambda(["_"], plt.Unit()),
+    UnitInstanceType: lambda x: plt.Apply(plt.Lambda(["_"], plt.Unit()), x),
     BoolInstanceType: lambda x: plt.IData(
         plt.IfThenElse(x, plt.Integer(1), plt.Integer(0))
     ),
@@ -671,3 +836,25 @@ def transform_output_map(p: Type):
         # so pairs will always contain Data
         return lambda x: plt.MapData(x)
     return lambda x: x
+
+
+class TypedNodeTransformer(NodeTransformer):
+    def visit(self, node):
+        """Visit a node."""
+        node_class_name = node.__class__.__name__
+        if node_class_name.startswith("Typed"):
+            node_class_name = node_class_name[len("Typed") :]
+        method = "visit_" + node_class_name
+        visitor = getattr(self, method, self.generic_visit)
+        return visitor(node)
+
+
+class TypedNodeVisitor(NodeVisitor):
+    def visit(self, node):
+        """Visit a node."""
+        node_class_name = node.__class__.__name__
+        if node_class_name.startswith("Typed"):
+            node_class_name = node_class_name[len("Typed") :]
+        method = "visit_" + node_class_name
+        visitor = getattr(self, method, self.generic_visit)
+        return visitor(node)

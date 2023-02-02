@@ -1,6 +1,7 @@
+import frozendict
 import unittest
 
-import uplc
+from uplc import ast as uplc, eval as uplc_eval
 from hypothesis import example, given
 from hypothesis import strategies as st
 from parameterized import parameterized
@@ -27,8 +28,8 @@ class MiscTest(unittest.TestCase):
         # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
         for d in [uplc.PlutusInteger(20), uplc.PlutusInteger(22), uplc.BuiltinUnit()]:
             f = uplc.Apply(f, d)
-        ret = uplc.Machine(f).eval()
-        self.assertEqual(ret, uplc.PlutusConstr(0, []))
+        ret = uplc_eval(f)
+        self.assertEqual(ret, uplc.BuiltinUnit())
 
     def test_assert_sum_contract_fail(self):
         input_file = "examples/smart_contracts/assert_sum.py"
@@ -46,7 +47,7 @@ class MiscTest(unittest.TestCase):
                 uplc.BuiltinUnit(),
             ]:
                 f = uplc.Apply(f, d)
-            ret = uplc.Machine(f).eval()
+            ret = uplc_eval(f)
             self.fail("Machine did validate the content")
         except Exception as e:
             pass
@@ -66,7 +67,7 @@ class MiscTest(unittest.TestCase):
         # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
         for d in [uplc.PlutusInteger(a), uplc.PlutusInteger(b)]:
             f = uplc.Apply(f, d)
-        ret = uplc.Machine(f).eval()
+        ret = uplc_eval(f)
         self.assertEqual(ret, uplc.PlutusInteger(a * b))
 
     @given(
@@ -84,7 +85,7 @@ class MiscTest(unittest.TestCase):
         # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
         for d in [uplc.PlutusInteger(a), uplc.PlutusInteger(b)]:
             f = uplc.Apply(f, d)
-        ret = uplc.Machine(f).eval()
+        ret = uplc_eval(f)
         self.assertEqual(ret, uplc.PlutusInteger(a * b))
 
     @given(
@@ -102,7 +103,7 @@ class MiscTest(unittest.TestCase):
         # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
         for d in [uplc.PlutusInteger(a), uplc.PlutusInteger(b)]:
             f = uplc.Apply(f, d)
-        ret = uplc.Machine(f).eval()
+        ret = uplc_eval(f)
         self.assertEqual(ret, uplc.PlutusInteger(a + b))
 
     def test_complex_datum_correct_vals(self):
@@ -122,7 +123,7 @@ class MiscTest(unittest.TestCase):
             )
         ]:
             f = uplc.Apply(f, d)
-        ret = uplc.Machine(f).eval()
+        ret = uplc_eval(f)
         self.assertEqual(
             uplc.PlutusByteString(
                 bytes.fromhex(
@@ -143,7 +144,7 @@ class MiscTest(unittest.TestCase):
         # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
         for d in [uplc.PlutusConstr(0, [])]:
             f = uplc.Apply(f, d)
-        ret = uplc.Machine(f).eval()
+        ret = uplc_eval(f)
 
     def test_list_datum_correct_vals(self):
         input_file = "examples/list_datum.py"
@@ -156,7 +157,7 @@ class MiscTest(unittest.TestCase):
         # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
         for d in [uplc.data_from_cbor(bytes.fromhex("d8799f9f41014102ffff"))]:
             f = uplc.Apply(f, d)
-        ret = uplc.Machine(f).eval()
+        ret = uplc_eval(f)
         self.assertEqual(
             uplc.PlutusInteger(1),
             ret,
@@ -173,7 +174,7 @@ class MiscTest(unittest.TestCase):
         # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
         for d in [uplc.PlutusInteger(1)]:
             f = uplc.Apply(f, d)
-        ret = uplc.Machine(f).eval()
+        ret = uplc_eval(f)
         self.assertEqual(
             uplc.PlutusInteger(42),
             ret,
@@ -191,7 +192,7 @@ class MiscTest(unittest.TestCase):
         # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
         for d in [uplc.PlutusInteger(n)]:
             f = uplc.Apply(f, d)
-        ret = uplc.Machine(f).eval()
+        ret = uplc_eval(f)
         self.assertEqual(
             uplc.PlutusInteger(fib(n)),
             ret,
@@ -209,7 +210,7 @@ class MiscTest(unittest.TestCase):
         # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
         for d in [uplc.PlutusInteger(n)]:
             f = uplc.Apply(f, d)
-        ret = uplc.Machine(f).eval()
+        ret = uplc_eval(f)
         self.assertEqual(
             uplc.PlutusInteger(fib(n)),
             ret,
@@ -264,8 +265,8 @@ class MiscTest(unittest.TestCase):
             ),
         ]:
             f = uplc.Apply(f, d)
-        ret = uplc.Machine(f).eval()
-        self.assertEqual(ret, uplc.PlutusConstr(0, []))
+        ret = uplc_eval(f)
+        self.assertEqual(ret, uplc.BuiltinUnit())
 
     def test_gift_contract_fail(self):
         input_file = "examples/smart_contracts/gift.py"
@@ -299,7 +300,7 @@ class MiscTest(unittest.TestCase):
                 ),
             ]:
                 f = uplc.Apply(f, d)
-            ret = uplc.Machine(f).eval()
+            ret = uplc_eval(f)
             self.fail("Machine did validate the content")
         except Exception as e:
             pass
@@ -326,7 +327,7 @@ def validator(_: None) -> int:
             uplc.PlutusConstr(0, []),
         ]:
             f = uplc.Apply(f, d)
-        ret = uplc.Machine(f).eval()
+        ret = uplc_eval(f)
         self.assertEqual(uplc.PlutusInteger(100), ret)
 
     def test_datum_cast(self):
@@ -347,7 +348,7 @@ def validator(_: None) -> int:
             uplc.PlutusByteString(b"test"),
         ]:
             f = uplc.Apply(f, d)
-        ret = uplc.Machine(f).eval()
+        ret = uplc_eval(f)
         self.assertEqual(
             uplc.PlutusByteString(
                 bytes.fromhex(
@@ -390,7 +391,40 @@ def validator(_: None) -> int:
                 ),
             ]:
                 f = uplc.Apply(f, d)
-            ret = uplc.Machine(f).eval()
+            ret = uplc_eval(f)
+            self.fail("Machine did validate the content")
+        except Exception as e:
+            pass
+
+    def test_dict_datum(self):
+        input_file = "examples/dict_datum.py"
+        with open(input_file) as fp:
+            source_code = fp.read()
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        try:
+            # required sig missing int this script context
+            for d in [
+                uplc.PlutusConstr(
+                    0,
+                    [
+                        uplc.PlutusMap(
+                            frozendict.frozendict(
+                                {
+                                    uplc.PlutusConstr(
+                                        0, [uplc.PlutusByteString(b"\x01")]
+                                    ): 2
+                                }
+                            )
+                        )
+                    ],
+                ),
+            ]:
+                f = uplc.Apply(f, d)
+            ret = uplc_eval(f)
             self.fail("Machine did validate the content")
         except Exception as e:
             pass

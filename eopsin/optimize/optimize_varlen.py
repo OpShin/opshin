@@ -2,14 +2,16 @@ from ast import *
 from copy import copy
 from collections import defaultdict
 
-from ..util import TypedNodeVisitor, TypedNodeTransformer
+from ..util import CompilingNodeTransformer, CompilingNodeVisitor
 
 """
 Rewrites all variable names to a minimal length equivalent
 """
 
 
-class NameCollector(TypedNodeVisitor):
+class NameCollector(CompilingNodeVisitor):
+    step = "Collecting occuring variable names"
+
     def __init__(self):
         self.vars = defaultdict(int)
 
@@ -36,7 +38,8 @@ def bs_from_int(i: int):
     return bytes.fromhex(hex_str)
 
 
-class OptimizeVarlen(TypedNodeTransformer):
+class OptimizeVarlen(CompilingNodeTransformer):
+    step = "Reducing the length of variable names"
 
     varmap = None
 

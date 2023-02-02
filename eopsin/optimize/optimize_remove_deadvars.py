@@ -2,14 +2,16 @@ from ast import *
 from copy import copy
 from collections import defaultdict
 
-from ..util import TypedNodeVisitor, TypedNodeTransformer
+from ..util import CompilingNodeVisitor, CompilingNodeTransformer
 
 """
 Removes assignments to variables that are never read
 """
 
 
-class NameLoadCollector(TypedNodeVisitor):
+class NameLoadCollector(CompilingNodeVisitor):
+    step = "Collecting used variables"
+
     def __init__(self):
         self.loaded = defaultdict(int)
 
@@ -27,7 +29,8 @@ class NameLoadCollector(TypedNodeVisitor):
             self.visit(s)
 
 
-class OptimizeRemoveDeadvars(TypedNodeTransformer):
+class OptimizeRemoveDeadvars(CompilingNodeTransformer):
+    step = "Removing unused variables"
 
     loaded_vars = None
 

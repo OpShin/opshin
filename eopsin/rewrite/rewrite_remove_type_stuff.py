@@ -1,14 +1,16 @@
 from typing import Optional
 
-from ..util import TypedNodeTransformer
-from ..typed_ast import *
+from ..typed_ast import TypedAssign, ClassType
+from ..util import CompilingNodeTransformer
 
 """
 Inject initialising the builtin functions
 """
 
 
-class RewriteRemoveTypeStuff(TypedNodeTransformer):
+class RewriteRemoveTypeStuff(CompilingNodeTransformer):
+    step = "Removing class re-assignments"
+
     def visit_Assign(self, node: TypedAssign) -> Optional[TypedAssign]:
         assert (
             len(node.targets) == 1

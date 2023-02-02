@@ -1,5 +1,6 @@
 import logging
 from logging import getLogger
+from ast import fix_missing_locations
 
 from .rewrite.rewrite_augassign import RewriteAugAssign
 from .rewrite.rewrite_forbidden_overwrites import RewriteForbiddenOverwrites
@@ -15,8 +16,9 @@ from .optimize.optimize_remove_pass import OptimizeRemovePass
 from .optimize.optimize_remove_deadvars import OptimizeRemoveDeadvars
 from .optimize.optimize_varlen import OptimizeVarlen
 from .type_inference import *
-from .util import RawPlutoExpr, TypedNodeTransformer
-from .typed_ast import transform_ext_params_map, transform_output_map
+from .util import CompilingNodeTransformer
+from .typed_ast import transform_ext_params_map, transform_output_map, RawPlutoExpr
+
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -57,13 +59,21 @@ BinOpMap = {
     },
 }
 
+BoolOpMap = {
+    And: plt.And,
+    Or: plt.Or,
+}
+
+UnaryOpMap = {
+    Not: plt.Not,
+}
 
 ConstantMap = {
     str: plt.Text,
     bytes: lambda x: plt.ByteString(x),
     int: lambda x: plt.Integer(x),
     bool: plt.Bool,
-    type(None): lambda _: plt.NoneData(),
+    type(None): lambda _: plt.Unit(),
 }
 
 
@@ -100,10 +110,12 @@ def extend_statemonad(
 INITIAL_STATE = plt.FunctionalMap()
 
 
-class UPLCCompiler(TypedNodeTransformer):
+class UPLCCompiler(CompilingNodeTransformer):
     """
     Expects a TypedAST and returns UPLC/Pluto like code
     """
+
+    step = "Compiling python statements to UPLC"
 
     def visit_sequence(self, node_seq: typing.List[typedstmt]) -> plt.AST:
         s = plt.Var(STATEMONAD)
@@ -132,6 +144,27 @@ class UPLCCompiler(TypedNodeTransformer):
                 plt.Apply(self.visit(node.left), plt.Var(STATEMONAD)),
                 plt.Apply(self.visit(node.right), plt.Var(STATEMONAD)),
             ),
+        )
+
+    def visit_BoolOp(self, node: TypedBoolOp) -> plt.AST:
+        op = BoolOpMap.get(type(node.op))
+        assert len(node.values) >= 2, "Need to compare at least to values"
+        ops = op(
+            plt.Apply(self.visit(node.values[0]), plt.Var(STATEMONAD)),
+            plt.Apply(self.visit(node.values[1]), plt.Var(STATEMONAD)),
+        )
+        for v in node.values[2:]:
+            ops = op(ops, plt.Apply(self.visit(v), plt.Var(STATEMONAD)))
+        return plt.Lambda(
+            [STATEMONAD],
+            ops,
+        )
+
+    def visit_UnaryOp(self, node: TypedUnaryOp) -> plt.AST:
+        op = UnaryOpMap.get(type(node.op))
+        return plt.Lambda(
+            [STATEMONAD],
+            op(plt.Apply(self.visit(node.operand), plt.Var(STATEMONAD))),
         )
 
     def visit_Compare(self, node: TypedCompare) -> plt.AST:
@@ -174,8 +207,13 @@ class UPLCCompiler(TypedNodeTransformer):
                 possible_types = second_arg.typ.typs
             else:
                 possible_types = [second_arg.typ]
-            enable_double_func_mint_spend = all(
-                not isinstance(t, RecordType) or t.record.constructor != 0
+            if any(isinstance(t, UnitType) for t in possible_types):
+                _LOGGER.warning(
+                    "The redeemer is annotated to be 'None'. This value is usually encoded in PlutusData with constructor id 0 and no fields. If you want the script to double function as minting and spending script, annotate the second argument with 'NoRedeemer'."
+                )
+            enable_double_func_mint_spend = not any(
+                (isinstance(t, RecordType) and t.record.constructor != 0)
+                or isinstance(t, UnitType)
                 for t in possible_types
             )
             if not enable_double_func_mint_spend:
@@ -226,7 +264,7 @@ class UPLCCompiler(TypedNodeTransformer):
         return plt.Lambda([STATEMONAD], plt_type(node.value))
 
     def visit_NoneType(self, _: typing.Optional[typing.Any]) -> plt.AST:
-        return plt.Lambda([STATEMONAD], plt.NoneData())
+        return plt.Lambda([STATEMONAD], plt.Unit())
 
     def visit_Assign(self, node: TypedAssign) -> plt.AST:
         assert (
@@ -587,7 +625,7 @@ class UPLCCompiler(TypedNodeTransformer):
 
 
 def compile(prog: AST):
-    compiler_steps = [
+    rewrite_steps = [
         # Important to call this one first - it imports all further files
         RewriteImport,
         # Rewrites that simplify the python code
@@ -603,6 +641,13 @@ def compile(prog: AST):
         # Rewrites that circumvent the type inference or use its results
         RewriteRemoveTypeStuff,
         RewriteInjectBuiltins,
+    ]
+    for s in rewrite_steps:
+        prog = s().visit(prog)
+        prog = fix_missing_locations(prog)
+
+    # from here on raw uplc may occur, so we dont attempt to fix locations
+    compile_pipeline = [
         # Apply optimizations
         OptimizeRemoveDeadvars,
         OptimizeVarlen,
@@ -610,6 +655,7 @@ def compile(prog: AST):
         # the compiler runs last
         UPLCCompiler,
     ]
-    for s in compiler_steps:
+    for s in compile_pipeline:
         prog = s().visit(prog)
+
     return prog

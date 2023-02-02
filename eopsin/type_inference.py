@@ -2,7 +2,7 @@ from copy import copy
 import ast
 
 from .typed_ast import *
-from .util import PythonBuiltInTypes
+from .util import PythonBuiltInTypes, CompilingNodeTransformer
 
 # from frozendict import frozendict
 
@@ -40,8 +40,8 @@ INITIAL_SCOPE.update(
 )
 
 
-class AggressiveTypeInferencer(NodeTransformer):
-    # TODO enforce all elements in a list to have the same type (length is not i.g. statically known!)
+class AggressiveTypeInferencer(CompilingNodeTransformer):
+    step = "Static Type Inference"
 
     # A stack of dictionaries for storing scoped knowledge of variable types
     scopes = [INITIAL_SCOPE]
@@ -70,10 +70,6 @@ class AggressiveTypeInferencer(NodeTransformer):
     def type_from_annotation(self, ann: expr):
         if isinstance(ann, Constant):
             if ann.value is None:
-                return NoneType
-        if isinstance(ann, Tuple):
-            if not ann.elts:
-                # This is ()
                 return UnitType()
         if isinstance(ann, Name):
             if ann.id in ATOMIC_TYPES:
@@ -97,7 +93,7 @@ class AggressiveTypeInferencer(NodeTransformer):
                 assert all(
                     isinstance(e, RecordType) for e in ann_types
                 ), "Union must combine multiple PlutusData classes"
-                return UnionType(FrozenFrozenList(FrozenFrozenList(ann_types)))
+                return UnionType(FrozenFrozenList(ann_types))
             if ann.value.id == "List":
                 ann_type = self.type_from_annotation(ann.slice.value)
                 assert isinstance(
@@ -120,10 +116,10 @@ class AggressiveTypeInferencer(NodeTransformer):
                 "Only Union, Dict and List are allowed as Generic types"
             )
         if ann is None:
-            TypeInferenceError(
+            raise TypeInferenceError(
                 "Type annotation is missing for a function argument or return value"
             )
-        raise NotImplementedError(f"Annotation type {ann} is not supported")
+        raise NotImplementedError(f"Annotation type {ann.__class__} is not supported")
 
     def visit_ClassDef(self, node: ClassDef) -> TypedClassDef:
         class_record = RecordReader.extract(node, self)
@@ -148,11 +144,8 @@ class AggressiveTypeInferencer(NodeTransformer):
 
     def visit_Tuple(self, node: Tuple) -> TypedTuple:
         tt = copy(node)
-        if not tt.elts:
-            tt.typ = UnitInstanceType()
-        else:
-            tt.elts = [self.visit(e) for e in node.elts]
-            tt.typ = InstanceType(TupleType([e.typ for e in tt.elts]))
+        tt.elts = [self.visit(e) for e in node.elts]
+        tt.typ = InstanceType(TupleType([e.typ for e in tt.elts]))
         return tt
 
     def visit_List(self, node: List) -> TypedList:
@@ -279,6 +272,7 @@ class AggressiveTypeInferencer(NodeTransformer):
             itertyp, InstanceType
         ), "Can only iterate over instances, not classes"
         if isinstance(itertyp.typ, TupleType):
+            assert itertyp.typ.typs, "Iterating over an empty tuple is not allowed"
             vartyp = itertyp.typ.typs[0]
             assert all(
                 itertyp.typ.typs[0] == t for t in typed_for.iter.typ.typs
@@ -306,9 +300,7 @@ class AggressiveTypeInferencer(NodeTransformer):
         typed_cmp.left = self.visit(node.left)
         typed_cmp.comparators = [self.visit(s) for s in node.comparators]
         typed_cmp.typ = BoolInstanceType
-        assert all(
-            typed_cmp.left.typ == c.typ for c in typed_cmp.comparators
-        ), "Not all compared expressions have the same type"
+        # the actual required types are being taken care of in the implementation
         return typed_cmp
 
     def visit_arg(self, node: arg) -> typedarg:
@@ -369,11 +361,21 @@ class AggressiveTypeInferencer(NodeTransformer):
         tb = copy(node)
         tb.left = self.visit(node.left)
         tb.right = self.visit(node.right)
+        # TODO the outcome of the operation may depend on the input types
         assert (
             tb.left.typ == tb.right.typ
         ), "Inputs to a binary operation need to have the same type"
         tb.typ = tb.left.typ
         return tb
+
+    def visit_BoolOp(self, node: BoolOp) -> TypedBoolOp:
+        tt = copy(node)
+        tt.values = [self.visit(e) for e in node.values]
+        tt.typ = BoolInstanceType
+        assert all(
+            BoolInstanceType >= e.typ for e in tt.values
+        ), "All values compared must be bools"
+        return tt
 
     def visit_UnaryOp(self, node: UnaryOp) -> TypedUnaryOp:
         tu = copy(node)
@@ -398,6 +400,9 @@ class AggressiveTypeInferencer(NodeTransformer):
         ts.value = self.visit(node.value)
         assert isinstance(ts.value.typ, InstanceType), "Can only subscript instances"
         if isinstance(ts.value.typ.typ, TupleType):
+            assert (
+                ts.value.typ.typ.typs
+            ), "Accessing elements from the empty tuple is not allowed"
             assert isinstance(
                 ts.slice, Index
             ), "Only single index slices for tuples are currently supported"
@@ -409,7 +414,7 @@ class AggressiveTypeInferencer(NodeTransformer):
                 ts.typ = ts.value.typ.typ.typs[ts.slice.value.value]
             else:
                 raise TypeInferenceError(
-                    f"Could not infer type of subscript of typ {ts.value.typ} in {ast.dump(node)}"
+                    f"Could not infer type of subscript of typ {ts.value.typ.__class__}"
                 )
         elif isinstance(ts.value.typ.typ, ListType):
             assert isinstance(
@@ -445,7 +450,7 @@ class AggressiveTypeInferencer(NodeTransformer):
                 ), "upper slice indices for bytes must be integers"
             else:
                 raise TypeInferenceError(
-                    f"Could not infer type of subscript of typ {ts.value.typ} in {ast.dump(node)}"
+                    f"Could not infer type of subscript of typ {ts.value.typ.__class__}"
                 )
         elif isinstance(ts.value.typ.typ, DictType):
             # TODO could be implemented with potentially just erroring. It might be desired to avoid this though.
@@ -454,7 +459,7 @@ class AggressiveTypeInferencer(NodeTransformer):
             )
         else:
             raise TypeInferenceError(
-                f"Could not infer type of subscript of typ {ts.value.typ} in {ast.dump(node)}"
+                f"Could not infer type of subscript of typ {ts.value.typ.__class__}"
             )
         return ts
 
@@ -521,6 +526,10 @@ class AggressiveTypeInferencer(NodeTransformer):
                 ta.msg.typ == StringInstanceType
             ), "Assertions must has a string message (or None)"
         return ta
+
+    def visit_RawPlutoExpr(self, node: RawPlutoExpr) -> RawPlutoExpr:
+        assert node.typ is not None, "Raw Pluto Expression is missing type annotation"
+        return node
 
     def generic_visit(self, node: AST) -> TypedAST:
         raise NotImplementedError(

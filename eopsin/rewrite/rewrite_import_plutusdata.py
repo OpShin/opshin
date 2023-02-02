@@ -1,12 +1,15 @@
 from ast import *
 from typing import Optional
 
+from ..util import CompilingNodeTransformer
+
 """
 Checks that there was an import of dataclass if there are any class definitions
 """
 
 
-class RewriteImportPlutusData(NodeTransformer):
+class RewriteImportPlutusData(CompilingNodeTransformer):
+    step = "Resolving imports and usage of PlutusData and Datum"
 
     imports_plutus_data = False
 

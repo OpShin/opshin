@@ -5,14 +5,16 @@ import json
 import pathlib
 import sys
 import typing
+import ast
 
 import cbor2
 import pyaiken
 import pycardano
 import uplc
-from uplc import data_from_json
+import uplc.ast
 
 from eopsin import __version__, compiler
+from eopsin.util import CompilerError
 
 
 class Command(enum.Enum):
@@ -103,13 +105,41 @@ def main():
         print("------------------")
         print(ret)
 
-    ast = compiler.parse(source_code)
+    source_ast = compiler.parse(source_code)
 
     if command == Command.parse:
         print("Parsed successfully.")
         return
 
-    code = compiler.compile(ast)
+    try:
+        code = compiler.compile(source_ast)
+    except CompilerError as c:
+        # Generate nice error message from compiler error
+        if not isinstance(c.node, ast.Module):
+            source_seg = ast.get_source_segment(source_code, c.node)
+            start_line = c.node.lineno - 1
+            end_line = start_line + len(source_seg.splitlines())
+            source_lines = "\n".join(source_code.splitlines()[start_line:end_line])
+            pos_in_line = source_lines.find(source_seg)
+        else:
+            start_line = 0
+            pos_in_line = 0
+            source_lines = source_code.splitlines()[0]
+        overwrite_syntaxerror = len("SyntaxError: ") * "\b"
+        raise SyntaxError(
+            f"""\
+{overwrite_syntaxerror}{c.orig_err.__class__.__name__}: {c.orig_err}
+Note that eopsin errors may be overly restrictive as they aim to prevent code with unintended consequences.
+""",
+            (
+                args.input_file,
+                start_line + 1,
+                pos_in_line,
+                source_lines,
+            )
+            # we remove chaining so that users to not see the internal trace back,
+        ) from None
+
     if command == Command.compile_pluto:
         print(code.dumps())
         return
@@ -167,13 +197,13 @@ def main():
     if command == Command.eval_uplc:
         print("Starting execution")
         print("------------------")
-        assert isinstance(code, uplc.Program)
+        assert isinstance(code, uplc.ast.Program)
         try:
             f = code.term
             # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
-            for d in map(data_from_json, map(json.loads, args.args)):
-                f = uplc.Apply(f, d)
-            ret = uplc.Machine(f).eval().dumps()
+            for d in map(uplc.ast.data_from_json, map(json.loads, args.args)):
+                f = uplc.ast.Apply(f, d)
+            ret = uplc.dumps(uplc.eval(f))
         except Exception as e:
             print("An exception was raised")
             ret = e
