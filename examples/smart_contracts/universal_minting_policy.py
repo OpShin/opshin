@@ -12,34 +12,36 @@ class Burn(PlutusData):
     CONSTR_ID = 1
 
 
-# Set parameter before re-compiling
-# eopsin contracts don't natively support parameterization
-precNFT = b""
-
-
-def validator(dn: int, redeemer: Union[Mint, Burn], ctx: ScriptContext) -> None:
+def validator(
+    dn: int, prec_NFT: TokenName, redeemer: Union[Mint, Burn], ctx: ScriptContext
+) -> None:
     purpose = ctx.purpose
     if isinstance(purpose, Minting):
         cs = purpose.policy_id
+        own_mints = ctx.tx_info.mint.get(cs, {b"": 0})
 
         if isinstance(redeemer, Mint):
-            tokenNameTail = sha256(
+            token_name_tail = sha256(
                 redeemer.ref.out_ref.id + bytes([redeemer.ref.out_ref.idx])
             ).digest()[dn:]
-            ref_consumed = False
-            for tx_in in ctx.tx_info.inputs:
-                if redeemer.ref == tx_in:
-                    ref_consumed = True
-            assert ref_consumed, "Reference UTxO not consumed"
-            mintPrecNFT = ctx.tx_info.mint.get(cs, {b"": 0}).get(precNFT, 0)
-            for name, amount in ctx.tx_info.mint.get(cs, {b"": 0}).items():
-                assert name.endswith(tokenNameTail), "Wrong tokenname"
+
+            # check reference UTxO is actually consumed
+            assert redeemer.ref in ctx.tx_info.inputs, "Referenced UTxO not consumed"
+
+            prec_NFT_mint = own_mints.get(prec_NFT, 0)
+
+            # check names of minted tokens end with tail
+            for name in own_mints.keys():
+                assert name[dn:] == token_name_tail, "Wrong tokenname"
+
+            # check correct minting amounts for tokens
+            for amount in own_mints.values():
                 assert amount == 1, "Wrong token amount"
                 assert (
-                    precNFT == b"" or mintPrecNFT == amount
+                    prec_NFT == b"" or prec_NFT_mint == amount
                 ), "OwnNFT should be minted"
         elif isinstance(redeemer, Burn):
-            for _, amount in ctx.tx_info.mint.get(cs, {b""}).items():
+            for amount in own_mints.values():
                 assert amount == -1, "Own currency needs to be burnt"
     else:
         assert False, "Purpose of mint call must be minting"

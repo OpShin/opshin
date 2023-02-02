@@ -429,7 +429,7 @@ def validator(_: None) -> int:
         except Exception as e:
             pass
 
-    def test_universal_minting_policy(self):
+    def test_universal_minting_policy_fail(self):
         input_file = "examples/smart_contracts/universal_minting_policy.py"
         with open(input_file) as fp:
             source_code = fp.read()
