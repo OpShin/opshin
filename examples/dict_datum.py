@@ -12,4 +12,8 @@ class D2(PlutusData):
 
 
 def validator(d: D2) -> bool:
-    return D(b"\x01") in d.dict_field.keys() and 2 in d.dict_field.values()
+    return (
+        D(b"\x01") in d.dict_field.keys()
+        and 2 in d.dict_field.values()
+        and not D(b"") in d.dict_field.keys()
+    )

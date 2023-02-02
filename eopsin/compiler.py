@@ -64,6 +64,9 @@ BoolOpMap = {
     Or: plt.Or,
 }
 
+UnaryOpMap = {
+    Not: plt.Not,
+}
 
 ConstantMap = {
     str: plt.Text,
@@ -155,6 +158,13 @@ class UPLCCompiler(CompilingNodeTransformer):
         return plt.Lambda(
             [STATEMONAD],
             ops,
+        )
+
+    def visit_UnaryOp(self, node: TypedUnaryOp) -> plt.AST:
+        op = UnaryOpMap.get(type(node.op))
+        return plt.Lambda(
+            [STATEMONAD],
+            op(plt.Apply(self.visit(node.operand), plt.Var(STATEMONAD))),
         )
 
     def visit_Compare(self, node: TypedCompare) -> plt.AST:
