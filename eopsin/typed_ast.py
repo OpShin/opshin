@@ -143,6 +143,31 @@ class RecordType(ClassType):
                         )
                     ),
                 )
+        if (
+            isinstance(o, ListType)
+            and isinstance(o.typ, InstanceType)
+            and o.typ.typ >= self
+        ):
+            if isinstance(op, In):
+                return plt.Lambda(
+                    ["x", "y"],
+                    plt.EqualsData(
+                        plt.Var("x"),
+                        plt.FindList(
+                            plt.Var("y"),
+                            plt.Apply(
+                                plt.BuiltIn(uplc.BuiltInFun.EqualsData), plt.Var("x")
+                            ),
+                            # this simply ensures the default is always unequal to the searched value
+                            plt.ConstrData(
+                                plt.AddInteger(
+                                    plt.Constructor(plt.Var("x")), plt.Integer(1)
+                                ),
+                                plt.MkNilData(plt.Unit()),
+                            ),
+                        ),
+                    ),
+                )
         return super().cmp(op, o)
 
     def __ge__(self, other):
@@ -231,6 +256,12 @@ class DictType(ClassType):
             return InstanceType(
                 FunctionType([self.key_typ, self.value_typ], self.value_typ)
             )
+        if attr == "keys":
+            return InstanceType(FunctionType([], InstanceType(ListType(self.key_typ))))
+        if attr == "values":
+            return InstanceType(
+                FunctionType([], InstanceType(ListType(self.value_typ)))
+            )
         raise TypeInferenceError(
             f"Type of attribute '{attr}' is unknown for type Dict."
         )
@@ -259,6 +290,34 @@ class DictType(ClassType):
                             ),
                         ),
                     ),
+                ),
+            )
+        if attr == "keys":
+            return plt.Lambda(
+                ["self", "_"],
+                plt.MapList(
+                    plt.Var("self"),
+                    plt.Lambda(
+                        ["x"],
+                        transform_ext_params_map(self.key_typ)(
+                            plt.FstPair(plt.Var("x"))
+                        ),
+                    ),
+                    empty_list(self.key_typ),
+                ),
+            )
+        if attr == "values":
+            return plt.Lambda(
+                ["self", "_"],
+                plt.MapList(
+                    plt.Var("self"),
+                    plt.Lambda(
+                        ["x"],
+                        transform_ext_params_map(self.value_typ)(
+                            plt.SndPair(plt.Var("x"))
+                        ),
+                    ),
+                    empty_list(self.value_typ),
                 ),
             )
         raise NotImplementedError(f"Attribute '{attr}' of Dict is unknown.")
@@ -662,6 +721,10 @@ class TypedCompare(typedexpr, Compare):
 class TypedBinOp(typedexpr, BinOp):
     left: typedexpr
     right: typedexpr
+
+
+class TypedBoolOp(typedexpr, BoolOp):
+    values: typing.List[typedexpr]
 
 
 class TypedUnaryOp(typedexpr, UnaryOp):

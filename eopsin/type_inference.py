@@ -368,6 +368,15 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         tb.typ = tb.left.typ
         return tb
 
+    def visit_BoolOp(self, node: BoolOp) -> TypedBoolOp:
+        tt = copy(node)
+        tt.values = [self.visit(e) for e in node.values]
+        tt.typ = BoolInstanceType
+        assert all(
+            BoolInstanceType >= e.typ for e in tt.values
+        ), "All values compared must be bools"
+        return tt
+
     def visit_UnaryOp(self, node: UnaryOp) -> TypedUnaryOp:
         tu = copy(node)
         tu.operand = self.visit(node.operand)

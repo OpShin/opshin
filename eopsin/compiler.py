@@ -59,6 +59,11 @@ BinOpMap = {
     },
 }
 
+BoolOpMap = {
+    And: plt.And,
+    Or: plt.Or,
+}
+
 
 ConstantMap = {
     str: plt.Text,
@@ -136,6 +141,20 @@ class UPLCCompiler(CompilingNodeTransformer):
                 plt.Apply(self.visit(node.left), plt.Var(STATEMONAD)),
                 plt.Apply(self.visit(node.right), plt.Var(STATEMONAD)),
             ),
+        )
+
+    def visit_BoolOp(self, node: TypedBoolOp) -> plt.AST:
+        op = BoolOpMap.get(type(node.op))
+        assert len(node.values) >= 2, "Need to compare at least to values"
+        ops = op(
+            plt.Apply(self.visit(node.values[0]), plt.Var(STATEMONAD)),
+            plt.Apply(self.visit(node.values[1]), plt.Var(STATEMONAD)),
+        )
+        for v in node.values[2:]:
+            ops = op(ops, plt.Apply(self.visit(v), plt.Var(STATEMONAD)))
+        return plt.Lambda(
+            [STATEMONAD],
+            ops,
         )
 
     def visit_Compare(self, node: TypedCompare) -> plt.AST:
