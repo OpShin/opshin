@@ -65,7 +65,8 @@ BoolOpMap = {
 }
 
 UnaryOpMap = {
-    Not: plt.Not,
+    Not: {BoolInstanceType: plt.Not},
+    USub: {IntegerInstanceType: lambda x: plt.SubtractInteger(plt.Integer(0), x)},
 }
 
 ConstantMap = {
@@ -161,7 +162,12 @@ class UPLCCompiler(CompilingNodeTransformer):
         )
 
     def visit_UnaryOp(self, node: TypedUnaryOp) -> plt.AST:
-        op = UnaryOpMap.get(type(node.op))
+        opmap = UnaryOpMap.get(type(node.op))
+        assert opmap is not None, f"Operator {type(node.op)} is not supported"
+        op = opmap.get(node.operand.typ)
+        assert (
+            op is not None
+        ), f"Operator {type(node.op)} is not supported for type {node.operand.typ}"
         return plt.Lambda(
             [STATEMONAD],
             op(plt.Apply(self.visit(node.operand), plt.Var(STATEMONAD))),
