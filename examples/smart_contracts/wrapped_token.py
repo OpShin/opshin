@@ -1,8 +1,15 @@
 from eopsin.prelude import *
 
+# parameters controlling which token is to be wrapped (currently preprod MILK) and how many decimal places to add
 TOKEN_POLICYID = b"\xae\x81\x071\xb5\xd2\x1c\r\x18-\x89\xc6\n\x1e\xffp\x95\xdf\xfd\x1c\r\xce\x87\x07\xa8a\x10\x99"
 TOKEN_NAME = b"MILK"
 WRAPPING_FACTOR = 1000000
+
+
+@dataclass()
+class Empty(PlutusData):
+    pass
+
 
 TOKEN = Token(TOKEN_POLICYID, TOKEN_NAME)
 
@@ -49,8 +56,9 @@ def all_tokens_locked_at_address(
     for txo in txouts:
         if txo.address == address:
             res += txo.value.get(token.policy_id, {b"": 0}).get(token.token_name, 0)
-            assert txo.datum == SomeOutputDatumHash(
-                b"\x83\x92\xf0\xc9@C\\\x06\x88\x8f\x9b\xdb\x8ct\xa9]\xc6\x9f\x15cg\xd6\xa0\x89\xcf\x00\x8a\xe0\\\xaa\xe0\x1e"
+            # enforce a small inlined datum
+            assert txo.datum == SomeOutputDatum(
+                b""
             ), "Does not attach correct datum to script output"
     return res
 
