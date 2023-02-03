@@ -105,7 +105,16 @@ def extend_statemonad(
     values: typing.List[plt.AST],
     old_statemonad: plt.FunctionalMap,
 ):
-    return plt.FunctionalMapExtend(old_statemonad, [n for n in names], values)
+    """Ensures that the argument is fully evaluated before being passed into the monad (like in imperative languages)"""
+    return plt.Apply(
+        plt.Lambda(
+            names,
+            plt.FunctionalMapExtend(
+                old_statemonad, [n for n in names], [plt.Var(n) for n in names]
+            ),
+        ),
+        *values,
+    )
 
 
 INITIAL_STATE = plt.FunctionalMap()
@@ -284,12 +293,13 @@ class UPLCCompiler(CompilingNodeTransformer):
             return self.visit_sequence([])
         compiled_e = self.visit(node.value)
         # (\{STATEMONAD} -> (\x -> if (x ==b {self.visit(node.targets[0])}) then ({compiled_e} {STATEMONAD}) else ({STATEMONAD} x)))
+        varname = node.targets[0].id
         return plt.Lambda(
             [STATEMONAD],
-            plt.FunctionalMapExtend(
-                plt.Var(STATEMONAD),
-                [node.targets[0].id],
+            extend_statemonad(
+                [varname],
                 [plt.Apply(compiled_e, plt.Var(STATEMONAD))],
+                plt.Var(STATEMONAD),
             ),
         )
 
@@ -305,14 +315,14 @@ class UPLCCompiler(CompilingNodeTransformer):
         # (\{STATEMONAD} -> (\x -> if (x ==b {self.visit(node.targets[0])}) then ({compiled_e} {STATEMONAD}) else ({STATEMONAD} x)))
         return plt.Lambda(
             [STATEMONAD],
-            plt.FunctionalMapExtend(
-                plt.Var(STATEMONAD),
+            extend_statemonad(
                 [node.target.id],
                 [
                     transform_ext_params_map(node.target.typ)(
                         plt.Apply(compiled_e, plt.Var(STATEMONAD))
                     )
                 ],
+                plt.Var(STATEMONAD),
             ),
         )
 
@@ -380,16 +390,15 @@ class UPLCCompiler(CompilingNodeTransformer):
             body.append(tr)
         compiled_body = self.visit_sequence(body[:-1])
         compiled_return = self.visit(body[-1].value)
-        args_state = plt.FunctionalMapExtend(
-            plt.Var(STATEMONAD),
+        args_state = extend_statemonad(
             # the function can see its argument under the argument names
             [a.arg for a in node.args.args],
             [plt.Var(f"p{i}") for i in range(len(node.args.args))],
+            plt.Var(STATEMONAD),
         )
         return plt.Lambda(
             [STATEMONAD],
-            plt.FunctionalMapExtend(
-                plt.Var(STATEMONAD),
+            extend_statemonad(
                 [node.name],
                 [
                     plt.Lambda(
@@ -404,6 +413,7 @@ class UPLCCompiler(CompilingNodeTransformer):
                         ),
                     )
                 ],
+                plt.Var(STATEMONAD),
             ),
         )
 
@@ -459,10 +469,10 @@ class UPLCCompiler(CompilingNodeTransformer):
                         [STATEMONAD, "e"],
                         plt.Apply(
                             self.visit_sequence(node.body),
-                            plt.FunctionalMapExtend(
-                                plt.Var(STATEMONAD),
+                            extend_statemonad(
                                 [node.target.id],
                                 [plt.Var("e")],
+                                plt.Var(STATEMONAD),
                             ),
                         ),
                     ),
@@ -561,10 +571,10 @@ class UPLCCompiler(CompilingNodeTransformer):
     def visit_ClassDef(self, node: TypedClassDef) -> plt.AST:
         return plt.Lambda(
             [STATEMONAD],
-            plt.FunctionalMapExtend(
-                plt.Var(STATEMONAD),
+            extend_statemonad(
                 [node.name],
                 [node.class_typ.constr()],
+                plt.Var(STATEMONAD),
             ),
         )
 

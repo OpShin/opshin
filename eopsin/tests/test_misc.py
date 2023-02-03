@@ -48,9 +48,10 @@ class MiscTest(unittest.TestCase):
             ]:
                 f = uplc.Apply(f, d)
             ret = uplc_eval(f)
-            self.fail("Machine did validate the content")
+            failed = False
         except Exception as e:
-            pass
+            failed = True
+        self.assertTrue(failed, "Machine did validate the content")
 
     @given(
         a=st.integers(min_value=-10, max_value=10),
@@ -301,9 +302,10 @@ class MiscTest(unittest.TestCase):
             ]:
                 f = uplc.Apply(f, d)
             ret = uplc_eval(f)
-            self.fail("Machine did validate the content")
+            failed = False
         except Exception as e:
-            pass
+            failed = True
+        self.assertTrue(failed, "Machine did validate the content")
 
     def test_recursion(self):
         source_code = """
@@ -359,7 +361,8 @@ def validator(_: None) -> int:
             ret,
         )
 
-    def test_wrapping_contract_fail(self):
+    def test_wrapping_contract_compile(self):
+        # TODO devise tests for this
         input_file = "examples/smart_contracts/wrapped_token.py"
         with open(input_file) as fp:
             source_code = fp.read()
@@ -367,34 +370,6 @@ def validator(_: None) -> int:
         code = compiler.compile(ast)
         code = code.compile()
         f = code.term
-        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
-        try:
-            # required sig missing int this script context
-            for d in [
-                uplc.PlutusConstr(
-                    0,
-                    [
-                        uplc.PlutusByteString(
-                            bytes.fromhex(
-                                "dc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2"
-                            )
-                        )
-                    ],
-                ),
-                uplc.PlutusConstr(0, []),
-                uplc.data_from_cbor(
-                    bytes.fromhex(
-                        (
-                            "d8799fd8799f9fd8799fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffd8799fd8799fd87a9f581cdbe769758f26efb21f008dc097bb194cffc622acc37fcefc5372eee3ffd87a80ffa140a1401a00989680d87a9f5820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dffd87a80ffffff809fd8799fd8799fd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd87a80ffa140a14000d87980d87a80ffffa140a14000a140a1400080a0d8799fd8799fd87a9f1b000001836ac117d8ffd87a80ffd8799fd87b80d87a80ffff80a1d87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffd87980a15820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd8799f5820797a1e1720b63621c6b185088184cb8e23af6e46b55bd83e7a91024c823a6c2affffd87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffff"
-                        )
-                    )
-                ),
-            ]:
-                f = uplc.Apply(f, d)
-            ret = uplc_eval(f)
-            self.fail("Machine did validate the content")
-        except Exception as e:
-            pass
 
     def test_dict_datum(self):
         input_file = "examples/dict_datum.py"
@@ -425,6 +400,31 @@ def validator(_: None) -> int:
             ]:
                 f = uplc.Apply(f, d)
             ret = uplc_eval(f)
-            self.fail("Machine did validate the content")
+            failed = False
         except Exception as e:
-            pass
+            failed = True
+        self.assertTrue(failed, "Machine did validate the content")
+
+    def test_overopt_removedeadvar(self):
+        # this tests that errors that are caused by assignments are actually triggered at the time of assigning
+        source_code = """
+from eopsin.prelude import *
+def validator(x: Token) -> bool:
+    a = x.policy_id
+    return True
+        """
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        try:
+            for d in [
+                uplc.PlutusConstr(0, []),
+            ]:
+                f = uplc.Apply(f, d)
+            ret = uplc_eval(f)
+            failed = False
+        except Exception as e:
+            failed = True
+        self.assertTrue(failed, "Machine did validate the content")

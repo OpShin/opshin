@@ -29,6 +29,26 @@ class NameLoadCollector(CompilingNodeVisitor):
             self.visit(s)
 
 
+class SafeOperationVisitor(CompilingNodeVisitor):
+    step = "Collecting computations that can not throw errors"
+
+    def generic_visit(self, node: AST) -> bool:
+        # generally every operation is unsafe except we whitelist it
+        return False
+
+    def visit_Lambda(self, node: Lambda) -> bool:
+        # lambda definition is fine as it actually doesn't compute anything
+        return True
+
+    def visit_Constant(self, node: Constant) -> bool:
+        # Constants can not fail
+        return True
+
+    def visit_RawPlutoExpr(self, node) -> bool:
+        # these expressions are not evaluated further
+        return True
+
+
 class OptimizeRemoveDeadvars(CompilingNodeTransformer):
     step = "Removing unused variables"
 
@@ -49,12 +69,17 @@ class OptimizeRemoveDeadvars(CompilingNodeTransformer):
             len(node.targets) != 1
             or not isinstance(node.targets[0], Name)
             or node.targets[0].id in self.loaded_vars
+            or not SafeOperationVisitor().visit(node.value)
         ):
             return self.generic_visit(node)
         return Pass()
 
     def visit_AnnAssign(self, node: AnnAssign):
-        if not isinstance(node.target, Name) or node.target.id in self.loaded_vars:
+        if (
+            not isinstance(node.target, Name)
+            or node.target.id in self.loaded_vars
+            or not SafeOperationVisitor().visit(node.value)
+        ):
             return self.generic_visit(node)
         return Pass()
 
