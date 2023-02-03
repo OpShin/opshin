@@ -106,11 +106,13 @@ def extend_statemonad(
     old_statemonad: plt.FunctionalMap,
 ):
     """Ensures that the argument is fully evaluated before being passed into the monad (like in imperative languages)"""
+    assert len(names) == len(values), "Unequal amount of names and values passed in"
+    lam_names = [f"a{i}" for i, _ in enumerate(names)]
     return plt.Apply(
         plt.Lambda(
-            names,
+            lam_names,
             plt.FunctionalMapExtend(
-                old_statemonad, [n for n in names], [plt.Var(n) for n in names]
+                old_statemonad, names, [plt.Var(n) for n in lam_names]
             ),
         ),
         *values,
