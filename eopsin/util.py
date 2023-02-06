@@ -19,6 +19,12 @@ class PythonBuiltIn(Enum):
         ["limit", "_"],
         plt.Range(plt.Var("limit")),
     )
+    sum = plt.Lambda(
+        ["xs", "_"],
+        plt.FoldList(
+            plt.Var("xs"), plt.BuiltIn(uplc.BuiltInFun.AddInteger), plt.Integer(0)
+        ),
+    )
 
 
 class Len(PolymorphicFunction):
@@ -52,6 +58,7 @@ class Len(PolymorphicFunction):
 
 
 PythonBuiltInTypes = {
+    PythonBuiltIn.breakpoint: InstanceType(FunctionType([], NoneInstanceType)),
     PythonBuiltIn.len: InstanceType(PolymorphicFunctionType(Len())),
     PythonBuiltIn.print: InstanceType(
         FunctionType([StringInstanceType], NoneInstanceType)
@@ -62,7 +69,12 @@ PythonBuiltInTypes = {
             InstanceType(ListType(IntegerInstanceType)),
         )
     ),
-    PythonBuiltIn.breakpoint: InstanceType(FunctionType([], NoneInstanceType)),
+    PythonBuiltIn.sum: InstanceType(
+        FunctionType(
+            [InstanceType(ListType(IntegerInstanceType))],
+            IntegerInstanceType,
+        )
+    ),
 }
 
 
