@@ -25,6 +25,14 @@ class PythonBuiltIn(Enum):
             plt.Integer(0),
         ),
     )
+    abs = plt.Lambda(
+        ["x", "_"],
+        plt.Ite(
+            plt.LessThanInteger(plt.Var("x"), plt.Integer(0)),
+            plt.SubtractInteger(plt.Integer(0), plt.Var("x")),
+            plt.Var("x"),
+        ),
+    )
     breakpoint = plt.Lambda(["_"], plt.NoneData())
     len = auto()
     print = plt.Lambda(
@@ -84,6 +92,12 @@ PythonBuiltInTypes = {
         FunctionType(
             [InstanceType(ListType(BoolInstanceType))],
             BoolInstanceType,
+        )
+    ),
+    PythonBuiltIn.abs: InstanceType(
+        FunctionType(
+            [IntegerInstanceType],
+            IntegerInstanceType,
         )
     ),
     PythonBuiltIn.breakpoint: InstanceType(FunctionType([], NoneInstanceType)),
