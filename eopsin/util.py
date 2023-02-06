@@ -9,6 +9,22 @@ import uplc.ast as uplc
 
 
 class PythonBuiltIn(Enum):
+    all = plt.Lambda(
+        ["xs", "_"],
+        plt.FoldList(
+            plt.Var("xs"),
+            plt.Lambda(["x", "a"], plt.And(plt.Var("x"), plt.Var("a"))),
+            plt.Integer(0),
+        ),
+    )
+    any = plt.Lambda(
+        ["xs", "_"],
+        plt.FoldList(
+            plt.Var("xs"),
+            plt.Lambda(["x", "a"], plt.Or(plt.Var("x"), plt.Var("a"))),
+            plt.Integer(0),
+        ),
+    )
     breakpoint = plt.Lambda(["_"], plt.NoneData())
     len = auto()
     print = plt.Lambda(
@@ -58,6 +74,18 @@ class Len(PolymorphicFunction):
 
 
 PythonBuiltInTypes = {
+    PythonBuiltIn.all: InstanceType(
+        FunctionType(
+            [InstanceType(ListType(BoolInstanceType))],
+            BoolInstanceType,
+        )
+    ),
+    PythonBuiltIn.any: InstanceType(
+        FunctionType(
+            [InstanceType(ListType(BoolInstanceType))],
+            BoolInstanceType,
+        )
+    ),
     PythonBuiltIn.breakpoint: InstanceType(FunctionType([], NoneInstanceType)),
     PythonBuiltIn.len: InstanceType(PolymorphicFunctionType(Len())),
     PythonBuiltIn.print: InstanceType(
