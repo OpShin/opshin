@@ -27,7 +27,7 @@ class PythonBuiltIn(Enum):
     )
     abs = plt.Lambda(
         ["x", "_"],
-        plt.IfThenElse(
+        plt.Ite(
             plt.LessThanInteger(plt.Var("x"), plt.Integer(0)),
             plt.SubtractInteger(plt.Integer(0), plt.Var("x")),
             plt.Var("x"),
@@ -38,64 +38,38 @@ class PythonBuiltIn(Enum):
     chr = plt.Lambda(
         ["x", "_"],
         plt.DecodeUtf8(
-            plt.IfThenElse(
-                plt.LessThanInteger(plt.Var("x"), plt.Integer(0x80)),
-                # encoding of 0x0 - 0x80
-                plt.ConsByteString(plt.Var("x"), plt.ByteString(b"")),
-                plt.IfThenElse(
-                    plt.LessThanInteger(plt.Var("x"), plt.Integer(0x800)),
-                    # encoding of 0x80 - 0x800
-                    plt.ConsByteString(
-                        # we do bit manipulation using integer arithmetic here - nice
-                        plt.AddInteger(
-                            plt.Integer(0b110 << 5),
-                            plt.DivideInteger(plt.Var("x"), plt.Integer(2 << 6)),
-                        ),
+            plt.Ite(
+                plt.LessThanInteger(plt.Var("x"), plt.Integer(0x0)),
+                plt.TraceError("ValueError: chr() arg not in range(0x110000)"),
+                plt.Ite(
+                    plt.LessThanInteger(plt.Var("x"), plt.Integer(0x80)),
+                    # encoding of 0x0 - 0x80
+                    plt.ConsByteString(plt.Var("x"), plt.ByteString(b"")),
+                    plt.Ite(
+                        plt.LessThanInteger(plt.Var("x"), plt.Integer(0x800)),
+                        # encoding of 0x80 - 0x800
                         plt.ConsByteString(
+                            # we do bit manipulation using integer arithmetic here - nice
                             plt.AddInteger(
-                                plt.Integer(0b10 << 6),
-                                plt.ModInteger(plt.Var("x"), plt.Integer(2 << 6)),
-                            ),
-                            plt.ByteString(b""),
-                        ),
-                    ),
-                    plt.IfThenElse(
-                        plt.LessThanInteger(plt.Var("x"), plt.Integer(0x10000)),
-                        # encoding of 0x800 - 0x10000
-                        plt.ConsByteString(
-                            plt.AddInteger(
-                                plt.Integer(0b1110 << 4),
-                                plt.DivideInteger(plt.Var("x"), plt.Integer(2 << 12)),
+                                plt.Integer(0b110 << 5),
+                                plt.DivideInteger(plt.Var("x"), plt.Integer(2 << 6)),
                             ),
                             plt.ConsByteString(
                                 plt.AddInteger(
                                     plt.Integer(0b10 << 6),
-                                    plt.DivideInteger(
-                                        plt.ModInteger(
-                                            plt.Var("x"), plt.Integer(2 << 12)
-                                        ),
-                                        plt.Integer(2 << 6),
-                                    ),
+                                    plt.ModInteger(plt.Var("x"), plt.Integer(2 << 6)),
                                 ),
-                                plt.ConsByteString(
-                                    plt.AddInteger(
-                                        plt.Integer(0b10 << 6),
-                                        plt.ModInteger(
-                                            plt.Var("x"), plt.Integer(2 << 6)
-                                        ),
-                                    ),
-                                    plt.ByteString(b""),
-                                ),
+                                plt.ByteString(b""),
                             ),
                         ),
-                        plt.IfThenElse(
-                            plt.LessThanInteger(plt.Var("x"), plt.Integer(0x11000)),
-                            # encoding of 0x10000 - 0x10FFF
+                        plt.Ite(
+                            plt.LessThanInteger(plt.Var("x"), plt.Integer(0x10000)),
+                            # encoding of 0x800 - 0x10000
                             plt.ConsByteString(
                                 plt.AddInteger(
-                                    plt.Integer(0b11110 << 3),
+                                    plt.Integer(0b1110 << 4),
                                     plt.DivideInteger(
-                                        plt.Var("x"), plt.Integer(2 << 18)
+                                        plt.Var("x"), plt.Integer(2 << 12)
                                     ),
                                 ),
                                 plt.ConsByteString(
@@ -103,9 +77,32 @@ class PythonBuiltIn(Enum):
                                         plt.Integer(0b10 << 6),
                                         plt.DivideInteger(
                                             plt.ModInteger(
-                                                plt.Var("x"), plt.Integer(2 << 18)
+                                                plt.Var("x"), plt.Integer(2 << 12)
                                             ),
-                                            plt.Integer(2 << 12),
+                                            plt.Integer(2 << 6),
+                                        ),
+                                    ),
+                                    plt.ConsByteString(
+                                        plt.AddInteger(
+                                            plt.Integer(0b10 << 6),
+                                            plt.ModInteger(
+                                                plt.Var("x"), plt.Integer(2 << 6)
+                                            ),
+                                        ),
+                                        plt.ByteString(b""),
+                                    ),
+                                ),
+                            ),
+                            plt.Ite(
+                                plt.LessThanInteger(
+                                    plt.Var("x"), plt.Integer(0x110000)
+                                ),
+                                # encoding of 0x10000 - 0x10FFF
+                                plt.ConsByteString(
+                                    plt.AddInteger(
+                                        plt.Integer(0b11110 << 3),
+                                        plt.DivideInteger(
+                                            plt.Var("x"), plt.Integer(2 << 18)
                                         ),
                                     ),
                                     plt.ConsByteString(
@@ -113,24 +110,39 @@ class PythonBuiltIn(Enum):
                                             plt.Integer(0b10 << 6),
                                             plt.DivideInteger(
                                                 plt.ModInteger(
-                                                    plt.Var("x"), plt.Integer(2 << 12)
+                                                    plt.Var("x"), plt.Integer(2 << 18)
                                                 ),
-                                                plt.Integer(2 << 6),
+                                                plt.Integer(2 << 12),
                                             ),
                                         ),
                                         plt.ConsByteString(
                                             plt.AddInteger(
                                                 plt.Integer(0b10 << 6),
-                                                plt.ModInteger(
-                                                    plt.Var("x"), plt.Integer(2 << 6)
+                                                plt.DivideInteger(
+                                                    plt.ModInteger(
+                                                        plt.Var("x"),
+                                                        plt.Integer(2 << 12),
+                                                    ),
+                                                    plt.Integer(2 << 6),
                                                 ),
                                             ),
-                                            plt.ByteString(b""),
+                                            plt.ConsByteString(
+                                                plt.AddInteger(
+                                                    plt.Integer(0b10 << 6),
+                                                    plt.ModInteger(
+                                                        plt.Var("x"),
+                                                        plt.Integer(2 << 6),
+                                                    ),
+                                                ),
+                                                plt.ByteString(b""),
+                                            ),
                                         ),
                                     ),
                                 ),
+                                plt.TraceError(
+                                    "ValueError: chr() arg not in range(0x110000)"
+                                ),
                             ),
-                            plt.TraceError("UnicodeDecodeError: Invalid code point"),
                         ),
                     ),
                 ),
