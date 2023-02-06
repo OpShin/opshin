@@ -52,12 +52,12 @@ class PythonBuiltIn(Enum):
                             # we do bit manipulation using integer arithmetic here - nice
                             plt.AddInteger(
                                 plt.Integer(0b110 << 5),
-                                plt.DivideInteger(plt.Var("x"), plt.Integer(2 << 6)),
+                                plt.DivideInteger(plt.Var("x"), plt.Integer(1 << 6)),
                             ),
                             plt.ConsByteString(
                                 plt.AddInteger(
                                     plt.Integer(0b10 << 6),
-                                    plt.ModInteger(plt.Var("x"), plt.Integer(2 << 6)),
+                                    plt.ModInteger(plt.Var("x"), plt.Integer(1 << 6)),
                                 ),
                                 plt.ByteString(b""),
                             ),
@@ -69,7 +69,7 @@ class PythonBuiltIn(Enum):
                                 plt.AddInteger(
                                     plt.Integer(0b1110 << 4),
                                     plt.DivideInteger(
-                                        plt.Var("x"), plt.Integer(2 << 12)
+                                        plt.Var("x"), plt.Integer(1 << 12)
                                     ),
                                 ),
                                 plt.ConsByteString(
@@ -77,16 +77,16 @@ class PythonBuiltIn(Enum):
                                         plt.Integer(0b10 << 6),
                                         plt.DivideInteger(
                                             plt.ModInteger(
-                                                plt.Var("x"), plt.Integer(2 << 12)
+                                                plt.Var("x"), plt.Integer(1 << 12)
                                             ),
-                                            plt.Integer(2 << 6),
+                                            plt.Integer(1 << 6),
                                         ),
                                     ),
                                     plt.ConsByteString(
                                         plt.AddInteger(
                                             plt.Integer(0b10 << 6),
                                             plt.ModInteger(
-                                                plt.Var("x"), plt.Integer(2 << 6)
+                                                plt.Var("x"), plt.Integer(1 << 6)
                                             ),
                                         ),
                                         plt.ByteString(b""),
@@ -102,7 +102,7 @@ class PythonBuiltIn(Enum):
                                     plt.AddInteger(
                                         plt.Integer(0b11110 << 3),
                                         plt.DivideInteger(
-                                            plt.Var("x"), plt.Integer(2 << 18)
+                                            plt.Var("x"), plt.Integer(1 << 18)
                                         ),
                                     ),
                                     plt.ConsByteString(
@@ -110,9 +110,9 @@ class PythonBuiltIn(Enum):
                                             plt.Integer(0b10 << 6),
                                             plt.DivideInteger(
                                                 plt.ModInteger(
-                                                    plt.Var("x"), plt.Integer(2 << 18)
+                                                    plt.Var("x"), plt.Integer(1 << 18)
                                                 ),
-                                                plt.Integer(2 << 12),
+                                                plt.Integer(1 << 12),
                                             ),
                                         ),
                                         plt.ConsByteString(
@@ -121,9 +121,9 @@ class PythonBuiltIn(Enum):
                                                 plt.DivideInteger(
                                                     plt.ModInteger(
                                                         plt.Var("x"),
-                                                        plt.Integer(2 << 12),
+                                                        plt.Integer(1 << 12),
                                                     ),
-                                                    plt.Integer(2 << 6),
+                                                    plt.Integer(1 << 6),
                                                 ),
                                             ),
                                             plt.ConsByteString(
@@ -131,7 +131,7 @@ class PythonBuiltIn(Enum):
                                                     plt.Integer(0b10 << 6),
                                                     plt.ModInteger(
                                                         plt.Var("x"),
-                                                        plt.Integer(2 << 6),
+                                                        plt.Integer(1 << 6),
                                                     ),
                                                 ),
                                                 plt.ByteString(b""),
