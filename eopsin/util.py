@@ -9,6 +9,8 @@ import uplc.ast as uplc
 
 
 class PythonBuiltIn(Enum):
+    breakpoint = plt.Lambda(["_"], plt.NoneData())
+    len = auto()
     print = plt.Lambda(
         ["x", "_"],
         plt.Trace(plt.Var("x"), plt.NoneData()),
@@ -17,7 +19,6 @@ class PythonBuiltIn(Enum):
         ["limit", "_"],
         plt.Range(plt.Var("limit")),
     )
-    len = auto()
 
 
 class Len(PolymorphicFunction):
@@ -51,6 +52,7 @@ class Len(PolymorphicFunction):
 
 
 PythonBuiltInTypes = {
+    PythonBuiltIn.len: InstanceType(PolymorphicFunctionType(Len())),
     PythonBuiltIn.print: InstanceType(
         FunctionType([StringInstanceType], NoneInstanceType)
     ),
@@ -60,7 +62,7 @@ PythonBuiltInTypes = {
             InstanceType(ListType(IntegerInstanceType)),
         )
     ),
-    PythonBuiltIn.len: InstanceType(PolymorphicFunctionType(Len())),
+    PythonBuiltIn.breakpoint: InstanceType(FunctionType([], NoneInstanceType)),
 }
 
 
