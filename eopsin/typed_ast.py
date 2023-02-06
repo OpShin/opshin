@@ -782,7 +782,7 @@ TransformExtParamsMap = {
     ByteStringInstanceType: lambda x: plt.UnBData(x),
     StringInstanceType: lambda x: plt.DecodeUtf8(plt.UnBData(x)),
     UnitInstanceType: lambda x: plt.Apply(plt.Lambda(["_"], plt.Unit())),
-    BoolInstanceType: lambda x: plt.NotEqualsInteger(x, plt.Integer(0)),
+    BoolInstanceType: lambda x: plt.NotEqualsInteger(plt.UnIData(x), plt.Integer(0)),
 }
 
 

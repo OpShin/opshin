@@ -14,7 +14,7 @@ class PythonBuiltIn(Enum):
         plt.FoldList(
             plt.Var("xs"),
             plt.Lambda(["x", "a"], plt.And(plt.Var("x"), plt.Var("a"))),
-            plt.Integer(0),
+            plt.Bool(True),
         ),
     )
     any = plt.Lambda(
@@ -22,7 +22,7 @@ class PythonBuiltIn(Enum):
         plt.FoldList(
             plt.Var("xs"),
             plt.Lambda(["x", "a"], plt.Or(plt.Var("x"), plt.Var("a"))),
-            plt.Integer(0),
+            plt.Bool(False),
         ),
     )
     abs = plt.Lambda(
