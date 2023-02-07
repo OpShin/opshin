@@ -29,7 +29,7 @@ class PythonBuiltIn(Enum):
         ["x", "_"],
         plt.Ite(
             plt.LessThanInteger(plt.Var("x"), plt.Integer(0)),
-            plt.SubtractInteger(plt.Integer(0), plt.Var("x")),
+            plt.Negate(plt.Var("x")),
             plt.Var("x"),
         ),
     )

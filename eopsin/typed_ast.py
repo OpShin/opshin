@@ -445,8 +445,7 @@ class IntegerType(AtomicType):
                             plt.IndexByteString(plt.Var("e"), plt.Integer(0)),
                             plt.Integer(ord("-")),
                         ),
-                        plt.SubtractInteger(
-                            plt.Integer(0),
+                        plt.Negate(
                             plt.Apply(plt.Var("fold_start"), plt.Integer(1)),
                         ),
                         plt.Apply(plt.Var("fold_start"), plt.Integer(0)),
@@ -531,6 +530,75 @@ class IntegerType(AtomicType):
 
 @dataclass(frozen=True, unsafe_hash=True)
 class StringType(AtomicType):
+    def constr_type(self) -> InstanceType:
+        return InstanceType(FunctionType([IntegerInstanceType], InstanceType(self)))
+
+    def constr(self) -> plt.AST:
+        return plt.Lambda(
+            ["x", "_"],
+            plt.DecodeUtf8(
+                plt.Let(
+                    [
+                        (
+                            "strlist",
+                            plt.RecFun(
+                                plt.Lambda(
+                                    ["f", "i"],
+                                    plt.Ite(
+                                        plt.LessThanEqualsInteger(
+                                            plt.Var("i"), plt.Integer(0)
+                                        ),
+                                        plt.EmptyIntegerList(),
+                                        plt.MkCons(
+                                            plt.AddInteger(
+                                                plt.ModInteger(
+                                                    plt.Var("i"), plt.Integer(10)
+                                                ),
+                                                plt.Integer(ord("0")),
+                                            ),
+                                            plt.Apply(
+                                                plt.Var("f"),
+                                                plt.Var("f"),
+                                                plt.DivideInteger(
+                                                    plt.Var("i"), plt.Integer(10)
+                                                ),
+                                            ),
+                                        ),
+                                    ),
+                                ),
+                            ),
+                        ),
+                        (
+                            "mkstr",
+                            plt.Lambda(
+                                ["i"],
+                                plt.FoldList(
+                                    plt.Apply(plt.Var("strlist"), plt.Var("i")),
+                                    plt.Lambda(
+                                        ["b", "i"],
+                                        plt.ConsByteString(plt.Var("i"), plt.Var("b")),
+                                    ),
+                                    plt.ByteString(b""),
+                                ),
+                            ),
+                        ),
+                    ],
+                    plt.Ite(
+                        plt.EqualsInteger(plt.Var("x"), plt.Integer(0)),
+                        plt.ByteString(b"0"),
+                        plt.Ite(
+                            plt.LessThanInteger(plt.Var("x"), plt.Integer(0)),
+                            plt.ConsByteString(
+                                plt.Integer(ord("-")),
+                                plt.Apply(plt.Var("mkstr"), plt.Negate(plt.Var("x"))),
+                            ),
+                            plt.Apply(plt.Var("mkstr"), plt.Var("x")),
+                        ),
+                    ),
+                )
+            ),
+        )
+
     def cmp(self, op: cmpop, o: "Type") -> plt.AST:
         if isinstance(o, StringType):
             if isinstance(op, Eq):

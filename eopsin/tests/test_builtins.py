@@ -201,6 +201,26 @@ def validator(x: int) -> List[int]:
         ret = [x.value for x in uplc_eval(f).value]
         self.assertEqual(ret, list(range(i)), "sum returned wrong value")
 
+    @given(x=st.integers())
+    @example(0)
+    @example(-1)
+    @example(100)
+    def test_str_int(self, x):
+        # this tests that errors that are caused by assignments are actually triggered at the time of assigning
+        source_code = """
+def validator(x: int) -> str:
+    return str(x)
+        """
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        for d in [uplc.PlutusInteger(x)]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value.decode("utf8")
+        self.assertEqual(ret, str(x), "str returned wrong value")
+
     @given(xs=st.lists(st.integers()))
     def test_sum(self, xs):
         # this tests that errors that are caused by assignments are actually triggered at the time of assigning
