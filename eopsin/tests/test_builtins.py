@@ -22,8 +22,8 @@ class MiscTest(unittest.TestCase):
     def test_all(self, xs):
         # this tests that errors that are caused by assignments are actually triggered at the time of assigning
         source_code = """
-    def validator(x: List[bool]) -> bool:
-        return all(x)
+def validator(x: List[bool]) -> bool:
+    return all(x)
             """
         ast = compiler.parse(source_code)
         code = compiler.compile(ast)
@@ -71,6 +71,33 @@ def validator(x: int) -> int:
         except Exception as e:
             ret = None
         self.assertEqual(ret, abs(i), "abs returned wrong value")
+
+    @given(
+        xs=st.one_of(
+            st.lists(st.integers()), st.lists(st.integers(min_value=0, max_value=255))
+        )
+    )
+    def test_bytes_int_list(self, xs):
+        # this tests that errors that are caused by assignments are actually triggered at the time of assigning
+        source_code = """
+def validator(x: List[int]) -> bytes:
+    return bytes(x)
+        """
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        try:
+            exp = bytes(xs)
+        except ValueError:
+            exp = None
+        try:
+            for d in [uplc.PlutusList([uplc.PlutusInteger(x) for x in xs])]:
+                f = uplc.Apply(f, d)
+            ret = uplc_eval(f).value
+        except:
+            ret = None
+        self.assertEqual(ret, exp, "bytes (integer list) returned wrong value")
 
     @given(i=st.integers())
     @example(256)

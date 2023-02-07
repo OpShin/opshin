@@ -10,6 +10,7 @@ from .rewrite.rewrite_import_hashlib import RewriteImportHashlib
 from .rewrite.rewrite_import_plutusdata import RewriteImportPlutusData
 from .rewrite.rewrite_import_typing import RewriteImportTyping
 from .rewrite.rewrite_inject_builtins import RewriteInjectBuiltins
+from .rewrite.rewrite_inject_builtin_constr import RewriteInjectBuiltinsConstr
 from .rewrite.rewrite_remove_type_stuff import RewriteRemoveTypeStuff
 from .rewrite.rewrite_tuple_assign import RewriteTupleAssign
 from .optimize.optimize_remove_pass import OptimizeRemovePass
@@ -654,11 +655,12 @@ def compile(prog: AST):
         RewriteImportTyping,
         RewriteForbiddenOverwrites,
         RewriteImportDataclasses,
+        RewriteInjectBuiltins,
         # The type inference needs to be run after complex python operations were rewritten
         AggressiveTypeInferencer,
         # Rewrites that circumvent the type inference or use its results
         RewriteRemoveTypeStuff,
-        RewriteInjectBuiltins,
+        RewriteInjectBuiltinsConstr,
     ]
     for s in rewrite_steps:
         prog = s().visit(prog)

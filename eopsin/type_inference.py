@@ -27,15 +27,17 @@ INITIAL_SCOPE = dict(
         # class annotations
         "bytes": ByteStringType(),
         "int": IntegerType(),
+        "bool": BoolType(),
+        "str": StringType(),
         "Anything": AnyType(),
     }
 )
 
 INITIAL_SCOPE.update(
     {
-        # builtin functions
-        k.name: v
-        for k, v in PythonBuiltInTypes.items()
+        name.name: typ
+        for name, typ in PythonBuiltInTypes.items()
+        if isinstance(typ.typ, PolymorphicFunctionType)
     }
 )
 

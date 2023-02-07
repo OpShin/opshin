@@ -463,6 +463,16 @@ class ByteStringType(AtomicType):
             )
         )
 
+    def constr(self) -> plt.AST:
+        return plt.Lambda(
+            ["xs", "_"],
+            plt.RFoldList(
+                plt.Var("xs"),
+                plt.Lambda(["a", "x"], plt.ConsByteString(plt.Var("x"), plt.Var("a"))),
+                plt.ByteString(b""),
+            ),
+        )
+
     def cmp(self, op: cmpop, o: "Type") -> plt.AST:
         if isinstance(o, ByteStringType):
             if isinstance(op, Eq):
