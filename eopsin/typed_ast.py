@@ -534,6 +534,7 @@ class StringType(AtomicType):
         return InstanceType(FunctionType([IntegerInstanceType], InstanceType(self)))
 
     def constr(self) -> plt.AST:
+        # constructs a string representation of an integer
         return plt.Lambda(
             ["x", "_"],
             plt.DecodeUtf8(

@@ -79,12 +79,11 @@ def validator(_datum: None, _redeemer: NoRedeemer, ctx: ScriptContext) -> None:
     all_locked = all_tokens_locked_at_address(ctx.tx_info.outputs, own_addr, TOKEN)
     all_unlocked = all_tokens_unlocked_from_address(ctx.tx_info.inputs, own_addr, TOKEN)
     all_minted = ctx.tx_info.mint.get(own_pid, {b"": 0}).get(b"w" + TOKEN_NAME, 0)
-    if all_unlocked == 0:
-        print("only minting")
-    if all_locked == 0:
-        print("only burning")
-    if all_minted == 0:
-        print("not minting")
+    print("unlocked from contract: " + str(all_unlocked))
+    print("locked at contract: " + str(all_locked))
+    print("minted: " + str(all_minted))
     assert (
         (all_locked - all_unlocked) * WRAPPING_FACTOR
-    ) == all_minted, "Wrong amount of tokens minted"
+    ) == all_minted, "Wrong amount of tokens minted, difference: " + str(
+        (all_locked - all_unlocked) * WRAPPING_FACTOR - all_minted
+    )

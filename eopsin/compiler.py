@@ -375,12 +375,20 @@ class UPLCCompiler(CompilingNodeTransformer):
             )
         else:
             func_plt = plt.Apply(self.visit(node.func), plt.Var(STATEMONAD))
+        args = []
+        for a, t in zip(node.args, node.func.typ.typ.argtyps):
+            assert isinstance(t, InstanceType)
+            # pass in all arguments evaluated with the statemonad
+            a_int = plt.Apply(self.visit(a), plt.Var(STATEMONAD))
+            if isinstance(t.typ, AnyType):
+                # if the function expects input of generic type data, wrap data before passing it inside
+                a_int = transform_output_map(a.typ)(a_int)
+            args.append(a_int)
         return plt.Lambda(
             [STATEMONAD],
             plt.Apply(
                 func_plt,
-                # pass in all arguments evaluated with the statemonad
-                *(plt.Apply(self.visit(a), plt.Var(STATEMONAD)) for a in node.args),
+                *args,
                 # eventually pass in the state monad as well
                 plt.Var(STATEMONAD),
             ),

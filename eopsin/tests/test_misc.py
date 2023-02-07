@@ -466,3 +466,28 @@ def validator(x: None) -> bytes:
             f = uplc.Apply(f, d)
         ret = uplc_eval(f).value
         self.assertEqual(ret, bytes([2, 3]), "Machine did validate the content")
+
+    def test_wrap_into_generic_data(self):
+        # this tests that errors that are caused by assignments are actually triggered at the time of assigning
+        source_code = """
+from eopsin.prelude import *
+def validator(_: None) -> SomeOutputDatum:
+    return SomeOutputDatum(b"a")
+        """
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        for d in [
+            uplc.PlutusConstr(0, []),
+        ]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f)
+        self.assertEqual(
+            ret,
+            uplc.data_from_cbor(
+                prelude.SomeOutputDatum(b"a").to_cbor(encoding="bytes")
+            ),
+            "Machine did validate the content",
+        )
