@@ -229,7 +229,7 @@ class UPLCCompiler(CompilingNodeTransformer):
                     "The redeemer is annotated to be 'None'. This value is usually encoded in PlutusData with constructor id 0 and no fields. If you want the script to double function as minting and spending script, annotate the second argument with 'NoRedeemer'."
                 )
             enable_double_func_mint_spend = not any(
-                (isinstance(t, RecordType) and t.record.constructor != 0)
+                (isinstance(t, RecordType) and t.record.constructor == 0)
                 or isinstance(t, UnitType)
                 for t in possible_types
             )
