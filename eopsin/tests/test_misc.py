@@ -429,3 +429,40 @@ def validator(x: Token) -> bool:
         except Exception as e:
             failed = True
         self.assertTrue(failed, "Machine did validate the content")
+
+    def test_list_expr(self):
+        # this tests that the list expression is evaluated correctly
+        source_code = """
+def validator(x: None) -> List[int]:
+    return [1, 2, 3, 4, 5]
+        """
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        for d in [
+            uplc.PlutusConstr(0, []),
+        ]:
+            f = uplc.Apply(f, d)
+        ret = [x.value for x in uplc_eval(f).value]
+        self.assertEqual(ret, [1, 2, 3, 4, 5], "Machine did validate the content")
+
+    def test_redefine_constr(self):
+        # this tests that classes defined by assignment inherit constructors
+        source_code = """
+def validator(x: None) -> bytes:
+    a = bytes
+    return a([2, 3])
+        """
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        for d in [
+            uplc.PlutusConstr(0, []),
+        ]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value
+        self.assertEqual(ret, bytes([2, 3]), "Machine did validate the content")

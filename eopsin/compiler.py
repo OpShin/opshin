@@ -11,7 +11,6 @@ from .rewrite.rewrite_import_plutusdata import RewriteImportPlutusData
 from .rewrite.rewrite_import_typing import RewriteImportTyping
 from .rewrite.rewrite_inject_builtins import RewriteInjectBuiltins
 from .rewrite.rewrite_inject_builtin_constr import RewriteInjectBuiltinsConstr
-from .rewrite.rewrite_remove_type_stuff import RewriteRemoveTypeStuff
 from .rewrite.rewrite_tuple_assign import RewriteTupleAssign
 from .optimize.optimize_remove_pass import OptimizeRemovePass
 from .optimize.optimize_remove_deadvars import OptimizeRemoveDeadvars
@@ -291,9 +290,6 @@ class UPLCCompiler(CompilingNodeTransformer):
         assert isinstance(
             node.targets[0], Name
         ), "Assignments to other things then names are not supported"
-        if isinstance(node.targets[0].typ, ClassType):
-            # Assigning a class type to another class type is equivalent to a ClassDef - a nop
-            return self.visit_sequence([])
         compiled_e = self.visit(node.value)
         # (\{STATEMONAD} -> (\x -> if (x ==b {self.visit(node.targets[0])}) then ({compiled_e} {STATEMONAD}) else ({STATEMONAD} x)))
         varname = node.targets[0].id
@@ -615,7 +611,7 @@ class UPLCCompiler(CompilingNodeTransformer):
         assert isinstance(node.typ, InstanceType)
         assert isinstance(node.typ.typ, ListType)
         l = empty_list(node.typ.typ.typ)
-        for e in node.elts:
+        for e in reversed(node.elts):
             l = plt.MkCons(plt.Apply(self.visit(e), plt.Var(STATEMONAD)), l)
         return plt.Lambda([STATEMONAD], l)
 
@@ -659,7 +655,6 @@ def compile(prog: AST):
         # The type inference needs to be run after complex python operations were rewritten
         AggressiveTypeInferencer,
         # Rewrites that circumvent the type inference or use its results
-        RewriteRemoveTypeStuff,
         RewriteInjectBuiltinsConstr,
     ]
     for s in rewrite_steps:
