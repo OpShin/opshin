@@ -125,6 +125,31 @@ def validator(x: int) -> str:
             ret = None
         self.assertEqual(ret, i_unicode, "chr returned wrong value")
 
+    @given(xs=st.one_of(st.builds(lambda x: str(x), st.integers()), st.text()))
+    @example("")
+    @example("10_00")
+    def test_int_string(self, xs: str):
+        # this tests that errors that are caused by assignments are actually triggered at the time of assigning
+        source_code = """
+def validator(x: str) -> int:
+    return int(x)
+        """
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        try:
+            exp = int(xs)
+        except ValueError:
+            exp = None
+        try:
+            for d in [uplc.PlutusByteString(xs.encode("utf8"))]:
+                f = uplc.Apply(f, d)
+            ret = uplc_eval(f).value
+        except:
+            ret = None
+        self.assertEqual(ret, exp, "str (integer) returned wrong value")
+
     @given(i=st.binary())
     def test_len_bytestring(self, i):
         # this tests that errors that are caused by assignments are actually triggered at the time of assigning

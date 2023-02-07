@@ -16,8 +16,9 @@ class RewriteInjectBuiltinsConstr(CompilingNodeTransformer):
     def visit_Module(self, node: TypedModule) -> TypedModule:
         additional_assigns = []
         for t, tname in [
-            (ByteStringType(), bytes.__name__)
-        ]:  # TODO add integer and string
+            (ByteStringType(), bytes.__name__),
+            (IntegerType(), int.__name__),
+        ]:  # TODO add string
             typ = t.constr_type()
             if isinstance(typ.typ, PolymorphicFunctionType):
                 # skip polymorphic functions

@@ -371,6 +371,90 @@ class InstanceType(Type):
 
 @dataclass(frozen=True, unsafe_hash=True)
 class IntegerType(AtomicType):
+    def constr_type(self) -> InstanceType:
+        return InstanceType(FunctionType([StringInstanceType], InstanceType(self)))
+
+    def constr(self) -> plt.AST:
+        return plt.Lambda(
+            ["x", "_"],
+            plt.Let(
+                [
+                    ("e", plt.EncodeUtf8(plt.Var("x"))),
+                    ("len", plt.LengthOfByteString(plt.Var("e"))),
+                    (
+                        "fold_start",
+                        plt.Lambda(
+                            ["start"],
+                            plt.FoldList(
+                                plt.Range(plt.Var("len"), plt.Var("start")),
+                                plt.Lambda(
+                                    ["s", "i"],
+                                    plt.Let(
+                                        [
+                                            (
+                                                "b",
+                                                plt.IndexByteString(
+                                                    plt.Var("e"), plt.Var("i")
+                                                ),
+                                            )
+                                        ],
+                                        plt.Ite(
+                                            plt.EqualsInteger(
+                                                plt.Var("b"), plt.Integer(ord("_"))
+                                            ),
+                                            plt.Var("s"),
+                                            plt.Ite(
+                                                plt.Or(
+                                                    plt.LessThanInteger(
+                                                        plt.Var("b"),
+                                                        plt.Integer(ord("0")),
+                                                    ),
+                                                    plt.LessThanInteger(
+                                                        plt.Integer(ord("9")),
+                                                        plt.Var("b"),
+                                                    ),
+                                                ),
+                                                plt.TraceError(
+                                                    "ValueError: invalid literal for int() with base 10"
+                                                ),
+                                                plt.AddInteger(
+                                                    plt.SubtractInteger(
+                                                        plt.Var("b"),
+                                                        plt.Integer(ord("0")),
+                                                    ),
+                                                    plt.MultiplyInteger(
+                                                        plt.Var("s"), plt.Integer(10)
+                                                    ),
+                                                ),
+                                            ),
+                                        ),
+                                    ),
+                                ),
+                                plt.Integer(0),
+                            ),
+                        ),
+                    ),
+                ],
+                plt.Ite(
+                    plt.EqualsInteger(plt.Var("len"), plt.Integer(0)),
+                    plt.TraceError(
+                        "ValueError: invalid literal for int() with base 10"
+                    ),
+                    plt.Ite(
+                        plt.EqualsInteger(
+                            plt.IndexByteString(plt.Var("e"), plt.Integer(0)),
+                            plt.Integer(ord("-")),
+                        ),
+                        plt.SubtractInteger(
+                            plt.Integer(0),
+                            plt.Apply(plt.Var("fold_start"), plt.Integer(1)),
+                        ),
+                        plt.Apply(plt.Var("fold_start"), plt.Integer(0)),
+                    ),
+                ),
+            ),
+        )
+
     def cmp(self, op: cmpop, o: "Type") -> plt.AST:
         """The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second the comparison."""
         if isinstance(o, BoolType):
