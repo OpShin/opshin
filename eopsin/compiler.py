@@ -290,6 +290,14 @@ class UPLCCompiler(CompilingNodeTransformer):
         assert isinstance(
             node.targets[0], Name
         ), "Assignments to other things then names are not supported"
+        if (
+            isinstance(node.value.typ, UnionType)
+            or isinstance(node.value.typ, ListType)
+            or isinstance(node.value.typ, DictType)
+            or isinstance(node.value.typ, AnyType)
+        ):
+            # this type does not have a constructor and the constructor can hence not be passed on
+            return self.visit_sequence([])
         compiled_e = self.visit(node.value)
         # (\{STATEMONAD} -> (\x -> if (x ==b {self.visit(node.targets[0])}) then ({compiled_e} {STATEMONAD}) else ({STATEMONAD} x)))
         varname = node.targets[0].id
