@@ -159,6 +159,7 @@ class PythonBuiltIn(Enum):
         ["limit", "_"],
         plt.Range(plt.Var("limit")),
     )
+    reversed = auto()
     sum = plt.Lambda(
         ["xs", "_"],
         plt.FoldList(
@@ -197,6 +198,33 @@ class Len(PolymorphicFunction):
         raise NotImplementedError(f"'len' is not implemented for type {arg}")
 
 
+class Reversed(PolymorphicFunction):
+    def type_from_args(self, args: typing.List[Type]) -> FunctionType:
+        assert (
+            len(args) == 1
+        ), f"'reversed' takes only one argument, but {len(args)} were given"
+        typ = args[0]
+        assert isinstance(typ, InstanceType), "Can only reverse instances"
+        assert isinstance(typ.typ, ListType), "Can only reverse instances of lists"
+        # returns list of same type
+        return FunctionType(args, typ)
+
+    def impl_from_args(self, args: typing.List[Type]) -> plt.AST:
+        arg = args[0]
+        assert isinstance(arg, InstanceType), "Can only reverse instances"
+        if isinstance(arg.typ, ListType):
+            empty_l = empty_list(arg.typ.typ)
+            return plt.Lambda(
+                ["xs", "_"],
+                plt.FoldList(
+                    plt.Var("xs"),
+                    plt.Lambda(["a", "x"], plt.MkCons(plt.Var("x"), plt.Var("a"))),
+                    empty_l,
+                ),
+            )
+        raise NotImplementedError(f"'reversed' is not implemented for type {arg}")
+
+
 PythonBuiltInTypes = {
     PythonBuiltIn.all: InstanceType(
         FunctionType(
@@ -233,6 +261,7 @@ PythonBuiltInTypes = {
             InstanceType(ListType(IntegerInstanceType)),
         )
     ),
+    PythonBuiltIn.reversed: InstanceType(PolymorphicFunctionType(Reversed())),
     PythonBuiltIn.sum: InstanceType(
         FunctionType(
             [InstanceType(ListType(IntegerInstanceType))],

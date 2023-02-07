@@ -217,3 +217,20 @@ def validator(x: List[int]) -> int:
             f = uplc.Apply(f, d)
         ret = uplc_eval(f).value
         self.assertEqual(ret, sum(xs), "sum returned wrong value")
+
+    @given(xs=st.lists(st.integers()))
+    def test_reversed(self, xs):
+        # this tests that errors that are caused by assignments are actually triggered at the time of assigning
+        source_code = """
+def validator(x: List[int]) -> List[int]:
+    return reversed(x)
+        """
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        for d in [uplc.PlutusList([uplc.PlutusInteger(x) for x in xs])]:
+            f = uplc.Apply(f, d)
+        ret = [x.value for x in uplc_eval(f).value]
+        self.assertEqual(ret, list(reversed(xs)), "reversed returned wrong value")
