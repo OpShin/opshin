@@ -47,7 +47,7 @@ BinOpMap = {
             IntegerInstanceType: plt.MultiplyInteger,
         }
     },
-    Div: {
+    FloorDiv: {
         IntegerInstanceType: {
             IntegerInstanceType: plt.DivideInteger,
         }
@@ -562,15 +562,26 @@ class UPLCCompiler(CompilingNodeTransformer):
             elif isinstance(node.slice, Slice):
                 return plt.Lambda(
                     [STATEMONAD],
-                    plt.SliceByteString(
-                        plt.Apply(self.visit(node.slice.lower), plt.Var(STATEMONAD)),
-                        plt.SubtractInteger(
-                            plt.Apply(
-                                self.visit(node.slice.upper), plt.Var(STATEMONAD)
+                    plt.Let(
+                        [
+                            (
+                                "drop",
+                                plt.Apply(
+                                    self.visit(node.slice.lower), plt.Var(STATEMONAD)
+                                ),
+                            )
+                        ],
+                        plt.SliceByteString(
+                            plt.Var("drop"),
+                            plt.SubtractInteger(
+                                plt.Apply(
+                                    self.visit(node.slice.upper),
+                                    plt.Var(STATEMONAD),
+                                ),
+                                plt.Var("drop"),
                             ),
-                            plt.Integer(1),
+                            plt.Apply(self.visit(node.value), plt.Var(STATEMONAD)),
                         ),
-                        plt.Apply(self.visit(node.value), plt.Var(STATEMONAD)),
                     ),
                 )
         raise NotImplementedError(f"Could not implement subscript of {node}")
