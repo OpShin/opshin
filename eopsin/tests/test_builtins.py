@@ -5,19 +5,11 @@ import unittest
 from uplc import ast as uplc, eval as uplc_eval
 from hypothesis import example, given
 from hypothesis import strategies as st
-from parameterized import parameterized
 
-from .. import compiler, prelude, type_inference
-
-
-def fib(n):
-    a, b = 0, 1
-    for _ in range(n):
-        a, b = b, a + b
-    return a
+from .. import compiler
 
 
-class MiscTest(unittest.TestCase):
+class BuiltinTest(unittest.TestCase):
     @given(xs=st.lists(st.booleans()))
     def test_all(self, xs):
         # this tests that errors that are caused by assignments are actually triggered at the time of assigning

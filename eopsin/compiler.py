@@ -48,7 +48,7 @@ BinOpMap = {
             IntegerInstanceType: plt.MultiplyInteger,
         }
     },
-    Div: {
+    FloorDiv: {
         IntegerInstanceType: {
             IntegerInstanceType: plt.DivideInteger,
         }
@@ -520,12 +520,18 @@ class UPLCCompiler(CompilingNodeTransformer):
             assert isinstance(
                 node.slice.value, Constant
             ), "Only constant index access for tuples is supported"
+            assert isinstance(
+                node.slice.value.value, int
+            ), "Only constant index integer access for tuples is supported"
+            index = node.slice.value.value
+            if index < 0:
+                index += len(node.value.typ.typ.typs)
             assert isinstance(node.ctx, Load), "Tuples are read-only"
             return plt.Lambda(
                 [STATEMONAD],
                 plt.FunctionalTupleAccess(
                     plt.Apply(self.visit(node.value), plt.Var(STATEMONAD)),
-                    node.slice.value.value,
+                    index,
                     len(node.value.typ.typ.typs),
                 ),
             )
@@ -538,32 +544,133 @@ class UPLCCompiler(CompilingNodeTransformer):
             ), "Only single element list index access supported"
             return plt.Lambda(
                 [STATEMONAD],
-                plt.IndexAccessList(
-                    plt.Apply(self.visit(node.value), plt.Var(STATEMONAD)),
-                    plt.Apply(self.visit(node.slice.value), plt.Var(STATEMONAD)),
+                plt.Let(
+                    [
+                        ("l", plt.Apply(self.visit(node.value), plt.Var(STATEMONAD))),
+                        (
+                            "raw_i",
+                            plt.Apply(
+                                self.visit(node.slice.value), plt.Var(STATEMONAD)
+                            ),
+                        ),
+                        (
+                            "i",
+                            plt.Ite(
+                                plt.LessThanInteger(plt.Var("raw_i"), plt.Integer(0)),
+                                plt.AddInteger(
+                                    plt.Var("raw_i"), plt.LengthList(plt.Var("l"))
+                                ),
+                                plt.Var("raw_i"),
+                            ),
+                        ),
+                    ],
+                    plt.IndexAccessList(plt.Var("l"), plt.Var("i")),
                 ),
             )
         elif isinstance(node.value.typ.typ, ByteStringType):
             if isinstance(node.slice, Index):
                 return plt.Lambda(
                     [STATEMONAD],
-                    plt.IndexByteString(
-                        plt.Apply(self.visit(node.value), plt.Var(STATEMONAD)),
-                        plt.Apply(self.visit(node.slice.value), plt.Var(STATEMONAD)),
+                    plt.Let(
+                        [
+                            (
+                                "bs",
+                                plt.Apply(self.visit(node.value), plt.Var(STATEMONAD)),
+                            ),
+                            (
+                                "raw_ix",
+                                plt.Apply(
+                                    self.visit(node.slice.value), plt.Var(STATEMONAD)
+                                ),
+                            ),
+                            (
+                                "ix",
+                                plt.Ite(
+                                    plt.LessThanInteger(
+                                        plt.Var("raw_ix"), plt.Integer(0)
+                                    ),
+                                    plt.AddInteger(
+                                        plt.Var("raw_ix"),
+                                        plt.LengthOfByteString(plt.Var("bs")),
+                                    ),
+                                    plt.Var("raw_ix"),
+                                ),
+                            ),
+                        ],
+                        plt.IndexByteString(plt.Var("bs"), plt.Var("ix")),
                     ),
                 )
             elif isinstance(node.slice, Slice):
                 return plt.Lambda(
                     [STATEMONAD],
-                    plt.SliceByteString(
-                        plt.Apply(self.visit(node.slice.lower), plt.Var(STATEMONAD)),
-                        plt.SubtractInteger(
-                            plt.Apply(
-                                self.visit(node.slice.upper), plt.Var(STATEMONAD)
+                    plt.Let(
+                        [
+                            (
+                                "bs",
+                                plt.Apply(self.visit(node.value), plt.Var(STATEMONAD)),
                             ),
-                            plt.Integer(1),
+                            (
+                                "raw_i",
+                                plt.Apply(
+                                    self.visit(node.slice.lower), plt.Var(STATEMONAD)
+                                ),
+                            ),
+                            (
+                                "i",
+                                plt.Ite(
+                                    plt.LessThanInteger(
+                                        plt.Var("raw_i"), plt.Integer(0)
+                                    ),
+                                    plt.AddInteger(
+                                        plt.Var("raw_i"),
+                                        plt.LengthOfByteString(plt.Var("bs")),
+                                    ),
+                                    plt.Var("raw_i"),
+                                ),
+                            ),
+                            (
+                                "raw_j",
+                                plt.Apply(
+                                    self.visit(node.slice.upper), plt.Var(STATEMONAD)
+                                ),
+                            ),
+                            (
+                                "j",
+                                plt.Ite(
+                                    plt.LessThanInteger(
+                                        plt.Var("raw_j"), plt.Integer(0)
+                                    ),
+                                    plt.AddInteger(
+                                        plt.Var("raw_j"),
+                                        plt.LengthOfByteString(plt.Var("bs")),
+                                    ),
+                                    plt.Var("raw_j"),
+                                ),
+                            ),
+                            (
+                                "drop",
+                                plt.Ite(
+                                    plt.LessThanEqualsInteger(
+                                        plt.Var("i"), plt.Integer(0)
+                                    ),
+                                    plt.Integer(0),
+                                    plt.Var("i"),
+                                ),
+                            ),
+                            (
+                                "take",
+                                plt.SubtractInteger(plt.Var("j"), plt.Var("drop")),
+                            ),
+                        ],
+                        plt.Ite(
+                            plt.LessThanEqualsInteger(plt.Var("j"), plt.Var("i")),
+                            plt.ByteString(b""),
+                            plt.SliceByteString(
+                                plt.Var("drop"),
+                                plt.Var("take"),
+                                plt.Var("bs"),
+                            ),
                         ),
-                        plt.Apply(self.visit(node.value), plt.Var(STATEMONAD)),
                     ),
                 )
         raise NotImplementedError(f"Could not implement subscript of {node}")
