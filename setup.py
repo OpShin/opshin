@@ -50,7 +50,7 @@ setup(
         "Programming Language :: Python :: 3.8",
     ],
     keywords="python cardano smart contract blockchain verification haskell",
-    python_requires=">=3",
+    python_requires=">=3.8, <3.9",
     test_suite="eopsin.tests",
     entry_points={
         "console_scripts": ["eopsin=eopsin.__main__:main"],
