@@ -154,3 +154,4 @@ Donation in ADA can be submitted to `$imperatorlang` or `addr1qyz3vgd5xxevjy2rvq
 ### Supporters
 
 <a href="https://github.com/MuesliSwapTeam/"><img  src="https://avatars.githubusercontent.com/u/91151317?v=4" width="50" /></a>
+<a href="https://github.com/AadaFinance/"><img  src="https://avatars.githubusercontent.com/u/89693711?v=4" width="50" /></a>
