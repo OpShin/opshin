@@ -527,12 +527,18 @@ class UPLCCompiler(CompilingNodeTransformer):
             assert isinstance(
                 node.slice.value, Constant
             ), "Only constant index access for tuples is supported"
+            assert isinstance(
+                node.slice.value.value, int
+            ), "Only constant index integer access for tuples is supported"
+            index = node.slice.value.value
+            if index < 0:
+                index += len(node.value.typ.typ.typs)
             assert isinstance(node.ctx, Load), "Tuples are read-only"
             return plt.Lambda(
                 [STATEMONAD],
                 plt.FunctionalTupleAccess(
                     plt.Apply(self.visit(node.value), plt.Var(STATEMONAD)),
-                    node.slice.value.value,
+                    index,
                     len(node.value.typ.typ.typs),
                 ),
             )
@@ -545,9 +551,27 @@ class UPLCCompiler(CompilingNodeTransformer):
             ), "Only single element list index access supported"
             return plt.Lambda(
                 [STATEMONAD],
-                plt.IndexAccessList(
-                    plt.Apply(self.visit(node.value), plt.Var(STATEMONAD)),
-                    plt.Apply(self.visit(node.slice.value), plt.Var(STATEMONAD)),
+                plt.Let(
+                    [
+                        ("l", plt.Apply(self.visit(node.value), plt.Var(STATEMONAD))),
+                        (
+                            "raw_i",
+                            plt.Apply(
+                                self.visit(node.slice.value), plt.Var(STATEMONAD)
+                            ),
+                        ),
+                        (
+                            "i",
+                            plt.Ite(
+                                plt.LessThanInteger(plt.Var("raw_i"), plt.Integer(0)),
+                                plt.AddInteger(
+                                    plt.Var("raw_i"), plt.LengthList(plt.Var("l"))
+                                ),
+                                plt.Var("raw_i"),
+                            ),
+                        ),
+                    ],
+                    plt.IndexAccessList(plt.Var("l"), plt.Var("i")),
                 ),
             )
         elif isinstance(node.value.typ.typ, ByteStringType):

@@ -275,3 +275,33 @@ def validator(x: bytes, y: int) -> int:
         except:
             ret = None
         self.assertEqual(ret, exp, "byte index returned wrong value")
+
+    @given(xs=st.lists(st.integers()), y=st.integers())
+    @example(xs=[0], y=-1)
+    @example(xs=[0], y=0)
+    def test_index_list(self, xs, y):
+        # this tests that errors that are caused by assignments are actually triggered at the time of assigning
+        source_code = """
+from typing import Dict, List, Union
+def validator(x: List[int], y: int) -> int:
+    return x[y]
+            """
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        try:
+            exp = xs[y]
+        except IndexError:
+            exp = None
+        try:
+            for d in [
+                uplc.PlutusList([uplc.PlutusInteger(x) for x in xs]),
+                uplc.PlutusInteger(y),
+            ]:
+                f = uplc.Apply(f, d)
+            ret = uplc_eval(f).value
+        except Exception as e:
+            ret = None
+        self.assertEqual(ret, exp, "list index returned wrong value")
