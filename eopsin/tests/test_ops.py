@@ -216,10 +216,12 @@ def validator(x: str, y: str) -> str:
         self.assertEqual(ret, x + y, "+ returned wrong value")
 
     @given(x=st.binary(), y=st.integers(), z=st.integers())
+    @example(b"\x00", -2, 0)
     @example(b"1234", 1, 2)
     @example(b"1234", 2, 4)
     @example(b"1234", 2, 2)
     @example(b"1234", 3, 3)
+    @example(b"1234", 3, 1)
     def test_slice_bytes(self, x, y, z):
         # this tests that errors that are caused by assignments are actually triggered at the time of assigning
         source_code = """

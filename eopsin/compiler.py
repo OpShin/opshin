@@ -589,22 +589,70 @@ class UPLCCompiler(CompilingNodeTransformer):
                     plt.Let(
                         [
                             (
-                                "drop",
+                                "bs",
+                                plt.Apply(self.visit(node.value), plt.Var(STATEMONAD)),
+                            ),
+                            (
+                                "raw_i",
                                 plt.Apply(
                                     self.visit(node.slice.lower), plt.Var(STATEMONAD)
                                 ),
-                            )
-                        ],
-                        plt.SliceByteString(
-                            plt.Var("drop"),
-                            plt.SubtractInteger(
-                                plt.Apply(
-                                    self.visit(node.slice.upper),
-                                    plt.Var(STATEMONAD),
-                                ),
-                                plt.Var("drop"),
                             ),
-                            plt.Apply(self.visit(node.value), plt.Var(STATEMONAD)),
+                            (
+                                "i",
+                                plt.Ite(
+                                    plt.LessThanInteger(
+                                        plt.Var("raw_i"), plt.Integer(0)
+                                    ),
+                                    plt.AddInteger(
+                                        plt.Var("raw_i"),
+                                        plt.LengthOfByteString(plt.Var("bs")),
+                                    ),
+                                    plt.Var("raw_i"),
+                                ),
+                            ),
+                            (
+                                "raw_j",
+                                plt.Apply(
+                                    self.visit(node.slice.upper), plt.Var(STATEMONAD)
+                                ),
+                            ),
+                            (
+                                "j",
+                                plt.Ite(
+                                    plt.LessThanInteger(
+                                        plt.Var("raw_j"), plt.Integer(0)
+                                    ),
+                                    plt.AddInteger(
+                                        plt.Var("raw_j"),
+                                        plt.LengthOfByteString(plt.Var("bs")),
+                                    ),
+                                    plt.Var("raw_j"),
+                                ),
+                            ),
+                            (
+                                "drop",
+                                plt.Ite(
+                                    plt.LessThanEqualsInteger(
+                                        plt.Var("i"), plt.Integer(0)
+                                    ),
+                                    plt.Integer(0),
+                                    plt.Var("i"),
+                                ),
+                            ),
+                            (
+                                "take",
+                                plt.SubtractInteger(plt.Var("j"), plt.Var("drop")),
+                            ),
+                        ],
+                        plt.Ite(
+                            plt.LessThanEqualsInteger(plt.Var("j"), plt.Var("i")),
+                            plt.ByteString(b""),
+                            plt.SliceByteString(
+                                plt.Var("drop"),
+                                plt.Var("take"),
+                                plt.Var("bs"),
+                            ),
                         ),
                     ),
                 )
