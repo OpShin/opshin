@@ -554,9 +554,33 @@ class UPLCCompiler(CompilingNodeTransformer):
             if isinstance(node.slice, Index):
                 return plt.Lambda(
                     [STATEMONAD],
-                    plt.IndexByteString(
-                        plt.Apply(self.visit(node.value), plt.Var(STATEMONAD)),
-                        plt.Apply(self.visit(node.slice.value), plt.Var(STATEMONAD)),
+                    plt.Let(
+                        [
+                            (
+                                "bs",
+                                plt.Apply(self.visit(node.value), plt.Var(STATEMONAD)),
+                            ),
+                            (
+                                "raw_ix",
+                                plt.Apply(
+                                    self.visit(node.slice.value), plt.Var(STATEMONAD)
+                                ),
+                            ),
+                            (
+                                "ix",
+                                plt.Ite(
+                                    plt.LessThanInteger(
+                                        plt.Var("raw_ix"), plt.Integer(0)
+                                    ),
+                                    plt.AddInteger(
+                                        plt.Var("raw_ix"),
+                                        plt.LengthOfByteString(plt.Var("bs")),
+                                    ),
+                                    plt.Var("raw_ix"),
+                                ),
+                            ),
+                        ],
+                        plt.IndexByteString(plt.Var("bs"), plt.Var("ix")),
                     ),
                 )
             elif isinstance(node.slice, Slice):
