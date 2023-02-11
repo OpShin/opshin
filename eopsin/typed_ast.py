@@ -878,8 +878,25 @@ class TypedList(typedexpr, List):
     pass
 
 
+class typedcomprehension(typedexpr, comprehension):
+    target: typedexpr
+    iter: typedexpr
+    ifs: typing.List[typedexpr]
+
+
+class TypedListComp(typedexpr, ListComp):
+    generators: typing.List[typedcomprehension]
+    elt: typedexpr
+
+
 class TypedDict(typedexpr, Dict):
     pass
+
+
+class TypedIfExp(typedstmt, IfExp):
+    test: typedexpr
+    body: typedexpr
+    orelse: typedexpr
 
 
 class TypedCompare(typedexpr, Compare):

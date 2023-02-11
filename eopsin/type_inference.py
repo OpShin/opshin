@@ -533,6 +533,62 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         assert node.typ is not None, "Raw Pluto Expression is missing type annotation"
         return node
 
+    def visit_IfExp(self, node: IfExp) -> TypedIfExp:
+        node_cp = copy(node)
+        node_cp.test = self.visit(node.test)
+        assert node_cp.test.typ == BoolInstanceType, "Comparison must have type boolean"
+        node_cp.body = self.visit(node.body)
+        node_cp.orelse = self.visit(node.orelse)
+        if node_cp.body.typ >= node_cp.orelse.typ:
+            node_cp.typ = node_cp.body.typ
+        elif node_cp.orelse.typ >= node_cp.body.typ:
+            node_cp.typ = node_cp.orelse.typ
+        else:
+            raise TypeInferenceError(
+                "Branches of if-expression must return compatible types"
+            )
+        return node_cp
+
+    def visit_comprehension(self, g: comprehension) -> typedcomprehension:
+        new_g = copy(g)
+        if isinstance(g.target, Tuple):
+            raise NotImplementedError(
+                "Type deconstruction in for loops is not supported yet"
+            )
+        new_g.iter = self.visit(g.iter)
+        itertyp = new_g.iter.typ
+        assert isinstance(
+            itertyp, InstanceType
+        ), "Can only iterate over instances, not classes"
+        if isinstance(itertyp.typ, TupleType):
+            assert itertyp.typ.typs, "Iterating over an empty tuple is not allowed"
+            vartyp = itertyp.typ.typs[0]
+            assert all(
+                itertyp.typ.typs[0] == t for t in new_g.iter.typ.typs
+            ), "Iterating through a tuple requires the same type for each element"
+        elif isinstance(itertyp.typ, ListType):
+            vartyp = itertyp.typ.typ
+        else:
+            raise NotImplementedError(
+                "Type inference for loops over non-list objects is not supported"
+            )
+        self.set_variable_type(g.target.id, vartyp)
+        new_g.target = self.visit(g.target)
+        new_g.ifs = [self.visit(i) for i in g.ifs]
+        return new_g
+
+    def visit_ListComp(self, node: ListComp) -> TypedListComp:
+        typed_listcomp = copy(node)
+        # inside the comprehension is a seperate scope
+        self.enter_scope()
+        # first evaluate generators for assigned variables
+        typed_listcomp.generators = [self.visit(s) for s in node.generators]
+        # then evaluate elements
+        typed_listcomp.elt = self.visit(node.elt)
+        self.exit_scope()
+        typed_listcomp.typ = InstanceType(ListType(typed_listcomp.elt.typ))
+        return typed_listcomp
+
     def generic_visit(self, node: AST) -> TypedAST:
         raise NotImplementedError(
             f"Cannot infer type of non-implemented node {node.__class__}"

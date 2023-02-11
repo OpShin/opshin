@@ -751,6 +751,56 @@ class UPLCCompiler(CompilingNodeTransformer):
             )
         return plt.Lambda([STATEMONAD], l)
 
+    def visit_IfExp(self, node: TypedIfExp) -> plt.AST:
+        return plt.Lambda(
+            [STATEMONAD],
+            plt.Ite(
+                plt.Apply(self.visit(node.test), plt.Var(STATEMONAD)),
+                plt.Apply(self.visit(node.body), plt.Var(STATEMONAD)),
+                plt.Apply(self.visit(node.orelse), plt.Var(STATEMONAD)),
+            ),
+        )
+
+    def visit_ListComp(self, node: TypedListComp) -> plt.AST:
+        assert len(node.generators) == 1, "Currently only one generator supported"
+        gen = node.generators[0]
+        assert isinstance(gen.iter.typ, InstanceType), "Only lists are valid generators"
+        assert isinstance(gen.iter.typ.typ, ListType), "Only lists are valid generators"
+        assert isinstance(
+            gen.target, Name
+        ), "Can only assign value to singleton element"
+        lst = plt.Apply(self.visit(gen.iter), plt.Var(STATEMONAD))
+        for ifexpr in gen.ifs:
+            lst = plt.FilterList(
+                lst,
+                plt.Lambda(
+                    ["x"],
+                    plt.Apply(
+                        self.visit(ifexpr),
+                        extend_statemonad(
+                            [gen.target.id], [plt.Var("x")], plt.Var(STATEMONAD)
+                        ),
+                    ),
+                ),
+                empty_list(gen.iter.typ.typ.typ),
+            )
+        return plt.Lambda(
+            [STATEMONAD],
+            plt.MapList(
+                lst,
+                plt.Lambda(
+                    ["x"],
+                    plt.Apply(
+                        self.visit(node.elt),
+                        extend_statemonad(
+                            [gen.target.id], [plt.Var("x")], plt.Var(STATEMONAD)
+                        ),
+                    ),
+                ),
+                empty_list(node.elt.typ),
+            ),
+        )
+
     def generic_visit(self, node: AST) -> plt.AST:
         raise NotImplementedError(f"Can not compile {node}")
 
