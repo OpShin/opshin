@@ -14,7 +14,7 @@ class Empty(PlutusData):
 TOKEN = Token(TOKEN_POLICYID, TOKEN_NAME)
 
 
-def all_tokens_unlocked_from_address(
+def all_tokens_unlocked_from_contract_address(
     txins: List[TxInInfo], address: Address, token: Token
 ) -> int:
     # generally always iterate over all inputs to avoid double spending
@@ -49,7 +49,7 @@ def own_address(own_policy_id: PolicyId) -> Address:
     return Address(ScriptCredential(own_policy_id), NoStakingCredential())
 
 
-def all_tokens_locked_at_address(
+def all_tokens_locked_at_contract_address(
     txouts: List[TxOut], address: Address, token: Token
 ) -> int:
     res = 0
@@ -76,8 +76,12 @@ def validator(_datum: None, _redeemer: NoRedeemer, ctx: ScriptContext) -> None:
         own_addr = own_utxo.address
     else:
         assert False, "Incorrect purpose given"
-    all_locked = all_tokens_locked_at_address(ctx.tx_info.outputs, own_addr, TOKEN)
-    all_unlocked = all_tokens_unlocked_from_address(ctx.tx_info.inputs, own_addr, TOKEN)
+    all_locked = all_tokens_locked_at_contract_address(
+        ctx.tx_info.outputs, own_addr, TOKEN
+    )
+    all_unlocked = all_tokens_unlocked_from_contract_address(
+        ctx.tx_info.inputs, own_addr, TOKEN
+    )
     all_minted = ctx.tx_info.mint.get(own_pid, {b"": 0}).get(b"w" + TOKEN_NAME, 0)
     print("unlocked from contract: " + str(all_unlocked))
     print("locked at contract: " + str(all_locked))
