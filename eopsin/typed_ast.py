@@ -380,6 +380,7 @@ class IntegerType(AtomicType):
             plt.Let(
                 [
                     ("e", plt.EncodeUtf8(plt.Var("x"))),
+                    ("first_int", plt.IndexByteString(plt.Var("e"), plt.Integer(0))),
                     ("len", plt.LengthOfByteString(plt.Var("e"))),
                     (
                         "fold_start",
@@ -436,13 +437,19 @@ class IntegerType(AtomicType):
                     ),
                 ],
                 plt.Ite(
-                    plt.EqualsInteger(plt.Var("len"), plt.Integer(0)),
+                    plt.Or(
+                        plt.EqualsInteger(plt.Var("len"), plt.Integer(0)),
+                        plt.EqualsInteger(
+                            plt.Var("first_int"),
+                            plt.Integer(ord("_")),
+                        ),
+                    ),
                     plt.TraceError(
                         "ValueError: invalid literal for int() with base 10"
                     ),
                     plt.Ite(
                         plt.EqualsInteger(
-                            plt.IndexByteString(plt.Var("e"), plt.Integer(0)),
+                            plt.Var("first_int"),
                             plt.Integer(ord("-")),
                         ),
                         plt.Negate(

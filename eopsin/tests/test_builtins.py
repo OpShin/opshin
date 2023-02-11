@@ -120,6 +120,8 @@ def validator(x: int) -> str:
     @given(xs=st.one_of(st.builds(lambda x: str(x), st.integers()), st.text()))
     @example("")
     @example("10_00")
+    @example("_")
+    @example("_1")
     def test_int_string(self, xs: str):
         # this tests that errors that are caused by assignments are actually triggered at the time of assigning
         source_code = """
