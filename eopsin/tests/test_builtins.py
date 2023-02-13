@@ -226,6 +226,28 @@ def validator(x: List[int]) -> int:
             ret = None
         self.assertEqual(ret, exp, "min returned wrong value")
 
+    @given(x=st.integers(), y=st.integers(min_value=0, max_value=20))
+    def test_pow(self, x: int, y: int):
+        source_code = """
+def validator(x: int, y: int) -> int:
+    return pow(x, y) % 10000000000
+        """
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        try:
+            exp = pow(x, y) % 10000000000
+        except ValueError:
+            exp = None
+        try:
+            for d in [uplc.PlutusInteger(x), uplc.PlutusInteger(y)]:
+                f = uplc.Apply(f, d)
+            ret = uplc_eval(f).value
+        except:
+            ret = None
+        self.assertEqual(ret, exp, "pow returned wrong value")
+
     @given(i=st.integers(max_value=100))
     def test_range(self, i):
         # this tests that errors that are caused by assignments are actually triggered at the time of assigning

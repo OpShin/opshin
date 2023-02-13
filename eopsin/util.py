@@ -185,6 +185,32 @@ class PythonBuiltIn(Enum):
         ["x", "_"],
         plt.Trace(plt.Var("x"), plt.NoneData()),
     )
+    # NOTE: only correctly defined for positive y
+    pow = plt.Lambda(
+        ["x", "y", "_"],
+        plt.Apply(
+            plt.RecFun(
+                plt.Lambda(
+                    ["f", "x", "y"],
+                    plt.Ite(
+                        plt.LessThanEqualsInteger(plt.Var("y"), plt.Integer(0)),
+                        plt.Integer(1),
+                        plt.MultiplyInteger(
+                            plt.Var("x"),
+                            plt.Apply(
+                                plt.Var("f"),
+                                plt.Var("f"),
+                                plt.Var("x"),
+                                plt.SubtractInteger(plt.Var("y"), plt.Integer(1)),
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+            plt.Var("x"),
+            plt.Var("y"),
+        ),
+    )
     range = plt.Lambda(
         ["limit", "_"],
         plt.Range(plt.Var("limit")),
@@ -296,6 +322,12 @@ PythonBuiltInTypes = {
     ),
     PythonBuiltIn.print: InstanceType(
         FunctionType([StringInstanceType], NoneInstanceType)
+    ),
+    PythonBuiltIn.pow: InstanceType(
+        FunctionType(
+            [IntegerInstanceType, IntegerInstanceType],
+            IntegerInstanceType,
+        )
     ),
     PythonBuiltIn.range: InstanceType(
         FunctionType(
