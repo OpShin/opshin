@@ -150,6 +150,90 @@ class PythonBuiltIn(Enum):
         ),
     )
     breakpoint = plt.Lambda(["_"], plt.NoneData())
+    hex = plt.Lambda(
+        ["x", "_"],
+        plt.DecodeUtf8(
+            plt.Let(
+                [
+                    (
+                        "hexlist",
+                        plt.RecFun(
+                            plt.Lambda(
+                                ["f", "i"],
+                                plt.Ite(
+                                    plt.LessThanEqualsInteger(
+                                        plt.Var("i"), plt.Integer(0)
+                                    ),
+                                    plt.EmptyIntegerList(),
+                                    plt.MkCons(
+                                        plt.Let(
+                                            [
+                                                (
+                                                    "mod",
+                                                    plt.ModInteger(
+                                                        plt.Var("i"), plt.Integer(16)
+                                                    ),
+                                                ),
+                                            ],
+                                            plt.AddInteger(
+                                                plt.Var("mod"),
+                                                plt.IfThenElse(
+                                                    plt.LessThanInteger(
+                                                        plt.Var("mod"), plt.Integer(10)
+                                                    ),
+                                                    plt.Integer(ord("0")),
+                                                    plt.Integer(ord("a") - 10),
+                                                ),
+                                            ),
+                                        ),
+                                        plt.Apply(
+                                            plt.Var("f"),
+                                            plt.Var("f"),
+                                            plt.DivideInteger(
+                                                plt.Var("i"), plt.Integer(16)
+                                            ),
+                                        ),
+                                    ),
+                                ),
+                            ),
+                        ),
+                    ),
+                    (
+                        "mkstr",
+                        plt.Lambda(
+                            ["i"],
+                            plt.FoldList(
+                                plt.Apply(plt.Var("hexlist"), plt.Var("i")),
+                                plt.Lambda(
+                                    ["b", "i"],
+                                    plt.ConsByteString(plt.Var("i"), plt.Var("b")),
+                                ),
+                                plt.ByteString(b""),
+                            ),
+                        ),
+                    ),
+                ],
+                plt.Ite(
+                    plt.EqualsInteger(plt.Var("x"), plt.Integer(0)),
+                    plt.ByteString(b"0x0"),
+                    plt.Ite(
+                        plt.LessThanInteger(plt.Var("x"), plt.Integer(0)),
+                        plt.ConsByteString(
+                            plt.Integer(ord("-")),
+                            plt.AppendByteString(
+                                plt.ByteString(b"0x"),
+                                plt.Apply(plt.Var("mkstr"), plt.Negate(plt.Var("x"))),
+                            ),
+                        ),
+                        plt.AppendByteString(
+                            plt.ByteString(b"0x"),
+                            plt.Apply(plt.Var("mkstr"), plt.Var("x")),
+                        ),
+                    ),
+                ),
+            )
+        ),
+    )
     len = auto()
     max = plt.Lambda(
         ["xs", "_"],
@@ -308,6 +392,12 @@ PythonBuiltInTypes = {
     ),
     PythonBuiltIn.breakpoint: InstanceType(FunctionType([], NoneInstanceType)),
     PythonBuiltIn.len: InstanceType(PolymorphicFunctionType(Len())),
+    PythonBuiltIn.hex: InstanceType(
+        FunctionType(
+            [IntegerInstanceType],
+            StringInstanceType,
+        )
+    ),
     PythonBuiltIn.max: InstanceType(
         FunctionType(
             [InstanceType(ListType(IntegerInstanceType))],

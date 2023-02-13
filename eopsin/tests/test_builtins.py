@@ -117,6 +117,26 @@ def validator(x: int) -> str:
             ret = None
         self.assertEqual(ret, i_unicode, "chr returned wrong value")
 
+    @given(x=st.integers())
+    @example(0)
+    @example(-1)
+    @example(100)
+    def test_hex(self, x):
+        # this tests that errors that are caused by assignments are actually triggered at the time of assigning
+        source_code = """
+def validator(x: int) -> str:
+    return hex(x)
+        """
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        for d in [uplc.PlutusInteger(x)]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value.decode("utf8")
+        self.assertEqual(ret, hex(x), "hex returned wrong value")
+
     @given(xs=st.one_of(st.builds(lambda x: str(x), st.integers()), st.text()))
     @example("")
     @example("10_00")
