@@ -268,6 +268,26 @@ def validator(x: int, y: int) -> int:
             ret = None
         self.assertEqual(ret, exp, "pow returned wrong value")
 
+    @given(x=st.integers())
+    @example(0)
+    @example(-1)
+    @example(100)
+    def test_oct(self, x):
+        # this tests that errors that are caused by assignments are actually triggered at the time of assigning
+        source_code = """
+def validator(x: int) -> str:
+    return oct(x)
+        """
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        for d in [uplc.PlutusInteger(x)]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value.decode("utf8")
+        self.assertEqual(ret, oct(x), "oct returned wrong value")
+
     @given(i=st.integers(max_value=100))
     def test_range(self, i):
         # this tests that errors that are caused by assignments are actually triggered at the time of assigning

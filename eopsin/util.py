@@ -295,6 +295,76 @@ class PythonBuiltIn(Enum):
             plt.Var("y"),
         ),
     )
+    oct = plt.Lambda(
+        ["x", "_"],
+        plt.DecodeUtf8(
+            plt.Let(
+                [
+                    (
+                        "octlist",
+                        plt.RecFun(
+                            plt.Lambda(
+                                ["f", "i"],
+                                plt.Ite(
+                                    plt.LessThanEqualsInteger(
+                                        plt.Var("i"), plt.Integer(0)
+                                    ),
+                                    plt.EmptyIntegerList(),
+                                    plt.MkCons(
+                                        plt.AddInteger(
+                                            plt.ModInteger(
+                                                plt.Var("i"), plt.Integer(8)
+                                            ),
+                                            plt.Integer(ord("0")),
+                                        ),
+                                        plt.Apply(
+                                            plt.Var("f"),
+                                            plt.Var("f"),
+                                            plt.DivideInteger(
+                                                plt.Var("i"), plt.Integer(8)
+                                            ),
+                                        ),
+                                    ),
+                                ),
+                            ),
+                        ),
+                    ),
+                    (
+                        "mkoct",
+                        plt.Lambda(
+                            ["i"],
+                            plt.FoldList(
+                                plt.Apply(plt.Var("octlist"), plt.Var("i")),
+                                plt.Lambda(
+                                    ["b", "i"],
+                                    plt.ConsByteString(plt.Var("i"), plt.Var("b")),
+                                ),
+                                plt.ByteString(b""),
+                            ),
+                        ),
+                    ),
+                ],
+                plt.Ite(
+                    plt.EqualsInteger(plt.Var("x"), plt.Integer(0)),
+                    plt.ByteString(b"0o0"),
+                    plt.Ite(
+                        plt.LessThanInteger(plt.Var("x"), plt.Integer(0)),
+                        plt.ConsByteString(
+                            plt.Integer(ord("-")),
+                            plt.AppendByteString(
+                                plt.ByteString(b"0o"),
+                                plt.Apply(plt.Var("mkoct"), plt.Negate(plt.Var("x"))),
+                            ),
+                        ),
+                        plt.AppendByteString(
+                            plt.ByteString(b"0o"),
+                            plt.Apply(plt.Var("mkoct"), plt.Var("x")),
+                        ),
+                    ),
+                ),
+            )
+        ),
+    )
     range = plt.Lambda(
         ["limit", "_"],
         plt.Range(plt.Var("limit")),
@@ -417,6 +487,12 @@ PythonBuiltInTypes = {
         FunctionType(
             [IntegerInstanceType, IntegerInstanceType],
             IntegerInstanceType,
+        )
+    ),
+    PythonBuiltIn.oct: InstanceType(
+        FunctionType(
+            [IntegerInstanceType],
+            StringInstanceType,
         )
     ),
     PythonBuiltIn.range: InstanceType(
