@@ -151,6 +151,36 @@ class PythonBuiltIn(Enum):
     )
     breakpoint = plt.Lambda(["_"], plt.NoneData())
     len = auto()
+    max = plt.Lambda(
+        ["xs", "_"],
+        plt.FoldList(
+            plt.TailList(plt.Var("xs")),
+            plt.Lambda(
+                ["x", "a"],
+                plt.IfThenElse(
+                    plt.LessThanInteger(plt.Var("a"), plt.Var("x")),
+                    plt.Var("x"),
+                    plt.Var("a"),
+                ),
+            ),
+            plt.HeadList(plt.Var("xs")),
+        ),
+    )
+    min = plt.Lambda(
+        ["xs", "_"],
+        plt.FoldList(
+            plt.TailList(plt.Var("xs")),
+            plt.Lambda(
+                ["x", "a"],
+                plt.IfThenElse(
+                    plt.LessThanInteger(plt.Var("a"), plt.Var("x")),
+                    plt.Var("a"),
+                    plt.Var("x"),
+                ),
+            ),
+            plt.HeadList(plt.Var("xs")),
+        ),
+    )
     print = plt.Lambda(
         ["x", "_"],
         plt.Trace(plt.Var("x"), plt.NoneData()),
@@ -252,6 +282,18 @@ PythonBuiltInTypes = {
     ),
     PythonBuiltIn.breakpoint: InstanceType(FunctionType([], NoneInstanceType)),
     PythonBuiltIn.len: InstanceType(PolymorphicFunctionType(Len())),
+    PythonBuiltIn.max: InstanceType(
+        FunctionType(
+            [InstanceType(ListType(IntegerInstanceType))],
+            IntegerInstanceType,
+        )
+    ),
+    PythonBuiltIn.min: InstanceType(
+        FunctionType(
+            [InstanceType(ListType(IntegerInstanceType))],
+            IntegerInstanceType,
+        )
+    ),
     PythonBuiltIn.print: InstanceType(
         FunctionType([StringInstanceType], NoneInstanceType)
     ),
