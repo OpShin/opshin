@@ -1,11 +1,35 @@
 import ast
-
 from enum import Enum, auto
 
 from .typed_ast import *
 
 import pluthon as plt
 import uplc.ast as uplc
+
+
+def PowImpl(x: plt.AST, y: plt.AST):
+    return plt.Apply(
+        plt.RecFun(
+            plt.Lambda(
+                ["f", "x", "y"],
+                plt.Ite(
+                    plt.LessThanEqualsInteger(plt.Var("y"), plt.Integer(0)),
+                    plt.Integer(1),
+                    plt.MultiplyInteger(
+                        plt.Var("x"),
+                        plt.Apply(
+                            plt.Var("f"),
+                            plt.Var("f"),
+                            plt.Var("x"),
+                            plt.SubtractInteger(plt.Var("y"), plt.Integer(1)),
+                        ),
+                    ),
+                ),
+            ),
+        ),
+        x,
+        y,
+    )
 
 
 class PythonBuiltIn(Enum):
@@ -270,31 +294,7 @@ class PythonBuiltIn(Enum):
         plt.Trace(plt.Var("x"), plt.NoneData()),
     )
     # NOTE: only correctly defined for positive y
-    pow = plt.Lambda(
-        ["x", "y", "_"],
-        plt.Apply(
-            plt.RecFun(
-                plt.Lambda(
-                    ["f", "x", "y"],
-                    plt.Ite(
-                        plt.LessThanEqualsInteger(plt.Var("y"), plt.Integer(0)),
-                        plt.Integer(1),
-                        plt.MultiplyInteger(
-                            plt.Var("x"),
-                            plt.Apply(
-                                plt.Var("f"),
-                                plt.Var("f"),
-                                plt.Var("x"),
-                                plt.SubtractInteger(plt.Var("y"), plt.Integer(1)),
-                            ),
-                        ),
-                    ),
-                ),
-            ),
-            plt.Var("x"),
-            plt.Var("y"),
-        ),
-    )
+    pow = plt.Lambda(["x", "y", "_"], PowImpl(plt.Var("x"), plt.Var("y")))
     oct = plt.Lambda(
         ["x", "_"],
         plt.DecodeUtf8(
@@ -378,7 +378,7 @@ class PythonBuiltIn(Enum):
     )
 
 
-class Len(PolymorphicFunction):
+class LenImpl(PolymorphicFunction):
     def type_from_args(self, args: typing.List[Type]) -> FunctionType:
         assert (
             len(args) == 1
@@ -408,7 +408,7 @@ class Len(PolymorphicFunction):
         raise NotImplementedError(f"'len' is not implemented for type {arg}")
 
 
-class Reversed(PolymorphicFunction):
+class ReversedImpl(PolymorphicFunction):
     def type_from_args(self, args: typing.List[Type]) -> FunctionType:
         assert (
             len(args) == 1
@@ -461,7 +461,7 @@ PythonBuiltInTypes = {
         )
     ),
     PythonBuiltIn.breakpoint: InstanceType(FunctionType([], NoneInstanceType)),
-    PythonBuiltIn.len: InstanceType(PolymorphicFunctionType(Len())),
+    PythonBuiltIn.len: InstanceType(PolymorphicFunctionType(LenImpl())),
     PythonBuiltIn.hex: InstanceType(
         FunctionType(
             [IntegerInstanceType],
@@ -501,7 +501,7 @@ PythonBuiltInTypes = {
             InstanceType(ListType(IntegerInstanceType)),
         )
     ),
-    PythonBuiltIn.reversed: InstanceType(PolymorphicFunctionType(Reversed())),
+    PythonBuiltIn.reversed: InstanceType(PolymorphicFunctionType(ReversedImpl())),
     PythonBuiltIn.sum: InstanceType(
         FunctionType(
             [InstanceType(ListType(IntegerInstanceType))],

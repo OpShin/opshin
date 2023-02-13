@@ -17,7 +17,7 @@ from .optimize.optimize_remove_pass import OptimizeRemovePass
 from .optimize.optimize_remove_deadvars import OptimizeRemoveDeadvars
 from .optimize.optimize_varlen import OptimizeVarlen
 from .type_inference import *
-from .util import CompilingNodeTransformer
+from .util import CompilingNodeTransformer, PowImpl
 from .typed_ast import transform_ext_params_map, transform_output_map, RawPlutoExpr
 
 
@@ -56,6 +56,11 @@ BinOpMap = {
     Mod: {
         IntegerInstanceType: {
             IntegerInstanceType: plt.ModInteger,
+        }
+    },
+    Pow: {
+        IntegerInstanceType: {
+            IntegerInstanceType: PowImpl,
         }
     },
 }

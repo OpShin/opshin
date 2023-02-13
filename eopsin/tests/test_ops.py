@@ -178,6 +178,23 @@ def validator(x: int, y: int) -> int:
             ret = None
         self.assertEqual(ret, exp, "% returned wrong value")
 
+    @given(x=st.integers(), y=st.integers(min_value=0, max_value=20))
+    def test_pow_int(self, x, y):
+        # this tests that errors that are caused by assignments are actually triggered at the time of assigning
+        source_code = """
+def validator(x: int, y: int) -> int:
+    return x ** y
+            """
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        for d in [uplc.PlutusInteger(int(x)), uplc.PlutusInteger(int(y))]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value
+        self.assertEqual(ret, x**y, "** returned wrong value")
+
     @given(x=st.binary(), y=st.binary())
     def test_add_bytes(self, x, y):
         # this tests that errors that are caused by assignments are actually triggered at the time of assigning
