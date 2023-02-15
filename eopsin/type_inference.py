@@ -99,7 +99,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             if ann.value.id == "List":
                 ann_type = self.type_from_annotation(ann.slice.value)
                 assert isinstance(
-                    ann_type, RecordType
+                    ann_type, ClassType
                 ), "List must have a single type as parameter"
                 assert not isinstance(
                     ann_type, TupleType
