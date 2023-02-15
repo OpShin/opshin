@@ -114,6 +114,15 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                     isinstance(e, ClassType) for e in ann_types
                 ), "Dict must combine two classes"
                 return DictType(*(InstanceType(a) for a in ann_types))
+            if ann.value.id == "Tuple":
+                assert isinstance(
+                    ann.slice.value, Tuple
+                ), "Tuple must combine several classes"
+                ann_types = [self.type_from_annotation(e) for e in ann.slice.value.elts]
+                assert all(
+                    isinstance(e, ClassType) for e in ann_types
+                ), "Tuple must combine classes"
+                return TupleType([InstanceType(a) for a in ann_types])
             raise NotImplementedError(
                 "Only Union, Dict and List are allowed as Generic types"
             )
