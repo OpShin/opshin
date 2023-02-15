@@ -99,8 +99,11 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             if ann.value.id == "List":
                 ann_type = self.type_from_annotation(ann.slice.value)
                 assert isinstance(
-                    ann_type, ClassType
+                    ann_type, RecordType
                 ), "List must have a single type as parameter"
+                assert not isinstance(
+                    ann_type, TupleType
+                ), "List can currently not hold tuples"
                 return ListType(InstanceType(ann_type))
             if ann.value.id == "Dict":
                 assert isinstance(
@@ -113,6 +116,9 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                 assert all(
                     isinstance(e, ClassType) for e in ann_types
                 ), "Dict must combine two classes"
+                assert not any(
+                    isinstance(e, TupleType) for e in ann_types
+                ), "Dict can currently not hold tuples"
                 return DictType(*(InstanceType(a) for a in ann_types))
             if ann.value.id == "Tuple":
                 assert isinstance(
@@ -122,7 +128,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                 assert all(
                     isinstance(e, ClassType) for e in ann_types
                 ), "Tuple must combine classes"
-                return TupleType([InstanceType(a) for a in ann_types])
+                return TupleType(FrozenFrozenList([InstanceType(a) for a in ann_types]))
             raise NotImplementedError(
                 "Only Union, Dict and List are allowed as Generic types"
             )
@@ -625,19 +631,22 @@ class RecordReader(NodeVisitor):
         assert isinstance(
             node.target, Name
         ), "Record elements must have named attributes"
+        typ = self._type_inferencer.type_from_annotation(node.annotation)
         if node.target.id != "CONSTR_ID":
             assert (
                 node.value is None
             ), f"PlutusData attribute {node.target.id} may not have a default value"
+            assert not isinstance(
+                typ, TupleType
+            ), "Records can currently not hold tuples"
             self.attributes.append(
                 (
                     node.target.id,
-                    InstanceType(
-                        self._type_inferencer.type_from_annotation(node.annotation)
-                    ),
+                    InstanceType(typ),
                 )
             )
             return
+        assert typ == IntegerType, "CONSTR_ID must be assigned an integer"
         assert isinstance(
             node.value, Constant
         ), "CONSTR_ID must be assigned a constant integer"
