@@ -355,7 +355,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             ), f"Function '{node.name}' has no return statement but is supposed to return not-None value"
         else:
             assert (
-                functyp.rettyp == tfd.body[-1].typ
+                functyp.rettyp >= tfd.body[-1].typ
             ), f"Function '{node.name}' annotated return type does not match actual return type"
         self.exit_scope()
         # We need the function type outside for usage

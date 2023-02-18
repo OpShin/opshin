@@ -192,8 +192,13 @@ class UnionType(ClassType):
             if any(attr_name != attr for attr_name in attr_names):
                 continue
             # return the union type of all possible instantiations if all possible values are record types
-            if all(isinstance(at, RecordType) for at in attr_types):
-                return UnionType(attr_types)
+            if all(
+                isinstance(at, InstanceType) and isinstance(at.typ, RecordType)
+                for at in attr_types
+            ):
+                return InstanceType(
+                    UnionType(FrozenFrozenList([at.typ for at in attr_types]))
+                )
             for at in attr_types:
                 # return the maximum element if there is one
                 if all(at >= at2 for at2 in attr_types):

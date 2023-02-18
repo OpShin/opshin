@@ -511,3 +511,23 @@ def validator(_: None) -> SomeOutputDatum:
             [x * x for x in range(8) if x % 2 == 0],
             "List comprehension incorrectly evaluated",
         )
+
+    def test_union_type_all_records(self):
+        source_code = """
+from eopsin.prelude import *
+
+@dataclass()
+class A(PlutusData):
+    CONSTR_ID = 0
+    foo: SomeOutputDatumHash
+    
+@dataclass()
+class B(PlutusData):
+    CONSTR_ID = 1
+    foo: SomeOutputDatum
+
+def validator(x: Union[A, B]) -> Union[SomeOutputDatumHash, SomeOutputDatum]:
+    return x.foo
+"""
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
