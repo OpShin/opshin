@@ -607,6 +607,17 @@ class StringType(AtomicType):
             ),
         )
 
+    def attribute_type(self, attr) -> Type:
+        if attr == "encode":
+            return InstanceType(FunctionType([], ByteStringInstanceType))
+        return super().attribute_type(attr)
+
+    def attribute(self, attr) -> plt.AST:
+        if attr == "encode":
+            # No codec -> only the default (utf8) is allowed
+            return plt.Lambda(["x", "_"], plt.EncodeUtf8(plt.Var("x")))
+        return super().attribute(attr)
+
     def cmp(self, op: cmpop, o: "Type") -> plt.AST:
         if isinstance(o, StringType):
             if isinstance(op, Eq):
@@ -632,6 +643,17 @@ class ByteStringType(AtomicType):
                 plt.ByteString(b""),
             ),
         )
+
+    def attribute_type(self, attr) -> Type:
+        if attr == "decode":
+            return InstanceType(FunctionType([], StringInstanceType))
+        return super().attribute_type(attr)
+
+    def attribute(self, attr) -> plt.AST:
+        if attr == "decode":
+            # No codec -> only the default (utf8) is allowed
+            return plt.Lambda(["x", "_"], plt.DecodeUtf8(plt.Var("x")))
+        return super().attribute(attr)
 
     def cmp(self, op: cmpop, o: "Type") -> plt.AST:
         if isinstance(o, ByteStringType):
