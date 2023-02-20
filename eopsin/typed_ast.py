@@ -8,6 +8,11 @@ import pluthon as plt
 import uplc.ast as uplc
 
 
+def distinct(xs: list):
+    """Returns true iff the list consists of distinct elements"""
+    return len(xs) == len(set(xs))
+
+
 def FrozenFrozenList(l: list):
     fl = FrozenList(l)
     fl.freeze()
@@ -178,11 +183,32 @@ class RecordType(ClassType):
 
 @dataclass(frozen=True, unsafe_hash=True)
 class UnionType(ClassType):
-    typs: typing.List[ClassType]
+    typs: typing.List[RecordType]
 
     def attribute_type(self, attr) -> "Type":
         if attr == "CONSTR_ID":
             return IntegerInstanceType
+        # iterate through all names/types of the unioned records by position
+        for attr_names, attr_types in map(
+            lambda x: zip(*x), zip(*(t.record.fields for t in self.typs))
+        ):
+            # need to have a common field with the same name, in the same position!
+            if any(attr_name != attr for attr_name in attr_names):
+                continue
+            for at in attr_types:
+                # return the maximum element if there is one
+                if all(at >= at2 for at2 in attr_types):
+                    return at
+            # return the union type of all possible instantiations if all possible values are record types
+            if all(
+                isinstance(at, InstanceType) and isinstance(at.typ, RecordType)
+                for at in attr_types
+            ) and distinct([at.typ.record.constructor for at in attr_types]):
+                return InstanceType(
+                    UnionType(FrozenFrozenList([at.typ for at in attr_types]))
+                )
+            # return Anytype
+            return InstanceType(AnyType())
         raise TypeInferenceError(
             f"Can not access attribute {attr} of Union type. Cast to desired type with an 'if isinstance(_, _):' branch."
         )
@@ -194,8 +220,24 @@ class UnionType(ClassType):
                 ["self"],
                 plt.Constructor(plt.Var("self")),
             )
-        raise NotImplementedError(
-            f"Can not access attribute {attr} of Union type. Cast to desired type with an 'if isinstance(_, _):' branch."
+        # iterate through all names/types of the unioned records by position
+        attr_typ = self.attribute_type(attr)
+        pos = next(
+            i
+            for i, (ns, _) in enumerate(
+                map(lambda x: zip(*x), zip(*(t.record.fields for t in self.typs)))
+            )
+            if all(n == attr for n in ns)
+        )
+        # access to normal fields
+        return plt.Lambda(
+            ["self"],
+            transform_ext_params_map(attr_typ)(
+                plt.NthField(
+                    plt.Var("self"),
+                    plt.Integer(pos),
+                ),
+            ),
         )
 
     def __ge__(self, other):

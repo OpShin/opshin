@@ -95,6 +95,9 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                 assert all(
                     isinstance(e, RecordType) for e in ann_types
                 ), "Union must combine multiple PlutusData classes"
+                assert distinct(
+                    [e.record.constructor for e in ann_types]
+                ), "Union must combine PlutusData classes with unique constructors"
                 return UnionType(FrozenFrozenList(ann_types))
             if ann.value.id == "List":
                 ann_type = self.type_from_annotation(ann.slice.value)
@@ -355,7 +358,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             ), f"Function '{node.name}' has no return statement but is supposed to return not-None value"
         else:
             assert (
-                functyp.rettyp == tfd.body[-1].typ
+                functyp.rettyp >= tfd.body[-1].typ
             ), f"Function '{node.name}' annotated return type does not match actual return type"
         self.exit_scope()
         # We need the function type outside for usage
