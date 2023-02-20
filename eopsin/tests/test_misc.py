@@ -512,7 +512,7 @@ def validator(_: None) -> SomeOutputDatum:
             "List comprehension incorrectly evaluated",
         )
 
-    def test_union_type_all_records(self):
+    def test_union_type_attr_access_all_records(self):
         source_code = """
 from eopsin.prelude import *
 
@@ -527,6 +527,93 @@ class B(PlutusData):
     foo: SomeOutputDatum
 
 def validator(x: Union[A, B]) -> Union[SomeOutputDatumHash, SomeOutputDatum]:
+    return x.foo
+"""
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+
+    @unittest.expectedFailure
+    def test_union_type_all_records_same_constr(self):
+        source_code = """
+from eopsin.prelude import *
+
+@dataclass()
+class A(PlutusData):
+    CONSTR_ID = 0
+    foo: SomeOutputDatumHash
+
+@dataclass()
+class B(PlutusData):
+    CONSTR_ID = 0
+    foo: SomeOutputDatum
+
+def validator(x: Union[A, B]) -> Union[SomeOutputDatumHash, SomeOutputDatum]:
+    return x.foo
+"""
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+
+    @unittest.expectedFailure
+    def test_union_type_attr_access_all_records_same_constr(self):
+        source_code = """
+from eopsin.prelude import *
+
+@dataclass()
+class A(PlutusData):
+    CONSTR_ID = 0
+    foo: Token
+
+@dataclass()
+class B(PlutusData):
+    CONSTR_ID = 1
+    foo: Address
+
+def validator(x: Union[A, B]) -> int:
+    m = x.foo
+    if isinstance(m, Address):
+        k = 0
+    else:
+        k = 1
+    return k
+"""
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+
+    def test_union_type_attr_access_maximum_type(self):
+        source_code = """
+from eopsin.prelude import *
+
+@dataclass()
+class A(PlutusData):
+    CONSTR_ID = 0
+    foo: int
+
+@dataclass()
+class B(PlutusData):
+    CONSTR_ID = 1
+    foo: int
+
+def validator(x: Union[A, B]) -> int:
+    return x.foo
+"""
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+
+    def test_union_type_attr_anytype(self):
+        source_code = """
+from eopsin.prelude import *
+
+@dataclass()
+class A(PlutusData):
+    CONSTR_ID = 0
+    foo: str
+
+@dataclass()
+class B(PlutusData):
+    CONSTR_ID = 1
+    foo: int
+
+def validator(x: Union[A, B]) -> Anything:
     return x.foo
 """
         ast = compiler.parse(source_code)

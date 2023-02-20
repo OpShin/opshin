@@ -95,6 +95,9 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                 assert all(
                     isinstance(e, RecordType) for e in ann_types
                 ), "Union must combine multiple PlutusData classes"
+                assert distinct(
+                    [e.record.constructor for e in ann_types]
+                ), "Union must combine PlutusData classes with unique constructors"
                 return UnionType(FrozenFrozenList(ann_types))
             if ann.value.id == "List":
                 ann_type = self.type_from_annotation(ann.slice.value)
