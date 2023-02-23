@@ -88,20 +88,23 @@ def wrap_validator_double_function(x: plt.AST):
     """Wraps the validator function to enable a double function as minting script"""
     return plt.Lambda(
         ["a0", "a1"],
-        plt.Ite(
-            # if the second argument has constructor 0 = script context
-            plt.DelayedChooseData(
-                plt.Var("a1"),
-                plt.EqualsInteger(plt.Constructor(plt.Var("a1")), plt.Integer(0)),
-                plt.Bool(False),
-                plt.Bool(False),
-                plt.Bool(False),
-                plt.Bool(False),
+        plt.Let(
+            [("p", x)],
+            plt.Ite(
+                # if the second argument has constructor 0 = script context
+                plt.DelayedChooseData(
+                    plt.Var("a1"),
+                    plt.EqualsInteger(plt.Constructor(plt.Var("a1")), plt.Integer(0)),
+                    plt.Bool(False),
+                    plt.Bool(False),
+                    plt.Bool(False),
+                    plt.Bool(False),
+                ),
+                # call the validator with a0, a1, and plug in Unit for data
+                plt.Apply(plt.Var("p"), plt.Unit(), plt.Var("a0"), plt.Var("a1")),
+                # else call the validator with a0, a1 and return (now partially bound)
+                plt.Apply(plt.Var("p"), plt.Var("a0"), plt.Var("a1")),
             ),
-            # call the validator with a0, a1, and plug in Unit for data
-            plt.Apply(x, plt.Unit(), plt.Var("a0"), plt.Var("a1")),
-            # else call the validator with a0, a1 and return (now partially bound)
-            plt.Apply(x, plt.Var("a0"), plt.Var("a1")),
         ),
     )
 
