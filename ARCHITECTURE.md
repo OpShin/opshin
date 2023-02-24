@@ -58,3 +58,33 @@ and returned, expecting as only argument the remaining script context.
 
 The single only drawback of this approach is that the second argument to a validator
 may never be PlutusData with constructor id 0 - which is bearable.
+
+## Parameterized Scripts
+
+Plutus scripts can be parameterized, meaning that the compiled UPLC contract
+allows applying additional parameters until it accepts datums/redeemers.
+Defining a parameterized script with eopsin is straightforward - 
+define a validator with more than then necessary amount of parameters.
+The last two/three parameters are always considered the (datum/)redeemer/script context parameters.
+
+The remaining parameters can be applied to the program to form a new UPLC program
+that is the contract obtained by parameterization.
+
+One important question is how to reconstruct these parameters for example
+when simulating the contract in the original language.
+There is no _general_ way of reconstruct these parameters from the on-chain UPLC.
+However, _well-behaved_ instantiations should result in UPLC code of the following form
+
+```uplc
+[(...) param_n param_n-1 ... param_2 param_1]
+```
+
+This can be used to reconstruct the parameters that are supplied in the first positions
+of the higher level validator using this mapping.
+Parameters are always in the form of Data objects
+
+ - int: iData x -> x
+ - bytes: bData x -> x
+ - str: bData x -> x.encode("utf8")
+ - unit: _ -> None
+ - X(PlutusData): x -> x
