@@ -229,7 +229,7 @@ class UPLCCompiler(CompilingNodeTransformer):
         enable_double_func_mint_spend = False
         if len(main_fun_typ.argtyps) >= 3:
             # check if is possible
-            second_last_arg = main_fun_typ.argtyps[-1]
+            second_last_arg = main_fun_typ.argtyps[-2]
             assert isinstance(
                 second_last_arg, InstanceType
             ), "Can not pass Class into validator"
