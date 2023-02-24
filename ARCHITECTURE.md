@@ -88,3 +88,11 @@ Parameters are always in the form of Data objects
  - str: bData x -> x.encode("utf8")
  - unit: _ -> None
  - X(PlutusData): x -> x
+
+The double minting functionality is _not_ affected by parameterization.
+
+You can compile a contract with initialized parameters like this (in the same way you would evaluate a contract with parameters)
+
+```bash
+eopsin compile contract.py "param_1_json_value" ... "param_n_json_value"
+```
