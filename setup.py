@@ -25,8 +25,8 @@ setup(
     py_modules=["eopsin"],
     packages=find_packages(),
     install_requires=[
-        "uplc==0.5.0",
-        "pluthon==0.2.5",
+        "uplc==0.5.3",
+        "pluthon==0.2.11",
         "pycardano==0.7.2",
         "frozenlist==1.3.3",
         "pyaiken==0.3.0",
@@ -50,7 +50,7 @@ setup(
         "Programming Language :: Python :: 3.8",
     ],
     keywords="python cardano smart contract blockchain verification haskell",
-    python_requires=">=3",
+    python_requires=">=3.8, <3.9",
     test_suite="eopsin.tests",
     entry_points={
         "console_scripts": ["eopsin=eopsin.__main__:main"],

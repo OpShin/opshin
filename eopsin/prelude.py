@@ -270,3 +270,41 @@ class Token(PlutusData):
 
 
 NoRedeemer = Nothing
+
+### Optimized methods for handling tokens at addresses
+
+
+def all_tokens_unlocked_from_address(
+    txins: List[TxInInfo], address: Address, token: Token
+) -> int:
+    return sum(
+        [
+            txi.resolved.value.get(token.policy_id, {b"": 0}).get(token.token_name, 0)
+            for txi in txins
+            if txi.resolved.address == address
+        ]
+    )
+
+
+def all_tokens_locked_at_address_with_datum(
+    txouts: List[TxOut], address: Address, token: Token, output_datum: OutputDatum
+) -> int:
+    return sum(
+        [
+            txo.value.get(token.policy_id, {b"": 0}).get(token.token_name, 0)
+            for txo in txouts
+            if txo.address == address and txo.datum == output_datum
+        ]
+    )
+
+
+def all_tokens_locked_at_address(
+    txouts: List[TxOut], address: Address, token: Token
+) -> int:
+    return sum(
+        [
+            txo.value.get(token.policy_id, {b"": 0}).get(token.token_name, 0)
+            for txo in txouts
+            if txo.address == address
+        ]
+    )

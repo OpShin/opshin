@@ -23,4 +23,4 @@ def validator(n: int) -> int:
 
     # create lists, check their length, add up integers
     y = [1, 2]
-    return a + len(x) + len(y)
+    return a + len(x) + len(y) if y[0] == 1 else 0

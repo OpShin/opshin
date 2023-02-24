@@ -27,15 +27,17 @@ INITIAL_SCOPE = dict(
         # class annotations
         "bytes": ByteStringType(),
         "int": IntegerType(),
+        "bool": BoolType(),
+        "str": StringType(),
         "Anything": AnyType(),
     }
 )
 
 INITIAL_SCOPE.update(
     {
-        # builtin functions
-        k.name: v
-        for k, v in PythonBuiltInTypes.items()
+        name.name: typ
+        for name, typ in PythonBuiltInTypes.items()
+        if isinstance(typ.typ, PolymorphicFunctionType)
     }
 )
 
@@ -93,12 +95,18 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                 assert all(
                     isinstance(e, RecordType) for e in ann_types
                 ), "Union must combine multiple PlutusData classes"
+                assert distinct(
+                    [e.record.constructor for e in ann_types]
+                ), "Union must combine PlutusData classes with unique constructors"
                 return UnionType(FrozenFrozenList(ann_types))
             if ann.value.id == "List":
                 ann_type = self.type_from_annotation(ann.slice.value)
                 assert isinstance(
                     ann_type, ClassType
                 ), "List must have a single type as parameter"
+                assert not isinstance(
+                    ann_type, TupleType
+                ), "List can currently not hold tuples"
                 return ListType(InstanceType(ann_type))
             if ann.value.id == "Dict":
                 assert isinstance(
@@ -111,7 +119,19 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                 assert all(
                     isinstance(e, ClassType) for e in ann_types
                 ), "Dict must combine two classes"
+                assert not any(
+                    isinstance(e, TupleType) for e in ann_types
+                ), "Dict can currently not hold tuples"
                 return DictType(*(InstanceType(a) for a in ann_types))
+            if ann.value.id == "Tuple":
+                assert isinstance(
+                    ann.slice.value, Tuple
+                ), "Tuple must combine several classes"
+                ann_types = [self.type_from_annotation(e) for e in ann.slice.value.elts]
+                assert all(
+                    isinstance(e, ClassType) for e in ann_types
+                ), "Tuple must combine classes"
+                return TupleType(FrozenFrozenList([InstanceType(a) for a in ann_types]))
             raise NotImplementedError(
                 "Only Union, Dict and List are allowed as Generic types"
             )
@@ -338,7 +358,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             ), f"Function '{node.name}' has no return statement but is supposed to return not-None value"
         else:
             assert (
-                functyp.rettyp == tfd.body[-1].typ
+                functyp.rettyp >= tfd.body[-1].typ
             ), f"Function '{node.name}' annotated return type does not match actual return type"
         self.exit_scope()
         # We need the function type outside for usage
@@ -531,6 +551,62 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         assert node.typ is not None, "Raw Pluto Expression is missing type annotation"
         return node
 
+    def visit_IfExp(self, node: IfExp) -> TypedIfExp:
+        node_cp = copy(node)
+        node_cp.test = self.visit(node.test)
+        assert node_cp.test.typ == BoolInstanceType, "Comparison must have type boolean"
+        node_cp.body = self.visit(node.body)
+        node_cp.orelse = self.visit(node.orelse)
+        if node_cp.body.typ >= node_cp.orelse.typ:
+            node_cp.typ = node_cp.body.typ
+        elif node_cp.orelse.typ >= node_cp.body.typ:
+            node_cp.typ = node_cp.orelse.typ
+        else:
+            raise TypeInferenceError(
+                "Branches of if-expression must return compatible types"
+            )
+        return node_cp
+
+    def visit_comprehension(self, g: comprehension) -> typedcomprehension:
+        new_g = copy(g)
+        if isinstance(g.target, Tuple):
+            raise NotImplementedError(
+                "Type deconstruction in for loops is not supported yet"
+            )
+        new_g.iter = self.visit(g.iter)
+        itertyp = new_g.iter.typ
+        assert isinstance(
+            itertyp, InstanceType
+        ), "Can only iterate over instances, not classes"
+        if isinstance(itertyp.typ, TupleType):
+            assert itertyp.typ.typs, "Iterating over an empty tuple is not allowed"
+            vartyp = itertyp.typ.typs[0]
+            assert all(
+                itertyp.typ.typs[0] == t for t in new_g.iter.typ.typs
+            ), "Iterating through a tuple requires the same type for each element"
+        elif isinstance(itertyp.typ, ListType):
+            vartyp = itertyp.typ.typ
+        else:
+            raise NotImplementedError(
+                "Type inference for loops over non-list objects is not supported"
+            )
+        self.set_variable_type(g.target.id, vartyp)
+        new_g.target = self.visit(g.target)
+        new_g.ifs = [self.visit(i) for i in g.ifs]
+        return new_g
+
+    def visit_ListComp(self, node: ListComp) -> TypedListComp:
+        typed_listcomp = copy(node)
+        # inside the comprehension is a seperate scope
+        self.enter_scope()
+        # first evaluate generators for assigned variables
+        typed_listcomp.generators = [self.visit(s) for s in node.generators]
+        # then evaluate elements
+        typed_listcomp.elt = self.visit(node.elt)
+        self.exit_scope()
+        typed_listcomp.typ = InstanceType(ListType(typed_listcomp.elt.typ))
+        return typed_listcomp
+
     def generic_visit(self, node: AST) -> TypedAST:
         raise NotImplementedError(
             f"Cannot infer type of non-implemented node {node.__class__}"
@@ -558,19 +634,22 @@ class RecordReader(NodeVisitor):
         assert isinstance(
             node.target, Name
         ), "Record elements must have named attributes"
+        typ = self._type_inferencer.type_from_annotation(node.annotation)
         if node.target.id != "CONSTR_ID":
             assert (
                 node.value is None
             ), f"PlutusData attribute {node.target.id} may not have a default value"
+            assert not isinstance(
+                typ, TupleType
+            ), "Records can currently not hold tuples"
             self.attributes.append(
                 (
                     node.target.id,
-                    InstanceType(
-                        self._type_inferencer.type_from_annotation(node.annotation)
-                    ),
+                    InstanceType(typ),
                 )
             )
             return
+        assert typ == IntegerType, "CONSTR_ID must be assigned an integer"
         assert isinstance(
             node.value, Constant
         ), "CONSTR_ID must be assigned a constant integer"

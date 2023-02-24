@@ -105,35 +105,6 @@ eopsin build examples/smart_contracts/assert_sum.py
 
 See the [tutorial by `pycardano`](https://pycardano.readthedocs.io/en/latest/guides/plutus.html) for explanations how to build transactions with `eopsin` contracts.
 
-### Deploying manually
-
-#### Deploying via aiken
-
-Run the following to obtain a `cardano-cli` compatible version of your smart contract:
-
-> This requires you to install [`aiken`](https://github.com/aiken-lang/aiken)
-
-```bash
-cat examples/smart_contracts/assert_sum.py | bash scripts/python_to_plutus_via_aiken.sh > assert_sum.plutus
-```
-
-You can generate a script address from this using the official [cardano-cli](https://github.com/input-output-hk/cardano-node#using-cardano-cli)
-```bash
-cardano-cli address build --payment-script-file assert_sum.plutus --mainnet
-```
-
-Now you can continue and send/spend ADA with this address following [the official documentation](https://github.com/input-output-hk/cardano-node/blob/master/doc/reference/plutus/plutus-spending-script-example.md)!
-
-#### Deploying via pluto
-
-You may alternatively use [`pluto`](https://github.com/Plutonomicon/pluto) to compile the contracts.
-Beware that it might not be very fast.
-
-```bash
-cat examples/smart_contracts/assert_sum.py | bash scripts/python_to_plutus_via_pluto.sh > assert_sum.plutus
-```
-
-
 ### The small print
 
 _Not every valid python program is a valid smart contract_.
@@ -183,3 +154,4 @@ Donation in ADA can be submitted to `$imperatorlang` or `addr1qyz3vgd5xxevjy2rvq
 ### Supporters
 
 <a href="https://github.com/MuesliSwapTeam/"><img  src="https://avatars.githubusercontent.com/u/91151317?v=4" width="50" /></a>
+<a href="https://github.com/AadaFinance/"><img  src="https://avatars.githubusercontent.com/u/89693711?v=4" width="50" /></a>

@@ -8,6 +8,11 @@ import pluthon as plt
 import uplc.ast as uplc
 
 
+def distinct(xs: list):
+    """Returns true iff the list consists of distinct elements"""
+    return len(xs) == len(set(xs))
+
+
 def FrozenFrozenList(l: list):
     fl = FrozenList(l)
     fl.freeze()
@@ -178,11 +183,32 @@ class RecordType(ClassType):
 
 @dataclass(frozen=True, unsafe_hash=True)
 class UnionType(ClassType):
-    typs: typing.List[ClassType]
+    typs: typing.List[RecordType]
 
     def attribute_type(self, attr) -> "Type":
         if attr == "CONSTR_ID":
             return IntegerInstanceType
+        # iterate through all names/types of the unioned records by position
+        for attr_names, attr_types in map(
+            lambda x: zip(*x), zip(*(t.record.fields for t in self.typs))
+        ):
+            # need to have a common field with the same name, in the same position!
+            if any(attr_name != attr for attr_name in attr_names):
+                continue
+            for at in attr_types:
+                # return the maximum element if there is one
+                if all(at >= at2 for at2 in attr_types):
+                    return at
+            # return the union type of all possible instantiations if all possible values are record types
+            if all(
+                isinstance(at, InstanceType) and isinstance(at.typ, RecordType)
+                for at in attr_types
+            ) and distinct([at.typ.record.constructor for at in attr_types]):
+                return InstanceType(
+                    UnionType(FrozenFrozenList([at.typ for at in attr_types]))
+                )
+            # return Anytype
+            return InstanceType(AnyType())
         raise TypeInferenceError(
             f"Can not access attribute {attr} of Union type. Cast to desired type with an 'if isinstance(_, _):' branch."
         )
@@ -194,8 +220,24 @@ class UnionType(ClassType):
                 ["self"],
                 plt.Constructor(plt.Var("self")),
             )
-        raise NotImplementedError(
-            f"Can not access attribute {attr} of Union type. Cast to desired type with an 'if isinstance(_, _):' branch."
+        # iterate through all names/types of the unioned records by position
+        attr_typ = self.attribute_type(attr)
+        pos = next(
+            i
+            for i, (ns, _) in enumerate(
+                map(lambda x: zip(*x), zip(*(t.record.fields for t in self.typs)))
+            )
+            if all(n == attr for n in ns)
+        )
+        # access to normal fields
+        return plt.Lambda(
+            ["self"],
+            transform_ext_params_map(attr_typ)(
+                plt.NthField(
+                    plt.Var("self"),
+                    plt.Integer(pos),
+                ),
+            ),
         )
 
     def __ge__(self, other):
@@ -371,6 +413,96 @@ class InstanceType(Type):
 
 @dataclass(frozen=True, unsafe_hash=True)
 class IntegerType(AtomicType):
+    def constr_type(self) -> InstanceType:
+        return InstanceType(FunctionType([StringInstanceType], InstanceType(self)))
+
+    def constr(self) -> plt.AST:
+        return plt.Lambda(
+            ["x", "_"],
+            plt.Let(
+                [
+                    ("e", plt.EncodeUtf8(plt.Var("x"))),
+                    ("first_int", plt.IndexByteString(plt.Var("e"), plt.Integer(0))),
+                    ("len", plt.LengthOfByteString(plt.Var("e"))),
+                    (
+                        "fold_start",
+                        plt.Lambda(
+                            ["start"],
+                            plt.FoldList(
+                                plt.Range(plt.Var("len"), plt.Var("start")),
+                                plt.Lambda(
+                                    ["s", "i"],
+                                    plt.Let(
+                                        [
+                                            (
+                                                "b",
+                                                plt.IndexByteString(
+                                                    plt.Var("e"), plt.Var("i")
+                                                ),
+                                            )
+                                        ],
+                                        plt.Ite(
+                                            plt.EqualsInteger(
+                                                plt.Var("b"), plt.Integer(ord("_"))
+                                            ),
+                                            plt.Var("s"),
+                                            plt.Ite(
+                                                plt.Or(
+                                                    plt.LessThanInteger(
+                                                        plt.Var("b"),
+                                                        plt.Integer(ord("0")),
+                                                    ),
+                                                    plt.LessThanInteger(
+                                                        plt.Integer(ord("9")),
+                                                        plt.Var("b"),
+                                                    ),
+                                                ),
+                                                plt.TraceError(
+                                                    "ValueError: invalid literal for int() with base 10"
+                                                ),
+                                                plt.AddInteger(
+                                                    plt.SubtractInteger(
+                                                        plt.Var("b"),
+                                                        plt.Integer(ord("0")),
+                                                    ),
+                                                    plt.MultiplyInteger(
+                                                        plt.Var("s"), plt.Integer(10)
+                                                    ),
+                                                ),
+                                            ),
+                                        ),
+                                    ),
+                                ),
+                                plt.Integer(0),
+                            ),
+                        ),
+                    ),
+                ],
+                plt.Ite(
+                    plt.Or(
+                        plt.EqualsInteger(plt.Var("len"), plt.Integer(0)),
+                        plt.EqualsInteger(
+                            plt.Var("first_int"),
+                            plt.Integer(ord("_")),
+                        ),
+                    ),
+                    plt.TraceError(
+                        "ValueError: invalid literal for int() with base 10"
+                    ),
+                    plt.Ite(
+                        plt.EqualsInteger(
+                            plt.Var("first_int"),
+                            plt.Integer(ord("-")),
+                        ),
+                        plt.Negate(
+                            plt.Apply(plt.Var("fold_start"), plt.Integer(1)),
+                        ),
+                        plt.Apply(plt.Var("fold_start"), plt.Integer(0)),
+                    ),
+                ),
+            ),
+        )
+
     def cmp(self, op: cmpop, o: "Type") -> plt.AST:
         """The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second the comparison."""
         if isinstance(o, BoolType):
@@ -447,6 +579,87 @@ class IntegerType(AtomicType):
 
 @dataclass(frozen=True, unsafe_hash=True)
 class StringType(AtomicType):
+    def constr_type(self) -> InstanceType:
+        return InstanceType(FunctionType([IntegerInstanceType], InstanceType(self)))
+
+    def constr(self) -> plt.AST:
+        # constructs a string representation of an integer
+        return plt.Lambda(
+            ["x", "_"],
+            plt.DecodeUtf8(
+                plt.Let(
+                    [
+                        (
+                            "strlist",
+                            plt.RecFun(
+                                plt.Lambda(
+                                    ["f", "i"],
+                                    plt.Ite(
+                                        plt.LessThanEqualsInteger(
+                                            plt.Var("i"), plt.Integer(0)
+                                        ),
+                                        plt.EmptyIntegerList(),
+                                        plt.MkCons(
+                                            plt.AddInteger(
+                                                plt.ModInteger(
+                                                    plt.Var("i"), plt.Integer(10)
+                                                ),
+                                                plt.Integer(ord("0")),
+                                            ),
+                                            plt.Apply(
+                                                plt.Var("f"),
+                                                plt.Var("f"),
+                                                plt.DivideInteger(
+                                                    plt.Var("i"), plt.Integer(10)
+                                                ),
+                                            ),
+                                        ),
+                                    ),
+                                ),
+                            ),
+                        ),
+                        (
+                            "mkstr",
+                            plt.Lambda(
+                                ["i"],
+                                plt.FoldList(
+                                    plt.Apply(plt.Var("strlist"), plt.Var("i")),
+                                    plt.Lambda(
+                                        ["b", "i"],
+                                        plt.ConsByteString(plt.Var("i"), plt.Var("b")),
+                                    ),
+                                    plt.ByteString(b""),
+                                ),
+                            ),
+                        ),
+                    ],
+                    plt.Ite(
+                        plt.EqualsInteger(plt.Var("x"), plt.Integer(0)),
+                        plt.ByteString(b"0"),
+                        plt.Ite(
+                            plt.LessThanInteger(plt.Var("x"), plt.Integer(0)),
+                            plt.ConsByteString(
+                                plt.Integer(ord("-")),
+                                plt.Apply(plt.Var("mkstr"), plt.Negate(plt.Var("x"))),
+                            ),
+                            plt.Apply(plt.Var("mkstr"), plt.Var("x")),
+                        ),
+                    ),
+                )
+            ),
+        )
+
+    def attribute_type(self, attr) -> Type:
+        if attr == "encode":
+            return InstanceType(FunctionType([], ByteStringInstanceType))
+        return super().attribute_type(attr)
+
+    def attribute(self, attr) -> plt.AST:
+        if attr == "encode":
+            # No codec -> only the default (utf8) is allowed
+            return plt.Lambda(["x", "_"], plt.EncodeUtf8(plt.Var("x")))
+        return super().attribute(attr)
+
     def cmp(self, op: cmpop, o: "Type") -> plt.AST:
         if isinstance(o, StringType):
             if isinstance(op, Eq):
@@ -462,6 +675,27 @@ class ByteStringType(AtomicType):
                 [InstanceType(ListType(IntegerInstanceType))], InstanceType(self)
             )
         )
+
+    def constr(self) -> plt.AST:
+        return plt.Lambda(
+            ["xs", "_"],
+            plt.RFoldList(
+                plt.Var("xs"),
+                plt.Lambda(["a", "x"], plt.ConsByteString(plt.Var("x"), plt.Var("a"))),
+                plt.ByteString(b""),
+            ),
+        )
+
+    def attribute_type(self, attr) -> Type:
+        if attr == "decode":
+            return InstanceType(FunctionType([], StringInstanceType))
+        return super().attribute_type(attr)
+
+    def attribute(self, attr) -> plt.AST:
+        if attr == "decode":
+            # No codec -> only the default (utf8) is allowed
+            return plt.Lambda(["x", "_"], plt.DecodeUtf8(plt.Var("x")))
+        return super().attribute(attr)
 
     def cmp(self, op: cmpop, o: "Type") -> plt.AST:
         if isinstance(o, ByteStringType):
@@ -708,8 +942,25 @@ class TypedList(typedexpr, List):
     pass
 
 
+class typedcomprehension(typedexpr, comprehension):
+    target: typedexpr
+    iter: typedexpr
+    ifs: typing.List[typedexpr]
+
+
+class TypedListComp(typedexpr, ListComp):
+    generators: typing.List[typedcomprehension]
+    elt: typedexpr
+
+
 class TypedDict(typedexpr, Dict):
     pass
+
+
+class TypedIfExp(typedstmt, IfExp):
+    test: typedexpr
+    body: typedexpr
+    orelse: typedexpr
 
 
 class TypedCompare(typedexpr, Compare):
@@ -782,7 +1033,7 @@ TransformExtParamsMap = {
     ByteStringInstanceType: lambda x: plt.UnBData(x),
     StringInstanceType: lambda x: plt.DecodeUtf8(plt.UnBData(x)),
     UnitInstanceType: lambda x: plt.Apply(plt.Lambda(["_"], plt.Unit())),
-    BoolInstanceType: lambda x: plt.NotEqualsInteger(x, plt.Integer(0)),
+    BoolInstanceType: lambda x: plt.NotEqualsInteger(plt.UnIData(x), plt.Integer(0)),
 }
 
 

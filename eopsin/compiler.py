@@ -10,13 +10,14 @@ from .rewrite.rewrite_import_hashlib import RewriteImportHashlib
 from .rewrite.rewrite_import_plutusdata import RewriteImportPlutusData
 from .rewrite.rewrite_import_typing import RewriteImportTyping
 from .rewrite.rewrite_inject_builtins import RewriteInjectBuiltins
+from .rewrite.rewrite_inject_builtin_constr import RewriteInjectBuiltinsConstr
 from .rewrite.rewrite_remove_type_stuff import RewriteRemoveTypeStuff
 from .rewrite.rewrite_tuple_assign import RewriteTupleAssign
 from .optimize.optimize_remove_pass import OptimizeRemovePass
 from .optimize.optimize_remove_deadvars import OptimizeRemoveDeadvars
 from .optimize.optimize_varlen import OptimizeVarlen
 from .type_inference import *
-from .util import CompilingNodeTransformer
+from .util import CompilingNodeTransformer, PowImpl
 from .typed_ast import transform_ext_params_map, transform_output_map, RawPlutoExpr
 
 
@@ -47,7 +48,7 @@ BinOpMap = {
             IntegerInstanceType: plt.MultiplyInteger,
         }
     },
-    Div: {
+    FloorDiv: {
         IntegerInstanceType: {
             IntegerInstanceType: plt.DivideInteger,
         }
@@ -55,6 +56,11 @@ BinOpMap = {
     Mod: {
         IntegerInstanceType: {
             IntegerInstanceType: plt.ModInteger,
+        }
+    },
+    Pow: {
+        IntegerInstanceType: {
+            IntegerInstanceType: PowImpl,
         }
     },
 }
@@ -82,20 +88,23 @@ def wrap_validator_double_function(x: plt.AST):
     """Wraps the validator function to enable a double function as minting script"""
     return plt.Lambda(
         ["a0", "a1"],
-        plt.Ite(
-            # if the second argument has constructor 0 = script context
-            plt.DelayedChooseData(
-                plt.Var("a1"),
-                plt.EqualsInteger(plt.Constructor(plt.Var("a1")), plt.Integer(0)),
-                plt.Bool(False),
-                plt.Bool(False),
-                plt.Bool(False),
-                plt.Bool(False),
+        plt.Let(
+            [("p", x)],
+            plt.Ite(
+                # if the second argument has constructor 0 = script context
+                plt.DelayedChooseData(
+                    plt.Var("a1"),
+                    plt.EqualsInteger(plt.Constructor(plt.Var("a1")), plt.Integer(0)),
+                    plt.Bool(False),
+                    plt.Bool(False),
+                    plt.Bool(False),
+                    plt.Bool(False),
+                ),
+                # call the validator with a0, a1, and plug in Unit for data
+                plt.Apply(plt.Var("p"), plt.Unit(), plt.Var("a0"), plt.Var("a1")),
+                # else call the validator with a0, a1 and return (now partially bound)
+                plt.Apply(plt.Var("p"), plt.Var("a0"), plt.Var("a1")),
             ),
-            # call the validator with a0, a1, and plug in Unit for data
-            plt.Apply(x, plt.Unit(), plt.Var("a0"), plt.Var("a1")),
-            # else call the validator with a0, a1 and return (now partially bound)
-            plt.Apply(x, plt.Var("a0"), plt.Var("a1")),
         ),
     )
 
@@ -105,7 +114,18 @@ def extend_statemonad(
     values: typing.List[plt.AST],
     old_statemonad: plt.FunctionalMap,
 ):
-    return plt.FunctionalMapExtend(old_statemonad, [n for n in names], values)
+    """Ensures that the argument is fully evaluated before being passed into the monad (like in imperative languages)"""
+    assert len(names) == len(values), "Unequal amount of names and values passed in"
+    lam_names = [f"a{i}" for i, _ in enumerate(names)]
+    return plt.Apply(
+        plt.Lambda(
+            lam_names,
+            plt.FunctionalMapExtend(
+                old_statemonad, names, [plt.Var(n) for n in lam_names]
+            ),
+        ),
+        *values,
+    )
 
 
 INITIAL_STATE = plt.FunctionalMap()
@@ -218,7 +238,7 @@ class UPLCCompiler(CompilingNodeTransformer):
                     "The redeemer is annotated to be 'None'. This value is usually encoded in PlutusData with constructor id 0 and no fields. If you want the script to double function as minting and spending script, annotate the second argument with 'NoRedeemer'."
                 )
             enable_double_func_mint_spend = not any(
-                (isinstance(t, RecordType) and t.record.constructor != 0)
+                (isinstance(t, RecordType) and t.record.constructor == 0)
                 or isinstance(t, UnitType)
                 for t in possible_types
             )
@@ -279,17 +299,15 @@ class UPLCCompiler(CompilingNodeTransformer):
         assert isinstance(
             node.targets[0], Name
         ), "Assignments to other things then names are not supported"
-        if isinstance(node.targets[0].typ, ClassType):
-            # Assigning a class type to another class type is equivalent to a ClassDef - a nop
-            return self.visit_sequence([])
         compiled_e = self.visit(node.value)
         # (\{STATEMONAD} -> (\x -> if (x ==b {self.visit(node.targets[0])}) then ({compiled_e} {STATEMONAD}) else ({STATEMONAD} x)))
+        varname = node.targets[0].id
         return plt.Lambda(
             [STATEMONAD],
-            plt.FunctionalMapExtend(
-                plt.Var(STATEMONAD),
-                [node.targets[0].id],
+            extend_statemonad(
+                [varname],
                 [plt.Apply(compiled_e, plt.Var(STATEMONAD))],
+                plt.Var(STATEMONAD),
             ),
         )
 
@@ -305,14 +323,14 @@ class UPLCCompiler(CompilingNodeTransformer):
         # (\{STATEMONAD} -> (\x -> if (x ==b {self.visit(node.targets[0])}) then ({compiled_e} {STATEMONAD}) else ({STATEMONAD} x)))
         return plt.Lambda(
             [STATEMONAD],
-            plt.FunctionalMapExtend(
-                plt.Var(STATEMONAD),
+            extend_statemonad(
                 [node.target.id],
                 [
                     transform_ext_params_map(node.target.typ)(
                         plt.Apply(compiled_e, plt.Var(STATEMONAD))
                     )
                 ],
+                plt.Var(STATEMONAD),
             ),
         )
 
@@ -358,12 +376,20 @@ class UPLCCompiler(CompilingNodeTransformer):
             )
         else:
             func_plt = plt.Apply(self.visit(node.func), plt.Var(STATEMONAD))
+        args = []
+        for a, t in zip(node.args, node.func.typ.typ.argtyps):
+            assert isinstance(t, InstanceType)
+            # pass in all arguments evaluated with the statemonad
+            a_int = plt.Apply(self.visit(a), plt.Var(STATEMONAD))
+            if isinstance(t.typ, AnyType):
+                # if the function expects input of generic type data, wrap data before passing it inside
+                a_int = transform_output_map(a.typ)(a_int)
+            args.append(a_int)
         return plt.Lambda(
             [STATEMONAD],
             plt.Apply(
                 func_plt,
-                # pass in all arguments evaluated with the statemonad
-                *(plt.Apply(self.visit(a), plt.Var(STATEMONAD)) for a in node.args),
+                *args,
                 # eventually pass in the state monad as well
                 plt.Var(STATEMONAD),
             ),
@@ -380,16 +406,15 @@ class UPLCCompiler(CompilingNodeTransformer):
             body.append(tr)
         compiled_body = self.visit_sequence(body[:-1])
         compiled_return = self.visit(body[-1].value)
-        args_state = plt.FunctionalMapExtend(
-            plt.Var(STATEMONAD),
+        args_state = extend_statemonad(
             # the function can see its argument under the argument names
             [a.arg for a in node.args.args],
             [plt.Var(f"p{i}") for i in range(len(node.args.args))],
+            plt.Var(STATEMONAD),
         )
         return plt.Lambda(
             [STATEMONAD],
-            plt.FunctionalMapExtend(
-                plt.Var(STATEMONAD),
+            extend_statemonad(
                 [node.name],
                 [
                     plt.Lambda(
@@ -404,6 +429,7 @@ class UPLCCompiler(CompilingNodeTransformer):
                         ),
                     )
                 ],
+                plt.Var(STATEMONAD),
             ),
         )
 
@@ -459,10 +485,10 @@ class UPLCCompiler(CompilingNodeTransformer):
                         [STATEMONAD, "e"],
                         plt.Apply(
                             self.visit_sequence(node.body),
-                            plt.FunctionalMapExtend(
-                                plt.Var(STATEMONAD),
+                            extend_statemonad(
                                 [node.target.id],
                                 [plt.Var("e")],
+                                plt.Var(STATEMONAD),
                             ),
                         ),
                     ),
@@ -502,12 +528,18 @@ class UPLCCompiler(CompilingNodeTransformer):
             assert isinstance(
                 node.slice.value, Constant
             ), "Only constant index access for tuples is supported"
+            assert isinstance(
+                node.slice.value.value, int
+            ), "Only constant index integer access for tuples is supported"
+            index = node.slice.value.value
+            if index < 0:
+                index += len(node.value.typ.typ.typs)
             assert isinstance(node.ctx, Load), "Tuples are read-only"
             return plt.Lambda(
                 [STATEMONAD],
                 plt.FunctionalTupleAccess(
                     plt.Apply(self.visit(node.value), plt.Var(STATEMONAD)),
-                    node.slice.value.value,
+                    index,
                     len(node.value.typ.typ.typs),
                 ),
             )
@@ -520,32 +552,133 @@ class UPLCCompiler(CompilingNodeTransformer):
             ), "Only single element list index access supported"
             return plt.Lambda(
                 [STATEMONAD],
-                plt.IndexAccessList(
-                    plt.Apply(self.visit(node.value), plt.Var(STATEMONAD)),
-                    plt.Apply(self.visit(node.slice.value), plt.Var(STATEMONAD)),
+                plt.Let(
+                    [
+                        ("l", plt.Apply(self.visit(node.value), plt.Var(STATEMONAD))),
+                        (
+                            "raw_i",
+                            plt.Apply(
+                                self.visit(node.slice.value), plt.Var(STATEMONAD)
+                            ),
+                        ),
+                        (
+                            "i",
+                            plt.Ite(
+                                plt.LessThanInteger(plt.Var("raw_i"), plt.Integer(0)),
+                                plt.AddInteger(
+                                    plt.Var("raw_i"), plt.LengthList(plt.Var("l"))
+                                ),
+                                plt.Var("raw_i"),
+                            ),
+                        ),
+                    ],
+                    plt.IndexAccessList(plt.Var("l"), plt.Var("i")),
                 ),
             )
         elif isinstance(node.value.typ.typ, ByteStringType):
             if isinstance(node.slice, Index):
                 return plt.Lambda(
                     [STATEMONAD],
-                    plt.IndexByteString(
-                        plt.Apply(self.visit(node.value), plt.Var(STATEMONAD)),
-                        plt.Apply(self.visit(node.slice.value), plt.Var(STATEMONAD)),
+                    plt.Let(
+                        [
+                            (
+                                "bs",
+                                plt.Apply(self.visit(node.value), plt.Var(STATEMONAD)),
+                            ),
+                            (
+                                "raw_ix",
+                                plt.Apply(
+                                    self.visit(node.slice.value), plt.Var(STATEMONAD)
+                                ),
+                            ),
+                            (
+                                "ix",
+                                plt.Ite(
+                                    plt.LessThanInteger(
+                                        plt.Var("raw_ix"), plt.Integer(0)
+                                    ),
+                                    plt.AddInteger(
+                                        plt.Var("raw_ix"),
+                                        plt.LengthOfByteString(plt.Var("bs")),
+                                    ),
+                                    plt.Var("raw_ix"),
+                                ),
+                            ),
+                        ],
+                        plt.IndexByteString(plt.Var("bs"), plt.Var("ix")),
                     ),
                 )
             elif isinstance(node.slice, Slice):
                 return plt.Lambda(
                     [STATEMONAD],
-                    plt.SliceByteString(
-                        plt.Apply(self.visit(node.slice.lower), plt.Var(STATEMONAD)),
-                        plt.SubtractInteger(
-                            plt.Apply(
-                                self.visit(node.slice.upper), plt.Var(STATEMONAD)
+                    plt.Let(
+                        [
+                            (
+                                "bs",
+                                plt.Apply(self.visit(node.value), plt.Var(STATEMONAD)),
                             ),
-                            plt.Integer(1),
+                            (
+                                "raw_i",
+                                plt.Apply(
+                                    self.visit(node.slice.lower), plt.Var(STATEMONAD)
+                                ),
+                            ),
+                            (
+                                "i",
+                                plt.Ite(
+                                    plt.LessThanInteger(
+                                        plt.Var("raw_i"), plt.Integer(0)
+                                    ),
+                                    plt.AddInteger(
+                                        plt.Var("raw_i"),
+                                        plt.LengthOfByteString(plt.Var("bs")),
+                                    ),
+                                    plt.Var("raw_i"),
+                                ),
+                            ),
+                            (
+                                "raw_j",
+                                plt.Apply(
+                                    self.visit(node.slice.upper), plt.Var(STATEMONAD)
+                                ),
+                            ),
+                            (
+                                "j",
+                                plt.Ite(
+                                    plt.LessThanInteger(
+                                        plt.Var("raw_j"), plt.Integer(0)
+                                    ),
+                                    plt.AddInteger(
+                                        plt.Var("raw_j"),
+                                        plt.LengthOfByteString(plt.Var("bs")),
+                                    ),
+                                    plt.Var("raw_j"),
+                                ),
+                            ),
+                            (
+                                "drop",
+                                plt.Ite(
+                                    plt.LessThanEqualsInteger(
+                                        plt.Var("i"), plt.Integer(0)
+                                    ),
+                                    plt.Integer(0),
+                                    plt.Var("i"),
+                                ),
+                            ),
+                            (
+                                "take",
+                                plt.SubtractInteger(plt.Var("j"), plt.Var("drop")),
+                            ),
+                        ],
+                        plt.Ite(
+                            plt.LessThanEqualsInteger(plt.Var("j"), plt.Var("i")),
+                            plt.ByteString(b""),
+                            plt.SliceByteString(
+                                plt.Var("drop"),
+                                plt.Var("take"),
+                                plt.Var("bs"),
+                            ),
                         ),
-                        plt.Apply(self.visit(node.value), plt.Var(STATEMONAD)),
                     ),
                 )
         raise NotImplementedError(f"Could not implement subscript of {node}")
@@ -561,10 +694,10 @@ class UPLCCompiler(CompilingNodeTransformer):
     def visit_ClassDef(self, node: TypedClassDef) -> plt.AST:
         return plt.Lambda(
             [STATEMONAD],
-            plt.FunctionalMapExtend(
-                plt.Var(STATEMONAD),
+            extend_statemonad(
                 [node.name],
                 [node.class_typ.constr()],
+                plt.Var(STATEMONAD),
             ),
         )
 
@@ -602,7 +735,7 @@ class UPLCCompiler(CompilingNodeTransformer):
         assert isinstance(node.typ, InstanceType)
         assert isinstance(node.typ.typ, ListType)
         l = empty_list(node.typ.typ.typ)
-        for e in node.elts:
+        for e in reversed(node.elts):
             l = plt.MkCons(plt.Apply(self.visit(e), plt.Var(STATEMONAD)), l)
         return plt.Lambda([STATEMONAD], l)
 
@@ -626,6 +759,56 @@ class UPLCCompiler(CompilingNodeTransformer):
             )
         return plt.Lambda([STATEMONAD], l)
 
+    def visit_IfExp(self, node: TypedIfExp) -> plt.AST:
+        return plt.Lambda(
+            [STATEMONAD],
+            plt.Ite(
+                plt.Apply(self.visit(node.test), plt.Var(STATEMONAD)),
+                plt.Apply(self.visit(node.body), plt.Var(STATEMONAD)),
+                plt.Apply(self.visit(node.orelse), plt.Var(STATEMONAD)),
+            ),
+        )
+
+    def visit_ListComp(self, node: TypedListComp) -> plt.AST:
+        assert len(node.generators) == 1, "Currently only one generator supported"
+        gen = node.generators[0]
+        assert isinstance(gen.iter.typ, InstanceType), "Only lists are valid generators"
+        assert isinstance(gen.iter.typ.typ, ListType), "Only lists are valid generators"
+        assert isinstance(
+            gen.target, Name
+        ), "Can only assign value to singleton element"
+        lst = plt.Apply(self.visit(gen.iter), plt.Var(STATEMONAD))
+        for ifexpr in gen.ifs:
+            lst = plt.FilterList(
+                lst,
+                plt.Lambda(
+                    ["x"],
+                    plt.Apply(
+                        self.visit(ifexpr),
+                        extend_statemonad(
+                            [gen.target.id], [plt.Var("x")], plt.Var(STATEMONAD)
+                        ),
+                    ),
+                ),
+                empty_list(gen.iter.typ.typ.typ),
+            )
+        return plt.Lambda(
+            [STATEMONAD],
+            plt.MapList(
+                lst,
+                plt.Lambda(
+                    ["x"],
+                    plt.Apply(
+                        self.visit(node.elt),
+                        extend_statemonad(
+                            [gen.target.id], [plt.Var("x")], plt.Var(STATEMONAD)
+                        ),
+                    ),
+                ),
+                empty_list(node.elt.typ),
+            ),
+        )
+
     def generic_visit(self, node: AST) -> plt.AST:
         raise NotImplementedError(f"Can not compile {node}")
 
@@ -642,11 +825,12 @@ def compile(prog: AST):
         RewriteImportTyping,
         RewriteForbiddenOverwrites,
         RewriteImportDataclasses,
+        RewriteInjectBuiltins,
         # The type inference needs to be run after complex python operations were rewritten
         AggressiveTypeInferencer,
         # Rewrites that circumvent the type inference or use its results
+        RewriteInjectBuiltinsConstr,
         RewriteRemoveTypeStuff,
-        RewriteInjectBuiltins,
     ]
     for s in rewrite_steps:
         prog = s().visit(prog)

@@ -4,7 +4,7 @@ from ..typed_ast import TypedAssign, ClassType
 from ..util import CompilingNodeTransformer
 
 """
-Inject initialising the builtin functions
+Remove class reassignments without constructors
 """
 
 
@@ -16,10 +16,12 @@ class RewriteRemoveTypeStuff(CompilingNodeTransformer):
             len(node.targets) == 1
         ), "Assignments to more than one variable not supported yet"
         try:
-            if isinstance(node.targets[0].typ, ClassType):
-                # Assigning a class type to another class type is equivalent to a ClassDef - a nop
-                return None
+            if isinstance(node.value.typ, ClassType):
+                node.value.typ.constr()
+        except NotImplementedError:
+            # The type does not have a constructor and the constructor can hence not be passed on
+            return None
         except AttributeError:
-            # untyped names (such as default class attributes) are obv fine
+            # untyped attributes are fine too
             pass
         return node
