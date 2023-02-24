@@ -25,11 +25,11 @@ setup(
     py_modules=["eopsin"],
     packages=find_packages(),
     install_requires=[
-        "uplc==0.5.3",
-        "pluthon==0.2.11",
+        "uplc==0.5.6",
+        "pluthon==0.2.14",
         "pycardano==0.7.2",
         "frozenlist==1.3.3",
-        "pyaiken==0.3.0",
+        "pyaiken==0.4.0",
     ],
     tests_require=[
         "hypothesis==6.62.0",
