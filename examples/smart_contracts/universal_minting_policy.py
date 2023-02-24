@@ -12,7 +12,10 @@ class Burn(PlutusData):
     CONSTR_ID = 1
 
 
-def validator_template(
+# a parameterized contract
+# compile like this for parameters dn = 1 and prec_NFT = b""
+# $ eopsin compile examples/smart_contracts/universal_minting_policy.py '{"int": 1}' '{"bytes": ""}'
+def validator(
     dn: int, prec_NFT: TokenName, redeemer: Union[Mint, Burn], ctx: ScriptContext
 ) -> None:
     purpose = ctx.purpose
@@ -47,11 +50,3 @@ def validator_template(
             assert False, "Wrong redeemer passed in"
     else:
         assert False, "Purpose of mint call must be minting"
-
-
-SLICED = 1
-PREC_NFT = b""
-
-
-def validator(redeemer: Union[Mint, Burn], ctx: ScriptContext) -> None:
-    return validator_template(SLICED, PREC_NFT, redeemer, ctx)
