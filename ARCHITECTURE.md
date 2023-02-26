@@ -64,8 +64,10 @@ may never be PlutusData with constructor id 0 - which is bearable.
 Plutus scripts can be parameterized, meaning that the compiled UPLC contract
 allows applying additional parameters until it accepts datums/redeemers.
 Defining a parameterized script with eopsin is straightforward - 
-define a validator with more than then necessary amount of parameters.
+define a validator with more than the necessary amount of parameters.
 The last two/three parameters are always considered the (datum/)redeemer/script context parameters.
+If you intend on writing a parameterized minting script with only two parameters,
+make sure that the (Minting/Spending double functionality is set correctly)[#minting-policy---spending-validator-double-function].
 
 The remaining parameters can be applied to the program to form a new UPLC program
 that is the contract obtained by parameterization.
