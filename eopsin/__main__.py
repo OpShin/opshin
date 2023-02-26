@@ -76,6 +76,11 @@ def main():
         help="The output directory for artefacts of the build command. Defaults to the filename of the compiled contract. of the compiled contract.",
     )
     a.add_argument(
+        "--force-three-params",
+        action="store_true",
+        help="Enforces that the contract is always called with three virtual parameters on-chain. Enable if the script should support spending and other purposes.",
+    )
+    a.add_argument(
         "args",
         nargs="*",
         default=[],
@@ -112,7 +117,7 @@ def main():
         return
 
     try:
-        code = compiler.compile(source_ast)
+        code = compiler.compile(source_ast, force_three_params=args.force_three_params)
     except CompilerError as c:
         # Generate nice error message from compiler error
         if not isinstance(c.node, ast.Module):

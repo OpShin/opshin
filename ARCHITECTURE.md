@@ -59,6 +59,12 @@ and returned, expecting as only argument the remaining script context.
 The single only drawback of this approach is that the second argument to a validator
 may never be PlutusData with constructor id 0 - which is bearable.
 
+In order to benefit from the double functionality, make sure to compile the code with the flag `--force-three-params`.
+
+```bash
+eopsin compile examples/smart_contracts/wrapped_token.py --force-three-params
+```
+
 ## Parameterized Scripts
 
 Plutus scripts can be parameterized, meaning that the compiled UPLC contract

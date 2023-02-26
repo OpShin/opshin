@@ -142,6 +142,9 @@ class UPLCCompiler(CompilingNodeTransformer):
 
     step = "Compiling python statements to UPLC"
 
+    def __init__(self, force_three_params=False):
+        self.force_three_params = force_three_params
+
     def visit_sequence(self, node_seq: typing.List[typedstmt]) -> plt.AST:
         s = plt.Var(STATEMONAD)
         for n in node_seq:
@@ -227,7 +230,7 @@ class UPLCCompiler(CompilingNodeTransformer):
 
         # check if this is a contract written to double function
         enable_double_func_mint_spend = False
-        if len(main_fun_typ.argtyps) >= 3:
+        if len(main_fun_typ.argtyps) >= 3 and self.force_three_params:
             # check if is possible
             second_last_arg = main_fun_typ.argtyps[-2]
             assert isinstance(
@@ -283,6 +286,11 @@ class UPLCCompiler(CompilingNodeTransformer):
         if enable_double_func_mint_spend:
             validator = wrap_validator_double_function(
                 validator, pass_through=len(main_fun_typ.argtyps) - 3
+            )
+        elif self.force_three_params:
+            # Error if the double function is enforced but not possible
+            raise RuntimeError(
+                "The contract can not always detect if it was passed three or two parameters on-chain."
             )
         cp = plt.Program("1.0.0", validator)
         return cp
@@ -819,39 +827,39 @@ class UPLCCompiler(CompilingNodeTransformer):
         raise NotImplementedError(f"Can not compile {node}")
 
 
-def compile(prog: AST):
+def compile(prog: AST, force_three_params=False):
     rewrite_steps = [
         # Important to call this one first - it imports all further files
-        RewriteImport,
+        RewriteImport(),
         # Rewrites that simplify the python code
-        RewriteAugAssign,
-        RewriteTupleAssign,
-        RewriteImportPlutusData,
-        RewriteImportHashlib,
-        RewriteImportTyping,
-        RewriteForbiddenOverwrites,
-        RewriteImportDataclasses,
-        RewriteInjectBuiltins,
+        RewriteAugAssign(),
+        RewriteTupleAssign(),
+        RewriteImportPlutusData(),
+        RewriteImportHashlib(),
+        RewriteImportTyping(),
+        RewriteForbiddenOverwrites(),
+        RewriteImportDataclasses(),
+        RewriteInjectBuiltins(),
         # The type inference needs to be run after complex python operations were rewritten
-        AggressiveTypeInferencer,
+        AggressiveTypeInferencer(),
         # Rewrites that circumvent the type inference or use its results
-        RewriteInjectBuiltinsConstr,
-        RewriteRemoveTypeStuff,
+        RewriteInjectBuiltinsConstr(),
+        RewriteRemoveTypeStuff(),
     ]
     for s in rewrite_steps:
-        prog = s().visit(prog)
+        prog = s.visit(prog)
         prog = fix_missing_locations(prog)
 
     # from here on raw uplc may occur, so we dont attempt to fix locations
     compile_pipeline = [
         # Apply optimizations
-        OptimizeRemoveDeadvars,
-        OptimizeVarlen,
-        OptimizeRemovePass,
+        OptimizeRemoveDeadvars(),
+        OptimizeVarlen(),
+        OptimizeRemovePass(),
         # the compiler runs last
-        UPLCCompiler,
+        UPLCCompiler(force_three_params=force_three_params),
     ]
     for s in compile_pipeline:
-        prog = s().visit(prog)
+        prog = s.visit(prog)
 
     return prog

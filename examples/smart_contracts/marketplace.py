@@ -26,7 +26,7 @@ class Unlist(PlutusData):
 ListingAction = Union[Buy, Unlist]
 
 
-def check_paid(txouts: List[TxOut], addr: Address, price: int) -> bool:
+def check_paid(txouts: List[TxOut], addr: Address, price: int) -> None:
     """Check that the correct amount has been paid to the vendor (or more)"""
     res = False
     for txo in txouts:
@@ -44,7 +44,7 @@ def check_single_utxo_spent(txins: List[TxInInfo], addr: Address) -> None:
     assert count == 1, "Only 1 contract utxo allowed"
 
 
-def check_owner_signed(signatories: List[PubKeyHash], owner: PubKeyHash):
+def check_owner_signed(signatories: List[PubKeyHash], owner: PubKeyHash) -> None:
     assert owner in signatories, "Owner did not sign transaction"
 
 

@@ -368,6 +368,50 @@ def validator(_: None) -> int:
         with open(input_file) as fp:
             source_code = fp.read()
         ast = compiler.parse(source_code)
+        code = compiler.compile(ast, force_three_params=True)
+        code = code.compile()
+        f = code.term
+
+    def test_dual_use_compile(self):
+        # TODO devise tests for this
+        input_file = "examples/smart_contracts/dual_use.py"
+        with open(input_file) as fp:
+            source_code = fp.read()
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast, force_three_params=True)
+        code = code.compile()
+        f = code.term
+
+    def test_marketplace_compile(self):
+        # TODO devise tests for this
+        input_file = "examples/smart_contracts/marketplace.py"
+        with open(input_file) as fp:
+            source_code = fp.read()
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+
+    def test_marketplace_compile_fail(self):
+        # TODO devise tests for this
+        input_file = "examples/smart_contracts/marketplace.py"
+        with open(input_file) as fp:
+            source_code = fp.read()
+        ast = compiler.parse(source_code)
+        try:
+            code = compiler.compile(ast, force_three_params=True)
+            self.fail(
+                "Allowed to compile an incompatible contract with three parameters"
+            )
+        except Exception:
+            pass
+
+    def test_parameterized_compile(self):
+        # TODO devise tests for this
+        input_file = "examples/smart_contracts/parameterized.py"
+        with open(input_file) as fp:
+            source_code = fp.read()
+        ast = compiler.parse(source_code)
         code = compiler.compile(ast)
         code = code.compile()
         f = code.term
