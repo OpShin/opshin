@@ -84,12 +84,16 @@ ConstantMap = {
 }
 
 
-def wrap_validator_double_function(x: plt.AST):
-    """Wraps the validator function to enable a double function as minting script"""
+def wrap_validator_double_function(x: plt.AST, pass_through: int = 0):
+    """
+    Wraps the validator function to enable a double function as minting script
+
+    pass_through defines how many parameters x would normally take and should be passed through to x
+    """
     return plt.Lambda(
-        ["a0", "a1"],
+        [f"v{i}" for i in range(pass_through)] + ["a0", "a1"],
         plt.Let(
-            [("p", x)],
+            [("p", plt.Apply(x, *(plt.Var(f"v{i}") for i in range(pass_through))))],
             plt.Ite(
                 # if the second argument has constructor 0 = script context
                 plt.DelayedChooseData(
@@ -137,6 +141,9 @@ class UPLCCompiler(CompilingNodeTransformer):
     """
 
     step = "Compiling python statements to UPLC"
+
+    def __init__(self, force_three_params=False):
+        self.force_three_params = force_three_params
 
     def visit_sequence(self, node_seq: typing.List[typedstmt]) -> plt.AST:
         s = plt.Var(STATEMONAD)
@@ -223,16 +230,16 @@ class UPLCCompiler(CompilingNodeTransformer):
 
         # check if this is a contract written to double function
         enable_double_func_mint_spend = False
-        if len(main_fun_typ.argtyps) == 3:
+        if len(main_fun_typ.argtyps) >= 3 and self.force_three_params:
             # check if is possible
-            second_arg = main_fun_typ.argtyps[1]
+            second_last_arg = main_fun_typ.argtyps[-2]
             assert isinstance(
-                second_arg, InstanceType
+                second_last_arg, InstanceType
             ), "Can not pass Class into validator"
-            if isinstance(second_arg.typ, UnionType):
-                possible_types = second_arg.typ.typs
+            if isinstance(second_last_arg.typ, UnionType):
+                possible_types = second_last_arg.typ.typs
             else:
-                possible_types = [second_arg.typ]
+                possible_types = [second_last_arg.typ]
             if any(isinstance(t, UnitType) for t in possible_types):
                 _LOGGER.warning(
                     "The redeemer is annotated to be 'None'. This value is usually encoded in PlutusData with constructor id 0 and no fields. If you want the script to double function as minting and spending script, annotate the second argument with 'NoRedeemer'."
@@ -277,7 +284,14 @@ class UPLCCompiler(CompilingNodeTransformer):
             ),
         )
         if enable_double_func_mint_spend:
-            validator = wrap_validator_double_function(validator)
+            validator = wrap_validator_double_function(
+                validator, pass_through=len(main_fun_typ.argtyps) - 3
+            )
+        elif self.force_three_params:
+            # Error if the double function is enforced but not possible
+            raise RuntimeError(
+                "The contract can not always detect if it was passed three or two parameters on-chain."
+            )
         cp = plt.Program("1.0.0", validator)
         return cp
 
@@ -813,39 +827,39 @@ class UPLCCompiler(CompilingNodeTransformer):
         raise NotImplementedError(f"Can not compile {node}")
 
 
-def compile(prog: AST):
+def compile(prog: AST, force_three_params=False):
     rewrite_steps = [
         # Important to call this one first - it imports all further files
-        RewriteImport,
+        RewriteImport(),
         # Rewrites that simplify the python code
-        RewriteAugAssign,
-        RewriteTupleAssign,
-        RewriteImportPlutusData,
-        RewriteImportHashlib,
-        RewriteImportTyping,
-        RewriteForbiddenOverwrites,
-        RewriteImportDataclasses,
-        RewriteInjectBuiltins,
+        RewriteAugAssign(),
+        RewriteTupleAssign(),
+        RewriteImportPlutusData(),
+        RewriteImportHashlib(),
+        RewriteImportTyping(),
+        RewriteForbiddenOverwrites(),
+        RewriteImportDataclasses(),
+        RewriteInjectBuiltins(),
         # The type inference needs to be run after complex python operations were rewritten
-        AggressiveTypeInferencer,
+        AggressiveTypeInferencer(),
         # Rewrites that circumvent the type inference or use its results
-        RewriteInjectBuiltinsConstr,
-        RewriteRemoveTypeStuff,
+        RewriteInjectBuiltinsConstr(),
+        RewriteRemoveTypeStuff(),
     ]
     for s in rewrite_steps:
-        prog = s().visit(prog)
+        prog = s.visit(prog)
         prog = fix_missing_locations(prog)
 
     # from here on raw uplc may occur, so we dont attempt to fix locations
     compile_pipeline = [
         # Apply optimizations
-        OptimizeRemoveDeadvars,
-        OptimizeVarlen,
-        OptimizeRemovePass,
+        OptimizeRemoveDeadvars(),
+        OptimizeVarlen(),
+        OptimizeRemovePass(),
         # the compiler runs last
-        UPLCCompiler,
+        UPLCCompiler(force_three_params=force_three_params),
     ]
     for s in compile_pipeline:
-        prog = s().visit(prog)
+        prog = s.visit(prog)
 
     return prog

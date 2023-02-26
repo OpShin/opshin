@@ -14,7 +14,7 @@ import uplc
 import uplc.ast
 
 from eopsin import __version__, compiler
-from eopsin.util import CompilerError
+from eopsin.util import CompilerError, data_from_json
 
 
 class Command(enum.Enum):
@@ -76,6 +76,11 @@ def main():
         help="The output directory for artefacts of the build command. Defaults to the filename of the compiled contract. of the compiled contract.",
     )
     a.add_argument(
+        "--force-three-params",
+        action="store_true",
+        help="Enforces that the contract is always called with three virtual parameters on-chain. Enable if the script should support spending and other purposes.",
+    )
+    a.add_argument(
         "args",
         nargs="*",
         default=[],
@@ -112,7 +117,7 @@ def main():
         return
 
     try:
-        code = compiler.compile(source_ast)
+        code = compiler.compile(source_ast, force_three_params=args.force_three_params)
     except CompilerError as c:
         # Generate nice error message from compiler error
         if not isinstance(c.node, ast.Module):
@@ -144,6 +149,14 @@ Note that eopsin errors may be overly restrictive as they aim to prevent code wi
         print(code.dumps())
         return
     code = code.compile()
+
+    # apply parameters from the command line to the contract (instantiates parameterized contract!)
+    code = code.term
+    # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+    for d in map(data_from_json, map(json.loads, reversed(args.args))):
+        code = uplc.ast.Apply(code, d)
+    code = uplc.ast.Program("1.0.0", code)
+
     if command == Command.compile:
         print(code.dumps())
         return
@@ -199,10 +212,6 @@ Note that eopsin errors may be overly restrictive as they aim to prevent code wi
         print("------------------")
         assert isinstance(code, uplc.ast.Program)
         try:
-            f = code.term
-            # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
-            for d in map(uplc.ast.data_from_json, map(json.loads, args.args)):
-                f = uplc.ast.Apply(f, d)
             ret = uplc.dumps(uplc.eval(f))
         except Exception as e:
             print("An exception was raised")
