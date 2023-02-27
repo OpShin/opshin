@@ -26,7 +26,7 @@ setup(
     packages=find_packages(),
     install_requires=[
         "uplc==0.5.6",
-        "pluthon==0.2.14",
+        "pluthon==0.2.15",
         "pycardano==0.7.2",
         "frozenlist==1.3.3",
         "pyaiken==0.4.0",
