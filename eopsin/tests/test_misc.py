@@ -536,7 +536,7 @@ def validator(_: None) -> SomeOutputDatum:
             "Machine did validate the content",
         )
 
-    def test_list_comprehension(self):
+    def test_list_comprehension_even(self):
         input_file = "examples/list_comprehensions.py"
         with open(input_file) as fp:
             source_code = fp.read()
@@ -547,12 +547,34 @@ def validator(_: None) -> SomeOutputDatum:
         # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
         for d in [
             uplc.PlutusInteger(8),
+            uplc.PlutusInteger(1),
         ]:
             f = uplc.Apply(f, d)
         ret = [x.value for x in uplc_eval(f).value]
         self.assertEqual(
             ret,
             [x * x for x in range(8) if x % 2 == 0],
+            "List comprehension with filter incorrectly evaluated",
+        )
+
+    def test_list_comprehension_all(self):
+        input_file = "examples/list_comprehensions.py"
+        with open(input_file) as fp:
+            source_code = fp.read()
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        for d in [
+            uplc.PlutusInteger(8),
+            uplc.PlutusInteger(0),
+        ]:
+            f = uplc.Apply(f, d)
+        ret = [x.value for x in uplc_eval(f).value]
+        self.assertEqual(
+            ret,
+            [x * x for x in range(8)],
             "List comprehension incorrectly evaluated",
         )
 
