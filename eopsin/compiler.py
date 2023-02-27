@@ -792,36 +792,48 @@ class UPLCCompiler(CompilingNodeTransformer):
             gen.target, Name
         ), "Can only assign value to singleton element"
         lst = plt.Apply(self.visit(gen.iter), plt.Var(STATEMONAD))
+        ifs = None
         for ifexpr in gen.ifs:
-            lst = plt.FilterList(
-                lst,
-                plt.Lambda(
-                    ["x"],
-                    plt.Apply(
-                        self.visit(ifexpr),
-                        extend_statemonad(
-                            [gen.target.id], [plt.Var("x")], plt.Var(STATEMONAD)
-                        ),
-                    ),
-                ),
-                empty_list(gen.iter.typ.typ.typ),
-            )
-        return plt.Lambda(
-            [STATEMONAD],
-            plt.MapList(
-                lst,
-                plt.Lambda(
-                    ["x"],
-                    plt.Apply(
-                        self.visit(node.elt),
-                        extend_statemonad(
-                            [gen.target.id], [plt.Var("x")], plt.Var(STATEMONAD)
-                        ),
-                    ),
-                ),
-                empty_list(node.elt.typ),
+            if ifs is None:
+                ifs = self.visit(ifexpr)
+            else:
+                ifs = plt.And(ifs, self.visit(ifexpr))
+        map_fun = plt.Lambda(
+            ["x"],
+            plt.Apply(
+                self.visit(node.elt),
+                extend_statemonad([gen.target.id], [plt.Var("x")], plt.Var(STATEMONAD)),
             ),
         )
+        empty_list_con = empty_list(node.elt.typ)
+        if ifs is not None:
+            filter_fun = plt.Lambda(
+                ["x"],
+                plt.Apply(
+                    ifs,
+                    extend_statemonad(
+                        [gen.target.id], [plt.Var("x")], plt.Var(STATEMONAD)
+                    ),
+                ),
+            )
+            return plt.Lambda(
+                [STATEMONAD],
+                plt.MapFilterList(
+                    lst,
+                    filter_fun,
+                    map_fun,
+                    empty_list_con,
+                ),
+            )
+        else:
+            return plt.Lambda(
+                [STATEMONAD],
+                plt.MapList(
+                    lst,
+                    map_fun,
+                    empty_list_con,
+                ),
+            )
 
     def generic_visit(self, node: AST) -> plt.AST:
         raise NotImplementedError(f"Can not compile {node}")
