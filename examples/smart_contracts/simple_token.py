@@ -1,7 +1,7 @@
 from eopsin.prelude import *
 
 
-def validator(datum: None, redeemer: None, context: ScriptContext) -> None:
+def validator(redeemer: None, context: ScriptContext) -> None:
     purpose = context.purpose
     # whenever tokens should be burned/minted, the minting purpose will be triggered
     if isinstance(purpose, Minting):
@@ -14,7 +14,8 @@ def validator(datum: None, redeemer: None, context: ScriptContext) -> None:
         # in this case simply checking the pubkeyhash of the owner
         # TODO replace this with your own pubkeyhash!
         assert (
-            b"00000000000000000000000000000000000000000000000000000000"
+            # bytes.fromhex("dc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2")
+            b"\xdc1\\(\x9f\xeeD\x84\xed\xa0p89?!\xdcNW*\xff)-y&\x01\x87%\xc2"
             in context.tx_info.signatories
         ), "Required pubkeyhash missing"
     else:
