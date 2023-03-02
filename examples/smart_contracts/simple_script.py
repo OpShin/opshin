@@ -10,20 +10,20 @@ class RequireSignature(PlutusData):
 @dataclass()
 class RequireAllOf(PlutusData):
     CONSTR_ID = 1
-    scripts: List["Script"]
+    scripts: List[Datum]  # "Script"
 
 
 @dataclass()
 class RequireAnyOf(PlutusData):
     CONSTR_ID = 2
-    scripts: List["Script"]
+    scripts: List[Datum]  # "Script"
 
 
 @dataclass()
 class RequireMOf(PlutusData):
     CONSTR_ID = 3
     num: int
-    scripts: List["Script"]
+    scripts: List[Datum]  # "Script"
 
 
 @dataclass()
@@ -49,8 +49,9 @@ Script = Union[
 
 
 def validate_script(
-    script: Script, signatories: List[bytes], valid_range: POSIXTimeRange
+    script_raw: Datum, signatories: List[bytes], valid_range: POSIXTimeRange
 ) -> bool:
+    script: Script = script_raw  # cast to Script in the type system to avoid recursive type definition
     if isinstance(script, RequireSignature):
         res = script.vkeyhash in signatories
     elif isinstance(script, RequireAllOf):
@@ -65,7 +66,7 @@ def validate_script(
         res = (
             sum(
                 [
-                    int(validate_script(s, signatories, valid_range))
+                    1 if validate_script(s, signatories, valid_range) else 0
                     for s in script.scripts
                 ]
             )
