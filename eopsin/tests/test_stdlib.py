@@ -96,10 +96,9 @@ def validator(x: bytes) -> str:
     @given(xs=st.binary())
     @example(b"dc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2")
     def test_constant_bytestring(self, xs):
-        # this tests that errors that are caused by assignments are actually triggered at the time of assigning
         source_code = f"""
 def validator(x: None) -> bytes:
-    return {xs}
+    return {repr(xs)}
             """
         ast = compiler.parse(source_code)
         code = compiler.compile(ast)
@@ -113,10 +112,9 @@ def validator(x: None) -> bytes:
 
     @given(xs=st.integers())
     def test_constant_integer(self, xs):
-        # this tests that errors that are caused by assignments are actually triggered at the time of assigning
         source_code = f"""
 def validator(x: None) -> int:
-    return {xs}
+    return {repr(xs)}
             """
         ast = compiler.parse(source_code)
         code = compiler.compile(ast)
@@ -130,10 +128,9 @@ def validator(x: None) -> int:
 
     @given(xs=st.text())
     def test_constant_string(self, xs):
-        # this tests that errors that are caused by assignments are actually triggered at the time of assigning
         source_code = f"""
 def validator(x: None) -> str:
-    return {xs}
+    return {repr(xs)}
             """
         ast = compiler.parse(source_code)
         code = compiler.compile(ast)
@@ -144,3 +141,34 @@ def validator(x: None) -> str:
             f = uplc.Apply(f, d)
         ret = uplc_eval(f).value.decode("utf8")
         self.assertEqual(ret, xs, "literal string returned wrong value")
+
+    def test_constant_unit(self):
+        source_code = f"""
+def validator(x: None) -> None:
+    return None
+            """
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        for d in [uplc.BuiltinUnit()]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f)
+        self.assertEqual(ret, uplc.BuiltinUnit(), "literal None returned wrong value")
+
+    @given(st.booleans())
+    def test_constant_bool(self, x: bool):
+        source_code = f"""
+def validator(x: None) -> bool:
+    return {repr(x)}
+            """
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        for d in [uplc.BuiltinUnit()]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value == 1
+        self.assertEqual(ret, x, "literal bool returned wrong value")
