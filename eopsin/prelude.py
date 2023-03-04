@@ -15,6 +15,19 @@ class Nothing(PlutusData):
 
 
 @dataclass()
+class TrueData(PlutusData):
+    CONSTR_ID = 0
+
+
+@dataclass()
+class FalseData(PlutusData):
+    CONSTR_ID = 1
+
+
+BoolData = Union[TrueData, FalseData]
+
+
+@dataclass()
 class TxOutRef(PlutusData):
     id: TxId
     idx: int
@@ -231,14 +244,14 @@ ExtendedPOSIXTime = Union[NegInfPOSIXTime, FinitePOSIXTime, PosInfPOSIXTime]
 class UpperBoundPOSIXTime(PlutusData):
     CONSTR_ID = 0
     limit: ExtendedPOSIXTime
-    closed: bool
+    closed: BoolData
 
 
 @dataclass()
 class LowerBoundPOSIXTime(PlutusData):
     CONSTR_ID = 0
     limit: ExtendedPOSIXTime
-    closed: bool
+    closed: BoolData
 
 
 @dataclass()
