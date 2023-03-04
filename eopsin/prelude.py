@@ -5,7 +5,9 @@ from hashlib import sha256, sha3_256, blake2b
 from pycardano import Datum as Anything, PlutusData
 
 # Plutus V2
-TxId = bytes
+@dataclass()
+class TxId(PlutusData):
+    tx_id: bytes
 
 
 @dataclass()
