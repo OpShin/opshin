@@ -20,7 +20,7 @@ def validator(d: Anything, r: Anything) -> bytes:
     e: BatchOrder = d
     # this casts the input to bytes - in the type system! In the contract this is a no-op
     r2: bytes = r
-    c = e.sender.credential
+    c = e.sender.payment_credential
     if isinstance(c, PubKeyCredential):
         res = c.pubkeyhash
     return res + r2

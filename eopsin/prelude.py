@@ -93,7 +93,7 @@ class SomeStakingCredential(PlutusData):
 
 @dataclass()
 class Address(PlutusData):
-    credential: Credential
+    payment_credential: Credential
     staking_credential: Union[NoStakingCredential, SomeStakingCredential]
 
 

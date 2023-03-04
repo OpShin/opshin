@@ -30,7 +30,7 @@ def own_spent_utxo(txins: List[TxInInfo], p: Spending) -> TxOut:
 
 def own_policy_id(own_spent_utxo: TxOut) -> PolicyId:
     # obtain the policy id for which this contract can validate minting/burning
-    cred = own_spent_utxo.address.credential
+    cred = own_spent_utxo.address.payment_credential
     if isinstance(cred, ScriptCredential):
         policy_id = cred.validator_hash
     # This throws a name error if the credential is not a ScriptCredential instance

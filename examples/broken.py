@@ -17,5 +17,5 @@ def validator(d: Anything, r: Anything) -> bytes:
     # this casts the input to BatchOrder - in the type system! In the contract this is a no-op
     if "s" == 4:
         e: BatchOrder = d
-        c = e.sender.credential
+        c = e.sender.payment_credential
     return b""

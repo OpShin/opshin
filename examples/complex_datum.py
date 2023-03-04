@@ -34,7 +34,7 @@ class BatchOrder(PlutusData):
 # If some parameter might be ommited, just Union with Nothing and check for the instance at runtime!
 def validator(d: Union[Nothing, BatchOrder]) -> bytes:
     if isinstance(d, BatchOrder):
-        c = d.sender.credential
+        c = d.sender.payment_credential
         if isinstance(c, PubKeyCredential):
             res = c.pubkeyhash
     elif isinstance(d, Nothing):
