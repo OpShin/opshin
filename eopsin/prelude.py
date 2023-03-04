@@ -209,9 +209,42 @@ POSIXTime = int
 
 
 @dataclass()
+class NegInfPOSIXTime(PlutusData):
+    CONSTR_ID = 0
+
+
+@dataclass()
+class FinitePOSIXTime(PlutusData):
+    CONSTR_ID = 1
+    time: POSIXTime
+
+
+@dataclass()
+class PosInfPOSIXTime(PlutusData):
+    CONSTR_ID = 2
+
+
+ExtendedPOSIXTime = Union[NegInfPOSIXTime, FinitePOSIXTime, PosInfPOSIXTime]
+
+
+@dataclass()
+class UpperBoundPOSIXTime(PlutusData):
+    CONSTR_ID = 0
+    limit: ExtendedPOSIXTime
+    closed: bool
+
+
+@dataclass()
+class LowerBoundPOSIXTime(PlutusData):
+    CONSTR_ID = 0
+    limit: ExtendedPOSIXTime
+    closed: bool
+
+
+@dataclass()
 class POSIXTimeRange(PlutusData):
-    lower_bound: POSIXTime
-    upper_bound: POSIXTime
+    lower_bound: LowerBoundPOSIXTime
+    upper_bound: UpperBoundPOSIXTime
 
 
 @dataclass()
