@@ -5,7 +5,7 @@
 [Rewrite](./index.md#rewrite) /
 RewriteImport
 
-> Auto-generated documentation for [eopsin.rewrite.rewrite_import](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/rewrite/rewrite_import.py) module.
+> Auto-generated documentation for [eopsin.rewrite.rewrite_import](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/rewrite/rewrite_import.py) module.
 
 - [RewriteImport](#rewriteimport)
   - [RewriteImport](#rewriteimport-1)
@@ -13,7 +13,7 @@ RewriteImport
 
 ## RewriteImport
 
-[Show source in rewrite_import.py:13](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/rewrite/rewrite_import.py#L13)
+[Show source in rewrite_import.py:13](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/rewrite/rewrite_import.py#L13)
 
 #### Signature
 
@@ -24,7 +24,7 @@ class RewriteImport(CompilingNodeTransformer):
 
 ### RewriteImport().visit_ImportFrom
 
-[Show source in rewrite_import.py:16](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/rewrite/rewrite_import.py#L16)
+[Show source in rewrite_import.py:16](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/rewrite/rewrite_import.py#L16)
 
 #### Signature
 

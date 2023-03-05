@@ -3,7 +3,7 @@
 [eopsin Index](../README.md#eopsin-index) /
 Eopsin
 
-> Auto-generated documentation for [eopsin](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/__init__.py) module.
+> Auto-generated documentation for [eopsin](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/__init__.py) module.
 
 - [Eopsin](#eopsin)
   - [Modules](#modules)

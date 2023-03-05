@@ -5,7 +5,7 @@
 [Rewrite](./index.md#rewrite) /
 RewriteForbiddenOverwrites
 
-> Auto-generated documentation for [eopsin.rewrite.rewrite_forbidden_overwrites](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/rewrite/rewrite_forbidden_overwrites.py) module.
+> Auto-generated documentation for [eopsin.rewrite.rewrite_forbidden_overwrites](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/rewrite/rewrite_forbidden_overwrites.py) module.
 
 - [RewriteForbiddenOverwrites](#rewriteforbiddenoverwrites)
   - [ForbiddenOverwriteError](#forbiddenoverwriteerror)
@@ -14,7 +14,7 @@ RewriteForbiddenOverwrites
 
 ## ForbiddenOverwriteError
 
-[Show source in rewrite_forbidden_overwrites.py:20](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/rewrite/rewrite_forbidden_overwrites.py#L20)
+[Show source in rewrite_forbidden_overwrites.py:20](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/rewrite/rewrite_forbidden_overwrites.py#L20)
 
 #### Signature
 
@@ -27,7 +27,7 @@ class ForbiddenOverwriteError(ValueError):
 
 ## RewriteForbiddenOverwrites
 
-[Show source in rewrite_forbidden_overwrites.py:24](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/rewrite/rewrite_forbidden_overwrites.py#L24)
+[Show source in rewrite_forbidden_overwrites.py:24](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/rewrite/rewrite_forbidden_overwrites.py#L24)
 
 #### Signature
 
@@ -38,7 +38,7 @@ class RewriteForbiddenOverwrites(CompilingNodeTransformer):
 
 ### RewriteForbiddenOverwrites().visit_Name
 
-[Show source in rewrite_forbidden_overwrites.py:27](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/rewrite/rewrite_forbidden_overwrites.py#L27)
+[Show source in rewrite_forbidden_overwrites.py:27](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/rewrite/rewrite_forbidden_overwrites.py#L27)
 
 #### Signature
 

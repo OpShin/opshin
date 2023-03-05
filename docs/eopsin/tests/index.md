@@ -4,7 +4,7 @@
 [Eopsin](../index.md#eopsin) /
 Tests
 
-> Auto-generated documentation for [eopsin.tests](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/tests/__init__.py) module.
+> Auto-generated documentation for [eopsin.tests](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/tests/__init__.py) module.
 
 - [Tests](#tests)
   - [Modules](#modules)

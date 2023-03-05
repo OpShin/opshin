@@ -4,7 +4,7 @@
 [Eopsin](../index.md#eopsin) /
 Optimize
 
-> Auto-generated documentation for [eopsin.optimize](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/optimize/__init__.py) module.
+> Auto-generated documentation for [eopsin.optimize](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/optimize/__init__.py) module.
 
 - [Optimize](#optimize)
   - [Modules](#modules)

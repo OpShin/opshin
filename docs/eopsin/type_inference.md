@@ -4,7 +4,7 @@
 [Eopsin](./index.md#eopsin) /
 Type Inference
 
-> Auto-generated documentation for [eopsin.type_inference](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/type_inference.py) module.
+> Auto-generated documentation for [eopsin.type_inference](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/type_inference.py) module.
 
 - [Type Inference](#type-inference)
   - [AggressiveTypeInferencer](#aggressivetypeinferencer)
@@ -56,7 +56,7 @@ Type Inference
 
 ## AggressiveTypeInferencer
 
-[Show source in type_inference.py:45](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/type_inference.py#L45)
+[Show source in type_inference.py:45](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/type_inference.py#L45)
 
 #### Attributes
 
@@ -72,7 +72,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
 
 ### AggressiveTypeInferencer().enter_scope
 
-[Show source in type_inference.py:59](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/type_inference.py#L59)
+[Show source in type_inference.py:59](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/type_inference.py#L59)
 
 #### Signature
 
@@ -83,7 +83,7 @@ def enter_scope(self):
 
 ### AggressiveTypeInferencer().exit_scope
 
-[Show source in type_inference.py:62](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/type_inference.py#L62)
+[Show source in type_inference.py:62](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/type_inference.py#L62)
 
 #### Signature
 
@@ -94,7 +94,7 @@ def exit_scope(self):
 
 ### AggressiveTypeInferencer().generic_visit
 
-[Show source in type_inference.py:610](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/type_inference.py#L610)
+[Show source in type_inference.py:610](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/type_inference.py#L610)
 
 #### Signature
 
@@ -105,7 +105,7 @@ def generic_visit(self, node: AST) -> TypedAST:
 
 ### AggressiveTypeInferencer().set_variable_type
 
-[Show source in type_inference.py:65](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/type_inference.py#L65)
+[Show source in type_inference.py:65](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/type_inference.py#L65)
 
 #### Signature
 
@@ -116,7 +116,7 @@ def set_variable_type(self, name: str, typ: Type, force=False):
 
 ### AggressiveTypeInferencer().type_from_annotation
 
-[Show source in type_inference.py:72](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/type_inference.py#L72)
+[Show source in type_inference.py:72](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/type_inference.py#L72)
 
 #### Signature
 
@@ -127,7 +127,7 @@ def type_from_annotation(self, ann: expr):
 
 ### AggressiveTypeInferencer().variable_type
 
-[Show source in type_inference.py:52](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/type_inference.py#L52)
+[Show source in type_inference.py:52](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/type_inference.py#L52)
 
 #### Signature
 
@@ -138,7 +138,7 @@ def variable_type(self, name: str) -> Type:
 
 ### AggressiveTypeInferencer().visit_AnnAssign
 
-[Show source in type_inference.py:206](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/type_inference.py#L206)
+[Show source in type_inference.py:206](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/type_inference.py#L206)
 
 #### Signature
 
@@ -149,7 +149,7 @@ def visit_AnnAssign(self, node: AnnAssign) -> TypedAnnAssign:
 
 ### AggressiveTypeInferencer().visit_Assert
 
-[Show source in type_inference.py:537](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/type_inference.py#L537)
+[Show source in type_inference.py:537](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/type_inference.py#L537)
 
 #### Signature
 
@@ -160,7 +160,7 @@ def visit_Assert(self, node: Assert) -> TypedAssert:
 
 ### AggressiveTypeInferencer().visit_Assign
 
-[Show source in type_inference.py:194](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/type_inference.py#L194)
+[Show source in type_inference.py:194](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/type_inference.py#L194)
 
 #### Signature
 
@@ -171,7 +171,7 @@ def visit_Assign(self, node: Assign) -> TypedAssign:
 
 ### AggressiveTypeInferencer().visit_Attribute
 
-[Show source in type_inference.py:529](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/type_inference.py#L529)
+[Show source in type_inference.py:529](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/type_inference.py#L529)
 
 #### Signature
 
@@ -182,7 +182,7 @@ def visit_Attribute(self, node: Attribute) -> TypedAttribute:
 
 ### AggressiveTypeInferencer().visit_BinOp
 
-[Show source in type_inference.py:380](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/type_inference.py#L380)
+[Show source in type_inference.py:380](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/type_inference.py#L380)
 
 #### Signature
 
@@ -193,7 +193,7 @@ def visit_BinOp(self, node: BinOp) -> TypedBinOp:
 
 ### AggressiveTypeInferencer().visit_BoolOp
 
-[Show source in type_inference.py:391](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/type_inference.py#L391)
+[Show source in type_inference.py:391](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/type_inference.py#L391)
 
 #### Signature
 
@@ -204,7 +204,7 @@ def visit_BoolOp(self, node: BoolOp) -> TypedBoolOp:
 
 ### AggressiveTypeInferencer().visit_Call
 
-[Show source in type_inference.py:486](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/type_inference.py#L486)
+[Show source in type_inference.py:486](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/type_inference.py#L486)
 
 #### Signature
 
@@ -215,7 +215,7 @@ def visit_Call(self, node: Call) -> TypedCall:
 
 ### AggressiveTypeInferencer().visit_ClassDef
 
-[Show source in type_inference.py:144](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/type_inference.py#L144)
+[Show source in type_inference.py:144](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/type_inference.py#L144)
 
 #### Signature
 
@@ -226,7 +226,7 @@ def visit_ClassDef(self, node: ClassDef) -> TypedClassDef:
 
 ### AggressiveTypeInferencer().visit_Compare
 
-[Show source in type_inference.py:318](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/type_inference.py#L318)
+[Show source in type_inference.py:318](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/type_inference.py#L318)
 
 #### Signature
 
@@ -237,7 +237,7 @@ def visit_Compare(self, node: Compare) -> TypedCompare:
 
 ### AggressiveTypeInferencer().visit_Constant
 
-[Show source in type_inference.py:152](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/type_inference.py#L152)
+[Show source in type_inference.py:152](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/type_inference.py#L152)
 
 #### Signature
 
@@ -248,7 +248,7 @@ def visit_Constant(self, node: Constant) -> TypedConstant:
 
 ### AggressiveTypeInferencer().visit_Dict
 
-[Show source in type_inference.py:181](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/type_inference.py#L181)
+[Show source in type_inference.py:181](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/type_inference.py#L181)
 
 #### Signature
 
@@ -259,7 +259,7 @@ def visit_Dict(self, node: Dict) -> TypedDict:
 
 ### AggressiveTypeInferencer().visit_Expr
 
-[Show source in type_inference.py:375](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/type_inference.py#L375)
+[Show source in type_inference.py:375](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/type_inference.py#L375)
 
 #### Signature
 
@@ -270,7 +270,7 @@ def visit_Expr(self, node: Expr) -> TypedExpr:
 
 ### AggressiveTypeInferencer().visit_For
 
-[Show source in type_inference.py:282](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/type_inference.py#L282)
+[Show source in type_inference.py:282](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/type_inference.py#L282)
 
 #### Signature
 
@@ -281,7 +281,7 @@ def visit_For(self, node: For) -> TypedFor:
 
 ### AggressiveTypeInferencer().visit_FunctionDef
 
-[Show source in type_inference.py:341](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/type_inference.py#L341)
+[Show source in type_inference.py:341](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/type_inference.py#L341)
 
 #### Signature
 
@@ -292,7 +292,7 @@ def visit_FunctionDef(self, node: FunctionDef) -> TypedFunctionDef:
 
 ### AggressiveTypeInferencer().visit_If
 
-[Show source in type_inference.py:222](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/type_inference.py#L222)
+[Show source in type_inference.py:222](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/type_inference.py#L222)
 
 #### Signature
 
@@ -303,7 +303,7 @@ def visit_If(self, node: If) -> TypedIf:
 
 ### AggressiveTypeInferencer().visit_IfExp
 
-[Show source in type_inference.py:554](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/type_inference.py#L554)
+[Show source in type_inference.py:554](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/type_inference.py#L554)
 
 #### Signature
 
@@ -314,7 +314,7 @@ def visit_IfExp(self, node: IfExp) -> TypedIfExp:
 
 ### AggressiveTypeInferencer().visit_List
 
-[Show source in type_inference.py:171](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/type_inference.py#L171)
+[Show source in type_inference.py:171](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/type_inference.py#L171)
 
 #### Signature
 
@@ -325,7 +325,7 @@ def visit_List(self, node: List) -> TypedList:
 
 ### AggressiveTypeInferencer().visit_ListComp
 
-[Show source in type_inference.py:598](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/type_inference.py#L598)
+[Show source in type_inference.py:598](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/type_inference.py#L598)
 
 #### Signature
 
@@ -336,7 +336,7 @@ def visit_ListComp(self, node: ListComp) -> TypedListComp:
 
 ### AggressiveTypeInferencer().visit_Module
 
-[Show source in type_inference.py:368](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/type_inference.py#L368)
+[Show source in type_inference.py:368](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/type_inference.py#L368)
 
 #### Signature
 
@@ -347,7 +347,7 @@ def visit_Module(self, node: Module) -> TypedModule:
 
 ### AggressiveTypeInferencer().visit_Name
 
-[Show source in type_inference.py:312](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/type_inference.py#L312)
+[Show source in type_inference.py:312](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/type_inference.py#L312)
 
 #### Signature
 
@@ -358,7 +358,7 @@ def visit_Name(self, node: Name) -> TypedName:
 
 ### AggressiveTypeInferencer().visit_Pass
 
-[Show source in type_inference.py:519](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/type_inference.py#L519)
+[Show source in type_inference.py:519](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/type_inference.py#L519)
 
 #### Signature
 
@@ -369,7 +369,7 @@ def visit_Pass(self, node: Pass) -> TypedPass:
 
 ### AggressiveTypeInferencer().visit_RawPlutoExpr
 
-[Show source in type_inference.py:550](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/type_inference.py#L550)
+[Show source in type_inference.py:550](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/type_inference.py#L550)
 
 #### Signature
 
@@ -380,7 +380,7 @@ def visit_RawPlutoExpr(self, node: RawPlutoExpr) -> RawPlutoExpr:
 
 ### AggressiveTypeInferencer().visit_Return
 
-[Show source in type_inference.py:523](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/type_inference.py#L523)
+[Show source in type_inference.py:523](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/type_inference.py#L523)
 
 #### Signature
 
@@ -391,7 +391,7 @@ def visit_Return(self, node: Return) -> TypedReturn:
 
 ### AggressiveTypeInferencer().visit_Subscript
 
-[Show source in type_inference.py:406](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/type_inference.py#L406)
+[Show source in type_inference.py:406](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/type_inference.py#L406)
 
 #### Signature
 
@@ -402,7 +402,7 @@ def visit_Subscript(self, node: Subscript) -> TypedSubscript:
 
 ### AggressiveTypeInferencer().visit_Tuple
 
-[Show source in type_inference.py:165](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/type_inference.py#L165)
+[Show source in type_inference.py:165](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/type_inference.py#L165)
 
 #### Signature
 
@@ -413,7 +413,7 @@ def visit_Tuple(self, node: Tuple) -> TypedTuple:
 
 ### AggressiveTypeInferencer().visit_UnaryOp
 
-[Show source in type_inference.py:400](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/type_inference.py#L400)
+[Show source in type_inference.py:400](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/type_inference.py#L400)
 
 #### Signature
 
@@ -424,7 +424,7 @@ def visit_UnaryOp(self, node: UnaryOp) -> TypedUnaryOp:
 
 ### AggressiveTypeInferencer().visit_While
 
-[Show source in type_inference.py:272](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/type_inference.py#L272)
+[Show source in type_inference.py:272](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/type_inference.py#L272)
 
 #### Signature
 
@@ -435,7 +435,7 @@ def visit_While(self, node: While) -> TypedWhile:
 
 ### AggressiveTypeInferencer().visit_arg
 
-[Show source in type_inference.py:326](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/type_inference.py#L326)
+[Show source in type_inference.py:326](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/type_inference.py#L326)
 
 #### Signature
 
@@ -446,7 +446,7 @@ def visit_arg(self, node: arg) -> typedarg:
 
 ### AggressiveTypeInferencer().visit_arguments
 
-[Show source in type_inference.py:332](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/type_inference.py#L332)
+[Show source in type_inference.py:332](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/type_inference.py#L332)
 
 #### Signature
 
@@ -457,7 +457,7 @@ def visit_arguments(self, node: arguments) -> typedarguments:
 
 ### AggressiveTypeInferencer().visit_comprehension
 
-[Show source in type_inference.py:570](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/type_inference.py#L570)
+[Show source in type_inference.py:570](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/type_inference.py#L570)
 
 #### Signature
 
@@ -470,7 +470,7 @@ def visit_comprehension(self, g: comprehension) -> typedcomprehension:
 
 ## RecordReader
 
-[Show source in type_inference.py:616](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/type_inference.py#L616)
+[Show source in type_inference.py:616](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/type_inference.py#L616)
 
 #### Signature
 
@@ -486,7 +486,7 @@ class RecordReader(NodeVisitor):
 
 ### RecordReader.extract
 
-[Show source in type_inference.py:627](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/type_inference.py#L627)
+[Show source in type_inference.py:627](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/type_inference.py#L627)
 
 #### Signature
 
@@ -502,7 +502,7 @@ def extract(cls, c: ClassDef, type_inferencer: AggressiveTypeInferencer) -> Reco
 
 ### RecordReader().generic_visit
 
-[Show source in type_inference.py:690](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/type_inference.py#L690)
+[Show source in type_inference.py:690](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/type_inference.py#L690)
 
 #### Signature
 
@@ -513,7 +513,7 @@ def generic_visit(self, node: AST) -> None:
 
 ### RecordReader().visit_AnnAssign
 
-[Show source in type_inference.py:633](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/type_inference.py#L633)
+[Show source in type_inference.py:633](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/type_inference.py#L633)
 
 #### Signature
 
@@ -524,7 +524,7 @@ def visit_AnnAssign(self, node: AnnAssign) -> None:
 
 ### RecordReader().visit_Assign
 
-[Show source in type_inference.py:669](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/type_inference.py#L669)
+[Show source in type_inference.py:669](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/type_inference.py#L669)
 
 #### Signature
 
@@ -535,7 +535,7 @@ def visit_Assign(self, node: Assign) -> None:
 
 ### RecordReader().visit_ClassDef
 
-[Show source in type_inference.py:661](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/type_inference.py#L661)
+[Show source in type_inference.py:661](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/type_inference.py#L661)
 
 #### Signature
 
@@ -546,7 +546,7 @@ def visit_ClassDef(self, node: ClassDef) -> None:
 
 ### RecordReader().visit_Expr
 
-[Show source in type_inference.py:684](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/type_inference.py#L684)
+[Show source in type_inference.py:684](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/type_inference.py#L684)
 
 #### Signature
 
@@ -557,7 +557,7 @@ def visit_Expr(self, node: Expr) -> None:
 
 ### RecordReader().visit_Pass
 
-[Show source in type_inference.py:666](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/type_inference.py#L666)
+[Show source in type_inference.py:666](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/type_inference.py#L666)
 
 #### Signature
 
@@ -570,7 +570,7 @@ def visit_Pass(self, node: Pass) -> None:
 
 ## typed_ast
 
-[Show source in type_inference.py:694](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/type_inference.py#L694)
+[Show source in type_inference.py:694](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/type_inference.py#L694)
 
 #### Signature
 

@@ -5,7 +5,7 @@
 [Rewrite](./index.md#rewrite) /
 RewriteTupleAssign
 
-> Auto-generated documentation for [eopsin.rewrite.rewrite_tuple_assign](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/rewrite/rewrite_tuple_assign.py) module.
+> Auto-generated documentation for [eopsin.rewrite.rewrite_tuple_assign](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/rewrite/rewrite_tuple_assign.py) module.
 
 - [RewriteTupleAssign](#rewritetupleassign)
   - [RewriteTupleAssign](#rewritetupleassign-1)
@@ -13,7 +13,7 @@ RewriteTupleAssign
 
 ## RewriteTupleAssign
 
-[Show source in rewrite_tuple_assign.py:11](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/rewrite/rewrite_tuple_assign.py#L11)
+[Show source in rewrite_tuple_assign.py:11](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/rewrite/rewrite_tuple_assign.py#L11)
 
 #### Signature
 
@@ -24,7 +24,7 @@ class RewriteTupleAssign(CompilingNodeTransformer):
 
 ### RewriteTupleAssign().visit_Assign
 
-[Show source in rewrite_tuple_assign.py:16](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/rewrite/rewrite_tuple_assign.py#L16)
+[Show source in rewrite_tuple_assign.py:16](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/rewrite/rewrite_tuple_assign.py#L16)
 
 #### Signature
 

@@ -5,7 +5,7 @@
 [Rewrite](./index.md#rewrite) /
 RewriteImportTyping
 
-> Auto-generated documentation for [eopsin.rewrite.rewrite_import_typing](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/rewrite/rewrite_import_typing.py) module.
+> Auto-generated documentation for [eopsin.rewrite.rewrite_import_typing](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/rewrite/rewrite_import_typing.py) module.
 
 - [RewriteImportTyping](#rewriteimporttyping)
   - [RewriteImportTyping](#rewriteimporttyping-1)
@@ -14,7 +14,7 @@ RewriteImportTyping
 
 ## RewriteImportTyping
 
-[Show source in rewrite_import_typing.py:11](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/rewrite/rewrite_import_typing.py#L11)
+[Show source in rewrite_import_typing.py:11](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/rewrite/rewrite_import_typing.py#L11)
 
 #### Signature
 
@@ -25,7 +25,7 @@ class RewriteImportTyping(CompilingNodeTransformer):
 
 ### RewriteImportTyping().visit_ClassDef
 
-[Show source in rewrite_import_typing.py:32](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/rewrite/rewrite_import_typing.py#L32)
+[Show source in rewrite_import_typing.py:32](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/rewrite/rewrite_import_typing.py#L32)
 
 #### Signature
 
@@ -36,7 +36,7 @@ def visit_ClassDef(self, node: ClassDef) -> ClassDef:
 
 ### RewriteImportTyping().visit_ImportFrom
 
-[Show source in rewrite_import_typing.py:16](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/rewrite/rewrite_import_typing.py#L16)
+[Show source in rewrite_import_typing.py:16](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/rewrite/rewrite_import_typing.py#L16)
 
 #### Signature
 

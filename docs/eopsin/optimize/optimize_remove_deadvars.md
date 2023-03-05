@@ -5,7 +5,7 @@
 [Optimize](./index.md#optimize) /
 OptimizeRemoveDeadvars
 
-> Auto-generated documentation for [eopsin.optimize.optimize_remove_deadvars](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/optimize/optimize_remove_deadvars.py) module.
+> Auto-generated documentation for [eopsin.optimize.optimize_remove_deadvars](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/optimize/optimize_remove_deadvars.py) module.
 
 - [OptimizeRemoveDeadvars](#optimizeremovedeadvars)
   - [NameLoadCollector](#nameloadcollector)
@@ -34,7 +34,7 @@ OptimizeRemoveDeadvars
 
 ## NameLoadCollector
 
-[Show source in optimize_remove_deadvars.py:13](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/optimize/optimize_remove_deadvars.py#L13)
+[Show source in optimize_remove_deadvars.py:13](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/optimize/optimize_remove_deadvars.py#L13)
 
 #### Signature
 
@@ -46,7 +46,7 @@ class NameLoadCollector(CompilingNodeVisitor):
 
 ### NameLoadCollector().visit_ClassDef
 
-[Show source in optimize_remove_deadvars.py:23](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/optimize/optimize_remove_deadvars.py#L23)
+[Show source in optimize_remove_deadvars.py:23](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/optimize/optimize_remove_deadvars.py#L23)
 
 #### Signature
 
@@ -57,7 +57,7 @@ def visit_ClassDef(self, node: ClassDef):
 
 ### NameLoadCollector().visit_FunctionDef
 
-[Show source in optimize_remove_deadvars.py:27](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/optimize/optimize_remove_deadvars.py#L27)
+[Show source in optimize_remove_deadvars.py:27](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/optimize/optimize_remove_deadvars.py#L27)
 
 #### Signature
 
@@ -68,7 +68,7 @@ def visit_FunctionDef(self, node: FunctionDef):
 
 ### NameLoadCollector().visit_Name
 
-[Show source in optimize_remove_deadvars.py:19](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/optimize/optimize_remove_deadvars.py#L19)
+[Show source in optimize_remove_deadvars.py:19](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/optimize/optimize_remove_deadvars.py#L19)
 
 #### Signature
 
@@ -81,7 +81,7 @@ def visit_Name(self, node: Name) -> None:
 
 ## OptimizeRemoveDeadvars
 
-[Show source in optimize_remove_deadvars.py:59](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/optimize/optimize_remove_deadvars.py#L59)
+[Show source in optimize_remove_deadvars.py:59](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/optimize/optimize_remove_deadvars.py#L59)
 
 #### Attributes
 
@@ -98,7 +98,7 @@ class OptimizeRemoveDeadvars(CompilingNodeTransformer):
 
 ### OptimizeRemoveDeadvars().enter_scope
 
-[Show source in optimize_remove_deadvars.py:74](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/optimize/optimize_remove_deadvars.py#L74)
+[Show source in optimize_remove_deadvars.py:74](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/optimize/optimize_remove_deadvars.py#L74)
 
 #### Signature
 
@@ -109,7 +109,7 @@ def enter_scope(self):
 
 ### OptimizeRemoveDeadvars().exit_scope
 
-[Show source in optimize_remove_deadvars.py:77](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/optimize/optimize_remove_deadvars.py#L77)
+[Show source in optimize_remove_deadvars.py:77](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/optimize/optimize_remove_deadvars.py#L77)
 
 #### Signature
 
@@ -120,7 +120,7 @@ def exit_scope(self):
 
 ### OptimizeRemoveDeadvars().guaranteed
 
-[Show source in optimize_remove_deadvars.py:67](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/optimize/optimize_remove_deadvars.py#L67)
+[Show source in optimize_remove_deadvars.py:67](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/optimize/optimize_remove_deadvars.py#L67)
 
 #### Signature
 
@@ -131,7 +131,7 @@ def guaranteed(self, name: str) -> bool:
 
 ### OptimizeRemoveDeadvars().set_guaranteed
 
-[Show source in optimize_remove_deadvars.py:80](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/optimize/optimize_remove_deadvars.py#L80)
+[Show source in optimize_remove_deadvars.py:80](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/optimize/optimize_remove_deadvars.py#L80)
 
 #### Signature
 
@@ -142,7 +142,7 @@ def set_guaranteed(self, name: str):
 
 ### OptimizeRemoveDeadvars().visit_AnnAssign
 
-[Show source in optimize_remove_deadvars.py:148](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/optimize/optimize_remove_deadvars.py#L148)
+[Show source in optimize_remove_deadvars.py:148](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/optimize/optimize_remove_deadvars.py#L148)
 
 #### Signature
 
@@ -153,7 +153,7 @@ def visit_AnnAssign(self, node: AnnAssign):
 
 ### OptimizeRemoveDeadvars().visit_Assign
 
-[Show source in optimize_remove_deadvars.py:131](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/optimize/optimize_remove_deadvars.py#L131)
+[Show source in optimize_remove_deadvars.py:131](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/optimize/optimize_remove_deadvars.py#L131)
 
 #### Signature
 
@@ -164,7 +164,7 @@ def visit_Assign(self, node: Assign):
 
 ### OptimizeRemoveDeadvars().visit_ClassDef
 
-[Show source in optimize_remove_deadvars.py:163](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/optimize/optimize_remove_deadvars.py#L163)
+[Show source in optimize_remove_deadvars.py:163](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/optimize/optimize_remove_deadvars.py#L163)
 
 #### Signature
 
@@ -175,7 +175,7 @@ def visit_ClassDef(self, node: ClassDef):
 
 ### OptimizeRemoveDeadvars().visit_For
 
-[Show source in optimize_remove_deadvars.py:121](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/optimize/optimize_remove_deadvars.py#L121)
+[Show source in optimize_remove_deadvars.py:121](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/optimize/optimize_remove_deadvars.py#L121)
 
 #### Signature
 
@@ -186,7 +186,7 @@ def visit_For(self, node: For):
 
 ### OptimizeRemoveDeadvars().visit_FunctionDef
 
-[Show source in optimize_remove_deadvars.py:169](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/optimize/optimize_remove_deadvars.py#L169)
+[Show source in optimize_remove_deadvars.py:169](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/optimize/optimize_remove_deadvars.py#L169)
 
 #### Signature
 
@@ -197,7 +197,7 @@ def visit_FunctionDef(self, node: FunctionDef):
 
 ### OptimizeRemoveDeadvars().visit_If
 
-[Show source in optimize_remove_deadvars.py:103](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/optimize/optimize_remove_deadvars.py#L103)
+[Show source in optimize_remove_deadvars.py:103](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/optimize/optimize_remove_deadvars.py#L103)
 
 #### Signature
 
@@ -208,7 +208,7 @@ def visit_If(self, node: If):
 
 ### OptimizeRemoveDeadvars().visit_Module
 
-[Show source in optimize_remove_deadvars.py:83](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/optimize/optimize_remove_deadvars.py#L83)
+[Show source in optimize_remove_deadvars.py:83](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/optimize/optimize_remove_deadvars.py#L83)
 
 #### Signature
 
@@ -219,7 +219,7 @@ def visit_Module(self, node: Module) -> Module:
 
 ### OptimizeRemoveDeadvars().visit_While
 
-[Show source in optimize_remove_deadvars.py:112](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/optimize/optimize_remove_deadvars.py#L112)
+[Show source in optimize_remove_deadvars.py:112](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/optimize/optimize_remove_deadvars.py#L112)
 
 #### Signature
 
@@ -232,7 +232,7 @@ def visit_While(self, node: While):
 
 ## SafeOperationVisitor
 
-[Show source in optimize_remove_deadvars.py:33](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/optimize/optimize_remove_deadvars.py#L33)
+[Show source in optimize_remove_deadvars.py:33](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/optimize/optimize_remove_deadvars.py#L33)
 
 #### Signature
 
@@ -244,7 +244,7 @@ class SafeOperationVisitor(CompilingNodeVisitor):
 
 ### SafeOperationVisitor().generic_visit
 
-[Show source in optimize_remove_deadvars.py:39](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/optimize/optimize_remove_deadvars.py#L39)
+[Show source in optimize_remove_deadvars.py:39](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/optimize/optimize_remove_deadvars.py#L39)
 
 #### Signature
 
@@ -255,7 +255,7 @@ def generic_visit(self, node: AST) -> bool:
 
 ### SafeOperationVisitor().visit_Constant
 
-[Show source in optimize_remove_deadvars.py:47](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/optimize/optimize_remove_deadvars.py#L47)
+[Show source in optimize_remove_deadvars.py:47](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/optimize/optimize_remove_deadvars.py#L47)
 
 #### Signature
 
@@ -266,7 +266,7 @@ def visit_Constant(self, node: Constant) -> bool:
 
 ### SafeOperationVisitor().visit_Lambda
 
-[Show source in optimize_remove_deadvars.py:43](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/optimize/optimize_remove_deadvars.py#L43)
+[Show source in optimize_remove_deadvars.py:43](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/optimize/optimize_remove_deadvars.py#L43)
 
 #### Signature
 
@@ -277,7 +277,7 @@ def visit_Lambda(self, node: Lambda) -> bool:
 
 ### SafeOperationVisitor().visit_Name
 
-[Show source in optimize_remove_deadvars.py:55](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/optimize/optimize_remove_deadvars.py#L55)
+[Show source in optimize_remove_deadvars.py:55](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/optimize/optimize_remove_deadvars.py#L55)
 
 #### Signature
 
@@ -288,7 +288,7 @@ def visit_Name(self, node: Name) -> bool:
 
 ### SafeOperationVisitor().visit_RawPlutoExpr
 
-[Show source in optimize_remove_deadvars.py:51](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/optimize/optimize_remove_deadvars.py#L51)
+[Show source in optimize_remove_deadvars.py:51](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/optimize/optimize_remove_deadvars.py#L51)
 
 #### Signature
 

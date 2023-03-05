@@ -4,7 +4,7 @@
 [Eopsin](../index.md#eopsin) /
 Rewrite
 
-> Auto-generated documentation for [eopsin.rewrite](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/rewrite/__init__.py) module.
+> Auto-generated documentation for [eopsin.rewrite](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/rewrite/__init__.py) module.
 
 - [Rewrite](#rewrite)
   - [Modules](#modules)

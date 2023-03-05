@@ -4,7 +4,7 @@
 [Eopsin](./index.md#eopsin) /
 Prelude
 
-> Auto-generated documentation for [eopsin.prelude](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/prelude.py) module.
+> Auto-generated documentation for [eopsin.prelude](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py) module.
 
 - [Prelude](#prelude)
   - [Address](#address)
@@ -54,7 +54,7 @@ Prelude
 
 ## Address
 
-[Show source in prelude.py:95](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/prelude.py#L95)
+[Show source in prelude.py:95](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L95)
 
 #### Signature
 
@@ -67,7 +67,7 @@ class Address(PlutusData):
 
 ## Certifying
 
-[Show source in prelude.py:284](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/prelude.py#L284)
+[Show source in prelude.py:284](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L284)
 
 #### Signature
 
@@ -80,7 +80,7 @@ class Certifying(PlutusData):
 
 ## DCertDelegDeRegKey
 
-[Show source in prelude.py:176](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/prelude.py#L176)
+[Show source in prelude.py:176](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L176)
 
 #### Signature
 
@@ -93,7 +93,7 @@ class DCertDelegDeRegKey(PlutusData):
 
 ## DCertDelegDelegate
 
-[Show source in prelude.py:182](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/prelude.py#L182)
+[Show source in prelude.py:182](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L182)
 
 #### Signature
 
@@ -106,7 +106,7 @@ class DCertDelegDelegate(PlutusData):
 
 ## DCertDelegRegKey
 
-[Show source in prelude.py:170](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/prelude.py#L170)
+[Show source in prelude.py:170](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L170)
 
 #### Signature
 
@@ -119,7 +119,7 @@ class DCertDelegRegKey(PlutusData):
 
 ## DCertGenesis
 
-[Show source in prelude.py:203](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/prelude.py#L203)
+[Show source in prelude.py:203](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L203)
 
 #### Signature
 
@@ -132,7 +132,7 @@ class DCertGenesis(PlutusData):
 
 ## DCertMir
 
-[Show source in prelude.py:208](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/prelude.py#L208)
+[Show source in prelude.py:208](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L208)
 
 #### Signature
 
@@ -145,7 +145,7 @@ class DCertMir(PlutusData):
 
 ## DCertPoolRegister
 
-[Show source in prelude.py:189](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/prelude.py#L189)
+[Show source in prelude.py:189](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L189)
 
 #### Signature
 
@@ -158,7 +158,7 @@ class DCertPoolRegister(PlutusData):
 
 ## DCertPoolRetire
 
-[Show source in prelude.py:196](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/prelude.py#L196)
+[Show source in prelude.py:196](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L196)
 
 #### Signature
 
@@ -171,7 +171,7 @@ class DCertPoolRetire(PlutusData):
 
 ## FalseData
 
-[Show source in prelude.py:25](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/prelude.py#L25)
+[Show source in prelude.py:25](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L25)
 
 #### Signature
 
@@ -184,7 +184,7 @@ class FalseData(PlutusData):
 
 ## FinitePOSIXTime
 
-[Show source in prelude.py:232](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/prelude.py#L232)
+[Show source in prelude.py:232](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L232)
 
 #### Signature
 
@@ -197,7 +197,7 @@ class FinitePOSIXTime(PlutusData):
 
 ## LowerBoundPOSIXTime
 
-[Show source in prelude.py:253](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/prelude.py#L253)
+[Show source in prelude.py:253](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L253)
 
 #### Signature
 
@@ -210,7 +210,7 @@ class LowerBoundPOSIXTime(PlutusData):
 
 ## Minting
 
-[Show source in prelude.py:266](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/prelude.py#L266)
+[Show source in prelude.py:266](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L266)
 
 #### Signature
 
@@ -223,7 +223,7 @@ class Minting(PlutusData):
 
 ## NegInfPOSIXTime
 
-[Show source in prelude.py:227](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/prelude.py#L227)
+[Show source in prelude.py:227](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L227)
 
 #### Signature
 
@@ -236,7 +236,7 @@ class NegInfPOSIXTime(PlutusData):
 
 ## NoOutputDatum
 
-[Show source in prelude.py:131](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/prelude.py#L131)
+[Show source in prelude.py:131](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L131)
 
 #### Signature
 
@@ -249,7 +249,7 @@ class NoOutputDatum(PlutusData):
 
 ## NoScriptHash
 
-[Show source in prelude.py:151](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/prelude.py#L151)
+[Show source in prelude.py:151](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L151)
 
 #### Signature
 
@@ -262,7 +262,7 @@ class NoScriptHash(PlutusData):
 
 ## NoStakingCredential
 
-[Show source in prelude.py:84](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/prelude.py#L84)
+[Show source in prelude.py:84](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L84)
 
 #### Signature
 
@@ -275,7 +275,7 @@ class NoStakingCredential(PlutusData):
 
 ## Nothing
 
-[Show source in prelude.py:14](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/prelude.py#L14)
+[Show source in prelude.py:14](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L14)
 
 #### Attributes
 
@@ -293,7 +293,7 @@ class Nothing(PlutusData):
 
 ## POSIXTimeRange
 
-[Show source in prelude.py:260](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/prelude.py#L260)
+[Show source in prelude.py:260](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L260)
 
 #### Signature
 
@@ -306,7 +306,7 @@ class POSIXTimeRange(PlutusData):
 
 ## PosInfPOSIXTime
 
-[Show source in prelude.py:238](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/prelude.py#L238)
+[Show source in prelude.py:238](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L238)
 
 #### Signature
 
@@ -319,7 +319,7 @@ class PosInfPOSIXTime(PlutusData):
 
 ## PubKeyCredential
 
-[Show source in prelude.py:42](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/prelude.py#L42)
+[Show source in prelude.py:42](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L42)
 
 #### Signature
 
@@ -332,7 +332,7 @@ class PubKeyCredential(PlutusData):
 
 ## Rewarding
 
-[Show source in prelude.py:278](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/prelude.py#L278)
+[Show source in prelude.py:278](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L278)
 
 #### Signature
 
@@ -345,7 +345,7 @@ class Rewarding(PlutusData):
 
 ## ScriptContext
 
-[Show source in prelude.py:309](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/prelude.py#L309)
+[Show source in prelude.py:309](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L309)
 
 #### Signature
 
@@ -358,7 +358,7 @@ class ScriptContext(PlutusData):
 
 ## ScriptCredential
 
-[Show source in prelude.py:51](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/prelude.py#L51)
+[Show source in prelude.py:51](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L51)
 
 #### Signature
 
@@ -371,7 +371,7 @@ class ScriptCredential(PlutusData):
 
 ## SomeDatumHash
 
-[Show source in prelude.py:110](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/prelude.py#L110)
+[Show source in prelude.py:110](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L110)
 
 #### Signature
 
@@ -384,7 +384,7 @@ class SomeDatumHash(PlutusData):
 
 ## SomeOutputDatum
 
-[Show source in prelude.py:142](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/prelude.py#L142)
+[Show source in prelude.py:142](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L142)
 
 #### Signature
 
@@ -397,7 +397,7 @@ class SomeOutputDatum(PlutusData):
 
 ## SomeOutputDatumHash
 
-[Show source in prelude.py:136](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/prelude.py#L136)
+[Show source in prelude.py:136](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L136)
 
 #### Signature
 
@@ -410,7 +410,7 @@ class SomeOutputDatumHash(PlutusData):
 
 ## SomeScriptHash
 
-[Show source in prelude.py:116](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/prelude.py#L116)
+[Show source in prelude.py:116](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L116)
 
 #### Signature
 
@@ -423,7 +423,7 @@ class SomeScriptHash(PlutusData):
 
 ## SomeStakingCredential
 
-[Show source in prelude.py:89](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/prelude.py#L89)
+[Show source in prelude.py:89](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L89)
 
 #### Signature
 
@@ -436,7 +436,7 @@ class SomeStakingCredential(PlutusData):
 
 ## Spending
 
-[Show source in prelude.py:272](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/prelude.py#L272)
+[Show source in prelude.py:272](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L272)
 
 #### Signature
 
@@ -449,7 +449,7 @@ class Spending(PlutusData):
 
 ## StakingHash
 
-[Show source in prelude.py:60](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/prelude.py#L60)
+[Show source in prelude.py:60](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L60)
 
 #### Signature
 
@@ -462,7 +462,7 @@ class StakingHash(PlutusData):
 
 ## StakingPtr
 
-[Show source in prelude.py:66](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/prelude.py#L66)
+[Show source in prelude.py:66](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L66)
 
 In an address, a chain pointer refers to a point of the chain containing a stake key registration certificate. A point is identified by 3 coordinates.
 
@@ -477,7 +477,7 @@ class StakingPtr(PlutusData):
 
 ## Token
 
-[Show source in prelude.py:315](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/prelude.py#L315)
+[Show source in prelude.py:315](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L315)
 
 #### Signature
 
@@ -490,7 +490,7 @@ class Token(PlutusData):
 
 ## TrueData
 
-[Show source in prelude.py:20](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/prelude.py#L20)
+[Show source in prelude.py:20](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L20)
 
 #### Signature
 
@@ -503,7 +503,7 @@ class TrueData(PlutusData):
 
 ## TxId
 
-[Show source in prelude.py:9](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/prelude.py#L9)
+[Show source in prelude.py:9](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L9)
 
 #### Signature
 
@@ -516,7 +516,7 @@ class TxId(PlutusData):
 
 ## TxInInfo
 
-[Show source in prelude.py:164](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/prelude.py#L164)
+[Show source in prelude.py:164](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L164)
 
 #### Signature
 
@@ -529,7 +529,7 @@ class TxInInfo(PlutusData):
 
 ## TxInfo
 
-[Show source in prelude.py:293](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/prelude.py#L293)
+[Show source in prelude.py:293](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L293)
 
 #### Signature
 
@@ -542,7 +542,7 @@ class TxInfo(PlutusData):
 
 ## TxOut
 
-[Show source in prelude.py:156](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/prelude.py#L156)
+[Show source in prelude.py:156](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L156)
 
 #### Signature
 
@@ -555,7 +555,7 @@ class TxOut(PlutusData):
 
 ## TxOutRef
 
-[Show source in prelude.py:33](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/prelude.py#L33)
+[Show source in prelude.py:33](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L33)
 
 #### Signature
 
@@ -568,7 +568,7 @@ class TxOutRef(PlutusData):
 
 ## UpperBoundPOSIXTime
 
-[Show source in prelude.py:246](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/prelude.py#L246)
+[Show source in prelude.py:246](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L246)
 
 #### Signature
 
@@ -581,7 +581,7 @@ class UpperBoundPOSIXTime(PlutusData):
 
 ## all_tokens_locked_at_address
 
-[Show source in prelude.py:351](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/prelude.py#L351)
+[Show source in prelude.py:351](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L351)
 
 Returns how many tokens of specified type are locked at then given address
 
@@ -603,7 +603,7 @@ def all_tokens_locked_at_address(
 
 ## all_tokens_locked_at_address_with_datum
 
-[Show source in prelude.py:338](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/prelude.py#L338)
+[Show source in prelude.py:338](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L338)
 
 Returns how many tokens of specified type are locked at then given address with the specified datum
 
@@ -626,7 +626,7 @@ def all_tokens_locked_at_address_with_datum(
 
 ## all_tokens_unlocked_from_address
 
-[Show source in prelude.py:325](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/prelude.py#L325)
+[Show source in prelude.py:325](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L325)
 
 Returns how many tokens of specified type are unlocked from given address
 
@@ -648,7 +648,7 @@ def all_tokens_unlocked_from_address(
 
 ## resolve_spent_utxo
 
-[Show source in prelude.py:364](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/prelude.py#L364)
+[Show source in prelude.py:364](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L364)
 
 Returns the UTxO whose spending should be validated
 

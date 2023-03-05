@@ -5,7 +5,7 @@
 [Rewrite](./index.md#rewrite) /
 RewriteRemoveTypeStuff
 
-> Auto-generated documentation for [eopsin.rewrite.rewrite_remove_type_stuff](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/rewrite/rewrite_remove_type_stuff.py) module.
+> Auto-generated documentation for [eopsin.rewrite.rewrite_remove_type_stuff](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/rewrite/rewrite_remove_type_stuff.py) module.
 
 - [RewriteRemoveTypeStuff](#rewriteremovetypestuff)
   - [RewriteRemoveTypeStuff](#rewriteremovetypestuff-1)
@@ -13,7 +13,7 @@ RewriteRemoveTypeStuff
 
 ## RewriteRemoveTypeStuff
 
-[Show source in rewrite_remove_type_stuff.py:11](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/rewrite/rewrite_remove_type_stuff.py#L11)
+[Show source in rewrite_remove_type_stuff.py:11](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/rewrite/rewrite_remove_type_stuff.py#L11)
 
 #### Signature
 
@@ -24,7 +24,7 @@ class RewriteRemoveTypeStuff(CompilingNodeTransformer):
 
 ### RewriteRemoveTypeStuff().visit_Assign
 
-[Show source in rewrite_remove_type_stuff.py:14](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/rewrite/rewrite_remove_type_stuff.py#L14)
+[Show source in rewrite_remove_type_stuff.py:14](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/rewrite/rewrite_remove_type_stuff.py#L14)
 
 #### Signature
 

@@ -5,7 +5,7 @@
 [Rewrite](./index.md#rewrite) /
 RewriteImportDataclasses
 
-> Auto-generated documentation for [eopsin.rewrite.rewrite_import_dataclasses](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/rewrite/rewrite_import_dataclasses.py) module.
+> Auto-generated documentation for [eopsin.rewrite.rewrite_import_dataclasses](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/rewrite/rewrite_import_dataclasses.py) module.
 
 - [RewriteImportDataclasses](#rewriteimportdataclasses)
   - [RewriteImportDataclasses](#rewriteimportdataclasses-1)
@@ -14,7 +14,7 @@ RewriteImportDataclasses
 
 ## RewriteImportDataclasses
 
-[Show source in rewrite_import_dataclasses.py:11](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/rewrite/rewrite_import_dataclasses.py#L11)
+[Show source in rewrite_import_dataclasses.py:11](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/rewrite/rewrite_import_dataclasses.py#L11)
 
 #### Signature
 
@@ -25,7 +25,7 @@ class RewriteImportDataclasses(CompilingNodeTransformer):
 
 ### RewriteImportDataclasses().visit_ClassDef
 
-[Show source in rewrite_import_dataclasses.py:32](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/rewrite/rewrite_import_dataclasses.py#L32)
+[Show source in rewrite_import_dataclasses.py:32](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/rewrite/rewrite_import_dataclasses.py#L32)
 
 #### Signature
 
@@ -36,7 +36,7 @@ def visit_ClassDef(self, node: ClassDef) -> ClassDef:
 
 ### RewriteImportDataclasses().visit_ImportFrom
 
-[Show source in rewrite_import_dataclasses.py:16](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/rewrite/rewrite_import_dataclasses.py#L16)
+[Show source in rewrite_import_dataclasses.py:16](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/rewrite/rewrite_import_dataclasses.py#L16)
 
 #### Signature
 

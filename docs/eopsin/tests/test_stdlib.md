@@ -5,7 +5,7 @@
 [Tests](./index.md#tests) /
 Test Stdlib
 
-> Auto-generated documentation for [eopsin.tests.test_stdlib](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/tests/test_stdlib.py) module.
+> Auto-generated documentation for [eopsin.tests.test_stdlib](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/tests/test_stdlib.py) module.
 
 - [Test Stdlib](#test-stdlib)
   - [StdlibTest](#stdlibtest)
@@ -21,7 +21,7 @@ Test Stdlib
 
 ## StdlibTest
 
-[Show source in test_stdlib.py:12](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/tests/test_stdlib.py#L12)
+[Show source in test_stdlib.py:12](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/tests/test_stdlib.py#L12)
 
 #### Signature
 
@@ -32,7 +32,7 @@ class StdlibTest(unittest.TestCase):
 
 ### StdlibTest().test_constant_bool
 
-[Show source in test_stdlib.py:160](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/tests/test_stdlib.py#L160)
+[Show source in test_stdlib.py:160](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/tests/test_stdlib.py#L160)
 
 #### Signature
 
@@ -44,7 +44,7 @@ def test_constant_bool(self, x: bool):
 
 ### StdlibTest().test_constant_bytestring
 
-[Show source in test_stdlib.py:96](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/tests/test_stdlib.py#L96)
+[Show source in test_stdlib.py:96](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/tests/test_stdlib.py#L96)
 
 #### Signature
 
@@ -57,7 +57,7 @@ def test_constant_bytestring(self, xs):
 
 ### StdlibTest().test_constant_integer
 
-[Show source in test_stdlib.py:113](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/tests/test_stdlib.py#L113)
+[Show source in test_stdlib.py:113](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/tests/test_stdlib.py#L113)
 
 #### Signature
 
@@ -69,7 +69,7 @@ def test_constant_integer(self, xs):
 
 ### StdlibTest().test_constant_string
 
-[Show source in test_stdlib.py:129](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/tests/test_stdlib.py#L129)
+[Show source in test_stdlib.py:129](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/tests/test_stdlib.py#L129)
 
 #### Signature
 
@@ -81,7 +81,7 @@ def test_constant_string(self, xs):
 
 ### StdlibTest().test_constant_unit
 
-[Show source in test_stdlib.py:145](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/tests/test_stdlib.py#L145)
+[Show source in test_stdlib.py:145](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/tests/test_stdlib.py#L145)
 
 #### Signature
 
@@ -92,7 +92,7 @@ def test_constant_unit(self):
 
 ### StdlibTest().test_dict_keys
 
-[Show source in test_stdlib.py:13](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/tests/test_stdlib.py#L13)
+[Show source in test_stdlib.py:13](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/tests/test_stdlib.py#L13)
 
 #### Signature
 
@@ -104,7 +104,7 @@ def test_dict_keys(self, xs):
 
 ### StdlibTest().test_dict_values
 
-[Show source in test_stdlib.py:34](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/tests/test_stdlib.py#L34)
+[Show source in test_stdlib.py:34](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/tests/test_stdlib.py#L34)
 
 #### Signature
 
@@ -116,7 +116,7 @@ def test_dict_values(self, xs):
 
 ### StdlibTest().test_str_decode
 
-[Show source in test_stdlib.py:72](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/tests/test_stdlib.py#L72)
+[Show source in test_stdlib.py:72](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/tests/test_stdlib.py#L72)
 
 #### Signature
 
@@ -128,7 +128,7 @@ def test_str_decode(self, xs):
 
 ### StdlibTest().test_str_encode
 
-[Show source in test_stdlib.py:55](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/tests/test_stdlib.py#L55)
+[Show source in test_stdlib.py:55](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/tests/test_stdlib.py#L55)
 
 #### Signature
 
