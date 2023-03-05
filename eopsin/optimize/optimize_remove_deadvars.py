@@ -105,8 +105,15 @@ class OptimizeRemoveDeadvars(CompilingNodeTransformer):
         node_cp.test = self.visit(node.test)
         self.enter_scope()
         node_cp.body = [self.visit(s) for s in node.body]
-        node_cp.orelse = [self.visit(s) for s in node.orelse]
+        scope_body_cp = self.guaranteed_avail_names[-1].copy()
         self.exit_scope()
+        self.enter_scope()
+        node_cp.orelse = [self.visit(s) for s in node.orelse]
+        scope_orelse_cp = self.guaranteed_avail_names[-1].copy()
+        self.exit_scope()
+        # what remains after this in the scope is the intersection of both
+        for var in set(scope_body_cp).intersection(scope_orelse_cp):
+            self.set_guaranteed(var)
         return node_cp
 
     def visit_While(self, node: While):
