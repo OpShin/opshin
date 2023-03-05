@@ -9,7 +9,7 @@ from pycardano import Datum as Anything, PlutusData
 class TxId(PlutusData):
     """
     A transaction id, a 64 bytes long hash of the transaction body (also called transaction hash).
-    Example value: TxId(b'\x84*M7\xb06\xdaj\xb3\xc0C1$\x0eg\xd8\x17F\xbe\xb4O#\xadyp>\x02g\x056\x19V')
+
     Example value: TxId(bytes.fromhex("842a4d37b036da6ab3c04331240e67d81746beb44f23ad79703e026705361956"))
     """
 
@@ -20,6 +20,7 @@ class TxId(PlutusData):
 class Nothing(PlutusData):
     """
     Nothing, can be used to signify non-importance of a parameter to a function
+
     Example value: Nothing()
     """
 
@@ -32,6 +33,7 @@ class TrueData(PlutusData):
     """
     A Datum that represents True in Haskell implementations.
     It is thus used as an encoding for True in the ScriptContext.
+
     Example value: TrueData()
     """
 
@@ -43,6 +45,7 @@ class FalseData(PlutusData):
     """
     A Datum that represents False in Haskell implementations.
     It is thus used as an encoding for False in the ScriptContext.
+
     Example value: FalseData()
     """
 
@@ -51,6 +54,7 @@ class FalseData(PlutusData):
 
 # A Datum that represents a boolean value in Haskell implementations.
 # It is thus used as an encoding for booleans in the ScriptContext.
+#
 # Example value: TrueData()
 BoolData = Union[TrueData, FalseData]
 
@@ -73,7 +77,7 @@ PubKeyHash = bytes
 class PubKeyCredential(PlutusData):
     """
     Part of an address that is authenticated by a public key hash
-    Example value: PubKeyCredential(b'\xc0m\xda\xad\x12\xfcM\xed\x18\xe5o\xea\xc7)W\xc1\xaau\xfc\xe6\tk@\xe6>\xc8\x82t')
+
     Example value: PubKeyCredential(bytes.fromhex("c06ddaad12fc4ded18e56feac72957c1aa75fce6096b40e63ec88274"))
     """
 
@@ -89,7 +93,7 @@ ValidatorHash = bytes
 class ScriptCredential(PlutusData):
     """
     Part of an address that is authenticated by a smart cotnract
-    Example value: ScriptCredential(b'\xc0m\xda\xad\x12\xfcM\xed\x18\xe5o\xea\xc7)W\xc1\xaau\xfc\xe6\tk@\xe6>\xc8\x82t')
+
     Example value: ScriptCredential(bytes.fromhex("c06ddaad12fc4ded18e56feac72957c1aa75fce6096b40e63ec88274"))
     """
 
@@ -115,7 +119,9 @@ class StakingHash(PlutusData):
 class StakingPtr(PlutusData):
     """
     Indicates that the stake of this address is controlled by the associated pointer.
-    In an address, a chain pointer refers to a point of the chain containing a stake key registration certificate. A point is identified by 3 coordinates.
+
+    In an address, a chain pointer refers to a point of the chain containing a stake key registration certificate.
+    A point is identified by the 3 coordinates in this object.
     """
 
     CONSTR_ID = 1
@@ -171,6 +177,7 @@ TokenName = bytes
 # The Plutus representation of amounts of tokens being spent, sent or minted
 # It is a two-layered dictionary that stores for each policy id and token name
 # the amount of the token that is being sent/minted/burned etc
+#
 # Lovelace is represented with policy id b"" and token name b""
 Value = Dict[PolicyId, Dict[TokenName, int]]
 

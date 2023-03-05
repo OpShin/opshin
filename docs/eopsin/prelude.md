@@ -10,6 +10,7 @@ Prelude
 
 - `BoolData` - A Datum that represents a boolean value in Haskell implementations.
   It is thus used as an encoding for booleans in the ScriptContext.
+  
   Example value: TrueData(): `Union[TrueData, FalseData]`
 
 - `PubKeyHash` - A public key hash, used to identify signatures provided by a wallet: `bytes`
@@ -27,6 +28,7 @@ Prelude
 - `Value` - The Plutus representation of amounts of tokens being spent, sent or minted
   It is a two-layered dictionary that stores for each policy id and token name
   the amount of the token that is being sent/minted/burned etc
+  
   Lovelace is represented with policy id b"" and token name b"": `Dict[PolicyId, Dict[TokenName, int]]`
 
 - `DatumHash` - A hash of a Datum: `bytes`
@@ -93,7 +95,7 @@ Prelude
 
 ## Address
 
-[Show source in prelude.py:156](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L156)
+[Show source in prelude.py:162](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L162)
 
 A Shelley address, consisting of a payment and staking credential
 
@@ -108,7 +110,7 @@ class Address(PlutusData):
 
 ## Certifying
 
-[Show source in prelude.py:430](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L430)
+[Show source in prelude.py:437](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L437)
 
 #### Signature
 
@@ -121,7 +123,7 @@ class Certifying(PlutusData):
 
 ## DCertDelegDeRegKey
 
-[Show source in prelude.py:289](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L289)
+[Show source in prelude.py:296](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L296)
 
 #### Signature
 
@@ -134,7 +136,7 @@ class DCertDelegDeRegKey(PlutusData):
 
 ## DCertDelegDelegate
 
-[Show source in prelude.py:295](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L295)
+[Show source in prelude.py:302](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L302)
 
 #### Signature
 
@@ -147,7 +149,7 @@ class DCertDelegDelegate(PlutusData):
 
 ## DCertDelegRegKey
 
-[Show source in prelude.py:283](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L283)
+[Show source in prelude.py:290](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L290)
 
 #### Signature
 
@@ -160,7 +162,7 @@ class DCertDelegRegKey(PlutusData):
 
 ## DCertGenesis
 
-[Show source in prelude.py:316](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L316)
+[Show source in prelude.py:323](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L323)
 
 #### Signature
 
@@ -173,7 +175,7 @@ class DCertGenesis(PlutusData):
 
 ## DCertMir
 
-[Show source in prelude.py:321](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L321)
+[Show source in prelude.py:328](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L328)
 
 #### Signature
 
@@ -186,7 +188,7 @@ class DCertMir(PlutusData):
 
 ## DCertPoolRegister
 
-[Show source in prelude.py:302](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L302)
+[Show source in prelude.py:309](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L309)
 
 #### Signature
 
@@ -199,7 +201,7 @@ class DCertPoolRegister(PlutusData):
 
 ## DCertPoolRetire
 
-[Show source in prelude.py:309](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L309)
+[Show source in prelude.py:316](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L316)
 
 #### Signature
 
@@ -212,10 +214,11 @@ class DCertPoolRetire(PlutusData):
 
 ## FalseData
 
-[Show source in prelude.py:42](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L42)
+[Show source in prelude.py:44](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L44)
 
 A Datum that represents False in Haskell implementations.
 It is thus used as an encoding for False in the ScriptContext.
+
 Example value: FalseData()
 
 #### Signature
@@ -229,7 +232,7 @@ class FalseData(PlutusData):
 
 ## FinitePOSIXTime
 
-[Show source in prelude.py:349](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L349)
+[Show source in prelude.py:356](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L356)
 
 Finite POSIX time, used to indicate that there is a lower or upper bound for the execution of this transaction
 
@@ -244,7 +247,7 @@ class FinitePOSIXTime(PlutusData):
 
 ## LowerBoundPOSIXTime
 
-[Show source in prelude.py:382](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L382)
+[Show source in prelude.py:389](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L389)
 
 Lower bound for the execution of this transaction
 
@@ -259,7 +262,7 @@ class LowerBoundPOSIXTime(PlutusData):
 
 ## Minting
 
-[Show source in prelude.py:403](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L403)
+[Show source in prelude.py:410](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L410)
 
 Script purpose indicating that the given policy id is being minted or burned
 
@@ -274,7 +277,7 @@ class Minting(PlutusData):
 
 ## NegInfPOSIXTime
 
-[Show source in prelude.py:340](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L340)
+[Show source in prelude.py:347](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L347)
 
 Negative infinite POSIX time, used to indicate that there is no lower bound for the execution of this transaction
 
@@ -289,7 +292,7 @@ class NegInfPOSIXTime(PlutusData):
 
 ## NoOutputDatum
 
-[Show source in prelude.py:215](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L215)
+[Show source in prelude.py:222](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L222)
 
 Indicates that there is no datum associated with an output
 
@@ -304,7 +307,7 @@ class NoOutputDatum(PlutusData):
 
 ## NoScriptHash
 
-[Show source in prelude.py:248](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L248)
+[Show source in prelude.py:255](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L255)
 
 Indicates that there is no script associated with an output
 
@@ -319,7 +322,7 @@ class NoScriptHash(PlutusData):
 
 ## NoStakingCredential
 
-[Show source in prelude.py:135](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L135)
+[Show source in prelude.py:141](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L141)
 
 Indicates that this address has no staking credentials.
 Its funds can not be delegated.
@@ -343,6 +346,7 @@ class NoStakingCredential(PlutusData):
 
 
 Nothing, can be used to signify non-importance of a parameter to a function
+
 Example value: Nothing()
 
 #### Signature
@@ -356,7 +360,7 @@ class Nothing(PlutusData):
 
 ## POSIXTimeRange
 
-[Show source in prelude.py:393](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L393)
+[Show source in prelude.py:400](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L400)
 
 Time range in which this transaction can be executed
 
@@ -371,7 +375,7 @@ class POSIXTimeRange(PlutusData):
 
 ## PosInfPOSIXTime
 
-[Show source in prelude.py:359](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L359)
+[Show source in prelude.py:366](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L366)
 
 Infinite POSIX time, used to indicate that there is no upper bound for the execution of this transaction
 
@@ -386,10 +390,10 @@ class PosInfPOSIXTime(PlutusData):
 
 ## PubKeyCredential
 
-[Show source in prelude.py:73](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L73)
+[Show source in prelude.py:77](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L77)
 
 Part of an address that is authenticated by a public key hash
-Example value: PubKeyCredential(b'ÀmÚ­üMíåoêÇ)WÁªuüæ	k@æ>Èt')
+
 Example value: PubKeyCredential(bytes.fromhex("c06ddaad12fc4ded18e56feac72957c1aa75fce6096b40e63ec88274"))
 
 #### Signature
@@ -403,7 +407,7 @@ class PubKeyCredential(PlutusData):
 
 ## Rewarding
 
-[Show source in prelude.py:424](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L424)
+[Show source in prelude.py:431](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L431)
 
 #### Signature
 
@@ -416,7 +420,7 @@ class Rewarding(PlutusData):
 
 ## ScriptContext
 
-[Show source in prelude.py:461](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L461)
+[Show source in prelude.py:468](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L468)
 
 Auxiliary information about the transaction and reason for invocation of the called script.
 
@@ -431,10 +435,10 @@ class ScriptContext(PlutusData):
 
 ## ScriptCredential
 
-[Show source in prelude.py:89](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L89)
+[Show source in prelude.py:93](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L93)
 
 Part of an address that is authenticated by a smart cotnract
-Example value: ScriptCredential(b'ÀmÚ­üMíåoêÇ)WÁªuüæ	k@æ>Èt')
+
 Example value: ScriptCredential(bytes.fromhex("c06ddaad12fc4ded18e56feac72957c1aa75fce6096b40e63ec88274"))
 
 #### Signature
@@ -448,7 +452,7 @@ class ScriptCredential(PlutusData):
 
 ## SomeDatumHash
 
-[Show source in prelude.py:182](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L182)
+[Show source in prelude.py:189](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L189)
 
 Indicates that there is a datum associated with this output, which has the given hash.
 
@@ -463,7 +467,7 @@ class SomeDatumHash(PlutusData):
 
 ## SomeOutputDatum
 
-[Show source in prelude.py:234](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L234)
+[Show source in prelude.py:241](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L241)
 
 Indicates that there is an datum associated with an output, which is inlined and equal to the attached datum
 
@@ -478,7 +482,7 @@ class SomeOutputDatum(PlutusData):
 
 ## SomeOutputDatumHash
 
-[Show source in prelude.py:224](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L224)
+[Show source in prelude.py:231](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L231)
 
 Indicates that there is an datum associated with an output, which has the attached hash
 
@@ -493,7 +497,7 @@ class SomeOutputDatumHash(PlutusData):
 
 ## SomeScriptHash
 
-[Show source in prelude.py:192](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L192)
+[Show source in prelude.py:199](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L199)
 
 Indicates that there is a script associated with this output, which has the given hash.
 
@@ -508,7 +512,7 @@ class SomeScriptHash(PlutusData):
 
 ## SomeStakingCredential
 
-[Show source in prelude.py:145](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L145)
+[Show source in prelude.py:151](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L151)
 
 Indicates that this address has staking credentials.
 Its funds can be delegated by the credentialed user.
@@ -524,7 +528,7 @@ class SomeStakingCredential(PlutusData):
 
 ## Spending
 
-[Show source in prelude.py:413](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L413)
+[Show source in prelude.py:420](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L420)
 
 Script purpose indicating that the given transaction output is being spent, which is
 owned by the invoked contract
@@ -540,7 +544,7 @@ class Spending(PlutusData):
 
 ## StakingHash
 
-[Show source in prelude.py:105](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L105)
+[Show source in prelude.py:109](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L109)
 
 Indicates that the stake of this address is controlled by the associated credential
 
@@ -555,10 +559,12 @@ class StakingHash(PlutusData):
 
 ## StakingPtr
 
-[Show source in prelude.py:115](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L115)
+[Show source in prelude.py:119](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L119)
 
 Indicates that the stake of this address is controlled by the associated pointer.
-In an address, a chain pointer refers to a point of the chain containing a stake key registration certificate. A point is identified by 3 coordinates.
+
+In an address, a chain pointer refers to a point of the chain containing a stake key registration certificate.
+A point is identified by the 3 coordinates in this object.
 
 #### Signature
 
@@ -571,7 +577,7 @@ class StakingPtr(PlutusData):
 
 ## Token
 
-[Show source in prelude.py:471](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L471)
+[Show source in prelude.py:478](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L478)
 
 A token, represented by policy id and token name
 
@@ -586,10 +592,11 @@ class Token(PlutusData):
 
 ## TrueData
 
-[Show source in prelude.py:31](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L31)
+[Show source in prelude.py:32](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L32)
 
 A Datum that represents True in Haskell implementations.
 It is thus used as an encoding for True in the ScriptContext.
+
 Example value: TrueData()
 
 #### Signature
@@ -606,7 +613,7 @@ class TrueData(PlutusData):
 [Show source in prelude.py:9](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L9)
 
 A transaction id, a 64 bytes long hash of the transaction body (also called transaction hash).
-Example value: TxId(b'*M7°6Új³ÀC1$gØF¾´O#­yp>g6V')
+
 Example value: TxId(bytes.fromhex("842a4d37b036da6ab3c04331240e67d81746beb44f23ad79703e026705361956"))
 
 #### Signature
@@ -620,7 +627,7 @@ class TxId(PlutusData):
 
 ## TxInInfo
 
-[Show source in prelude.py:273](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L273)
+[Show source in prelude.py:280](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L280)
 
 The plutus representation of an transaction output, that is consumed by the transaction.
 
@@ -635,7 +642,7 @@ class TxInInfo(PlutusData):
 
 ## TxInfo
 
-[Show source in prelude.py:440](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L440)
+[Show source in prelude.py:447](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L447)
 
 A complex agglomeration of everything that could be of interest to the executed script, regarding the transaction
 that invoked the script
@@ -651,7 +658,7 @@ class TxInfo(PlutusData):
 
 ## TxOut
 
-[Show source in prelude.py:257](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L257)
+[Show source in prelude.py:264](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L264)
 
 The plutus representation of an transaction output, consisting of
 - address: address owning this output
@@ -670,7 +677,7 @@ class TxOut(PlutusData):
 
 ## TxOutRef
 
-[Show source in prelude.py:59](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L59)
+[Show source in prelude.py:63](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L63)
 
 A reference to a transaction output (hash/id + index)
 
@@ -685,7 +692,7 @@ class TxOutRef(PlutusData):
 
 ## UpperBoundPOSIXTime
 
-[Show source in prelude.py:371](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L371)
+[Show source in prelude.py:378](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L378)
 
 Upper bound for the execution of this transaction
 
@@ -700,7 +707,7 @@ class UpperBoundPOSIXTime(PlutusData):
 
 ## all_tokens_locked_at_address
 
-[Show source in prelude.py:512](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L512)
+[Show source in prelude.py:519](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L519)
 
 Returns how many tokens of specified type are locked at the given address
 
@@ -722,7 +729,7 @@ def all_tokens_locked_at_address(
 
 ## all_tokens_locked_at_address_with_datum
 
-[Show source in prelude.py:499](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L499)
+[Show source in prelude.py:506](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L506)
 
 Returns how many tokens of specified type are locked at then given address with the specified datum
 
@@ -745,7 +752,7 @@ def all_tokens_locked_at_address_with_datum(
 
 ## all_tokens_unlocked_from_address
 
-[Show source in prelude.py:486](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L486)
+[Show source in prelude.py:493](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L493)
 
 Returns how many tokens of specified type are unlocked from given address
 
@@ -767,7 +774,7 @@ def all_tokens_unlocked_from_address(
 
 ## resolve_spent_utxo
 
-[Show source in prelude.py:525](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L525)
+[Show source in prelude.py:532](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/prelude.py#L532)
 
 Returns the UTxO whose spending should be validated
 
