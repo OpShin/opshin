@@ -1,11 +1,11 @@
 # Test Ops
 
-[Eopsin-lang Index](../../README.md#eopsin-lang-index) /
+[eopsin Index](../../README.md#eopsin-index) /
 [Eopsin](../index.md#eopsin) /
 [Tests](./index.md#tests) /
 Test Ops
 
-> Auto-generated documentation for [eopsin.tests.test_ops](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/tests/test_ops.py) module.
+> Auto-generated documentation for [eopsin.tests.test_ops](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/tests/test_ops.py) module.
 
 - [Test Ops](#test-ops)
   - [OpTest](#optest)
@@ -33,7 +33,7 @@ Test Ops
 
 ## OpTest
 
-[Show source in test_ops.py:13](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/tests/test_ops.py#L13)
+[Show source in test_ops.py:13](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/tests/test_ops.py#L13)
 
 #### Signature
 
@@ -44,7 +44,7 @@ class OpTest(unittest.TestCase):
 
 ### OpTest().test_add_bytes
 
-[Show source in test_ops.py:198](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/tests/test_ops.py#L198)
+[Show source in test_ops.py:198](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/tests/test_ops.py#L198)
 
 #### Signature
 
@@ -56,7 +56,7 @@ def test_add_bytes(self, x, y):
 
 ### OpTest().test_add_int
 
-[Show source in test_ops.py:82](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/tests/test_ops.py#L82)
+[Show source in test_ops.py:82](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/tests/test_ops.py#L82)
 
 #### Signature
 
@@ -68,7 +68,7 @@ def test_add_int(self, x, y):
 
 ### OpTest().test_add_str
 
-[Show source in test_ops.py:215](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/tests/test_ops.py#L215)
+[Show source in test_ops.py:215](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/tests/test_ops.py#L215)
 
 #### Signature
 
@@ -80,7 +80,7 @@ def test_add_str(self, x, y):
 
 ### OpTest().test_and_bool
 
-[Show source in test_ops.py:14](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/tests/test_ops.py#L14)
+[Show source in test_ops.py:14](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/tests/test_ops.py#L14)
 
 #### Signature
 
@@ -92,7 +92,7 @@ def test_and_bool(self, x, y):
 
 ### OpTest().test_div_int
 
-[Show source in test_ops.py:133](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/tests/test_ops.py#L133)
+[Show source in test_ops.py:133](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/tests/test_ops.py#L133)
 
 #### Signature
 
@@ -104,7 +104,7 @@ def test_div_int(self, x, y):
 
 ### OpTest().test_eq_bool
 
-[Show source in test_ops.py:435](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/tests/test_ops.py#L435)
+[Show source in test_ops.py:435](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/tests/test_ops.py#L435)
 
 #### Signature
 
@@ -116,7 +116,7 @@ def test_eq_bool(self, x, y):
 
 ### OpTest().test_eq_bytes
 
-[Show source in test_ops.py:372](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/tests/test_ops.py#L372)
+[Show source in test_ops.py:372](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/tests/test_ops.py#L372)
 
 #### Signature
 
@@ -128,7 +128,7 @@ def test_eq_bytes(self, x, y):
 
 ### OpTest().test_eq_bytes
 
-[Show source in test_ops.py:393](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/tests/test_ops.py#L393)
+[Show source in test_ops.py:393](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/tests/test_ops.py#L393)
 
 #### Signature
 
@@ -140,7 +140,7 @@ def test_eq_bytes(self, x, y):
 
 ### OpTest().test_eq_str
 
-[Show source in test_ops.py:414](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/tests/test_ops.py#L414)
+[Show source in test_ops.py:414](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/tests/test_ops.py#L414)
 
 #### Signature
 
@@ -152,7 +152,7 @@ def test_eq_str(self, x, y):
 
 ### OpTest().test_in_list_bytes
 
-[Show source in test_ops.py:350](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/tests/test_ops.py#L350)
+[Show source in test_ops.py:350](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/tests/test_ops.py#L350)
 
 #### Signature
 
@@ -164,7 +164,7 @@ def test_in_list_bytes(self, xs, y):
 
 ### OpTest().test_in_list_int
 
-[Show source in test_ops.py:326](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/tests/test_ops.py#L326)
+[Show source in test_ops.py:326](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/tests/test_ops.py#L326)
 
 #### Signature
 
@@ -178,7 +178,7 @@ def test_in_list_int(self, xs, y):
 
 ### OpTest().test_index_bytes
 
-[Show source in test_ops.py:269](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/tests/test_ops.py#L269)
+[Show source in test_ops.py:269](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/tests/test_ops.py#L269)
 
 #### Signature
 
@@ -193,7 +193,7 @@ def test_index_bytes(self, x, y):
 
 ### OpTest().test_index_list
 
-[Show source in test_ops.py:296](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/tests/test_ops.py#L296)
+[Show source in test_ops.py:296](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/tests/test_ops.py#L296)
 
 #### Signature
 
@@ -207,7 +207,7 @@ def test_index_list(self, xs, y):
 
 ### OpTest().test_mod_int
 
-[Show source in test_ops.py:157](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/tests/test_ops.py#L157)
+[Show source in test_ops.py:157](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/tests/test_ops.py#L157)
 
 #### Signature
 
@@ -219,7 +219,7 @@ def test_mod_int(self, x, y):
 
 ### OpTest().test_mul_int
 
-[Show source in test_ops.py:116](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/tests/test_ops.py#L116)
+[Show source in test_ops.py:116](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/tests/test_ops.py#L116)
 
 #### Signature
 
@@ -231,7 +231,7 @@ def test_mul_int(self, x, y):
 
 ### OpTest().test_not_bool
 
-[Show source in test_ops.py:48](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/tests/test_ops.py#L48)
+[Show source in test_ops.py:48](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/tests/test_ops.py#L48)
 
 #### Signature
 
@@ -243,7 +243,7 @@ def test_not_bool(self, x):
 
 ### OpTest().test_or_bool
 
-[Show source in test_ops.py:31](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/tests/test_ops.py#L31)
+[Show source in test_ops.py:31](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/tests/test_ops.py#L31)
 
 #### Signature
 
@@ -255,7 +255,7 @@ def test_or_bool(self, x, y):
 
 ### OpTest().test_pow_int
 
-[Show source in test_ops.py:181](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/tests/test_ops.py#L181)
+[Show source in test_ops.py:181](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/tests/test_ops.py#L181)
 
 #### Signature
 
@@ -267,7 +267,7 @@ def test_pow_int(self, x, y):
 
 ### OpTest().test_slice_bytes
 
-[Show source in test_ops.py:235](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/tests/test_ops.py#L235)
+[Show source in test_ops.py:235](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/tests/test_ops.py#L235)
 
 #### Signature
 
@@ -285,7 +285,7 @@ def test_slice_bytes(self, x, y, z):
 
 ### OpTest().test_sub_int
 
-[Show source in test_ops.py:99](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/tests/test_ops.py#L99)
+[Show source in test_ops.py:99](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/tests/test_ops.py#L99)
 
 #### Signature
 
@@ -297,7 +297,7 @@ def test_sub_int(self, x, y):
 
 ### OpTest().test_usub_int
 
-[Show source in test_ops.py:65](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/tests/test_ops.py#L65)
+[Show source in test_ops.py:65](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/tests/test_ops.py#L65)
 
 #### Signature
 

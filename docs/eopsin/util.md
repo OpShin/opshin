@@ -1,10 +1,10 @@
 # Util
 
-[Eopsin-lang Index](../README.md#eopsin-lang-index) /
+[eopsin Index](../README.md#eopsin-index) /
 [Eopsin](./index.md#eopsin) /
 Util
 
-> Auto-generated documentation for [eopsin.util](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/util.py) module.
+> Auto-generated documentation for [eopsin.util](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/util.py) module.
 
 - [Util](#util)
   - [CompilerError](#compilererror)
@@ -24,7 +24,7 @@ Util
 
 ## CompilerError
 
-[Show source in util.py:514](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/util.py#L514)
+[Show source in util.py:514](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/util.py#L514)
 
 #### Signature
 
@@ -38,7 +38,7 @@ class CompilerError(Exception):
 
 ## CompilingNodeTransformer
 
-[Show source in util.py:521](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/util.py#L521)
+[Show source in util.py:521](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/util.py#L521)
 
 #### Signature
 
@@ -49,7 +49,7 @@ class CompilingNodeTransformer(TypedNodeTransformer):
 
 ### CompilingNodeTransformer().visit
 
-[Show source in util.py:524](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/util.py#L524)
+[Show source in util.py:524](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/util.py#L524)
 
 #### Signature
 
@@ -62,7 +62,7 @@ def visit(self, node):
 
 ## CompilingNodeVisitor
 
-[Show source in util.py:533](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/util.py#L533)
+[Show source in util.py:533](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/util.py#L533)
 
 #### Signature
 
@@ -73,7 +73,7 @@ class CompilingNodeVisitor(TypedNodeVisitor):
 
 ### CompilingNodeVisitor().visit
 
-[Show source in util.py:536](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/util.py#L536)
+[Show source in util.py:536](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/util.py#L536)
 
 #### Signature
 
@@ -86,7 +86,7 @@ def visit(self, node):
 
 ## LenImpl
 
-[Show source in util.py:381](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/util.py#L381)
+[Show source in util.py:381](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/util.py#L381)
 
 #### Signature
 
@@ -97,7 +97,7 @@ class LenImpl(PolymorphicFunction):
 
 ### LenImpl().impl_from_args
 
-[Show source in util.py:391](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/util.py#L391)
+[Show source in util.py:391](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/util.py#L391)
 
 #### Signature
 
@@ -108,7 +108,7 @@ def impl_from_args(self, args: typing.List[Type]) -> plt.AST:
 
 ### LenImpl().type_from_args
 
-[Show source in util.py:382](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/util.py#L382)
+[Show source in util.py:382](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/util.py#L382)
 
 #### Signature
 
@@ -121,7 +121,7 @@ def type_from_args(self, args: typing.List[Type]) -> FunctionType:
 
 ## PythonBuiltIn
 
-[Show source in util.py:35](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/util.py#L35)
+[Show source in util.py:35](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/util.py#L35)
 
 #### Attributes
 
@@ -142,7 +142,7 @@ class PythonBuiltIn(Enum):
 
 ## ReversedImpl
 
-[Show source in util.py:411](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/util.py#L411)
+[Show source in util.py:411](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/util.py#L411)
 
 #### Signature
 
@@ -153,7 +153,7 @@ class ReversedImpl(PolymorphicFunction):
 
 ### ReversedImpl().impl_from_args
 
-[Show source in util.py:422](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/util.py#L422)
+[Show source in util.py:422](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/util.py#L422)
 
 #### Signature
 
@@ -164,7 +164,7 @@ def impl_from_args(self, args: typing.List[Type]) -> plt.AST:
 
 ### ReversedImpl().type_from_args
 
-[Show source in util.py:412](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/util.py#L412)
+[Show source in util.py:412](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/util.py#L412)
 
 #### Signature
 
@@ -177,7 +177,7 @@ def type_from_args(self, args: typing.List[Type]) -> FunctionType:
 
 ## PowImpl
 
-[Show source in util.py:10](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/util.py#L10)
+[Show source in util.py:10](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/util.py#L10)
 
 #### Signature
 
@@ -190,7 +190,7 @@ def PowImpl(x: plt.AST, y: plt.AST):
 
 ## data_from_json
 
-[Show source in util.py:545](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/util.py#L545)
+[Show source in util.py:545](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/util.py#L545)
 
 #### Signature
 

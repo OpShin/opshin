@@ -1,10 +1,10 @@
 # Rewrite
 
-[Eopsin-lang Index](../../README.md#eopsin-lang-index) /
+[eopsin Index](../../README.md#eopsin-index) /
 [Eopsin](../index.md#eopsin) /
 Rewrite
 
-> Auto-generated documentation for [eopsin.rewrite](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/rewrite/__init__.py) module.
+> Auto-generated documentation for [eopsin.rewrite](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/rewrite/__init__.py) module.
 
 - [Rewrite](#rewrite)
   - [Modules](#modules)

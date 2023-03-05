@@ -1,10 +1,10 @@
 # Optimize
 
-[Eopsin-lang Index](../../README.md#eopsin-lang-index) /
+[eopsin Index](../../README.md#eopsin-index) /
 [Eopsin](../index.md#eopsin) /
 Optimize
 
-> Auto-generated documentation for [eopsin.optimize](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/optimize/__init__.py) module.
+> Auto-generated documentation for [eopsin.optimize](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/optimize/__init__.py) module.
 
 - [Optimize](#optimize)
   - [Modules](#modules)

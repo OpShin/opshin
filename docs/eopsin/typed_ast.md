@@ -1,10 +1,10 @@
 # TypedAST
 
-[Eopsin-lang Index](../README.md#eopsin-lang-index) /
+[eopsin Index](../README.md#eopsin-index) /
 [Eopsin](./index.md#eopsin) /
 TypedAST
 
-> Auto-generated documentation for [eopsin.typed_ast](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/typed_ast.py) module.
+> Auto-generated documentation for [eopsin.typed_ast](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/typed_ast.py) module.
 
 - [TypedAST](#typedast)
   - [AnyType](#anytype)
@@ -112,7 +112,7 @@ TypedAST
 
 ## AnyType
 
-[Show source in typed_ast.py:64](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/typed_ast.py#L64)
+[Show source in typed_ast.py:64](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/typed_ast.py#L64)
 
 The top element in the partial order on types
 
@@ -131,7 +131,7 @@ class AnyType(ClassType):
 
 ## AtomicType
 
-[Show source in typed_ast.py:72](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/typed_ast.py#L72)
+[Show source in typed_ast.py:72](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/typed_ast.py#L72)
 
 #### Signature
 
@@ -148,7 +148,7 @@ class AtomicType(ClassType):
 
 ## BoolType
 
-[Show source in typed_ast.py:762](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/typed_ast.py#L762)
+[Show source in typed_ast.py:762](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/typed_ast.py#L762)
 
 #### Signature
 
@@ -163,7 +163,7 @@ class BoolType(AtomicType):
 
 ### BoolType().cmp
 
-[Show source in typed_ast.py:763](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/typed_ast.py#L763)
+[Show source in typed_ast.py:763](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/typed_ast.py#L763)
 
 #### Signature
 
@@ -176,7 +176,7 @@ def cmp(self, op: cmpop, o: "Type") -> plt.AST:
 
 ## ByteStringType
 
-[Show source in typed_ast.py:671](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/typed_ast.py#L671)
+[Show source in typed_ast.py:671](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/typed_ast.py#L671)
 
 #### Signature
 
@@ -191,7 +191,7 @@ class ByteStringType(AtomicType):
 
 ### ByteStringType().attribute
 
-[Show source in typed_ast.py:694](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/typed_ast.py#L694)
+[Show source in typed_ast.py:694](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/typed_ast.py#L694)
 
 #### Signature
 
@@ -202,7 +202,7 @@ def attribute(self, attr) -> plt.AST:
 
 ### ByteStringType().attribute_type
 
-[Show source in typed_ast.py:689](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/typed_ast.py#L689)
+[Show source in typed_ast.py:689](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/typed_ast.py#L689)
 
 #### Signature
 
@@ -217,7 +217,7 @@ def attribute_type(self, attr) -> Type:
 
 ### ByteStringType().cmp
 
-[Show source in typed_ast.py:700](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/typed_ast.py#L700)
+[Show source in typed_ast.py:700](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/typed_ast.py#L700)
 
 #### Signature
 
@@ -228,7 +228,7 @@ def cmp(self, op: cmpop, o: "Type") -> plt.AST:
 
 ### ByteStringType().constr
 
-[Show source in typed_ast.py:679](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/typed_ast.py#L679)
+[Show source in typed_ast.py:679](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/typed_ast.py#L679)
 
 #### Signature
 
@@ -239,7 +239,7 @@ def constr(self) -> plt.AST:
 
 ### ByteStringType().constr_type
 
-[Show source in typed_ast.py:672](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/typed_ast.py#L672)
+[Show source in typed_ast.py:672](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/typed_ast.py#L672)
 
 #### Signature
 
@@ -256,7 +256,7 @@ def constr_type(self) -> InstanceType:
 
 ## ClassType
 
-[Show source in typed_ast.py:58](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/typed_ast.py#L58)
+[Show source in typed_ast.py:58](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/typed_ast.py#L58)
 
 #### Signature
 
@@ -273,7 +273,7 @@ class ClassType(Type):
 
 ## DictType
 
-[Show source in typed_ast.py:292](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/typed_ast.py#L292)
+[Show source in typed_ast.py:292](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/typed_ast.py#L292)
 
 #### Signature
 
@@ -288,7 +288,7 @@ class DictType(ClassType):
 
 ### DictType().attribute
 
-[Show source in typed_ast.py:311](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/typed_ast.py#L311)
+[Show source in typed_ast.py:311](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/typed_ast.py#L311)
 
 #### Signature
 
@@ -299,7 +299,7 @@ def attribute(self, attr) -> plt.AST:
 
 ### DictType().attribute_type
 
-[Show source in typed_ast.py:296](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/typed_ast.py#L296)
+[Show source in typed_ast.py:296](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/typed_ast.py#L296)
 
 #### Signature
 
@@ -312,7 +312,7 @@ def attribute_type(self, attr) -> "Type":
 
 ## FunctionType
 
-[Show source in typed_ast.py:376](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/typed_ast.py#L376)
+[Show source in typed_ast.py:376](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/typed_ast.py#L376)
 
 #### Signature
 
@@ -329,7 +329,7 @@ class FunctionType(ClassType):
 
 ## InaccessibleType
 
-[Show source in typed_ast.py:812](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/typed_ast.py#L812)
+[Show source in typed_ast.py:812](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/typed_ast.py#L812)
 
 A type that blocks overwriting of a function
 
@@ -348,7 +348,7 @@ class InaccessibleType(ClassType):
 
 ## InstanceType
 
-[Show source in typed_ast.py:389](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/typed_ast.py#L389)
+[Show source in typed_ast.py:389](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/typed_ast.py#L389)
 
 #### Signature
 
@@ -363,7 +363,7 @@ class InstanceType(Type):
 
 ### InstanceType().attribute
 
-[Show source in typed_ast.py:401](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/typed_ast.py#L401)
+[Show source in typed_ast.py:401](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/typed_ast.py#L401)
 
 #### Signature
 
@@ -374,7 +374,7 @@ def attribute(self, attr) -> plt.AST:
 
 ### InstanceType().attribute_type
 
-[Show source in typed_ast.py:398](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/typed_ast.py#L398)
+[Show source in typed_ast.py:398](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/typed_ast.py#L398)
 
 #### Signature
 
@@ -389,7 +389,7 @@ def attribute_type(self, attr) -> Type:
 
 ### InstanceType().cmp
 
-[Show source in typed_ast.py:404](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/typed_ast.py#L404)
+[Show source in typed_ast.py:404](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/typed_ast.py#L404)
 
 The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second the comparison.
 
@@ -402,7 +402,7 @@ def cmp(self, op: cmpop, o: "Type") -> plt.AST:
 
 ### InstanceType().constr
 
-[Show source in typed_ast.py:395](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/typed_ast.py#L395)
+[Show source in typed_ast.py:395](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/typed_ast.py#L395)
 
 #### Signature
 
@@ -413,7 +413,7 @@ def constr(self) -> plt.AST:
 
 ### InstanceType().constr_type
 
-[Show source in typed_ast.py:392](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/typed_ast.py#L392)
+[Show source in typed_ast.py:392](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/typed_ast.py#L392)
 
 #### Signature
 
@@ -430,7 +430,7 @@ def constr_type(self) -> FunctionType:
 
 ## IntegerType
 
-[Show source in typed_ast.py:415](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/typed_ast.py#L415)
+[Show source in typed_ast.py:415](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/typed_ast.py#L415)
 
 #### Signature
 
@@ -445,7 +445,7 @@ class IntegerType(AtomicType):
 
 ### IntegerType().cmp
 
-[Show source in typed_ast.py:506](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/typed_ast.py#L506)
+[Show source in typed_ast.py:506](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/typed_ast.py#L506)
 
 The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second the comparison.
 
@@ -458,7 +458,7 @@ def cmp(self, op: cmpop, o: "Type") -> plt.AST:
 
 ### IntegerType().constr
 
-[Show source in typed_ast.py:419](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/typed_ast.py#L419)
+[Show source in typed_ast.py:419](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/typed_ast.py#L419)
 
 #### Signature
 
@@ -469,7 +469,7 @@ def constr(self) -> plt.AST:
 
 ### IntegerType().constr_type
 
-[Show source in typed_ast.py:416](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/typed_ast.py#L416)
+[Show source in typed_ast.py:416](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/typed_ast.py#L416)
 
 #### Signature
 
@@ -486,7 +486,7 @@ def constr_type(self) -> InstanceType:
 
 ## ListType
 
-[Show source in typed_ast.py:284](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/typed_ast.py#L284)
+[Show source in typed_ast.py:284](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/typed_ast.py#L284)
 
 #### Signature
 
@@ -503,7 +503,7 @@ class ListType(ClassType):
 
 ## PolymorphicFunction
 
-[Show source in typed_ast.py:818](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/typed_ast.py#L818)
+[Show source in typed_ast.py:818](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/typed_ast.py#L818)
 
 #### Signature
 
@@ -514,7 +514,7 @@ class PolymorphicFunction:
 
 ### PolymorphicFunction().impl_from_args
 
-[Show source in typed_ast.py:822](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/typed_ast.py#L822)
+[Show source in typed_ast.py:822](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/typed_ast.py#L822)
 
 #### Signature
 
@@ -525,7 +525,7 @@ def impl_from_args(self, args: typing.List[Type]) -> plt.AST:
 
 ### PolymorphicFunction().type_from_args
 
-[Show source in typed_ast.py:819](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/typed_ast.py#L819)
+[Show source in typed_ast.py:819](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/typed_ast.py#L819)
 
 #### Signature
 
@@ -542,7 +542,7 @@ def type_from_args(self, args: typing.List[Type]) -> FunctionType:
 
 ## PolymorphicFunctionInstanceType
 
-[Show source in typed_ast.py:834](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/typed_ast.py#L834)
+[Show source in typed_ast.py:834](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/typed_ast.py#L834)
 
 #### Signature
 
@@ -559,7 +559,7 @@ class PolymorphicFunctionInstanceType(InstanceType):
 
 ## PolymorphicFunctionType
 
-[Show source in typed_ast.py:827](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/typed_ast.py#L827)
+[Show source in typed_ast.py:827](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/typed_ast.py#L827)
 
 A special type of builtin that may act differently on different parameters
 
@@ -578,7 +578,7 @@ class PolymorphicFunctionType(ClassType):
 
 ## RawPlutoExpr
 
-[Show source in typed_ast.py:999](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/typed_ast.py#L999)
+[Show source in typed_ast.py:999](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/typed_ast.py#L999)
 
 #### Signature
 
@@ -595,7 +595,7 @@ class RawPlutoExpr(typedexpr):
 
 ## Record
 
-[Show source in typed_ast.py:51](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/typed_ast.py#L51)
+[Show source in typed_ast.py:51](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/typed_ast.py#L51)
 
 #### Signature
 
@@ -608,7 +608,7 @@ class Record:
 
 ## RecordType
 
-[Show source in typed_ast.py:79](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/typed_ast.py#L79)
+[Show source in typed_ast.py:79](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/typed_ast.py#L79)
 
 #### Signature
 
@@ -623,7 +623,7 @@ class RecordType(ClassType):
 
 ### RecordType().attribute
 
-[Show source in typed_ast.py:111](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/typed_ast.py#L111)
+[Show source in typed_ast.py:111](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/typed_ast.py#L111)
 
 The attributes of this class. Need to be a lambda that expects as first argument the object itself
 
@@ -636,7 +636,7 @@ def attribute(self, attr: str) -> plt.AST:
 
 ### RecordType().attribute_type
 
-[Show source in typed_ast.py:100](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/typed_ast.py#L100)
+[Show source in typed_ast.py:100](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/typed_ast.py#L100)
 
 The types of the named attributes of this class
 
@@ -653,7 +653,7 @@ def attribute_type(self, attr: str) -> Type:
 
 ### RecordType().cmp
 
-[Show source in typed_ast.py:132](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/typed_ast.py#L132)
+[Show source in typed_ast.py:132](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/typed_ast.py#L132)
 
 The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second the comparison.
 
@@ -666,7 +666,7 @@ def cmp(self, op: cmpop, o: "Type") -> plt.AST:
 
 ### RecordType().constr
 
-[Show source in typed_ast.py:87](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/typed_ast.py#L87)
+[Show source in typed_ast.py:87](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/typed_ast.py#L87)
 
 #### Signature
 
@@ -677,7 +677,7 @@ def constr(self) -> plt.AST:
 
 ### RecordType().constr_type
 
-[Show source in typed_ast.py:82](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/typed_ast.py#L82)
+[Show source in typed_ast.py:82](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/typed_ast.py#L82)
 
 #### Signature
 
@@ -690,7 +690,7 @@ def constr_type(self) -> "InstanceType":
 
 ## StringType
 
-[Show source in typed_ast.py:581](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/typed_ast.py#L581)
+[Show source in typed_ast.py:581](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/typed_ast.py#L581)
 
 #### Signature
 
@@ -705,7 +705,7 @@ class StringType(AtomicType):
 
 ### StringType().attribute
 
-[Show source in typed_ast.py:657](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/typed_ast.py#L657)
+[Show source in typed_ast.py:657](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/typed_ast.py#L657)
 
 #### Signature
 
@@ -716,7 +716,7 @@ def attribute(self, attr) -> plt.AST:
 
 ### StringType().attribute_type
 
-[Show source in typed_ast.py:652](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/typed_ast.py#L652)
+[Show source in typed_ast.py:652](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/typed_ast.py#L652)
 
 #### Signature
 
@@ -731,7 +731,7 @@ def attribute_type(self, attr) -> Type:
 
 ### StringType().cmp
 
-[Show source in typed_ast.py:663](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/typed_ast.py#L663)
+[Show source in typed_ast.py:663](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/typed_ast.py#L663)
 
 #### Signature
 
@@ -742,7 +742,7 @@ def cmp(self, op: cmpop, o: "Type") -> plt.AST:
 
 ### StringType().constr
 
-[Show source in typed_ast.py:585](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/typed_ast.py#L585)
+[Show source in typed_ast.py:585](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/typed_ast.py#L585)
 
 #### Signature
 
@@ -753,7 +753,7 @@ def constr(self) -> plt.AST:
 
 ### StringType().constr_type
 
-[Show source in typed_ast.py:582](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/typed_ast.py#L582)
+[Show source in typed_ast.py:582](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/typed_ast.py#L582)
 
 #### Signature
 
@@ -770,7 +770,7 @@ def constr_type(self) -> InstanceType:
 
 ## TupleType
 
-[Show source in typed_ast.py:274](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/typed_ast.py#L274)
+[Show source in typed_ast.py:274](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/typed_ast.py#L274)
 
 #### Signature
 
@@ -787,7 +787,7 @@ class TupleType(ClassType):
 
 ## Type
 
-[Show source in typed_ast.py:22](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/typed_ast.py#L22)
+[Show source in typed_ast.py:22](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/typed_ast.py#L22)
 
 #### Signature
 
@@ -798,7 +798,7 @@ class Type:
 
 ### Type().attribute
 
-[Show source in typed_ast.py:39](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/typed_ast.py#L39)
+[Show source in typed_ast.py:39](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/typed_ast.py#L39)
 
 The attributes of this class. Needs to be a lambda that expects as first argument the object itself
 
@@ -811,7 +811,7 @@ def attribute(self, attr) -> plt.AST:
 
 ### Type().attribute_type
 
-[Show source in typed_ast.py:33](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/typed_ast.py#L33)
+[Show source in typed_ast.py:33](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/typed_ast.py#L33)
 
 The types of the named attributes of this class
 
@@ -824,7 +824,7 @@ def attribute_type(self, attr) -> "Type":
 
 ### Type().cmp
 
-[Show source in typed_ast.py:43](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/typed_ast.py#L43)
+[Show source in typed_ast.py:43](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/typed_ast.py#L43)
 
 The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second the comparison.
 
@@ -837,7 +837,7 @@ def cmp(self, op: cmpop, o: "Type") -> plt.AST:
 
 ### Type().constr
 
-[Show source in typed_ast.py:29](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/typed_ast.py#L29)
+[Show source in typed_ast.py:29](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/typed_ast.py#L29)
 
 The constructor for this class
 
@@ -850,7 +850,7 @@ def constr(self) -> plt.AST:
 
 ### Type().constr_type
 
-[Show source in typed_ast.py:23](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/typed_ast.py#L23)
+[Show source in typed_ast.py:23](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/typed_ast.py#L23)
 
 The type of the constructor for this class
 
@@ -865,7 +865,7 @@ def constr_type(self) -> "InstanceType":
 
 ## TypeInferenceError
 
-[Show source in typed_ast.py:1004](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/typed_ast.py#L1004)
+[Show source in typed_ast.py:1004](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/typed_ast.py#L1004)
 
 #### Signature
 
@@ -878,7 +878,7 @@ class TypeInferenceError(AssertionError):
 
 ## TypedAST
 
-[Show source in typed_ast.py:839](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/typed_ast.py#L839)
+[Show source in typed_ast.py:839](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/typed_ast.py#L839)
 
 #### Signature
 
@@ -891,7 +891,7 @@ class TypedAST(AST):
 
 ## TypedAnnAssign
 
-[Show source in typed_ast.py:906](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/typed_ast.py#L906)
+[Show source in typed_ast.py:906](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/typed_ast.py#L906)
 
 #### Signature
 
@@ -908,7 +908,7 @@ class TypedAnnAssign(typedstmt, AnnAssign):
 
 ## TypedAssert
 
-[Show source in typed_ast.py:994](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/typed_ast.py#L994)
+[Show source in typed_ast.py:994](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/typed_ast.py#L994)
 
 #### Signature
 
@@ -925,7 +925,7 @@ class TypedAssert(typedstmt, Assert):
 
 ## TypedAssign
 
-[Show source in typed_ast.py:897](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/typed_ast.py#L897)
+[Show source in typed_ast.py:897](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/typed_ast.py#L897)
 
 #### Signature
 
@@ -942,7 +942,7 @@ class TypedAssign(typedstmt, Assign):
 
 ## TypedAttribute
 
-[Show source in typed_ast.py:989](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/typed_ast.py#L989)
+[Show source in typed_ast.py:989](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/typed_ast.py#L989)
 
 #### Signature
 
@@ -959,7 +959,7 @@ class TypedAttribute(typedexpr, Attribute):
 
 ## TypedBinOp
 
-[Show source in typed_ast.py:972](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/typed_ast.py#L972)
+[Show source in typed_ast.py:972](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/typed_ast.py#L972)
 
 #### Signature
 
@@ -976,7 +976,7 @@ class TypedBinOp(typedexpr, BinOp):
 
 ## TypedBoolOp
 
-[Show source in typed_ast.py:977](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/typed_ast.py#L977)
+[Show source in typed_ast.py:977](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/typed_ast.py#L977)
 
 #### Signature
 
@@ -993,7 +993,7 @@ class TypedBoolOp(typedexpr, BoolOp):
 
 ## TypedCall
 
-[Show source in typed_ast.py:888](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/typed_ast.py#L888)
+[Show source in typed_ast.py:888](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/typed_ast.py#L888)
 
 #### Signature
 
@@ -1010,7 +1010,7 @@ class TypedCall(typedexpr, Call):
 
 ## TypedClassDef
 
-[Show source in typed_ast.py:902](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/typed_ast.py#L902)
+[Show source in typed_ast.py:902](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/typed_ast.py#L902)
 
 #### Signature
 
@@ -1027,7 +1027,7 @@ class TypedClassDef(typedstmt, ClassDef):
 
 ## TypedCompare
 
-[Show source in typed_ast.py:966](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/typed_ast.py#L966)
+[Show source in typed_ast.py:966](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/typed_ast.py#L966)
 
 #### Signature
 
@@ -1044,7 +1044,7 @@ class TypedCompare(typedexpr, Compare):
 
 ## TypedConstant
 
-[Show source in typed_ast.py:933](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/typed_ast.py#L933)
+[Show source in typed_ast.py:933](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/typed_ast.py#L933)
 
 #### Signature
 
@@ -1061,7 +1061,7 @@ class TypedConstant(TypedAST, Constant):
 
 ## TypedDict
 
-[Show source in typed_ast.py:956](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/typed_ast.py#L956)
+[Show source in typed_ast.py:956](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/typed_ast.py#L956)
 
 #### Signature
 
@@ -1078,7 +1078,7 @@ class TypedDict(typedexpr, Dict):
 
 ## TypedExpr
 
-[Show source in typed_ast.py:893](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/typed_ast.py#L893)
+[Show source in typed_ast.py:893](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/typed_ast.py#L893)
 
 #### Signature
 
@@ -1095,7 +1095,7 @@ class TypedExpr(typedstmt, Expr):
 
 ## TypedExpression
 
-[Show source in typed_ast.py:884](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/typed_ast.py#L884)
+[Show source in typed_ast.py:884](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/typed_ast.py#L884)
 
 #### Signature
 
@@ -1112,7 +1112,7 @@ class TypedExpression(typedexpr, Expression):
 
 ## TypedFor
 
-[Show source in typed_ast.py:918](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/typed_ast.py#L918)
+[Show source in typed_ast.py:918](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/typed_ast.py#L918)
 
 #### Signature
 
@@ -1129,7 +1129,7 @@ class TypedFor(typedstmt, For):
 
 ## TypedFunctionDef
 
-[Show source in typed_ast.py:869](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/typed_ast.py#L869)
+[Show source in typed_ast.py:869](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/typed_ast.py#L869)
 
 #### Signature
 
@@ -1146,7 +1146,7 @@ class TypedFunctionDef(typedstmt, FunctionDef):
 
 ## TypedIf
 
-[Show source in typed_ast.py:874](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/typed_ast.py#L874)
+[Show source in typed_ast.py:874](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/typed_ast.py#L874)
 
 #### Signature
 
@@ -1163,7 +1163,7 @@ class TypedIf(typedstmt, If):
 
 ## TypedIfExp
 
-[Show source in typed_ast.py:960](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/typed_ast.py#L960)
+[Show source in typed_ast.py:960](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/typed_ast.py#L960)
 
 #### Signature
 
@@ -1180,7 +1180,7 @@ class TypedIfExp(typedstmt, IfExp):
 
 ## TypedList
 
-[Show source in typed_ast.py:941](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/typed_ast.py#L941)
+[Show source in typed_ast.py:941](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/typed_ast.py#L941)
 
 #### Signature
 
@@ -1197,7 +1197,7 @@ class TypedList(typedexpr, List):
 
 ## TypedListComp
 
-[Show source in typed_ast.py:951](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/typed_ast.py#L951)
+[Show source in typed_ast.py:951](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/typed_ast.py#L951)
 
 #### Signature
 
@@ -1214,7 +1214,7 @@ class TypedListComp(typedexpr, ListComp):
 
 ## TypedModule
 
-[Show source in typed_ast.py:865](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/typed_ast.py#L865)
+[Show source in typed_ast.py:865](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/typed_ast.py#L865)
 
 #### Signature
 
@@ -1231,7 +1231,7 @@ class TypedModule(typedstmt, Module):
 
 ## TypedName
 
-[Show source in typed_ast.py:929](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/typed_ast.py#L929)
+[Show source in typed_ast.py:929](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/typed_ast.py#L929)
 
 #### Signature
 
@@ -1248,7 +1248,7 @@ class TypedName(typedexpr, Name):
 
 ## TypedNodeTransformer
 
-[Show source in typed_ast.py:1092](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/typed_ast.py#L1092)
+[Show source in typed_ast.py:1092](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/typed_ast.py#L1092)
 
 #### Signature
 
@@ -1259,7 +1259,7 @@ class TypedNodeTransformer(NodeTransformer):
 
 ### TypedNodeTransformer().visit
 
-[Show source in typed_ast.py:1093](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/typed_ast.py#L1093)
+[Show source in typed_ast.py:1093](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/typed_ast.py#L1093)
 
 Visit a node.
 
@@ -1274,7 +1274,7 @@ def visit(self, node):
 
 ## TypedNodeVisitor
 
-[Show source in typed_ast.py:1103](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/typed_ast.py#L1103)
+[Show source in typed_ast.py:1103](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/typed_ast.py#L1103)
 
 #### Signature
 
@@ -1285,7 +1285,7 @@ class TypedNodeVisitor(NodeVisitor):
 
 ### TypedNodeVisitor().visit
 
-[Show source in typed_ast.py:1104](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/typed_ast.py#L1104)
+[Show source in typed_ast.py:1104](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/typed_ast.py#L1104)
 
 Visit a node.
 
@@ -1300,7 +1300,7 @@ def visit(self, node):
 
 ## TypedPass
 
-[Show source in typed_ast.py:925](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/typed_ast.py#L925)
+[Show source in typed_ast.py:925](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/typed_ast.py#L925)
 
 #### Signature
 
@@ -1317,7 +1317,7 @@ class TypedPass(typedstmt, Pass):
 
 ## TypedReturn
 
-[Show source in typed_ast.py:880](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/typed_ast.py#L880)
+[Show source in typed_ast.py:880](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/typed_ast.py#L880)
 
 #### Signature
 
@@ -1334,7 +1334,7 @@ class TypedReturn(typedstmt, Return):
 
 ## TypedSubscript
 
-[Show source in typed_ast.py:985](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/typed_ast.py#L985)
+[Show source in typed_ast.py:985](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/typed_ast.py#L985)
 
 #### Signature
 
@@ -1351,7 +1351,7 @@ class TypedSubscript(typedexpr, Subscript):
 
 ## TypedTuple
 
-[Show source in typed_ast.py:937](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/typed_ast.py#L937)
+[Show source in typed_ast.py:937](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/typed_ast.py#L937)
 
 #### Signature
 
@@ -1368,7 +1368,7 @@ class TypedTuple(typedexpr, Tuple):
 
 ## TypedUnaryOp
 
-[Show source in typed_ast.py:981](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/typed_ast.py#L981)
+[Show source in typed_ast.py:981](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/typed_ast.py#L981)
 
 #### Signature
 
@@ -1385,7 +1385,7 @@ class TypedUnaryOp(typedexpr, UnaryOp):
 
 ## TypedWhile
 
-[Show source in typed_ast.py:912](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/typed_ast.py#L912)
+[Show source in typed_ast.py:912](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/typed_ast.py#L912)
 
 #### Signature
 
@@ -1402,7 +1402,7 @@ class TypedWhile(typedstmt, While):
 
 ## UnionType
 
-[Show source in typed_ast.py:185](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/typed_ast.py#L185)
+[Show source in typed_ast.py:185](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/typed_ast.py#L185)
 
 #### Signature
 
@@ -1417,7 +1417,7 @@ class UnionType(ClassType):
 
 ### UnionType().attribute
 
-[Show source in typed_ast.py:216](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/typed_ast.py#L216)
+[Show source in typed_ast.py:216](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/typed_ast.py#L216)
 
 #### Signature
 
@@ -1428,7 +1428,7 @@ def attribute(self, attr: str) -> plt.AST:
 
 ### UnionType().attribute_type
 
-[Show source in typed_ast.py:188](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/typed_ast.py#L188)
+[Show source in typed_ast.py:188](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/typed_ast.py#L188)
 
 #### Signature
 
@@ -1439,7 +1439,7 @@ def attribute_type(self, attr) -> "Type":
 
 ### UnionType().cmp
 
-[Show source in typed_ast.py:248](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/typed_ast.py#L248)
+[Show source in typed_ast.py:248](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/typed_ast.py#L248)
 
 The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second the comparison.
 
@@ -1454,7 +1454,7 @@ def cmp(self, op: cmpop, o: "Type") -> plt.AST:
 
 ## UnitType
 
-[Show source in typed_ast.py:784](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/typed_ast.py#L784)
+[Show source in typed_ast.py:784](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/typed_ast.py#L784)
 
 #### Signature
 
@@ -1469,7 +1469,7 @@ class UnitType(AtomicType):
 
 ### UnitType().cmp
 
-[Show source in typed_ast.py:785](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/typed_ast.py#L785)
+[Show source in typed_ast.py:785](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/typed_ast.py#L785)
 
 #### Signature
 
@@ -1482,7 +1482,7 @@ def cmp(self, op: cmpop, o: "Type") -> plt.AST:
 
 ## typedarg
 
-[Show source in typed_ast.py:852](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/typed_ast.py#L852)
+[Show source in typed_ast.py:852](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/typed_ast.py#L852)
 
 #### Signature
 
@@ -1499,7 +1499,7 @@ class typedarg(TypedAST, arg):
 
 ## typedarguments
 
-[Show source in typed_ast.py:856](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/typed_ast.py#L856)
+[Show source in typed_ast.py:856](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/typed_ast.py#L856)
 
 #### Signature
 
@@ -1516,7 +1516,7 @@ class typedarguments(TypedAST, arguments):
 
 ## typedcomprehension
 
-[Show source in typed_ast.py:945](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/typed_ast.py#L945)
+[Show source in typed_ast.py:945](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/typed_ast.py#L945)
 
 #### Signature
 
@@ -1533,7 +1533,7 @@ class typedcomprehension(typedexpr, comprehension):
 
 ## typedexpr
 
-[Show source in typed_ast.py:843](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/typed_ast.py#L843)
+[Show source in typed_ast.py:843](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/typed_ast.py#L843)
 
 #### Signature
 
@@ -1550,7 +1550,7 @@ class typedexpr(TypedAST, expr):
 
 ## typedstmt
 
-[Show source in typed_ast.py:847](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/typed_ast.py#L847)
+[Show source in typed_ast.py:847](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/typed_ast.py#L847)
 
 #### Attributes
 
@@ -1572,7 +1572,7 @@ class typedstmt(TypedAST, stmt):
 
 ## FrozenFrozenList
 
-[Show source in typed_ast.py:16](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/typed_ast.py#L16)
+[Show source in typed_ast.py:16](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/typed_ast.py#L16)
 
 #### Signature
 
@@ -1585,7 +1585,7 @@ def FrozenFrozenList(l: list):
 
 ## distinct
 
-[Show source in typed_ast.py:11](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/typed_ast.py#L11)
+[Show source in typed_ast.py:11](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/typed_ast.py#L11)
 
 Returns true iff the list consists of distinct elements
 
@@ -1600,7 +1600,7 @@ def distinct(xs: list):
 
 ## empty_list
 
-[Show source in typed_ast.py:1017](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/typed_ast.py#L1017)
+[Show source in typed_ast.py:1017](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/typed_ast.py#L1017)
 
 #### Signature
 
@@ -1617,7 +1617,7 @@ def empty_list(p: Type):
 
 ## transform_ext_params_map
 
-[Show source in typed_ast.py:1040](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/typed_ast.py#L1040)
+[Show source in typed_ast.py:1040](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/typed_ast.py#L1040)
 
 #### Signature
 
@@ -1634,7 +1634,7 @@ def transform_ext_params_map(p: Type):
 
 ## transform_output_map
 
-[Show source in typed_ast.py:1071](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/typed_ast.py#L1071)
+[Show source in typed_ast.py:1071](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/typed_ast.py#L1071)
 
 #### Signature
 

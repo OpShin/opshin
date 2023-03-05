@@ -1,11 +1,11 @@
 # Test Misc
 
-[Eopsin-lang Index](../../README.md#eopsin-lang-index) /
+[eopsin Index](../../README.md#eopsin-index) /
 [Eopsin](../index.md#eopsin) /
 [Tests](./index.md#tests) /
 Test Misc
 
-> Auto-generated documentation for [eopsin.tests.test_misc](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/tests/test_misc.py) module.
+> Auto-generated documentation for [eopsin.tests.test_misc](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/tests/test_misc.py) module.
 
 - [Test Misc](#test-misc)
   - [MiscTest](#misctest)
@@ -46,7 +46,7 @@ Test Misc
 
 ## MiscTest
 
-[Show source in test_misc.py:20](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/tests/test_misc.py#L20)
+[Show source in test_misc.py:20](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/tests/test_misc.py#L20)
 
 #### Signature
 
@@ -57,7 +57,7 @@ class MiscTest(unittest.TestCase):
 
 ### MiscTest().test_assert_sum_contract_fail
 
-[Show source in test_misc.py:35](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/tests/test_misc.py#L35)
+[Show source in test_misc.py:35](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/tests/test_misc.py#L35)
 
 #### Signature
 
@@ -68,7 +68,7 @@ def test_assert_sum_contract_fail(self):
 
 ### MiscTest().test_assert_sum_contract_succeed
 
-[Show source in test_misc.py:21](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/tests/test_misc.py#L21)
+[Show source in test_misc.py:21](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/tests/test_misc.py#L21)
 
 #### Signature
 
@@ -79,7 +79,7 @@ def test_assert_sum_contract_succeed(self):
 
 ### MiscTest().test_complex_datum_correct_vals
 
-[Show source in test_misc.py:111](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/tests/test_misc.py#L111)
+[Show source in test_misc.py:111](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/tests/test_misc.py#L111)
 
 #### Signature
 
@@ -90,7 +90,7 @@ def test_complex_datum_correct_vals(self):
 
 ### MiscTest().test_datum_cast
 
-[Show source in test_misc.py:336](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/tests/test_misc.py#L336)
+[Show source in test_misc.py:336](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/tests/test_misc.py#L336)
 
 #### Signature
 
@@ -101,7 +101,7 @@ def test_datum_cast(self):
 
 ### MiscTest().test_dict_datum
 
-[Show source in test_misc.py:419](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/tests/test_misc.py#L419)
+[Show source in test_misc.py:419](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/tests/test_misc.py#L419)
 
 #### Signature
 
@@ -112,7 +112,7 @@ def test_dict_datum(self):
 
 ### MiscTest().test_dual_use_compile
 
-[Show source in test_misc.py:375](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/tests/test_misc.py#L375)
+[Show source in test_misc.py:375](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/tests/test_misc.py#L375)
 
 #### Signature
 
@@ -123,7 +123,7 @@ def test_dual_use_compile(self):
 
 ### MiscTest().test_fib_iter
 
-[Show source in test_misc.py:185](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/tests/test_misc.py#L185)
+[Show source in test_misc.py:185](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/tests/test_misc.py#L185)
 
 #### Signature
 
@@ -135,7 +135,7 @@ def test_fib_iter(self, n):
 
 ### MiscTest().test_fib_rec
 
-[Show source in test_misc.py:203](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/tests/test_misc.py#L203)
+[Show source in test_misc.py:203](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/tests/test_misc.py#L203)
 
 #### Signature
 
@@ -147,7 +147,7 @@ def test_fib_rec(self, n):
 
 ### MiscTest().test_gift_contract_fail
 
-[Show source in test_misc.py:273](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/tests/test_misc.py#L273)
+[Show source in test_misc.py:273](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/tests/test_misc.py#L273)
 
 #### Signature
 
@@ -158,7 +158,7 @@ def test_gift_contract_fail(self):
 
 ### MiscTest().test_gift_contract_succeed
 
-[Show source in test_misc.py:240](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/tests/test_misc.py#L240)
+[Show source in test_misc.py:240](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/tests/test_misc.py#L240)
 
 #### Signature
 
@@ -169,7 +169,7 @@ def test_gift_contract_succeed(self):
 
 ### MiscTest().test_hello_world
 
-[Show source in test_misc.py:138](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/tests/test_misc.py#L138)
+[Show source in test_misc.py:138](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/tests/test_misc.py#L138)
 
 #### Signature
 
@@ -180,7 +180,7 @@ def test_hello_world(self):
 
 ### MiscTest().test_list_comprehension_all
 
-[Show source in test_misc.py:560](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/tests/test_misc.py#L560)
+[Show source in test_misc.py:560](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/tests/test_misc.py#L560)
 
 #### Signature
 
@@ -191,7 +191,7 @@ def test_list_comprehension_all(self):
 
 ### MiscTest().test_list_comprehension_even
 
-[Show source in test_misc.py:539](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/tests/test_misc.py#L539)
+[Show source in test_misc.py:539](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/tests/test_misc.py#L539)
 
 #### Signature
 
@@ -202,7 +202,7 @@ def test_list_comprehension_even(self):
 
 ### MiscTest().test_list_datum_correct_vals
 
-[Show source in test_misc.py:151](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/tests/test_misc.py#L151)
+[Show source in test_misc.py:151](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/tests/test_misc.py#L151)
 
 #### Signature
 
@@ -213,7 +213,7 @@ def test_list_datum_correct_vals(self):
 
 ### MiscTest().test_list_expr
 
-[Show source in test_misc.py:477](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/tests/test_misc.py#L477)
+[Show source in test_misc.py:477](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/tests/test_misc.py#L477)
 
 #### Signature
 
@@ -224,7 +224,7 @@ def test_list_expr(self):
 
 ### MiscTest().test_marketplace_compile
 
-[Show source in test_misc.py:385](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/tests/test_misc.py#L385)
+[Show source in test_misc.py:385](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/tests/test_misc.py#L385)
 
 #### Signature
 
@@ -235,7 +235,7 @@ def test_marketplace_compile(self):
 
 ### MiscTest().test_marketplace_compile_fail
 
-[Show source in test_misc.py:395](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/tests/test_misc.py#L395)
+[Show source in test_misc.py:395](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/tests/test_misc.py#L395)
 
 #### Signature
 
@@ -246,7 +246,7 @@ def test_marketplace_compile_fail(self):
 
 ### MiscTest().test_mult_for
 
-[Show source in test_misc.py:57](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/tests/test_misc.py#L57)
+[Show source in test_misc.py:57](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/tests/test_misc.py#L57)
 
 #### Signature
 
@@ -260,7 +260,7 @@ def test_mult_for(self, a: int, b: int):
 
 ### MiscTest().test_mult_while
 
-[Show source in test_misc.py:75](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/tests/test_misc.py#L75)
+[Show source in test_misc.py:75](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/tests/test_misc.py#L75)
 
 #### Signature
 
@@ -274,7 +274,7 @@ def test_mult_while(self, a: int, b: int):
 
 ### MiscTest().test_overopt_removedeadvar
 
-[Show source in test_misc.py:453](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/tests/test_misc.py#L453)
+[Show source in test_misc.py:453](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/tests/test_misc.py#L453)
 
 #### Signature
 
@@ -285,7 +285,7 @@ def test_overopt_removedeadvar(self):
 
 ### MiscTest().test_parameterized_compile
 
-[Show source in test_misc.py:409](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/tests/test_misc.py#L409)
+[Show source in test_misc.py:409](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/tests/test_misc.py#L409)
 
 #### Signature
 
@@ -296,7 +296,7 @@ def test_parameterized_compile(self):
 
 ### MiscTest().test_recursion
 
-[Show source in test_misc.py:311](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/tests/test_misc.py#L311)
+[Show source in test_misc.py:311](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/tests/test_misc.py#L311)
 
 #### Signature
 
@@ -307,7 +307,7 @@ def test_recursion(self):
 
 ### MiscTest().test_redefine_constr
 
-[Show source in test_misc.py:495](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/tests/test_misc.py#L495)
+[Show source in test_misc.py:495](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/tests/test_misc.py#L495)
 
 #### Signature
 
@@ -318,7 +318,7 @@ def test_redefine_constr(self):
 
 ### MiscTest().test_script_context_repr_correct
 
-[Show source in test_misc.py:221](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/tests/test_misc.py#L221)
+[Show source in test_misc.py:221](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/tests/test_misc.py#L221)
 
 #### Signature
 
@@ -336,7 +336,7 @@ def test_script_context_repr_correct(self, p):
 
 ### MiscTest().test_showcase
 
-[Show source in test_misc.py:168](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/tests/test_misc.py#L168)
+[Show source in test_misc.py:168](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/tests/test_misc.py#L168)
 
 #### Signature
 
@@ -347,7 +347,7 @@ def test_showcase(self):
 
 ### MiscTest().test_sum
 
-[Show source in test_misc.py:93](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/tests/test_misc.py#L93)
+[Show source in test_misc.py:93](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/tests/test_misc.py#L93)
 
 #### Signature
 
@@ -359,7 +359,7 @@ def test_sum(self, a: int, b: int):
 
 ### MiscTest().test_union_type_all_records_same_constr
 
-[Show source in test_misc.py:601](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/tests/test_misc.py#L601)
+[Show source in test_misc.py:601](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/tests/test_misc.py#L601)
 
 #### Signature
 
@@ -371,7 +371,7 @@ def test_union_type_all_records_same_constr(self):
 
 ### MiscTest().test_union_type_attr_access_all_records
 
-[Show source in test_misc.py:581](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/tests/test_misc.py#L581)
+[Show source in test_misc.py:581](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/tests/test_misc.py#L581)
 
 #### Signature
 
@@ -382,7 +382,7 @@ def test_union_type_attr_access_all_records(self):
 
 ### MiscTest().test_union_type_attr_access_all_records_same_constr
 
-[Show source in test_misc.py:622](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/tests/test_misc.py#L622)
+[Show source in test_misc.py:622](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/tests/test_misc.py#L622)
 
 #### Signature
 
@@ -394,7 +394,7 @@ def test_union_type_attr_access_all_records_same_constr(self):
 
 ### MiscTest().test_union_type_attr_access_maximum_type
 
-[Show source in test_misc.py:648](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/tests/test_misc.py#L648)
+[Show source in test_misc.py:648](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/tests/test_misc.py#L648)
 
 #### Signature
 
@@ -405,7 +405,7 @@ def test_union_type_attr_access_maximum_type(self):
 
 ### MiscTest().test_union_type_attr_anytype
 
-[Show source in test_misc.py:668](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/tests/test_misc.py#L668)
+[Show source in test_misc.py:668](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/tests/test_misc.py#L668)
 
 #### Signature
 
@@ -416,7 +416,7 @@ def test_union_type_attr_anytype(self):
 
 ### MiscTest().test_wrap_into_generic_data
 
-[Show source in test_misc.py:514](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/tests/test_misc.py#L514)
+[Show source in test_misc.py:514](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/tests/test_misc.py#L514)
 
 #### Signature
 
@@ -427,7 +427,7 @@ def test_wrap_into_generic_data(self):
 
 ### MiscTest().test_wrapping_contract_compile
 
-[Show source in test_misc.py:365](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/tests/test_misc.py#L365)
+[Show source in test_misc.py:365](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/tests/test_misc.py#L365)
 
 #### Signature
 
@@ -440,7 +440,7 @@ def test_wrapping_contract_compile(self):
 
 ## fib
 
-[Show source in test_misc.py:13](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/tests/test_misc.py#L13)
+[Show source in test_misc.py:13](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/tests/test_misc.py#L13)
 
 #### Signature
 

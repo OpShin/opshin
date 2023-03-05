@@ -1,11 +1,11 @@
 # OptimizeRemovePass
 
-[Eopsin-lang Index](../../README.md#eopsin-lang-index) /
+[eopsin Index](../../README.md#eopsin-index) /
 [Eopsin](../index.md#eopsin) /
 [Optimize](./index.md#optimize) /
 OptimizeRemovePass
 
-> Auto-generated documentation for [eopsin.optimize.optimize_remove_pass](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/optimize/optimize_remove_pass.py) module.
+> Auto-generated documentation for [eopsin.optimize.optimize_remove_pass](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/optimize/optimize_remove_pass.py) module.
 
 - [OptimizeRemovePass](#optimizeremovepass)
   - [OptimizeRemovePass](#optimizeremovepass-1)
@@ -13,7 +13,7 @@ OptimizeRemovePass
 
 ## OptimizeRemovePass
 
-[Show source in optimize_remove_pass.py:10](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/optimize/optimize_remove_pass.py#L10)
+[Show source in optimize_remove_pass.py:10](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/optimize/optimize_remove_pass.py#L10)
 
 #### Signature
 
@@ -24,7 +24,7 @@ class OptimizeRemovePass(CompilingNodeTransformer):
 
 ### OptimizeRemovePass().visit_Pass
 
-[Show source in optimize_remove_pass.py:13](https://github.com/ImperatorLang/eopsin/blob/main/eopsin/optimize/optimize_remove_pass.py#L13)
+[Show source in optimize_remove_pass.py:13](https://github.com/ImperatorLang/eopsin/blob/feat/docs/eopsin/optimize/optimize_remove_pass.py#L13)
 
 #### Signature
 
