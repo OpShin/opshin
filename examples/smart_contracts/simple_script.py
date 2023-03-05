@@ -73,9 +73,31 @@ def validate_script(
             >= script.num
         )
     elif isinstance(script, RequireBefore):
-        res = valid_range.upper_bound < script.unixtimestamp
+        upper_bound = valid_range.upper_bound
+        upper_limit = upper_bound.limit
+        if isinstance(upper_limit, FinitePOSIXTime):
+            upper_closed = upper_bound.closed
+            if isinstance(upper_closed, TrueData):
+                res = upper_limit.time <= script.unixtimestamp
+            else:
+                res = upper_limit.time < script.unixtimestamp
+        elif isinstance(upper_limit, PosInfPOSIXTime):
+            res = False
+        elif isinstance(upper_limit, NegInfPOSIXTime):
+            res = True
     elif isinstance(script, RequireAfter):
-        res = valid_range.lower_bound > script.unixtimestamp
+        lower_bound = valid_range.lower_bound
+        lower_limit = lower_bound.limit
+        if isinstance(lower_limit, FinitePOSIXTime):
+            lower_closed = lower_bound.closed
+            if isinstance(lower_closed, TrueData):
+                res = lower_limit.time >= script.unixtimestamp
+            else:
+                res = lower_limit.time > script.unixtimestamp
+        elif isinstance(lower_limit, PosInfPOSIXTime):
+            res = True
+        elif isinstance(lower_limit, NegInfPOSIXTime):
+            res = False
     else:
         assert False, "Invalid simple script passed"
     return res
