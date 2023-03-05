@@ -178,6 +178,9 @@ class OptimizeRemoveDeadvars(CompilingNodeTransformer):
         if node.name in self.loaded_vars:
             self.set_guaranteed(node.name)
             self.enter_scope()
+            # variable names are available here
+            for a in node.args.args:
+                self.set_guaranteed(a.arg)
             node_cp.body = [self.visit(s) for s in node.body]
             self.exit_scope()
             return node_cp
