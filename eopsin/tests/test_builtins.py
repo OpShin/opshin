@@ -142,6 +142,7 @@ def validator(x: int) -> str:
     @example("10_00")
     @example("_")
     @example("_1")
+    @example("0\n")
     def test_int_string(self, xs: str):
         # this tests that errors that are caused by assignments are actually triggered at the time of assigning
         source_code = """

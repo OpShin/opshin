@@ -417,6 +417,7 @@ class IntegerType(AtomicType):
         return InstanceType(FunctionType([StringInstanceType], InstanceType(self)))
 
     def constr(self) -> plt.AST:
+        # TODO we need to strip the string implicitely before parsing it
         return plt.Lambda(
             ["x", "_"],
             plt.Let(

@@ -131,13 +131,14 @@ def test_hex(self, x):
 @example("10_00")
 @example("_")
 @example("_1")
+@example("0\n")
 def test_int_string(self, xs: str):
     ...
 ```
 
 ### BuiltinTest().test_len_bytestring
 
-[Show source in test_builtins.py:167](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/tests/test_builtins.py#L167)
+[Show source in test_builtins.py:168](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/tests/test_builtins.py#L168)
 
 #### Signature
 
@@ -149,7 +150,7 @@ def test_len_bytestring(self, i):
 
 ### BuiltinTest().test_len_lists
 
-[Show source in test_builtins.py:184](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/tests/test_builtins.py#L184)
+[Show source in test_builtins.py:185](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/tests/test_builtins.py#L185)
 
 #### Signature
 
@@ -161,7 +162,7 @@ def test_len_lists(self, xs):
 
 ### BuiltinTest().test_max
 
-[Show source in test_builtins.py:201](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/tests/test_builtins.py#L201)
+[Show source in test_builtins.py:202](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/tests/test_builtins.py#L202)
 
 #### Signature
 
@@ -173,7 +174,7 @@ def test_max(self, xs):
 
 ### BuiltinTest().test_min
 
-[Show source in test_builtins.py:225](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/tests/test_builtins.py#L225)
+[Show source in test_builtins.py:226](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/tests/test_builtins.py#L226)
 
 #### Signature
 
@@ -185,7 +186,7 @@ def test_min(self, xs):
 
 ### BuiltinTest().test_oct
 
-[Show source in test_builtins.py:271](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/tests/test_builtins.py#L271)
+[Show source in test_builtins.py:272](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/tests/test_builtins.py#L272)
 
 #### Signature
 
@@ -200,7 +201,7 @@ def test_oct(self, x):
 
 ### BuiltinTest().test_pow
 
-[Show source in test_builtins.py:249](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/tests/test_builtins.py#L249)
+[Show source in test_builtins.py:250](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/tests/test_builtins.py#L250)
 
 #### Signature
 
@@ -212,7 +213,7 @@ def test_pow(self, x: int, y: int):
 
 ### BuiltinTest().test_range
 
-[Show source in test_builtins.py:291](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/tests/test_builtins.py#L291)
+[Show source in test_builtins.py:292](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/tests/test_builtins.py#L292)
 
 #### Signature
 
@@ -224,7 +225,7 @@ def test_range(self, i):
 
 ### BuiltinTest().test_reversed
 
-[Show source in test_builtins.py:345](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/tests/test_builtins.py#L345)
+[Show source in test_builtins.py:346](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/tests/test_builtins.py#L346)
 
 #### Signature
 
@@ -236,7 +237,7 @@ def test_reversed(self, xs):
 
 ### BuiltinTest().test_str_int
 
-[Show source in test_builtins.py:308](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/tests/test_builtins.py#L308)
+[Show source in test_builtins.py:309](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/tests/test_builtins.py#L309)
 
 #### Signature
 
@@ -251,7 +252,7 @@ def test_str_int(self, x):
 
 ### BuiltinTest().test_sum
 
-[Show source in test_builtins.py:328](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/tests/test_builtins.py#L328)
+[Show source in test_builtins.py:329](https://github.com/ImperatorLang/eopsin/blob/master/eopsin/tests/test_builtins.py#L329)
 
 #### Signature
 
