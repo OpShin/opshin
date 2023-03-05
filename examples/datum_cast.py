@@ -21,6 +21,7 @@ def validator(d: Anything, r: Anything) -> bytes:
     # this casts the input to bytes - in the type system! In the contract this is a no-op
     r2: bytes = r
     c = e.sender.payment_credential
+    # this actually checks that c is of the type PubKeyCredential
     if isinstance(c, PubKeyCredential):
-        res = c.pubkeyhash
+        res = c.credential_hash
     return res + r2

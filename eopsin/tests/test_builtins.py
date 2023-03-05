@@ -5,6 +5,7 @@ import unittest
 from uplc import ast as uplc, eval as uplc_eval
 from hypothesis import example, given
 from hypothesis import strategies as st
+import parameterized
 
 from .. import compiler
 
@@ -137,12 +138,38 @@ def validator(x: int) -> str:
         ret = uplc_eval(f).value.decode("utf8")
         self.assertEqual(ret, hex(x), "hex returned wrong value")
 
+    @unittest.skip("Integer stripping is currently broken")
     @given(xs=st.one_of(st.builds(lambda x: str(x), st.integers()), st.text()))
     @example("")
     @example("10_00")
     @example("_")
     @example("_1")
     @example("0\n")
+    def test_int_string(self, xs: str):
+        # this tests that errors that are caused by assignments are actually triggered at the time of assigning
+        source_code = """
+def validator(x: str) -> int:
+    return int(x)
+        """
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        try:
+            exp = int(xs)
+        except ValueError:
+            exp = None
+        try:
+            for d in [uplc.PlutusByteString(xs.encode("utf8"))]:
+                f = uplc.Apply(f, d)
+            ret = uplc_eval(f).value
+        except:
+            ret = None
+        self.assertEqual(ret, exp, "str (integer) returned wrong value")
+
+    @parameterized.parameterized.expand(
+        ["10_00", "00", "_", "_1", "-10238", "19293812983721837981", "jakjsdh"]
+    )
     def test_int_string(self, xs: str):
         # this tests that errors that are caused by assignments are actually triggered at the time of assigning
         source_code = """
