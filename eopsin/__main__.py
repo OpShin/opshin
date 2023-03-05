@@ -212,7 +212,7 @@ Note that eopsin errors may be overly restrictive as they aim to prevent code wi
         print("------------------")
         assert isinstance(code, uplc.ast.Program)
         try:
-            ret = uplc.dumps(uplc.eval(f))
+            ret = uplc.dumps(uplc.eval(code))
         except Exception as e:
             print("An exception was raised")
             ret = e
