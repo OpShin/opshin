@@ -474,6 +474,33 @@ def validator(x: Token) -> bool:
             failed = True
         self.assertTrue(failed, "Machine did validate the content")
 
+    def test_opt_shared_var(self):
+        # this tests that errors that are caused by assignments are actually triggered at the time of assigning
+        source_code = """
+from eopsin.prelude import *
+def validator(x: Token) -> bool:
+    if False:
+        y = x
+    else:
+        a = y
+    return True
+        """
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        try:
+            for d in [
+                uplc.PlutusConstr(0, []),
+            ]:
+                f = uplc.Apply(f, d)
+            ret = uplc_eval(f)
+            failed = False
+        except Exception as e:
+            failed = True
+        self.assertTrue(failed, "Machine did validate the content")
+
     def test_list_expr(self):
         # this tests that the list expression is evaluated correctly
         source_code = """
