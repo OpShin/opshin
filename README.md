@@ -67,11 +67,24 @@ A short non-complete introduction in starting to write smart contracts follows.
 5. Dig into the [`examples`](https://github.com/ImperatorLang/eopsin/tree/master/examples) to understand common patterns. Check out the [`prelude`](https://imperatorlang.github.io/eopsin/eopsin/prelude.html) for understanding how the Script Context is structured and how complex datums are defined.
 6. Check out the [sample repository](https://github.com/ImperatorLang/eopsin-example) to find a sample setup for developing your own contract.
 
+
+To summarized, a smart contract in eopsin is defined by the function `validator` in your contract file.
+The function validates that a specific value can be spent, minted, burned, withdrawn etc, depending
+on where it is invoked/used as a credential.
+If the function fails (i.e. raises an error of any kind such as a `KeyError` or `AssertionError`)
+the validation is denied, and the funds can not be spent, minted, burned etc.
+
+> There is a subtle difference here in comparison to most other Smart Contract languages.
+> In eopsin a validator may return anything (in particular also `False`) - as long as it does not fail, the execution is considered valid.
+> This is more similar to how contracts in Solidity always pass, unless they run out of gas or hit an error.
+> So make sure to `assert` what you want to ensure to hold for validation!
+
 A simple contract called the "Gift Contract" verifies that only specific wallets can withdraw money.
 They are authenticated by a signature.
-If you don't understand what a pubkeyhash is and how this validates anything, check out [this gentle introduction into Cardanos EUTxO](https://aiken-lang.org/fundamentals/eutxo)
+If you don't understand what a pubkeyhash is and how this validates anything, check out [this gentle introduction into Cardanos EUTxO](https://aiken-lang.org/fundamentals/eutxo).
 Also see the [tutorial by `pycardano`](https://pycardano.readthedocs.io/en/latest/guides/plutus.html) for explanations on what each of the parameters to the validator means
 and how to build transactions with the contract.
+
 
 ```python3
 from eopsin.prelude import *
