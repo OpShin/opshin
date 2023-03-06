@@ -60,15 +60,17 @@ python3.8 -m pip install eopsin-lang
 
 A short non-complete introduction in starting to write smart contracts follows.
 
-1. Make sure you understand python. Eopsin works like python and uses python. There are tons of tutorials for python, choose what suits you best.
-2. Make sure your contract is valid python and the types check out. Write simple contracts first and run them using `eopsin eval` to get a feeling for how they work.
-3. Make sure your contract is valid eopsin code. Run `eopsin compile` and look at the compiler erros for guidance along what works and doesn't work and why.
-4. Dig into the [`examples`](https://github.com/ImperatorLang/eopsin/tree/master/examples) to understand common patterns. Check out the [`prelude`](https://imperatorlang.github.io/eopsin/eopsin/prelude.html) for understanding how the Script Context is structured and how complex datums are defined.
-5. Check out the [sample repository](https://github.com/ImperatorLang/eopsin-example) to find a sample setup for developing your own contract.
+1. Make sure you understand EUTxOs, Addresses, Validators etc on Cardano. [There is a wonderful crashcourse by @KtorZ](https://aiken-lang.org/fundamentals/eutxo). The contract will work on these concepts
+2. Make sure you understand python. Eopsin works like python and uses python. There are tons of tutorials for python, choose what suits you best.
+3. Make sure your contract is valid python and the types check out. Write simple contracts first and run them using `eopsin eval` to get a feeling for how they work.
+4. Make sure your contract is valid eopsin code. Run `eopsin compile` and look at the compiler erros for guidance along what works and doesn't work and why.
+5. Dig into the [`examples`](https://github.com/ImperatorLang/eopsin/tree/master/examples) to understand common patterns. Check out the [`prelude`](https://imperatorlang.github.io/eopsin/eopsin/prelude.html) for understanding how the Script Context is structured and how complex datums are defined.
+6. Check out the [sample repository](https://github.com/ImperatorLang/eopsin-example) to find a sample setup for developing your own contract.
 
 A simple contract called the "Gift Contract" verifies that only specific wallets can withdraw money.
 They are authenticated by a signature.
-See the [tutorial by `pycardano`](https://pycardano.readthedocs.io/en/latest/guides/plutus.html) for explanations on what each of the parameters to the validator means
+If you don't understand what a pubkeyhash is and how this validates anything, check out [this gentle introduction into Cardanos EUTxO](https://aiken-lang.org/fundamentals/eutxo)
+Also see the [tutorial by `pycardano`](https://pycardano.readthedocs.io/en/latest/guides/plutus.html) for explanations on what each of the parameters to the validator means
 and how to build transactions with the contract.
 
 ```python3
