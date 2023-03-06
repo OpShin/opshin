@@ -68,7 +68,7 @@ A short non-complete introduction in starting to write smart contracts follows.
 6. Check out the [sample repository](https://github.com/ImperatorLang/eopsin-example) to find a sample setup for developing your own contract.
 
 
-To summarized, a smart contract in eopsin is defined by the function `validator` in your contract file.
+In summary, a smart contract in eopsin is defined by the function `validator` in your contract file.
 The function validates that a specific value can be spent, minted, burned, withdrawn etc, depending
 on where it is invoked/used as a credential.
 If the function fails (i.e. raises an error of any kind such as a `KeyError` or `AssertionError`)
