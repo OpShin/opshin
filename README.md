@@ -30,6 +30,16 @@ If the program compiles then:
 
 ### Getting Started
 
+#### Example repository
+
+Check out this example repository for a quick start in setting up a development environment
+and compiling some sample contracts yours:
+
+https://github.com/ImperatorLang/eopsin-example
+
+You can replace the contracts in your local copy of the repository with code from the
+`examples` section here to start exploring different contracts.
+
 #### Developer Community and Questions
 
 This repository contains a discussions page.
@@ -54,6 +64,7 @@ A short non-complete introduction in starting to write smart contracts follows.
 2. Make sure your contract is valid python and the types check out. Write simple contracts first and run them using `eopsin eval` to get a feeling for how they work.
 3. Make sure your contract is valid eopsin code. Run `eopsin compile` and look at the compiler erros for guidance along what works and doesn't work and why.
 4. Dig into the [`examples`](https://github.com/ImperatorLang/eopsin/tree/master/examples) to understand common patterns. Check out the [`prelude`](https://imperatorlang.github.io/eopsin/eopsin/prelude.html) for understanding how the Script Context is structured and how complex datums are defined.
+5. Check out the [sample repository](https://github.com/ImperatorLang/eopsin-example) to find a sample setup for developing your own contract.
 
 A simple contract called the "Gift Contract" verifies that only specific wallets can withdraw money.
 They are authenticated by a signature.
