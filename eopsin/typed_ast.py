@@ -1023,7 +1023,7 @@ def empty_list(p: Type):
         el = empty_list(p.typ.typ)
         return plt.EmptyListList(uplc.BuiltinList([], el.sample_value))
     if isinstance(p.typ, DictType):
-        plt.EmptyDataPairList()
+        return plt.EmptyDataPairList()
     if isinstance(p.typ, RecordType):
         return plt.EmptyDataList()
     raise NotImplementedError(f"Empty lists of type {p} can't be constructed yet")
