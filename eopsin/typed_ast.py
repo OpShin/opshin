@@ -1032,7 +1032,7 @@ def empty_list(p: Type):
                 ),
             )
         )
-    if isinstance(p.typ, RecordType):
+    if isinstance(p.typ, RecordType) or isinstance(p.typ, AnyType):
         return plt.EmptyDataList()
     raise NotImplementedError(f"Empty lists of type {p} can't be constructed yet")
 
