@@ -552,5 +552,7 @@ def data_from_json(j: typing.Dict[str, typing.Any]) -> uplc.PlutusData:
     if "map" in j:
         return uplc.PlutusMap({d["k"]: d["v"] for d in j["map"]})
     if "constructor" in j and "fields" in j:
-        return uplc.PlutusConstr(j["constructor"], j["fields"])
+        return uplc.PlutusConstr(
+            j["constructor"], list(map(data_from_json, j["fields"]))
+        )
     raise NotImplementedError(f"Unknown datum representation {j}")
