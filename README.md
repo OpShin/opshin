@@ -48,6 +48,9 @@ Others may be able to help you and will also benefit from the previously shared 
 
 Check out the community [here](https://github.com/ImperatorLang/eopsin/discussions)
 
+Alternatively, feel free to join the welcoming discord community
+at the TxPipe server: https://discord.gg/2ETSZnQQH9
+
 #### Installation
 
 Install Python 3.8. Then run
