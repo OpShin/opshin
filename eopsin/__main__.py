@@ -93,9 +93,11 @@ def main():
         source_code = f.read()
 
     if command == Command.eval:
-        with open("__tmp_eopsin.py", "w") as fp:
-            fp.write(source_code)
-        sc = importlib.import_module("__tmp_eopsin")
+        if args.input_file == "-":
+            with open("__tmp_eopsin.py", "w") as fp:
+                fp.write(source_code)
+            input_file = "__tmp_eopsin.py"
+        sc = importlib.import_module(input_file)
         print("Starting execution")
         print("------------------")
         try:
@@ -110,14 +112,16 @@ def main():
         print("------------------")
         print(ret)
 
-    source_ast = compiler.parse(source_code)
+    source_ast = compiler.parse(source_code, filename=input_file)
 
     if command == Command.parse:
         print("Parsed successfully.")
         return
 
     try:
-        code = compiler.compile(source_ast, force_three_params=args.force_three_params)
+        code = compiler.compile(
+            source_ast, filename=input_file, force_three_params=args.force_three_params
+        )
     except CompilerError as c:
         # Generate nice error message from compiler error
         if not isinstance(c.node, ast.Module):
