@@ -177,8 +177,11 @@ python3 -m eopsin compile_pluto examples/smart_contracts/assert_sum.py
 
 ### Sponsoring
 
-You can sponsor the development of eopsin. Just drop me a message on social media and let me know what it is for.
-Donation in ADA can be submitted to `$imperatorlang` or `addr1qyz3vgd5xxevjy2rvqevz9n7n7dney8n6hqggp23479fm6vwpj9clsvsf85cd4xc59zjztr5zwpummwckmzr2myjwjns74lhmr`.
+You can sponsor the development of eopsin through GitHub or [Teiki](https://alpha.teiki.network/projects/opshin) or just by sending ADA. Drop me a message on social media and let me know what it is for.
+
+- **[Teiki](https://alpha.teiki.network/projects/opshin)** Stake your ada to support OpShin at [Teiki](https://alpha.teiki.network/projects/opshin)
+- **GitHub** Sponsor the developers of this project through the button "Sponsor" next to them
+- **ADA** Donation in ADA can be submitted to `$opshin` or `addr1qyz3vgd5xxevjy2rvqevz9n7n7dney8n6hqggp23479fm6vwpj9clsvsf85cd4xc59zjztr5zwpummwckmzr2myjwjns74lhmr`.
 
 ### Supporters
 
