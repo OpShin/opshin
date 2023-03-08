@@ -242,7 +242,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             ), "Can only cast instances, not classes"
             assert isinstance(
                 target_inst_class.typ, UnionType
-            ), "Can only cast instances of Union types"
+            ), "Can only cast instances of Union types of PlutusData"
             assert isinstance(target_class, RecordType), "Can only cast to PlutusData"
             assert (
                 target_class in target_inst_class.typ.typs
