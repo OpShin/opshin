@@ -839,10 +839,10 @@ class UPLCCompiler(CompilingNodeTransformer):
         raise NotImplementedError(f"Can not compile {node}")
 
 
-def compile(prog: AST, force_three_params=False):
+def compile(prog: AST, filename=None, force_three_params=False):
     rewrite_steps = [
         # Important to call this one first - it imports all further files
-        RewriteImport(),
+        RewriteImport(filename=filename),
         # Rewrites that simplify the python code
         RewriteAugAssign(),
         RewriteTupleAssign(),
