@@ -116,7 +116,7 @@ Check out the [Architecture guide](https://github.com/OpShin/eopsin/blob/master/
 for details on how to write double functioning contracts.
 The [`examples`](https://github.com/OpShin/eopsin/blob/master/examples) folder contains more examples.
 Also check out the [eopsin-pioneer-program](
-https://github.com/OpShin/eopsin-pioneer-program) for a host of educational example contracts, test cases and off-chain code.
+https://github.com/OpShin/eopsin-pioneer-program)
  and [eopsin-example](
 https://github.com/OpShin/eopsin-example) repo.
 
