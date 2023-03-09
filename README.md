@@ -111,8 +111,14 @@ def validator(datum: CancelDatum, redeemer: None, context: ScriptContext) -> Non
 ```
 
 All contracts written in eopsin are 100% valid python.
-Minting policies follow the same structure, but expect a value of type `None` as first argument.
-See the `examples` directory for more.
+Minting policies expect only a redeemer and script context as argument.
+Check out the [Architecture guide](https://github.com/OpShin/eopsin/blob/master/ARCHITECTURE.md#minting-policy---spending-validator-double-function)
+for details on how to write double functioning contracts.
+The [`examples`](https://github.com/OpShin/eopsin/blob/master/examples) folder contains more examples.
+Also check out the [eopsin-pioneer-program](
+https://github.com/OpShin/eopsin-pioneer-program) for a host of educational example contracts, test cases and off-chain code.
+ and [eopsin-example](
+https://github.com/OpShin/eopsin-example) repo.
 
 ### Compiling
 
