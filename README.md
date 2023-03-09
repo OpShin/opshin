@@ -30,12 +30,17 @@ If the program compiles then:
 
 ### Getting Started
 
+#### Eopsin Pioneer Program
+
+Check out the [eopsin-pioneer-program](
+https://github.com/OpShin/eopsin-pioneer-program) for a host of educational example contracts, test cases and off-chain code.
+
 #### Example repository
 
-Check out this example repository for a quick start in setting up a development environment
-and compiling some sample contracts yours:
+Check out the [eopsin-example](
+https://github.com/OpShin/eopsin-example) repository for a quick start in setting up a development environment
+and compiling some sample contracts yourself.
 
-https://github.com/OpShin/eopsin-example
 
 You can replace the contracts in your local copy of the repository with code from the
 `examples` section here to start exploring different contracts.
