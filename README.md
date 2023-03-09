@@ -1,15 +1,15 @@
 
 <div align="center">
 
-<img  src="https://raw.githubusercontent.com/ImperatorLang/eopsin/c485feda7b5e7eb0d835f3ad39eed679b96aa05c/eopsin.png" width="240" />
+<img  src="https://raw.githubusercontent.com/OpShin/eopsin/c485feda7b5e7eb0d835f3ad39eed679b96aa05c/eopsin.png" width="240" />
 <h1 style="text-align: center;">eopsin</h1></br>
 
 
-[![Build Status](https://app.travis-ci.com/ImperatorLang/eopsin.svg?branch=master)](https://app.travis-ci.com/ImperatorLang/eopsin)
+[![Build Status](https://app.travis-ci.com/OpShin/eopsin.svg?branch=master)](https://app.travis-ci.com/OpShin/eopsin)
 [![PyPI version](https://badge.fury.io/py/eopsin-lang.svg)](https://pypi.org/project/eopsin-lang/)
 ![PyPI - Python Version](https://img.shields.io/pypi/pyversions/eopsin-lang.svg)
 [![PyPI - Status](https://img.shields.io/pypi/status/eopsin-lang.svg)](https://pypi.org/project/eopsin-lang/)
-[![Coverage Status](https://coveralls.io/repos/github/ImperatorLang/eopsin/badge.svg?branch=master)](https://coveralls.io/github/ImperatorLang/eopsin?branch=master)
+[![Coverage Status](https://coveralls.io/repos/github/OpShin/eopsin/badge.svg?branch=master)](https://coveralls.io/github/OpShin/eopsin?branch=master)
 
 </div>
 
@@ -35,7 +35,7 @@ If the program compiles then:
 Check out this example repository for a quick start in setting up a development environment
 and compiling some sample contracts yours:
 
-https://github.com/ImperatorLang/eopsin-example
+https://github.com/OpShin/eopsin-example
 
 You can replace the contracts in your local copy of the repository with code from the
 `examples` section here to start exploring different contracts.
@@ -46,10 +46,10 @@ This repository contains a discussions page.
 Feel free to open up a new discussion with questions regarding development using eopsin and using certain features.
 Others may be able to help you and will also benefit from the previously shared questions.
 
-Check out the community [here](https://github.com/ImperatorLang/eopsin/discussions)
+Check out the community [here](https://github.com/OpShin/eopsin/discussions)
 
 You can also chat with other developers [in the welcoming discord
-community of Op-Shin](https://discord.gg/2ETSZnQQH9)
+community](https://discord.gg/2ETSZnQQH9) of OpShin
 
 #### Installation
 
@@ -67,8 +67,8 @@ A short non-complete introduction in starting to write smart contracts follows.
 2. Make sure you understand python. Eopsin works like python and uses python. There are tons of tutorials for python, choose what suits you best.
 3. Make sure your contract is valid python and the types check out. Write simple contracts first and run them using `eopsin eval` to get a feeling for how they work.
 4. Make sure your contract is valid eopsin code. Run `eopsin compile` and look at the compiler erros for guidance along what works and doesn't work and why.
-5. Dig into the [`examples`](https://github.com/ImperatorLang/eopsin/tree/master/examples) to understand common patterns. Check out the [`prelude`](https://imperatorlang.github.io/eopsin/eopsin/prelude.html) for understanding how the Script Context is structured and how complex datums are defined.
-6. Check out the [sample repository](https://github.com/ImperatorLang/eopsin-example) to find a sample setup for developing your own contract.
+5. Dig into the [`examples`](https://github.com/OpShin/eopsin/tree/master/examples) to understand common patterns. Check out the [`prelude`](https://imperatorlang.github.io/eopsin/eopsin/prelude.html) for understanding how the Script Context is structured and how complex datums are defined.
+6. Check out the [sample repository](https://github.com/OpShin/eopsin-example) to find a sample setup for developing your own contract.
 
 
 In summary, a smart contract in eopsin is defined by the function `validator` in your contract file.
