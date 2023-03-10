@@ -30,12 +30,17 @@ If the program compiles then:
 
 ### Getting Started
 
+#### Eopsin Pioneer Program
+
+Check out the [eopsin-pioneer-program](
+https://github.com/OpShin/eopsin-pioneer-program) for a host of educational example contracts, test cases and off-chain code.
+
 #### Example repository
 
-Check out this example repository for a quick start in setting up a development environment
-and compiling some sample contracts yours:
+Check out the [eopsin-example](
+https://github.com/OpShin/eopsin-example) repository for a quick start in setting up a development environment
+and compiling some sample contracts yourself.
 
-https://github.com/OpShin/eopsin-example
 
 You can replace the contracts in your local copy of the repository with code from the
 `examples` section here to start exploring different contracts.
@@ -106,8 +111,14 @@ def validator(datum: CancelDatum, redeemer: None, context: ScriptContext) -> Non
 ```
 
 All contracts written in eopsin are 100% valid python.
-Minting policies follow the same structure, but expect a value of type `None` as first argument.
-See the `examples` directory for more.
+Minting policies expect only a redeemer and script context as argument.
+Check out the [Architecture guide](https://github.com/OpShin/eopsin/blob/master/ARCHITECTURE.md#minting-policy---spending-validator-double-function)
+for details on how to write double functioning contracts.
+The [`examples`](https://github.com/OpShin/eopsin/blob/master/examples) folder contains more examples.
+Also check out the [eopsin-pioneer-program](
+https://github.com/OpShin/eopsin-pioneer-program)
+ and [eopsin-example](
+https://github.com/OpShin/eopsin-example) repo.
 
 ### Compiling
 
