@@ -19,6 +19,7 @@ class RewriteInjectBuiltinsConstr(CompilingNodeTransformer):
             (ByteStringType(), bytes.__name__),
             (IntegerType(), int.__name__),
             (StringType(), str.__name__),
+            (BoolType(), bool.__name__),
         ]:
             typ = t.constr_type()
             if isinstance(typ.typ, PolymorphicFunctionType):

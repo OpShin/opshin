@@ -761,6 +761,15 @@ class ByteStringType(AtomicType):
 
 @dataclass(frozen=True, unsafe_hash=True)
 class BoolType(AtomicType):
+    def constr_type(self) -> "InstanceType":
+        return InstanceType(FunctionType([IntegerInstanceType], BoolInstanceType))
+
+    def constr(self) -> plt.AST:
+        # constructs a boolean from an integer
+        return plt.Lambda(
+            ["x", "_"], plt.Not(plt.EqualsInteger(plt.Var("x"), plt.Integer(0)))
+        )
+
     def cmp(self, op: cmpop, o: "Type") -> plt.AST:
         if isinstance(o, IntegerType):
             if isinstance(op, Eq):
