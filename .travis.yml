@@ -14,7 +14,7 @@ install:
 - poetry install
 script:
 - black --check .
-- coverage run --source=eopsin -m unittest discover eopsin.tests
+- coverage run --source=eopsin -m pytest eopsin/tests
 # the samples from the README file
 - >
   coverage run -a --source=eopsin -m eopsin eval examples/smart_contracts/assert_sum.py "{\"int\": 4}" "{\"int\": 38}" "{\"constructor\": 6, \"fields\": []}"
