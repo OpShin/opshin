@@ -1,13 +1,12 @@
-import frozendict
-import hypothesis
 import unittest
 
-from uplc import ast as uplc, eval as uplc_eval
-from hypothesis import example, given
+import frozendict
+from hypothesis import given
 from hypothesis import strategies as st
 from parameterized import parameterized
+from uplc import ast as uplc, eval as uplc_eval
 
-from .. import compiler, prelude, type_inference
+from .. import compiler, prelude
 
 
 def fib(n):
