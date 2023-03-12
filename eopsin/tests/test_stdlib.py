@@ -1,10 +1,8 @@
-import frozendict
-import hypothesis
 import unittest
 
-from uplc import ast as uplc, eval as uplc_eval
 from hypothesis import example, given
 from hypothesis import strategies as st
+from uplc import ast as uplc, eval as uplc_eval
 
 from .. import compiler
 
