@@ -336,7 +336,7 @@ class UPLCCompiler(CompilingNodeTransformer):
         # (\{STATEMONAD} -> (\x -> if (x ==b {self.visit(node.targets[0])}) then ({compiled_e} {STATEMONAD}) else ({STATEMONAD} x)))
         val = plt.Apply(compiled_e, plt.Var(STATEMONAD))
         if isinstance(node.value.typ, InstanceType) and isinstance(
-            node.value.typ, AnyType
+            node.value.typ.typ, AnyType
         ):
             # we need to map this as it will originate from PlutusData
             # AnyType is the only type other than the builtin itself that can be cast to builtin values
