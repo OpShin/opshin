@@ -711,3 +711,37 @@ def validator(x: Union[A, B]) -> Anything:
 """
         ast = compiler.parse(source_code)
         code = compiler.compile(ast)
+
+    def test_typecast_anything_int(self):
+        source_code = """
+def validator(x: Anything) -> int:
+    b: int = x
+    return b
+"""
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusInteger(0))).value
+        self.assertEqual(res, 0)
+
+    @unittest.expectedFailure
+    def test_typecast_int_anything(self):
+        # this should not compile, we can not upcast with this notation
+        # up to discussion whether this should be allowed, but i.g. it should never be necessary or useful
+        source_code = """
+def validator(x: int) -> Anything:
+    b: Anything = x
+    return x
+"""
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+
+    def test_typecast_int_int(self):
+        source_code = """
+def validator(x: int) -> int:
+    b: int = x
+    return b
+"""
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusInteger(0))).value
+        self.assertEqual(res, 0)
