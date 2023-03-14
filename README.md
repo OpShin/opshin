@@ -20,6 +20,7 @@ The general philosophy of this project is to write a compiler that
 ensure the following:
 
 If the program compiles then:
+
 1. it is a valid Python program
 2. the output running it with python is the same as running it on-chain.
 
