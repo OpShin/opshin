@@ -13,7 +13,9 @@
 
 </div>
 
-This is an implementation of smart contracts for Cardano which are written in a very strict subset of valid Python.
+> You are building what you want. Why not also build **how** you want?
+
+This is an implementation of smart contracts for Cardano which are written in a strict subset of valid Python.
 The general philosophy of this project is to write a compiler that 
 ensure the following:
 
