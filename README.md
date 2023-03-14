@@ -75,7 +75,7 @@ A short non-complete introduction in starting to write smart contracts follows.
 2. Make sure you understand python. Eopsin works like python and uses python. There are tons of tutorials for python, choose what suits you best.
 3. Make sure your contract is valid python and the types check out. Write simple contracts first and run them using `eopsin eval` to get a feeling for how they work.
 4. Make sure your contract is valid eopsin code. Run `eopsin compile` and look at the compiler erros for guidance along what works and doesn't work and why.
-5. Dig into the [`examples`](https://github.com/OpShin/eopsin/tree/master/examples) to understand common patterns. Check out the [`prelude`](https://opshin.github.io/eopsin/prelude.html) for understanding how the Script Context is structured and how complex datums are defined.
+5. Dig into the [`examples`](https://github.com/OpShin/eopsin/tree/master/examples) to understand common patterns. Check out the [`prelude`](https://eopsin.opshin.dev/eopsin/prelude.html) for understanding how the Script Context is structured and how complex datums are defined.
 6. Check out the [sample repository](https://github.com/OpShin/eopsin-example) to find a sample setup for developing your own contract.
 
 
