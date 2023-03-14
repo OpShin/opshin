@@ -1,11 +1,11 @@
 [tool.poetry]
-name = "eopsin"
-version = "0.9.10"
+name = "eopsin-lang"
+version = "0.9.11"
 description = "A simple pythonic programming language for Smart Contracts on Cardano"
 authors = ["nielstron <n.muendler@web.de>"]
 license = "MIT"
 readme = "README.md"
-repository = "https://github.com/imperatorlang/eopsin"
+repository = "https://github.com/opshin/eopsin"
 documentation = "https://eopsin.opshin.dev/"
 keywords = ["python", "language", "programming-language", "compiler", "validator", "smart-contracts", "cardano"]
 classifiers = [
