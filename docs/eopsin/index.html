@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
 <meta name="generator" content="pdoc 0.10.0" />
 <title>eopsin API documentation</title>
-<meta name="description" content="" />
+<meta name="description" content="&lt;div align=&#34;center&#34;&gt; …" />
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/sanitize.min.css" integrity="sha256-PK9q560IAAa6WVRRh76LtCaI8pjTJ2z11v0miyNNjrs=" crossorigin>
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/typography.min.css" integrity="sha256-7l/o7C8jubJiy74VsKTidCy1yBkRtiUGbVkYBylBqUg=" crossorigin>
 <link rel="stylesheet preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/styles/github.min.css" crossorigin>
@@ -22,12 +22,167 @@
 <h1 class="title">Package <code>eopsin</code></h1>
 </header>
 <section id="section-intro">
+<div align="center">
+<img
+src="https://raw.githubusercontent.com/OpShin/eopsin/c485feda7b5e7eb0d835f3ad39eed679b96aa05c/eopsin.png" width="240" />
+<h1 style="text-align: center;">eopsin</h1></br>
+<a href="https://app.travis-ci.com/OpShin/eopsin"><img alt="Build Status" src="https://app.travis-ci.com/OpShin/eopsin.svg?branch=master"/></a>
+<a href="https://pypi.org/project/eopsin-lang/"><img alt="PyPI version" src="https://badge.fury.io/py/eopsin-lang.svg"/></a>
+<img alt="PyPI - Python Version" src="https://img.shields.io/pypi/pyversions/eopsin-lang.svg" />
+<a href="https://pypi.org/project/eopsin-lang/"><img alt="PyPI - Status" src="https://img.shields.io/pypi/status/eopsin-lang.svg" /></a>
+<a href="https://coveralls.io/github/OpShin/eopsin?branch=master"><img alt="Coverage Status" src="https://coveralls.io/repos/github/OpShin/eopsin/badge.svg?branch=master" /></a>
+</div>
+<blockquote>
+<p>You are building what you want. Why not also build <strong>how</strong> you want?</p>
+</blockquote>
+<p>This is an implementation of smart contracts for Cardano which are written in a strict subset of valid Python.
+The general philosophy of this project is to write a compiler that
+ensure the following:</p>
+<p>If the program compiles then:</p>
+<ol>
+<li>it is a valid Python program</li>
+<li>the output running it with python is the same as running it on-chain.</li>
+</ol>
+<h3 id="why-eopsin">Why eopsin?</h3>
+<ul>
+<li>100% valid Python. Leverage the existing tool stack for Python, syntax highlighting, linting, debugging, unit-testing, <a href="https://hypothesis.readthedocs.io/">property-based testing</a>, <a href="https://github.com/marcoeilers/nagini">verification</a></li>
+<li>Intuitive. Just like Python.</li>
+<li>Flexible. Imperative, functional, the way you want it.</li>
+<li>Efficient &amp; Secure. Static type inference ensures strict typing and optimized code</li>
+</ul>
+<h3 id="getting-started">Getting Started</h3>
+<h4 id="eopsin-pioneer-program">Eopsin Pioneer Program</h4>
+<p>Check out the <a href="https://github.com/OpShin/eopsin-pioneer-program">eopsin-pioneer-program</a> for a host of educational example contracts, test cases and off-chain code.</p>
+<h4 id="example-repository">Example repository</h4>
+<p>Check out the <a href="https://github.com/OpShin/eopsin-example">eopsin-example</a> repository for a quick start in setting up a development environment
+and compiling some sample contracts yourself.</p>
+<p>You can replace the contracts in your local copy of the repository with code from the
+<code>examples</code> section here to start exploring different contracts.</p>
+<h4 id="developer-community-and-questions">Developer Community and Questions</h4>
+<p>This repository contains a discussions page.
+Feel free to open up a new discussion with questions regarding development using eopsin and using certain features.
+Others may be able to help you and will also benefit from the previously shared questions.</p>
+<p>Check out the community <a href="https://github.com/OpShin/eopsin/discussions">here</a></p>
+<p>You can also chat with other developers <a href="https://discord.gg/2ETSZnQQH9">in the welcoming discord
+community</a> of OpShin</p>
+<h4 id="installation">Installation</h4>
+<p>Install Python 3.8. Then run</p>
+<pre><code class="language-bash">python3.8 -m pip install eopsin-lang
+</code></pre>
+<h4 id="writing-a-smart-contract">Writing a Smart Contract</h4>
+<p>A short non-complete introduction in starting to write smart contracts follows.</p>
+<ol>
+<li>Make sure you understand EUTxOs, Addresses, Validators etc on Cardano. <a href="https://aiken-lang.org/fundamentals/eutxo">There is a wonderful crashcourse by @KtorZ</a>. The contract will work on these concepts</li>
+<li>Make sure you understand python. Eopsin works like python and uses python. There are tons of tutorials for python, choose what suits you best.</li>
+<li>Make sure your contract is valid python and the types check out. Write simple contracts first and run them using <code><a title="eopsin" href="#eopsin">eopsin</a> eval</code> to get a feeling for how they work.</li>
+<li>Make sure your contract is valid eopsin code. Run <code><a title="eopsin" href="#eopsin">eopsin</a> compile</code> and look at the compiler erros for guidance along what works and doesn't work and why.</li>
+<li>Dig into the <a href="https://github.com/OpShin/eopsin/tree/master/examples"><code>examples</code></a> to understand common patterns. Check out the <a href="https://opshin.github.io/eopsin/prelude.html"><code>prelude</code></a> for understanding how the Script Context is structured and how complex datums are defined.</li>
+<li>Check out the <a href="https://github.com/OpShin/eopsin-example">sample repository</a> to find a sample setup for developing your own contract.</li>
+</ol>
+<p>In summary, a smart contract in eopsin is defined by the function <code>validator</code> in your contract file.
+The function validates that a specific value can be spent, minted, burned, withdrawn etc, depending
+on where it is invoked/used as a credential.
+If the function fails (i.e. raises an error of any kind such as a <code>KeyError</code> or <code>AssertionError</code>)
+the validation is denied, and the funds can not be spent, minted, burned etc.</p>
+<blockquote>
+<p>There is a subtle difference here in comparison to most other Smart Contract languages.
+In eopsin a validator may return anything (in particular also <code>False</code>) - as long as it does not fail, the execution is considered valid.
+This is more similar to how contracts in Solidity always pass, unless they run out of gas or hit an error.
+So make sure to <code>assert</code> what you want to ensure to hold for validation!</p>
+</blockquote>
+<p>A simple contract called the "Gift Contract" verifies that only specific wallets can withdraw money.
+They are authenticated by a signature.
+If you don't understand what a pubkeyhash is and how this validates anything, check out <a href="https://aiken-lang.org/fundamentals/eutxo">this gentle introduction into Cardanos EUTxO</a>.
+Also see the <a href="https://pycardano.readthedocs.io/en/latest/guides/plutus.html">tutorial by <code>pycardano</code></a> for explanations on what each of the parameters to the validator means
+and how to build transactions with the contract.</p>
+<pre><code class="language-python3">from eopsin.prelude import *
+
+@dataclass()
+class CancelDatum(PlutusData):
+    pubkeyhash: bytes
+
+
+def validator(datum: CancelDatum, redeemer: None, context: ScriptContext) -&gt; None:
+    sig_present = False
+    for s in context.tx_info.signatories:
+        if datum.pubkeyhash == s:
+            sig_present = True
+    assert sig_present, &quot;Required signature missing&quot;
+</code></pre>
+<p>All contracts written in eopsin are 100% valid python.
+Minting policies expect only a redeemer and script context as argument.
+Check out the <a href="https://github.com/OpShin/eopsin/blob/master/ARCHITECTURE.md#minting-policy---spending-validator-double-function">Architecture guide</a>
+for details on how to write double functioning contracts.
+The <a href="https://github.com/OpShin/eopsin/blob/master/examples"><code>examples</code></a> folder contains more examples.
+Also check out the <a href="https://github.com/OpShin/eopsin-pioneer-program">eopsin-pioneer-program</a>
+and <a href="https://github.com/OpShin/eopsin-example">eopsin-example</a> repo.</p>
+<h3 id="compiling">Compiling</h3>
+<p>Write your program in python. You may start with the content of <code>examples</code>.
+Arguments to scripts are passed in as Plutus Data objects in JSON notation.</p>
+<p>You can run any of the following commands</p>
+<pre><code class="language-bash"># Evaluate script in Python - this can be used to make sure there are no obvious errors
+eopsin eval examples/smart_contracts/assert_sum.py &quot;{\&quot;int\&quot;: 4}&quot; &quot;{\&quot;int\&quot;: 38}&quot; &quot;{\&quot;constructor\&quot;: 0, \&quot;fields\&quot;: []}&quot;
+
+# Compile script to 'uplc', the Cardano Smart Contract assembly
+eopsin compile examples/smart_contracts/assert_sum.py
+</code></pre>
+<h3 id="deploying">Deploying</h3>
+<p>The deploy process generates all artifacts required for usage with common libraries like <a href="https://github.com/Python-Cardano/pycardano">pycardano</a>, <a href="https://github.com/spacebudz/lucid">lucid</a> and the <a href="https://github.com/input-output-hk/cardano-node">cardano-cli</a>.</p>
+<pre><code class="language-bash"># Automatically generate all artifacts needed for using this contract
+eopsin build examples/smart_contracts/assert_sum.py
+</code></pre>
+<p>See the <a href="https://pycardano.readthedocs.io/en/latest/guides/plutus.html">tutorial by <code>pycardano</code></a> for explanations how to build transactions with <code><a title="eopsin" href="#eopsin">eopsin</a></code> contracts.</p>
+<h3 id="the-small-print">The small print</h3>
+<p><em>Not every valid python program is a valid smart contract</em>.
+Not all language features of python will or can be supported.
+The reasons are mainly of practical nature (i.e. we can't infer types when functions like <code>eval</code> are allowed).
+Specifically, only a pure subset of python is allowed.
+Further, only immutable objects may be generated.</p>
+<p>For your program to be accepted, make sure to only make use of language constructs supported by the compiler.
+You will be notified of which constructs are not supported when trying to compile.</p>
+<h3 id="name">Name</h3>
+<blockquote>
+<p>Eopsin (Korean: 업신; Hanja: 業神) is the goddess of the storage and wealth in Korean mythology and shamanism.
+[&hellip;] Eopsin was believed to be a pitch-black snake that had ears. <a href="https://en.wikipedia.org/wiki/Eopsin">[1]</a></p>
+</blockquote>
+<p>Since this project tries to merge Python (a large serpent) and Pluto/Plutus (Greek wealth gods), the name appears fitting.</p>
+<p>The name is pronounced <em>op-shin</em>.</p>
+<h2 id="contributing">Contributing</h2>
+<h3 id="architecture">Architecture</h3>
+<p>This program consists of a few independent components:
+1. An aggressive static type inferencer
+2. Rewriting tools to simplify complex python expressions
+3. A compiler from a subset of python into UPLC</p>
+<h3 id="debugging-artefacts">Debugging artefacts</h3>
+<p>For debugging purposes, you can also run</p>
+<pre><code class="language-bash"># Compile script to 'uplc', and evaluate the script in UPLC (for debugging purposes)
+python3 -m eopsin eval_uplc examples/smart_contracts/assert_sum.py &quot;{\&quot;int\&quot;: 4}&quot; &quot;{\&quot;int\&quot;: 38}&quot; &quot;{\&quot;constructor\&quot;: 0, \&quot;fields\&quot;: []}&quot;
+
+# Compile script to 'pluto', an intermediate language (for debugging purposes)
+python3 -m eopsin compile_pluto examples/smart_contracts/assert_sum.py
+</code></pre>
+<h3 id="sponsoring">Sponsoring</h3>
+<p>You can sponsor the development of eopsin through GitHub or <a href="https://alpha.teiki.network/projects/opshin">Teiki</a> or just by sending ADA. Drop me a message on social media and let me know what it is for.</p>
+<ul>
+<li><strong><a href="https://alpha.teiki.network/projects/opshin">Teiki</a></strong> Stake your ada to support OpShin at <a href="https://alpha.teiki.network/projects/opshin">Teiki</a></li>
+<li><strong>GitHub</strong> Sponsor the developers of this project through the button "Sponsor" next to them</li>
+<li><strong>ADA</strong> Donation in ADA can be submitted to <code>$opshin</code> or <code>addr1qyz3vgd5xxevjy2rvqevz9n7n7dney8n6hqggp23479fm6vwpj9clsvsf85cd4xc59zjztr5zwpummwckmzr2myjwjns74lhmr</code>.</li>
+</ul>
+<h3 id="supporters">Supporters</h3>
+<p><a href="https://github.com/inversion-dev"><img src="https://avatars.githubusercontent.com/u/127298233?s=200&v=4" width="50"></a>
+<a href="https://github.com/MuesliSwapTeam/"><img
+src="https://avatars.githubusercontent.com/u/91151317?v=4" width="50" /></a>
+<a href="https://github.com/AadaFinance/"><img
+src="https://avatars.githubusercontent.com/u/89693711?v=4" width="50" /></a></p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">#!/usr/bin/env python
 # -*- coding: utf-8 -*-
+&#34;&#34;&#34;
+.. include:: ../README.md
+&#34;&#34;&#34;
 
 import warnings
 
@@ -93,7 +248,28 @@ __url__ = &#34;https://github.com/imperatorlang/eopsin&#34;</code></pre>
 <nav id="sidebar">
 <h1>Index</h1>
 <div class="toc">
-<ul></ul>
+<ul>
+<li><a href="#why-eopsin">Why eopsin?</a></li>
+<li><a href="#getting-started">Getting Started</a><ul>
+<li><a href="#eopsin-pioneer-program">Eopsin Pioneer Program</a></li>
+<li><a href="#example-repository">Example repository</a></li>
+<li><a href="#developer-community-and-questions">Developer Community and Questions</a></li>
+<li><a href="#installation">Installation</a></li>
+<li><a href="#writing-a-smart-contract">Writing a Smart Contract</a></li>
+</ul>
+</li>
+<li><a href="#compiling">Compiling</a></li>
+<li><a href="#deploying">Deploying</a></li>
+<li><a href="#the-small-print">The small print</a></li>
+<li><a href="#name">Name</a></li>
+<li><a href="#contributing">Contributing</a><ul>
+<li><a href="#architecture">Architecture</a></li>
+<li><a href="#debugging-artefacts">Debugging artefacts</a></li>
+<li><a href="#sponsoring">Sponsoring</a></li>
+<li><a href="#supporters">Supporters</a></li>
+</ul>
+</li>
+</ul>
 </div>
 <ul id="index">
 <li><h3><a href="#header-submodules">Sub-modules</a></h3>
