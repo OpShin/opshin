@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "eopsin-lang"
-version = "0.9.11"
+version = "0.9.12"
 description = "A simple pythonic programming language for Smart Contracts on Cardano"
 authors = ["nielstron <n.muendler@web.de>"]
 license = "MIT"
@@ -34,6 +34,8 @@ pytest = "^7.2.2"
 
 [tool.poetry.scripts]
 eopsin = "eopsin.__main__:main"
+
+[tool.poetry_bumpversion.file."eopsin/__init__.py"]
 
 [build-system]
 requires = ["poetry-core"]
