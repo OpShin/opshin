@@ -173,6 +173,7 @@ The name is pronounced _op-shin_.
 ### Architecture
 
 This program consists of a few independent components:
+
 1. An aggressive static type inferencer
 2. Rewriting tools to simplify complex python expressions
 3. A compiler from a subset of python into UPLC

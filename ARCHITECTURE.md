@@ -1,4 +1,4 @@
-The general concept is as follows:
+# Architectural Decisions
 
 ## Execution / ABI
 
