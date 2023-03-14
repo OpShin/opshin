@@ -738,7 +738,41 @@ def validator(x: Union[A, B]) -&gt; Anything:
     return x.foo
 &#34;&#34;&#34;
         ast = compiler.parse(source_code)
-        code = compiler.compile(ast)</code></pre>
+        code = compiler.compile(ast)
+
+    def test_typecast_anything_int(self):
+        source_code = &#34;&#34;&#34;
+def validator(x: Anything) -&gt; int:
+    b: int = x
+    return b
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusInteger(0))).value
+        self.assertEqual(res, 0)
+
+    @unittest.expectedFailure
+    def test_typecast_int_anything(self):
+        # this should not compile, we can not upcast with this notation
+        # up to discussion whether this should be allowed, but i.g. it should never be necessary or useful
+        source_code = &#34;&#34;&#34;
+def validator(x: int) -&gt; Anything:
+    b: Anything = x
+    return x
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+
+    def test_typecast_int_int(self):
+        source_code = &#34;&#34;&#34;
+def validator(x: int) -&gt; int:
+    b: int = x
+    return b
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusInteger(0))).value
+        self.assertEqual(res, 0)</code></pre>
 </details>
 </section>
 <section>
@@ -1499,7 +1533,41 @@ def validator(x: Union[A, B]) -&gt; Anything:
     return x.foo
 &#34;&#34;&#34;
         ast = compiler.parse(source_code)
-        code = compiler.compile(ast)</code></pre>
+        code = compiler.compile(ast)
+
+    def test_typecast_anything_int(self):
+        source_code = &#34;&#34;&#34;
+def validator(x: Anything) -&gt; int:
+    b: int = x
+    return b
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusInteger(0))).value
+        self.assertEqual(res, 0)
+
+    @unittest.expectedFailure
+    def test_typecast_int_anything(self):
+        # this should not compile, we can not upcast with this notation
+        # up to discussion whether this should be allowed, but i.g. it should never be necessary or useful
+        source_code = &#34;&#34;&#34;
+def validator(x: int) -&gt; Anything:
+    b: Anything = x
+    return x
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+
+    def test_typecast_int_int(self):
+        source_code = &#34;&#34;&#34;
+def validator(x: int) -&gt; int:
+    b: int = x
+    return b
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusInteger(0))).value
+        self.assertEqual(res, 0)</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -2349,6 +2417,70 @@ def test_sum(self, a: int, b: int):
     self.assertEqual(ret, uplc.PlutusInteger(a + b))</code></pre>
 </details>
 </dd>
+<dt id="eopsin.tests.test_misc.MiscTest.test_typecast_anything_int"><code class="name flex">
+<span>def <span class="ident">test_typecast_anything_int</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    def test_typecast_anything_int(self):
+        source_code = &#34;&#34;&#34;
+def validator(x: Anything) -&gt; int:
+    b: int = x
+    return b
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusInteger(0))).value
+        self.assertEqual(res, 0)</code></pre>
+</details>
+</dd>
+<dt id="eopsin.tests.test_misc.MiscTest.test_typecast_int_anything"><code class="name flex">
+<span>def <span class="ident">test_typecast_int_anything</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    @unittest.expectedFailure
+    def test_typecast_int_anything(self):
+        # this should not compile, we can not upcast with this notation
+        # up to discussion whether this should be allowed, but i.g. it should never be necessary or useful
+        source_code = &#34;&#34;&#34;
+def validator(x: int) -&gt; Anything:
+    b: Anything = x
+    return x
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)</code></pre>
+</details>
+</dd>
+<dt id="eopsin.tests.test_misc.MiscTest.test_typecast_int_int"><code class="name flex">
+<span>def <span class="ident">test_typecast_int_int</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    def test_typecast_int_int(self):
+        source_code = &#34;&#34;&#34;
+def validator(x: int) -&gt; int:
+    b: int = x
+    return b
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusInteger(0))).value
+        self.assertEqual(res, 0)</code></pre>
+</details>
+</dd>
 <dt id="eopsin.tests.test_misc.MiscTest.test_union_type_all_records_same_constr"><code class="name flex">
 <span>def <span class="ident">test_union_type_all_records_same_constr</span></span>(<span>self)</span>
 </code></dt>
@@ -2617,6 +2749,9 @@ def validator(_: None) -&gt; SomeOutputDatum:
 <li><code><a title="eopsin.tests.test_misc.MiscTest.test_script_context_repr_correct_2_d8799fd8799f9fd8799fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffd8799fd8799fd87a9f581cdbe769758f26efb21f008dc097bb194cffc622acc37fcefc5372eee3ffd87a80ffa140a1401a00989680d87a9f5820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dffd87a80ffffff809fd8799fd8799fd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd87a80ffa140a14000d87980d87a80ffd8799fd8799fd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd87a80ffa140a1401a000f4240d87980d87a80ffffa140a14000a140a1400080a0d8799fd8799fd87a9f1b000001836ac117d8ffd87a80ffd8799fd87b80d87a80ffff9f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffa1d87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffd87980a15820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd8799f5820c17c32f6433ae22c2acaebfb796bbfaee3993ff7ebb58a2bac6b4a3bdd2f6d28ffffd87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffff" href="#eopsin.tests.test_misc.MiscTest.test_script_context_repr_correct_2_d8799fd8799f9fd8799fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffd8799fd8799fd87a9f581cdbe769758f26efb21f008dc097bb194cffc622acc37fcefc5372eee3ffd87a80ffa140a1401a00989680d87a9f5820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dffd87a80ffffff809fd8799fd8799fd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd87a80ffa140a14000d87980d87a80ffd8799fd8799fd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd87a80ffa140a1401a000f4240d87980d87a80ffffa140a14000a140a1400080a0d8799fd8799fd87a9f1b000001836ac117d8ffd87a80ffd8799fd87b80d87a80ffff9f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffa1d87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffd87980a15820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd8799f5820c17c32f6433ae22c2acaebfb796bbfaee3993ff7ebb58a2bac6b4a3bdd2f6d28ffffd87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffff">test_script_context_repr_correct_2_d8799fd8799f9fd8799fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffd8799fd8799fd87a9f581cdbe769758f26efb21f008dc097bb194cffc622acc37fcefc5372eee3ffd87a80ffa140a1401a00989680d87a9f5820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dffd87a80ffffff809fd8799fd8799fd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd87a80ffa140a14000d87980d87a80ffd8799fd8799fd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd87a80ffa140a1401a000f4240d87980d87a80ffffa140a14000a140a1400080a0d8799fd8799fd87a9f1b000001836ac117d8ffd87a80ffd8799fd87b80d87a80ffff9f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffa1d87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffd87980a15820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd8799f5820c17c32f6433ae22c2acaebfb796bbfaee3993ff7ebb58a2bac6b4a3bdd2f6d28ffffd87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffff</a></code></li>
 <li><code><a title="eopsin.tests.test_misc.MiscTest.test_showcase" href="#eopsin.tests.test_misc.MiscTest.test_showcase">test_showcase</a></code></li>
 <li><code><a title="eopsin.tests.test_misc.MiscTest.test_sum" href="#eopsin.tests.test_misc.MiscTest.test_sum">test_sum</a></code></li>
+<li><code><a title="eopsin.tests.test_misc.MiscTest.test_typecast_anything_int" href="#eopsin.tests.test_misc.MiscTest.test_typecast_anything_int">test_typecast_anything_int</a></code></li>
+<li><code><a title="eopsin.tests.test_misc.MiscTest.test_typecast_int_anything" href="#eopsin.tests.test_misc.MiscTest.test_typecast_int_anything">test_typecast_int_anything</a></code></li>
+<li><code><a title="eopsin.tests.test_misc.MiscTest.test_typecast_int_int" href="#eopsin.tests.test_misc.MiscTest.test_typecast_int_int">test_typecast_int_int</a></code></li>
 <li><code><a title="eopsin.tests.test_misc.MiscTest.test_union_type_all_records_same_constr" href="#eopsin.tests.test_misc.MiscTest.test_union_type_all_records_same_constr">test_union_type_all_records_same_constr</a></code></li>
 <li><code><a title="eopsin.tests.test_misc.MiscTest.test_union_type_attr_access_all_records" href="#eopsin.tests.test_misc.MiscTest.test_union_type_attr_access_all_records">test_union_type_attr_access_all_records</a></code></li>
 <li><code><a title="eopsin.tests.test_misc.MiscTest.test_union_type_attr_access_all_records_same_constr" href="#eopsin.tests.test_misc.MiscTest.test_union_type_attr_access_all_records_same_constr">test_union_type_attr_access_all_records_same_constr</a></code></li>

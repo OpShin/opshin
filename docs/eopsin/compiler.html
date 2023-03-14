@@ -361,17 +361,19 @@ class UPLCCompiler(CompilingNodeTransformer):
             node.target.typ, InstanceType
         ), &#34;Can only assign instances to instances&#34;
         compiled_e = self.visit(node.value)
-        # we need to map this as it will originate from PlutusData
         # (\{STATEMONAD} -&gt; (\x -&gt; if (x ==b {self.visit(node.targets[0])}) then ({compiled_e} {STATEMONAD}) else ({STATEMONAD} x)))
+        val = plt.Apply(compiled_e, plt.Var(STATEMONAD))
+        if isinstance(node.value.typ, InstanceType) and isinstance(
+            node.value.typ.typ, AnyType
+        ):
+            # we need to map this as it will originate from PlutusData
+            # AnyType is the only type other than the builtin itself that can be cast to builtin values
+            val = transform_ext_params_map(node.target.typ)(val)
         return plt.Lambda(
             [STATEMONAD],
             extend_statemonad(
                 [node.target.id],
-                [
-                    transform_ext_params_map(node.target.typ)(
-                        plt.Apply(compiled_e, plt.Var(STATEMONAD))
-                    )
-                ],
+                [val],
                 plt.Var(STATEMONAD),
             ),
         )
@@ -1239,17 +1241,19 @@ def compile(prog: AST, filename=None, force_three_params=False):
             node.target.typ, InstanceType
         ), &#34;Can only assign instances to instances&#34;
         compiled_e = self.visit(node.value)
-        # we need to map this as it will originate from PlutusData
         # (\{STATEMONAD} -&gt; (\x -&gt; if (x ==b {self.visit(node.targets[0])}) then ({compiled_e} {STATEMONAD}) else ({STATEMONAD} x)))
+        val = plt.Apply(compiled_e, plt.Var(STATEMONAD))
+        if isinstance(node.value.typ, InstanceType) and isinstance(
+            node.value.typ.typ, AnyType
+        ):
+            # we need to map this as it will originate from PlutusData
+            # AnyType is the only type other than the builtin itself that can be cast to builtin values
+            val = transform_ext_params_map(node.target.typ)(val)
         return plt.Lambda(
             [STATEMONAD],
             extend_statemonad(
                 [node.target.id],
-                [
-                    transform_ext_params_map(node.target.typ)(
-                        plt.Apply(compiled_e, plt.Var(STATEMONAD))
-                    )
-                ],
+                [val],
                 plt.Var(STATEMONAD),
             ),
         )
@@ -1790,17 +1794,19 @@ def compile(prog: AST, filename=None, force_three_params=False):
         node.target.typ, InstanceType
     ), &#34;Can only assign instances to instances&#34;
     compiled_e = self.visit(node.value)
-    # we need to map this as it will originate from PlutusData
     # (\{STATEMONAD} -&gt; (\x -&gt; if (x ==b {self.visit(node.targets[0])}) then ({compiled_e} {STATEMONAD}) else ({STATEMONAD} x)))
+    val = plt.Apply(compiled_e, plt.Var(STATEMONAD))
+    if isinstance(node.value.typ, InstanceType) and isinstance(
+        node.value.typ.typ, AnyType
+    ):
+        # we need to map this as it will originate from PlutusData
+        # AnyType is the only type other than the builtin itself that can be cast to builtin values
+        val = transform_ext_params_map(node.target.typ)(val)
     return plt.Lambda(
         [STATEMONAD],
         extend_statemonad(
             [node.target.id],
-            [
-                transform_ext_params_map(node.target.typ)(
-                    plt.Apply(compiled_e, plt.Var(STATEMONAD))
-                )
-            ],
+            [val],
             plt.Var(STATEMONAD),
         ),
     )</code></pre>
