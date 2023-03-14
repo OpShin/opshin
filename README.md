@@ -5,11 +5,11 @@
 <h1 style="text-align: center;">eopsin</h1></br>
 
 
-[![Build Status](https://app.travis-ci.com/OpShin/eopsin.svg?branch=master)](https://app.travis-ci.com/OpShin/eopsin)
-[![PyPI version](https://badge.fury.io/py/eopsin-lang.svg)](https://pypi.org/project/eopsin-lang/)
-![PyPI - Python Version](https://img.shields.io/pypi/pyversions/eopsin-lang.svg)
-[![PyPI - Status](https://img.shields.io/pypi/status/eopsin-lang.svg)](https://pypi.org/project/eopsin-lang/)
-[![Coverage Status](https://coveralls.io/repos/github/OpShin/eopsin/badge.svg?branch=master)](https://coveralls.io/github/OpShin/eopsin?branch=master)
+<a href="https://app.travis-ci.com/OpShin/eopsin"><img alt="Build Status" src="https://app.travis-ci.com/OpShin/eopsin.svg?branch=master"/></a>
+<a href="https://pypi.org/project/eopsin-lang/"><img alt="PyPI version" src="https://badge.fury.io/py/eopsin-lang.svg"/></a>
+<img alt="PyPI - Python Version" src="https://img.shields.io/pypi/pyversions/eopsin-lang.svg" />
+<a href="https://pypi.org/project/eopsin-lang/"><img alt="PyPI - Status" src="https://img.shields.io/pypi/status/eopsin-lang.svg" /></a>
+<a href="https://coveralls.io/github/OpShin/eopsin?branch=master"><img alt="Coverage Status" src="https://coveralls.io/repos/github/OpShin/eopsin/badge.svg?branch=master" /></a>
 
 </div>
 
