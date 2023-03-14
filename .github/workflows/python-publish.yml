@@ -13,5 +13,5 @@ jobs:
         with:
           python_version: "3.8"
           pypi_token: ${{ secrets.PYPI_TOKEN }}
-          repository_name: "eopsin-lang"
+          package_directory: "eopsin"
           ignore_dev_requirements: "yes"
