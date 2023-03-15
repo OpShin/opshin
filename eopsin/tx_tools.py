@@ -223,6 +223,7 @@ def evaluate_script(script_invocation: ScriptInvocation):
     args = [script_invocation.redeemer, script_invocation.script_context]
     if script_invocation.datum is not None:
         args.insert(0, script_invocation.datum)
+    args = [f"(con data #{a.to_cbor()})" for a in args]
     if script_invocation.budget is not None:
         execution_steps = script_invocation.budget.steps
         mem = script_invocation.budget.mem
