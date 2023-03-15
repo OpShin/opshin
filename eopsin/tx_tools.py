@@ -2,6 +2,7 @@ from typing import Optional
 
 import pycardano
 from eopsin.prelude import *
+from pyaiken import uplc
 
 
 def to_staking_credential(
@@ -173,10 +174,12 @@ class ScriptInvocation:
     datum: Optional[pycardano.Datum]
     redeemer: pycardano.Redeemer
     script_context: ScriptContext
+    budget: Optional[pycardano.ExecutionUnits]
 
 
 def generate_script_contexts(tx_builder: pycardano.TransactionBuilder):
     """Generates for each evaluated script, with which parameters it should be called"""
+    # TODO this only handles PlutusV2, no other script contexts are currently supported
     script_contexts = []
 
     tx = tx_builder._build_full_fake_tx()
@@ -200,6 +203,7 @@ def generate_script_contexts(tx_builder: pycardano.TransactionBuilder):
                 else spending_input.output.datum,
                 spending_redeemer.data,
                 ScriptContext(tx_info, Spending(to_tx_out_ref(spending_input.input))),
+                spending_redeemer.ex_units,
             )
         )
     for minting_script, minting_redeemer in tx_builder._minting_script_to_redeemers:
@@ -208,6 +212,22 @@ def generate_script_contexts(tx_builder: pycardano.TransactionBuilder):
                 minting_script,
                 minting_redeemer.data,
                 ScriptContext(tx_info, Minting(minting_script.hash())),
+                minting_redeemer.ex_units,
             )
         )
     return script_contexts
+
+
+def evaluate_script(script_invocation: ScriptInvocation):
+    uplc_program = uplc.unflat(script_invocation.script_type)
+    args = [script_invocation.redeemer, script_invocation.script_context]
+    if script_invocation.datum is not None:
+        args.insert(0, script_invocation.datum)
+    if script_invocation.budget is not None:
+        execution_steps = script_invocation.budget.steps
+        mem = script_invocation.budget.mem
+    else:
+        execution_steps, mem = None, None
+    ((suc, err), logs, (cpu, mem)) = uplc.eval(uplc_program, args, execution_steps, mem)
+    print(logs)
+    return (suc, err), (cpu, mem)
