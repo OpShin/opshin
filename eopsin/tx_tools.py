@@ -165,3 +165,49 @@ def to_tx_info(
         {pycardano.datum_hash(r): r for r in tx.transaction_witness_set.redeemer},
         to_tx_id(tx_body.id),
     )
+
+
+@dataclass
+class ScriptInvocation:
+    script_type: pycardano.ScriptType
+    datum: Optional[pycardano.Datum]
+    redeemer: pycardano.Redeemer
+    script_context: ScriptContext
+
+
+def generate_script_contexts(tx_builder: pycardano.TransactionBuilder):
+    """Generates for each evaluated script, with which parameters it should be called"""
+    script_contexts = []
+
+    tx = tx_builder._build_full_fake_tx()
+    # we assume that reference inputs are UTxO objects!
+    input_to_resolved_output = {
+        utxo.input: utxo.output
+        for utxo in tx_builder.inputs + tx_builder.reference_inputs
+    }
+    resolved_inputs = [input_to_resolved_output[i] for i in tx.transaction_body.inputs]
+    resolved_reference_inputs = [
+        input_to_resolved_output[i] for i in tx.transaction_body.reference_inputs
+    ]
+    tx_info = to_tx_info(tx, resolved_inputs, resolved_reference_inputs)
+    for spending_input, spending_redeemer in tx_builder._inputs_to_redeemers.items():
+        script = tx_builder._inputs_to_scripts[spending_input]
+        script_contexts.append(
+            ScriptInvocation(
+                script,
+                tx_builder.datums[spending_input.output.datum_hash]
+                if spending_input.output.datum is None
+                else spending_input.output.datum,
+                spending_redeemer.data,
+                ScriptContext(tx_info, Spending(to_tx_out_ref(spending_input.input))),
+            )
+        )
+    for minting_script, minting_redeemer in tx_builder._minting_script_to_redeemers:
+        script_contexts.append(
+            ScriptInvocation(
+                minting_script,
+                minting_redeemer.data,
+                ScriptContext(tx_info, Minting(minting_script.hash())),
+            )
+        )
+    return script_contexts
