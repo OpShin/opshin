@@ -57,7 +57,7 @@ Others may be able to help you and will also benefit from the previously shared 
 Check out the community [here](https://github.com/OpShin/eopsin/discussions)
 
 You can also chat with other developers [in the welcoming discord
-community](https://discord.gg/2ETSZnQQH9) of OpShin
+community](https://discord.gg/umR3A2g4uw) of OpShin
 
 #### Installation
 
