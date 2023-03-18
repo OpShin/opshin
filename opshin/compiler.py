@@ -402,7 +402,8 @@ class UPLCCompiler(CompilingNodeTransformer):
                 # if the function expects input of generic type data, wrap data before passing it inside
                 a_int = transform_output_map(a.typ)(a_int)
             args.append(a_int)
-        if len(node.func.typ.typ.argtyps) == 0:
+        if node.func.typ.typ.argtyps == [UnitInstanceType] and node.args == []:
+            # this would not pass the type check normally, only possible due to the zero-arg rewrite
             # 0-ary functions expect another parameter
             args.append(plt.Unit())
         return plt.Lambda(

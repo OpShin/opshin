@@ -759,6 +759,25 @@ def validator(x: None) -> None:
         code = compiler.compile(ast).compile()
         res = uplc_eval(uplc.Apply(code, uplc.PlutusInteger(0)))
 
+    def test_zero_ary_exec(self):
+        source_code = """
+def a() -> None:
+    assert False, "Executed a"
+
+def validator(x: None) -> None:
+    b = a
+    if True:
+        b()
+"""
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        try:
+            res = uplc_eval(uplc.Apply(code, uplc.PlutusInteger(0)))
+            failed = False
+        except RuntimeError:
+            failed = True
+        self.assertTrue(failed, "Machine validated contract")
+
     def test_zero_ary_method(self):
         source_code = """
 def validator(x: None) -> None:
