@@ -33,7 +33,7 @@ If the program compiles then:
 
 ### Getting Started
 
-#### Eopsin Pioneer Program
+#### OpShin Pioneer Program
 
 Check out the [opshin-pioneer-program](
 https://github.com/OpShin/opshin-pioneer-program) for a host of educational example contracts, test cases and off-chain code.
@@ -72,7 +72,7 @@ python3.8 -m pip install opshin
 A short non-complete introduction in starting to write smart contracts follows.
 
 1. Make sure you understand EUTxOs, Addresses, Validators etc on Cardano. [There is a wonderful crashcourse by @KtorZ](https://aiken-lang.org/fundamentals/eutxo). The contract will work on these concepts
-2. Make sure you understand python. Eopsin works like python and uses python. There are tons of tutorials for python, choose what suits you best.
+2. Make sure you understand python. opshin works like python and uses python. There are tons of tutorials for python, choose what suits you best.
 3. Make sure your contract is valid python and the types check out. Write simple contracts first and run them using `opshin eval` to get a feeling for how they work.
 4. Make sure your contract is valid opshin code. Run `opshin compile` and look at the compiler erros for guidance along what works and doesn't work and why.
 5. Dig into the [`examples`](https://github.com/OpShin/opshin/tree/master/examples) to understand common patterns. Check out the [`prelude`](https://opshin.opshin.dev/opshin/prelude.html) for understanding how the Script Context is structured and how complex datums are defined.
@@ -165,8 +165,7 @@ You will be notified of which constructs are not supported when trying to compil
 > [...] Eopsin was believed to be a pitch-black snake that had ears. [[1]](https://en.wikipedia.org/wiki/Eopsin)
 
 Since this project tries to merge Python (a large serpent) and Pluto/Plutus (Greek wealth gods), the name appears fitting.
-
-The name is pronounced _op-shin_.
+The name eopsin is pronounced _op-shin_.
 
 ## Contributing
 

@@ -190,7 +190,7 @@ Note that opshin errors may be overly restrictive as they aim to prevent code wi
         # create plutus file
         d = {
             "type": "PlutusScriptV2",
-            "description": f"Eopsin {__version__} Smart Contract",
+            "description": f"opshin {__version__} Smart Contract",
             "cborHex": cbor_wrapped_hex,
         }
         with (target_dir / "script.plutus").open("w") as fp:

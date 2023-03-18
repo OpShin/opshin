@@ -12,7 +12,7 @@ The ABI for functions is that they are a lambda function with `n + 1` arguments:
    - functions that need to be recursive should bind to themselves before being exposed to the python ABI
 
 They should return only one value, their return value.
-As a direct consequence, eopsin may only allow a pure subset of python (except for `print`).
+As a direct consequence, opshin may only allow a pure subset of python (except for `print`).
 Arguments are fully evaluated, they do not require another application of the statemonad.
 
 Note that this means the function has access to all variables defined in the surrounding code _at the time of the function being called_.
@@ -43,7 +43,7 @@ Also, no subtyping is allowed.
 
 Usually, minting policies on cardano take only 2 arguments: a redeemer and the script context.
 Spending validators take 3 arguments: a datum locked at the utxo to spend, a redeemer and the script context.
-With eopsin, minting policies also take 3 arguments: a unit, a redeemer and the script context.
+With opshin, minting policies also take 3 arguments: a unit, a redeemer and the script context.
 This has a number of benefits:
 
  - both types of validators have the same signature, being less confusing for developers to write
@@ -69,7 +69,7 @@ opshin compile examples/smart_contracts/wrapped_token.py --force-three-params
 
 Plutus scripts can be parameterized, meaning that the compiled UPLC contract
 allows applying additional parameters until it accepts datums/redeemers.
-Defining a parameterized script with eopsin is straightforward - 
+Defining a parameterized script with opshin is straightforward - 
 define a validator with more than the necessary amount of parameters.
 The last two/three parameters are always considered the (datum/)redeemer/script context parameters.
 If you intend on writing a parameterized minting script with only two parameters,
