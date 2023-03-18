@@ -813,7 +813,59 @@ def validator(x: int) -&gt; int:
         ast = compiler.parse(source_code)
         code = compiler.compile(ast).compile()
         res = uplc_eval(uplc.Apply(code, uplc.PlutusInteger(0))).value
-        self.assertEqual(res, 0)</code></pre>
+        self.assertEqual(res, 0)
+
+    def test_zero_ary(self):
+        source_code = &#34;&#34;&#34;
+def a() -&gt; None:
+    assert False, &#34;Executed a&#34;
+
+def validator(x: None) -&gt; None:
+    b = a
+    if False:
+        b()
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusInteger(0)))
+
+    @unittest.expectedFailure
+    def test_zero_ary_exec(self):
+        source_code = &#34;&#34;&#34;
+def a() -&gt; None:
+    assert False, &#34;Executed a&#34;
+
+def validator(x: None) -&gt; None:
+    b = a
+    if True:
+        b()
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusInteger(0)))
+
+    def test_zero_ary_method(self):
+        source_code = &#34;&#34;&#34;
+def validator(x: None) -&gt; None:
+    b = b&#34;\\xFF&#34;.decode
+    if False:
+        b()
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusInteger(0)))
+
+    @unittest.expectedFailure
+    def test_zero_ary_method_exec(self):
+        source_code = &#34;&#34;&#34;
+def validator(x: None) -&gt; None:
+    b = b&#34;\\xFF&#34;.decode
+    if True:
+        b()
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusInteger(0)))</code></pre>
 </details>
 </section>
 <section>
@@ -1608,7 +1660,59 @@ def validator(x: int) -&gt; int:
         ast = compiler.parse(source_code)
         code = compiler.compile(ast).compile()
         res = uplc_eval(uplc.Apply(code, uplc.PlutusInteger(0))).value
-        self.assertEqual(res, 0)</code></pre>
+        self.assertEqual(res, 0)
+
+    def test_zero_ary(self):
+        source_code = &#34;&#34;&#34;
+def a() -&gt; None:
+    assert False, &#34;Executed a&#34;
+
+def validator(x: None) -&gt; None:
+    b = a
+    if False:
+        b()
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusInteger(0)))
+
+    @unittest.expectedFailure
+    def test_zero_ary_exec(self):
+        source_code = &#34;&#34;&#34;
+def a() -&gt; None:
+    assert False, &#34;Executed a&#34;
+
+def validator(x: None) -&gt; None:
+    b = a
+    if True:
+        b()
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusInteger(0)))
+
+    def test_zero_ary_method(self):
+        source_code = &#34;&#34;&#34;
+def validator(x: None) -&gt; None:
+    b = b&#34;\\xFF&#34;.decode
+    if False:
+        b()
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusInteger(0)))
+
+    @unittest.expectedFailure
+    def test_zero_ary_method_exec(self):
+        source_code = &#34;&#34;&#34;
+def validator(x: None) -&gt; None:
+    b = b&#34;\\xFF&#34;.decode
+    if True:
+        b()
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusInteger(0)))</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -2734,6 +2838,98 @@ def validator(_: None) -&gt; SomeOutputDatum:
     f = code.term</code></pre>
 </details>
 </dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_zero_ary"><code class="name flex">
+<span>def <span class="ident">test_zero_ary</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    def test_zero_ary(self):
+        source_code = &#34;&#34;&#34;
+def a() -&gt; None:
+    assert False, &#34;Executed a&#34;
+
+def validator(x: None) -&gt; None:
+    b = a
+    if False:
+        b()
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusInteger(0)))</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_zero_ary_exec"><code class="name flex">
+<span>def <span class="ident">test_zero_ary_exec</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    @unittest.expectedFailure
+    def test_zero_ary_exec(self):
+        source_code = &#34;&#34;&#34;
+def a() -&gt; None:
+    assert False, &#34;Executed a&#34;
+
+def validator(x: None) -&gt; None:
+    b = a
+    if True:
+        b()
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusInteger(0)))</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_zero_ary_method"><code class="name flex">
+<span>def <span class="ident">test_zero_ary_method</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    def test_zero_ary_method(self):
+        source_code = &#34;&#34;&#34;
+def validator(x: None) -&gt; None:
+    b = b&#34;\\xFF&#34;.decode
+    if False:
+        b()
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusInteger(0)))</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_zero_ary_method_exec"><code class="name flex">
+<span>def <span class="ident">test_zero_ary_method_exec</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    @unittest.expectedFailure
+    def test_zero_ary_method_exec(self):
+        source_code = &#34;&#34;&#34;
+def validator(x: None) -&gt; None:
+    b = b&#34;\\xFF&#34;.decode
+    if True:
+        b()
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusInteger(0)))</code></pre>
+</details>
+</dd>
 </dl>
 </dd>
 </dl>
@@ -2853,6 +3049,10 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_union_type_attr_anytype" href="#opshin.tests.test_misc.MiscTest.test_union_type_attr_anytype">test_union_type_attr_anytype</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_wrap_into_generic_data" href="#opshin.tests.test_misc.MiscTest.test_wrap_into_generic_data">test_wrap_into_generic_data</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_wrapping_contract_compile" href="#opshin.tests.test_misc.MiscTest.test_wrapping_contract_compile">test_wrapping_contract_compile</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_zero_ary" href="#opshin.tests.test_misc.MiscTest.test_zero_ary">test_zero_ary</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_zero_ary_exec" href="#opshin.tests.test_misc.MiscTest.test_zero_ary_exec">test_zero_ary_exec</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_zero_ary_method" href="#opshin.tests.test_misc.MiscTest.test_zero_ary_method">test_zero_ary_method</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_zero_ary_method_exec" href="#opshin.tests.test_misc.MiscTest.test_zero_ary_method_exec">test_zero_ary_method_exec</a></code></li>
 </ul>
 </li>
 </ul>
