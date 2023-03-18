@@ -405,7 +405,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
     <meta name="generator" content="pdoc ${pdoc.__version__}" />
 
-    <link rel="icon" href="https://raw.githubusercontent.com/OpShin/eopsin/dev/docs/eopsin_32.png" sizes="32x32" type="image/png">
+    <link rel="icon" href="https://raw.githubusercontent.com/OpShin/opshin/dev/docs/opshin_32.png" sizes="32x32" type="image/png">
 
     % if module_list:
       <title>Python module list</title>
