@@ -165,7 +165,8 @@ You will be notified of which constructs are not supported when trying to compil
 > [...] Eopsin was believed to be a pitch-black snake that had ears. [[1]](https://en.wikipedia.org/wiki/Eopsin)
 
 Since this project tries to merge Python (a large serpent) and Pluto/Plutus (Greek wealth gods), the name appears fitting.
-The name eopsin is pronounced _op-shin_.
+The name e_opsin is pronounced _op-shin_.
+e
 
 ## Contributing
 
