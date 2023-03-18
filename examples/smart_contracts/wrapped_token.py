@@ -1,4 +1,4 @@
-from eopsin.prelude import *
+from opshin.prelude import *
 
 
 @dataclass()
@@ -61,7 +61,7 @@ def all_tokens_locked_at_contract_address(
 #
 # moreover this contract should always be called with three virtual parameters, so enable --force-three-params
 #
-# $ eopsin build examples/smart_contracts/wrapped_token.py '{"bytes": "ae810731b5d21c0d182d89c60a1eff7095dffd1c0dce8707a8611099"}' '{"bytes": "4d494c4b"}' '{"int": 1000000}' --force-three-params
+# $ opshin build examples/smart_contracts/wrapped_token.py '{"bytes": "ae810731b5d21c0d182d89c60a1eff7095dffd1c0dce8707a8611099"}' '{"bytes": "4d494c4b"}' '{"int": 1000000}' --force-three-params
 def validator(
     token_policy_id: bytes,
     token_name: bytes,

@@ -62,7 +62,7 @@ may never be PlutusData with constructor id 0 - which is bearable.
 In order to benefit from the double functionality, make sure to compile the code with the flag `--force-three-params`.
 
 ```bash
-eopsin compile examples/smart_contracts/wrapped_token.py --force-three-params
+opshin compile examples/smart_contracts/wrapped_token.py --force-three-params
 ```
 
 ## Parameterized Scripts
@@ -102,5 +102,5 @@ The double minting functionality is _not_ affected by parameterization.
 You can compile a contract with initialized parameters like this (in the same way you would evaluate a contract with parameters)
 
 ```bash
-eopsin compile contract.py "param_1_json_value" ... "param_n_json_value"
+opshin compile contract.py "param_1_json_value" ... "param_n_json_value"
 ```

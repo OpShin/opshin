@@ -37,7 +37,7 @@
     # If set, insert Google Custom Search search bar widget above the sidebar index.
     # The whitespace-separated tokens represent arbitrary extra queries (at least one
     # must match) passed to regular Google search. Example:
-    #google_search_query = 'inurl:github.com/OpShin/eopsin  site:opshin.github.io  site:eopsin.opshin.dev'
+    #google_search_query = 'inurl:github.com/OpShin/opshin  site:opshin.github.io  site:opshin.opshin.dev'
     google_search_query = ''
     # Enable offline search using Lunr.js. For explanation of 'fuzziness' parameter, which is
     # added to every query word, see: https://lunrjs.com/guides/searching.html#fuzzy-matches

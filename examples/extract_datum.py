@@ -1,4 +1,4 @@
-# This is an example of how to determine the structure of the datum files to use with you eopsin custom datums.
+# This is an example of how to determine the structure of the datum files to use with you opshin custom datums.
 # The JSON file is usually required by third party tools like the cardano-cli
 
 # ExampleDatumStructure in Eopsin contract:
@@ -12,7 +12,7 @@ class Listing(PlutusData):
     # whoever is allowed to withdraw the listing
     owner: PubKeyHash
 """
-# Import the dataclass from the eopsin python file
+# Import the dataclass from the opshin python file
 
 from examples.smart_contracts.marketplace import (
     Listing,
