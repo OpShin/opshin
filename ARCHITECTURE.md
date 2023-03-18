@@ -18,9 +18,6 @@ Arguments are fully evaluated, they do not require another application of the st
 Note that this means the function has access to all variables defined in the surrounding code _at the time of the function being called_.
 This is consistent with the way it is done in python.
 
-Also note that functions that take 0 arguments are expected to actually take a single unit argument.
-This is due to the fact that UPLC does not feature 0-ary functions, which is emulated by this behavior.
-Calls with 0 arguments are transformed by the compiler into calls that pass a single unit argument to the callee.
 
 The python atomic types map to the UPLC builtin equivalents.
 They are cast from and to plutus equivalents when passed into the validator and returned from it.
