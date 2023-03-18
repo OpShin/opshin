@@ -14,18 +14,18 @@ install:
 - poetry install
 script:
 - black --check .
-- coverage run --source=eopsin -m pytest eopsin/tests
+- coverage run --source=opshin -m pytest opshin/tests
 # the samples from the README file
 - >
-  coverage run -a --source=eopsin -m eopsin eval examples/smart_contracts/assert_sum.py "{\"int\": 4}" "{\"int\": 38}" "{\"constructor\": 6, \"fields\": []}"
+  coverage run -a --source=opshin -m opshin eval examples/smart_contracts/assert_sum.py "{\"int\": 4}" "{\"int\": 38}" "{\"constructor\": 6, \"fields\": []}"
 - >
-  coverage run -a --source=eopsin -m eopsin compile examples/smart_contracts/assert_sum.py > assert_sum.uplc
+  coverage run -a --source=opshin -m opshin compile examples/smart_contracts/assert_sum.py > assert_sum.uplc
 - >
-  coverage run -a --source=eopsin -m eopsin eval_uplc examples/smart_contracts/assert_sum.py "{\"int\": 4}" "{\"int\": 38}" "{\"constructor\": 6, \"fields\": []}"
+  coverage run -a --source=opshin -m opshin eval_uplc examples/smart_contracts/assert_sum.py "{\"int\": 4}" "{\"int\": 38}" "{\"constructor\": 6, \"fields\": []}"
 - >
-  coverage run -a --source=eopsin -m eopsin compile_pluto examples/smart_contracts/assert_sum.py
+  coverage run -a --source=opshin -m opshin compile_pluto examples/smart_contracts/assert_sum.py
 - >
-  coverage run -a --source=eopsin -m eopsin build examples/smart_contracts/assert_sum.py
+  coverage run -a --source=opshin -m opshin build examples/smart_contracts/assert_sum.py
 
 after_success:
 - coverage report

@@ -1,15 +1,15 @@
 
 <div align="center">
 
-<img  src="https://raw.githubusercontent.com/OpShin/eopsin/c485feda7b5e7eb0d835f3ad39eed679b96aa05c/eopsin.png" width="240" />
-<h1 style="text-align: center;">eopsin</h1></br>
+<img  src="https://raw.githubusercontent.com/OpShin/opshin/master/opshin.png" width="240" />
+<h1 style="text-align: center;">opshin</h1></br>
 
 
-<a href="https://app.travis-ci.com/OpShin/eopsin"><img alt="Build Status" src="https://app.travis-ci.com/OpShin/eopsin.svg?branch=master"/></a>
-<a href="https://pypi.org/project/eopsin-lang/"><img alt="PyPI version" src="https://badge.fury.io/py/eopsin-lang.svg"/></a>
-<img alt="PyPI - Python Version" src="https://img.shields.io/pypi/pyversions/eopsin-lang.svg" />
-<a href="https://pypi.org/project/eopsin-lang/"><img alt="PyPI - Status" src="https://img.shields.io/pypi/status/eopsin-lang.svg" /></a>
-<a href="https://coveralls.io/github/OpShin/eopsin?branch=master"><img alt="Coverage Status" src="https://coveralls.io/repos/github/OpShin/eopsin/badge.svg?branch=master" /></a>
+<a href="https://app.travis-ci.com/OpShin/opshin"><img alt="Build Status" src="https://app.travis-ci.com/OpShin/opshin.svg?branch=master"/></a>
+<a href="https://pypi.org/project/opshin/"><img alt="PyPI version" src="https://badge.fury.io/py/opshin.svg"/></a>
+<img alt="PyPI - Python Version" src="https://img.shields.io/pypi/pyversions/opshin.svg" />
+<a href="https://pypi.org/project/opshin/"><img alt="PyPI - Status" src="https://img.shields.io/pypi/status/opshin.svg" /></a>
+<a href="https://coveralls.io/github/OpShin/opshin?branch=master"><img alt="Coverage Status" src="https://coveralls.io/repos/github/OpShin/opshin/badge.svg?branch=master" /></a>
 
 </div>
 
@@ -24,7 +24,7 @@ If the program compiles then:
 1. it is a valid Python program
 2. the output running it with python is the same as running it on-chain.
 
-### Why eopsin?
+### Why opshin?
 - 100% valid Python. Leverage the existing tool stack for Python, syntax highlighting, linting, debugging, unit-testing, [property-based testing](https://hypothesis.readthedocs.io/), [verification](https://github.com/marcoeilers/nagini)
 - Intuitive. Just like Python.
 - Flexible. Imperative, functional, the way you want it.
@@ -35,13 +35,13 @@ If the program compiles then:
 
 #### Eopsin Pioneer Program
 
-Check out the [eopsin-pioneer-program](
-https://github.com/OpShin/eopsin-pioneer-program) for a host of educational example contracts, test cases and off-chain code.
+Check out the [opshin-pioneer-program](
+https://github.com/OpShin/opshin-pioneer-program) for a host of educational example contracts, test cases and off-chain code.
 
 #### Example repository
 
-Check out the [eopsin-example](
-https://github.com/OpShin/eopsin-example) repository for a quick start in setting up a development environment
+Check out the [opshin-example](
+https://github.com/OpShin/opshin-example) repository for a quick start in setting up a development environment
 and compiling some sample contracts yourself.
 
 
@@ -51,10 +51,10 @@ You can replace the contracts in your local copy of the repository with code fro
 #### Developer Community and Questions
 
 This repository contains a discussions page.
-Feel free to open up a new discussion with questions regarding development using eopsin and using certain features.
+Feel free to open up a new discussion with questions regarding development using opshin and using certain features.
 Others may be able to help you and will also benefit from the previously shared questions.
 
-Check out the community [here](https://github.com/OpShin/eopsin/discussions)
+Check out the community [here](https://github.com/OpShin/opshin/discussions)
 
 You can also chat with other developers [in the welcoming discord
 community](https://discord.gg/2ETSZnQQH9) of OpShin
@@ -64,7 +64,7 @@ community](https://discord.gg/2ETSZnQQH9) of OpShin
 Install Python 3.8. Then run
 
 ```bash
-python3.8 -m pip install eopsin-lang
+python3.8 -m pip install opshin
 ```
 
 #### Writing a Smart Contract
@@ -73,20 +73,20 @@ A short non-complete introduction in starting to write smart contracts follows.
 
 1. Make sure you understand EUTxOs, Addresses, Validators etc on Cardano. [There is a wonderful crashcourse by @KtorZ](https://aiken-lang.org/fundamentals/eutxo). The contract will work on these concepts
 2. Make sure you understand python. Eopsin works like python and uses python. There are tons of tutorials for python, choose what suits you best.
-3. Make sure your contract is valid python and the types check out. Write simple contracts first and run them using `eopsin eval` to get a feeling for how they work.
-4. Make sure your contract is valid eopsin code. Run `eopsin compile` and look at the compiler erros for guidance along what works and doesn't work and why.
-5. Dig into the [`examples`](https://github.com/OpShin/eopsin/tree/master/examples) to understand common patterns. Check out the [`prelude`](https://eopsin.opshin.dev/eopsin/prelude.html) for understanding how the Script Context is structured and how complex datums are defined.
-6. Check out the [sample repository](https://github.com/OpShin/eopsin-example) to find a sample setup for developing your own contract.
+3. Make sure your contract is valid python and the types check out. Write simple contracts first and run them using `opshin eval` to get a feeling for how they work.
+4. Make sure your contract is valid opshin code. Run `opshin compile` and look at the compiler erros for guidance along what works and doesn't work and why.
+5. Dig into the [`examples`](https://github.com/OpShin/opshin/tree/master/examples) to understand common patterns. Check out the [`prelude`](https://opshin.opshin.dev/opshin/prelude.html) for understanding how the Script Context is structured and how complex datums are defined.
+6. Check out the [sample repository](https://github.com/OpShin/opshin-example) to find a sample setup for developing your own contract.
 
 
-In summary, a smart contract in eopsin is defined by the function `validator` in your contract file.
+In summary, a smart contract in opshin is defined by the function `validator` in your contract file.
 The function validates that a specific value can be spent, minted, burned, withdrawn etc, depending
 on where it is invoked/used as a credential.
 If the function fails (i.e. raises an error of any kind such as a `KeyError` or `AssertionError`)
 the validation is denied, and the funds can not be spent, minted, burned etc.
 
 > There is a subtle difference here in comparison to most other Smart Contract languages.
-> In eopsin a validator may return anything (in particular also `False`) - as long as it does not fail, the execution is considered valid.
+> In opshin a validator may return anything (in particular also `False`) - as long as it does not fail, the execution is considered valid.
 > This is more similar to how contracts in Solidity always pass, unless they run out of gas or hit an error.
 > So make sure to `assert` what you want to ensure to hold for validation!
 
@@ -96,9 +96,9 @@ If you don't understand what a pubkeyhash is and how this validates anything, ch
 Also see the [tutorial by `pycardano`](https://pycardano.readthedocs.io/en/latest/guides/plutus.html) for explanations on what each of the parameters to the validator means
 and how to build transactions with the contract.
 
-
 ```python3
-from eopsin.prelude import *
+from opshin.prelude import *
+
 
 @dataclass()
 class CancelDatum(PlutusData):
@@ -113,15 +113,15 @@ def validator(datum: CancelDatum, redeemer: None, context: ScriptContext) -> Non
     assert sig_present, "Required signature missing"
 ```
 
-All contracts written in eopsin are 100% valid python.
+All contracts written in opshin are 100% valid python.
 Minting policies expect only a redeemer and script context as argument.
-Check out the [Architecture guide](https://github.com/OpShin/eopsin/blob/master/ARCHITECTURE.md#minting-policy---spending-validator-double-function)
+Check out the [Architecture guide](https://github.com/OpShin/opshin/blob/master/ARCHITECTURE.md#minting-policy---spending-validator-double-function)
 for details on how to write double functioning contracts.
-The [`examples`](https://github.com/OpShin/eopsin/blob/master/examples) folder contains more examples.
-Also check out the [eopsin-pioneer-program](
-https://github.com/OpShin/eopsin-pioneer-program)
- and [eopsin-example](
-https://github.com/OpShin/eopsin-example) repo.
+The [`examples`](https://github.com/OpShin/opshin/blob/master/examples) folder contains more examples.
+Also check out the [opshin-pioneer-program](
+https://github.com/OpShin/opshin-pioneer-program)
+ and [opshin-example](
+https://github.com/OpShin/opshin-example) repo.
 
 ### Compiling
 
@@ -131,10 +131,10 @@ Arguments to scripts are passed in as Plutus Data objects in JSON notation.
 You can run any of the following commands
 ```bash
 # Evaluate script in Python - this can be used to make sure there are no obvious errors
-eopsin eval examples/smart_contracts/assert_sum.py "{\"int\": 4}" "{\"int\": 38}" "{\"constructor\": 0, \"fields\": []}"
+opshin eval examples/smart_contracts/assert_sum.py "{\"int\": 4}" "{\"int\": 38}" "{\"constructor\": 0, \"fields\": []}"
 
 # Compile script to 'uplc', the Cardano Smart Contract assembly
-eopsin compile examples/smart_contracts/assert_sum.py
+opshin compile examples/smart_contracts/assert_sum.py
 ```
 
 ### Deploying
@@ -143,10 +143,10 @@ The deploy process generates all artifacts required for usage with common librar
 
 ```bash
 # Automatically generate all artifacts needed for using this contract
-eopsin build examples/smart_contracts/assert_sum.py
+opshin build examples/smart_contracts/assert_sum.py
 ```
 
-See the [tutorial by `pycardano`](https://pycardano.readthedocs.io/en/latest/guides/plutus.html) for explanations how to build transactions with `eopsin` contracts.
+See the [tutorial by `pycardano`](https://pycardano.readthedocs.io/en/latest/guides/plutus.html) for explanations how to build transactions with `opshin` contracts.
 
 ### The small print
 
@@ -184,15 +184,15 @@ For debugging purposes, you can also run
 
 ```bash
 # Compile script to 'uplc', and evaluate the script in UPLC (for debugging purposes)
-python3 -m eopsin eval_uplc examples/smart_contracts/assert_sum.py "{\"int\": 4}" "{\"int\": 38}" "{\"constructor\": 0, \"fields\": []}"
+opshin eval_uplc examples/smart_contracts/assert_sum.py "{\"int\": 4}" "{\"int\": 38}" "{\"constructor\": 0, \"fields\": []}"
 
 # Compile script to 'pluto', an intermediate language (for debugging purposes)
-python3 -m eopsin compile_pluto examples/smart_contracts/assert_sum.py
+opshin compile_pluto examples/smart_contracts/assert_sum.py
 ```
 
 ### Sponsoring
 
-You can sponsor the development of eopsin through GitHub or [Teiki](https://alpha.teiki.network/projects/opshin) or just by sending ADA. Drop me a message on social media and let me know what it is for.
+You can sponsor the development of opshin through GitHub or [Teiki](https://alpha.teiki.network/projects/opshin) or just by sending ADA. Drop me a message on social media and let me know what it is for.
 
 - **[Teiki](https://alpha.teiki.network/projects/opshin)** Stake your ada to support OpShin at [Teiki](https://alpha.teiki.network/projects/opshin)
 - **GitHub** Sponsor the developers of this project through the button "Sponsor" next to them

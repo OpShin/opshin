@@ -3,7 +3,7 @@ from sys import stdin
 
 import cbor2
 
-from eopsin import __version__
+from opshin import __version__
 
 inp = stdin.buffer.read()
 cbor = cbor2.dumps(inp)

@@ -1,6 +1,6 @@
 venv
 .vscode
-__tmp_eopsin.py
+__tmp_opshin.py
 test.py
 build/
 *.uplc

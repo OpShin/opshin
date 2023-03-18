@@ -13,5 +13,5 @@ jobs:
         with:
           python_version: "3.8"
           pypi_token: ${{ secrets.PYPI_TOKEN }}
-          package_directory: "eopsin"
+          package_directory: "opshin"
           ignore_dev_requirements: "yes"
