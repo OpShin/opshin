@@ -402,6 +402,9 @@ class UPLCCompiler(CompilingNodeTransformer):
                 # if the function expects input of generic type data, wrap data before passing it inside
                 a_int = transform_output_map(a.typ)(a_int)
             args.append(a_int)
+        if len(node.func.typ.typ.argtyps) == 0:
+            # 0-ary functions expect another parameter
+            args.append(plt.Unit())
         return plt.Lambda(
             [STATEMONAD],
             plt.Apply(
@@ -855,10 +858,10 @@ def compile(prog: AST, filename=None, force_three_params=False):
         RewriteForbiddenOverwrites(),
         RewriteImportDataclasses(),
         RewriteInjectBuiltins(),
-        RewriteZeroAry(),
         # The type inference needs to be run after complex python operations were rewritten
         AggressiveTypeInferencer(),
         # Rewrites that circumvent the type inference or use its results
+        RewriteZeroAry(),
         RewriteInjectBuiltinsConstr(),
         RewriteRemoveTypeStuff(),
     ]

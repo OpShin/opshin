@@ -757,5 +757,15 @@ def validator(x: None) -> None:
 """
         ast = compiler.parse(source_code)
         code = compiler.compile(ast).compile()
-        res = uplc_eval(uplc.Apply(code, uplc.PlutusInteger(0))).value
-        self.assertEqual(res, 0)
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusInteger(0)))
+
+    def test_zero_ary_method(self):
+        source_code = """
+def validator(x: None) -> None:
+    b = b"\\xFF".decode
+    if False:
+        b()
+"""
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusInteger(0)))

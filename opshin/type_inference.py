@@ -507,11 +507,11 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             functyp = tc.func.typ.typ
             assert len(tc.args) == len(
                 functyp.argtyps
-            ), f"Signature of function {ast.dump(node)} does not match number of arguments"
+            ), f"Signature of function does not match number of arguments. Expected {len(functyp.argtyps)} arguments with these types: {functyp.argtyps}"
             # all arguments need to be supertypes of the given type
             assert all(
                 ap >= a.typ for a, ap in zip(tc.args, functyp.argtyps)
-            ), f"Signature of function {ast.dump(node)} does not match arguments"
+            ), f"Signature of function does not match arguments. Expected {len(functyp.argtyps)} arguments with these types: {functyp.argtyps}"
             tc.typ = functyp.rettyp
             return tc
         raise TypeInferenceError("Could not infer type of call")
