@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "opshin"
-version = "0.9.13"
+version = "0.9.14"
 description = "A simple pythonic programming language for Smart Contracts on Cardano"
 authors = ["nielstron <n.muendler@web.de>"]
 license = "MIT"
@@ -33,6 +33,7 @@ pre-commit = "^3.1.1"
 coverage = "<7.0"
 pytest = "^7.2.2"
 coveralls = "^3.3.1"
+poetry-bumpversion = "^0.3.0"
 
 [tool.poetry.scripts]
 opshin = "opshin.__main__:main"
