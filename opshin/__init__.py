@@ -14,7 +14,7 @@ __license__ = "MIT"
 __url__ = "https://github.com/imperatorlang/opshin"
 
 try:
-    from compiler import *
-    from build import *
+    from .compiler import *
+    from .builder import *
 except ImportError as e:
     warnings.warn(ImportWarning(e))
