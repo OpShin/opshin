@@ -13,7 +13,7 @@ import pycardano
 import uplc
 import uplc.ast
 
-from opshin import __version__, compiler
+from opshin import __version__, compiler, build
 from opshin.util import CompilerError, data_from_json
 
 
@@ -178,38 +178,17 @@ Note that opshin errors may be overly restrictive as they aim to prevent code wi
         else:
             target_dir = pathlib.Path(args.output_directory)
         target_dir.mkdir(exist_ok=True, parents=True)
-        uplc_dump = code.dumps()
-        cbor_hex = pyaiken.uplc.flat(uplc_dump)
-        # create cbor file for use with pycardano/lucid
+        artifacts = build._build(code)
         with (target_dir / "script.cbor").open("w") as fp:
-            fp.write(cbor_hex)
-        cbor = bytes.fromhex(cbor_hex)
-        # double wrap
-        cbor_wrapped = cbor2.dumps(cbor)
-        cbor_wrapped_hex = cbor_wrapped.hex()
-        # create plutus file
-        d = {
-            "type": "PlutusScriptV2",
-            "description": f"opshin {__version__} Smart Contract",
-            "cborHex": cbor_wrapped_hex,
-        }
+            fp.write(artifacts.cbor_hex)
         with (target_dir / "script.plutus").open("w") as fp:
-            json.dump(d, fp)
-        script_hash = pycardano.plutus_script_hash(pycardano.PlutusV2Script(cbor))
-        # generate policy ids
+            fp.write(artifacts.plutus_json)
         with (target_dir / "script.policy_id").open("w") as fp:
-            fp.write(script_hash.to_primitive().hex())
-        addr_mainnet = pycardano.Address(
-            script_hash, network=pycardano.Network.MAINNET
-        ).encode()
-        # generate addresses
+            fp.write(artifacts.policy_id)
         with (target_dir / "mainnet.addr").open("w") as fp:
-            fp.write(addr_mainnet)
-        addr_testnet = pycardano.Address(
-            script_hash, network=pycardano.Network.TESTNET
-        ).encode()
+            fp.write(artifacts.mainnet_addr)
         with (target_dir / "testnet.addr").open("w") as fp:
-            fp.write(addr_testnet)
+            fp.write(artifacts.testnet_addr)
 
         print(f"Wrote script artifacts to {target_dir}/")
         return
