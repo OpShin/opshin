@@ -232,22 +232,27 @@ src="https://avatars.githubusercontent.com/u/89693711?v=4" width="50" /></a></p>
 
 import warnings
 
-try:
-    from compiler import *
-except ImportError as e:
-    warnings.warn(ImportWarning(e))
-
-__version__ = &#34;0.9.12&#34;
+__version__ = &#34;0.9.15&#34;
 __author__ = &#34;nielstron&#34;
 __author_email__ = &#34;n.muendler@web.de&#34;
 __copyright__ = &#34;Copyright (C) 2023 nielstron&#34;
 __license__ = &#34;MIT&#34;
-__url__ = &#34;https://github.com/imperatorlang/opshin&#34;</code></pre>
+__url__ = &#34;https://github.com/imperatorlang/opshin&#34;
+
+try:
+    from .compiler import *
+    from .builder import *
+except ImportError as e:
+    warnings.warn(ImportWarning(e))</code></pre>
 </details>
 </section>
 <section>
 <h2 class="section-title" id="header-submodules">Sub-modules</h2>
 <dl>
+<dt><code class="name"><a title="opshin.builder" href="builder.html">opshin.builder</a></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
 <dt><code class="name"><a title="opshin.compiler" href="compiler.html">opshin.compiler</a></code></dt>
 <dd>
 <div class="desc"></div>
@@ -375,6 +380,7 @@ setTimeout(() => input.focus(), 100);
 <ul id="index">
 <li><h3><a href="#header-submodules">Sub-modules</a></h3>
 <ul>
+<li><code><a title="opshin.builder" href="builder.html">opshin.builder</a></code></li>
 <li><code><a title="opshin.compiler" href="compiler.html">opshin.compiler</a></code></li>
 <li><code><a title="opshin.ledger" href="ledger/index.html">opshin.ledger</a></code></li>
 <li><code><a title="opshin.optimize" href="optimize/index.html">opshin.optimize</a></code></li>
