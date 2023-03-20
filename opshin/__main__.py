@@ -7,13 +7,11 @@ import sys
 import typing
 import ast
 
-import cbor2
-import pyaiken
 import pycardano
 import uplc
 import uplc.ast
 
-from opshin import __version__, compiler, build
+from opshin import __version__, compiler, builder
 from opshin.util import CompilerError, data_from_json
 
 
@@ -178,7 +176,7 @@ Note that opshin errors may be overly restrictive as they aim to prevent code wi
         else:
             target_dir = pathlib.Path(args.output_directory)
         target_dir.mkdir(exist_ok=True, parents=True)
-        artifacts = build._build(code)
+        artifacts = builder._build(code)
         with (target_dir / "script.cbor").open("w") as fp:
             fp.write(artifacts.cbor_hex)
         with (target_dir / "script.plutus").open("w") as fp:
