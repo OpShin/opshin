@@ -744,3 +744,55 @@ def validator(x: int) -> int:
         code = compiler.compile(ast).compile()
         res = uplc_eval(uplc.Apply(code, uplc.PlutusInteger(0))).value
         self.assertEqual(res, 0)
+
+    def test_zero_ary(self):
+        source_code = """
+def a() -> None:
+    assert False, "Executed a"
+
+def validator(x: None) -> None:
+    b = a
+    if False:
+        b()
+"""
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusInteger(0)))
+
+    @unittest.expectedFailure
+    def test_zero_ary_exec(self):
+        source_code = """
+def a() -> None:
+    assert False, "Executed a"
+
+def validator(x: None) -> None:
+    b = a
+    if True:
+        b()
+"""
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusInteger(0)))
+
+    def test_zero_ary_method(self):
+        source_code = """
+def validator(x: None) -> None:
+    b = b"\\xFF".decode
+    if False:
+        b()
+"""
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusInteger(0)))
+
+    @unittest.expectedFailure
+    def test_zero_ary_method_exec(self):
+        source_code = """
+def validator(x: None) -> None:
+    b = b"\\xFF".decode
+    if True:
+        b()
+"""
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusInteger(0)))

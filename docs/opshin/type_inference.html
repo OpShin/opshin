@@ -577,11 +577,11 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             functyp = tc.func.typ.typ
             assert len(tc.args) == len(
                 functyp.argtyps
-            ), f&#34;Signature of function {ast.dump(node)} does not match number of arguments&#34;
+            ), f&#34;Signature of function does not match number of arguments. Expected {len(functyp.argtyps)} arguments with these types: {functyp.argtyps}&#34;
             # all arguments need to be supertypes of the given type
             assert all(
                 ap &gt;= a.typ for a, ap in zip(tc.args, functyp.argtyps)
-            ), f&#34;Signature of function {ast.dump(node)} does not match arguments&#34;
+            ), f&#34;Signature of function does not match arguments. Expected {len(functyp.argtyps)} arguments with these types: {functyp.argtyps}&#34;
             tc.typ = functyp.rettyp
             return tc
         raise TypeInferenceError(&#34;Could not infer type of call&#34;)
@@ -1290,11 +1290,11 @@ just a single node.</p>
             functyp = tc.func.typ.typ
             assert len(tc.args) == len(
                 functyp.argtyps
-            ), f&#34;Signature of function {ast.dump(node)} does not match number of arguments&#34;
+            ), f&#34;Signature of function does not match number of arguments. Expected {len(functyp.argtyps)} arguments with these types: {functyp.argtyps}&#34;
             # all arguments need to be supertypes of the given type
             assert all(
                 ap &gt;= a.typ for a, ap in zip(tc.args, functyp.argtyps)
-            ), f&#34;Signature of function {ast.dump(node)} does not match arguments&#34;
+            ), f&#34;Signature of function does not match arguments. Expected {len(functyp.argtyps)} arguments with these types: {functyp.argtyps}&#34;
             tc.typ = functyp.rettyp
             return tc
         raise TypeInferenceError(&#34;Could not infer type of call&#34;)
@@ -1744,11 +1744,11 @@ just a single node.</p>
         functyp = tc.func.typ.typ
         assert len(tc.args) == len(
             functyp.argtyps
-        ), f&#34;Signature of function {ast.dump(node)} does not match number of arguments&#34;
+        ), f&#34;Signature of function does not match number of arguments. Expected {len(functyp.argtyps)} arguments with these types: {functyp.argtyps}&#34;
         # all arguments need to be supertypes of the given type
         assert all(
             ap &gt;= a.typ for a, ap in zip(tc.args, functyp.argtyps)
-        ), f&#34;Signature of function {ast.dump(node)} does not match arguments&#34;
+        ), f&#34;Signature of function does not match arguments. Expected {len(functyp.argtyps)} arguments with these types: {functyp.argtyps}&#34;
         tc.typ = functyp.rettyp
         return tc
     raise TypeInferenceError(&#34;Could not infer type of call&#34;)</code></pre>
