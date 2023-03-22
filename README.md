@@ -40,8 +40,8 @@ https://github.com/OpShin/opshin-pioneer-program) for a host of educational exam
 
 #### Example repository
 
-Check out the [opshin-example](
-https://github.com/OpShin/opshin-example) repository for a quick start in setting up a development environment
+Check out the [opshin-starter-kit](
+https://github.com/OpShin/opshin-starter-kit) repository for a quick start in setting up a development environment
 and compiling some sample contracts yourself.
 
 
@@ -61,10 +61,10 @@ community](https://discord.gg/umR3A2g4uw) of OpShin
 
 #### Installation
 
-Install Python 3.8. Then run
+Install Python 3.8, 3.9 or 3.10. Then run
 
 ```bash
-python3.8 -m pip install opshin
+python3 -m pip install opshin
 ```
 
 #### Writing a Smart Contract
@@ -76,7 +76,7 @@ A short non-complete introduction in starting to write smart contracts follows.
 3. Make sure your contract is valid python and the types check out. Write simple contracts first and run them using `opshin eval` to get a feeling for how they work.
 4. Make sure your contract is valid opshin code. Run `opshin compile` and look at the compiler erros for guidance along what works and doesn't work and why.
 5. Dig into the [`examples`](https://github.com/OpShin/opshin/tree/master/examples) to understand common patterns. Check out the [`prelude`](https://opshin.opshin.dev/opshin/prelude.html) for understanding how the Script Context is structured and how complex datums are defined.
-6. Check out the [sample repository](https://github.com/OpShin/opshin-example) to find a sample setup for developing your own contract.
+6. Check out the [sample repository](https://github.com/OpShin/opshin-starter-kit) to find a sample setup for developing your own contract.
 
 
 In summary, a smart contract in opshin is defined by the function `validator` in your contract file.
@@ -120,8 +120,8 @@ for details on how to write double functioning contracts.
 The [`examples`](https://github.com/OpShin/opshin/blob/master/examples) folder contains more examples.
 Also check out the [opshin-pioneer-program](
 https://github.com/OpShin/opshin-pioneer-program)
- and [opshin-example](
-https://github.com/OpShin/opshin-example) repo.
+ and [opshin-starter-kit](
+https://github.com/OpShin/opshin-starter-kit) repo.
 
 ### Compiling
 
