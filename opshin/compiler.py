@@ -12,6 +12,7 @@ from .rewrite.rewrite_import_typing import RewriteImportTyping
 from .rewrite.rewrite_inject_builtins import RewriteInjectBuiltins
 from .rewrite.rewrite_inject_builtin_constr import RewriteInjectBuiltinsConstr
 from .rewrite.rewrite_remove_type_stuff import RewriteRemoveTypeStuff
+from .rewrite.rewrite_subscript38 import RewriteSubscript38
 from .rewrite.rewrite_tuple_assign import RewriteTupleAssign
 from .rewrite.rewrite_zero_ary import RewriteZeroAry
 from .optimize.optimize_remove_pass import OptimizeRemovePass
@@ -540,15 +541,12 @@ class UPLCCompiler(CompilingNodeTransformer):
         ), "Can only access elements of instances, not classes"
         if isinstance(node.value.typ.typ, TupleType):
             assert isinstance(
-                node.slice, Index
-            ), "Only single index slices for tuples are currently supported"
-            assert isinstance(
-                node.slice.value, Constant
+                node.slice, Constant
             ), "Only constant index access for tuples is supported"
             assert isinstance(
-                node.slice.value.value, int
+                node.slice.value, int
             ), "Only constant index integer access for tuples is supported"
-            index = node.slice.value.value
+            index = node.slice.value
             if index < 0:
                 index += len(node.value.typ.typ.typs)
             assert isinstance(node.ctx, Load), "Tuples are read-only"
@@ -561,11 +559,8 @@ class UPLCCompiler(CompilingNodeTransformer):
                 ),
             )
         if isinstance(node.value.typ.typ, ListType):
-            assert isinstance(
-                node.slice, Index
-            ), "Only single index slices for lists are currently supported"
             assert (
-                node.slice.value.typ == IntegerInstanceType
+                node.slice.typ == IntegerInstanceType
             ), "Only single element list index access supported"
             return plt.Lambda(
                 [STATEMONAD],
@@ -574,9 +569,7 @@ class UPLCCompiler(CompilingNodeTransformer):
                         ("l", plt.Apply(self.visit(node.value), plt.Var(STATEMONAD))),
                         (
                             "raw_i",
-                            plt.Apply(
-                                self.visit(node.slice.value), plt.Var(STATEMONAD)
-                            ),
+                            plt.Apply(self.visit(node.slice), plt.Var(STATEMONAD)),
                         ),
                         (
                             "i",
@@ -593,7 +586,7 @@ class UPLCCompiler(CompilingNodeTransformer):
                 ),
             )
         elif isinstance(node.value.typ.typ, ByteStringType):
-            if isinstance(node.slice, Index):
+            if not isinstance(node.slice, Slice):
                 return plt.Lambda(
                     [STATEMONAD],
                     plt.Let(
@@ -604,9 +597,7 @@ class UPLCCompiler(CompilingNodeTransformer):
                             ),
                             (
                                 "raw_ix",
-                                plt.Apply(
-                                    self.visit(node.slice.value), plt.Var(STATEMONAD)
-                                ),
+                                plt.Apply(self.visit(node.slice), plt.Var(STATEMONAD)),
                             ),
                             (
                                 "ix",
@@ -847,6 +838,7 @@ def compile(prog: AST, filename=None, force_three_params=False):
         # Important to call this one first - it imports all further files
         RewriteImport(filename=filename),
         # Rewrites that simplify the python code
+        RewriteSubscript38(),
         RewriteAugAssign(),
         RewriteTupleAssign(),
         RewriteImportPlutusData(),

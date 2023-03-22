@@ -25,7 +25,7 @@ class RewriteTupleAssign(CompilingNodeTransformer):
                     [t],
                     Subscript(
                         value=Name(f"{uid}_tup", Load()),
-                        slice=Index(value=Constant(i)),
+                        slice=Constant(i),
                         ctx=Load(),
                     ),
                 )
