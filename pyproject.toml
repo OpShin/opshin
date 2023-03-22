@@ -18,7 +18,7 @@ classifiers = [
 packages = [{include = "opshin"}]
 
 [tool.poetry.dependencies]
-python = ">=3.8, <3.9"
+python = ">=3.8, <3.10"
 uplc = "0.5.6"
 pluthon = "0.3.1"
 pycardano = "0.7.2"
