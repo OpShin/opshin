@@ -36,7 +36,7 @@ def build(contract_file: str, *args: pycardano.PlutusData, force_three_params=Fa
     # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
     for d in args:
         code = uplc.ast.Apply(code, uplc.ast.data_from_cbor(d.to_cbor("bytes")))
-    code = uplc.ast.Program("1.0.0", code)
+    code = uplc.ast.Program((1, 0, 0), code)
     return _build(code)
 
 

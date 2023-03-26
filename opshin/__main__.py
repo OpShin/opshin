@@ -159,7 +159,7 @@ Note that opshin errors may be overly restrictive as they aim to prevent code wi
     # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
     for d in map(data_from_json, map(json.loads, args.args)):
         code = uplc.ast.Apply(code, d)
-    code = uplc.ast.Program("1.0.0", code)
+    code = uplc.ast.Program((1, 0, 0), code)
 
     if command == Command.compile:
         print(code.dumps())
