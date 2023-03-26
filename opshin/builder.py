@@ -43,6 +43,7 @@ def build(contract_file: str, *args: pycardano.PlutusData, force_three_params=Fa
 def _build(contract: uplc.ast.Program):
     # create cbor file for use with pycardano/lucid
     cbor = flatten(contract)
+    cbor_hex = cbor.hex()
     # double wrap
     cbor_wrapped = cbor2.dumps(cbor)
     cbor_wrapped_hex = cbor_wrapped.hex()
