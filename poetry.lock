@@ -1354,18 +1354,18 @@ testing = ["pytest", "pytest-benchmark"]
 
 [[package]]
 name = "pluthon"
-version = "0.3.1"
+version = "0.3.2"
 description = "Pluto-like programming language for Cardano Smart Contracts in Python"
 category = "main"
 optional = false
 python-versions = ">=3"
 files = [
-    {file = "pluthon-0.3.1-py3-none-any.whl", hash = "sha256:a2ccb21b254dc143e9d60a7b7e462ea7c763e1d022a65666d6e546a61a26d4a8"},
-    {file = "pluthon-0.3.1.tar.gz", hash = "sha256:e5bf06e85431541b34805871d5fa1cdb0cde291d8050f82b23f952b990df1dbb"},
+    {file = "pluthon-0.3.2-py3-none-any.whl", hash = "sha256:918e2da1f48032268b2257075966c808bd379ba256e8879f1830154226ab4566"},
+    {file = "pluthon-0.3.2.tar.gz", hash = "sha256:d086bdbf12f1fb91b8edea87d80fc0ba3ffec296b569181866e6aa80b91c2f99"},
 ]
 
 [package.dependencies]
-uplc = "0.5.6"
+uplc = "0.6.0"
 
 [[package]]
 name = "poetry"
@@ -1498,39 +1498,6 @@ python-versions = "*"
 files = [
     {file = "ptyprocess-0.7.0-py2.py3-none-any.whl", hash = "sha256:4b41f3967fce3af57cc7e94b888626c18bf37a083e3651ca8feeb66d492fef35"},
     {file = "ptyprocess-0.7.0.tar.gz", hash = "sha256:5c5d0a3b48ceee0b48485e0c26037c0acd7d29765ca3fbb5cb3831d347423220"},
-]
-
-[[package]]
-name = "pyaiken"
-version = "0.4.0"
-description = "Python bindings for aiken"
-category = "main"
-optional = false
-python-versions = ">=3.7"
-files = [
-    {file = "pyaiken-0.4.0-cp310-cp310-macosx_10_9_x86_64.macosx_11_0_arm64.macosx_10_9_universal2.whl", hash = "sha256:c7cd6e02df007dff5ac7c6f80d7279857008670dfdae6793bac4634a000010db"},
-    {file = "pyaiken-0.4.0-cp310-cp310-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:cedfa5c1658c0e66299e2d15a4304661a63dc319aba13a7c5c69fef4c852c68b"},
-    {file = "pyaiken-0.4.0-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:abd79bffbfcf729030e3358cd772c349157576fbbcc3757720311c027d4abfaf"},
-    {file = "pyaiken-0.4.0-cp310-none-win_amd64.whl", hash = "sha256:5b9fb858b8d87148f709c53b6c9d371b2771ad6fe1183b05cfd5a330b48132fb"},
-    {file = "pyaiken-0.4.0-cp311-cp311-macosx_10_9_x86_64.macosx_11_0_arm64.macosx_10_9_universal2.whl", hash = "sha256:8bfe5fdeebc7d955f4d80ff3b16a2c023f975a5741ca952d5852eae7b27f51ef"},
-    {file = "pyaiken-0.4.0-cp311-cp311-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:308ea50c4accc6fd273f0690ce5b7d2784ffa6ce91aa9e2c9f715193fa541ee4"},
-    {file = "pyaiken-0.4.0-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:0461ba51df27552ec94b04943e9cd5784d391a7dfbcb20936ba6e0f751caa43e"},
-    {file = "pyaiken-0.4.0-cp311-none-win_amd64.whl", hash = "sha256:7ada1ea0be5f7782d13186cd5fbce744b7446fddc8b2df03dac2df5e77148e06"},
-    {file = "pyaiken-0.4.0-cp37-cp37m-macosx_10_9_x86_64.macosx_11_0_arm64.macosx_10_9_universal2.whl", hash = "sha256:844e9ebbcb2574d0d5f12024fc550604adfc63535098eeef0e990aa8116f20ea"},
-    {file = "pyaiken-0.4.0-cp37-cp37m-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:abe39b0b18b151fbdfc39ea9c458b2d77433d6f4c662b55db4a3abc9ce14da0c"},
-    {file = "pyaiken-0.4.0-cp37-none-win_amd64.whl", hash = "sha256:0aefe41206c2ecf6539480fade621e017097ea697a5101db70ba6e76b3d1eba5"},
-    {file = "pyaiken-0.4.0-cp38-cp38-macosx_10_9_x86_64.macosx_11_0_arm64.macosx_10_9_universal2.whl", hash = "sha256:745ae349ff0eb904a93d75f00f5b6be6076374d0b79c52820dee6df04edda8e0"},
-    {file = "pyaiken-0.4.0-cp38-cp38-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:3d735eb81ce0aa3419094556d1df85bf2a58e6a3a4e519760097c85e69629cc9"},
-    {file = "pyaiken-0.4.0-cp38-cp38-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:e0fe51e1e313b2fd0a7ed77cc05720258ec6a9e3309cc220cc56f6f97e679b49"},
-    {file = "pyaiken-0.4.0-cp38-none-win_amd64.whl", hash = "sha256:4a96829350e69c403d63b0efb9e2a9019d5bcbf5b3831327249f6644560ab4e7"},
-    {file = "pyaiken-0.4.0-cp39-cp39-macosx_10_9_x86_64.macosx_11_0_arm64.macosx_10_9_universal2.whl", hash = "sha256:ed319fdde3c736a0f3afe5e0f9a5cb2e3eaf606547eb5b03fd35e80a9dc700fd"},
-    {file = "pyaiken-0.4.0-cp39-cp39-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:1b0368539d52f81997cb6af85179abe97a24780a80acfe3dfc8d46808e9670cc"},
-    {file = "pyaiken-0.4.0-cp39-cp39-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:0048d65a1bed02d9a576063553103ca057c8e250114fef3f5d2553ee0b170a49"},
-    {file = "pyaiken-0.4.0-cp39-none-win_amd64.whl", hash = "sha256:8975f1d1a87c1f5f59e876522d8a3496c6f4750332f579808d4bf22ffe7144cc"},
-    {file = "pyaiken-0.4.0-pp37-pypy37_pp73-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:8cfbcdedd7b420a61e115d525c108e1ed9a2f54d3836715b8d1d8e25ee2615cf"},
-    {file = "pyaiken-0.4.0-pp38-pypy38_pp73-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:3d3e21f96adae2578bbaf57b27d22e0107de54a5690b19878857656f38074889"},
-    {file = "pyaiken-0.4.0-pp39-pypy39_pp73-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:f480cc52f9df0acd36ac8e3723352ce0da3a0ec724bc5f07e5b6745205615c3b"},
-    {file = "pyaiken-0.4.0.tar.gz", hash = "sha256:083b2db369fb55ad1cdf7d8f9cd9b9e0bb98c3363d5dc67a8ba1492801a72f57"},
 ]
 
 [[package]]
@@ -2090,21 +2057,20 @@ files = [
 
 [[package]]
 name = "uplc"
-version = "0.5.6"
+version = "0.6.0"
 description = "Python implementation of untyped plutus language core"
 category = "main"
 optional = false
 python-versions = ">=3"
 files = [
-    {file = "uplc-0.5.6-py3-none-any.whl", hash = "sha256:65bbd36b964ddf09d5f630d256b24b3f07b868a461a1be7306297ac15dffe8bb"},
-    {file = "uplc-0.5.6.tar.gz", hash = "sha256:6c15cf50bf90d227723222e8e5b55247fd3266261a0d4f231f8edd06031829bb"},
+    {file = "uplc-0.6.0-py3-none-any.whl", hash = "sha256:3a1b458325735b6b2427a7cd7881164a5b1a955953587f6f3715f7af77b80976"},
+    {file = "uplc-0.6.0.tar.gz", hash = "sha256:eaf50d0c57860b2976012b4f1f148b3c6cbc95f82ddfc1e4e02b738bf4a104b6"},
 ]
 
 [package.dependencies]
 cbor2 = "5.4.6"
 frozendict = "2.3.4"
 frozenlist = "1.3.3"
-pyaiken = "0.4.0"
 pycardano = "0.7.2"
 python-secp256k1-cardano = "0.2.3"
 rply = "0.7.8"
@@ -2301,4 +2267,4 @@ testing = ["big-O", "flake8 (<5)", "jaraco.functools", "jaraco.itertools", "more
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.8, <3.11"
-content-hash = "29b51e912942b1dbcafbe051c62f236ca32d76c5c110bf5905f83c2f0e3b1988"
+content-hash = "7b3e5861ef87ab0468d7519c8c101088a72f2c3bf8ebb397d7dd29f00d692162"
