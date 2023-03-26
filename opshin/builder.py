@@ -4,7 +4,7 @@ import json
 from . import __version__, compiler
 
 import uplc.ast
-import pyaiken
+from uplc import flatten
 import cbor2
 import pycardano
 
@@ -40,11 +40,9 @@ def build(contract_file: str, *args: pycardano.PlutusData, force_three_params=Fa
     return _build(code)
 
 
-def _build(contract: uplc.ast.AST):
-    uplc_dump = contract.dumps()
-    cbor_hex = pyaiken.uplc.flat(uplc_dump)
+def _build(contract: uplc.ast.Program):
     # create cbor file for use with pycardano/lucid
-    cbor = bytes.fromhex(cbor_hex)
+    cbor = flatten(contract)
     # double wrap
     cbor_wrapped = cbor2.dumps(cbor)
     cbor_wrapped_hex = cbor_wrapped.hex()
