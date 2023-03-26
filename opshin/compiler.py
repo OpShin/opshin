@@ -294,7 +294,7 @@ class UPLCCompiler(CompilingNodeTransformer):
             raise RuntimeError(
                 "The contract can not always detect if it was passed three or two parameters on-chain."
             )
-        cp = plt.Program("1.0.0", validator)
+        cp = plt.Program((1, 0, 0), validator)
         return cp
 
     def visit_Constant(self, node: TypedConstant) -> plt.AST:
