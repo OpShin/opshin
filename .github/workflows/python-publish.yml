@@ -8,6 +8,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
+      # If there isn't a release for this version, create a new one.
+      - uses: ncipollo/release-action@v1
+        with:
+          generateReleaseNotes: true
+          makeLatest: true
+          prerelease: true
+          skipIfReleaseExists: true
+      # Build and publish the package to pypi.
       - name: Build and publish to pypi
         uses: JRubics/poetry-publish@v1.16
         with:
