@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from pycardano import Datum as Anything, PlutusData
 from typing import Dict, List, Union
 
-from .math import *
+from opshin.std.math import *
 
 
 @dataclass()
