@@ -273,7 +273,7 @@ Note that opshin errors may be overly restrictive as they aim to prevent code wi
     # apply parameters from the command line to the contract (instantiates parameterized contract!)
     code = code.term
     # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
-    for d in map(data_from_json, map(json.loads, args.args)):
+    for d in map(data_from_json, map(json.loads, (p.to_json() for p in parsed_params))):
         code = uplc.ast.Apply(code, d)
     code = uplc.ast.Program((1, 0, 0), code)
 
