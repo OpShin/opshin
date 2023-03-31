@@ -16,6 +16,7 @@ class Withdraw(PlutusData):
 
 OrderStep = Union[Deposit, Withdraw]
 
+
 # inspired by https://github.com/MuesliSwapTeam/muesliswap-cardano-pool-contracts/blob/main/dex/src/MuesliSwapPools/BatchOrder/Types.hs
 @dataclass()
 class BatchOrder(PlutusData):
