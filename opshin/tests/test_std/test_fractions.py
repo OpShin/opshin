@@ -59,7 +59,7 @@ def test_div(a: oc_fractions.Fraction, b: oc_fractions.Fraction):
 
 @hypothesis.given(denormalized_fractions)
 def test_norm_sign(a: oc_fractions.Fraction):
-    oc_normed = oc_fractions.norm_signs_fraction(a)
+    oc_normed = oc_fractions._norm_signs_fraction(a)
     assert oc_normed.denominator > 0, "invalid norm_signs"
     oc_normalized = native_fraction_from_oc_fraction(oc_normed)
     oc_a_normalized = native_fraction_from_oc_fraction(a)
@@ -69,7 +69,7 @@ def test_norm_sign(a: oc_fractions.Fraction):
 @hypothesis.given(denormalized_fractions)
 @hypothesis.example(oc_fractions.Fraction(0, -1))
 def test_norm(a: oc_fractions.Fraction):
-    oc_normed = oc_fractions.norm_fraction(oc_fractions.norm_signs_fraction(a))
+    oc_normed = oc_fractions.norm_fraction(a)
     oc_normalized = native_fraction_from_oc_fraction(a)
     assert oc_normed.numerator == oc_normalized.numerator, "Invalid norm"
     assert oc_normed.denominator == oc_normalized.denominator, "Invalid norm"

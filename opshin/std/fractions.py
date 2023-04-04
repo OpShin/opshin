@@ -1,7 +1,7 @@
 """
 An implementation of fractions in opshin
 This does not maintain smallest possible notation invariants for the sake of efficiency
-- the user has full control over when to normalize the fractions
+- the user has full control over when to normalize the fractions and should do so using norm_fraction
 """
 from dataclasses import dataclass
 from pycardano import Datum as Anything, PlutusData
@@ -18,6 +18,7 @@ class Fraction(PlutusData):
 
 
 def add_fraction(a: Fraction, b: Fraction) -> Fraction:
+    """returns a + b"""
     return Fraction(
         (a.numerator * b.denominator) + (b.numerator * a.denominator),
         a.denominator * b.denominator,
@@ -25,30 +26,39 @@ def add_fraction(a: Fraction, b: Fraction) -> Fraction:
 
 
 def neg_fraction(a: Fraction) -> Fraction:
+    """returns -a"""
     return Fraction(-a.numerator, a.denominator)
 
 
 def sub_fraction(a: Fraction, b: Fraction) -> Fraction:
+    """returns a - b"""
     return add_fraction(a, neg_fraction(b))
 
 
 def mul_fraction(a: Fraction, b: Fraction) -> Fraction:
+    """returns a * b"""
     return Fraction(a.numerator * b.numerator, a.denominator * b.denominator)
 
 
 def div_fraction(a: Fraction, b: Fraction) -> Fraction:
+    """returns a / b"""
     return Fraction(a.numerator * b.denominator, a.denominator * b.numerator)
 
 
-def norm_signs_fraction(a: Fraction) -> Fraction:
+def _norm_signs_fraction(a: Fraction) -> Fraction:
     """Restores the invariant that the denominator is > 0"""
     return Fraction(sign(a.denominator) * a.numerator, abs(a.denominator))
 
 
-def norm_fraction(a: Fraction) -> Fraction:
+def _norm_gcd_fraction(a: Fraction) -> Fraction:
     """Restores the invariant that num/denom are in the smallest possible denomination"""
     g = gcd(a.numerator, a.denominator)
     return Fraction(a.numerator // g, a.denominator // g)
+
+
+def norm_fraction(a: Fraction) -> Fraction:
+    """Restores the invariant that num/denom are in the smallest possible denomination and denominator > 0"""
+    return _norm_gcd_fraction(_norm_signs_fraction(a))
 
 
 def ge_fraction(a: Fraction, b: Fraction) -> bool:
