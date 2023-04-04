@@ -281,6 +281,20 @@ class TupleType(ClassType):
 
 
 @dataclass(frozen=True, unsafe_hash=True)
+class PairType(ClassType):
+    """An internal type representing built-in PlutusData pairs"""
+
+    l_typ: Type
+    r_typ: Type
+
+    def __ge__(self, other):
+        return isinstance(other, PairType) and all(
+            t >= ot
+            for t, ot in zip((self.l_typ, self.r_typ), (other.l_typ, other.r_typ))
+        )
+
+
+@dataclass(frozen=True, unsafe_hash=True)
 class ListType(ClassType):
     typ: Type
 
@@ -303,6 +317,15 @@ class DictType(ClassType):
         if attr == "values":
             return InstanceType(
                 FunctionType([], InstanceType(ListType(self.value_typ)))
+            )
+        if attr == "items":
+            return InstanceType(
+                FunctionType(
+                    [],
+                    InstanceType(
+                        ListType(InstanceType(PairType(self.key_typ, self.value_typ)))
+                    ),
+                )
             )
         raise TypeInferenceError(
             f"Type of attribute '{attr}' is unknown for type Dict."
@@ -361,6 +384,11 @@ class DictType(ClassType):
                     ),
                     empty_list(self.value_typ),
                 ),
+            )
+        if attr == "items":
+            return plt.Lambda(
+                ["self", "_"],
+                plt.Var("self"),
             )
         raise NotImplementedError(f"Attribute '{attr}' of Dict is unknown.")
 

@@ -50,6 +50,54 @@ def validator(x: Dict[int, bytes]) -> List[bytes]:
         ret = [x.value for x in uplc_eval(f).value]
         self.assertEqual(ret, list(xs.values()), "dict.keys returned wrong value")
 
+    @given(xs=st.dictionaries(st.integers(), st.binary()))
+    def test_dict_items_keys_sum(self, xs):
+        # this tests that errors that are caused by assignments are actually triggered at the time of assigning
+        source_code = """
+def validator(xs: Dict[int, bytes]) -> int:
+    sum_keys = 0
+    for x in xs.items():
+        sum_keys += x[0]
+    return sum_keys
+"""
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        for d in [
+            uplc.PlutusMap(
+                {uplc.PlutusInteger(k): uplc.PlutusByteString(v) for k, v in xs.items()}
+            )
+        ]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value
+        self.assertEqual(ret, sum(xs.keys()), "dict.items returned wrong value")
+
+    @given(xs=st.dictionaries(st.integers(), st.binary()))
+    def test_dict_items_values_sum(self, xs):
+        # this tests that errors that are caused by assignments are actually triggered at the time of assigning
+        source_code = """
+def validator(xs: Dict[int, bytes]) -> bytes:
+    sum_values = b""
+    for x in xs.items():
+        sum_values += x[1]
+    return sum_values
+"""
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        for d in [
+            uplc.PlutusMap(
+                {uplc.PlutusInteger(k): uplc.PlutusByteString(v) for k, v in xs.items()}
+            )
+        ]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value
+        self.assertEqual(ret, b"".join(xs.values()), "dict.items returned wrong value")
+
     @given(xs=st.text())
     def test_str_encode(self, xs):
         # this tests that errors that are caused by assignments are actually triggered at the time of assigning

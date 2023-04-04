@@ -569,6 +569,31 @@ class UPLCCompiler(CompilingNodeTransformer):
                     len(node.value.typ.typ.typs),
                 ),
             )
+        if isinstance(node.value.typ.typ, PairType):
+            assert isinstance(
+                node.slice, Constant
+            ), "Only constant index access for pairs is supported"
+            assert isinstance(
+                node.slice.value, int
+            ), "Only constant index integer access for pairs is supported"
+            index = node.slice.value
+            if index < 0:
+                index += 2
+            assert isinstance(node.ctx, Load), "Pairs are read-only"
+            assert (
+                0 <= index < 2
+            ), f"Pairs only have 2 elements, index should be 0 or 1, is {node.slice.value}"
+            member_func = plt.FstPair if index == 0 else plt.SndPair
+            # the content of pairs is always Data, so we need to unwrap
+            member_typ = node.typ
+            return plt.Lambda(
+                [STATEMONAD],
+                transform_ext_params_map(member_typ)(
+                    member_func(
+                        plt.Apply(self.visit(node.value), plt.Var(STATEMONAD)),
+                    ),
+                ),
+            )
         if isinstance(node.value.typ.typ, ListType):
             assert (
                 node.slice.typ == IntegerInstanceType
@@ -700,7 +725,9 @@ class UPLCCompiler(CompilingNodeTransformer):
                         ),
                     ),
                 )
-        raise NotImplementedError(f"Could not implement subscript of {node}")
+        raise NotImplementedError(
+            f'Could not implement subscript "{node.slice}" of "{node.value}"'
+        )
 
     def visit_Tuple(self, node: TypedTuple) -> plt.AST:
         return plt.Lambda(
