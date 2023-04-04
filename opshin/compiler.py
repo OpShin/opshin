@@ -144,8 +144,9 @@ class UPLCCompiler(CompilingNodeTransformer):
 
     step = "Compiling python statements to UPLC"
 
-    def __init__(self, force_three_params=False):
+    def __init__(self, force_three_params=False, validator_function_name="validator"):
         self.force_three_params = force_three_params
+        self.validator_function_name = validator_function_name
 
     def visit_sequence(self, node_seq: typing.List[typedstmt]) -> plt.AST:
         s = plt.Var(STATEMONAD)
@@ -222,13 +223,18 @@ class UPLCCompiler(CompilingNodeTransformer):
         # TODO can use more sophisiticated procedure here i.e. functions marked by comment
         main_fun: typing.Optional[InstanceType] = None
         for s in node.body:
-            if isinstance(s, FunctionDef) and s.orig_name == "validator":
+            if (
+                isinstance(s, FunctionDef)
+                and s.orig_name == self.validator_function_name
+            ):
                 main_fun = s
-        assert main_fun is not None, "Could not find function named validator"
+        assert (
+            main_fun is not None
+        ), f"Could not find function named {self.validator_function_name}"
         main_fun_typ: FunctionType = main_fun.typ.typ
         assert isinstance(
             main_fun_typ, FunctionType
-        ), "Variable named validator is not of type function"
+        ), f"Variable named {self.validator_function_name} is not of type function"
 
         # check if this is a contract written to double function
         enable_double_func_mint_spend = False
@@ -270,7 +276,9 @@ class UPLCCompiler(CompilingNodeTransformer):
                             plt.FunctionalMapAccess(
                                 plt.Var("s"),
                                 plt.ByteString(main_fun.name),
-                                plt.TraceError("NameError: validator"),
+                                plt.TraceError(
+                                    f"NameError: {self.validator_function_name}"
+                                ),
                             ),
                         ),
                     ],
@@ -833,7 +841,12 @@ class UPLCCompiler(CompilingNodeTransformer):
         raise NotImplementedError(f"Can not compile {node}")
 
 
-def compile(prog: AST, filename=None, force_three_params=False):
+def compile(
+    prog: AST,
+    filename=None,
+    force_three_params=False,
+    validator_function_name="validator",
+):
     rewrite_steps = [
         # Important to call this one first - it imports all further files
         RewriteImport(filename=filename),
@@ -865,7 +878,10 @@ def compile(prog: AST, filename=None, force_three_params=False):
         OptimizeVarlen(),
         OptimizeRemovePass(),
         # the compiler runs last
-        UPLCCompiler(force_three_params=force_three_params),
+        UPLCCompiler(
+            force_three_params=force_three_params,
+            validator_function_name=validator_function_name,
+        ),
     ]
     for s in compile_pipeline:
         prog = s.visit(prog)

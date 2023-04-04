@@ -18,7 +18,12 @@ class ScriptArtifacts:
     policy_id: str
 
 
-def build(contract_file: str, *args: pycardano.PlutusData, force_three_params=False):
+def build(
+    contract_file: str,
+    *args: pycardano.PlutusData,
+    force_three_params=False,
+    validator_function_name="validator",
+):
     """
     Expects a python module and returns the build artifacts from compiling it
     """
