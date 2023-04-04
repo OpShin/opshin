@@ -1,13 +1,13 @@
 from opshin.prelude import *
 
 
-@dataclass()
+@dataclass
 class Deposit(PlutusData):
     CONSTR_ID = 0
     minimum_lp: int
 
 
-@dataclass()
+@dataclass
 class Withdraw(PlutusData):
     CONSTR_ID = 1
     minimum_coin_a: int
@@ -18,7 +18,7 @@ OrderStep = Union[Deposit, Withdraw]
 
 
 # inspired by https://github.com/MuesliSwapTeam/muesliswap-cardano-pool-contracts/blob/main/dex/src/MuesliSwapPools/BatchOrder/Types.hs
-@dataclass()
+@dataclass
 class BatchOrder(PlutusData):
     sender: Address
     receiver: Address

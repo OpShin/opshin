@@ -1,7 +1,7 @@
 from opshin.prelude import *
 
 
-@dataclass()
+@dataclass
 class Listing(PlutusData):
     # Price of the listing in lovelace
     price: int
@@ -11,13 +11,13 @@ class Listing(PlutusData):
     owner: PubKeyHash
 
 
-@dataclass()
+@dataclass
 class Buy(PlutusData):
     # Redeemer to buy the listed values
     CONSTR_ID = 0
 
 
-@dataclass()
+@dataclass
 class Unlist(PlutusData):
     # Redeemer to unlist the values
     CONSTR_ID = 1

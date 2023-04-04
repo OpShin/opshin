@@ -1,12 +1,13 @@
 from opshin.prelude import *
 
 
-@dataclass()
+# You need to enable hashing in order to allow the data to be the key of a dict
+@dataclass(unsafe_hash=True)
 class D(PlutusData):
     p: bytes
 
 
-@dataclass()
+@dataclass
 class D2(PlutusData):
     dict_field: Dict[D, int]
 
