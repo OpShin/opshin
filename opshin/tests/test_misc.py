@@ -861,3 +861,23 @@ def validator(xs: Dict[int, bytes]) -> bytes:
             b"".join(xs.values()),
             "for loop deconstruction did not behave as expected",
         )
+
+    def test_nested_deconstruction(self):
+        # asserts that deconstruction of parameters works for for loops too
+        source_code = """
+def validator(xs) -> int:
+    a, ((b, c), d) = (1, ((2, 3), 4))
+    return a + b + c + d
+"""
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        f = uplc.Apply(f, uplc.PlutusConstr(0, []))
+        ret = uplc_eval(f).value
+        self.assertEqual(
+            ret,
+            1 + 2 + 3 + 4,
+            "for loop deconstruction did not behave as expected",
+        )
