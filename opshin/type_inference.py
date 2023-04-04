@@ -421,7 +421,18 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                 ts.typ = ts.value.typ.typ.typs[ts.slice.value]
             else:
                 raise TypeInferenceError(
-                    f"Could not infer type of subscript of typ {ts.value.typ.__class__}"
+                    f"Could not infer type of subscript of typ {ts.value.typ.typ.__class__}"
+                )
+        elif isinstance(ts.value.typ.typ, PairType):
+            if isinstance(ts.slice, Constant) and isinstance(ts.slice.value, int):
+                ts.typ = (
+                    ts.value.typ.typ.l_typ
+                    if ts.slice.value == 0
+                    else ts.value.typ.typ.r_typ
+                )
+            else:
+                raise TypeInferenceError(
+                    f"Could not infer type of subscript of typ {ts.value.typ.typ.__class__}"
                 )
         elif isinstance(ts.value.typ.typ, ListType):
             ts.typ = ts.value.typ.typ.typ

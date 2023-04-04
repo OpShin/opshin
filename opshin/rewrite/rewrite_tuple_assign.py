@@ -1,3 +1,5 @@
+from copy import copy
+
 import typing
 from ast import *
 
@@ -33,3 +35,31 @@ class RewriteTupleAssign(CompilingNodeTransformer):
         # recursively resolve multiple layers of tuples
         transformed = sum([self.visit(a) for a in assignments], [])
         return transformed
+
+    def visit_For(self, node: For) -> For:
+        # rewrite deconstruction in for loops
+        if not isinstance(node.target, Tuple):
+            return self.generic_visit(node)
+        new_for = copy(node)
+        new_for.iter = self.visit(node.iter)
+        uid = self.unique_id
+        self.unique_id += 1
+        # write the tuple into a singleton variable
+        new_for.target = Name(f"{uid}_tup", Store())
+        assignments = []
+        # iteratively assign the deconstructed parts to the original variable names
+        for i, t in enumerate(node.target.elts):
+            assignments.append(
+                Assign(
+                    [t],
+                    Subscript(
+                        value=Name(f"{uid}_tup", Load()),
+                        slice=Constant(i),
+                        ctx=Load(),
+                    ),
+                )
+            )
+        new_for.body = assignments + node.body
+        # recursively resolve multiple layers of tuples
+        # further layers should be handled by the normal tuple assignment though
+        return self.visit(new_for)
