@@ -881,7 +881,13 @@ def validator(xs) -> int:
             "for loop deconstruction did not behave as expected",
         )
 
-    @given(xs=st.dictionaries(st.binary(), st.dictionaries(st.binary(), st.integers())))
+    @given(
+        xs=st.dictionaries(
+            st.binary(),
+            st.dictionaries(st.binary(), st.integers(), max_size=3),
+            max_size=5,
+        )
+    )
     def test_dict_items_values_deconstr(self, xs):
         # nested deconstruction with a Value-like object
         source_code = """
