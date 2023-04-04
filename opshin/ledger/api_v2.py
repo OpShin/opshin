@@ -9,7 +9,7 @@ from pycardano import Datum as Anything, PlutusData
 
 
 # Plutus V2
-@dataclass()
+@dataclass(unsafe_hash=True)
 class TxId(PlutusData):
     """
     A transaction id, a 64 bytes long hash of the transaction body (also called transaction hash).
@@ -20,7 +20,7 @@ class TxId(PlutusData):
     tx_id: bytes
 
 
-@dataclass()
+@dataclass(unsafe_hash=True)
 class Nothing(PlutusData):
     """
     Nothing, can be used to signify non-importance of a parameter to a function
@@ -32,7 +32,7 @@ class Nothing(PlutusData):
     CONSTR_ID = 6
 
 
-@dataclass()
+@dataclass(unsafe_hash=True)
 class TrueData(PlutusData):
     """
     A Datum that represents True in Haskell implementations.
@@ -44,7 +44,7 @@ class TrueData(PlutusData):
     CONSTR_ID = 0
 
 
-@dataclass()
+@dataclass(unsafe_hash=True)
 class FalseData(PlutusData):
     """
     A Datum that represents False in Haskell implementations.
@@ -63,7 +63,7 @@ class FalseData(PlutusData):
 BoolData = Union[TrueData, FalseData]
 
 
-@dataclass()
+@dataclass(unsafe_hash=True)
 class TxOutRef(PlutusData):
     """
     A reference to a transaction output (hash/id + index)
@@ -77,7 +77,7 @@ class TxOutRef(PlutusData):
 PubKeyHash = bytes
 
 
-@dataclass()
+@dataclass(unsafe_hash=True)
 class PubKeyCredential(PlutusData):
     """
     Part of an address that is authenticated by a public key hash
@@ -93,7 +93,7 @@ class PubKeyCredential(PlutusData):
 ValidatorHash = bytes
 
 
-@dataclass()
+@dataclass(unsafe_hash=True)
 class ScriptCredential(PlutusData):
     """
     Part of an address that is authenticated by a smart cotnract
@@ -109,7 +109,7 @@ class ScriptCredential(PlutusData):
 Credential = Union[PubKeyCredential, ScriptCredential]
 
 
-@dataclass()
+@dataclass(unsafe_hash=True)
 class StakingHash(PlutusData):
     """
     Indicates that the stake of this address is controlled by the associated credential
@@ -119,7 +119,7 @@ class StakingHash(PlutusData):
     value: Credential
 
 
-@dataclass()
+@dataclass(unsafe_hash=True)
 class StakingPtr(PlutusData):
     """
     Indicates that the stake of this address is controlled by the associated pointer.
@@ -141,7 +141,7 @@ class StakingPtr(PlutusData):
 StakingCredential = Union[StakingHash, StakingPtr]
 
 
-@dataclass()
+@dataclass(unsafe_hash=True)
 class NoStakingCredential(PlutusData):
     """
     Indicates that this address has no staking credentials.
@@ -151,7 +151,7 @@ class NoStakingCredential(PlutusData):
     CONSTR_ID = 1
 
 
-@dataclass()
+@dataclass(unsafe_hash=True)
 class SomeStakingCredential(PlutusData):
     """
     Indicates that this address has staking credentials.
@@ -162,7 +162,7 @@ class SomeStakingCredential(PlutusData):
     staking_credential: StakingCredential
 
 
-@dataclass()
+@dataclass(unsafe_hash=True)
 class Address(PlutusData):
     """
     A Shelley address, consisting of a payment and staking credential
@@ -189,7 +189,7 @@ Value = Dict[PolicyId, Dict[TokenName, int]]
 DatumHash = bytes
 
 
-@dataclass()
+@dataclass(unsafe_hash=True)
 class SomeDatumHash(PlutusData):
     """
     Indicates that there is a datum associated with this output, which has the given hash.
@@ -199,7 +199,7 @@ class SomeDatumHash(PlutusData):
     datum_hash: DatumHash
 
 
-@dataclass()
+@dataclass(unsafe_hash=True)
 class SomeScriptHash(PlutusData):
     """
     Indicates that there is a script associated with this output, which has the given hash.
@@ -222,7 +222,7 @@ Redeemer = BuiltinData
 Datum = BuiltinData
 
 
-@dataclass()
+@dataclass(unsafe_hash=True)
 class NoOutputDatum(PlutusData):
     """
     Indicates that there is no datum associated with an output
@@ -231,7 +231,7 @@ class NoOutputDatum(PlutusData):
     CONSTR_ID = 0
 
 
-@dataclass()
+@dataclass(unsafe_hash=True)
 class SomeOutputDatumHash(PlutusData):
     """
     Indicates that there is an datum associated with an output, which has the attached hash
@@ -241,7 +241,7 @@ class SomeOutputDatumHash(PlutusData):
     datum_hash: DatumHash
 
 
-@dataclass()
+@dataclass(unsafe_hash=True)
 class SomeOutputDatum(PlutusData):
     """
     Indicates that there is an datum associated with an output, which is inlined and equal to the attached datum
@@ -255,7 +255,7 @@ class SomeOutputDatum(PlutusData):
 OutputDatum = Union[NoOutputDatum, SomeOutputDatumHash, SomeOutputDatum]
 
 
-@dataclass()
+@dataclass(unsafe_hash=True)
 class NoScriptHash(PlutusData):
     """
     Indicates that there is no script associated with an output
@@ -264,7 +264,7 @@ class NoScriptHash(PlutusData):
     CONSTR_ID = 1
 
 
-@dataclass()
+@dataclass(unsafe_hash=True)
 class TxOut(PlutusData):
     """
     The plutus representation of an transaction output, consisting of
@@ -280,7 +280,7 @@ class TxOut(PlutusData):
     reference_script: Union[NoScriptHash, SomeScriptHash]
 
 
-@dataclass()
+@dataclass(unsafe_hash=True)
 class TxInInfo(PlutusData):
     """
     The plutus representation of an transaction output, that is consumed by the transaction.
@@ -290,45 +290,45 @@ class TxInInfo(PlutusData):
     resolved: TxOut
 
 
-@dataclass()
+@dataclass(unsafe_hash=True)
 class DCertDelegRegKey(PlutusData):
     CONSTR_ID = 0
     value: StakingCredential
 
 
-@dataclass()
+@dataclass(unsafe_hash=True)
 class DCertDelegDeRegKey(PlutusData):
     CONSTR_ID = 1
     value: StakingCredential
 
 
-@dataclass()
+@dataclass(unsafe_hash=True)
 class DCertDelegDelegate(PlutusData):
     CONSTR_ID = 2
     delegator: StakingCredential
     delegatee: PubKeyHash
 
 
-@dataclass()
+@dataclass(unsafe_hash=True)
 class DCertPoolRegister(PlutusData):
     CONSTR_ID = 3
     pool_id: PubKeyHash
     pool_vfr: PubKeyHash
 
 
-@dataclass()
+@dataclass(unsafe_hash=True)
 class DCertPoolRetire(PlutusData):
     CONSTR_ID = 4
     retirement_certificate: PubKeyHash
     epoch: int
 
 
-@dataclass()
+@dataclass(unsafe_hash=True)
 class DCertGenesis(PlutusData):
     CONSTR_ID = 5
 
 
-@dataclass()
+@dataclass(unsafe_hash=True)
 class DCertMir(PlutusData):
     CONSTR_ID = 6
 
@@ -347,7 +347,7 @@ DCert = Union[
 POSIXTime = int
 
 
-@dataclass()
+@dataclass(unsafe_hash=True)
 class NegInfPOSIXTime(PlutusData):
     """
     Negative infinite POSIX time, used to indicate that there is no lower bound for the execution of this transaction
@@ -356,7 +356,7 @@ class NegInfPOSIXTime(PlutusData):
     CONSTR_ID = 0
 
 
-@dataclass()
+@dataclass(unsafe_hash=True)
 class FinitePOSIXTime(PlutusData):
     """
     Finite POSIX time, used to indicate that there is a lower or upper bound for the execution of this transaction
@@ -366,7 +366,7 @@ class FinitePOSIXTime(PlutusData):
     time: POSIXTime
 
 
-@dataclass()
+@dataclass(unsafe_hash=True)
 class PosInfPOSIXTime(PlutusData):
     """
     Infinite POSIX time, used to indicate that there is no upper bound for the execution of this transaction
@@ -378,7 +378,7 @@ class PosInfPOSIXTime(PlutusData):
 ExtendedPOSIXTime = Union[NegInfPOSIXTime, FinitePOSIXTime, PosInfPOSIXTime]
 
 
-@dataclass()
+@dataclass(unsafe_hash=True)
 class UpperBoundPOSIXTime(PlutusData):
     """
     Upper bound for the execution of this transaction
@@ -389,7 +389,7 @@ class UpperBoundPOSIXTime(PlutusData):
     closed: BoolData
 
 
-@dataclass()
+@dataclass(unsafe_hash=True)
 class LowerBoundPOSIXTime(PlutusData):
     """
     Lower bound for the execution of this transaction
@@ -400,7 +400,7 @@ class LowerBoundPOSIXTime(PlutusData):
     closed: BoolData
 
 
-@dataclass()
+@dataclass(unsafe_hash=True)
 class POSIXTimeRange(PlutusData):
     """
     Time range in which this transaction can be executed
@@ -410,7 +410,7 @@ class POSIXTimeRange(PlutusData):
     upper_bound: UpperBoundPOSIXTime
 
 
-@dataclass()
+@dataclass(unsafe_hash=True)
 class Minting(PlutusData):
     """
     Script purpose indicating that the given policy id is being minted or burned
@@ -420,7 +420,7 @@ class Minting(PlutusData):
     policy_id: PolicyId
 
 
-@dataclass()
+@dataclass(unsafe_hash=True)
 class Spending(PlutusData):
     """
     Script purpose indicating that the given transaction output is being spent, which is
@@ -431,13 +431,13 @@ class Spending(PlutusData):
     tx_out_ref: TxOutRef
 
 
-@dataclass()
+@dataclass(unsafe_hash=True)
 class Rewarding(PlutusData):
     CONSTR_ID = 2
     staking_credential: StakingCredential
 
 
-@dataclass()
+@dataclass(unsafe_hash=True)
 class Certifying(PlutusData):
     CONSTR_ID = 3
     d_cert: DCert
@@ -447,7 +447,7 @@ class Certifying(PlutusData):
 ScriptPurpose = Union[Minting, Spending, Rewarding, Certifying]
 
 
-@dataclass()
+@dataclass(unsafe_hash=True)
 class TxInfo(PlutusData):
     """
     A complex agglomeration of everything that could be of interest to the executed script, regarding the transaction
@@ -468,7 +468,7 @@ class TxInfo(PlutusData):
     id: TxId
 
 
-@dataclass()
+@dataclass(unsafe_hash=True)
 class ScriptContext(PlutusData):
     """
     Auxiliary information about the transaction and reason for invocation of the called script.

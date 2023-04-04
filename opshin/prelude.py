@@ -2,7 +2,7 @@ from hashlib import sha256, sha3_256, blake2b
 from opshin.ledger.api_v2 import *
 
 
-@dataclass()
+@dataclass(unsafe_hash=True)
 class Token(PlutusData):
     """
     A token, represented by policy id and token name
