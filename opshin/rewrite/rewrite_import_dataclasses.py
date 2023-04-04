@@ -35,14 +35,17 @@ class RewriteImportDataclasses(CompilingNodeTransformer):
         ), "dataclasses must be imported in order to use datum classes"
         assert (
             len(node.decorator_list) == 1
-        ), "Class definitions must have no decorators but @dataclass()"
+        ), "Class definitions must have the decorator @dataclass"
+        if isinstance(node.decorator_list[0], Call):
+            node_decorator = node.decorator_list[0].func
+        elif isinstance(node.decorator_list[0], Name):
+            node_decorator = node.decorator_list[0]
+        else:
+            raise AssertionError("Class definitions must have the decorator @dataclass")
         assert isinstance(
-            node.decorator_list[0], Call
-        ), "Class definitions must have no decorators but @dataclass()"
-        assert isinstance(
-            node.decorator_list[0].func, Name
-        ), "Class definitions must have no decorators but @dataclass()"
+            node_decorator, Name
+        ), "Class definitions must have the decorator @dataclass"
         assert (
-            node.decorator_list[0].func.id == "dataclass"
-        ), "Class definitions must have no decorators but @dataclass()"
+            node_decorator.id == "dataclass"
+        ), "Class definitions must have the decorator @dataclass"
         return node

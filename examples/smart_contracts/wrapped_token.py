@@ -1,7 +1,7 @@
 from opshin.prelude import *
 
 
-@dataclass()
+@dataclass
 class Empty(PlutusData):
     pass
 

@@ -10,7 +10,7 @@ from typing import Dict, List, Union
 from opshin.std.math import *
 
 
-@dataclass()
+@dataclass(unsafe_hash=True)
 class Fraction(PlutusData):
     CONSTR_ID = 1
     numerator: int
