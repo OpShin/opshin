@@ -863,7 +863,6 @@ def validator(xs: Dict[int, bytes]) -> bytes:
         )
 
     def test_nested_deconstruction(self):
-        # asserts that deconstruction of parameters works for for loops too
         source_code = """
 def validator(xs) -> int:
     a, ((b, c), d) = (1, ((2, 3), 4))
@@ -879,5 +878,42 @@ def validator(xs) -> int:
         self.assertEqual(
             ret,
             1 + 2 + 3 + 4,
+            "for loop deconstruction did not behave as expected",
+        )
+
+    @given(xs=st.dictionaries(st.binary(), st.dictionaries(st.binary(), st.integers())))
+    def test_dict_items_values_deconstr(self, xs):
+        # nested deconstruction with a Value-like object
+        source_code = """
+def validator(xs: Dict[bytes, Dict[bytes, int]]) -> int:
+    sum_values = 0
+    for pid, tk_dict in xs.items():
+        for tk_name, tk_amount in tk_dict.items():
+            sum_values += tk_amount
+    return sum_values
+"""
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        for d in [
+            uplc.PlutusMap(
+                {
+                    uplc.PlutusByteString(k): uplc.PlutusMap(
+                        {
+                            uplc.PlutusByteString(k2): uplc.PlutusInteger(v2)
+                            for k2, v2 in v.items()
+                        }
+                    )
+                    for k, v in xs.items()
+                }
+            )
+        ]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value
+        self.assertEqual(
+            ret,
+            sum(v for pid, d in xs.items() for nam, v in d.items()),
             "for loop deconstruction did not behave as expected",
         )
