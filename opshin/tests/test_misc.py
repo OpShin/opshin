@@ -833,3 +833,31 @@ def validator(a) -> bytes:
         code = compiler.compile(ast).compile()
         res = uplc_eval(uplc.Apply(code, uplc.PlutusByteString(b"")))
         self.assertEqual(res, uplc.PlutusByteString(b""))
+
+    @given(xs=st.dictionaries(st.integers(), st.binary()))
+    def test_dict_items_values_deconstr(self, xs):
+        # asserts that deconstruction of parameters works for for loops too
+        source_code = """
+def validator(xs: Dict[int, bytes]) -> bytes:
+    sum_values = b""
+    for _, x in xs.items():
+        sum_values += x
+    return sum_values
+"""
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        for d in [
+            uplc.PlutusMap(
+                {uplc.PlutusInteger(k): uplc.PlutusByteString(v) for k, v in xs.items()}
+            )
+        ]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value
+        self.assertEqual(
+            ret,
+            b"".join(xs.values()),
+            "for loop deconstruction did not behave as expected",
+        )
