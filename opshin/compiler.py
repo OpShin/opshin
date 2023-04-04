@@ -431,13 +431,22 @@ class UPLCCompiler(CompilingNodeTransformer):
             ), "Function has no return statement but is supposed to return not-None value"
             body.append(tr)
         compiled_body = self.visit_sequence(body[:-1])
-        compiled_return = self.visit(body[-1].value)
         args_state = extend_statemonad(
             # the function can see its argument under the argument names
             [a.arg for a in node.args.args],
             [plt.Var(f"p{i}") for i in range(len(node.args.args))],
             plt.Var(STATEMONAD),
         )
+        compiled_return = plt.Apply(
+            self.visit(body[-1].value),
+            plt.Apply(
+                compiled_body,
+                args_state,
+            ),
+        )
+        if isinstance(node.typ.typ.rettyp.typ, AnyType):
+            # if the function returns generic data, wrap the function return value
+            compiled_return = transform_output_map(body[-1].value.typ)(compiled_return)
         return plt.Lambda(
             [STATEMONAD],
             extend_statemonad(
@@ -446,13 +455,7 @@ class UPLCCompiler(CompilingNodeTransformer):
                     plt.Lambda(
                         # expect the statemonad again -> this is the basis for internally available values
                         [f"p{i}" for i in range(len(node.args.args))] + [STATEMONAD],
-                        plt.Apply(
-                            compiled_return,
-                            plt.Apply(
-                                compiled_body,
-                                args_state,
-                            ),
-                        ),
+                        compiled_return,
                     )
                 ],
                 plt.Var(STATEMONAD),

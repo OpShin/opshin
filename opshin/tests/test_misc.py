@@ -796,3 +796,40 @@ def validator(x: None) -> None:
         ast = compiler.parse(source_code)
         code = compiler.compile(ast).compile()
         res = uplc_eval(uplc.Apply(code, uplc.PlutusInteger(0)))
+
+    def test_return_anything(self):
+        source_code = """
+from opshin.prelude import *
+
+def validator() -> Anything:
+    return b""
+"""
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
+        self.assertEqual(res, uplc.PlutusByteString(b""))
+
+    def test_no_return_annotation(self):
+        source_code = """
+from opshin.prelude import *
+
+def validator():
+    return b""
+"""
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
+        self.assertEqual(res, uplc.PlutusByteString(b""))
+
+    def test_no_parameter_annotation(self):
+        source_code = """
+from opshin.prelude import *
+
+def validator(a) -> bytes:
+    b: bytes = a
+    return b
+"""
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusByteString(b"")))
+        self.assertEqual(res, uplc.PlutusByteString(b""))

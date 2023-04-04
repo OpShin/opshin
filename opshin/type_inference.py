@@ -133,9 +133,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                 "Only Union, Dict and List are allowed as Generic types"
             )
         if ann is None:
-            raise TypeInferenceError(
-                "Type annotation is missing for a function argument or return value"
-            )
+            return AnyType()
         raise NotImplementedError(f"Annotation type {ann.__class__} is not supported")
 
     def visit_ClassDef(self, node: ClassDef) -> TypedClassDef:
