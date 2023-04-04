@@ -39,7 +39,7 @@ class RewriteTupleAssign(CompilingNodeTransformer):
     def visit_For(self, node: For) -> For:
         # rewrite deconstruction in for loops
         if not isinstance(node.target, Tuple):
-            return node
+            return self.generic_visit(node)
         new_for = copy(node)
         new_for.iter = self.visit(node.iter)
         uid = self.unique_id
