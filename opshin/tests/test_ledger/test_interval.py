@@ -147,44 +147,34 @@ def test_contains(a: POSIXTimeRange, b: POSIXTimeRange):
 
 @given(
     lower_bound=st.integers(),
-    lower_closed=st.one_of(st.builds(FalseData), st.builds(TrueData)),
 )
 def test_fuzz_make_from(
     lower_bound: int,
-    lower_closed: BoolData,
 ) -> None:
-    make_from(lower_bound=lower_bound, lower_closed=lower_closed)
+    make_from(lower_bound=lower_bound)
 
 
 @given(
     lower_bound=st.integers(),
     upper_bound=st.integers(),
-    lower_closed=st.one_of(st.builds(FalseData), st.builds(TrueData)),
-    upper_closed=st.one_of(st.builds(FalseData), st.builds(TrueData)),
 )
 def test_fuzz_make_range(
     lower_bound: int,
     upper_bound: int,
-    lower_closed: BoolData,
-    upper_closed: BoolData,
 ) -> None:
     make_range(
         lower_bound=lower_bound,
         upper_bound=upper_bound,
-        lower_closed=lower_closed,
-        upper_closed=upper_closed,
     )
 
 
 @given(
     upper_bound=st.integers(),
-    upper_closed=st.one_of(st.builds(FalseData), st.builds(TrueData)),
 )
 def test_fuzz_make_to(
     upper_bound: int,
-    upper_closed: BoolData,
 ) -> None:
-    make_to(upper_bound=upper_bound, upper_closed=upper_closed)
+    make_to(upper_bound=upper_bound)
 
 
 @given(
