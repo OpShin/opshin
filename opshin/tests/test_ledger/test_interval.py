@@ -195,3 +195,33 @@ def test_get_bool(b: bool) -> None:
     else:
         bool_data = FalseData()
     assert get_bool(bool_data) == b
+
+
+@given(
+    lower_bound=st.integers(),
+    upper_bound_1=st.integers(),
+    upper_bound_2=st.integers(),
+)
+def test_make_to_in_make_range(
+    lower_bound: int,
+    upper_bound_1: int,
+    upper_bound_2: int,
+) -> None:
+    assert contains(
+        make_to(upper_bound=upper_bound_1), make_range(lower_bound, upper_bound_2)
+    ) == (upper_bound_1 >= upper_bound_2)
+
+
+@given(
+    lower_bound_1=st.integers(),
+    lower_bound_2=st.integers(),
+    upper_bound=st.integers(),
+)
+def test_make_from_in_make_range(
+    lower_bound_1: int,
+    lower_bound_2: int,
+    upper_bound: int,
+) -> None:
+    assert contains(
+        make_from(lower_bound=lower_bound_1), make_range(lower_bound_2, upper_bound)
+    ) == (lower_bound_1 <= lower_bound_2)
