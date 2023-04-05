@@ -73,7 +73,7 @@ def compare_lower_bound(a: LowerBoundPOSIXTime, b: LowerBoundPOSIXTime) -> int:
 
 
 def contains(a: POSIXTimeRange, b: POSIXTimeRange) -> bool:
-    # Returns True if the interval `b` is entirely contained in `a`.
+    """Returns True if the interval `b` is entirely contained in `a`."""
     lower = compare_lower_bound(a.lower_bound, b.lower_bound)
     upper = compare_upper_bound(a.upper_bound, b.upper_bound)
     return (lower == 1 or lower == 0) and (upper == 0 or upper == -1)
@@ -82,24 +82,29 @@ def contains(a: POSIXTimeRange, b: POSIXTimeRange) -> bool:
 def make_range(
     lower_bound: POSIXTime,
     upper_bound: POSIXTime,
-    lower_closed: BoolData,
-    upper_closed: BoolData,
 ) -> POSIXTimeRange:
+    """
+    Create a bounded interval from the given time `lower_bound` up to the given `upper_bound`, including the given time
+    """
     return POSIXTimeRange(
-        LowerBoundPOSIXTime(FinitePOSIXTime(lower_bound), lower_closed),
-        UpperBoundPOSIXTime(FinitePOSIXTime(upper_bound), upper_closed),
+        LowerBoundPOSIXTime(FinitePOSIXTime(lower_bound), TrueData()),
+        UpperBoundPOSIXTime(FinitePOSIXTime(upper_bound), TrueData()),
     )
 
 
-def make_from(lower_bound: POSIXTime, lower_closed: BoolData) -> POSIXTimeRange:
+def make_from(lower_bound: POSIXTime) -> POSIXTimeRange:
+    """Create a bounded interval from the given time `lower_bound` up to infinity, including the given time"""
     return POSIXTimeRange(
-        LowerBoundPOSIXTime(FinitePOSIXTime(lower_bound), lower_closed),
+        LowerBoundPOSIXTime(FinitePOSIXTime(lower_bound), TrueData()),
         UpperBoundPOSIXTime(PosInfPOSIXTime(), TrueData()),
     )
 
 
-def make_to(upper_bound: POSIXTime, upper_closed: BoolData) -> POSIXTimeRange:
+def make_to(upper_bound: POSIXTime) -> POSIXTimeRange:
+    """
+    Create a bounded interval from negative infinity up to the given `upper_bound`, including the given time
+    """
     return POSIXTimeRange(
         LowerBoundPOSIXTime(NegInfPOSIXTime(), TrueData()),
-        UpperBoundPOSIXTime(FinitePOSIXTime(upper_bound), upper_closed),
+        UpperBoundPOSIXTime(FinitePOSIXTime(upper_bound), TrueData()),
     )

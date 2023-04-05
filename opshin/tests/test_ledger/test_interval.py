@@ -147,44 +147,34 @@ def test_contains(a: POSIXTimeRange, b: POSIXTimeRange):
 
 @given(
     lower_bound=st.integers(),
-    lower_closed=st.one_of(st.builds(FalseData), st.builds(TrueData)),
 )
 def test_fuzz_make_from(
     lower_bound: int,
-    lower_closed: BoolData,
 ) -> None:
-    make_from(lower_bound=lower_bound, lower_closed=lower_closed)
+    make_from(lower_bound=lower_bound)
 
 
 @given(
     lower_bound=st.integers(),
     upper_bound=st.integers(),
-    lower_closed=st.one_of(st.builds(FalseData), st.builds(TrueData)),
-    upper_closed=st.one_of(st.builds(FalseData), st.builds(TrueData)),
 )
 def test_fuzz_make_range(
     lower_bound: int,
     upper_bound: int,
-    lower_closed: BoolData,
-    upper_closed: BoolData,
 ) -> None:
     make_range(
         lower_bound=lower_bound,
         upper_bound=upper_bound,
-        lower_closed=lower_closed,
-        upper_closed=upper_closed,
     )
 
 
 @given(
     upper_bound=st.integers(),
-    upper_closed=st.one_of(st.builds(FalseData), st.builds(TrueData)),
 )
 def test_fuzz_make_to(
     upper_bound: int,
-    upper_closed: BoolData,
 ) -> None:
-    make_to(upper_bound=upper_bound, upper_closed=upper_closed)
+    make_to(upper_bound=upper_bound)
 
 
 @given(
@@ -205,3 +195,33 @@ def test_get_bool(b: bool) -> None:
     else:
         bool_data = FalseData()
     assert get_bool(bool_data) == b
+
+
+@given(
+    lower_bound=st.integers(),
+    upper_bound_1=st.integers(),
+    upper_bound_2=st.integers(),
+)
+def test_make_to_in_make_range(
+    lower_bound: int,
+    upper_bound_1: int,
+    upper_bound_2: int,
+) -> None:
+    assert contains(
+        make_to(upper_bound=upper_bound_1), make_range(lower_bound, upper_bound_2)
+    ) == (upper_bound_1 >= upper_bound_2)
+
+
+@given(
+    lower_bound_1=st.integers(),
+    lower_bound_2=st.integers(),
+    upper_bound=st.integers(),
+)
+def test_make_from_in_make_range(
+    lower_bound_1: int,
+    lower_bound_2: int,
+    upper_bound: int,
+) -> None:
+    assert contains(
+        make_from(lower_bound=lower_bound_1), make_range(lower_bound_2, upper_bound)
+    ) == (lower_bound_1 <= lower_bound_2)
