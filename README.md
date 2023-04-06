@@ -101,11 +101,11 @@ from opshin.prelude import *
 
 
 @dataclass()
-class CancelDatum(PlutusData):
+class WithdrawDatum(PlutusData):
     pubkeyhash: bytes
 
 
-def validator(datum: CancelDatum, redeemer: None, context: ScriptContext) -> None:
+def validator(datum: WithdrawDatum, redeemer: None, context: ScriptContext) -> None:
     sig_present = False
     for s in context.tx_info.signatories:
         if datum.pubkeyhash == s:
