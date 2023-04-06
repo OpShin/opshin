@@ -48,9 +48,13 @@ def build(
 def _build(contract: uplc.ast.Program):
     # create cbor file for use with pycardano/lucid
     cbor = flatten(contract)
-    cbor_hex = cbor.hex()
+    return pycardano.PlutusV2Script(cbor)
+
+
+def generate_artifacts(contract: pycardano.PlutusV2Script):
+    cbor_hex = contract.hex()
     # double wrap
-    cbor_wrapped = cbor2.dumps(cbor)
+    cbor_wrapped = cbor2.dumps(contract)
     cbor_wrapped_hex = cbor_wrapped.hex()
     # create plutus file
     d = {
@@ -59,7 +63,7 @@ def _build(contract: uplc.ast.Program):
         "cborHex": cbor_wrapped_hex,
     }
     plutus_json = json.dumps(d, indent=2)
-    script_hash = pycardano.plutus_script_hash(pycardano.PlutusV2Script(cbor))
+    script_hash = pycardano.plutus_script_hash(pycardano.PlutusV2Script(contract))
     policy_id = script_hash.to_primitive().hex()
     # generate policy ids
     addr_mainnet = pycardano.Address(
