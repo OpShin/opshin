@@ -1,4 +1,5 @@
 import ast
+import pycardano
 from enum import Enum, auto
 
 from .typed_ast import *
@@ -556,3 +557,11 @@ def data_from_json(j: typing.Dict[str, typing.Any]) -> uplc.PlutusData:
             j["constructor"], list(map(data_from_json, j["fields"]))
         )
     raise NotImplementedError(f"Unknown datum representation {j}")
+
+
+def datum_to_cbor(d: pycardano.Datum) -> bytes:
+    return pycardano.PlutusData.to_cbor(d, encoding="bytes")
+
+
+def datum_to_json(d: pycardano.Datum) -> str:
+    return pycardano.PlutusData.to_json(d)

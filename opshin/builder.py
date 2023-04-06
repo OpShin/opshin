@@ -8,6 +8,8 @@ from uplc import flatten
 import cbor2
 import pycardano
 
+from .util import datum_to_cbor
+
 
 @dataclasses.dataclass
 class ScriptArtifacts:
@@ -40,7 +42,7 @@ def build(
     code = code.term
     # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
     for d in args:
-        code = uplc.ast.Apply(code, uplc.ast.data_from_cbor(d.to_cbor("bytes")))
+        code = uplc.ast.Apply(code, uplc.ast.data_from_cbor(datum_to_cbor(d)))
     code = uplc.ast.Program((1, 0, 0), code)
     return _build(code)
 
