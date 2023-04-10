@@ -22,7 +22,7 @@ class ScriptArtifacts:
 
 def build(
     contract_file: str,
-    *args: pycardano.PlutusData,
+    *args: pycardano.Datum,
     force_three_params=False,
     validator_function_name="validator",
 ):
