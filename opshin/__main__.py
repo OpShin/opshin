@@ -176,7 +176,7 @@ Note that opshin errors may be overly restrictive as they aim to prevent code wi
         else:
             target_dir = pathlib.Path(args.output_directory)
         target_dir.mkdir(exist_ok=True, parents=True)
-        artifacts = builder._build(code)
+        artifacts = builder.generate_artifacts(builder._build(code))
         with (target_dir / "script.cbor").open("w") as fp:
             fp.write(artifacts.cbor_hex)
         with (target_dir / "script.plutus").open("w") as fp:
