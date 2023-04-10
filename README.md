@@ -1,15 +1,15 @@
 
 <div align="center">
 
-<img  src="https://raw.githubusercontent.com/OpShin/opshin/master/opshin.png" width="240" />
+<img  src="https://raw.githubusercontent.com/OpShin/opshin/main/opshin.png" width="240" />
 <h1 style="text-align: center;">opshin</h1></br>
 
 
-<a href="https://app.travis-ci.com/OpShin/opshin"><img alt="Build Status" src="https://app.travis-ci.com/OpShin/opshin.svg?branch=master"/></a>
+<a href="https://app.travis-ci.com/OpShin/opshin"><img alt="Build Status" src="https://app.travis-ci.com/OpShin/opshin.svg?branch=main"/></a>
 <a href="https://pypi.org/project/opshin/"><img alt="PyPI version" src="https://badge.fury.io/py/opshin.svg"/></a>
 <img alt="PyPI - Python Version" src="https://img.shields.io/pypi/pyversions/opshin.svg" />
 <a href="https://pypi.org/project/opshin/"><img alt="PyPI - Status" src="https://img.shields.io/pypi/status/opshin.svg" /></a>
-<a href="https://coveralls.io/github/OpShin/opshin?branch=master"><img alt="Coverage Status" src="https://coveralls.io/repos/github/OpShin/opshin/badge.svg?branch=master" /></a>
+<a href="https://coveralls.io/github/OpShin/opshin?branch=main"><img alt="Coverage Status" src="https://coveralls.io/repos/github/OpShin/opshin/badge.svg?branch=main" /></a>
 
 </div>
 
@@ -75,7 +75,7 @@ A short non-complete introduction in starting to write smart contracts follows.
 2. Make sure you understand python. opshin works like python and uses python. There are tons of tutorials for python, choose what suits you best.
 3. Make sure your contract is valid python and the types check out. Write simple contracts first and run them using `opshin eval` to get a feeling for how they work.
 4. Make sure your contract is valid opshin code. Run `opshin compile` and look at the compiler erros for guidance along what works and doesn't work and why.
-5. Dig into the [`examples`](https://github.com/OpShin/opshin/tree/master/examples) to understand common patterns. Check out the [`prelude`](https://opshin.opshin.dev/opshin/prelude.html) for understanding how the Script Context is structured and how complex datums are defined.
+5. Dig into the [`examples`](https://github.com/OpShin/opshin/tree/main/examples) to understand common patterns. Check out the [`prelude`](https://opshin.opshin.dev/opshin/prelude.html) for understanding how the Script Context is structured and how complex datums are defined.
 6. Check out the [sample repository](https://github.com/OpShin/opshin-starter-kit) to find a sample setup for developing your own contract.
 
 
@@ -115,9 +115,9 @@ def validator(datum: WithdrawDatum, redeemer: None, context: ScriptContext) -> N
 
 All contracts written in opshin are 100% valid python.
 Minting policies expect only a redeemer and script context as argument.
-Check out the [Architecture guide](https://github.com/OpShin/opshin/blob/master/ARCHITECTURE.md#minting-policy---spending-validator-double-function)
+Check out the [Architecture guide](https://github.com/OpShin/opshin/blob/main/ARCHITECTURE.md#minting-policy---spending-validator-double-function)
 for details on how to write double functioning contracts.
-The [`examples`](https://github.com/OpShin/opshin/blob/master/examples) folder contains more examples.
+The [`examples`](https://github.com/OpShin/opshin/blob/main/examples) folder contains more examples.
 Also check out the [opshin-pioneer-program](
 https://github.com/OpShin/opshin-pioneer-program)
  and [opshin-starter-kit](
