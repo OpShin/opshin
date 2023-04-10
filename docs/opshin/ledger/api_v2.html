@@ -1,0 +1,2365 @@
+<!doctype html>
+<html lang="en">
+<head>
+<style>.homelink{display:block;font-size:2em;font-weight:bold;color:#555;padding-bottom:.5em;border-bottom:1px solid silver}.homelink:hover{color:inherit}.homelink img{max-width:20%;max-height:5em;margin:auto;margin-bottom:.3em}</style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
+<meta name="generator" content="pdoc 0.10.0" />
+<link rel="icon" href="https://raw.githubusercontent.com/OpShin/opshin/dev/docs/opshin_32.png" sizes="32x32" type="image/png">
+<title>opshin.ledger.api_v2 API documentation</title>
+<meta name="description" content="The PlutusV2 ledger API" />
+<link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/sanitize.min.css" integrity="sha256-PK9q560IAAa6WVRRh76LtCaI8pjTJ2z11v0miyNNjrs=" crossorigin>
+<link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/typography.min.css" integrity="sha256-7l/o7C8jubJiy74VsKTidCy1yBkRtiUGbVkYBylBqUg=" crossorigin>
+<link rel="stylesheet preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/styles/github.min.css" crossorigin>
+<style>:root{--highlight-color:#fe9}.flex{display:flex !important}body{line-height:1.5em}#content{padding:20px}#sidebar{padding:30px;overflow:hidden}#sidebar > *:last-child{margin-bottom:2cm}#lunr-search{width:100%;font-size:1em;padding:6px 9px 5px 9px;border:1px solid silver}.http-server-breadcrumbs{font-size:130%;margin:0 0 15px 0}#footer{font-size:.75em;padding:5px 30px;border-top:1px solid #ddd;text-align:right}#footer p{margin:0 0 0 1em;display:inline-block}#footer p:last-child{margin-right:30px}h1,h2,h3,h4,h5{font-weight:300}h1{font-size:2.5em;line-height:1.1em}h2{font-size:1.75em;margin:1em 0 .50em 0}h3{font-size:1.4em;margin:25px 0 10px 0}h4{margin:0;font-size:105%}h1:target,h2:target,h3:target,h4:target,h5:target,h6:target{background:var(--highlight-color);padding:.2em 0}a{color:#058;text-decoration:none;transition:color .3s ease-in-out}a:hover{color:#e82}.title code{font-weight:bold}h2[id^="header-"]{margin-top:2em}.ident{color:#900}pre code{background:#f8f8f8;font-size:.8em;line-height:1.4em}code{background:#f2f2f1;padding:1px 4px;overflow-wrap:break-word}h1 code{background:transparent}pre{background:#f8f8f8;border:0;border-top:1px solid #ccc;border-bottom:1px solid #ccc;margin:1em 0;padding:1ex}#http-server-module-list{display:flex;flex-flow:column}#http-server-module-list div{display:flex}#http-server-module-list dt{min-width:10%}#http-server-module-list p{margin-top:0}.toc ul,#index{list-style-type:none;margin:0;padding:0}#index code{background:transparent}#index h3{border-bottom:1px solid #ddd}#index ul{padding:0}#index h4{margin-top:.6em;font-weight:bold}@media (min-width:200ex){#index .two-column{column-count:2}}@media (min-width:300ex){#index .two-column{column-count:3}}dl{margin-bottom:2em}dl dl:last-child{margin-bottom:4em}dd{margin:0 0 1em 3em}#header-classes + dl > dd{margin-bottom:3em}dd dd{margin-left:2em}dd p{margin:10px 0}.name{background:#eee;font-weight:bold;font-size:.85em;padding:5px 10px;display:inline-block;min-width:40%}.name:hover{background:#e0e0e0}dt:target .name{background:var(--highlight-color)}.name > span:first-child{white-space:nowrap}.name.class > span:nth-child(2){margin-left:.4em}.inherited{color:#999;border-left:5px solid #eee;padding-left:1em}.inheritance em{font-style:normal;font-weight:bold}.desc h2{font-weight:400;font-size:1.25em}.desc h3{font-size:1em}.desc dt code{background:inherit}.source summary,.git-link-div{color:#666;text-align:right;font-weight:400;font-size:.8em;text-transform:uppercase}.source summary > *{white-space:nowrap;cursor:pointer}.git-link{color:inherit;margin-left:1em}.source pre{max-height:500px;overflow:auto;margin:0}.source pre code{font-size:12px;overflow:visible}.hlist{list-style:none}.hlist li{display:inline}.hlist li:after{content:',\2002'}.hlist li:last-child:after{content:none}.hlist .hlist{display:inline;padding-left:1em}img{max-width:100%}td{padding:0 .5em}.admonition{padding:.1em .5em;margin-bottom:1em}.admonition-title{font-weight:bold}.admonition.note,.admonition.info,.admonition.important{background:#aef}.admonition.todo,.admonition.versionadded,.admonition.tip,.admonition.hint{background:#dfd}.admonition.warning,.admonition.versionchanged,.admonition.deprecated{background:#fd4}.admonition.error,.admonition.danger,.admonition.caution{background:lightpink}</style>
+<style media="screen and (min-width: 700px)">@media screen and (min-width:700px){#sidebar{width:30%;height:100vh;overflow:auto;position:sticky;top:0}#content{width:70%;max-width:100ch;padding:3em 4em;border-left:1px solid #ddd}pre code{font-size:1em}.item .name{font-size:1em}main{display:flex;flex-direction:row-reverse;justify-content:flex-end}.toc ul ul,#index ul{padding-left:1.5em}.toc > ul > li{margin-top:.5em}}</style>
+<style media="print">@media print{#sidebar h1{page-break-before:always}.source{display:none}}@media print{*{background:transparent !important;color:#000 !important;box-shadow:none !important;text-shadow:none !important}a[href]:after{content:" (" attr(href) ")";font-size:90%}a[href][title]:after{content:none}abbr[title]:after{content:" (" attr(title) ")"}.ir a:after,a[href^="javascript:"]:after,a[href^="#"]:after{content:""}pre,blockquote{border:1px solid #999;page-break-inside:avoid}thead{display:table-header-group}tr,img{page-break-inside:avoid}img{max-width:100% !important}@page{margin:0.5cm}p,h2,h3{orphans:3;widows:3}h1,h2,h3,h4,h5,h6{page-break-after:avoid}}</style>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/highlight.min.js" integrity="sha256-Uv3H6lx7dJmRfRvH8TH6kJD1TSK1aFcwgx+mdg3epi8=" crossorigin></script>
+<script>window.addEventListener('DOMContentLoaded', () => hljs.initHighlighting())</script>
+</head>
+<body>
+<main>
+<style>
+.github-corner:hover .octo-arm {
+animation: octocat-wave 560ms ease-in-out
+}
+@keyframes octocat-wave {
+0%,
+100% {
+transform: rotate(0)
+}
+20%,
+60% {
+transform: rotate(-25deg)
+}
+40%,
+80% {
+transform: rotate(10deg)
+}
+}
+@media (max-width:500px) {
+.github-corner:hover .octo-arm {
+animation: none
+}
+.github-corner .octo-arm {
+animation: octocat-wave 560ms ease-in-out
+}
+}
+</style>
+<a href="https://github.com/opshin/opshin" class="github-corner" aria-label="View source on GitHub">
+<svg width="80" height="80" viewBox="0 0 250 250"
+style="fill:#151513; color:#fff; position: absolute; top: 0; border: 0; right: 0;" aria-hidden="true">
+<path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z">
+</path>
+<path
+d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2"
+fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"></path>
+<path
+d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z"
+fill="currentColor" class="octo-body"></path>
+</svg>
+</a>
+<article id="content">
+<header>
+<h1 class="title">Module <code>opshin.ledger.api_v2</code></h1>
+</header>
+<section id="section-intro">
+<p>The PlutusV2 ledger API</p>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">&#34;&#34;&#34;
+The PlutusV2 ledger API
+&#34;&#34;&#34;
+from dataclasses import dataclass
+from typing import Dict, List, Union
+from hashlib import sha256, sha3_256, blake2b
+
+from pycardano import Datum as Anything, PlutusData
+
+
+# Plutus V2
+@dataclass(unsafe_hash=True)
+class TxId(PlutusData):
+    &#34;&#34;&#34;
+    A transaction id, a 64 bytes long hash of the transaction body (also called transaction hash).
+
+    Example value: TxId(bytes.fromhex(&#34;842a4d37b036da6ab3c04331240e67d81746beb44f23ad79703e026705361956&#34;))
+    &#34;&#34;&#34;
+
+    tx_id: bytes
+
+
+@dataclass(unsafe_hash=True)
+class Nothing(PlutusData):
+    &#34;&#34;&#34;
+    Nothing, can be used to signify non-importance of a parameter to a function
+
+    Example value: Nothing()
+    &#34;&#34;&#34;
+
+    # The maximimum constructor ID for simple cbor types, chosen to minimize probability of collision while keeping the corresponding cbor small
+    CONSTR_ID = 6
+
+
+@dataclass(unsafe_hash=True)
+class TrueData(PlutusData):
+    &#34;&#34;&#34;
+    A Datum that represents True in Haskell implementations.
+    It is thus used as an encoding for True in the ScriptContext.
+
+    Example value: TrueData()
+    &#34;&#34;&#34;
+
+    CONSTR_ID = 0
+
+
+@dataclass(unsafe_hash=True)
+class FalseData(PlutusData):
+    &#34;&#34;&#34;
+    A Datum that represents False in Haskell implementations.
+    It is thus used as an encoding for False in the ScriptContext.
+
+    Example value: FalseData()
+    &#34;&#34;&#34;
+
+    CONSTR_ID = 1
+
+
+# A Datum that represents a boolean value in Haskell implementations.
+# It is thus used as an encoding for booleans in the ScriptContext.
+#
+# Example value: TrueData()
+BoolData = Union[TrueData, FalseData]
+
+
+@dataclass(unsafe_hash=True)
+class TxOutRef(PlutusData):
+    &#34;&#34;&#34;
+    A reference to a transaction output (hash/id + index)
+    &#34;&#34;&#34;
+
+    id: TxId
+    idx: int
+
+
+# A public key hash, used to identify signatures provided by a wallet
+PubKeyHash = bytes
+
+
+@dataclass(unsafe_hash=True)
+class PubKeyCredential(PlutusData):
+    &#34;&#34;&#34;
+    Part of an address that is authenticated by a public key hash
+
+    Example value: PubKeyCredential(bytes.fromhex(&#34;c06ddaad12fc4ded18e56feac72957c1aa75fce6096b40e63ec88274&#34;))
+    &#34;&#34;&#34;
+
+    CONSTR_ID = 0
+    credential_hash: PubKeyHash
+
+
+# A validator hash, used to identify signatures provided by a smart contract
+ValidatorHash = bytes
+
+
+@dataclass(unsafe_hash=True)
+class ScriptCredential(PlutusData):
+    &#34;&#34;&#34;
+    Part of an address that is authenticated by a smart cotnract
+
+    Example value: ScriptCredential(bytes.fromhex(&#34;c06ddaad12fc4ded18e56feac72957c1aa75fce6096b40e63ec88274&#34;))
+    &#34;&#34;&#34;
+
+    CONSTR_ID = 1
+    credential_hash: ValidatorHash
+
+
+# A credential, either smart contract or public key hash
+Credential = Union[PubKeyCredential, ScriptCredential]
+
+
+@dataclass(unsafe_hash=True)
+class StakingHash(PlutusData):
+    &#34;&#34;&#34;
+    Indicates that the stake of this address is controlled by the associated credential
+    &#34;&#34;&#34;
+
+    CONSTR_ID = 0
+    value: Credential
+
+
+@dataclass(unsafe_hash=True)
+class StakingPtr(PlutusData):
+    &#34;&#34;&#34;
+    Indicates that the stake of this address is controlled by the associated pointer.
+
+    In an address, a chain pointer refers to a point of the chain containing a stake key registration certificate.
+    A point is identified by the 3 coordinates in this object.
+    &#34;&#34;&#34;
+
+    CONSTR_ID = 1
+    # an absolute slot number
+    slot_no: int
+    # a transaction index (within that slot)
+    tx_index: int
+    # a (delegation) certificate index (within that transaction)
+    cert_index: int
+
+
+# Part of an address that controls who can delegate the stake associated with an address
+StakingCredential = Union[StakingHash, StakingPtr]
+
+
+@dataclass(unsafe_hash=True)
+class NoStakingCredential(PlutusData):
+    &#34;&#34;&#34;
+    Indicates that this address has no staking credentials.
+    Its funds can not be delegated.
+    &#34;&#34;&#34;
+
+    CONSTR_ID = 1
+
+
+@dataclass(unsafe_hash=True)
+class SomeStakingCredential(PlutusData):
+    &#34;&#34;&#34;
+    Indicates that this address has staking credentials.
+    Its funds can be delegated by the credentialed user.
+    &#34;&#34;&#34;
+
+    CONSTR_ID = 0
+    staking_credential: StakingCredential
+
+
+@dataclass(unsafe_hash=True)
+class Address(PlutusData):
+    &#34;&#34;&#34;
+    A Shelley address, consisting of a payment and staking credential
+    &#34;&#34;&#34;
+
+    payment_credential: Credential
+    staking_credential: Union[NoStakingCredential, SomeStakingCredential]
+
+
+# The policy Id of a token
+PolicyId = bytes
+
+# The name of a token in bytes (not textual representation!)
+TokenName = bytes
+
+# The Plutus representation of amounts of tokens being spent, sent or minted
+# It is a two-layered dictionary that stores for each policy id and token name
+# the amount of the token that is being sent/minted/burned etc
+#
+# Lovelace is represented with policy id b&#34;&#34; and token name b&#34;&#34;
+Value = Dict[PolicyId, Dict[TokenName, int]]
+
+# A hash of a Datum
+DatumHash = bytes
+
+
+@dataclass(unsafe_hash=True)
+class SomeDatumHash(PlutusData):
+    &#34;&#34;&#34;
+    Indicates that there is a datum associated with this output, which has the given hash.
+    &#34;&#34;&#34;
+
+    CONSTR_ID = 1
+    datum_hash: DatumHash
+
+
+@dataclass(unsafe_hash=True)
+class SomeScriptHash(PlutusData):
+    &#34;&#34;&#34;
+    Indicates that there is a script associated with this output, which has the given hash.
+    &#34;&#34;&#34;
+
+    CONSTR_ID = 0
+    script_hash: DatumHash
+
+
+# The abstract super type of any object in opshin.
+# Use if you don&#39;t know what kind of object is being passed or if it doesn&#39;t matter.
+BuiltinData = Anything
+
+
+# An abstract type annotation that something is supposed to be used as a redeemer.
+Redeemer = BuiltinData
+
+
+# An abstract type annotation that something is supposed to be used as a datum.
+Datum = BuiltinData
+
+
+@dataclass(unsafe_hash=True)
+class NoOutputDatum(PlutusData):
+    &#34;&#34;&#34;
+    Indicates that there is no datum associated with an output
+    &#34;&#34;&#34;
+
+    CONSTR_ID = 0
+
+
+@dataclass(unsafe_hash=True)
+class SomeOutputDatumHash(PlutusData):
+    &#34;&#34;&#34;
+    Indicates that there is an datum associated with an output, which has the attached hash
+    &#34;&#34;&#34;
+
+    CONSTR_ID = 1
+    datum_hash: DatumHash
+
+
+@dataclass(unsafe_hash=True)
+class SomeOutputDatum(PlutusData):
+    &#34;&#34;&#34;
+    Indicates that there is an datum associated with an output, which is inlined and equal to the attached datum
+    &#34;&#34;&#34;
+
+    CONSTR_ID = 2
+    datum: Datum
+
+
+# Possible cases of datum association with an output
+OutputDatum = Union[NoOutputDatum, SomeOutputDatumHash, SomeOutputDatum]
+
+
+@dataclass(unsafe_hash=True)
+class NoScriptHash(PlutusData):
+    &#34;&#34;&#34;
+    Indicates that there is no script associated with an output
+    &#34;&#34;&#34;
+
+    CONSTR_ID = 1
+
+
+@dataclass(unsafe_hash=True)
+class TxOut(PlutusData):
+    &#34;&#34;&#34;
+    The plutus representation of an transaction output, consisting of
+    - address: address owning this output
+    - value: tokens associated with this output
+    - datum: datum associated with this output
+    - reference_script: reference script associated with this output
+    &#34;&#34;&#34;
+
+    address: Address
+    value: Value
+    datum: OutputDatum
+    reference_script: Union[NoScriptHash, SomeScriptHash]
+
+
+@dataclass(unsafe_hash=True)
+class TxInInfo(PlutusData):
+    &#34;&#34;&#34;
+    The plutus representation of an transaction output, that is consumed by the transaction.
+    &#34;&#34;&#34;
+
+    out_ref: TxOutRef
+    resolved: TxOut
+
+
+@dataclass(unsafe_hash=True)
+class DCertDelegRegKey(PlutusData):
+    CONSTR_ID = 0
+    value: StakingCredential
+
+
+@dataclass(unsafe_hash=True)
+class DCertDelegDeRegKey(PlutusData):
+    CONSTR_ID = 1
+    value: StakingCredential
+
+
+@dataclass(unsafe_hash=True)
+class DCertDelegDelegate(PlutusData):
+    CONSTR_ID = 2
+    delegator: StakingCredential
+    delegatee: PubKeyHash
+
+
+@dataclass(unsafe_hash=True)
+class DCertPoolRegister(PlutusData):
+    CONSTR_ID = 3
+    pool_id: PubKeyHash
+    pool_vfr: PubKeyHash
+
+
+@dataclass(unsafe_hash=True)
+class DCertPoolRetire(PlutusData):
+    CONSTR_ID = 4
+    retirement_certificate: PubKeyHash
+    epoch: int
+
+
+@dataclass(unsafe_hash=True)
+class DCertGenesis(PlutusData):
+    CONSTR_ID = 5
+
+
+@dataclass(unsafe_hash=True)
+class DCertMir(PlutusData):
+    CONSTR_ID = 6
+
+
+DCert = Union[
+    DCertDelegRegKey,
+    DCertDelegDeRegKey,
+    DCertDelegDelegate,
+    DCertPoolRegister,
+    DCertPoolRetire,
+    DCertGenesis,
+    DCertMir,
+]
+
+
+POSIXTime = int
+
+
+@dataclass(unsafe_hash=True)
+class NegInfPOSIXTime(PlutusData):
+    &#34;&#34;&#34;
+    Negative infinite POSIX time, used to indicate that there is no lower bound for the execution of this transaction
+    &#34;&#34;&#34;
+
+    CONSTR_ID = 0
+
+
+@dataclass(unsafe_hash=True)
+class FinitePOSIXTime(PlutusData):
+    &#34;&#34;&#34;
+    Finite POSIX time, used to indicate that there is a lower or upper bound for the execution of this transaction
+    &#34;&#34;&#34;
+
+    CONSTR_ID = 1
+    time: POSIXTime
+
+
+@dataclass(unsafe_hash=True)
+class PosInfPOSIXTime(PlutusData):
+    &#34;&#34;&#34;
+    Infinite POSIX time, used to indicate that there is no upper bound for the execution of this transaction
+    &#34;&#34;&#34;
+
+    CONSTR_ID = 2
+
+
+ExtendedPOSIXTime = Union[NegInfPOSIXTime, FinitePOSIXTime, PosInfPOSIXTime]
+
+
+@dataclass(unsafe_hash=True)
+class UpperBoundPOSIXTime(PlutusData):
+    &#34;&#34;&#34;
+    Upper bound for the execution of this transaction
+    &#34;&#34;&#34;
+
+    CONSTR_ID = 0
+    limit: ExtendedPOSIXTime
+    closed: BoolData
+
+
+@dataclass(unsafe_hash=True)
+class LowerBoundPOSIXTime(PlutusData):
+    &#34;&#34;&#34;
+    Lower bound for the execution of this transaction
+    &#34;&#34;&#34;
+
+    CONSTR_ID = 0
+    limit: ExtendedPOSIXTime
+    closed: BoolData
+
+
+@dataclass(unsafe_hash=True)
+class POSIXTimeRange(PlutusData):
+    &#34;&#34;&#34;
+    Time range in which this transaction can be executed
+    &#34;&#34;&#34;
+
+    lower_bound: LowerBoundPOSIXTime
+    upper_bound: UpperBoundPOSIXTime
+
+
+@dataclass(unsafe_hash=True)
+class Minting(PlutusData):
+    &#34;&#34;&#34;
+    Script purpose indicating that the given policy id is being minted or burned
+    &#34;&#34;&#34;
+
+    CONSTR_ID = 0
+    policy_id: PolicyId
+
+
+@dataclass(unsafe_hash=True)
+class Spending(PlutusData):
+    &#34;&#34;&#34;
+    Script purpose indicating that the given transaction output is being spent, which is
+    owned by the invoked contract
+    &#34;&#34;&#34;
+
+    CONSTR_ID = 1
+    tx_out_ref: TxOutRef
+
+
+@dataclass(unsafe_hash=True)
+class Rewarding(PlutusData):
+    CONSTR_ID = 2
+    staking_credential: StakingCredential
+
+
+@dataclass(unsafe_hash=True)
+class Certifying(PlutusData):
+    CONSTR_ID = 3
+    d_cert: DCert
+
+
+# The reason that this script is being invoked
+ScriptPurpose = Union[Minting, Spending, Rewarding, Certifying]
+
+
+@dataclass(unsafe_hash=True)
+class TxInfo(PlutusData):
+    &#34;&#34;&#34;
+    A complex agglomeration of everything that could be of interest to the executed script, regarding the transaction
+    that invoked the script
+    &#34;&#34;&#34;
+
+    inputs: List[TxInInfo]
+    reference_inputs: List[TxInInfo]
+    outputs: List[TxOut]
+    fee: Value
+    mint: Value
+    dcert: List[DCert]
+    wdrl: Dict[StakingCredential, int]
+    valid_range: POSIXTimeRange
+    signatories: List[PubKeyHash]
+    redeemers: Dict[ScriptPurpose, Redeemer]
+    data: Dict[DatumHash, Datum]
+    id: TxId
+
+
+@dataclass(unsafe_hash=True)
+class ScriptContext(PlutusData):
+    &#34;&#34;&#34;
+    Auxiliary information about the transaction and reason for invocation of the called script.
+    &#34;&#34;&#34;
+
+    tx_info: TxInfo
+    purpose: ScriptPurpose</code></pre>
+</details>
+</section>
+<section>
+</section>
+<section>
+</section>
+<section>
+</section>
+<section>
+<h2 class="section-title" id="header-classes">Classes</h2>
+<dl>
+<dt id="opshin.ledger.api_v2.Address"><code class="flex name class">
+<span>class <span class="ident">Address</span></span>
+<span>(</span><span>payment_credential: Union[<a title="opshin.ledger.api_v2.PubKeyCredential" href="#opshin.ledger.api_v2.PubKeyCredential">PubKeyCredential</a>, <a title="opshin.ledger.api_v2.ScriptCredential" href="#opshin.ledger.api_v2.ScriptCredential">ScriptCredential</a>], staking_credential: Union[<a title="opshin.ledger.api_v2.NoStakingCredential" href="#opshin.ledger.api_v2.NoStakingCredential">NoStakingCredential</a>, <a title="opshin.ledger.api_v2.SomeStakingCredential" href="#opshin.ledger.api_v2.SomeStakingCredential">SomeStakingCredential</a>])</span>
+</code></dt>
+<dd>
+<div class="desc"><p>A Shelley address, consisting of a payment and staking credential</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class Address(PlutusData):
+    &#34;&#34;&#34;
+    A Shelley address, consisting of a payment and staking credential
+    &#34;&#34;&#34;
+
+    payment_credential: Credential
+    staking_credential: Union[NoStakingCredential, SomeStakingCredential]</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li>pycardano.plutus.PlutusData</li>
+<li>pycardano.serialization.ArrayCBORSerializable</li>
+<li>pycardano.serialization.CBORSerializable</li>
+</ul>
+<h3>Class variables</h3>
+<dl>
+<dt id="opshin.ledger.api_v2.Address.payment_credential"><code class="name">var <span class="ident">payment_credential</span> : Union[<a title="opshin.ledger.api_v2.PubKeyCredential" href="#opshin.ledger.api_v2.PubKeyCredential">PubKeyCredential</a>, <a title="opshin.ledger.api_v2.ScriptCredential" href="#opshin.ledger.api_v2.ScriptCredential">ScriptCredential</a>]</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="opshin.ledger.api_v2.Address.staking_credential"><code class="name">var <span class="ident">staking_credential</span> : Union[<a title="opshin.ledger.api_v2.NoStakingCredential" href="#opshin.ledger.api_v2.NoStakingCredential">NoStakingCredential</a>, <a title="opshin.ledger.api_v2.SomeStakingCredential" href="#opshin.ledger.api_v2.SomeStakingCredential">SomeStakingCredential</a>]</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+</dl>
+</dd>
+<dt id="opshin.ledger.api_v2.Certifying"><code class="flex name class">
+<span>class <span class="ident">Certifying</span></span>
+<span>(</span><span>d_cert: Union[<a title="opshin.ledger.api_v2.DCertDelegRegKey" href="#opshin.ledger.api_v2.DCertDelegRegKey">DCertDelegRegKey</a>, <a title="opshin.ledger.api_v2.DCertDelegDeRegKey" href="#opshin.ledger.api_v2.DCertDelegDeRegKey">DCertDelegDeRegKey</a>, <a title="opshin.ledger.api_v2.DCertDelegDelegate" href="#opshin.ledger.api_v2.DCertDelegDelegate">DCertDelegDelegate</a>, <a title="opshin.ledger.api_v2.DCertPoolRegister" href="#opshin.ledger.api_v2.DCertPoolRegister">DCertPoolRegister</a>, <a title="opshin.ledger.api_v2.DCertPoolRetire" href="#opshin.ledger.api_v2.DCertPoolRetire">DCertPoolRetire</a>, <a title="opshin.ledger.api_v2.DCertGenesis" href="#opshin.ledger.api_v2.DCertGenesis">DCertGenesis</a>, <a title="opshin.ledger.api_v2.DCertMir" href="#opshin.ledger.api_v2.DCertMir">DCertMir</a>])</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Certifying(d_cert: Union[opshin.ledger.api_v2.DCertDelegRegKey, opshin.ledger.api_v2.DCertDelegDeRegKey, opshin.ledger.api_v2.DCertDelegDelegate, opshin.ledger.api_v2.DCertPoolRegister, opshin.ledger.api_v2.DCertPoolRetire, opshin.ledger.api_v2.DCertGenesis, opshin.ledger.api_v2.DCertMir])</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class Certifying(PlutusData):
+    CONSTR_ID = 3
+    d_cert: DCert</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li>pycardano.plutus.PlutusData</li>
+<li>pycardano.serialization.ArrayCBORSerializable</li>
+<li>pycardano.serialization.CBORSerializable</li>
+</ul>
+<h3>Class variables</h3>
+<dl>
+<dt id="opshin.ledger.api_v2.Certifying.CONSTR_ID"><code class="name">var <span class="ident">CONSTR_ID</span> : ClassVar[int]</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="opshin.ledger.api_v2.Certifying.d_cert"><code class="name">var <span class="ident">d_cert</span> : Union[<a title="opshin.ledger.api_v2.DCertDelegRegKey" href="#opshin.ledger.api_v2.DCertDelegRegKey">DCertDelegRegKey</a>, <a title="opshin.ledger.api_v2.DCertDelegDeRegKey" href="#opshin.ledger.api_v2.DCertDelegDeRegKey">DCertDelegDeRegKey</a>, <a title="opshin.ledger.api_v2.DCertDelegDelegate" href="#opshin.ledger.api_v2.DCertDelegDelegate">DCertDelegDelegate</a>, <a title="opshin.ledger.api_v2.DCertPoolRegister" href="#opshin.ledger.api_v2.DCertPoolRegister">DCertPoolRegister</a>, <a title="opshin.ledger.api_v2.DCertPoolRetire" href="#opshin.ledger.api_v2.DCertPoolRetire">DCertPoolRetire</a>, <a title="opshin.ledger.api_v2.DCertGenesis" href="#opshin.ledger.api_v2.DCertGenesis">DCertGenesis</a>, <a title="opshin.ledger.api_v2.DCertMir" href="#opshin.ledger.api_v2.DCertMir">DCertMir</a>]</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+</dl>
+</dd>
+<dt id="opshin.ledger.api_v2.DCertDelegDeRegKey"><code class="flex name class">
+<span>class <span class="ident">DCertDelegDeRegKey</span></span>
+<span>(</span><span>value: Union[<a title="opshin.ledger.api_v2.StakingHash" href="#opshin.ledger.api_v2.StakingHash">StakingHash</a>, <a title="opshin.ledger.api_v2.StakingPtr" href="#opshin.ledger.api_v2.StakingPtr">StakingPtr</a>])</span>
+</code></dt>
+<dd>
+<div class="desc"><p>DCertDelegDeRegKey(value: Union[opshin.ledger.api_v2.StakingHash, opshin.ledger.api_v2.StakingPtr])</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class DCertDelegDeRegKey(PlutusData):
+    CONSTR_ID = 1
+    value: StakingCredential</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li>pycardano.plutus.PlutusData</li>
+<li>pycardano.serialization.ArrayCBORSerializable</li>
+<li>pycardano.serialization.CBORSerializable</li>
+</ul>
+<h3>Class variables</h3>
+<dl>
+<dt id="opshin.ledger.api_v2.DCertDelegDeRegKey.CONSTR_ID"><code class="name">var <span class="ident">CONSTR_ID</span> : ClassVar[int]</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="opshin.ledger.api_v2.DCertDelegDeRegKey.value"><code class="name">var <span class="ident">value</span> : Union[<a title="opshin.ledger.api_v2.StakingHash" href="#opshin.ledger.api_v2.StakingHash">StakingHash</a>, <a title="opshin.ledger.api_v2.StakingPtr" href="#opshin.ledger.api_v2.StakingPtr">StakingPtr</a>]</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+</dl>
+</dd>
+<dt id="opshin.ledger.api_v2.DCertDelegDelegate"><code class="flex name class">
+<span>class <span class="ident">DCertDelegDelegate</span></span>
+<span>(</span><span>delegator: Union[<a title="opshin.ledger.api_v2.StakingHash" href="#opshin.ledger.api_v2.StakingHash">StakingHash</a>, <a title="opshin.ledger.api_v2.StakingPtr" href="#opshin.ledger.api_v2.StakingPtr">StakingPtr</a>], delegatee: bytes)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>DCertDelegDelegate(delegator: Union[opshin.ledger.api_v2.StakingHash, opshin.ledger.api_v2.StakingPtr], delegatee: bytes)</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class DCertDelegDelegate(PlutusData):
+    CONSTR_ID = 2
+    delegator: StakingCredential
+    delegatee: PubKeyHash</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li>pycardano.plutus.PlutusData</li>
+<li>pycardano.serialization.ArrayCBORSerializable</li>
+<li>pycardano.serialization.CBORSerializable</li>
+</ul>
+<h3>Class variables</h3>
+<dl>
+<dt id="opshin.ledger.api_v2.DCertDelegDelegate.CONSTR_ID"><code class="name">var <span class="ident">CONSTR_ID</span> : ClassVar[int]</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="opshin.ledger.api_v2.DCertDelegDelegate.delegatee"><code class="name">var <span class="ident">delegatee</span> : bytes</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="opshin.ledger.api_v2.DCertDelegDelegate.delegator"><code class="name">var <span class="ident">delegator</span> : Union[<a title="opshin.ledger.api_v2.StakingHash" href="#opshin.ledger.api_v2.StakingHash">StakingHash</a>, <a title="opshin.ledger.api_v2.StakingPtr" href="#opshin.ledger.api_v2.StakingPtr">StakingPtr</a>]</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+</dl>
+</dd>
+<dt id="opshin.ledger.api_v2.DCertDelegRegKey"><code class="flex name class">
+<span>class <span class="ident">DCertDelegRegKey</span></span>
+<span>(</span><span>value: Union[<a title="opshin.ledger.api_v2.StakingHash" href="#opshin.ledger.api_v2.StakingHash">StakingHash</a>, <a title="opshin.ledger.api_v2.StakingPtr" href="#opshin.ledger.api_v2.StakingPtr">StakingPtr</a>])</span>
+</code></dt>
+<dd>
+<div class="desc"><p>DCertDelegRegKey(value: Union[opshin.ledger.api_v2.StakingHash, opshin.ledger.api_v2.StakingPtr])</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class DCertDelegRegKey(PlutusData):
+    CONSTR_ID = 0
+    value: StakingCredential</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li>pycardano.plutus.PlutusData</li>
+<li>pycardano.serialization.ArrayCBORSerializable</li>
+<li>pycardano.serialization.CBORSerializable</li>
+</ul>
+<h3>Class variables</h3>
+<dl>
+<dt id="opshin.ledger.api_v2.DCertDelegRegKey.CONSTR_ID"><code class="name">var <span class="ident">CONSTR_ID</span> : ClassVar[int]</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="opshin.ledger.api_v2.DCertDelegRegKey.value"><code class="name">var <span class="ident">value</span> : Union[<a title="opshin.ledger.api_v2.StakingHash" href="#opshin.ledger.api_v2.StakingHash">StakingHash</a>, <a title="opshin.ledger.api_v2.StakingPtr" href="#opshin.ledger.api_v2.StakingPtr">StakingPtr</a>]</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+</dl>
+</dd>
+<dt id="opshin.ledger.api_v2.DCertGenesis"><code class="flex name class">
+<span>class <span class="ident">DCertGenesis</span></span>
+</code></dt>
+<dd>
+<div class="desc"><p>DCertGenesis()</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class DCertGenesis(PlutusData):
+    CONSTR_ID = 5</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li>pycardano.plutus.PlutusData</li>
+<li>pycardano.serialization.ArrayCBORSerializable</li>
+<li>pycardano.serialization.CBORSerializable</li>
+</ul>
+<h3>Class variables</h3>
+<dl>
+<dt id="opshin.ledger.api_v2.DCertGenesis.CONSTR_ID"><code class="name">var <span class="ident">CONSTR_ID</span> : ClassVar[int]</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+</dl>
+</dd>
+<dt id="opshin.ledger.api_v2.DCertMir"><code class="flex name class">
+<span>class <span class="ident">DCertMir</span></span>
+</code></dt>
+<dd>
+<div class="desc"><p>DCertMir()</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class DCertMir(PlutusData):
+    CONSTR_ID = 6</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li>pycardano.plutus.PlutusData</li>
+<li>pycardano.serialization.ArrayCBORSerializable</li>
+<li>pycardano.serialization.CBORSerializable</li>
+</ul>
+<h3>Class variables</h3>
+<dl>
+<dt id="opshin.ledger.api_v2.DCertMir.CONSTR_ID"><code class="name">var <span class="ident">CONSTR_ID</span> : ClassVar[int]</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+</dl>
+</dd>
+<dt id="opshin.ledger.api_v2.DCertPoolRegister"><code class="flex name class">
+<span>class <span class="ident">DCertPoolRegister</span></span>
+<span>(</span><span>pool_id: bytes, pool_vfr: bytes)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>DCertPoolRegister(pool_id: bytes, pool_vfr: bytes)</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class DCertPoolRegister(PlutusData):
+    CONSTR_ID = 3
+    pool_id: PubKeyHash
+    pool_vfr: PubKeyHash</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li>pycardano.plutus.PlutusData</li>
+<li>pycardano.serialization.ArrayCBORSerializable</li>
+<li>pycardano.serialization.CBORSerializable</li>
+</ul>
+<h3>Class variables</h3>
+<dl>
+<dt id="opshin.ledger.api_v2.DCertPoolRegister.CONSTR_ID"><code class="name">var <span class="ident">CONSTR_ID</span> : ClassVar[int]</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="opshin.ledger.api_v2.DCertPoolRegister.pool_id"><code class="name">var <span class="ident">pool_id</span> : bytes</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="opshin.ledger.api_v2.DCertPoolRegister.pool_vfr"><code class="name">var <span class="ident">pool_vfr</span> : bytes</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+</dl>
+</dd>
+<dt id="opshin.ledger.api_v2.DCertPoolRetire"><code class="flex name class">
+<span>class <span class="ident">DCertPoolRetire</span></span>
+<span>(</span><span>retirement_certificate: bytes, epoch: int)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>DCertPoolRetire(retirement_certificate: bytes, epoch: int)</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class DCertPoolRetire(PlutusData):
+    CONSTR_ID = 4
+    retirement_certificate: PubKeyHash
+    epoch: int</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li>pycardano.plutus.PlutusData</li>
+<li>pycardano.serialization.ArrayCBORSerializable</li>
+<li>pycardano.serialization.CBORSerializable</li>
+</ul>
+<h3>Class variables</h3>
+<dl>
+<dt id="opshin.ledger.api_v2.DCertPoolRetire.CONSTR_ID"><code class="name">var <span class="ident">CONSTR_ID</span> : ClassVar[int]</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="opshin.ledger.api_v2.DCertPoolRetire.epoch"><code class="name">var <span class="ident">epoch</span> : int</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="opshin.ledger.api_v2.DCertPoolRetire.retirement_certificate"><code class="name">var <span class="ident">retirement_certificate</span> : bytes</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+</dl>
+</dd>
+<dt id="opshin.ledger.api_v2.FalseData"><code class="flex name class">
+<span>class <span class="ident">FalseData</span></span>
+</code></dt>
+<dd>
+<div class="desc"><p>A Datum that represents False in Haskell implementations.
+It is thus used as an encoding for False in the ScriptContext.</p>
+<p>Example value: FalseData()</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class FalseData(PlutusData):
+    &#34;&#34;&#34;
+    A Datum that represents False in Haskell implementations.
+    It is thus used as an encoding for False in the ScriptContext.
+
+    Example value: FalseData()
+    &#34;&#34;&#34;
+
+    CONSTR_ID = 1</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li>pycardano.plutus.PlutusData</li>
+<li>pycardano.serialization.ArrayCBORSerializable</li>
+<li>pycardano.serialization.CBORSerializable</li>
+</ul>
+<h3>Class variables</h3>
+<dl>
+<dt id="opshin.ledger.api_v2.FalseData.CONSTR_ID"><code class="name">var <span class="ident">CONSTR_ID</span> : ClassVar[int]</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+</dl>
+</dd>
+<dt id="opshin.ledger.api_v2.FinitePOSIXTime"><code class="flex name class">
+<span>class <span class="ident">FinitePOSIXTime</span></span>
+<span>(</span><span>time: int)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Finite POSIX time, used to indicate that there is a lower or upper bound for the execution of this transaction</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class FinitePOSIXTime(PlutusData):
+    &#34;&#34;&#34;
+    Finite POSIX time, used to indicate that there is a lower or upper bound for the execution of this transaction
+    &#34;&#34;&#34;
+
+    CONSTR_ID = 1
+    time: POSIXTime</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li>pycardano.plutus.PlutusData</li>
+<li>pycardano.serialization.ArrayCBORSerializable</li>
+<li>pycardano.serialization.CBORSerializable</li>
+</ul>
+<h3>Class variables</h3>
+<dl>
+<dt id="opshin.ledger.api_v2.FinitePOSIXTime.CONSTR_ID"><code class="name">var <span class="ident">CONSTR_ID</span> : ClassVar[int]</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="opshin.ledger.api_v2.FinitePOSIXTime.time"><code class="name">var <span class="ident">time</span> : int</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+</dl>
+</dd>
+<dt id="opshin.ledger.api_v2.LowerBoundPOSIXTime"><code class="flex name class">
+<span>class <span class="ident">LowerBoundPOSIXTime</span></span>
+<span>(</span><span>limit: Union[<a title="opshin.ledger.api_v2.NegInfPOSIXTime" href="#opshin.ledger.api_v2.NegInfPOSIXTime">NegInfPOSIXTime</a>, <a title="opshin.ledger.api_v2.FinitePOSIXTime" href="#opshin.ledger.api_v2.FinitePOSIXTime">FinitePOSIXTime</a>, <a title="opshin.ledger.api_v2.PosInfPOSIXTime" href="#opshin.ledger.api_v2.PosInfPOSIXTime">PosInfPOSIXTime</a>], closed: Union[<a title="opshin.ledger.api_v2.TrueData" href="#opshin.ledger.api_v2.TrueData">TrueData</a>, <a title="opshin.ledger.api_v2.FalseData" href="#opshin.ledger.api_v2.FalseData">FalseData</a>])</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Lower bound for the execution of this transaction</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class LowerBoundPOSIXTime(PlutusData):
+    &#34;&#34;&#34;
+    Lower bound for the execution of this transaction
+    &#34;&#34;&#34;
+
+    CONSTR_ID = 0
+    limit: ExtendedPOSIXTime
+    closed: BoolData</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li>pycardano.plutus.PlutusData</li>
+<li>pycardano.serialization.ArrayCBORSerializable</li>
+<li>pycardano.serialization.CBORSerializable</li>
+</ul>
+<h3>Class variables</h3>
+<dl>
+<dt id="opshin.ledger.api_v2.LowerBoundPOSIXTime.CONSTR_ID"><code class="name">var <span class="ident">CONSTR_ID</span> : ClassVar[int]</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="opshin.ledger.api_v2.LowerBoundPOSIXTime.closed"><code class="name">var <span class="ident">closed</span> : Union[<a title="opshin.ledger.api_v2.TrueData" href="#opshin.ledger.api_v2.TrueData">TrueData</a>, <a title="opshin.ledger.api_v2.FalseData" href="#opshin.ledger.api_v2.FalseData">FalseData</a>]</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="opshin.ledger.api_v2.LowerBoundPOSIXTime.limit"><code class="name">var <span class="ident">limit</span> : Union[<a title="opshin.ledger.api_v2.NegInfPOSIXTime" href="#opshin.ledger.api_v2.NegInfPOSIXTime">NegInfPOSIXTime</a>, <a title="opshin.ledger.api_v2.FinitePOSIXTime" href="#opshin.ledger.api_v2.FinitePOSIXTime">FinitePOSIXTime</a>, <a title="opshin.ledger.api_v2.PosInfPOSIXTime" href="#opshin.ledger.api_v2.PosInfPOSIXTime">PosInfPOSIXTime</a>]</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+</dl>
+</dd>
+<dt id="opshin.ledger.api_v2.Minting"><code class="flex name class">
+<span>class <span class="ident">Minting</span></span>
+<span>(</span><span>policy_id: bytes)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Script purpose indicating that the given policy id is being minted or burned</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class Minting(PlutusData):
+    &#34;&#34;&#34;
+    Script purpose indicating that the given policy id is being minted or burned
+    &#34;&#34;&#34;
+
+    CONSTR_ID = 0
+    policy_id: PolicyId</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li>pycardano.plutus.PlutusData</li>
+<li>pycardano.serialization.ArrayCBORSerializable</li>
+<li>pycardano.serialization.CBORSerializable</li>
+</ul>
+<h3>Class variables</h3>
+<dl>
+<dt id="opshin.ledger.api_v2.Minting.CONSTR_ID"><code class="name">var <span class="ident">CONSTR_ID</span> : ClassVar[int]</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="opshin.ledger.api_v2.Minting.policy_id"><code class="name">var <span class="ident">policy_id</span> : bytes</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+</dl>
+</dd>
+<dt id="opshin.ledger.api_v2.NegInfPOSIXTime"><code class="flex name class">
+<span>class <span class="ident">NegInfPOSIXTime</span></span>
+</code></dt>
+<dd>
+<div class="desc"><p>Negative infinite POSIX time, used to indicate that there is no lower bound for the execution of this transaction</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class NegInfPOSIXTime(PlutusData):
+    &#34;&#34;&#34;
+    Negative infinite POSIX time, used to indicate that there is no lower bound for the execution of this transaction
+    &#34;&#34;&#34;
+
+    CONSTR_ID = 0</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li>pycardano.plutus.PlutusData</li>
+<li>pycardano.serialization.ArrayCBORSerializable</li>
+<li>pycardano.serialization.CBORSerializable</li>
+</ul>
+<h3>Class variables</h3>
+<dl>
+<dt id="opshin.ledger.api_v2.NegInfPOSIXTime.CONSTR_ID"><code class="name">var <span class="ident">CONSTR_ID</span> : ClassVar[int]</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+</dl>
+</dd>
+<dt id="opshin.ledger.api_v2.NoOutputDatum"><code class="flex name class">
+<span>class <span class="ident">NoOutputDatum</span></span>
+</code></dt>
+<dd>
+<div class="desc"><p>Indicates that there is no datum associated with an output</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class NoOutputDatum(PlutusData):
+    &#34;&#34;&#34;
+    Indicates that there is no datum associated with an output
+    &#34;&#34;&#34;
+
+    CONSTR_ID = 0</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li>pycardano.plutus.PlutusData</li>
+<li>pycardano.serialization.ArrayCBORSerializable</li>
+<li>pycardano.serialization.CBORSerializable</li>
+</ul>
+<h3>Class variables</h3>
+<dl>
+<dt id="opshin.ledger.api_v2.NoOutputDatum.CONSTR_ID"><code class="name">var <span class="ident">CONSTR_ID</span> : ClassVar[int]</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+</dl>
+</dd>
+<dt id="opshin.ledger.api_v2.NoScriptHash"><code class="flex name class">
+<span>class <span class="ident">NoScriptHash</span></span>
+</code></dt>
+<dd>
+<div class="desc"><p>Indicates that there is no script associated with an output</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class NoScriptHash(PlutusData):
+    &#34;&#34;&#34;
+    Indicates that there is no script associated with an output
+    &#34;&#34;&#34;
+
+    CONSTR_ID = 1</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li>pycardano.plutus.PlutusData</li>
+<li>pycardano.serialization.ArrayCBORSerializable</li>
+<li>pycardano.serialization.CBORSerializable</li>
+</ul>
+<h3>Class variables</h3>
+<dl>
+<dt id="opshin.ledger.api_v2.NoScriptHash.CONSTR_ID"><code class="name">var <span class="ident">CONSTR_ID</span> : ClassVar[int]</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+</dl>
+</dd>
+<dt id="opshin.ledger.api_v2.NoStakingCredential"><code class="flex name class">
+<span>class <span class="ident">NoStakingCredential</span></span>
+</code></dt>
+<dd>
+<div class="desc"><p>Indicates that this address has no staking credentials.
+Its funds can not be delegated.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class NoStakingCredential(PlutusData):
+    &#34;&#34;&#34;
+    Indicates that this address has no staking credentials.
+    Its funds can not be delegated.
+    &#34;&#34;&#34;
+
+    CONSTR_ID = 1</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li>pycardano.plutus.PlutusData</li>
+<li>pycardano.serialization.ArrayCBORSerializable</li>
+<li>pycardano.serialization.CBORSerializable</li>
+</ul>
+<h3>Class variables</h3>
+<dl>
+<dt id="opshin.ledger.api_v2.NoStakingCredential.CONSTR_ID"><code class="name">var <span class="ident">CONSTR_ID</span> : ClassVar[int]</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+</dl>
+</dd>
+<dt id="opshin.ledger.api_v2.Nothing"><code class="flex name class">
+<span>class <span class="ident">Nothing</span></span>
+</code></dt>
+<dd>
+<div class="desc"><p>Nothing, can be used to signify non-importance of a parameter to a function</p>
+<p>Example value: Nothing()</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class Nothing(PlutusData):
+    &#34;&#34;&#34;
+    Nothing, can be used to signify non-importance of a parameter to a function
+
+    Example value: Nothing()
+    &#34;&#34;&#34;
+
+    # The maximimum constructor ID for simple cbor types, chosen to minimize probability of collision while keeping the corresponding cbor small
+    CONSTR_ID = 6</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li>pycardano.plutus.PlutusData</li>
+<li>pycardano.serialization.ArrayCBORSerializable</li>
+<li>pycardano.serialization.CBORSerializable</li>
+</ul>
+<h3>Class variables</h3>
+<dl>
+<dt id="opshin.ledger.api_v2.Nothing.CONSTR_ID"><code class="name">var <span class="ident">CONSTR_ID</span> : ClassVar[int]</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+</dl>
+</dd>
+<dt id="opshin.ledger.api_v2.POSIXTimeRange"><code class="flex name class">
+<span>class <span class="ident">POSIXTimeRange</span></span>
+<span>(</span><span>lower_bound: <a title="opshin.ledger.api_v2.LowerBoundPOSIXTime" href="#opshin.ledger.api_v2.LowerBoundPOSIXTime">LowerBoundPOSIXTime</a>, upper_bound: <a title="opshin.ledger.api_v2.UpperBoundPOSIXTime" href="#opshin.ledger.api_v2.UpperBoundPOSIXTime">UpperBoundPOSIXTime</a>)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Time range in which this transaction can be executed</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class POSIXTimeRange(PlutusData):
+    &#34;&#34;&#34;
+    Time range in which this transaction can be executed
+    &#34;&#34;&#34;
+
+    lower_bound: LowerBoundPOSIXTime
+    upper_bound: UpperBoundPOSIXTime</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li>pycardano.plutus.PlutusData</li>
+<li>pycardano.serialization.ArrayCBORSerializable</li>
+<li>pycardano.serialization.CBORSerializable</li>
+</ul>
+<h3>Class variables</h3>
+<dl>
+<dt id="opshin.ledger.api_v2.POSIXTimeRange.lower_bound"><code class="name">var <span class="ident">lower_bound</span> : <a title="opshin.ledger.api_v2.LowerBoundPOSIXTime" href="#opshin.ledger.api_v2.LowerBoundPOSIXTime">LowerBoundPOSIXTime</a></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="opshin.ledger.api_v2.POSIXTimeRange.upper_bound"><code class="name">var <span class="ident">upper_bound</span> : <a title="opshin.ledger.api_v2.UpperBoundPOSIXTime" href="#opshin.ledger.api_v2.UpperBoundPOSIXTime">UpperBoundPOSIXTime</a></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+</dl>
+</dd>
+<dt id="opshin.ledger.api_v2.PosInfPOSIXTime"><code class="flex name class">
+<span>class <span class="ident">PosInfPOSIXTime</span></span>
+</code></dt>
+<dd>
+<div class="desc"><p>Infinite POSIX time, used to indicate that there is no upper bound for the execution of this transaction</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class PosInfPOSIXTime(PlutusData):
+    &#34;&#34;&#34;
+    Infinite POSIX time, used to indicate that there is no upper bound for the execution of this transaction
+    &#34;&#34;&#34;
+
+    CONSTR_ID = 2</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li>pycardano.plutus.PlutusData</li>
+<li>pycardano.serialization.ArrayCBORSerializable</li>
+<li>pycardano.serialization.CBORSerializable</li>
+</ul>
+<h3>Class variables</h3>
+<dl>
+<dt id="opshin.ledger.api_v2.PosInfPOSIXTime.CONSTR_ID"><code class="name">var <span class="ident">CONSTR_ID</span> : ClassVar[int]</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+</dl>
+</dd>
+<dt id="opshin.ledger.api_v2.PubKeyCredential"><code class="flex name class">
+<span>class <span class="ident">PubKeyCredential</span></span>
+<span>(</span><span>credential_hash: bytes)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Part of an address that is authenticated by a public key hash</p>
+<p>Example value: PubKeyCredential(bytes.fromhex("c06ddaad12fc4ded18e56feac72957c1aa75fce6096b40e63ec88274"))</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class PubKeyCredential(PlutusData):
+    &#34;&#34;&#34;
+    Part of an address that is authenticated by a public key hash
+
+    Example value: PubKeyCredential(bytes.fromhex(&#34;c06ddaad12fc4ded18e56feac72957c1aa75fce6096b40e63ec88274&#34;))
+    &#34;&#34;&#34;
+
+    CONSTR_ID = 0
+    credential_hash: PubKeyHash</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li>pycardano.plutus.PlutusData</li>
+<li>pycardano.serialization.ArrayCBORSerializable</li>
+<li>pycardano.serialization.CBORSerializable</li>
+</ul>
+<h3>Class variables</h3>
+<dl>
+<dt id="opshin.ledger.api_v2.PubKeyCredential.CONSTR_ID"><code class="name">var <span class="ident">CONSTR_ID</span> : ClassVar[int]</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="opshin.ledger.api_v2.PubKeyCredential.credential_hash"><code class="name">var <span class="ident">credential_hash</span> : bytes</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+</dl>
+</dd>
+<dt id="opshin.ledger.api_v2.Rewarding"><code class="flex name class">
+<span>class <span class="ident">Rewarding</span></span>
+<span>(</span><span>staking_credential: Union[<a title="opshin.ledger.api_v2.StakingHash" href="#opshin.ledger.api_v2.StakingHash">StakingHash</a>, <a title="opshin.ledger.api_v2.StakingPtr" href="#opshin.ledger.api_v2.StakingPtr">StakingPtr</a>])</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Rewarding(staking_credential: Union[opshin.ledger.api_v2.StakingHash, opshin.ledger.api_v2.StakingPtr])</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class Rewarding(PlutusData):
+    CONSTR_ID = 2
+    staking_credential: StakingCredential</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li>pycardano.plutus.PlutusData</li>
+<li>pycardano.serialization.ArrayCBORSerializable</li>
+<li>pycardano.serialization.CBORSerializable</li>
+</ul>
+<h3>Class variables</h3>
+<dl>
+<dt id="opshin.ledger.api_v2.Rewarding.CONSTR_ID"><code class="name">var <span class="ident">CONSTR_ID</span> : ClassVar[int]</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="opshin.ledger.api_v2.Rewarding.staking_credential"><code class="name">var <span class="ident">staking_credential</span> : Union[<a title="opshin.ledger.api_v2.StakingHash" href="#opshin.ledger.api_v2.StakingHash">StakingHash</a>, <a title="opshin.ledger.api_v2.StakingPtr" href="#opshin.ledger.api_v2.StakingPtr">StakingPtr</a>]</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+</dl>
+</dd>
+<dt id="opshin.ledger.api_v2.ScriptContext"><code class="flex name class">
+<span>class <span class="ident">ScriptContext</span></span>
+<span>(</span><span>tx_info: <a title="opshin.ledger.api_v2.TxInfo" href="#opshin.ledger.api_v2.TxInfo">TxInfo</a>, purpose: Union[<a title="opshin.ledger.api_v2.Minting" href="#opshin.ledger.api_v2.Minting">Minting</a>, <a title="opshin.ledger.api_v2.Spending" href="#opshin.ledger.api_v2.Spending">Spending</a>, <a title="opshin.ledger.api_v2.Rewarding" href="#opshin.ledger.api_v2.Rewarding">Rewarding</a>, <a title="opshin.ledger.api_v2.Certifying" href="#opshin.ledger.api_v2.Certifying">Certifying</a>])</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Auxiliary information about the transaction and reason for invocation of the called script.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class ScriptContext(PlutusData):
+    &#34;&#34;&#34;
+    Auxiliary information about the transaction and reason for invocation of the called script.
+    &#34;&#34;&#34;
+
+    tx_info: TxInfo
+    purpose: ScriptPurpose</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li>pycardano.plutus.PlutusData</li>
+<li>pycardano.serialization.ArrayCBORSerializable</li>
+<li>pycardano.serialization.CBORSerializable</li>
+</ul>
+<h3>Class variables</h3>
+<dl>
+<dt id="opshin.ledger.api_v2.ScriptContext.purpose"><code class="name">var <span class="ident">purpose</span> : Union[<a title="opshin.ledger.api_v2.Minting" href="#opshin.ledger.api_v2.Minting">Minting</a>, <a title="opshin.ledger.api_v2.Spending" href="#opshin.ledger.api_v2.Spending">Spending</a>, <a title="opshin.ledger.api_v2.Rewarding" href="#opshin.ledger.api_v2.Rewarding">Rewarding</a>, <a title="opshin.ledger.api_v2.Certifying" href="#opshin.ledger.api_v2.Certifying">Certifying</a>]</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="opshin.ledger.api_v2.ScriptContext.tx_info"><code class="name">var <span class="ident">tx_info</span> : <a title="opshin.ledger.api_v2.TxInfo" href="#opshin.ledger.api_v2.TxInfo">TxInfo</a></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+</dl>
+</dd>
+<dt id="opshin.ledger.api_v2.ScriptCredential"><code class="flex name class">
+<span>class <span class="ident">ScriptCredential</span></span>
+<span>(</span><span>credential_hash: bytes)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Part of an address that is authenticated by a smart cotnract</p>
+<p>Example value: ScriptCredential(bytes.fromhex("c06ddaad12fc4ded18e56feac72957c1aa75fce6096b40e63ec88274"))</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class ScriptCredential(PlutusData):
+    &#34;&#34;&#34;
+    Part of an address that is authenticated by a smart cotnract
+
+    Example value: ScriptCredential(bytes.fromhex(&#34;c06ddaad12fc4ded18e56feac72957c1aa75fce6096b40e63ec88274&#34;))
+    &#34;&#34;&#34;
+
+    CONSTR_ID = 1
+    credential_hash: ValidatorHash</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li>pycardano.plutus.PlutusData</li>
+<li>pycardano.serialization.ArrayCBORSerializable</li>
+<li>pycardano.serialization.CBORSerializable</li>
+</ul>
+<h3>Class variables</h3>
+<dl>
+<dt id="opshin.ledger.api_v2.ScriptCredential.CONSTR_ID"><code class="name">var <span class="ident">CONSTR_ID</span> : ClassVar[int]</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="opshin.ledger.api_v2.ScriptCredential.credential_hash"><code class="name">var <span class="ident">credential_hash</span> : bytes</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+</dl>
+</dd>
+<dt id="opshin.ledger.api_v2.SomeDatumHash"><code class="flex name class">
+<span>class <span class="ident">SomeDatumHash</span></span>
+<span>(</span><span>datum_hash: bytes)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Indicates that there is a datum associated with this output, which has the given hash.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class SomeDatumHash(PlutusData):
+    &#34;&#34;&#34;
+    Indicates that there is a datum associated with this output, which has the given hash.
+    &#34;&#34;&#34;
+
+    CONSTR_ID = 1
+    datum_hash: DatumHash</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li>pycardano.plutus.PlutusData</li>
+<li>pycardano.serialization.ArrayCBORSerializable</li>
+<li>pycardano.serialization.CBORSerializable</li>
+</ul>
+<h3>Class variables</h3>
+<dl>
+<dt id="opshin.ledger.api_v2.SomeDatumHash.CONSTR_ID"><code class="name">var <span class="ident">CONSTR_ID</span> : ClassVar[int]</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="opshin.ledger.api_v2.SomeDatumHash.datum_hash"><code class="name">var <span class="ident">datum_hash</span> : bytes</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+</dl>
+</dd>
+<dt id="opshin.ledger.api_v2.SomeOutputDatum"><code class="flex name class">
+<span>class <span class="ident">SomeOutputDatum</span></span>
+<span>(</span><span>datum: Union[pycardano.plutus.PlutusData, dict, pycardano.serialization.IndefiniteList, int, bytes, pycardano.serialization.RawCBOR, pycardano.plutus.RawPlutusData])</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Indicates that there is an datum associated with an output, which is inlined and equal to the attached datum</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class SomeOutputDatum(PlutusData):
+    &#34;&#34;&#34;
+    Indicates that there is an datum associated with an output, which is inlined and equal to the attached datum
+    &#34;&#34;&#34;
+
+    CONSTR_ID = 2
+    datum: Datum</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li>pycardano.plutus.PlutusData</li>
+<li>pycardano.serialization.ArrayCBORSerializable</li>
+<li>pycardano.serialization.CBORSerializable</li>
+</ul>
+<h3>Class variables</h3>
+<dl>
+<dt id="opshin.ledger.api_v2.SomeOutputDatum.CONSTR_ID"><code class="name">var <span class="ident">CONSTR_ID</span> : ClassVar[int]</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="opshin.ledger.api_v2.SomeOutputDatum.datum"><code class="name">var <span class="ident">datum</span> : Union[pycardano.plutus.PlutusData, dict, pycardano.serialization.IndefiniteList, int, bytes, pycardano.serialization.RawCBOR, pycardano.plutus.RawPlutusData]</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+</dl>
+</dd>
+<dt id="opshin.ledger.api_v2.SomeOutputDatumHash"><code class="flex name class">
+<span>class <span class="ident">SomeOutputDatumHash</span></span>
+<span>(</span><span>datum_hash: bytes)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Indicates that there is an datum associated with an output, which has the attached hash</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class SomeOutputDatumHash(PlutusData):
+    &#34;&#34;&#34;
+    Indicates that there is an datum associated with an output, which has the attached hash
+    &#34;&#34;&#34;
+
+    CONSTR_ID = 1
+    datum_hash: DatumHash</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li>pycardano.plutus.PlutusData</li>
+<li>pycardano.serialization.ArrayCBORSerializable</li>
+<li>pycardano.serialization.CBORSerializable</li>
+</ul>
+<h3>Class variables</h3>
+<dl>
+<dt id="opshin.ledger.api_v2.SomeOutputDatumHash.CONSTR_ID"><code class="name">var <span class="ident">CONSTR_ID</span> : ClassVar[int]</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="opshin.ledger.api_v2.SomeOutputDatumHash.datum_hash"><code class="name">var <span class="ident">datum_hash</span> : bytes</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+</dl>
+</dd>
+<dt id="opshin.ledger.api_v2.SomeScriptHash"><code class="flex name class">
+<span>class <span class="ident">SomeScriptHash</span></span>
+<span>(</span><span>script_hash: bytes)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Indicates that there is a script associated with this output, which has the given hash.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class SomeScriptHash(PlutusData):
+    &#34;&#34;&#34;
+    Indicates that there is a script associated with this output, which has the given hash.
+    &#34;&#34;&#34;
+
+    CONSTR_ID = 0
+    script_hash: DatumHash</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li>pycardano.plutus.PlutusData</li>
+<li>pycardano.serialization.ArrayCBORSerializable</li>
+<li>pycardano.serialization.CBORSerializable</li>
+</ul>
+<h3>Class variables</h3>
+<dl>
+<dt id="opshin.ledger.api_v2.SomeScriptHash.CONSTR_ID"><code class="name">var <span class="ident">CONSTR_ID</span> : ClassVar[int]</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="opshin.ledger.api_v2.SomeScriptHash.script_hash"><code class="name">var <span class="ident">script_hash</span> : bytes</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+</dl>
+</dd>
+<dt id="opshin.ledger.api_v2.SomeStakingCredential"><code class="flex name class">
+<span>class <span class="ident">SomeStakingCredential</span></span>
+<span>(</span><span>staking_credential: Union[<a title="opshin.ledger.api_v2.StakingHash" href="#opshin.ledger.api_v2.StakingHash">StakingHash</a>, <a title="opshin.ledger.api_v2.StakingPtr" href="#opshin.ledger.api_v2.StakingPtr">StakingPtr</a>])</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Indicates that this address has staking credentials.
+Its funds can be delegated by the credentialed user.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class SomeStakingCredential(PlutusData):
+    &#34;&#34;&#34;
+    Indicates that this address has staking credentials.
+    Its funds can be delegated by the credentialed user.
+    &#34;&#34;&#34;
+
+    CONSTR_ID = 0
+    staking_credential: StakingCredential</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li>pycardano.plutus.PlutusData</li>
+<li>pycardano.serialization.ArrayCBORSerializable</li>
+<li>pycardano.serialization.CBORSerializable</li>
+</ul>
+<h3>Class variables</h3>
+<dl>
+<dt id="opshin.ledger.api_v2.SomeStakingCredential.CONSTR_ID"><code class="name">var <span class="ident">CONSTR_ID</span> : ClassVar[int]</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="opshin.ledger.api_v2.SomeStakingCredential.staking_credential"><code class="name">var <span class="ident">staking_credential</span> : Union[<a title="opshin.ledger.api_v2.StakingHash" href="#opshin.ledger.api_v2.StakingHash">StakingHash</a>, <a title="opshin.ledger.api_v2.StakingPtr" href="#opshin.ledger.api_v2.StakingPtr">StakingPtr</a>]</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+</dl>
+</dd>
+<dt id="opshin.ledger.api_v2.Spending"><code class="flex name class">
+<span>class <span class="ident">Spending</span></span>
+<span>(</span><span>tx_out_ref: <a title="opshin.ledger.api_v2.TxOutRef" href="#opshin.ledger.api_v2.TxOutRef">TxOutRef</a>)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Script purpose indicating that the given transaction output is being spent, which is
+owned by the invoked contract</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class Spending(PlutusData):
+    &#34;&#34;&#34;
+    Script purpose indicating that the given transaction output is being spent, which is
+    owned by the invoked contract
+    &#34;&#34;&#34;
+
+    CONSTR_ID = 1
+    tx_out_ref: TxOutRef</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li>pycardano.plutus.PlutusData</li>
+<li>pycardano.serialization.ArrayCBORSerializable</li>
+<li>pycardano.serialization.CBORSerializable</li>
+</ul>
+<h3>Class variables</h3>
+<dl>
+<dt id="opshin.ledger.api_v2.Spending.CONSTR_ID"><code class="name">var <span class="ident">CONSTR_ID</span> : ClassVar[int]</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="opshin.ledger.api_v2.Spending.tx_out_ref"><code class="name">var <span class="ident">tx_out_ref</span> : <a title="opshin.ledger.api_v2.TxOutRef" href="#opshin.ledger.api_v2.TxOutRef">TxOutRef</a></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+</dl>
+</dd>
+<dt id="opshin.ledger.api_v2.StakingHash"><code class="flex name class">
+<span>class <span class="ident">StakingHash</span></span>
+<span>(</span><span>value: Union[<a title="opshin.ledger.api_v2.PubKeyCredential" href="#opshin.ledger.api_v2.PubKeyCredential">PubKeyCredential</a>, <a title="opshin.ledger.api_v2.ScriptCredential" href="#opshin.ledger.api_v2.ScriptCredential">ScriptCredential</a>])</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Indicates that the stake of this address is controlled by the associated credential</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class StakingHash(PlutusData):
+    &#34;&#34;&#34;
+    Indicates that the stake of this address is controlled by the associated credential
+    &#34;&#34;&#34;
+
+    CONSTR_ID = 0
+    value: Credential</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li>pycardano.plutus.PlutusData</li>
+<li>pycardano.serialization.ArrayCBORSerializable</li>
+<li>pycardano.serialization.CBORSerializable</li>
+</ul>
+<h3>Class variables</h3>
+<dl>
+<dt id="opshin.ledger.api_v2.StakingHash.CONSTR_ID"><code class="name">var <span class="ident">CONSTR_ID</span> : ClassVar[int]</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="opshin.ledger.api_v2.StakingHash.value"><code class="name">var <span class="ident">value</span> : Union[<a title="opshin.ledger.api_v2.PubKeyCredential" href="#opshin.ledger.api_v2.PubKeyCredential">PubKeyCredential</a>, <a title="opshin.ledger.api_v2.ScriptCredential" href="#opshin.ledger.api_v2.ScriptCredential">ScriptCredential</a>]</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+</dl>
+</dd>
+<dt id="opshin.ledger.api_v2.StakingPtr"><code class="flex name class">
+<span>class <span class="ident">StakingPtr</span></span>
+<span>(</span><span>slot_no: int, tx_index: int, cert_index: int)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Indicates that the stake of this address is controlled by the associated pointer.</p>
+<p>In an address, a chain pointer refers to a point of the chain containing a stake key registration certificate.
+A point is identified by the 3 coordinates in this object.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class StakingPtr(PlutusData):
+    &#34;&#34;&#34;
+    Indicates that the stake of this address is controlled by the associated pointer.
+
+    In an address, a chain pointer refers to a point of the chain containing a stake key registration certificate.
+    A point is identified by the 3 coordinates in this object.
+    &#34;&#34;&#34;
+
+    CONSTR_ID = 1
+    # an absolute slot number
+    slot_no: int
+    # a transaction index (within that slot)
+    tx_index: int
+    # a (delegation) certificate index (within that transaction)
+    cert_index: int</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li>pycardano.plutus.PlutusData</li>
+<li>pycardano.serialization.ArrayCBORSerializable</li>
+<li>pycardano.serialization.CBORSerializable</li>
+</ul>
+<h3>Class variables</h3>
+<dl>
+<dt id="opshin.ledger.api_v2.StakingPtr.CONSTR_ID"><code class="name">var <span class="ident">CONSTR_ID</span> : ClassVar[int]</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="opshin.ledger.api_v2.StakingPtr.cert_index"><code class="name">var <span class="ident">cert_index</span> : int</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="opshin.ledger.api_v2.StakingPtr.slot_no"><code class="name">var <span class="ident">slot_no</span> : int</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="opshin.ledger.api_v2.StakingPtr.tx_index"><code class="name">var <span class="ident">tx_index</span> : int</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+</dl>
+</dd>
+<dt id="opshin.ledger.api_v2.TrueData"><code class="flex name class">
+<span>class <span class="ident">TrueData</span></span>
+</code></dt>
+<dd>
+<div class="desc"><p>A Datum that represents True in Haskell implementations.
+It is thus used as an encoding for True in the ScriptContext.</p>
+<p>Example value: TrueData()</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class TrueData(PlutusData):
+    &#34;&#34;&#34;
+    A Datum that represents True in Haskell implementations.
+    It is thus used as an encoding for True in the ScriptContext.
+
+    Example value: TrueData()
+    &#34;&#34;&#34;
+
+    CONSTR_ID = 0</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li>pycardano.plutus.PlutusData</li>
+<li>pycardano.serialization.ArrayCBORSerializable</li>
+<li>pycardano.serialization.CBORSerializable</li>
+</ul>
+<h3>Class variables</h3>
+<dl>
+<dt id="opshin.ledger.api_v2.TrueData.CONSTR_ID"><code class="name">var <span class="ident">CONSTR_ID</span> : ClassVar[int]</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+</dl>
+</dd>
+<dt id="opshin.ledger.api_v2.TxId"><code class="flex name class">
+<span>class <span class="ident">TxId</span></span>
+<span>(</span><span>tx_id: bytes)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>A transaction id, a 64 bytes long hash of the transaction body (also called transaction hash).</p>
+<p>Example value: TxId(bytes.fromhex("842a4d37b036da6ab3c04331240e67d81746beb44f23ad79703e026705361956"))</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class TxId(PlutusData):
+    &#34;&#34;&#34;
+    A transaction id, a 64 bytes long hash of the transaction body (also called transaction hash).
+
+    Example value: TxId(bytes.fromhex(&#34;842a4d37b036da6ab3c04331240e67d81746beb44f23ad79703e026705361956&#34;))
+    &#34;&#34;&#34;
+
+    tx_id: bytes</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li>pycardano.plutus.PlutusData</li>
+<li>pycardano.serialization.ArrayCBORSerializable</li>
+<li>pycardano.serialization.CBORSerializable</li>
+</ul>
+<h3>Class variables</h3>
+<dl>
+<dt id="opshin.ledger.api_v2.TxId.tx_id"><code class="name">var <span class="ident">tx_id</span> : bytes</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+</dl>
+</dd>
+<dt id="opshin.ledger.api_v2.TxInInfo"><code class="flex name class">
+<span>class <span class="ident">TxInInfo</span></span>
+<span>(</span><span>out_ref: <a title="opshin.ledger.api_v2.TxOutRef" href="#opshin.ledger.api_v2.TxOutRef">TxOutRef</a>, resolved: <a title="opshin.ledger.api_v2.TxOut" href="#opshin.ledger.api_v2.TxOut">TxOut</a>)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>The plutus representation of an transaction output, that is consumed by the transaction.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class TxInInfo(PlutusData):
+    &#34;&#34;&#34;
+    The plutus representation of an transaction output, that is consumed by the transaction.
+    &#34;&#34;&#34;
+
+    out_ref: TxOutRef
+    resolved: TxOut</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li>pycardano.plutus.PlutusData</li>
+<li>pycardano.serialization.ArrayCBORSerializable</li>
+<li>pycardano.serialization.CBORSerializable</li>
+</ul>
+<h3>Class variables</h3>
+<dl>
+<dt id="opshin.ledger.api_v2.TxInInfo.out_ref"><code class="name">var <span class="ident">out_ref</span> : <a title="opshin.ledger.api_v2.TxOutRef" href="#opshin.ledger.api_v2.TxOutRef">TxOutRef</a></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="opshin.ledger.api_v2.TxInInfo.resolved"><code class="name">var <span class="ident">resolved</span> : <a title="opshin.ledger.api_v2.TxOut" href="#opshin.ledger.api_v2.TxOut">TxOut</a></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+</dl>
+</dd>
+<dt id="opshin.ledger.api_v2.TxInfo"><code class="flex name class">
+<span>class <span class="ident">TxInfo</span></span>
+<span>(</span><span>inputs: List[<a title="opshin.ledger.api_v2.TxInInfo" href="#opshin.ledger.api_v2.TxInInfo">TxInInfo</a>], reference_inputs: List[<a title="opshin.ledger.api_v2.TxInInfo" href="#opshin.ledger.api_v2.TxInInfo">TxInInfo</a>], outputs: List[<a title="opshin.ledger.api_v2.TxOut" href="#opshin.ledger.api_v2.TxOut">TxOut</a>], fee: Dict[bytes, Dict[bytes, int]], mint: Dict[bytes, Dict[bytes, int]], dcert: List[Union[<a title="opshin.ledger.api_v2.DCertDelegRegKey" href="#opshin.ledger.api_v2.DCertDelegRegKey">DCertDelegRegKey</a>, <a title="opshin.ledger.api_v2.DCertDelegDeRegKey" href="#opshin.ledger.api_v2.DCertDelegDeRegKey">DCertDelegDeRegKey</a>, <a title="opshin.ledger.api_v2.DCertDelegDelegate" href="#opshin.ledger.api_v2.DCertDelegDelegate">DCertDelegDelegate</a>, <a title="opshin.ledger.api_v2.DCertPoolRegister" href="#opshin.ledger.api_v2.DCertPoolRegister">DCertPoolRegister</a>, <a title="opshin.ledger.api_v2.DCertPoolRetire" href="#opshin.ledger.api_v2.DCertPoolRetire">DCertPoolRetire</a>, <a title="opshin.ledger.api_v2.DCertGenesis" href="#opshin.ledger.api_v2.DCertGenesis">DCertGenesis</a>, <a title="opshin.ledger.api_v2.DCertMir" href="#opshin.ledger.api_v2.DCertMir">DCertMir</a>]], wdrl: Dict[Union[<a title="opshin.ledger.api_v2.StakingHash" href="#opshin.ledger.api_v2.StakingHash">StakingHash</a>, <a title="opshin.ledger.api_v2.StakingPtr" href="#opshin.ledger.api_v2.StakingPtr">StakingPtr</a>], int], valid_range: <a title="opshin.ledger.api_v2.POSIXTimeRange" href="#opshin.ledger.api_v2.POSIXTimeRange">POSIXTimeRange</a>, signatories: List[bytes], redeemers: Dict[Union[<a title="opshin.ledger.api_v2.Minting" href="#opshin.ledger.api_v2.Minting">Minting</a>, <a title="opshin.ledger.api_v2.Spending" href="#opshin.ledger.api_v2.Spending">Spending</a>, <a title="opshin.ledger.api_v2.Rewarding" href="#opshin.ledger.api_v2.Rewarding">Rewarding</a>, <a title="opshin.ledger.api_v2.Certifying" href="#opshin.ledger.api_v2.Certifying">Certifying</a>], Union[pycardano.plutus.PlutusData, dict, pycardano.serialization.IndefiniteList, int, bytes, pycardano.serialization.RawCBOR, pycardano.plutus.RawPlutusData]], data: Dict[bytes, Union[pycardano.plutus.PlutusData, dict, pycardano.serialization.IndefiniteList, int, bytes, pycardano.serialization.RawCBOR, pycardano.plutus.RawPlutusData]], id: <a title="opshin.ledger.api_v2.TxId" href="#opshin.ledger.api_v2.TxId">TxId</a>)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>A complex agglomeration of everything that could be of interest to the executed script, regarding the transaction
+that invoked the script</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class TxInfo(PlutusData):
+    &#34;&#34;&#34;
+    A complex agglomeration of everything that could be of interest to the executed script, regarding the transaction
+    that invoked the script
+    &#34;&#34;&#34;
+
+    inputs: List[TxInInfo]
+    reference_inputs: List[TxInInfo]
+    outputs: List[TxOut]
+    fee: Value
+    mint: Value
+    dcert: List[DCert]
+    wdrl: Dict[StakingCredential, int]
+    valid_range: POSIXTimeRange
+    signatories: List[PubKeyHash]
+    redeemers: Dict[ScriptPurpose, Redeemer]
+    data: Dict[DatumHash, Datum]
+    id: TxId</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li>pycardano.plutus.PlutusData</li>
+<li>pycardano.serialization.ArrayCBORSerializable</li>
+<li>pycardano.serialization.CBORSerializable</li>
+</ul>
+<h3>Class variables</h3>
+<dl>
+<dt id="opshin.ledger.api_v2.TxInfo.data"><code class="name">var <span class="ident">data</span> : Dict[bytes, Union[pycardano.plutus.PlutusData, dict, pycardano.serialization.IndefiniteList, int, bytes, pycardano.serialization.RawCBOR, pycardano.plutus.RawPlutusData]]</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="opshin.ledger.api_v2.TxInfo.dcert"><code class="name">var <span class="ident">dcert</span> : List[Union[<a title="opshin.ledger.api_v2.DCertDelegRegKey" href="#opshin.ledger.api_v2.DCertDelegRegKey">DCertDelegRegKey</a>, <a title="opshin.ledger.api_v2.DCertDelegDeRegKey" href="#opshin.ledger.api_v2.DCertDelegDeRegKey">DCertDelegDeRegKey</a>, <a title="opshin.ledger.api_v2.DCertDelegDelegate" href="#opshin.ledger.api_v2.DCertDelegDelegate">DCertDelegDelegate</a>, <a title="opshin.ledger.api_v2.DCertPoolRegister" href="#opshin.ledger.api_v2.DCertPoolRegister">DCertPoolRegister</a>, <a title="opshin.ledger.api_v2.DCertPoolRetire" href="#opshin.ledger.api_v2.DCertPoolRetire">DCertPoolRetire</a>, <a title="opshin.ledger.api_v2.DCertGenesis" href="#opshin.ledger.api_v2.DCertGenesis">DCertGenesis</a>, <a title="opshin.ledger.api_v2.DCertMir" href="#opshin.ledger.api_v2.DCertMir">DCertMir</a>]]</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="opshin.ledger.api_v2.TxInfo.fee"><code class="name">var <span class="ident">fee</span> : Dict[bytes, Dict[bytes, int]]</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="opshin.ledger.api_v2.TxInfo.id"><code class="name">var <span class="ident">id</span> : <a title="opshin.ledger.api_v2.TxId" href="#opshin.ledger.api_v2.TxId">TxId</a></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="opshin.ledger.api_v2.TxInfo.inputs"><code class="name">var <span class="ident">inputs</span> : List[<a title="opshin.ledger.api_v2.TxInInfo" href="#opshin.ledger.api_v2.TxInInfo">TxInInfo</a>]</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="opshin.ledger.api_v2.TxInfo.mint"><code class="name">var <span class="ident">mint</span> : Dict[bytes, Dict[bytes, int]]</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="opshin.ledger.api_v2.TxInfo.outputs"><code class="name">var <span class="ident">outputs</span> : List[<a title="opshin.ledger.api_v2.TxOut" href="#opshin.ledger.api_v2.TxOut">TxOut</a>]</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="opshin.ledger.api_v2.TxInfo.redeemers"><code class="name">var <span class="ident">redeemers</span> : Dict[Union[<a title="opshin.ledger.api_v2.Minting" href="#opshin.ledger.api_v2.Minting">Minting</a>, <a title="opshin.ledger.api_v2.Spending" href="#opshin.ledger.api_v2.Spending">Spending</a>, <a title="opshin.ledger.api_v2.Rewarding" href="#opshin.ledger.api_v2.Rewarding">Rewarding</a>, <a title="opshin.ledger.api_v2.Certifying" href="#opshin.ledger.api_v2.Certifying">Certifying</a>], Union[pycardano.plutus.PlutusData, dict, pycardano.serialization.IndefiniteList, int, bytes, pycardano.serialization.RawCBOR, pycardano.plutus.RawPlutusData]]</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="opshin.ledger.api_v2.TxInfo.reference_inputs"><code class="name">var <span class="ident">reference_inputs</span> : List[<a title="opshin.ledger.api_v2.TxInInfo" href="#opshin.ledger.api_v2.TxInInfo">TxInInfo</a>]</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="opshin.ledger.api_v2.TxInfo.signatories"><code class="name">var <span class="ident">signatories</span> : List[bytes]</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="opshin.ledger.api_v2.TxInfo.valid_range"><code class="name">var <span class="ident">valid_range</span> : <a title="opshin.ledger.api_v2.POSIXTimeRange" href="#opshin.ledger.api_v2.POSIXTimeRange">POSIXTimeRange</a></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="opshin.ledger.api_v2.TxInfo.wdrl"><code class="name">var <span class="ident">wdrl</span> : Dict[Union[<a title="opshin.ledger.api_v2.StakingHash" href="#opshin.ledger.api_v2.StakingHash">StakingHash</a>, <a title="opshin.ledger.api_v2.StakingPtr" href="#opshin.ledger.api_v2.StakingPtr">StakingPtr</a>], int]</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+</dl>
+</dd>
+<dt id="opshin.ledger.api_v2.TxOut"><code class="flex name class">
+<span>class <span class="ident">TxOut</span></span>
+<span>(</span><span>address: <a title="opshin.ledger.api_v2.Address" href="#opshin.ledger.api_v2.Address">Address</a>, value: Dict[bytes, Dict[bytes, int]], datum: Union[<a title="opshin.ledger.api_v2.NoOutputDatum" href="#opshin.ledger.api_v2.NoOutputDatum">NoOutputDatum</a>, <a title="opshin.ledger.api_v2.SomeOutputDatumHash" href="#opshin.ledger.api_v2.SomeOutputDatumHash">SomeOutputDatumHash</a>, <a title="opshin.ledger.api_v2.SomeOutputDatum" href="#opshin.ledger.api_v2.SomeOutputDatum">SomeOutputDatum</a>], reference_script: Union[<a title="opshin.ledger.api_v2.NoScriptHash" href="#opshin.ledger.api_v2.NoScriptHash">NoScriptHash</a>, <a title="opshin.ledger.api_v2.SomeScriptHash" href="#opshin.ledger.api_v2.SomeScriptHash">SomeScriptHash</a>])</span>
+</code></dt>
+<dd>
+<div class="desc"><p>The plutus representation of an transaction output, consisting of
+- address: address owning this output
+- value: tokens associated with this output
+- datum: datum associated with this output
+- reference_script: reference script associated with this output</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class TxOut(PlutusData):
+    &#34;&#34;&#34;
+    The plutus representation of an transaction output, consisting of
+    - address: address owning this output
+    - value: tokens associated with this output
+    - datum: datum associated with this output
+    - reference_script: reference script associated with this output
+    &#34;&#34;&#34;
+
+    address: Address
+    value: Value
+    datum: OutputDatum
+    reference_script: Union[NoScriptHash, SomeScriptHash]</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li>pycardano.plutus.PlutusData</li>
+<li>pycardano.serialization.ArrayCBORSerializable</li>
+<li>pycardano.serialization.CBORSerializable</li>
+</ul>
+<h3>Class variables</h3>
+<dl>
+<dt id="opshin.ledger.api_v2.TxOut.address"><code class="name">var <span class="ident">address</span> : <a title="opshin.ledger.api_v2.Address" href="#opshin.ledger.api_v2.Address">Address</a></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="opshin.ledger.api_v2.TxOut.datum"><code class="name">var <span class="ident">datum</span> : Union[<a title="opshin.ledger.api_v2.NoOutputDatum" href="#opshin.ledger.api_v2.NoOutputDatum">NoOutputDatum</a>, <a title="opshin.ledger.api_v2.SomeOutputDatumHash" href="#opshin.ledger.api_v2.SomeOutputDatumHash">SomeOutputDatumHash</a>, <a title="opshin.ledger.api_v2.SomeOutputDatum" href="#opshin.ledger.api_v2.SomeOutputDatum">SomeOutputDatum</a>]</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="opshin.ledger.api_v2.TxOut.reference_script"><code class="name">var <span class="ident">reference_script</span> : Union[<a title="opshin.ledger.api_v2.NoScriptHash" href="#opshin.ledger.api_v2.NoScriptHash">NoScriptHash</a>, <a title="opshin.ledger.api_v2.SomeScriptHash" href="#opshin.ledger.api_v2.SomeScriptHash">SomeScriptHash</a>]</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="opshin.ledger.api_v2.TxOut.value"><code class="name">var <span class="ident">value</span> : Dict[bytes, Dict[bytes, int]]</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+</dl>
+</dd>
+<dt id="opshin.ledger.api_v2.TxOutRef"><code class="flex name class">
+<span>class <span class="ident">TxOutRef</span></span>
+<span>(</span><span>id: <a title="opshin.ledger.api_v2.TxId" href="#opshin.ledger.api_v2.TxId">TxId</a>, idx: int)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>A reference to a transaction output (hash/id + index)</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class TxOutRef(PlutusData):
+    &#34;&#34;&#34;
+    A reference to a transaction output (hash/id + index)
+    &#34;&#34;&#34;
+
+    id: TxId
+    idx: int</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li>pycardano.plutus.PlutusData</li>
+<li>pycardano.serialization.ArrayCBORSerializable</li>
+<li>pycardano.serialization.CBORSerializable</li>
+</ul>
+<h3>Class variables</h3>
+<dl>
+<dt id="opshin.ledger.api_v2.TxOutRef.id"><code class="name">var <span class="ident">id</span> : <a title="opshin.ledger.api_v2.TxId" href="#opshin.ledger.api_v2.TxId">TxId</a></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="opshin.ledger.api_v2.TxOutRef.idx"><code class="name">var <span class="ident">idx</span> : int</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+</dl>
+</dd>
+<dt id="opshin.ledger.api_v2.UpperBoundPOSIXTime"><code class="flex name class">
+<span>class <span class="ident">UpperBoundPOSIXTime</span></span>
+<span>(</span><span>limit: Union[<a title="opshin.ledger.api_v2.NegInfPOSIXTime" href="#opshin.ledger.api_v2.NegInfPOSIXTime">NegInfPOSIXTime</a>, <a title="opshin.ledger.api_v2.FinitePOSIXTime" href="#opshin.ledger.api_v2.FinitePOSIXTime">FinitePOSIXTime</a>, <a title="opshin.ledger.api_v2.PosInfPOSIXTime" href="#opshin.ledger.api_v2.PosInfPOSIXTime">PosInfPOSIXTime</a>], closed: Union[<a title="opshin.ledger.api_v2.TrueData" href="#opshin.ledger.api_v2.TrueData">TrueData</a>, <a title="opshin.ledger.api_v2.FalseData" href="#opshin.ledger.api_v2.FalseData">FalseData</a>])</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Upper bound for the execution of this transaction</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class UpperBoundPOSIXTime(PlutusData):
+    &#34;&#34;&#34;
+    Upper bound for the execution of this transaction
+    &#34;&#34;&#34;
+
+    CONSTR_ID = 0
+    limit: ExtendedPOSIXTime
+    closed: BoolData</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li>pycardano.plutus.PlutusData</li>
+<li>pycardano.serialization.ArrayCBORSerializable</li>
+<li>pycardano.serialization.CBORSerializable</li>
+</ul>
+<h3>Class variables</h3>
+<dl>
+<dt id="opshin.ledger.api_v2.UpperBoundPOSIXTime.CONSTR_ID"><code class="name">var <span class="ident">CONSTR_ID</span> : ClassVar[int]</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="opshin.ledger.api_v2.UpperBoundPOSIXTime.closed"><code class="name">var <span class="ident">closed</span> : Union[<a title="opshin.ledger.api_v2.TrueData" href="#opshin.ledger.api_v2.TrueData">TrueData</a>, <a title="opshin.ledger.api_v2.FalseData" href="#opshin.ledger.api_v2.FalseData">FalseData</a>]</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="opshin.ledger.api_v2.UpperBoundPOSIXTime.limit"><code class="name">var <span class="ident">limit</span> : Union[<a title="opshin.ledger.api_v2.NegInfPOSIXTime" href="#opshin.ledger.api_v2.NegInfPOSIXTime">NegInfPOSIXTime</a>, <a title="opshin.ledger.api_v2.FinitePOSIXTime" href="#opshin.ledger.api_v2.FinitePOSIXTime">FinitePOSIXTime</a>, <a title="opshin.ledger.api_v2.PosInfPOSIXTime" href="#opshin.ledger.api_v2.PosInfPOSIXTime">PosInfPOSIXTime</a>]</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+</dl>
+</dd>
+</dl>
+</section>
+</article>
+<nav id="sidebar">
+<div style="max-width: 330px; margin-bottom: 10px">
+<header>
+<a class="homelink" rel="home" title="opshin Home" href="https://opshin.opshin.dev/">
+<img src="https://raw.githubusercontent.com/OpShin/opshin/master/opshin.png" alt="opshin logo"> &nbsp; opshin
+</a>
+</header>
+</div>
+<form>
+<input id="lunr-search" name="q" placeholder="🔎 Search ..." aria-label="Search"
+disabled minlength="2">
+</form>
+<link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/tingle/0.15.3/tingle.min.css" integrity="sha512-j1u8eUJ4f23xPPxwOrLUPQaCD2dwzNqqmDDcWS4deWsMv2ohLqmXXuP3hU7g8TyzbMSakP/mMqoNBYWj8AEIFg==" crossorigin>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/tingle/0.15.3/tingle.min.js" integrity="sha512-plGUER9JkeEWPPqQBE4sdLqBoQug5Ap+BCGMc7bJ8BXkm+VVj6QzkpBz5Yv2yPkkq+cqg9IpkBaGCas6uDbW8g==" crossorigin></script>
+<style>
+.modal-dialog iframe {
+width: 100vw;
+height: calc(100vh - 80px);
+}
+@media screen and (min-width: 700px) {
+.modal-dialog iframe {
+width: 70vw;
+height: 80vh;
+}
+}
+.modal-dialog .tingle-modal-box {width: auto;}
+.modal-dialog .tingle-modal-box__content {padding: 0;}
+</style>
+<script>
+const input = document.getElementById('lunr-search');
+input.disabled = false;
+input.form.addEventListener('submit', (ev) => {
+ev.preventDefault();
+const url = new URL(window.location);
+url.searchParams.set('q', input.value);
+history.replaceState({}, null, url.toString());
+search(input.value);
+});
+const query = new URL(window.location).searchParams.get('q');
+if (query)
+search(query);
+function search(query) {
+const url = '../../doc-search.html#' + encodeURIComponent(query);
+new tingle.modal({
+cssClass: ['modal-dialog'],
+onClose: () => {
+const url = new URL(window.location);
+url.searchParams.delete('q');
+history.replaceState({}, null, url.toString());
+setTimeout(() => input.focus(), 100);
+}
+}).setContent('<iframe src="' + url + '"></iframe>').open();
+}
+</script>
+<h1>Index</h1>
+<div class="toc">
+<ul></ul>
+</div>
+<ul id="index">
+<li><h3>Super-module</h3>
+<ul>
+<li><code><a title="opshin.ledger" href="index.html">opshin.ledger</a></code></li>
+</ul>
+</li>
+<li><h3><a href="#header-classes">Classes</a></h3>
+<ul>
+<li>
+<h4><code><a title="opshin.ledger.api_v2.Address" href="#opshin.ledger.api_v2.Address">Address</a></code></h4>
+<ul class="">
+<li><code><a title="opshin.ledger.api_v2.Address.payment_credential" href="#opshin.ledger.api_v2.Address.payment_credential">payment_credential</a></code></li>
+<li><code><a title="opshin.ledger.api_v2.Address.staking_credential" href="#opshin.ledger.api_v2.Address.staking_credential">staking_credential</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="opshin.ledger.api_v2.Certifying" href="#opshin.ledger.api_v2.Certifying">Certifying</a></code></h4>
+<ul class="">
+<li><code><a title="opshin.ledger.api_v2.Certifying.CONSTR_ID" href="#opshin.ledger.api_v2.Certifying.CONSTR_ID">CONSTR_ID</a></code></li>
+<li><code><a title="opshin.ledger.api_v2.Certifying.d_cert" href="#opshin.ledger.api_v2.Certifying.d_cert">d_cert</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="opshin.ledger.api_v2.DCertDelegDeRegKey" href="#opshin.ledger.api_v2.DCertDelegDeRegKey">DCertDelegDeRegKey</a></code></h4>
+<ul class="">
+<li><code><a title="opshin.ledger.api_v2.DCertDelegDeRegKey.CONSTR_ID" href="#opshin.ledger.api_v2.DCertDelegDeRegKey.CONSTR_ID">CONSTR_ID</a></code></li>
+<li><code><a title="opshin.ledger.api_v2.DCertDelegDeRegKey.value" href="#opshin.ledger.api_v2.DCertDelegDeRegKey.value">value</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="opshin.ledger.api_v2.DCertDelegDelegate" href="#opshin.ledger.api_v2.DCertDelegDelegate">DCertDelegDelegate</a></code></h4>
+<ul class="">
+<li><code><a title="opshin.ledger.api_v2.DCertDelegDelegate.CONSTR_ID" href="#opshin.ledger.api_v2.DCertDelegDelegate.CONSTR_ID">CONSTR_ID</a></code></li>
+<li><code><a title="opshin.ledger.api_v2.DCertDelegDelegate.delegatee" href="#opshin.ledger.api_v2.DCertDelegDelegate.delegatee">delegatee</a></code></li>
+<li><code><a title="opshin.ledger.api_v2.DCertDelegDelegate.delegator" href="#opshin.ledger.api_v2.DCertDelegDelegate.delegator">delegator</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="opshin.ledger.api_v2.DCertDelegRegKey" href="#opshin.ledger.api_v2.DCertDelegRegKey">DCertDelegRegKey</a></code></h4>
+<ul class="">
+<li><code><a title="opshin.ledger.api_v2.DCertDelegRegKey.CONSTR_ID" href="#opshin.ledger.api_v2.DCertDelegRegKey.CONSTR_ID">CONSTR_ID</a></code></li>
+<li><code><a title="opshin.ledger.api_v2.DCertDelegRegKey.value" href="#opshin.ledger.api_v2.DCertDelegRegKey.value">value</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="opshin.ledger.api_v2.DCertGenesis" href="#opshin.ledger.api_v2.DCertGenesis">DCertGenesis</a></code></h4>
+<ul class="">
+<li><code><a title="opshin.ledger.api_v2.DCertGenesis.CONSTR_ID" href="#opshin.ledger.api_v2.DCertGenesis.CONSTR_ID">CONSTR_ID</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="opshin.ledger.api_v2.DCertMir" href="#opshin.ledger.api_v2.DCertMir">DCertMir</a></code></h4>
+<ul class="">
+<li><code><a title="opshin.ledger.api_v2.DCertMir.CONSTR_ID" href="#opshin.ledger.api_v2.DCertMir.CONSTR_ID">CONSTR_ID</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="opshin.ledger.api_v2.DCertPoolRegister" href="#opshin.ledger.api_v2.DCertPoolRegister">DCertPoolRegister</a></code></h4>
+<ul class="">
+<li><code><a title="opshin.ledger.api_v2.DCertPoolRegister.CONSTR_ID" href="#opshin.ledger.api_v2.DCertPoolRegister.CONSTR_ID">CONSTR_ID</a></code></li>
+<li><code><a title="opshin.ledger.api_v2.DCertPoolRegister.pool_id" href="#opshin.ledger.api_v2.DCertPoolRegister.pool_id">pool_id</a></code></li>
+<li><code><a title="opshin.ledger.api_v2.DCertPoolRegister.pool_vfr" href="#opshin.ledger.api_v2.DCertPoolRegister.pool_vfr">pool_vfr</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="opshin.ledger.api_v2.DCertPoolRetire" href="#opshin.ledger.api_v2.DCertPoolRetire">DCertPoolRetire</a></code></h4>
+<ul class="">
+<li><code><a title="opshin.ledger.api_v2.DCertPoolRetire.CONSTR_ID" href="#opshin.ledger.api_v2.DCertPoolRetire.CONSTR_ID">CONSTR_ID</a></code></li>
+<li><code><a title="opshin.ledger.api_v2.DCertPoolRetire.epoch" href="#opshin.ledger.api_v2.DCertPoolRetire.epoch">epoch</a></code></li>
+<li><code><a title="opshin.ledger.api_v2.DCertPoolRetire.retirement_certificate" href="#opshin.ledger.api_v2.DCertPoolRetire.retirement_certificate">retirement_certificate</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="opshin.ledger.api_v2.FalseData" href="#opshin.ledger.api_v2.FalseData">FalseData</a></code></h4>
+<ul class="">
+<li><code><a title="opshin.ledger.api_v2.FalseData.CONSTR_ID" href="#opshin.ledger.api_v2.FalseData.CONSTR_ID">CONSTR_ID</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="opshin.ledger.api_v2.FinitePOSIXTime" href="#opshin.ledger.api_v2.FinitePOSIXTime">FinitePOSIXTime</a></code></h4>
+<ul class="">
+<li><code><a title="opshin.ledger.api_v2.FinitePOSIXTime.CONSTR_ID" href="#opshin.ledger.api_v2.FinitePOSIXTime.CONSTR_ID">CONSTR_ID</a></code></li>
+<li><code><a title="opshin.ledger.api_v2.FinitePOSIXTime.time" href="#opshin.ledger.api_v2.FinitePOSIXTime.time">time</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="opshin.ledger.api_v2.LowerBoundPOSIXTime" href="#opshin.ledger.api_v2.LowerBoundPOSIXTime">LowerBoundPOSIXTime</a></code></h4>
+<ul class="">
+<li><code><a title="opshin.ledger.api_v2.LowerBoundPOSIXTime.CONSTR_ID" href="#opshin.ledger.api_v2.LowerBoundPOSIXTime.CONSTR_ID">CONSTR_ID</a></code></li>
+<li><code><a title="opshin.ledger.api_v2.LowerBoundPOSIXTime.closed" href="#opshin.ledger.api_v2.LowerBoundPOSIXTime.closed">closed</a></code></li>
+<li><code><a title="opshin.ledger.api_v2.LowerBoundPOSIXTime.limit" href="#opshin.ledger.api_v2.LowerBoundPOSIXTime.limit">limit</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="opshin.ledger.api_v2.Minting" href="#opshin.ledger.api_v2.Minting">Minting</a></code></h4>
+<ul class="">
+<li><code><a title="opshin.ledger.api_v2.Minting.CONSTR_ID" href="#opshin.ledger.api_v2.Minting.CONSTR_ID">CONSTR_ID</a></code></li>
+<li><code><a title="opshin.ledger.api_v2.Minting.policy_id" href="#opshin.ledger.api_v2.Minting.policy_id">policy_id</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="opshin.ledger.api_v2.NegInfPOSIXTime" href="#opshin.ledger.api_v2.NegInfPOSIXTime">NegInfPOSIXTime</a></code></h4>
+<ul class="">
+<li><code><a title="opshin.ledger.api_v2.NegInfPOSIXTime.CONSTR_ID" href="#opshin.ledger.api_v2.NegInfPOSIXTime.CONSTR_ID">CONSTR_ID</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="opshin.ledger.api_v2.NoOutputDatum" href="#opshin.ledger.api_v2.NoOutputDatum">NoOutputDatum</a></code></h4>
+<ul class="">
+<li><code><a title="opshin.ledger.api_v2.NoOutputDatum.CONSTR_ID" href="#opshin.ledger.api_v2.NoOutputDatum.CONSTR_ID">CONSTR_ID</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="opshin.ledger.api_v2.NoScriptHash" href="#opshin.ledger.api_v2.NoScriptHash">NoScriptHash</a></code></h4>
+<ul class="">
+<li><code><a title="opshin.ledger.api_v2.NoScriptHash.CONSTR_ID" href="#opshin.ledger.api_v2.NoScriptHash.CONSTR_ID">CONSTR_ID</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="opshin.ledger.api_v2.NoStakingCredential" href="#opshin.ledger.api_v2.NoStakingCredential">NoStakingCredential</a></code></h4>
+<ul class="">
+<li><code><a title="opshin.ledger.api_v2.NoStakingCredential.CONSTR_ID" href="#opshin.ledger.api_v2.NoStakingCredential.CONSTR_ID">CONSTR_ID</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="opshin.ledger.api_v2.Nothing" href="#opshin.ledger.api_v2.Nothing">Nothing</a></code></h4>
+<ul class="">
+<li><code><a title="opshin.ledger.api_v2.Nothing.CONSTR_ID" href="#opshin.ledger.api_v2.Nothing.CONSTR_ID">CONSTR_ID</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="opshin.ledger.api_v2.POSIXTimeRange" href="#opshin.ledger.api_v2.POSIXTimeRange">POSIXTimeRange</a></code></h4>
+<ul class="">
+<li><code><a title="opshin.ledger.api_v2.POSIXTimeRange.lower_bound" href="#opshin.ledger.api_v2.POSIXTimeRange.lower_bound">lower_bound</a></code></li>
+<li><code><a title="opshin.ledger.api_v2.POSIXTimeRange.upper_bound" href="#opshin.ledger.api_v2.POSIXTimeRange.upper_bound">upper_bound</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="opshin.ledger.api_v2.PosInfPOSIXTime" href="#opshin.ledger.api_v2.PosInfPOSIXTime">PosInfPOSIXTime</a></code></h4>
+<ul class="">
+<li><code><a title="opshin.ledger.api_v2.PosInfPOSIXTime.CONSTR_ID" href="#opshin.ledger.api_v2.PosInfPOSIXTime.CONSTR_ID">CONSTR_ID</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="opshin.ledger.api_v2.PubKeyCredential" href="#opshin.ledger.api_v2.PubKeyCredential">PubKeyCredential</a></code></h4>
+<ul class="">
+<li><code><a title="opshin.ledger.api_v2.PubKeyCredential.CONSTR_ID" href="#opshin.ledger.api_v2.PubKeyCredential.CONSTR_ID">CONSTR_ID</a></code></li>
+<li><code><a title="opshin.ledger.api_v2.PubKeyCredential.credential_hash" href="#opshin.ledger.api_v2.PubKeyCredential.credential_hash">credential_hash</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="opshin.ledger.api_v2.Rewarding" href="#opshin.ledger.api_v2.Rewarding">Rewarding</a></code></h4>
+<ul class="">
+<li><code><a title="opshin.ledger.api_v2.Rewarding.CONSTR_ID" href="#opshin.ledger.api_v2.Rewarding.CONSTR_ID">CONSTR_ID</a></code></li>
+<li><code><a title="opshin.ledger.api_v2.Rewarding.staking_credential" href="#opshin.ledger.api_v2.Rewarding.staking_credential">staking_credential</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="opshin.ledger.api_v2.ScriptContext" href="#opshin.ledger.api_v2.ScriptContext">ScriptContext</a></code></h4>
+<ul class="">
+<li><code><a title="opshin.ledger.api_v2.ScriptContext.purpose" href="#opshin.ledger.api_v2.ScriptContext.purpose">purpose</a></code></li>
+<li><code><a title="opshin.ledger.api_v2.ScriptContext.tx_info" href="#opshin.ledger.api_v2.ScriptContext.tx_info">tx_info</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="opshin.ledger.api_v2.ScriptCredential" href="#opshin.ledger.api_v2.ScriptCredential">ScriptCredential</a></code></h4>
+<ul class="">
+<li><code><a title="opshin.ledger.api_v2.ScriptCredential.CONSTR_ID" href="#opshin.ledger.api_v2.ScriptCredential.CONSTR_ID">CONSTR_ID</a></code></li>
+<li><code><a title="opshin.ledger.api_v2.ScriptCredential.credential_hash" href="#opshin.ledger.api_v2.ScriptCredential.credential_hash">credential_hash</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="opshin.ledger.api_v2.SomeDatumHash" href="#opshin.ledger.api_v2.SomeDatumHash">SomeDatumHash</a></code></h4>
+<ul class="">
+<li><code><a title="opshin.ledger.api_v2.SomeDatumHash.CONSTR_ID" href="#opshin.ledger.api_v2.SomeDatumHash.CONSTR_ID">CONSTR_ID</a></code></li>
+<li><code><a title="opshin.ledger.api_v2.SomeDatumHash.datum_hash" href="#opshin.ledger.api_v2.SomeDatumHash.datum_hash">datum_hash</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="opshin.ledger.api_v2.SomeOutputDatum" href="#opshin.ledger.api_v2.SomeOutputDatum">SomeOutputDatum</a></code></h4>
+<ul class="">
+<li><code><a title="opshin.ledger.api_v2.SomeOutputDatum.CONSTR_ID" href="#opshin.ledger.api_v2.SomeOutputDatum.CONSTR_ID">CONSTR_ID</a></code></li>
+<li><code><a title="opshin.ledger.api_v2.SomeOutputDatum.datum" href="#opshin.ledger.api_v2.SomeOutputDatum.datum">datum</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="opshin.ledger.api_v2.SomeOutputDatumHash" href="#opshin.ledger.api_v2.SomeOutputDatumHash">SomeOutputDatumHash</a></code></h4>
+<ul class="">
+<li><code><a title="opshin.ledger.api_v2.SomeOutputDatumHash.CONSTR_ID" href="#opshin.ledger.api_v2.SomeOutputDatumHash.CONSTR_ID">CONSTR_ID</a></code></li>
+<li><code><a title="opshin.ledger.api_v2.SomeOutputDatumHash.datum_hash" href="#opshin.ledger.api_v2.SomeOutputDatumHash.datum_hash">datum_hash</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="opshin.ledger.api_v2.SomeScriptHash" href="#opshin.ledger.api_v2.SomeScriptHash">SomeScriptHash</a></code></h4>
+<ul class="">
+<li><code><a title="opshin.ledger.api_v2.SomeScriptHash.CONSTR_ID" href="#opshin.ledger.api_v2.SomeScriptHash.CONSTR_ID">CONSTR_ID</a></code></li>
+<li><code><a title="opshin.ledger.api_v2.SomeScriptHash.script_hash" href="#opshin.ledger.api_v2.SomeScriptHash.script_hash">script_hash</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="opshin.ledger.api_v2.SomeStakingCredential" href="#opshin.ledger.api_v2.SomeStakingCredential">SomeStakingCredential</a></code></h4>
+<ul class="">
+<li><code><a title="opshin.ledger.api_v2.SomeStakingCredential.CONSTR_ID" href="#opshin.ledger.api_v2.SomeStakingCredential.CONSTR_ID">CONSTR_ID</a></code></li>
+<li><code><a title="opshin.ledger.api_v2.SomeStakingCredential.staking_credential" href="#opshin.ledger.api_v2.SomeStakingCredential.staking_credential">staking_credential</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="opshin.ledger.api_v2.Spending" href="#opshin.ledger.api_v2.Spending">Spending</a></code></h4>
+<ul class="">
+<li><code><a title="opshin.ledger.api_v2.Spending.CONSTR_ID" href="#opshin.ledger.api_v2.Spending.CONSTR_ID">CONSTR_ID</a></code></li>
+<li><code><a title="opshin.ledger.api_v2.Spending.tx_out_ref" href="#opshin.ledger.api_v2.Spending.tx_out_ref">tx_out_ref</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="opshin.ledger.api_v2.StakingHash" href="#opshin.ledger.api_v2.StakingHash">StakingHash</a></code></h4>
+<ul class="">
+<li><code><a title="opshin.ledger.api_v2.StakingHash.CONSTR_ID" href="#opshin.ledger.api_v2.StakingHash.CONSTR_ID">CONSTR_ID</a></code></li>
+<li><code><a title="opshin.ledger.api_v2.StakingHash.value" href="#opshin.ledger.api_v2.StakingHash.value">value</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="opshin.ledger.api_v2.StakingPtr" href="#opshin.ledger.api_v2.StakingPtr">StakingPtr</a></code></h4>
+<ul class="">
+<li><code><a title="opshin.ledger.api_v2.StakingPtr.CONSTR_ID" href="#opshin.ledger.api_v2.StakingPtr.CONSTR_ID">CONSTR_ID</a></code></li>
+<li><code><a title="opshin.ledger.api_v2.StakingPtr.cert_index" href="#opshin.ledger.api_v2.StakingPtr.cert_index">cert_index</a></code></li>
+<li><code><a title="opshin.ledger.api_v2.StakingPtr.slot_no" href="#opshin.ledger.api_v2.StakingPtr.slot_no">slot_no</a></code></li>
+<li><code><a title="opshin.ledger.api_v2.StakingPtr.tx_index" href="#opshin.ledger.api_v2.StakingPtr.tx_index">tx_index</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="opshin.ledger.api_v2.TrueData" href="#opshin.ledger.api_v2.TrueData">TrueData</a></code></h4>
+<ul class="">
+<li><code><a title="opshin.ledger.api_v2.TrueData.CONSTR_ID" href="#opshin.ledger.api_v2.TrueData.CONSTR_ID">CONSTR_ID</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="opshin.ledger.api_v2.TxId" href="#opshin.ledger.api_v2.TxId">TxId</a></code></h4>
+<ul class="">
+<li><code><a title="opshin.ledger.api_v2.TxId.tx_id" href="#opshin.ledger.api_v2.TxId.tx_id">tx_id</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="opshin.ledger.api_v2.TxInInfo" href="#opshin.ledger.api_v2.TxInInfo">TxInInfo</a></code></h4>
+<ul class="">
+<li><code><a title="opshin.ledger.api_v2.TxInInfo.out_ref" href="#opshin.ledger.api_v2.TxInInfo.out_ref">out_ref</a></code></li>
+<li><code><a title="opshin.ledger.api_v2.TxInInfo.resolved" href="#opshin.ledger.api_v2.TxInInfo.resolved">resolved</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="opshin.ledger.api_v2.TxInfo" href="#opshin.ledger.api_v2.TxInfo">TxInfo</a></code></h4>
+<ul class="two-column">
+<li><code><a title="opshin.ledger.api_v2.TxInfo.data" href="#opshin.ledger.api_v2.TxInfo.data">data</a></code></li>
+<li><code><a title="opshin.ledger.api_v2.TxInfo.dcert" href="#opshin.ledger.api_v2.TxInfo.dcert">dcert</a></code></li>
+<li><code><a title="opshin.ledger.api_v2.TxInfo.fee" href="#opshin.ledger.api_v2.TxInfo.fee">fee</a></code></li>
+<li><code><a title="opshin.ledger.api_v2.TxInfo.id" href="#opshin.ledger.api_v2.TxInfo.id">id</a></code></li>
+<li><code><a title="opshin.ledger.api_v2.TxInfo.inputs" href="#opshin.ledger.api_v2.TxInfo.inputs">inputs</a></code></li>
+<li><code><a title="opshin.ledger.api_v2.TxInfo.mint" href="#opshin.ledger.api_v2.TxInfo.mint">mint</a></code></li>
+<li><code><a title="opshin.ledger.api_v2.TxInfo.outputs" href="#opshin.ledger.api_v2.TxInfo.outputs">outputs</a></code></li>
+<li><code><a title="opshin.ledger.api_v2.TxInfo.redeemers" href="#opshin.ledger.api_v2.TxInfo.redeemers">redeemers</a></code></li>
+<li><code><a title="opshin.ledger.api_v2.TxInfo.reference_inputs" href="#opshin.ledger.api_v2.TxInfo.reference_inputs">reference_inputs</a></code></li>
+<li><code><a title="opshin.ledger.api_v2.TxInfo.signatories" href="#opshin.ledger.api_v2.TxInfo.signatories">signatories</a></code></li>
+<li><code><a title="opshin.ledger.api_v2.TxInfo.valid_range" href="#opshin.ledger.api_v2.TxInfo.valid_range">valid_range</a></code></li>
+<li><code><a title="opshin.ledger.api_v2.TxInfo.wdrl" href="#opshin.ledger.api_v2.TxInfo.wdrl">wdrl</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="opshin.ledger.api_v2.TxOut" href="#opshin.ledger.api_v2.TxOut">TxOut</a></code></h4>
+<ul class="">
+<li><code><a title="opshin.ledger.api_v2.TxOut.address" href="#opshin.ledger.api_v2.TxOut.address">address</a></code></li>
+<li><code><a title="opshin.ledger.api_v2.TxOut.datum" href="#opshin.ledger.api_v2.TxOut.datum">datum</a></code></li>
+<li><code><a title="opshin.ledger.api_v2.TxOut.reference_script" href="#opshin.ledger.api_v2.TxOut.reference_script">reference_script</a></code></li>
+<li><code><a title="opshin.ledger.api_v2.TxOut.value" href="#opshin.ledger.api_v2.TxOut.value">value</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="opshin.ledger.api_v2.TxOutRef" href="#opshin.ledger.api_v2.TxOutRef">TxOutRef</a></code></h4>
+<ul class="">
+<li><code><a title="opshin.ledger.api_v2.TxOutRef.id" href="#opshin.ledger.api_v2.TxOutRef.id">id</a></code></li>
+<li><code><a title="opshin.ledger.api_v2.TxOutRef.idx" href="#opshin.ledger.api_v2.TxOutRef.idx">idx</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="opshin.ledger.api_v2.UpperBoundPOSIXTime" href="#opshin.ledger.api_v2.UpperBoundPOSIXTime">UpperBoundPOSIXTime</a></code></h4>
+<ul class="">
+<li><code><a title="opshin.ledger.api_v2.UpperBoundPOSIXTime.CONSTR_ID" href="#opshin.ledger.api_v2.UpperBoundPOSIXTime.CONSTR_ID">CONSTR_ID</a></code></li>
+<li><code><a title="opshin.ledger.api_v2.UpperBoundPOSIXTime.closed" href="#opshin.ledger.api_v2.UpperBoundPOSIXTime.closed">closed</a></code></li>
+<li><code><a title="opshin.ledger.api_v2.UpperBoundPOSIXTime.limit" href="#opshin.ledger.api_v2.UpperBoundPOSIXTime.limit">limit</a></code></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</nav>
+</main>
+<footer id="footer">
+<p>Generated by <a href="https://pdoc3.github.io/pdoc" title="pdoc: Python API documentation generator"><cite>pdoc</cite> 0.10.0</a>.</p>
+</footer>
+</body>
+</html>

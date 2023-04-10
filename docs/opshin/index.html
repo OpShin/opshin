@@ -96,7 +96,7 @@ ensure the following:</p>
 <h4 id="opshin-pioneer-program">OpShin Pioneer Program</h4>
 <p>Check out the <a href="https://github.com/OpShin/opshin-pioneer-program">opshin-pioneer-program</a> for a host of educational example contracts, test cases and off-chain code.</p>
 <h4 id="example-repository">Example repository</h4>
-<p>Check out the <a href="https://github.com/OpShin/opshin-example">opshin-example</a> repository for a quick start in setting up a development environment
+<p>Check out the <a href="https://github.com/OpShin/opshin-starter-kit">opshin-starter-kit</a> repository for a quick start in setting up a development environment
 and compiling some sample contracts yourself.</p>
 <p>You can replace the contracts in your local copy of the repository with code from the
 <code>examples</code> section here to start exploring different contracts.</p>
@@ -108,8 +108,8 @@ Others may be able to help you and will also benefit from the previously shared 
 <p>You can also chat with other developers <a href="https://discord.gg/umR3A2g4uw">in the welcoming discord
 community</a> of OpShin</p>
 <h4 id="installation">Installation</h4>
-<p>Install Python 3.8. Then run</p>
-<pre><code class="language-bash">python3.8 -m pip install opshin
+<p>Install Python 3.8, 3.9 or 3.10. Then run</p>
+<pre><code class="language-bash">python3 -m pip install opshin
 </code></pre>
 <h4 id="writing-a-smart-contract">Writing a Smart Contract</h4>
 <p>A short non-complete introduction in starting to write smart contracts follows.</p>
@@ -119,7 +119,7 @@ community</a> of OpShin</p>
 <li>Make sure your contract is valid python and the types check out. Write simple contracts first and run them using <code><a title="opshin" href="#opshin">opshin</a> eval</code> to get a feeling for how they work.</li>
 <li>Make sure your contract is valid opshin code. Run <code><a title="opshin" href="#opshin">opshin</a> compile</code> and look at the compiler erros for guidance along what works and doesn't work and why.</li>
 <li>Dig into the <a href="https://github.com/OpShin/opshin/tree/master/examples"><code>examples</code></a> to understand common patterns. Check out the <a href="https://opshin.opshin.dev/opshin/prelude.html"><code>prelude</code></a> for understanding how the Script Context is structured and how complex datums are defined.</li>
-<li>Check out the <a href="https://github.com/OpShin/opshin-example">sample repository</a> to find a sample setup for developing your own contract.</li>
+<li>Check out the <a href="https://github.com/OpShin/opshin-starter-kit">sample repository</a> to find a sample setup for developing your own contract.</li>
 </ol>
 <p>In summary, a smart contract in opshin is defined by the function <code>validator</code> in your contract file.
 The function validates that a specific value can be spent, minted, burned, withdrawn etc, depending
@@ -141,11 +141,11 @@ and how to build transactions with the contract.</p>
 
 
 @dataclass()
-class CancelDatum(PlutusData):
+class WithdrawDatum(PlutusData):
     pubkeyhash: bytes
 
 
-def validator(datum: CancelDatum, redeemer: None, context: ScriptContext) -&gt; None:
+def validator(datum: WithdrawDatum, redeemer: None, context: ScriptContext) -&gt; None:
     sig_present = False
     for s in context.tx_info.signatories:
         if datum.pubkeyhash == s:
@@ -158,7 +158,7 @@ Check out the <a href="https://github.com/OpShin/opshin/blob/master/ARCHITECTURE
 for details on how to write double functioning contracts.
 The <a href="https://github.com/OpShin/opshin/blob/master/examples"><code>examples</code></a> folder contains more examples.
 Also check out the <a href="https://github.com/OpShin/opshin-pioneer-program">opshin-pioneer-program</a>
-and <a href="https://github.com/OpShin/opshin-example">opshin-example</a> repo.</p>
+and <a href="https://github.com/OpShin/opshin-starter-kit">opshin-starter-kit</a> repo.</p>
 <h3 id="compiling">Compiling</h3>
 <p>Write your program in python. You may start with the content of <code>examples</code>.
 Arguments to scripts are passed in as Plutus Data objects in JSON notation.</p>
@@ -220,6 +220,12 @@ opshin compile_pluto examples/smart_contracts/assert_sum.py
 src="https://avatars.githubusercontent.com/u/91151317?v=4" width="50" /></a>
 <a href="https://github.com/AadaFinance/"><img
 src="https://avatars.githubusercontent.com/u/89693711?v=4" width="50" /></a></p>
+<p>The main sponsor of this project is <a href="https://inversion.dev/cardano/">Inversion</a>. Here is a word from them!</p>
+<blockquote>
+<p>At Inversion, we pride ourselves on our passion for life and our ability to create exceptional software solutions for our clients. Our team of experts, with over a century of cumulative experience, is dedicated to harnessing the power of the Cardano blockchain to bring innovative and scalable decentralized applications to life. We've successfully built applications for NFT management, staking and delegation, chain data monitoring, analytics, and web3 integrations, as well as countless non-blockchain systems. With a focus on security, transparency, and sustainability, our team is excited to contribute to the Cardano ecosystem, pushing the boundaries of decentralized technologies to improve lives worldwide. Trust Inversion to be your go-to partner for robust, effective, and forward-thinking solutions, whether blockchain based, traditional systems, or a mix of the two.</p>
+</blockquote>
+<p>They have recently started a podcast, called "Africa On Chain", which you can check out here:
+<a href="https://www.youtube.com/@africaonchain">https://www.youtube.com/@africaonchain</a></p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -232,7 +238,7 @@ src="https://avatars.githubusercontent.com/u/89693711?v=4" width="50" /></a></p>
 
 import warnings
 
-__version__ = &#34;0.9.15&#34;
+__version__ = &#34;0.12.2&#34;
 __author__ = &#34;nielstron&#34;
 __author_email__ = &#34;n.muendler@web.de&#34;
 __copyright__ = &#34;Copyright (C) 2023 nielstron&#34;
@@ -270,6 +276,10 @@ except ImportError as e:
 <div class="desc"></div>
 </dd>
 <dt><code class="name"><a title="opshin.rewrite" href="rewrite/index.html">opshin.rewrite</a></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt><code class="name"><a title="opshin.std" href="std/index.html">opshin.std</a></code></dt>
 <dd>
 <div class="desc"></div>
 </dd>
@@ -386,6 +396,7 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="opshin.optimize" href="optimize/index.html">opshin.optimize</a></code></li>
 <li><code><a title="opshin.prelude" href="prelude.html">opshin.prelude</a></code></li>
 <li><code><a title="opshin.rewrite" href="rewrite/index.html">opshin.rewrite</a></code></li>
+<li><code><a title="opshin.std" href="std/index.html">opshin.std</a></code></li>
 <li><code><a title="opshin.tests" href="tests/index.html">opshin.tests</a></code></li>
 <li><code><a title="opshin.type_inference" href="type_inference.html">opshin.type_inference</a></code></li>
 <li><code><a title="opshin.typed_ast" href="typed_ast.html">opshin.typed_ast</a></code></li>

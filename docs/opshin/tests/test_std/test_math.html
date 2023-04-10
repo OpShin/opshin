@@ -6,7 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
 <meta name="generator" content="pdoc 0.10.0" />
 <link rel="icon" href="https://raw.githubusercontent.com/OpShin/opshin/dev/docs/opshin_32.png" sizes="32x32" type="image/png">
-<title>opshin.rewrite API documentation</title>
+<title>opshin.tests.test_std.test_math API documentation</title>
 <meta name="description" content="" />
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/sanitize.min.css" integrity="sha256-PK9q560IAAa6WVRRh76LtCaI8pjTJ2z11v0miyNNjrs=" crossorigin>
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/typography.min.css" integrity="sha256-7l/o7C8jubJiy74VsKTidCy1yBkRtiUGbVkYBylBqUg=" crossorigin>
@@ -61,70 +61,92 @@ fill="currentColor" class="octo-body"></path>
 </a>
 <article id="content">
 <header>
-<h1 class="title">Module <code>opshin.rewrite</code></h1>
+<h1 class="title">Module <code>opshin.tests.test_std.test_math</code></h1>
 </header>
 <section id="section-intro">
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">import hypothesis
+import hypothesis.strategies as hst
+
+from opshin.std import math as oc_math
+
+import math
+
+pos_int = hst.integers(min_value=0)
+
+
+@hypothesis.given(pos_int, pos_int)
+def test_gcd(a: int, b: int):
+    assert oc_math.gcd(a, b) == math.gcd(a, b), &#34;Invalid gcd&#34;
+
+
+@hypothesis.given(hst.integers())
+def test_sign(a: int):
+    assert oc_math.sign(a) == math.copysign(1, a), &#34;Invalid sign&#34;
+
+
+@hypothesis.given(hst.binary())
+def test_unsigned_int_from_bytes_big(b: bytes):
+    assert oc_math.unsigned_int_from_bytes_big(b) == int.from_bytes(
+        b, byteorder=&#34;big&#34;, signed=False
+    ), &#34;Invalid from bytes&#34;</code></pre>
+</details>
 </section>
 <section>
-<h2 class="section-title" id="header-submodules">Sub-modules</h2>
+</section>
+<section>
+</section>
+<section>
+<h2 class="section-title" id="header-functions">Functions</h2>
 <dl>
-<dt><code class="name"><a title="opshin.rewrite.rewrite_augassign" href="rewrite_augassign.html">opshin.rewrite.rewrite_augassign</a></code></dt>
+<dt id="opshin.tests.test_std.test_math.test_gcd"><code class="name flex">
+<span>def <span class="ident">test_gcd</span></span>(<span>) ‑> None</span>
+</code></dt>
 <dd>
 <div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@hypothesis.given(pos_int, pos_int)
+def test_gcd(a: int, b: int):
+    assert oc_math.gcd(a, b) == math.gcd(a, b), &#34;Invalid gcd&#34;</code></pre>
+</details>
 </dd>
-<dt><code class="name"><a title="opshin.rewrite.rewrite_forbidden_overwrites" href="rewrite_forbidden_overwrites.html">opshin.rewrite.rewrite_forbidden_overwrites</a></code></dt>
+<dt id="opshin.tests.test_std.test_math.test_sign"><code class="name flex">
+<span>def <span class="ident">test_sign</span></span>(<span>) ‑> None</span>
+</code></dt>
 <dd>
 <div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@hypothesis.given(hst.integers())
+def test_sign(a: int):
+    assert oc_math.sign(a) == math.copysign(1, a), &#34;Invalid sign&#34;</code></pre>
+</details>
 </dd>
-<dt><code class="name"><a title="opshin.rewrite.rewrite_import" href="rewrite_import.html">opshin.rewrite.rewrite_import</a></code></dt>
+<dt id="opshin.tests.test_std.test_math.test_unsigned_int_from_bytes_big"><code class="name flex">
+<span>def <span class="ident">test_unsigned_int_from_bytes_big</span></span>(<span>) ‑> None</span>
+</code></dt>
 <dd>
 <div class="desc"></div>
-</dd>
-<dt><code class="name"><a title="opshin.rewrite.rewrite_import_dataclasses" href="rewrite_import_dataclasses.html">opshin.rewrite.rewrite_import_dataclasses</a></code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-<dt><code class="name"><a title="opshin.rewrite.rewrite_import_hashlib" href="rewrite_import_hashlib.html">opshin.rewrite.rewrite_import_hashlib</a></code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-<dt><code class="name"><a title="opshin.rewrite.rewrite_import_plutusdata" href="rewrite_import_plutusdata.html">opshin.rewrite.rewrite_import_plutusdata</a></code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-<dt><code class="name"><a title="opshin.rewrite.rewrite_import_typing" href="rewrite_import_typing.html">opshin.rewrite.rewrite_import_typing</a></code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-<dt><code class="name"><a title="opshin.rewrite.rewrite_inject_builtin_constr" href="rewrite_inject_builtin_constr.html">opshin.rewrite.rewrite_inject_builtin_constr</a></code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-<dt><code class="name"><a title="opshin.rewrite.rewrite_inject_builtins" href="rewrite_inject_builtins.html">opshin.rewrite.rewrite_inject_builtins</a></code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-<dt><code class="name"><a title="opshin.rewrite.rewrite_remove_type_stuff" href="rewrite_remove_type_stuff.html">opshin.rewrite.rewrite_remove_type_stuff</a></code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-<dt><code class="name"><a title="opshin.rewrite.rewrite_subscript38" href="rewrite_subscript38.html">opshin.rewrite.rewrite_subscript38</a></code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-<dt><code class="name"><a title="opshin.rewrite.rewrite_tuple_assign" href="rewrite_tuple_assign.html">opshin.rewrite.rewrite_tuple_assign</a></code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-<dt><code class="name"><a title="opshin.rewrite.rewrite_zero_ary" href="rewrite_zero_ary.html">opshin.rewrite.rewrite_zero_ary</a></code></dt>
-<dd>
-<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@hypothesis.given(hst.binary())
+def test_unsigned_int_from_bytes_big(b: bytes):
+    assert oc_math.unsigned_int_from_bytes_big(b) == int.from_bytes(
+        b, byteorder=&#34;big&#34;, signed=False
+    ), &#34;Invalid from bytes&#34;</code></pre>
+</details>
 </dd>
 </dl>
-</section>
-<section>
-</section>
-<section>
 </section>
 <section>
 </section>
@@ -171,7 +193,7 @@ const query = new URL(window.location).searchParams.get('q');
 if (query)
 search(query);
 function search(query) {
-const url = '../../doc-search.html#' + encodeURIComponent(query);
+const url = '../../../doc-search.html#' + encodeURIComponent(query);
 new tingle.modal({
 cssClass: ['modal-dialog'],
 onClose: () => {
@@ -190,24 +212,14 @@ setTimeout(() => input.focus(), 100);
 <ul id="index">
 <li><h3>Super-module</h3>
 <ul>
-<li><code><a title="opshin" href="../index.html">opshin</a></code></li>
+<li><code><a title="opshin.tests.test_std" href="index.html">opshin.tests.test_std</a></code></li>
 </ul>
 </li>
-<li><h3><a href="#header-submodules">Sub-modules</a></h3>
-<ul>
-<li><code><a title="opshin.rewrite.rewrite_augassign" href="rewrite_augassign.html">opshin.rewrite.rewrite_augassign</a></code></li>
-<li><code><a title="opshin.rewrite.rewrite_forbidden_overwrites" href="rewrite_forbidden_overwrites.html">opshin.rewrite.rewrite_forbidden_overwrites</a></code></li>
-<li><code><a title="opshin.rewrite.rewrite_import" href="rewrite_import.html">opshin.rewrite.rewrite_import</a></code></li>
-<li><code><a title="opshin.rewrite.rewrite_import_dataclasses" href="rewrite_import_dataclasses.html">opshin.rewrite.rewrite_import_dataclasses</a></code></li>
-<li><code><a title="opshin.rewrite.rewrite_import_hashlib" href="rewrite_import_hashlib.html">opshin.rewrite.rewrite_import_hashlib</a></code></li>
-<li><code><a title="opshin.rewrite.rewrite_import_plutusdata" href="rewrite_import_plutusdata.html">opshin.rewrite.rewrite_import_plutusdata</a></code></li>
-<li><code><a title="opshin.rewrite.rewrite_import_typing" href="rewrite_import_typing.html">opshin.rewrite.rewrite_import_typing</a></code></li>
-<li><code><a title="opshin.rewrite.rewrite_inject_builtin_constr" href="rewrite_inject_builtin_constr.html">opshin.rewrite.rewrite_inject_builtin_constr</a></code></li>
-<li><code><a title="opshin.rewrite.rewrite_inject_builtins" href="rewrite_inject_builtins.html">opshin.rewrite.rewrite_inject_builtins</a></code></li>
-<li><code><a title="opshin.rewrite.rewrite_remove_type_stuff" href="rewrite_remove_type_stuff.html">opshin.rewrite.rewrite_remove_type_stuff</a></code></li>
-<li><code><a title="opshin.rewrite.rewrite_subscript38" href="rewrite_subscript38.html">opshin.rewrite.rewrite_subscript38</a></code></li>
-<li><code><a title="opshin.rewrite.rewrite_tuple_assign" href="rewrite_tuple_assign.html">opshin.rewrite.rewrite_tuple_assign</a></code></li>
-<li><code><a title="opshin.rewrite.rewrite_zero_ary" href="rewrite_zero_ary.html">opshin.rewrite.rewrite_zero_ary</a></code></li>
+<li><h3><a href="#header-functions">Functions</a></h3>
+<ul class="">
+<li><code><a title="opshin.tests.test_std.test_math.test_gcd" href="#opshin.tests.test_std.test_math.test_gcd">test_gcd</a></code></li>
+<li><code><a title="opshin.tests.test_std.test_math.test_sign" href="#opshin.tests.test_std.test_math.test_sign">test_sign</a></code></li>
+<li><code><a title="opshin.tests.test_std.test_math.test_unsigned_int_from_bytes_big" href="#opshin.tests.test_std.test_math.test_unsigned_int_from_bytes_big">test_unsigned_int_from_bytes_big</a></code></li>
 </ul>
 </li>
 </ul>

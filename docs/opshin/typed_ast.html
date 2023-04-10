@@ -351,6 +351,20 @@ class TupleType(ClassType):
 
 
 @dataclass(frozen=True, unsafe_hash=True)
+class PairType(ClassType):
+    &#34;&#34;&#34;An internal type representing built-in PlutusData pairs&#34;&#34;&#34;
+
+    l_typ: Type
+    r_typ: Type
+
+    def __ge__(self, other):
+        return isinstance(other, PairType) and all(
+            t &gt;= ot
+            for t, ot in zip((self.l_typ, self.r_typ), (other.l_typ, other.r_typ))
+        )
+
+
+@dataclass(frozen=True, unsafe_hash=True)
 class ListType(ClassType):
     typ: Type
 
@@ -373,6 +387,15 @@ class DictType(ClassType):
         if attr == &#34;values&#34;:
             return InstanceType(
                 FunctionType([], InstanceType(ListType(self.value_typ)))
+            )
+        if attr == &#34;items&#34;:
+            return InstanceType(
+                FunctionType(
+                    [],
+                    InstanceType(
+                        ListType(InstanceType(PairType(self.key_typ, self.value_typ)))
+                    ),
+                )
             )
         raise TypeInferenceError(
             f&#34;Type of attribute &#39;{attr}&#39; is unknown for type Dict.&#34;
@@ -431,6 +454,11 @@ class DictType(ClassType):
                     ),
                     empty_list(self.value_typ),
                 ),
+            )
+        if attr == &#34;items&#34;:
+            return plt.Lambda(
+                [&#34;self&#34;, &#34;_&#34;],
+                plt.Var(&#34;self&#34;),
             )
         raise NotImplementedError(f&#34;Attribute &#39;{attr}&#39; of Dict is unknown.&#34;)
 
@@ -1915,6 +1943,7 @@ class TypedNodeVisitor(NodeVisitor):
 <li><a title="opshin.typed_ast.FunctionType" href="#opshin.typed_ast.FunctionType">FunctionType</a></li>
 <li><a title="opshin.typed_ast.InaccessibleType" href="#opshin.typed_ast.InaccessibleType">InaccessibleType</a></li>
 <li><a title="opshin.typed_ast.ListType" href="#opshin.typed_ast.ListType">ListType</a></li>
+<li><a title="opshin.typed_ast.PairType" href="#opshin.typed_ast.PairType">PairType</a></li>
 <li><a title="opshin.typed_ast.PolymorphicFunctionType" href="#opshin.typed_ast.PolymorphicFunctionType">PolymorphicFunctionType</a></li>
 <li><a title="opshin.typed_ast.RecordType" href="#opshin.typed_ast.RecordType">RecordType</a></li>
 <li><a title="opshin.typed_ast.TupleType" href="#opshin.typed_ast.TupleType">TupleType</a></li>
@@ -1999,6 +2028,15 @@ class TypedNodeVisitor(NodeVisitor):
             return InstanceType(
                 FunctionType([], InstanceType(ListType(self.value_typ)))
             )
+        if attr == &#34;items&#34;:
+            return InstanceType(
+                FunctionType(
+                    [],
+                    InstanceType(
+                        ListType(InstanceType(PairType(self.key_typ, self.value_typ)))
+                    ),
+                )
+            )
         raise TypeInferenceError(
             f&#34;Type of attribute &#39;{attr}&#39; is unknown for type Dict.&#34;
         )
@@ -2056,6 +2094,11 @@ class TypedNodeVisitor(NodeVisitor):
                     ),
                     empty_list(self.value_typ),
                 ),
+            )
+        if attr == &#34;items&#34;:
+            return plt.Lambda(
+                [&#34;self&#34;, &#34;_&#34;],
+                plt.Var(&#34;self&#34;),
             )
         raise NotImplementedError(f&#34;Attribute &#39;{attr}&#39; of Dict is unknown.&#34;)
 
@@ -2151,6 +2194,11 @@ class TypedNodeVisitor(NodeVisitor):
                 empty_list(self.value_typ),
             ),
         )
+    if attr == &#34;items&#34;:
+        return plt.Lambda(
+            [&#34;self&#34;, &#34;_&#34;],
+            plt.Var(&#34;self&#34;),
+        )
     raise NotImplementedError(f&#34;Attribute &#39;{attr}&#39; of Dict is unknown.&#34;)</code></pre>
 </details>
 </dd>
@@ -2177,6 +2225,15 @@ class TypedNodeVisitor(NodeVisitor):
     if attr == &#34;values&#34;:
         return InstanceType(
             FunctionType([], InstanceType(ListType(self.value_typ)))
+        )
+    if attr == &#34;items&#34;:
+        return InstanceType(
+            FunctionType(
+                [],
+                InstanceType(
+                    ListType(InstanceType(PairType(self.key_typ, self.value_typ)))
+                ),
+            )
         )
     raise TypeInferenceError(
         f&#34;Type of attribute &#39;{attr}&#39; is unknown for type Dict.&#34;
@@ -3001,6 +3058,98 @@ class TypedNodeVisitor(NodeVisitor):
 <div class="desc inherited"><p>The constructor for this class</p></div>
 </dd>
 <dt id="opshin.typed_ast.ListType.constr_type"><code class="name flex">
+<span>def <span class="ident">constr_type</span></span>(<span>self) ‑> <a title="opshin.typed_ast.InstanceType" href="#opshin.typed_ast.InstanceType">InstanceType</a></span>
+</code></dt>
+<dd>
+<p class="inheritance">
+<em>Inherited from:</em>
+<code><a title="opshin.typed_ast.ClassType" href="#opshin.typed_ast.ClassType">ClassType</a></code>.<code><a title="opshin.typed_ast.ClassType.constr_type" href="#opshin.typed_ast.ClassType.constr_type">constr_type</a></code>
+</p>
+<div class="desc inherited"><p>The type of the constructor for this class</p></div>
+</dd>
+</dl>
+</dd>
+<dt id="opshin.typed_ast.PairType"><code class="flex name class">
+<span>class <span class="ident">PairType</span></span>
+<span>(</span><span>l_typ: <a title="opshin.typed_ast.Type" href="#opshin.typed_ast.Type">Type</a>, r_typ: <a title="opshin.typed_ast.Type" href="#opshin.typed_ast.Type">Type</a>)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>An internal type representing built-in PlutusData pairs</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class PairType(ClassType):
+    &#34;&#34;&#34;An internal type representing built-in PlutusData pairs&#34;&#34;&#34;
+
+    l_typ: Type
+    r_typ: Type
+
+    def __ge__(self, other):
+        return isinstance(other, PairType) and all(
+            t &gt;= ot
+            for t, ot in zip((self.l_typ, self.r_typ), (other.l_typ, other.r_typ))
+        )</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li><a title="opshin.typed_ast.ClassType" href="#opshin.typed_ast.ClassType">ClassType</a></li>
+<li><a title="opshin.typed_ast.Type" href="#opshin.typed_ast.Type">Type</a></li>
+</ul>
+<h3>Class variables</h3>
+<dl>
+<dt id="opshin.typed_ast.PairType.l_typ"><code class="name">var <span class="ident">l_typ</span> : <a title="opshin.typed_ast.Type" href="#opshin.typed_ast.Type">Type</a></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="opshin.typed_ast.PairType.r_typ"><code class="name">var <span class="ident">r_typ</span> : <a title="opshin.typed_ast.Type" href="#opshin.typed_ast.Type">Type</a></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+</dl>
+<h3>Methods</h3>
+<dl>
+<dt id="opshin.typed_ast.PairType.attribute"><code class="name flex">
+<span>def <span class="ident">attribute</span></span>(<span>self, attr) ‑> pluthon.pluthon_ast.AST</span>
+</code></dt>
+<dd>
+<p class="inheritance">
+<em>Inherited from:</em>
+<code><a title="opshin.typed_ast.ClassType" href="#opshin.typed_ast.ClassType">ClassType</a></code>.<code><a title="opshin.typed_ast.ClassType.attribute" href="#opshin.typed_ast.ClassType.attribute">attribute</a></code>
+</p>
+<div class="desc inherited"><p>The attributes of this class. Needs to be a lambda that expects as first argument the object itself</p></div>
+</dd>
+<dt id="opshin.typed_ast.PairType.attribute_type"><code class="name flex">
+<span>def <span class="ident">attribute_type</span></span>(<span>self, attr) ‑> <a title="opshin.typed_ast.Type" href="#opshin.typed_ast.Type">Type</a></span>
+</code></dt>
+<dd>
+<p class="inheritance">
+<em>Inherited from:</em>
+<code><a title="opshin.typed_ast.ClassType" href="#opshin.typed_ast.ClassType">ClassType</a></code>.<code><a title="opshin.typed_ast.ClassType.attribute_type" href="#opshin.typed_ast.ClassType.attribute_type">attribute_type</a></code>
+</p>
+<div class="desc inherited"><p>The types of the named attributes of this class</p></div>
+</dd>
+<dt id="opshin.typed_ast.PairType.cmp"><code class="name flex">
+<span>def <span class="ident">cmp</span></span>(<span>self, op: _ast.cmpop, o: <a title="opshin.typed_ast.Type" href="#opshin.typed_ast.Type">Type</a>) ‑> pluthon.pluthon_ast.AST</span>
+</code></dt>
+<dd>
+<p class="inheritance">
+<em>Inherited from:</em>
+<code><a title="opshin.typed_ast.ClassType" href="#opshin.typed_ast.ClassType">ClassType</a></code>.<code><a title="opshin.typed_ast.ClassType.cmp" href="#opshin.typed_ast.ClassType.cmp">cmp</a></code>
+</p>
+<div class="desc inherited"><p>The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second …</p></div>
+</dd>
+<dt id="opshin.typed_ast.PairType.constr"><code class="name flex">
+<span>def <span class="ident">constr</span></span>(<span>self) ‑> pluthon.pluthon_ast.AST</span>
+</code></dt>
+<dd>
+<p class="inheritance">
+<em>Inherited from:</em>
+<code><a title="opshin.typed_ast.ClassType" href="#opshin.typed_ast.ClassType">ClassType</a></code>.<code><a title="opshin.typed_ast.ClassType.constr" href="#opshin.typed_ast.ClassType.constr">constr</a></code>
+</p>
+<div class="desc inherited"><p>The constructor for this class</p></div>
+</dd>
+<dt id="opshin.typed_ast.PairType.constr_type"><code class="name flex">
 <span>def <span class="ident">constr_type</span></span>(<span>self) ‑> <a title="opshin.typed_ast.InstanceType" href="#opshin.typed_ast.InstanceType">InstanceType</a></span>
 </code></dt>
 <dd>
@@ -5878,6 +6027,18 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="opshin.typed_ast.ListType.constr" href="#opshin.typed_ast.ListType.constr">constr</a></code></li>
 <li><code><a title="opshin.typed_ast.ListType.constr_type" href="#opshin.typed_ast.ListType.constr_type">constr_type</a></code></li>
 <li><code><a title="opshin.typed_ast.ListType.typ" href="#opshin.typed_ast.ListType.typ">typ</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="opshin.typed_ast.PairType" href="#opshin.typed_ast.PairType">PairType</a></code></h4>
+<ul class="two-column">
+<li><code><a title="opshin.typed_ast.PairType.attribute" href="#opshin.typed_ast.PairType.attribute">attribute</a></code></li>
+<li><code><a title="opshin.typed_ast.PairType.attribute_type" href="#opshin.typed_ast.PairType.attribute_type">attribute_type</a></code></li>
+<li><code><a title="opshin.typed_ast.PairType.cmp" href="#opshin.typed_ast.PairType.cmp">cmp</a></code></li>
+<li><code><a title="opshin.typed_ast.PairType.constr" href="#opshin.typed_ast.PairType.constr">constr</a></code></li>
+<li><code><a title="opshin.typed_ast.PairType.constr_type" href="#opshin.typed_ast.PairType.constr_type">constr_type</a></code></li>
+<li><code><a title="opshin.typed_ast.PairType.l_typ" href="#opshin.typed_ast.PairType.l_typ">l_typ</a></code></li>
+<li><code><a title="opshin.typed_ast.PairType.r_typ" href="#opshin.typed_ast.PairType.r_typ">r_typ</a></code></li>
 </ul>
 </li>
 <li>

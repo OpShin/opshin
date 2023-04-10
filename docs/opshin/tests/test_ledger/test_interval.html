@@ -217,44 +217,34 @@ def test_contains(a: POSIXTimeRange, b: POSIXTimeRange):
 
 @given(
     lower_bound=st.integers(),
-    lower_closed=st.one_of(st.builds(FalseData), st.builds(TrueData)),
 )
 def test_fuzz_make_from(
     lower_bound: int,
-    lower_closed: BoolData,
 ) -&gt; None:
-    make_from(lower_bound=lower_bound, lower_closed=lower_closed)
+    make_from(lower_bound=lower_bound)
 
 
 @given(
     lower_bound=st.integers(),
     upper_bound=st.integers(),
-    lower_closed=st.one_of(st.builds(FalseData), st.builds(TrueData)),
-    upper_closed=st.one_of(st.builds(FalseData), st.builds(TrueData)),
 )
 def test_fuzz_make_range(
     lower_bound: int,
     upper_bound: int,
-    lower_closed: BoolData,
-    upper_closed: BoolData,
 ) -&gt; None:
     make_range(
         lower_bound=lower_bound,
         upper_bound=upper_bound,
-        lower_closed=lower_closed,
-        upper_closed=upper_closed,
     )
 
 
 @given(
     upper_bound=st.integers(),
-    upper_closed=st.one_of(st.builds(FalseData), st.builds(TrueData)),
 )
 def test_fuzz_make_to(
     upper_bound: int,
-    upper_closed: BoolData,
 ) -&gt; None:
-    make_to(upper_bound=upper_bound, upper_closed=upper_closed)
+    make_to(upper_bound=upper_bound)
 
 
 @given(
@@ -274,7 +264,37 @@ def test_get_bool(b: bool) -&gt; None:
         bool_data = TrueData()
     else:
         bool_data = FalseData()
-    assert get_bool(bool_data) == b</code></pre>
+    assert get_bool(bool_data) == b
+
+
+@given(
+    lower_bound=st.integers(),
+    upper_bound_1=st.integers(),
+    upper_bound_2=st.integers(),
+)
+def test_make_to_in_make_range(
+    lower_bound: int,
+    upper_bound_1: int,
+    upper_bound_2: int,
+) -&gt; None:
+    assert contains(
+        make_to(upper_bound=upper_bound_1), make_range(lower_bound, upper_bound_2)
+    ) == (upper_bound_1 &gt;= upper_bound_2)
+
+
+@given(
+    lower_bound_1=st.integers(),
+    lower_bound_2=st.integers(),
+    upper_bound=st.integers(),
+)
+def test_make_from_in_make_range(
+    lower_bound_1: int,
+    lower_bound_2: int,
+    upper_bound: int,
+) -&gt; None:
+    assert contains(
+        make_from(lower_bound=lower_bound_1), make_range(lower_bound_2, upper_bound)
+    ) == (lower_bound_1 &lt;= lower_bound_2)</code></pre>
 </details>
 </section>
 <section>
@@ -392,13 +412,11 @@ def test_fuzz_compare_extended_helper(time: ExtendedPOSIXTime) -&gt; None:
 </summary>
 <pre><code class="python">@given(
     lower_bound=st.integers(),
-    lower_closed=st.one_of(st.builds(FalseData), st.builds(TrueData)),
 )
 def test_fuzz_make_from(
     lower_bound: int,
-    lower_closed: BoolData,
 ) -&gt; None:
-    make_from(lower_bound=lower_bound, lower_closed=lower_closed)</code></pre>
+    make_from(lower_bound=lower_bound)</code></pre>
 </details>
 </dd>
 <dt id="opshin.tests.test_ledger.test_interval.test_fuzz_make_range"><code class="name flex">
@@ -413,20 +431,14 @@ def test_fuzz_make_from(
 <pre><code class="python">@given(
     lower_bound=st.integers(),
     upper_bound=st.integers(),
-    lower_closed=st.one_of(st.builds(FalseData), st.builds(TrueData)),
-    upper_closed=st.one_of(st.builds(FalseData), st.builds(TrueData)),
 )
 def test_fuzz_make_range(
     lower_bound: int,
     upper_bound: int,
-    lower_closed: BoolData,
-    upper_closed: BoolData,
 ) -&gt; None:
     make_range(
         lower_bound=lower_bound,
         upper_bound=upper_bound,
-        lower_closed=lower_closed,
-        upper_closed=upper_closed,
     )</code></pre>
 </details>
 </dd>
@@ -441,13 +453,11 @@ def test_fuzz_make_range(
 </summary>
 <pre><code class="python">@given(
     upper_bound=st.integers(),
-    upper_closed=st.one_of(st.builds(FalseData), st.builds(TrueData)),
 )
 def test_fuzz_make_to(
     upper_bound: int,
-    upper_closed: BoolData,
 ) -&gt; None:
-    make_to(upper_bound=upper_bound, upper_closed=upper_closed)</code></pre>
+    make_to(upper_bound=upper_bound)</code></pre>
 </details>
 </dd>
 <dt id="opshin.tests.test_ledger.test_interval.test_get_bool"><code class="name flex">
@@ -466,6 +476,54 @@ def test_get_bool(b: bool) -&gt; None:
     else:
         bool_data = FalseData()
     assert get_bool(bool_data) == b</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_ledger.test_interval.test_make_from_in_make_range"><code class="name flex">
+<span>def <span class="ident">test_make_from_in_make_range</span></span>(<span>) ‑> None</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@given(
+    lower_bound_1=st.integers(),
+    lower_bound_2=st.integers(),
+    upper_bound=st.integers(),
+)
+def test_make_from_in_make_range(
+    lower_bound_1: int,
+    lower_bound_2: int,
+    upper_bound: int,
+) -&gt; None:
+    assert contains(
+        make_from(lower_bound=lower_bound_1), make_range(lower_bound_2, upper_bound)
+    ) == (lower_bound_1 &lt;= lower_bound_2)</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_ledger.test_interval.test_make_to_in_make_range"><code class="name flex">
+<span>def <span class="ident">test_make_to_in_make_range</span></span>(<span>) ‑> None</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@given(
+    lower_bound=st.integers(),
+    upper_bound_1=st.integers(),
+    upper_bound_2=st.integers(),
+)
+def test_make_to_in_make_range(
+    lower_bound: int,
+    upper_bound_1: int,
+    upper_bound_2: int,
+) -&gt; None:
+    assert contains(
+        make_to(upper_bound=upper_bound_1), make_range(lower_bound, upper_bound_2)
+    ) == (upper_bound_1 &gt;= upper_bound_2)</code></pre>
 </details>
 </dd>
 <dt id="opshin.tests.test_ledger.test_interval.test_ordering_compare"><code class="name flex">
@@ -664,6 +722,8 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="opshin.tests.test_ledger.test_interval.test_fuzz_make_range" href="#opshin.tests.test_ledger.test_interval.test_fuzz_make_range">test_fuzz_make_range</a></code></li>
 <li><code><a title="opshin.tests.test_ledger.test_interval.test_fuzz_make_to" href="#opshin.tests.test_ledger.test_interval.test_fuzz_make_to">test_fuzz_make_to</a></code></li>
 <li><code><a title="opshin.tests.test_ledger.test_interval.test_get_bool" href="#opshin.tests.test_ledger.test_interval.test_get_bool">test_get_bool</a></code></li>
+<li><code><a title="opshin.tests.test_ledger.test_interval.test_make_from_in_make_range" href="#opshin.tests.test_ledger.test_interval.test_make_from_in_make_range">test_make_from_in_make_range</a></code></li>
+<li><code><a title="opshin.tests.test_ledger.test_interval.test_make_to_in_make_range" href="#opshin.tests.test_ledger.test_interval.test_make_to_in_make_range">test_make_to_in_make_range</a></code></li>
 <li><code><a title="opshin.tests.test_ledger.test_interval.test_ordering_compare" href="#opshin.tests.test_ledger.test_interval.test_ordering_compare">test_ordering_compare</a></code></li>
 <li><code><a title="opshin.tests.test_ledger.test_interval.test_ordering_compare_extended" href="#opshin.tests.test_ledger.test_interval.test_ordering_compare_extended">test_ordering_compare_extended</a></code></li>
 <li><code><a title="opshin.tests.test_ledger.test_interval.test_ordering_compare_lower_bound" href="#opshin.tests.test_ledger.test_interval.test_ordering_compare_lower_bound">test_ordering_compare_lower_bound</a></code></li>

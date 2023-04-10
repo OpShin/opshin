@@ -68,7 +68,9 @@ fill="currentColor" class="octo-body"></path>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">import typing
+<pre><code class="python">from copy import copy
+
+import typing
 from ast import *
 
 from ..util import CompilingNodeTransformer
@@ -95,14 +97,42 @@ class RewriteTupleAssign(CompilingNodeTransformer):
                     [t],
                     Subscript(
                         value=Name(f&#34;{uid}_tup&#34;, Load()),
-                        slice=Index(value=Constant(i)),
+                        slice=Constant(i),
                         ctx=Load(),
                     ),
                 )
             )
         # recursively resolve multiple layers of tuples
         transformed = sum([self.visit(a) for a in assignments], [])
-        return transformed</code></pre>
+        return transformed
+
+    def visit_For(self, node: For) -&gt; For:
+        # rewrite deconstruction in for loops
+        if not isinstance(node.target, Tuple):
+            return self.generic_visit(node)
+        new_for = copy(node)
+        new_for.iter = self.visit(node.iter)
+        uid = self.unique_id
+        self.unique_id += 1
+        # write the tuple into a singleton variable
+        new_for.target = Name(f&#34;{uid}_tup&#34;, Store())
+        assignments = []
+        # iteratively assign the deconstructed parts to the original variable names
+        for i, t in enumerate(node.target.elts):
+            assignments.append(
+                Assign(
+                    [t],
+                    Subscript(
+                        value=Name(f&#34;{uid}_tup&#34;, Load()),
+                        slice=Constant(i),
+                        ctx=Load(),
+                    ),
+                )
+            )
+        new_for.body = assignments + node.body
+        # recursively resolve multiple layers of tuples
+        # further layers should be handled by the normal tuple assignment though
+        return self.visit(new_for)</code></pre>
 </details>
 </section>
 <section>
@@ -166,14 +196,42 @@ just a single node.</p>
                     [t],
                     Subscript(
                         value=Name(f&#34;{uid}_tup&#34;, Load()),
-                        slice=Index(value=Constant(i)),
+                        slice=Constant(i),
                         ctx=Load(),
                     ),
                 )
             )
         # recursively resolve multiple layers of tuples
         transformed = sum([self.visit(a) for a in assignments], [])
-        return transformed</code></pre>
+        return transformed
+
+    def visit_For(self, node: For) -&gt; For:
+        # rewrite deconstruction in for loops
+        if not isinstance(node.target, Tuple):
+            return self.generic_visit(node)
+        new_for = copy(node)
+        new_for.iter = self.visit(node.iter)
+        uid = self.unique_id
+        self.unique_id += 1
+        # write the tuple into a singleton variable
+        new_for.target = Name(f&#34;{uid}_tup&#34;, Store())
+        assignments = []
+        # iteratively assign the deconstructed parts to the original variable names
+        for i, t in enumerate(node.target.elts):
+            assignments.append(
+                Assign(
+                    [t],
+                    Subscript(
+                        value=Name(f&#34;{uid}_tup&#34;, Load()),
+                        slice=Constant(i),
+                        ctx=Load(),
+                    ),
+                )
+            )
+        new_for.body = assignments + node.body
+        # recursively resolve multiple layers of tuples
+        # further layers should be handled by the normal tuple assignment though
+        return self.visit(new_for)</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -226,7 +284,7 @@ just a single node.</p>
                 [t],
                 Subscript(
                     value=Name(f&#34;{uid}_tup&#34;, Load()),
-                    slice=Index(value=Constant(i)),
+                    slice=Constant(i),
                     ctx=Load(),
                 ),
             )
@@ -234,6 +292,44 @@ just a single node.</p>
     # recursively resolve multiple layers of tuples
     transformed = sum([self.visit(a) for a in assignments], [])
     return transformed</code></pre>
+</details>
+</dd>
+<dt id="opshin.rewrite.rewrite_tuple_assign.RewriteTupleAssign.visit_For"><code class="name flex">
+<span>def <span class="ident">visit_For</span></span>(<span>self, node: _ast.For) ‑> _ast.For</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def visit_For(self, node: For) -&gt; For:
+    # rewrite deconstruction in for loops
+    if not isinstance(node.target, Tuple):
+        return self.generic_visit(node)
+    new_for = copy(node)
+    new_for.iter = self.visit(node.iter)
+    uid = self.unique_id
+    self.unique_id += 1
+    # write the tuple into a singleton variable
+    new_for.target = Name(f&#34;{uid}_tup&#34;, Store())
+    assignments = []
+    # iteratively assign the deconstructed parts to the original variable names
+    for i, t in enumerate(node.target.elts):
+        assignments.append(
+            Assign(
+                [t],
+                Subscript(
+                    value=Name(f&#34;{uid}_tup&#34;, Load()),
+                    slice=Constant(i),
+                    ctx=Load(),
+                ),
+            )
+        )
+    new_for.body = assignments + node.body
+    # recursively resolve multiple layers of tuples
+    # further layers should be handled by the normal tuple assignment though
+    return self.visit(new_for)</code></pre>
 </details>
 </dd>
 </dl>
@@ -314,6 +410,7 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="opshin.rewrite.rewrite_tuple_assign.RewriteTupleAssign.unique_id" href="#opshin.rewrite.rewrite_tuple_assign.RewriteTupleAssign.unique_id">unique_id</a></code></li>
 <li><code><a title="opshin.rewrite.rewrite_tuple_assign.RewriteTupleAssign.visit" href="../util.html#opshin.rewrite.rewrite_tuple_assign.RewriteTupleAssign.visit">visit</a></code></li>
 <li><code><a title="opshin.rewrite.rewrite_tuple_assign.RewriteTupleAssign.visit_Assign" href="#opshin.rewrite.rewrite_tuple_assign.RewriteTupleAssign.visit_Assign">visit_Assign</a></code></li>
+<li><code><a title="opshin.rewrite.rewrite_tuple_assign.RewriteTupleAssign.visit_For" href="#opshin.rewrite.rewrite_tuple_assign.RewriteTupleAssign.visit_For">visit_For</a></code></li>
 </ul>
 </li>
 </ul>
