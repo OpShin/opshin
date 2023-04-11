@@ -703,14 +703,49 @@ def validator(x: Anything) -> int:
         res = uplc_eval(uplc.Apply(code, uplc.PlutusInteger(0))).value
         self.assertEqual(res, 0)
 
-    @unittest.expectedFailure
     def test_typecast_int_anything(self):
-        # this should not compile, we can not upcast with this notation
-        # up to discussion whether this should be allowed, but i.g. it should never be necessary or useful
+        # this should compile, it happens implicitly anyways when calling a function with Any parameters
         source_code = """
 def validator(x: int) -> Anything:
     b: Anything = x
-    return x
+    return b
+"""
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusInteger(0))).value
+        self.assertEqual(res, 0)
+
+    def test_typecast_int_anything_int(self):
+        source_code = """
+def validator(x: int) -> Anything:
+    b: Anything = x
+    c: int = b
+    return c + 1
+"""
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusInteger(0))).value
+        self.assertEqual(res, 1)
+
+    def test_typecast_anything_int_anything(self):
+        source_code = """
+def validator(x: Anything) -> Anything:
+    b: int = x
+    c: Anything = b + 1
+    return c
+"""
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusInteger(0))).value
+        self.assertEqual(res, 1)
+
+    @unittest.expectedFailure
+    def test_typecast_int_str(self):
+        # this should compile, the two types are unrelated and there is no meaningful way to cast them either direction
+        source_code = """
+def validator(x: int) -> str:
+    b: str = x
+    return b
 """
         ast = compiler.parse(source_code)
         code = compiler.compile(ast)
