@@ -29,6 +29,10 @@ script:
   coverage run -a --source=opshin -m opshin compile_pluto examples/smart_contracts/assert_sum.py
 - >
   coverage run -a --source=opshin -m opshin build examples/smart_contracts/assert_sum.py
+- >
+  for i in $(find examples -type f -name "*.py" -not \( -name "broken*" -o -name "extract*" \)); do
+    coverage run -a --source=opshin -m opshin compile "$i"
+  done
 
 after_success:
 - coverage report
