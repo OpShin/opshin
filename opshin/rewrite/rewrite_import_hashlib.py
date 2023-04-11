@@ -23,6 +23,9 @@ class HashType(ClassType):
             return plt.Lambda(["self"], plt.Var("self"))
         raise NotImplementedError("HashType only has attribute 'digest'")
 
+    def __ge__(self, other):
+        return isinstance(other, HashType)
+
 
 HashInstanceType = InstanceType(HashType())
 
