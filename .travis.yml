@@ -30,7 +30,7 @@ script:
 - >
   coverage run -a --source=opshin -m opshin build examples/smart_contracts/assert_sum.py
 - >
-  for i in $(find examples -type f -name "*.py" -not \( -name "broken*" -o -name "extract*" \) -print0); do
+  for i in $(find examples -type f -name "*.py" -not \( -name "broken*" -o -name "extract*" \)); do
     coverage run -a --source=opshin -m opshin compile "$i"
   done
 
