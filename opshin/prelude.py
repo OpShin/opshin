@@ -60,3 +60,26 @@ def all_tokens_locked_at_address(
 def resolve_spent_utxo(txins: List[TxInInfo], p: Spending) -> TxOut:
     """Returns the UTxO whose spending should be validated"""
     return [txi.resolved for txi in txins if txi.out_ref == p.tx_out_ref][0]
+
+
+def resolve_datum(txout: TxOut, tx_info: TxInfo) -> BuiltinData:
+    """Returns the datum attached to a given transaction output, independent of whether it was inlined or embedded."""
+    attached_datum = txout.datum
+    if isinstance(attached_datum, SomeOutputDatumHash):
+        # TODO can we raise a KeyError here if not found?
+        @dataclass
+        class InvalidDatum(PlutusData):
+            CONSTR_ID = 42
+            a: int
+
+        invalid = InvalidDatum(1234321)
+        res = tx_info.data.get(attached_datum.datum_hash, invalid)
+        assert (
+            res != invalid
+        ), "The datum matching the given datum hash was not embedded into the transaction"
+    elif isinstance(attached_datum, SomeOutputDatum):
+        res = attached_datum.datum
+    else:
+        # no datum attached
+        assert False, "No datum was attached to the given transaction output"
+    return res
