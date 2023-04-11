@@ -471,9 +471,16 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                 )
         elif isinstance(ts.value.typ.typ, DictType):
             # TODO could be implemented with potentially just erroring. It might be desired to avoid this though.
-            raise TypeInferenceError(
-                f"Could not infer type of subscript of dict. Use 'get' with a default value instead."
-            )
+            if not isinstance(ts.slice, Slice):
+                ts.slice = self.visit(node.slice)
+                assert (
+                    ts.slice.typ == ts.value.typ.typ.key_typ
+                ), f"Dict subscript must have dict key type {ts.value.typ.typ.key_typ} but has type {ts.slice.typ}"
+                ts.typ = ts.value.typ.typ.value_typ
+            else:
+                raise TypeInferenceError(
+                    f"Could not infer type of subscript of dict with a slice."
+                )
         else:
             raise TypeInferenceError(
                 f"Could not infer type of subscript of typ {ts.value.typ.__class__}"
