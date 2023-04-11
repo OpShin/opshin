@@ -63,7 +63,10 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         self.scopes.pop()
 
     def set_variable_type(self, name: str, typ: Type, force=False):
-        if not force and name in self.scopes[-1] and typ != self.scopes[-1][name]:
+        if not force and name in self.scopes[-1] and self.scopes[-1][name] != typ:
+            if self.scopes[-1][name] >= typ:
+                # the specified type is broader, we pass on this
+                return
             raise TypeInferenceError(
                 f"Type {self.scopes[-1][name]} of variable {name} in local scope does not match inferred type {typ}"
             )
@@ -209,9 +212,10 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             node.target.id, InstanceType(typed_ass.annotation), force=True
         )
         typed_ass.target = self.visit(node.target)
-        assert typed_ass.value.typ >= InstanceType(
-            typed_ass.annotation
-        ), "Can only downcast to a specialized type"
+        assert (
+            typed_ass.value.typ >= InstanceType(typed_ass.annotation)
+            or InstanceType(typed_ass.annotation) >= typed_ass.value.typ
+        ), "Can only cast between related types"
         return typed_ass
 
     def visit_If(self, node: If) -> TypedIf:
