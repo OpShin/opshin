@@ -67,16 +67,10 @@ def resolve_datum(txout: TxOut, tx_info: TxInfo) -> BuiltinData:
     attached_datum = txout.datum
     if isinstance(attached_datum, SomeOutputDatumHash):
         # TODO can we raise a KeyError here if not found?
-        @dataclass
-        class InvalidDatum(PlutusData):
-            CONSTR_ID = 42
-            a: int
-
-        invalid = InvalidDatum(1234321)
-        res = tx_info.data.get(attached_datum.datum_hash, invalid)
         assert (
-            res != invalid
+            attached_datum.datum_hash in tx_info.data.keys()
         ), "The datum matching the given datum hash was not embedded into the transaction"
+        res = tx_info.data.get(attached_datum.datum_hash, Nothing())
     elif isinstance(attached_datum, SomeOutputDatum):
         res = attached_datum.datum
     else:
