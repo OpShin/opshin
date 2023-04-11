@@ -91,12 +91,15 @@ def resolve_datum(
     Otherwise it returns NoOutputDatum.
     """
     attached_datum = txout.datum
-    res: Union[SomeOutputDatum, NoOutputDatum] = NoOutputDatum()
     if isinstance(attached_datum, SomeOutputDatumHash):
         if attached_datum.datum_hash in tx_info.data.keys():
-            res = SomeOutputDatum(
+            res: Union[SomeOutputDatum, NoOutputDatum] = SomeOutputDatum(
                 tx_info.data.get(attached_datum.datum_hash, Nothing())
             )
+        else:
+            assert (
+                False
+            ), "Could not resolve attached datum from datum hash, because it was not embedded in the transaction"
     else:
-        res = attached_datum
+        res: Union[SomeOutputDatum, NoOutputDatum] = attached_datum
     return res
