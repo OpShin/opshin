@@ -627,6 +627,39 @@ class UPLCCompiler(CompilingNodeTransformer):
                     plt.IndexAccessList(plt.Var("l"), plt.Var("i")),
                 ),
             )
+        elif isinstance(node.value.typ.typ, DictType):
+            dict_typ = node.value.typ.typ
+            if not isinstance(node.slice, Slice):
+                return plt.Lambda(
+                    [STATEMONAD],
+                    plt.Let(
+                        [
+                            (
+                                "key",
+                                plt.Apply(self.visit(node.slice), plt.Var(STATEMONAD)),
+                            )
+                        ],
+                        transform_ext_params_map(dict_typ.value_typ)(
+                            plt.SndPair(
+                                plt.FindList(
+                                    plt.Apply(
+                                        self.visit(node.value), plt.Var(STATEMONAD)
+                                    ),
+                                    plt.Lambda(
+                                        ["x"],
+                                        plt.EqualsData(
+                                            transform_output_map(dict_typ.key_typ)(
+                                                plt.Var("key")
+                                            ),
+                                            plt.FstPair(plt.Var("x")),
+                                        ),
+                                    ),
+                                    plt.TraceError("KeyError"),
+                                ),
+                            ),
+                        ),
+                    ),
+                )
         elif isinstance(node.value.typ.typ, ByteStringType):
             if not isinstance(node.slice, Slice):
                 return plt.Lambda(

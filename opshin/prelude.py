@@ -69,11 +69,7 @@ def resolve_datum_unsafe(txout: TxOut, tx_info: TxInfo) -> BuiltinData:
     """
     attached_datum = txout.datum
     if isinstance(attached_datum, SomeOutputDatumHash):
-        # TODO can we raise a KeyError here if not found?
-        assert (
-            attached_datum.datum_hash in tx_info.data.keys()
-        ), "The datum matching the given datum hash was not embedded into the transaction"
-        res = tx_info.data.get(attached_datum.datum_hash, Nothing())
+        res = tx_info.data[attached_datum.datum_hash]
     elif isinstance(attached_datum, SomeOutputDatum):
         res = attached_datum.datum
     else:
@@ -92,14 +88,9 @@ def resolve_datum(
     """
     attached_datum = txout.datum
     if isinstance(attached_datum, SomeOutputDatumHash):
-        if attached_datum.datum_hash in tx_info.data.keys():
-            res: Union[SomeOutputDatum, NoOutputDatum] = SomeOutputDatum(
-                tx_info.data.get(attached_datum.datum_hash, Nothing())
-            )
-        else:
-            assert (
-                False
-            ), "Could not resolve attached datum from datum hash, because it was not embedded in the transaction"
+        res: Union[SomeOutputDatum, NoOutputDatum] = SomeOutputDatum(
+            tx_info.data[attached_datum.datum_hash]
+        )
     else:
         res: Union[SomeOutputDatum, NoOutputDatum] = attached_datum
     return res
