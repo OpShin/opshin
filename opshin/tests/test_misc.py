@@ -29,7 +29,7 @@ class MiscTest(unittest.TestCase):
         for d in [uplc.PlutusInteger(20), uplc.PlutusInteger(22), uplc.BuiltinUnit()]:
             f = uplc.Apply(f, d)
         ret = uplc_eval(f)
-        self.assertEqual(ret, uplc.BuiltinUnit())
+        self.assertEqual(ret, uplc.PlutusConstr(0, []))
 
     def test_assert_sum_contract_fail(self):
         input_file = "examples/smart_contracts/assert_sum.py"
@@ -248,7 +248,7 @@ class MiscTest(unittest.TestCase):
         ]:
             f = uplc.Apply(f, d)
         ret = uplc_eval(f)
-        self.assertEqual(ret, uplc.BuiltinUnit())
+        self.assertEqual(ret, uplc.PlutusConstr(0, []))
 
     def test_gift_contract_fail(self):
         input_file = "examples/smart_contracts/gift.py"
