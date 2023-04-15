@@ -29,11 +29,19 @@ script:
   coverage run -a --source=opshin -m opshin compile_pluto examples/smart_contracts/assert_sum.py
 - >
   coverage run -a --source=opshin -m opshin build examples/smart_contracts/assert_sum.py
+# all smart contracts
 - >
   for i in $(find examples -type f -name "*.py" -not \( -name "broken*" -o -name "extract*" \)); do
     echo "$i"
     coverage run -a --source=opshin -m opshin compile "$i" > /dev/null
   done
+# smart contracts with special parameters
+- >
+  coverage run -a --source=opshin -m opshin build examples/smart_contracts/parameterized.py '{"int": 42}'
+- >
+  coverage run -a --source=opshin -m opshin build examples/smart_contracts/dual_use.py --force-three-params
+- >
+  coverage run -a --source=opshin -m opshin build examples/smart_contracts/wrapped_token.py '{"bytes": "ae810731b5d21c0d182d89c60a1eff7095dffd1c0dce8707a8611099"}' '{"bytes": "4d494c4b"}' '{"int": 1000000}' --force-three-params
 
 after_success:
 - coverage report
