@@ -6,7 +6,7 @@
 
 import warnings
 
-__version__ = "0.12.3"
+__version__ = "0.12.4"
 __author__ = "nielstron"
 __author_email__ = "n.muendler@web.de"
 __copyright__ = "Copyright (C) 2023 nielstron"
