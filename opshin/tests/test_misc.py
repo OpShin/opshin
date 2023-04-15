@@ -939,3 +939,15 @@ def validator(xs: Dict[bytes, Dict[bytes, int]]) -> int:
             sum(v for pid, d in xs.items() for nam, v in d.items()),
             "for loop deconstruction did not behave as expected",
         )
+
+    def test_no_return_annotation_no_return(self):
+        source_code = """
+from opshin.prelude import *
+
+def validator(a):
+    pass
+"""
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
+        self.assertEqual(res, uplc.PlutusConstr(0, []))

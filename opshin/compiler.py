@@ -433,9 +433,6 @@ class UPLCCompiler(CompilingNodeTransformer):
         if not body or not isinstance(body[-1], Return):
             tr = Return(None)
             tr.typ = NoneInstanceType
-            assert (
-                node.typ.typ.rettyp == NoneInstanceType
-            ), "Function has no return statement but is supposed to return not-None value"
             body.append(tr)
         compiled_body = self.visit_sequence(body[:-1])
         args_state = extend_statemonad(
