@@ -99,7 +99,7 @@ class MiscTest(unittest.TestCase):
         for d in [uplc.PlutusInteger(20), uplc.PlutusInteger(22), uplc.BuiltinUnit()]:
             f = uplc.Apply(f, d)
         ret = uplc_eval(f)
-        self.assertEqual(ret, uplc.BuiltinUnit())
+        self.assertEqual(ret, uplc.PlutusConstr(0, []))
 
     def test_assert_sum_contract_fail(self):
         input_file = &#34;examples/smart_contracts/assert_sum.py&#34;
@@ -318,7 +318,7 @@ class MiscTest(unittest.TestCase):
         ]:
             f = uplc.Apply(f, d)
         ret = uplc_eval(f)
-        self.assertEqual(ret, uplc.BuiltinUnit())
+        self.assertEqual(ret, uplc.PlutusConstr(0, []))
 
     def test_gift_contract_fail(self):
         input_file = &#34;examples/smart_contracts/gift.py&#34;
@@ -773,14 +773,49 @@ def validator(x: Anything) -&gt; int:
         res = uplc_eval(uplc.Apply(code, uplc.PlutusInteger(0))).value
         self.assertEqual(res, 0)
 
-    @unittest.expectedFailure
     def test_typecast_int_anything(self):
-        # this should not compile, we can not upcast with this notation
-        # up to discussion whether this should be allowed, but i.g. it should never be necessary or useful
+        # this should compile, it happens implicitly anyways when calling a function with Any parameters
         source_code = &#34;&#34;&#34;
 def validator(x: int) -&gt; Anything:
     b: Anything = x
-    return x
+    return b
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusInteger(0))).value
+        self.assertEqual(res, 0)
+
+    def test_typecast_int_anything_int(self):
+        source_code = &#34;&#34;&#34;
+def validator(x: int) -&gt; Anything:
+    b: Anything = x
+    c: int = b
+    return c + 1
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusInteger(0))).value
+        self.assertEqual(res, 1)
+
+    def test_typecast_anything_int_anything(self):
+        source_code = &#34;&#34;&#34;
+def validator(x: Anything) -&gt; Anything:
+    b: int = x
+    c: Anything = b + 1
+    return c
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusInteger(0))).value
+        self.assertEqual(res, 1)
+
+    @unittest.expectedFailure
+    def test_typecast_int_str(self):
+        # this should compile, the two types are unrelated and there is no meaningful way to cast them either direction
+        source_code = &#34;&#34;&#34;
+def validator(x: int) -&gt; str:
+    b: str = x
+    return b
 &#34;&#34;&#34;
         ast = compiler.parse(source_code)
         code = compiler.compile(ast)
@@ -973,7 +1008,19 @@ def validator(xs: Dict[bytes, Dict[bytes, int]]) -&gt; int:
             ret,
             sum(v for pid, d in xs.items() for nam, v in d.items()),
             &#34;for loop deconstruction did not behave as expected&#34;,
-        )</code></pre>
+        )
+
+    def test_no_return_annotation_no_return(self):
+        source_code = &#34;&#34;&#34;
+from opshin.prelude import *
+
+def validator(a):
+    pass
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
+        self.assertEqual(res, uplc.PlutusConstr(0, []))</code></pre>
 </details>
 </section>
 <section>
@@ -1054,7 +1101,7 @@ not have a method with the specified name.</p></div>
         for d in [uplc.PlutusInteger(20), uplc.PlutusInteger(22), uplc.BuiltinUnit()]:
             f = uplc.Apply(f, d)
         ret = uplc_eval(f)
-        self.assertEqual(ret, uplc.BuiltinUnit())
+        self.assertEqual(ret, uplc.PlutusConstr(0, []))
 
     def test_assert_sum_contract_fail(self):
         input_file = &#34;examples/smart_contracts/assert_sum.py&#34;
@@ -1273,7 +1320,7 @@ not have a method with the specified name.</p></div>
         ]:
             f = uplc.Apply(f, d)
         ret = uplc_eval(f)
-        self.assertEqual(ret, uplc.BuiltinUnit())
+        self.assertEqual(ret, uplc.PlutusConstr(0, []))
 
     def test_gift_contract_fail(self):
         input_file = &#34;examples/smart_contracts/gift.py&#34;
@@ -1728,14 +1775,49 @@ def validator(x: Anything) -&gt; int:
         res = uplc_eval(uplc.Apply(code, uplc.PlutusInteger(0))).value
         self.assertEqual(res, 0)
 
-    @unittest.expectedFailure
     def test_typecast_int_anything(self):
-        # this should not compile, we can not upcast with this notation
-        # up to discussion whether this should be allowed, but i.g. it should never be necessary or useful
+        # this should compile, it happens implicitly anyways when calling a function with Any parameters
         source_code = &#34;&#34;&#34;
 def validator(x: int) -&gt; Anything:
     b: Anything = x
-    return x
+    return b
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusInteger(0))).value
+        self.assertEqual(res, 0)
+
+    def test_typecast_int_anything_int(self):
+        source_code = &#34;&#34;&#34;
+def validator(x: int) -&gt; Anything:
+    b: Anything = x
+    c: int = b
+    return c + 1
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusInteger(0))).value
+        self.assertEqual(res, 1)
+
+    def test_typecast_anything_int_anything(self):
+        source_code = &#34;&#34;&#34;
+def validator(x: Anything) -&gt; Anything:
+    b: int = x
+    c: Anything = b + 1
+    return c
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusInteger(0))).value
+        self.assertEqual(res, 1)
+
+    @unittest.expectedFailure
+    def test_typecast_int_str(self):
+        # this should compile, the two types are unrelated and there is no meaningful way to cast them either direction
+        source_code = &#34;&#34;&#34;
+def validator(x: int) -&gt; str:
+    b: str = x
+    return b
 &#34;&#34;&#34;
         ast = compiler.parse(source_code)
         code = compiler.compile(ast)
@@ -1928,7 +2010,19 @@ def validator(xs: Dict[bytes, Dict[bytes, int]]) -&gt; int:
             ret,
             sum(v for pid, d in xs.items() for nam, v in d.items()),
             &#34;for loop deconstruction did not behave as expected&#34;,
-        )</code></pre>
+        )
+
+    def test_no_return_annotation_no_return(self):
+        source_code = &#34;&#34;&#34;
+from opshin.prelude import *
+
+def validator(a):
+    pass
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
+        self.assertEqual(res, uplc.PlutusConstr(0, []))</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -1989,7 +2083,7 @@ def validator(xs: Dict[bytes, Dict[bytes, int]]) -&gt; int:
     for d in [uplc.PlutusInteger(20), uplc.PlutusInteger(22), uplc.BuiltinUnit()]:
         f = uplc.Apply(f, d)
     ret = uplc_eval(f)
-    self.assertEqual(ret, uplc.BuiltinUnit())</code></pre>
+    self.assertEqual(ret, uplc.PlutusConstr(0, []))</code></pre>
 </details>
 </dd>
 <dt id="opshin.tests.test_misc.MiscTest.test_complex_datum_correct_vals"><code class="name flex">
@@ -2329,7 +2423,7 @@ def test_fib_rec(self, n):
     ]:
         f = uplc.Apply(f, d)
     ret = uplc_eval(f)
-    self.assertEqual(ret, uplc.BuiltinUnit())</code></pre>
+    self.assertEqual(ret, uplc.PlutusConstr(0, []))</code></pre>
 </details>
 </dd>
 <dt id="opshin.tests.test_misc.MiscTest.test_hello_world"><code class="name flex">
@@ -2646,6 +2740,28 @@ def validator():
         self.assertEqual(res, uplc.PlutusByteString(b&#34;&#34;))</code></pre>
 </details>
 </dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_no_return_annotation_no_return"><code class="name flex">
+<span>def <span class="ident">test_no_return_annotation_no_return</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    def test_no_return_annotation_no_return(self):
+        source_code = &#34;&#34;&#34;
+from opshin.prelude import *
+
+def validator(a):
+    pass
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
+        self.assertEqual(res, uplc.PlutusConstr(0, []))</code></pre>
+</details>
+</dd>
 <dt id="opshin.tests.test_misc.MiscTest.test_opt_shared_var"><code class="name flex">
 <span>def <span class="ident">test_opt_shared_var</span></span>(<span>self)</span>
 </code></dt>
@@ -2899,6 +3015,28 @@ def validator(x: Anything) -&gt; int:
         self.assertEqual(res, 0)</code></pre>
 </details>
 </dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_typecast_anything_int_anything"><code class="name flex">
+<span>def <span class="ident">test_typecast_anything_int_anything</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    def test_typecast_anything_int_anything(self):
+        source_code = &#34;&#34;&#34;
+def validator(x: Anything) -&gt; Anything:
+    b: int = x
+    c: Anything = b + 1
+    return c
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusInteger(0))).value
+        self.assertEqual(res, 1)</code></pre>
+</details>
+</dd>
 <dt id="opshin.tests.test_misc.MiscTest.test_typecast_int_anything"><code class="name flex">
 <span>def <span class="ident">test_typecast_int_anything</span></span>(<span>self)</span>
 </code></dt>
@@ -2908,17 +3046,39 @@ def validator(x: Anything) -&gt; int:
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">    @unittest.expectedFailure
-    def test_typecast_int_anything(self):
-        # this should not compile, we can not upcast with this notation
-        # up to discussion whether this should be allowed, but i.g. it should never be necessary or useful
+<pre><code class="python">    def test_typecast_int_anything(self):
+        # this should compile, it happens implicitly anyways when calling a function with Any parameters
         source_code = &#34;&#34;&#34;
 def validator(x: int) -&gt; Anything:
     b: Anything = x
-    return x
+    return b
 &#34;&#34;&#34;
         ast = compiler.parse(source_code)
-        code = compiler.compile(ast)</code></pre>
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusInteger(0))).value
+        self.assertEqual(res, 0)</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_typecast_int_anything_int"><code class="name flex">
+<span>def <span class="ident">test_typecast_int_anything_int</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    def test_typecast_int_anything_int(self):
+        source_code = &#34;&#34;&#34;
+def validator(x: int) -&gt; Anything:
+    b: Anything = x
+    c: int = b
+    return c + 1
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusInteger(0))).value
+        self.assertEqual(res, 1)</code></pre>
 </details>
 </dd>
 <dt id="opshin.tests.test_misc.MiscTest.test_typecast_int_int"><code class="name flex">
@@ -2940,6 +3100,27 @@ def validator(x: int) -&gt; int:
         code = compiler.compile(ast).compile()
         res = uplc_eval(uplc.Apply(code, uplc.PlutusInteger(0))).value
         self.assertEqual(res, 0)</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_typecast_int_str"><code class="name flex">
+<span>def <span class="ident">test_typecast_int_str</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    @unittest.expectedFailure
+    def test_typecast_int_str(self):
+        # this should compile, the two types are unrelated and there is no meaningful way to cast them either direction
+        source_code = &#34;&#34;&#34;
+def validator(x: int) -&gt; str:
+    b: str = x
+    return b
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)</code></pre>
 </details>
 </dd>
 <dt id="opshin.tests.test_misc.MiscTest.test_union_type_all_records_same_constr"><code class="name flex">
@@ -3348,6 +3529,7 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_nested_deconstruction" href="#opshin.tests.test_misc.MiscTest.test_nested_deconstruction">test_nested_deconstruction</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_no_parameter_annotation" href="#opshin.tests.test_misc.MiscTest.test_no_parameter_annotation">test_no_parameter_annotation</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_no_return_annotation" href="#opshin.tests.test_misc.MiscTest.test_no_return_annotation">test_no_return_annotation</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_no_return_annotation_no_return" href="#opshin.tests.test_misc.MiscTest.test_no_return_annotation_no_return">test_no_return_annotation_no_return</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_opt_shared_var" href="#opshin.tests.test_misc.MiscTest.test_opt_shared_var">test_opt_shared_var</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_overopt_removedeadvar" href="#opshin.tests.test_misc.MiscTest.test_overopt_removedeadvar">test_overopt_removedeadvar</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_parameterized_compile" href="#opshin.tests.test_misc.MiscTest.test_parameterized_compile">test_parameterized_compile</a></code></li>
@@ -3357,8 +3539,11 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_showcase" href="#opshin.tests.test_misc.MiscTest.test_showcase">test_showcase</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_sum" href="#opshin.tests.test_misc.MiscTest.test_sum">test_sum</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_typecast_anything_int" href="#opshin.tests.test_misc.MiscTest.test_typecast_anything_int">test_typecast_anything_int</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_typecast_anything_int_anything" href="#opshin.tests.test_misc.MiscTest.test_typecast_anything_int_anything">test_typecast_anything_int_anything</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_typecast_int_anything" href="#opshin.tests.test_misc.MiscTest.test_typecast_int_anything">test_typecast_int_anything</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_typecast_int_anything_int" href="#opshin.tests.test_misc.MiscTest.test_typecast_int_anything_int">test_typecast_int_anything_int</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_typecast_int_int" href="#opshin.tests.test_misc.MiscTest.test_typecast_int_int">test_typecast_int_int</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_typecast_int_str" href="#opshin.tests.test_misc.MiscTest.test_typecast_int_str">test_typecast_int_str</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_union_type_all_records_same_constr" href="#opshin.tests.test_misc.MiscTest.test_union_type_all_records_same_constr">test_union_type_all_records_same_constr</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_union_type_attr_access_all_records" href="#opshin.tests.test_misc.MiscTest.test_union_type_attr_access_all_records">test_union_type_attr_access_all_records</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_union_type_attr_access_all_records_same_constr" href="#opshin.tests.test_misc.MiscTest.test_union_type_attr_access_all_records_same_constr">test_union_type_attr_access_all_records_same_constr</a></code></li>

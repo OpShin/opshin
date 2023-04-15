@@ -66,13 +66,13 @@ fill="currentColor" class="octo-body"></path>
 <section id="section-intro">
 <div align="center">
 <img
-src="https://raw.githubusercontent.com/OpShin/opshin/master/opshin.png" width="240" />
+src="https://raw.githubusercontent.com/OpShin/opshin/main/opshin.png" width="240" />
 <h1 style="text-align: center;">opshin</h1></br>
-<a href="https://app.travis-ci.com/OpShin/opshin"><img alt="Build Status" src="https://app.travis-ci.com/OpShin/opshin.svg?branch=master"/></a>
+<a href="https://app.travis-ci.com/OpShin/opshin"><img alt="Build Status" src="https://app.travis-ci.com/OpShin/opshin.svg?branch=main"/></a>
 <a href="https://pypi.org/project/opshin/"><img alt="PyPI version" src="https://badge.fury.io/py/opshin.svg"/></a>
 <img alt="PyPI - Python Version" src="https://img.shields.io/pypi/pyversions/opshin.svg" />
 <a href="https://pypi.org/project/opshin/"><img alt="PyPI - Status" src="https://img.shields.io/pypi/status/opshin.svg" /></a>
-<a href="https://coveralls.io/github/OpShin/opshin?branch=master"><img alt="Coverage Status" src="https://coveralls.io/repos/github/OpShin/opshin/badge.svg?branch=master" /></a>
+<a href="https://coveralls.io/github/OpShin/opshin?branch=main"><img alt="Coverage Status" src="https://coveralls.io/repos/github/OpShin/opshin/badge.svg?branch=main" /></a>
 </div>
 <blockquote>
 <p>You are building what you want. Why not also build <strong>how</strong> you want?</p>
@@ -118,7 +118,7 @@ community</a> of OpShin</p>
 <li>Make sure you understand python. opshin works like python and uses python. There are tons of tutorials for python, choose what suits you best.</li>
 <li>Make sure your contract is valid python and the types check out. Write simple contracts first and run them using <code><a title="opshin" href="#opshin">opshin</a> eval</code> to get a feeling for how they work.</li>
 <li>Make sure your contract is valid opshin code. Run <code><a title="opshin" href="#opshin">opshin</a> compile</code> and look at the compiler erros for guidance along what works and doesn't work and why.</li>
-<li>Dig into the <a href="https://github.com/OpShin/opshin/tree/master/examples"><code>examples</code></a> to understand common patterns. Check out the <a href="https://opshin.opshin.dev/opshin/prelude.html"><code>prelude</code></a> for understanding how the Script Context is structured and how complex datums are defined.</li>
+<li>Dig into the <a href="https://github.com/OpShin/opshin/tree/main/examples"><code>examples</code></a> to understand common patterns. Check out the <a href="https://opshin.opshin.dev/opshin/prelude.html"><code>prelude</code></a> for understanding how the Script Context is structured and how complex datums are defined.</li>
 <li>Check out the <a href="https://github.com/OpShin/opshin-starter-kit">sample repository</a> to find a sample setup for developing your own contract.</li>
 </ol>
 <p>In summary, a smart contract in opshin is defined by the function <code>validator</code> in your contract file.
@@ -154,9 +154,9 @@ def validator(datum: WithdrawDatum, redeemer: None, context: ScriptContext) -&gt
 </code></pre>
 <p>All contracts written in opshin are 100% valid python.
 Minting policies expect only a redeemer and script context as argument.
-Check out the <a href="https://github.com/OpShin/opshin/blob/master/ARCHITECTURE.md#minting-policy---spending-validator-double-function">Architecture guide</a>
+Check out the <a href="https://github.com/OpShin/opshin/blob/main/ARCHITECTURE.md#minting-policy---spending-validator-double-function">Architecture guide</a>
 for details on how to write double functioning contracts.
-The <a href="https://github.com/OpShin/opshin/blob/master/examples"><code>examples</code></a> folder contains more examples.
+The <a href="https://github.com/OpShin/opshin/blob/main/examples"><code>examples</code></a> folder contains more examples.
 Also check out the <a href="https://github.com/OpShin/opshin-pioneer-program">opshin-pioneer-program</a>
 and <a href="https://github.com/OpShin/opshin-starter-kit">opshin-starter-kit</a> repo.</p>
 <h3 id="compiling">Compiling</h3>
@@ -210,7 +210,7 @@ opshin compile_pluto examples/smart_contracts/assert_sum.py
 <h3 id="sponsoring">Sponsoring</h3>
 <p>You can sponsor the development of opshin through GitHub or <a href="https://alpha.teiki.network/projects/opshin">Teiki</a> or just by sending ADA. Drop me a message on social media and let me know what it is for.</p>
 <ul>
-<li><strong><a href="https://alpha.teiki.network/projects/opshin">Teiki</a></strong> Stake your ada to support OpShin at <a href="https://alpha.teiki.network/projects/opshin">Teiki</a></li>
+<li><strong><a href="https://beta.kreate.community/projects/opshin">Kreate</a></strong> Stake your ada to support OpShin at <a href="https://beta.kreate.community/projects/opshin">Kreate</a></li>
 <li><strong>GitHub</strong> Sponsor the developers of this project through the button "Sponsor" next to them</li>
 <li><strong>ADA</strong> Donation in ADA can be submitted to <code>$opshin</code> or <code>addr1qyz3vgd5xxevjy2rvqevz9n7n7dney8n6hqggp23479fm6vwpj9clsvsf85cd4xc59zjztr5zwpummwckmzr2myjwjns74lhmr</code>.</li>
 </ul>
@@ -238,7 +238,7 @@ src="https://avatars.githubusercontent.com/u/89693711?v=4" width="50" /></a></p>
 
 import warnings
 
-__version__ = &#34;0.12.2&#34;
+__version__ = &#34;0.12.4&#34;
 __author__ = &#34;nielstron&#34;
 __author_email__ = &#34;n.muendler@web.de&#34;
 __copyright__ = &#34;Copyright (C) 2023 nielstron&#34;
