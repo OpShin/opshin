@@ -429,7 +429,7 @@ class UPLCCompiler(CompilingNodeTransformer):
 
     def visit_FunctionDef(self, node: TypedFunctionDef) -> plt.AST:
         body = node.body.copy()
-        if not isinstance(body[-1], Return):
+        if not body or not isinstance(body[-1], Return):
             tr = Return(None)
             tr.typ = NoneInstanceType
             assert (
