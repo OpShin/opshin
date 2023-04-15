@@ -951,3 +951,28 @@ def validator(a):
         code = compiler.compile(ast).compile()
         res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
         self.assertEqual(res, uplc.PlutusConstr(0, []))
+
+    def test_opt_unsafe_cast(self):
+        # test that unsafe casts are not optimized away
+        source_code = """
+from opshin.prelude import *
+def validator(x: Token) -> bool:
+    b: Anything = x
+    a: int = b
+    return True
+        """
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        try:
+            for d in [
+                uplc.PlutusConstr(0, []),
+            ]:
+                f = uplc.Apply(f, d)
+            ret = uplc_eval(f)
+            failed = False
+        except Exception as e:
+            failed = True
+        self.assertTrue(failed, "Machine did validate the content")

@@ -4,6 +4,7 @@ from collections import defaultdict
 
 from ..util import CompilingNodeVisitor, CompilingNodeTransformer
 from ..type_inference import INITIAL_SCOPE
+from ..typed_ast import TypedAnnAssign
 
 """
 Removes assignments to variables that are never read
@@ -62,7 +63,9 @@ class OptimizeRemoveDeadvars(CompilingNodeTransformer):
     loaded_vars = None
     # names that are guaranteed to be available to the current node
     # this acts differently to the type inferencer! in particular, ite/while/for all produce their own scope
-    guaranteed_avail_names = [list(INITIAL_SCOPE.keys())]
+    guaranteed_avail_names = [
+        list(INITIAL_SCOPE.keys()) + ["isinstance", "Union", "Dict", "List"]
+    ]
 
     def guaranteed(self, name: str) -> bool:
         name = name
@@ -152,13 +155,15 @@ class OptimizeRemoveDeadvars(CompilingNodeTransformer):
             return self.generic_visit(node)
         return Pass()
 
-    def visit_AnnAssign(self, node: AnnAssign):
+    def visit_AnnAssign(self, node: TypedAnnAssign):
         if (
             not isinstance(node.target, Name)
             or node.target.id in self.loaded_vars
             or not SafeOperationVisitor(sum(self.guaranteed_avail_names, [])).visit(
                 node.value
             )
+            # only upcasts are safe!
+            or not node.target.typ >= node.value.typ
         ):
             assert isinstance(
                 node.target, Name
