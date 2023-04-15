@@ -1,0 +1,66 @@
+"""
+A special libary that gives direct access to UPLC built-ins
+It is not normally imported during compilation,
+but replaces the mentioned functions by their UPLC implementation.
+"""
+import uplc.ast
+from pycardano import PlutusData, RawCBOR
+
+
+def to_uplc_builtin(a):
+    if isinstance(a, int):
+        return uplc.ast.BuiltinInteger(a)
+    if isinstance(a, str):
+        return uplc.ast.BuiltinString(a)
+    if isinstance(a, bytes):
+        return uplc.ast.BuiltinByteString(a)
+    if isinstance(a, list):
+        return uplc.ast.BuiltinList(list(map(to_uplc_builtin, a)))
+    if isinstance(a, dict):
+        return uplc.ast.BuiltinList(
+            list([(to_uplc_builtin(k), to_uplc_builtin(v)) for k, v in a])
+        )
+    if isinstance(a, PlutusData):
+        return uplc.ast.data_from_cbor(a.to_cbor("bytes"))
+
+
+def to_python(a):
+    if (
+        isinstance(a, uplc.ast.BuiltinInteger)
+        or isinstance(a, uplc.ast.BuiltinString)
+        or isinstance(a, uplc.ast.BuiltinByteString)
+    ):
+        return a.value
+    # TODO how to remap dict? use type annotations?
+    if isinstance(a, uplc.ast.BuiltinList):
+        return list(map(to_python, a.values))
+    # TODO how to remap data? use type annotations?
+    if isinstance(a, uplc.ast.PlutusData):
+        return RawCBOR(uplc.ast.plutus_cbor_dumps(a))
+
+
+def wraps_builtin(func):
+    snake_case_fun_name = func.__name__
+    CamelCaseFunName = "".join(p.title() for p in snake_case_fun_name.split("_"))
+
+    def wrapped(*args):
+        uplc_fun = uplc.ast.BuiltInFun.__dict__[CamelCaseFunName]
+        return to_python(
+            uplc.ast.BuiltInFunEvalMap[uplc_fun](*(map(to_uplc_builtin, args)))
+        )
+
+    return wrapped
+
+
+@wraps_builtin
+def add_integer(x: int, y: int) -> int:
+    pass
+
+
+@wraps_builtin
+def subtract_integer(x: int, y: int) -> int:
+    pass
+
+
+print(add_integer(1, 2))
+print(subtract_integer(1, 2))
