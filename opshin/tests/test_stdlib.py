@@ -260,7 +260,9 @@ def validator(x: None) -> None:
         for d in [uplc.BuiltinUnit()]:
             f = uplc.Apply(f, d)
         ret = uplc_eval(f)
-        self.assertEqual(ret, uplc.BuiltinUnit(), "literal None returned wrong value")
+        self.assertEqual(
+            ret, uplc.PlutusConstr(0, []), "literal None returned wrong value"
+        )
 
     @given(st.booleans())
     def test_constant_bool(self, x: bool):

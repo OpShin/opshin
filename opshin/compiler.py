@@ -431,7 +431,7 @@ class UPLCCompiler(CompilingNodeTransformer):
     def visit_FunctionDef(self, node: TypedFunctionDef) -> plt.AST:
         body = node.body.copy()
         if not body or not isinstance(body[-1], Return):
-            tr = Return(None)
+            tr = Return(TypedConstant(None, typ=NoneInstanceType))
             tr.typ = NoneInstanceType
             body.append(tr)
         compiled_body = self.visit_sequence(body[:-1])
