@@ -85,9 +85,11 @@ class RewriteImport(CompilingNodeTransformer):
         # visit the imported file again - make sure that recursive imports are resolved accordingly
         with module_file.open("r") as fp:
             module_content = fp.read()
+        resolved = parse(module_content, filename=module_file.name)
+        # annotate this to point to the original line number!
+        RewriteLocation(node).visit(resolved)
+        # recursively import all statements there
         recursively_resolved: Module = RewriteImport(
             filename=str(module_file), package=module.__package__
-        ).visit(parse(module_content, filename=module_file.name))
-        # annotate this to point to the original line number!
-        RewriteLocation(node).visit(recursively_resolved)
+        ).visit(resolved)
         return recursively_resolved.body
