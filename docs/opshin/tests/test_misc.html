@@ -1020,7 +1020,32 @@ def validator(a):
         ast = compiler.parse(source_code)
         code = compiler.compile(ast).compile()
         res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
-        self.assertEqual(res, uplc.PlutusConstr(0, []))</code></pre>
+        self.assertEqual(res, uplc.PlutusConstr(0, []))
+
+    def test_opt_unsafe_cast(self):
+        # test that unsafe casts are not optimized away
+        source_code = &#34;&#34;&#34;
+from opshin.prelude import *
+def validator(x: Token) -&gt; bool:
+    b: Anything = x
+    a: int = b
+    return True
+        &#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        try:
+            for d in [
+                uplc.PlutusConstr(0, []),
+            ]:
+                f = uplc.Apply(f, d)
+            ret = uplc_eval(f)
+            failed = False
+        except Exception as e:
+            failed = True
+        self.assertTrue(failed, &#34;Machine did validate the content&#34;)</code></pre>
 </details>
 </section>
 <section>
@@ -2022,7 +2047,32 @@ def validator(a):
         ast = compiler.parse(source_code)
         code = compiler.compile(ast).compile()
         res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
-        self.assertEqual(res, uplc.PlutusConstr(0, []))</code></pre>
+        self.assertEqual(res, uplc.PlutusConstr(0, []))
+
+    def test_opt_unsafe_cast(self):
+        # test that unsafe casts are not optimized away
+        source_code = &#34;&#34;&#34;
+from opshin.prelude import *
+def validator(x: Token) -&gt; bool:
+    b: Anything = x
+    a: int = b
+    return True
+        &#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        try:
+            for d in [
+                uplc.PlutusConstr(0, []),
+            ]:
+                f = uplc.Apply(f, d)
+            ret = uplc_eval(f)
+            failed = False
+        except Exception as e:
+            failed = True
+        self.assertTrue(failed, &#34;Machine did validate the content&#34;)</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -2799,6 +2849,41 @@ def validator(x: Token) -&gt; bool:
         self.assertTrue(failed, &#34;Machine did validate the content&#34;)</code></pre>
 </details>
 </dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_opt_unsafe_cast"><code class="name flex">
+<span>def <span class="ident">test_opt_unsafe_cast</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    def test_opt_unsafe_cast(self):
+        # test that unsafe casts are not optimized away
+        source_code = &#34;&#34;&#34;
+from opshin.prelude import *
+def validator(x: Token) -&gt; bool:
+    b: Anything = x
+    a: int = b
+    return True
+        &#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        try:
+            for d in [
+                uplc.PlutusConstr(0, []),
+            ]:
+                f = uplc.Apply(f, d)
+            ret = uplc_eval(f)
+            failed = False
+        except Exception as e:
+            failed = True
+        self.assertTrue(failed, &#34;Machine did validate the content&#34;)</code></pre>
+</details>
+</dd>
 <dt id="opshin.tests.test_misc.MiscTest.test_overopt_removedeadvar"><code class="name flex">
 <span>def <span class="ident">test_overopt_removedeadvar</span></span>(<span>self)</span>
 </code></dt>
@@ -3531,6 +3616,7 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_no_return_annotation" href="#opshin.tests.test_misc.MiscTest.test_no_return_annotation">test_no_return_annotation</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_no_return_annotation_no_return" href="#opshin.tests.test_misc.MiscTest.test_no_return_annotation_no_return">test_no_return_annotation_no_return</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_opt_shared_var" href="#opshin.tests.test_misc.MiscTest.test_opt_shared_var">test_opt_shared_var</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_opt_unsafe_cast" href="#opshin.tests.test_misc.MiscTest.test_opt_unsafe_cast">test_opt_unsafe_cast</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_overopt_removedeadvar" href="#opshin.tests.test_misc.MiscTest.test_overopt_removedeadvar">test_overopt_removedeadvar</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_parameterized_compile" href="#opshin.tests.test_misc.MiscTest.test_parameterized_compile">test_parameterized_compile</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_recursion" href="#opshin.tests.test_misc.MiscTest.test_recursion">test_recursion</a></code></li>

@@ -68,7 +68,9 @@ fill="currentColor" class="octo-body"></path>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">import importlib
+<pre><code class="python">import ast
+
+import importlib
 import importlib.util
 import pathlib
 import typing
@@ -110,6 +112,15 @@ def import_module(name, package=None):
     return module
 
 
+class RewriteLocation(CompilingNodeTransformer):
+    def __init__(self, orig_node):
+        self.orig_node = orig_node
+
+    def visit(self, node):
+        node = ast.copy_location(node, self.orig_node)
+        return super().visit(node)
+
+
 class RewriteImport(CompilingNodeTransformer):
     step = &#34;Resolving imports&#34;
 
@@ -144,9 +155,13 @@ class RewriteImport(CompilingNodeTransformer):
         # visit the imported file again - make sure that recursive imports are resolved accordingly
         with module_file.open(&#34;r&#34;) as fp:
             module_content = fp.read()
+        resolved = parse(module_content, filename=module_file.name)
+        # annotate this to point to the original line number!
+        RewriteLocation(node).visit(resolved)
+        # recursively import all statements there
         recursively_resolved: Module = RewriteImport(
             filename=str(module_file), package=module.__package__
-        ).visit(parse(module_content, filename=module_file.name))
+        ).visit(resolved)
         return recursively_resolved.body</code></pre>
 </details>
 </section>
@@ -269,9 +284,13 @@ just a single node.</p>
         # visit the imported file again - make sure that recursive imports are resolved accordingly
         with module_file.open(&#34;r&#34;) as fp:
             module_content = fp.read()
+        resolved = parse(module_content, filename=module_file.name)
+        # annotate this to point to the original line number!
+        RewriteLocation(node).visit(resolved)
+        # recursively import all statements there
         recursively_resolved: Module = RewriteImport(
             filename=str(module_file), package=module.__package__
-        ).visit(parse(module_content, filename=module_file.name))
+        ).visit(resolved)
         return recursively_resolved.body</code></pre>
 </details>
 <h3>Ancestors</h3>
@@ -336,10 +355,87 @@ just a single node.</p>
     # visit the imported file again - make sure that recursive imports are resolved accordingly
     with module_file.open(&#34;r&#34;) as fp:
         module_content = fp.read()
+    resolved = parse(module_content, filename=module_file.name)
+    # annotate this to point to the original line number!
+    RewriteLocation(node).visit(resolved)
+    # recursively import all statements there
     recursively_resolved: Module = RewriteImport(
         filename=str(module_file), package=module.__package__
-    ).visit(parse(module_content, filename=module_file.name))
+    ).visit(resolved)
     return recursively_resolved.body</code></pre>
+</details>
+</dd>
+</dl>
+</dd>
+<dt id="opshin.rewrite.rewrite_import.RewriteLocation"><code class="flex name class">
+<span>class <span class="ident">RewriteLocation</span></span>
+<span>(</span><span>orig_node)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>A :class:<code>NodeVisitor</code> subclass that walks the abstract syntax tree and
+allows modification of nodes.</p>
+<p>The <code>NodeTransformer</code> will walk the AST and use the return value of the
+visitor methods to replace or remove the old node.
+If the return value of
+the visitor method is <code>None</code>, the node will be removed from its location,
+otherwise it is replaced with the return value.
+The return value may be the
+original node in which case no replacement takes place.</p>
+<p>Here is an example transformer that rewrites all occurrences of name lookups
+(<code>foo</code>) to <code>data['foo']</code>::</p>
+<p>class RewriteName(NodeTransformer):</p>
+<pre><code>   def visit_Name(self, node):
+       return Subscript(
+           value=Name(id='data', ctx=Load()),
+           slice=Index(value=Str(s=node.id)),
+           ctx=node.ctx
+       )
+</code></pre>
+<p>Keep in mind that if the node you're operating on has child nodes you must
+either transform the child nodes yourself or call the :meth:<code>generic_visit</code>
+method for the node first.</p>
+<p>For nodes that were part of a collection of statements (that applies to all
+statement nodes), the visitor may also return a list of nodes rather than
+just a single node.</p>
+<p>Usually you use the transformer like this::</p>
+<p>node = YourTransformer().visit(node)</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class RewriteLocation(CompilingNodeTransformer):
+    def __init__(self, orig_node):
+        self.orig_node = orig_node
+
+    def visit(self, node):
+        node = ast.copy_location(node, self.orig_node)
+        return super().visit(node)</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li><a title="opshin.util.CompilingNodeTransformer" href="../util.html#opshin.util.CompilingNodeTransformer">CompilingNodeTransformer</a></li>
+<li><a title="opshin.typed_ast.TypedNodeTransformer" href="../typed_ast.html#opshin.typed_ast.TypedNodeTransformer">TypedNodeTransformer</a></li>
+<li>ast.NodeTransformer</li>
+<li>ast.NodeVisitor</li>
+</ul>
+<h3>Methods</h3>
+<dl>
+<dt id="opshin.rewrite.rewrite_import.RewriteLocation.visit"><code class="name flex">
+<span>def <span class="ident">visit</span></span>(<span>self, node)</span>
+</code></dt>
+<dd>
+<p class="inheritance">
+<em>Inherited from:</em>
+<code><a title="opshin.util.CompilingNodeTransformer" href="../util.html#opshin.util.CompilingNodeTransformer">CompilingNodeTransformer</a></code>.<code><a title="opshin.util.CompilingNodeTransformer.visit" href="../util.html#opshin.util.CompilingNodeTransformer.visit">visit</a></code>
+</p>
+<div class="desc inherited"><p>Visit a node.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def visit(self, node):
+    node = ast.copy_location(node, self.orig_node)
+    return super().visit(node)</code></pre>
 </details>
 </dd>
 </dl>
@@ -424,6 +520,12 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="opshin.rewrite.rewrite_import.RewriteImport.step" href="#opshin.rewrite.rewrite_import.RewriteImport.step">step</a></code></li>
 <li><code><a title="opshin.rewrite.rewrite_import.RewriteImport.visit" href="../util.html#opshin.rewrite.rewrite_import.RewriteImport.visit">visit</a></code></li>
 <li><code><a title="opshin.rewrite.rewrite_import.RewriteImport.visit_ImportFrom" href="#opshin.rewrite.rewrite_import.RewriteImport.visit_ImportFrom">visit_ImportFrom</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="opshin.rewrite.rewrite_import.RewriteLocation" href="#opshin.rewrite.rewrite_import.RewriteLocation">RewriteLocation</a></code></h4>
+<ul class="">
+<li><code><a title="opshin.rewrite.rewrite_import.RewriteLocation.visit" href="#opshin.rewrite.rewrite_import.RewriteLocation.visit">visit</a></code></li>
 </ul>
 </li>
 </ul>

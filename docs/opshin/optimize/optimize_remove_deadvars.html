@@ -74,6 +74,7 @@ from collections import defaultdict
 
 from ..util import CompilingNodeVisitor, CompilingNodeTransformer
 from ..type_inference import INITIAL_SCOPE
+from ..typed_ast import TypedAnnAssign
 
 &#34;&#34;&#34;
 Removes assignments to variables that are never read
@@ -132,7 +133,9 @@ class OptimizeRemoveDeadvars(CompilingNodeTransformer):
     loaded_vars = None
     # names that are guaranteed to be available to the current node
     # this acts differently to the type inferencer! in particular, ite/while/for all produce their own scope
-    guaranteed_avail_names = [list(INITIAL_SCOPE.keys())]
+    guaranteed_avail_names = [
+        list(INITIAL_SCOPE.keys()) + [&#34;isinstance&#34;, &#34;Union&#34;, &#34;Dict&#34;, &#34;List&#34;]
+    ]
 
     def guaranteed(self, name: str) -&gt; bool:
         name = name
@@ -222,13 +225,15 @@ class OptimizeRemoveDeadvars(CompilingNodeTransformer):
             return self.generic_visit(node)
         return Pass()
 
-    def visit_AnnAssign(self, node: AnnAssign):
+    def visit_AnnAssign(self, node: TypedAnnAssign):
         if (
             not isinstance(node.target, Name)
             or node.target.id in self.loaded_vars
             or not SafeOperationVisitor(sum(self.guaranteed_avail_names, [])).visit(
                 node.value
             )
+            # only upcasts are safe!
+            or not node.target.typ &gt;= node.value.typ
         ):
             assert isinstance(
                 node.target, Name
@@ -422,7 +427,9 @@ just a single node.</p>
     loaded_vars = None
     # names that are guaranteed to be available to the current node
     # this acts differently to the type inferencer! in particular, ite/while/for all produce their own scope
-    guaranteed_avail_names = [list(INITIAL_SCOPE.keys())]
+    guaranteed_avail_names = [
+        list(INITIAL_SCOPE.keys()) + [&#34;isinstance&#34;, &#34;Union&#34;, &#34;Dict&#34;, &#34;List&#34;]
+    ]
 
     def guaranteed(self, name: str) -&gt; bool:
         name = name
@@ -512,13 +519,15 @@ just a single node.</p>
             return self.generic_visit(node)
         return Pass()
 
-    def visit_AnnAssign(self, node: AnnAssign):
+    def visit_AnnAssign(self, node: TypedAnnAssign):
         if (
             not isinstance(node.target, Name)
             or node.target.id in self.loaded_vars
             or not SafeOperationVisitor(sum(self.guaranteed_avail_names, [])).visit(
                 node.value
             )
+            # only upcasts are safe!
+            or not node.target.typ &gt;= node.value.typ
         ):
             assert isinstance(
                 node.target, Name
@@ -637,7 +646,7 @@ just a single node.</p>
 <div class="desc inherited"><p>Visit a node.</p></div>
 </dd>
 <dt id="opshin.optimize.optimize_remove_deadvars.OptimizeRemoveDeadvars.visit_AnnAssign"><code class="name flex">
-<span>def <span class="ident">visit_AnnAssign</span></span>(<span>self, node: _ast.AnnAssign)</span>
+<span>def <span class="ident">visit_AnnAssign</span></span>(<span>self, node: <a title="opshin.typed_ast.TypedAnnAssign" href="../typed_ast.html#opshin.typed_ast.TypedAnnAssign">TypedAnnAssign</a>)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -645,13 +654,15 @@ just a single node.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def visit_AnnAssign(self, node: AnnAssign):
+<pre><code class="python">def visit_AnnAssign(self, node: TypedAnnAssign):
     if (
         not isinstance(node.target, Name)
         or node.target.id in self.loaded_vars
         or not SafeOperationVisitor(sum(self.guaranteed_avail_names, [])).visit(
             node.value
         )
+        # only upcasts are safe!
+        or not node.target.typ &gt;= node.value.typ
     ):
         assert isinstance(
             node.target, Name
