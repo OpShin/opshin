@@ -3,53 +3,8 @@ A special libary that gives direct access to UPLC built-ins
 It is not normally imported during compilation,
 but replaces the mentioned functions by their UPLC implementation.
 """
-import uplc.ast
-from pycardano import PlutusData, RawCBOR
-
-
-def to_uplc_builtin(a):
-    if isinstance(a, int):
-        return uplc.ast.BuiltinInteger(a)
-    if isinstance(a, str):
-        return uplc.ast.BuiltinString(a)
-    if isinstance(a, bytes):
-        return uplc.ast.BuiltinByteString(a)
-    if isinstance(a, list):
-        return uplc.ast.BuiltinList(list(map(to_uplc_builtin, a)))
-    if isinstance(a, dict):
-        return uplc.ast.BuiltinList(
-            list([(to_uplc_builtin(k), to_uplc_builtin(v)) for k, v in a])
-        )
-    if isinstance(a, PlutusData):
-        return uplc.ast.data_from_cbor(a.to_cbor("bytes"))
-
-
-def to_python(a):
-    if (
-        isinstance(a, uplc.ast.BuiltinInteger)
-        or isinstance(a, uplc.ast.BuiltinString)
-        or isinstance(a, uplc.ast.BuiltinByteString)
-    ):
-        return a.value
-    # TODO how to remap dict? use type annotations?
-    if isinstance(a, uplc.ast.BuiltinList):
-        return list(map(to_python, a.values))
-    # TODO how to remap data? use type annotations?
-    if isinstance(a, uplc.ast.PlutusData):
-        return RawCBOR(uplc.ast.plutus_cbor_dumps(a))
-
-
-def wraps_builtin(func):
-    snake_case_fun_name = func.__name__
-    CamelCaseFunName = "".join(p.title() for p in snake_case_fun_name.split("_"))
-
-    def wrapped(*args):
-        uplc_fun = uplc.ast.BuiltInFun.__dict__[CamelCaseFunName]
-        return to_python(
-            uplc.ast.BuiltInFunEvalMap[uplc_fun](*(map(to_uplc_builtin, args)))
-        )
-
-    return wrapped
+from opshin.bridge import wraps_builtin
+from pycardano import Datum as Anything
 
 
 @wraps_builtin
@@ -62,5 +17,141 @@ def subtract_integer(x: int, y: int) -> int:
     pass
 
 
-print(add_integer(1, 2))
-print(subtract_integer(1, 2))
+@wraps_builtin
+def multiply_integer(x: int, y: int) -> int:
+    pass
+
+
+@wraps_builtin
+def divide_integer(x: int, y: int) -> int:
+    pass
+
+
+@wraps_builtin
+def quotient_integer(x: int, y: int) -> int:
+    pass
+
+
+@wraps_builtin
+def remainder_integer(x: int, y: int) -> int:
+    pass
+
+
+@wraps_builtin
+def mod_integer(x: int, y: int) -> int:
+    pass
+
+
+@wraps_builtin
+def equals_integer(x: int, y: int) -> bool:
+    pass
+
+
+@wraps_builtin
+def less_than_integer(x: int, y: int) -> bool:
+    pass
+
+
+@wraps_builtin
+def less_than_equals_integer(x: int, y: int) -> bool:
+    pass
+
+
+@wraps_builtin
+def append_byte_string(x: bytes, y: bytes) -> bytes:
+    pass
+
+
+@wraps_builtin
+def cons_byte_string(x: int, y: bytes) -> bytes:
+    pass
+
+
+@wraps_builtin
+def slice_byte_string(x: int, y: int, z: bytes) -> bytes:
+    pass
+
+
+@wraps_builtin
+def length_of_byte_string(x: bytes) -> int:
+    pass
+
+
+@wraps_builtin
+def index_byte_string(x: bytes, y: int) -> int:
+    pass
+
+
+@wraps_builtin
+def equals_byte_string(x: bytes, y: bytes) -> bool:
+    pass
+
+
+@wraps_builtin
+def less_than_byte_string(x: bytes, y: bytes) -> bool:
+    pass
+
+
+@wraps_builtin
+def less_than_equals_byte_string(x: bytes, y: bytes) -> bool:
+    pass
+
+
+@wraps_builtin
+def sha2_256(x: bytes) -> bytes:
+    pass
+
+
+@wraps_builtin
+def sha3_256(x: bytes) -> bytes:
+    pass
+
+
+@wraps_builtin
+def blake2b_256(x: bytes) -> bytes:
+    pass
+
+
+@wraps_builtin
+def verify_ed25519_signature(pk: bytes, m: bytes, s: bytes) -> bytes:
+    pass
+
+
+@wraps_builtin
+def verify_ecdsa_secp256k1(pk: bytes, m: bytes, s: bytes) -> bytes:
+    pass
+
+
+@wraps_builtin
+def verify_schnorr_secp26k1(pk: bytes, m: bytes, s: bytes) -> bytes:
+    pass
+
+
+@wraps_builtin
+def append_string(x: str, y: str) -> str:
+    pass
+
+
+@wraps_builtin
+def equals_string(x: str, y: str) -> str:
+    pass
+
+
+@wraps_builtin
+def encode_utf8(x: str) -> bytes:
+    pass
+
+
+@wraps_builtin
+def decode_utf8(x: bytes) -> str:
+    pass
+
+
+@wraps_builtin
+def equals_data(x: Anything, y: Anything) -> bool:
+    pass
+
+
+@wraps_builtin
+def serialise_data(x: Anything) -> bytes:
+    pass
