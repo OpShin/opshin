@@ -104,6 +104,10 @@ class RecordType(ClassType):
         for n, t in self.record.fields:
             if n == attr:
                 return t
+        if attr == "to_cbor":
+            return InstanceType(
+                FunctionType(FrozenFrozenList([]), ByteStringInstanceType)
+            )
         raise TypeInferenceError(
             f"Type {self.record.name} does not have attribute {attr}"
         )
@@ -116,18 +120,27 @@ class RecordType(ClassType):
                 ["self"],
                 plt.Constructor(plt.Var("self")),
             )
-        attr_typ = self.attribute_type(attr)
-        pos = next(i for i, (n, _) in enumerate(self.record.fields) if n == attr)
-        # access to normal fields
-        return plt.Lambda(
-            ["self"],
-            transform_ext_params_map(attr_typ)(
-                plt.NthField(
-                    plt.Var("self"),
-                    plt.Integer(pos),
+        if attr in (n for n, t in self.record.fields):
+            attr_typ = self.attribute_type(attr)
+            pos = next(i for i, (n, _) in enumerate(self.record.fields) if n == attr)
+            # access to normal fields
+            return plt.Lambda(
+                ["self"],
+                transform_ext_params_map(attr_typ)(
+                    plt.NthField(
+                        plt.Var("self"),
+                        plt.Integer(pos),
+                    ),
                 ),
-            ),
-        )
+            )
+        if attr == "to_cbor":
+            return plt.Lambda(
+                ["self", "_"],
+                plt.SerialiseData(
+                    plt.Var("self"),
+                ),
+            )
+        raise NotImplementedError(f"Attribute {attr} not implemented for type {self}")
 
     def cmp(self, op: cmpop, o: "Type") -> plt.AST:
         """The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second the comparison."""
@@ -209,6 +222,10 @@ class UnionType(ClassType):
                 )
             # return Anytype
             return InstanceType(AnyType())
+        if attr == "to_cbor":
+            return InstanceType(
+                FunctionType(FrozenFrozenList([]), ByteStringInstanceType)
+            )
         raise TypeInferenceError(
             f"Can not access attribute {attr} of Union type. Cast to desired type with an 'if isinstance(_, _):' branch."
         )
@@ -221,24 +238,33 @@ class UnionType(ClassType):
                 plt.Constructor(plt.Var("self")),
             )
         # iterate through all names/types of the unioned records by position
-        attr_typ = self.attribute_type(attr)
-        pos = next(
-            i
-            for i, (ns, _) in enumerate(
-                map(lambda x: zip(*x), zip(*(t.record.fields for t in self.typs)))
+        if any(attr in (n for n, t in r.record.fields) for r in self.typs):
+            attr_typ = self.attribute_type(attr)
+            pos = next(
+                i
+                for i, (ns, _) in enumerate(
+                    map(lambda x: zip(*x), zip(*(t.record.fields for t in self.typs)))
+                )
+                if all(n == attr for n in ns)
             )
-            if all(n == attr for n in ns)
-        )
-        # access to normal fields
-        return plt.Lambda(
-            ["self"],
-            transform_ext_params_map(attr_typ)(
-                plt.NthField(
-                    plt.Var("self"),
-                    plt.Integer(pos),
+            # access to normal fields
+            return plt.Lambda(
+                ["self"],
+                transform_ext_params_map(attr_typ)(
+                    plt.NthField(
+                        plt.Var("self"),
+                        plt.Integer(pos),
+                    ),
                 ),
-            ),
-        )
+            )
+        if attr == "to_cbor":
+            return plt.Lambda(
+                ["self", "_"],
+                plt.SerialiseData(
+                    plt.Var("self"),
+                ),
+            )
+        raise NotImplementedError(f"Attribute {attr} not implemented for type {self}")
 
     def __ge__(self, other):
         if isinstance(other, UnionType):
