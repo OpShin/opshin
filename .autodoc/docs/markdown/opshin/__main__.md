@@ -1,0 +1,26 @@
+[View code on GitHub](https://github.com/opshin/opshin/opshin/__main__.py)
+
+The `opshin` module provides a command-line interface for compiling and evaluating Python programs into UPLC (Unspent Transaction Output Payable Contract) code. The module imports several other modules, including `argparse`, `enum`, `importlib`, `json`, `pathlib`, `sys`, `typing`, and `ast`. The `Command` class is an enumeration of the available commands, including `compile_pluto`, `compile`, `eval`, `parse`, `eval_uplc`, and `build`. The `plutus_data_from_json` function converts JSON data into Plutus data, which is a type of data used in the Cardano blockchain. The `main` function parses command-line arguments, reads the input file, and executes the specified command. 
+
+The `compile_pluto` command compiles the input file into Plutus code and prints the result. The `compile` command compiles the input file into UPLC code and prints the result. The `eval` command evaluates the input file with the specified arguments and prints the result. The `parse` command parses the input file and prints a success message. The `eval_uplc` command evaluates the input file as UPLC code and prints the result. The `build` command compiles the input file into UPLC code, generates several artifacts, and writes them to the specified output directory. 
+
+The `opshin` module is used in the larger project to provide a convenient way to compile and evaluate Python programs as UPLC code. This is useful for developers who want to write smart contracts for the Cardano blockchain in Python, which is a more familiar language for many developers than the low-level UPLC language. The `opshin` module provides a high-level interface for compiling and evaluating Python programs as UPLC code, which makes it easier for developers to write smart contracts for the Cardano blockchain. 
+
+Example usage:
+
+```
+$ python opshin.py eval my_contract.py 42 "hello world"
+Starting execution
+------------------
+Hello, world! The answer is 42.
+------------------
+```
+## Questions: 
+ 1. What is the purpose of the `Command` enum and how is it used in the code?
+- The `Command` enum is used to define the different commands that can be executed on the input file, such as `compile`, `eval`, and `build`. It is used to validate the user's input and determine which command to execute.
+
+2. What is the purpose of the `plutus_data_from_json` function and when is it called?
+- The `plutus_data_from_json` function is used to convert JSON data into Plutus data types, such as `int` and `bytes`. It is called when parsing input parameters for the `eval` command.
+
+3. What is the purpose of the `build` command and what artifacts does it generate?
+- The `build` command is used to generate artifacts for a compiled contract, such as the CBOR-encoded script, the Plutus JSON representation, the policy ID, and the mainnet and testnet addresses. These artifacts are written to a specified output directory.

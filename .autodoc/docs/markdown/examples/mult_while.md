@@ -1,0 +1,25 @@
+[View code on GitHub](https://github.com/opshin/opshin/examples/mult_while.py)
+
+The `validator` function in the `opshin` project is a simple implementation of multiplication between two integers. The function takes two integer arguments, `a` and `b`, and returns their product as an integer. The function uses a while loop to iterate through the value of `b` and adds `a` to `c` in each iteration until `b` becomes zero. The final value of `c` is then returned as the product of `a` and `b`.
+
+This function can be used in various parts of the `opshin` project where multiplication between two integers is required. For example, it can be used in a calculator application to perform multiplication operations. 
+
+Here is an example of how to use the `validator` function:
+
+```
+result = validator(5, 3)
+print(result) # Output: 15
+```
+
+In this example, the `validator` function is called with `a` equal to 5 and `b` equal to 3. The function returns the product of 5 and 3, which is 15. The result is then printed to the console. 
+
+Overall, the `validator` function is a simple yet useful implementation of multiplication that can be used in various parts of the `opshin` project.
+## Questions: 
+ 1. What is the purpose of this function?
+   This function appears to be a simple implementation of multiplication using a while loop.
+
+2. Why are the input parameters typed as integers and the output parameter typed as an integer?
+   The input parameters are typed as integers to ensure that only integer values are passed into the function. The output parameter is typed as an integer to ensure that the function returns an integer value.
+
+3. Are there any potential issues with this implementation of multiplication?
+   One potential issue with this implementation is that it does not handle negative numbers or zero values for a or b. It also does not handle overflow errors that may occur with very large values of a or b.

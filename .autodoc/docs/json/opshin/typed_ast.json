@@ -1,0 +1,7 @@
+{
+  "fileName": "typed_ast.py",
+  "filePath": "opshin/typed_ast.py",
+  "url": "https://github.com/opshin/opshin/opshin/typed_ast.py",
+  "summary": "This code defines a type system for the `opshin` project, which is used to perform type inference and type checking on the project's code. The code is organized into several classes and functions that represent different types and their behavior.\n\nThe `Type` class is the base class for all types in the system. It provides methods for getting the constructor, attributes, and comparison operations for a given type. There are several subclasses of `Type`, such as `ClassType`, `AtomicType`, `RecordType`, and `UnionType`, each representing a different kind of type.\n\n",
+  "questions": "1. **Question**: What is the purpose of the `distinct` function and how is it used in the code?\n   **Answer**: The `distinct` function checks if a given list consists of distinct elements. It is used in the `RecordType` class to ensure that all fields in a record have distinct constructors.\n\n2. **Question**: How does the `FrozenFrozenList` function work and what is its purpose?\n   **Answer**: The `FrozenFrozenList` function takes a list as input, creates a `FrozenList` object from it, freezes the object, and returns it. This is used to create immutable lists, which are useful for ensuring that certain data structures remain constant throughout the code execution.\n\n3. **Question**: What is the purpose of the `TypeInferenceError` class and when is it raised?\n   **Answer**: `TypeInferenceError` is a"
+}

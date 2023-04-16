@@ -1,0 +1,16 @@
+[View code on GitHub](https://github.com/opshin/opshin/opshin/prelude.py)
+
+This code defines a set of optimized methods for handling tokens at addresses in the opshin project. The `Token` class represents a token, which is identified by a policy ID and a token name. The `all_tokens_unlocked_from_address` function takes a list of transaction inputs (`txins`), an address, and a token, and returns the number of tokens of the specified type that are unlocked from the given address. The `all_tokens_locked_at_address_with_datum` function takes a list of transaction outputs (`txouts`), an address, a token, and an output datum, and returns the number of tokens of the specified type that are locked at the given address with the specified datum. The `all_tokens_locked_at_address` function takes a list of transaction outputs (`txouts`), an address, and a token, and returns the number of tokens of the specified type that are locked at the given address. 
+
+The `resolve_spent_utxo` function takes a list of transaction inputs (`txins`) and a `Spending` object, and returns the UTxO (unspent transaction output) whose spending should be validated. The `resolve_datum_unsafe` function takes a transaction output (`txout`) and a `TxInfo` object, and returns the datum attached to the given transaction output, independent of whether it was inlined or embedded. If no datum was attached, an exception is raised. The `resolve_datum` function takes a transaction output (`txout`) and a `TxInfo` object, and returns a `SomeOutputDatum` object with the datum attached to the given transaction output, if there was an attached datum. Otherwise, it returns a `NoOutputDatum` object.
+
+These functions are used to handle tokens at addresses in the opshin project. For example, `all_tokens_unlocked_from_address` could be used to check if a user has enough unlocked tokens to perform a transaction, while `all_tokens_locked_at_address_with_datum` could be used to check if a user has enough locked tokens with a specific datum to perform a transaction. The `resolve_spent_utxo` function could be used to validate the spending of a UTxO, while the `resolve_datum_unsafe` and `resolve_datum` functions could be used to retrieve the datum attached to a transaction output. Overall, these functions provide a set of useful tools for working with tokens in the opshin project.
+## Questions: 
+ 1. What is the purpose of the `Token` class and how is it used in the code?
+- The `Token` class represents a token with a policy ID and token name, and is used in several methods to handle tokens at addresses.
+
+2. What is the difference between the `resolve_datum_unsafe` and `resolve_datum` methods?
+- `resolve_datum_unsafe` returns the datum attached to a given transaction output and raises an exception if no datum was attached, while `resolve_datum` returns either the attached datum or `NoOutputDatum` if there was no attached datum.
+
+3. What is the purpose of the `NoRedeemer` variable and where is it used?
+- `NoRedeemer` is used to indicate that a contract does not expect a redeemer, and is used in the code as a value for the `redeemer` parameter in certain methods.
