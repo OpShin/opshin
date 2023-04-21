@@ -100,3 +100,11 @@ def gt_fraction(a: Fraction, b: Fraction) -> bool:
     else:
         res = a.numerator * b.denominator < a.denominator * b.numerator
     return res
+
+
+def floor_fraction(a: Fraction) -> int:
+    return a.numerator // a.denominator
+
+
+def ceil_fraction(a: Fraction) -> int:
+    return (a.numerator + a.denominator - sign(a.denominator)) // a.denominator
