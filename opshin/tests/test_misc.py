@@ -1002,3 +1002,15 @@ def validator(_: None) -> List[int]:
         self.assertEqual(
             res, uplc.PlutusList([uplc.PlutusInteger(i) for i in range(0, 10, 2)])
         )
+
+    def test_constant_folding_math(self):
+        source_code = """
+from opshin.prelude import *
+
+def validator(_: None) -> int:
+    return 2 ** 10
+"""
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        code_src = code.dumps()
+        self.assertIn(f"(con integer {2**10})", code_src)
