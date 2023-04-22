@@ -2,6 +2,7 @@ import logging
 from logging import getLogger
 from ast import fix_missing_locations
 
+from .optimize.optimize_const_folding import OptimizeConstantFolding
 from .optimize.optimize_remove_comments import OptimizeRemoveDeadconstants
 from .rewrite.rewrite_augassign import RewriteAugAssign
 from .rewrite.rewrite_forbidden_overwrites import RewriteForbiddenOverwrites
@@ -918,6 +919,7 @@ def compile(
         # Important to call this one first - it imports all further files
         RewriteImport(filename=filename),
         # Rewrites that simplify the python code
+        OptimizeConstantFolding(),
         RewriteSubscript38(),
         RewriteAugAssign(),
         RewriteTupleAssign(),
