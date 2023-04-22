@@ -154,10 +154,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             complex,
             type(...),
         ], "Float, complex numbers and ellipsis currently not supported"
-        if tc.value is None:
-            tc.typ = NoneInstanceType
-        else:
-            tc.typ = InstanceType(ATOMIC_TYPES[type(node.value).__name__])
+        tc.typ = InstanceType(ATOMIC_TYPES[type(node.value).__name__])
         return tc
 
     def visit_Tuple(self, node: Tuple) -> TypedTuple:
