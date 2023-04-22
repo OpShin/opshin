@@ -81,8 +81,8 @@ UnaryOpMap = {
 
 ConstantMap = {
     str: plt.Text,
-    bytes: lambda x: plt.ByteString(x),
-    int: lambda x: plt.Integer(x),
+    bytes: plt.ByteString,
+    int: plt.Integer,
     bool: plt.Bool,
     type(None): lambda _: plt.Unit(),
 }
