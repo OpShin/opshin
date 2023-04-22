@@ -40,15 +40,15 @@ class OptimizeConstantFolding(CompilingNodeTransformer):
 
         def rec_dump(c):
             if any(isinstance(c, a) for a in ACCEPTED_ATOMIC_TYPES):
-                new_node = Constant(c)
+                new_node = Constant(c, None)
                 copy_location(new_node, node)
                 return new_node
             if isinstance(c, list):
-                return List((rec_dump(ce) for ce in c), Load())
+                return List([rec_dump(ce) for ce in c], Load())
             if isinstance(c, dict):
                 return Dict(
-                    (rec_dump(ce) for ce in c.keys()),
-                    (rec_dump(ce) for ce in c.values()),
+                    [rec_dump(ce) for ce in c.keys()],
+                    [rec_dump(ce) for ce in c.values()],
                 )
 
         if any(isinstance(node_eval, t) for t in ACCEPTED_ATOMIC_TYPES + [list, dict]):
