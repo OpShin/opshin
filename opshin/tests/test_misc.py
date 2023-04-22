@@ -1014,3 +1014,17 @@ def validator(_: None) -> int:
         code = compiler.compile(ast).compile()
         code_src = code.dumps()
         self.assertIn(f"(con integer {2**10})", code_src)
+
+    def test_constant_folding_ignore_reassignment(self):
+        source_code = """
+from opshin.prelude import *
+
+def validator(_: None) -> int:
+    def int(a) -> int:
+        return 2
+    return int(5)
+"""
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
+        self.assertEqual(res, uplc.PlutusInteger(2))
