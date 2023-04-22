@@ -976,3 +976,29 @@ def validator(x: Token) -> bool:
         except Exception as e:
             failed = True
         self.assertTrue(failed, "Machine did validate the content")
+
+    def test_constant_folding(self):
+        source_code = """
+from opshin.prelude import *
+
+def validator(_: None) -> bytes:
+    return bytes.fromhex("0011")
+"""
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
+        self.assertEqual(res, uplc.PlutusByteString(bytes.fromhex("0011")))
+
+    def test_constant_folding_list(self):
+        source_code = """
+from opshin.prelude import *
+
+def validator(_: None) -> List[int]:
+    return list(range(0, 10, 2))
+"""
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
+        self.assertEqual(
+            res, uplc.PlutusList([uplc.PlutusInteger(i) for i in range(0, 10, 2)])
+        )
