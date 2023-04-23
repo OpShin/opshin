@@ -976,3 +976,33 @@ def validator(x: Token) -> bool:
         except Exception as e:
             failed = True
         self.assertTrue(failed, "Machine did validate the content")
+
+    def test_inner_outer_state_functions(self):
+        source_code = """
+a = 2
+def b() -> int:
+    return a
+
+def validator(_: None) -> int:
+    a = 3
+    return b()
+"""
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
+        self.assertEqual(res, uplc.PlutusInteger(2))
+
+    def test_outer_state_change_functions(self):
+        source_code = """
+a = 2
+def b() -> int:
+    return a
+a = 3
+
+def validator(_: None) -> int:
+    return b()
+"""
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
+        self.assertEqual(res, uplc.PlutusInteger(3))
