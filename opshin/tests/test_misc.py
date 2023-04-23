@@ -969,6 +969,24 @@ def validator(_: None) -> int:
         res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
         self.assertEqual(res, uplc.PlutusInteger(2))
 
+    @unittest.skip
+    def test_inner_outer_state_functions_nonglobal(self):
+        source_code = """
+
+def validator(_: None) -> int:
+    a = 2
+    def b() -> int:
+        return a
+    def c() -> int:
+        a = 3
+        return b()
+    return c()
+"""
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
+        self.assertEqual(res, uplc.PlutusInteger(2))
+
     def test_outer_state_change_functions(self):
         source_code = """
 a = 2
