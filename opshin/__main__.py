@@ -122,7 +122,7 @@ def check_params(
     else:
         assert len(validator_params) == len(
             param_types
-        ), f"{purpose.value.capitalize()} validator expects {len(onchain_params)} parameters at evaluation (on-chain) and {len(param_types)} parameters at compilation time, but only got {len(validator_params)} during compilation."
+        ), f"{purpose.value.capitalize()} validator expects {len(onchain_params)} parameters at evaluation (on-chain) and {len(param_types)} parameters at compilation time, but got {len(validator_params)} during compilation."
     assert (
         onchain_params[-1] == ScriptContext
     ), f"Last parameter of the validator is always ScriptContext, but is {onchain_params[-1].__name__} here."
