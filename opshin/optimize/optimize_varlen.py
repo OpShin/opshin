@@ -75,7 +75,6 @@ class OptimizeVarlen(CompilingNodeTransformer):
         node_cp.args.args = []
         for a in node.args.args:
             a_cp = copy(a)
-            a_cp.orig_arg = a.arg
             a_cp.arg = self.varmap[a.arg]
             node_cp.args.args.append(a_cp)
         node_cp.body = [self.visit(s) for s in node.body]
