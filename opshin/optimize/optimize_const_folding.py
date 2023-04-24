@@ -111,7 +111,7 @@ class OptimizeConstantFolding(CompilingNodeTransformer):
     step = "Constant folding"
 
     def __init__(self):
-        self.scopes = [set(INITIAL_SCOPE.keys())]
+        self.scopes = [set(INITIAL_SCOPE.keys()).difference(SAFE_GLOBALS.keys())]
 
     def enter_scope(self):
         self.scopes.append(set())
@@ -129,13 +129,16 @@ class OptimizeConstantFolding(CompilingNodeTransformer):
         self.scopes.pop(-1)
 
     def visit_Module(self, node: Module) -> Module:
+        self.enter_scope()
         def_vars_collector = ShallowNameDefCollector()
         for s in node.body:
             def_vars_collector.visit(s)
         def_vars = def_vars_collector.vars
         for def_var in def_vars:
             self.add_var(def_var)
-        return self.generic_visit(node)
+        res = self.generic_visit(node)
+        self.exit_scope()
+        return res
 
     def visit_FunctionDef(self, node: FunctionDef) -> FunctionDef:
         self.add_var(node.name)
@@ -184,6 +187,7 @@ class OptimizeConstantFolding(CompilingNodeTransformer):
                 new_node = Constant(c, None)
                 copy_location(new_node, node)
                 return new_node
+            # TODO dump these values directly as plutus constants in the code (they will be built on chain with this)
             if isinstance(c, list):
                 return List([rec_dump(ce) for ce in c], Load())
             if isinstance(c, dict):

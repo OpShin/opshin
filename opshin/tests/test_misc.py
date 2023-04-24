@@ -1005,6 +1005,18 @@ def validator(_: None) -> int:
         res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
         self.assertEqual(res, uplc.PlutusInteger(2))
 
+    def test_constant_folding_no_print_eval(self):
+        source_code = """
+from opshin.prelude import *
+
+def validator(_: None) -> None:
+    return print("hello")
+"""
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        code_src = code.dumps()
+        self.assertIn(f'(con string "hello")', code_src)
+
     def test_inner_outer_state_functions(self):
         source_code = """
 a = 2
