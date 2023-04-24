@@ -1,3 +1,5 @@
+from copy import copy
+
 from ast import *
 
 try:
@@ -22,10 +24,8 @@ ACCEPTED_ATOMIC_TYPES = [
 
 SAFE_GLOBALS_LIST = [
     abs,
-    aiter,
     all,
     any,
-    anext,
     ascii,
     bin,
     bool,
@@ -111,7 +111,46 @@ class OptimizeConstantFolding(CompilingNodeTransformer):
     step = "Constant folding"
 
     def __init__(self):
-        scopes = [INITIAL_SCOPE]
+        self.scopes = [set(INITIAL_SCOPE.keys())]
+
+    def enter_scope(self):
+        self.scopes.append(set())
+
+    def add_var(self, var: str):
+        self.scopes[-1].add(var)
+
+    def visible_vars(self):
+        res_set = set()
+        for s in self.scopes:
+            res_set.update(s)
+        return res_set
+
+    def exit_scope(self):
+        self.scopes.pop(-1)
+
+    def visit_Module(self, node: Module) -> Module:
+        def_vars_collector = ShallowNameDefCollector()
+        for s in node.body:
+            def_vars_collector.visit(s)
+        def_vars = def_vars_collector.vars
+        for def_var in def_vars:
+            self.add_var(def_var)
+        return self.generic_visit(node)
+
+    def visit_FunctionDef(self, node: FunctionDef) -> FunctionDef:
+        self.add_var(node.name)
+        self.enter_scope()
+        for arg in node.args.args:
+            self.add_var(arg.arg)
+        def_vars_collector = ShallowNameDefCollector()
+        for s in node.body:
+            def_vars_collector.visit(s)
+        def_vars = def_vars_collector.vars
+        for def_var in def_vars:
+            self.add_var(def_var)
+        res_node = self.generic_visit(node)
+        self.exit_scope()
+        return res_node
 
     def generic_visit(self, node: AST):
         node = super().generic_visit(node)
@@ -125,9 +164,18 @@ class OptimizeConstantFolding(CompilingNodeTransformer):
         if "print(" in node_source:
             # do not optimize away print statements
             return node
+        overwritten_vars = self.visible_vars()
+
+        def err():
+            raise ValueError("Was overwritten!")
+
+        non_overwritten_globals = {
+            k: (v if k not in overwritten_vars else err)
+            for k, v in SAFE_GLOBALS.items()
+        }
         try:
             # TODO we can add preceding plutusdata definitions here!
-            node_eval = eval(node_source, SAFE_GLOBALS, {})
+            node_eval = eval(node_source, non_overwritten_globals, {})
         except Exception as e:
             return node
 
