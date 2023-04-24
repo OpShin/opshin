@@ -1015,3 +1015,18 @@ def validator(_: None):
 """
         ast = compiler.parse(source_code)
         code = compiler.compile(ast).compile()
+
+    @unittest.expectedFailure
+    def test_access_enclosing_variable_before_def(self):
+        # note this is a runtime error, just like it would be in python!
+        source_code = """
+a = "1"
+def validator(_: None) -> None:
+   def d() -> str:
+       return a
+   print(d())
+   a = "2"
+"""
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
