@@ -1082,3 +1082,16 @@ def validator(_: None) -> None:
         ast = compiler.parse(source_code)
         code = compiler.compile(ast).compile()
         res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
+
+    @unittest.expectedFailure
+    def test_access_local_variable_before_assignment(self):
+        # note this is a runtime error, just like it would be in python!
+        source_code = """
+a = "1"
+def validator(_: None) -> None:
+   print(a)
+   a = "2"
+"""
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
