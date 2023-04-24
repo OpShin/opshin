@@ -13,7 +13,9 @@ from .rewrite.rewrite_import_plutusdata import RewriteImportPlutusData
 from .rewrite.rewrite_import_typing import RewriteImportTyping
 from .rewrite.rewrite_inject_builtins import RewriteInjectBuiltins
 from .rewrite.rewrite_inject_builtin_constr import RewriteInjectBuiltinsConstr
+from .rewrite.rewrite_orig_name import RewriteOrigName
 from .rewrite.rewrite_remove_type_stuff import RewriteRemoveTypeStuff
+from .rewrite.rewrite_scoping import RewriteScoping
 from .rewrite.rewrite_subscript38 import RewriteSubscript38
 from .rewrite.rewrite_tuple_assign import RewriteTupleAssign
 from .rewrite.rewrite_zero_ary import RewriteZeroAry
@@ -942,6 +944,9 @@ def compile(
 
     # from here on raw uplc may occur, so we dont attempt to fix locations
     compile_pipeline = [
+        # Save the original names of variables
+        RewriteOrigName(),
+        RewriteScoping(),
         # Apply optimizations
         OptimizeRemoveDeadvars(),
         OptimizeVarlen(),
