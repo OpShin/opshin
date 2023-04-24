@@ -176,12 +176,12 @@ def main():
     # read and import the contract
     with open(input_file, "r") as f:
         source_code = f.read()
-    if args.input_file == "-":
-        with open("__tmp_opshin.py", "w") as fp:
-            fp.write(source_code)
-        input_file = "__tmp_opshin.py"
-    sys.path.append(str(pathlib.Path(input_file).parent.absolute()))
-    sc = importlib.import_module(pathlib.Path(input_file).stem)
+    tmp_input_file = pathlib.Path("build").joinpath("__tmp_opshin.py")
+    tmp_input_file.parent.mkdir(exist_ok=True)
+    with tmp_input_file.open("w") as fp:
+        fp.write(source_code)
+    sys.path.append(str(pathlib.Path(tmp_input_file).parent.absolute()))
+    sc = importlib.import_module(pathlib.Path(tmp_input_file).stem)
     sys.path.pop()
     # load the passed parameters
     parsed_params = []
