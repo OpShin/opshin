@@ -72,6 +72,7 @@ fill="currentColor" class="octo-body"></path>
 from logging import getLogger
 from ast import fix_missing_locations
 
+from .optimize.optimize_const_folding import OptimizeConstantFolding
 from .optimize.optimize_remove_comments import OptimizeRemoveDeadconstants
 from .rewrite.rewrite_augassign import RewriteAugAssign
 from .rewrite.rewrite_forbidden_overwrites import RewriteForbiddenOverwrites
@@ -152,8 +153,8 @@ UnaryOpMap = {
 
 ConstantMap = {
     str: plt.Text,
-    bytes: lambda x: plt.ByteString(x),
-    int: lambda x: plt.Integer(x),
+    bytes: plt.ByteString,
+    int: plt.Integer,
     bool: plt.Bool,
     type(None): lambda _: plt.Unit(),
 }
@@ -990,6 +991,7 @@ def compile(
         # Important to call this one first - it imports all further files
         RewriteImport(filename=filename),
         # Rewrites that simplify the python code
+        OptimizeConstantFolding(),
         RewriteSubscript38(),
         RewriteAugAssign(),
         RewriteTupleAssign(),
@@ -1058,6 +1060,7 @@ def compile(
         # Important to call this one first - it imports all further files
         RewriteImport(filename=filename),
         # Rewrites that simplify the python code
+        OptimizeConstantFolding(),
         RewriteSubscript38(),
         RewriteAugAssign(),
         RewriteTupleAssign(),

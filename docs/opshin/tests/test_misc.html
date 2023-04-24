@@ -1023,6 +1023,70 @@ def validator(x: Token) -&gt; bool:
             failed = True
         self.assertTrue(failed, &#34;Machine did validate the content&#34;)
 
+    def test_constant_folding(self):
+        source_code = &#34;&#34;&#34;
+from opshin.prelude import *
+
+def validator(_: None) -&gt; bytes:
+    return bytes.fromhex(&#34;0011&#34;)
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
+        self.assertEqual(res, uplc.PlutusByteString(bytes.fromhex(&#34;0011&#34;)))
+
+    def test_constant_folding_list(self):
+        source_code = &#34;&#34;&#34;
+from opshin.prelude import *
+
+def validator(_: None) -&gt; List[int]:
+    return list(range(0, 10, 2))
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
+        self.assertEqual(
+            res, uplc.PlutusList([uplc.PlutusInteger(i) for i in range(0, 10, 2)])
+        )
+
+    def test_constant_folding_math(self):
+        source_code = &#34;&#34;&#34;
+from opshin.prelude import *
+
+def validator(_: None) -&gt; int:
+    return 2 ** 10
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        code_src = code.dumps()
+        self.assertIn(f&#34;(con integer {2**10})&#34;, code_src)
+
+    def test_constant_folding_ignore_reassignment(self):
+        source_code = &#34;&#34;&#34;
+from opshin.prelude import *
+
+def validator(_: None) -&gt; int:
+    def int(a) -&gt; int:
+        return 2
+    return int(5)
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
+        self.assertEqual(res, uplc.PlutusInteger(2))
+
+    def test_constant_folding_no_print_eval(self):
+        source_code = &#34;&#34;&#34;
+from opshin.prelude import *
+
+def validator(_: None) -&gt; None:
+    return print(&#34;hello&#34;)
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        code_src = code.dumps()
+        self.assertIn(f&#39;(con string &#34;hello&#34;)&#39;, code_src)
+
     def test_inner_outer_state_functions(self):
         source_code = &#34;&#34;&#34;
 a = 2
@@ -1032,7 +1096,7 @@ def b() -&gt; int:
 def validator(_: None) -&gt; int:
     a = 3
     return b()
-&#34;&#34;&#34;
+        &#34;&#34;&#34;
         ast = compiler.parse(source_code)
         code = compiler.compile(ast).compile()
         res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
@@ -1071,7 +1135,7 @@ def validator(_: None) -&gt; int:
         self.assertEqual(res, uplc.PlutusInteger(3))
 
     @unittest.expectedFailure
-    def test_f(self):
+    def test_failing_annotated_type(self):
         source_code = &#34;&#34;&#34;
 def c():
     a = 2
@@ -1095,6 +1159,19 @@ def validator(_: None) -&gt; None:
    def d() -&gt; str:
        return a
    print(d())
+   a = &#34;2&#34;
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
+
+    @unittest.expectedFailure
+    def test_access_local_variable_before_assignment(self):
+        # note this is a runtime error, just like it would be in python!
+        source_code = &#34;&#34;&#34;
+a = &#34;1&#34;
+def validator(_: None) -&gt; None:
+   print(a)
    a = &#34;2&#34;
 &#34;&#34;&#34;
         ast = compiler.parse(source_code)
@@ -2104,6 +2181,70 @@ def validator(x: Token) -&gt; bool:
             failed = True
         self.assertTrue(failed, &#34;Machine did validate the content&#34;)
 
+    def test_constant_folding(self):
+        source_code = &#34;&#34;&#34;
+from opshin.prelude import *
+
+def validator(_: None) -&gt; bytes:
+    return bytes.fromhex(&#34;0011&#34;)
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
+        self.assertEqual(res, uplc.PlutusByteString(bytes.fromhex(&#34;0011&#34;)))
+
+    def test_constant_folding_list(self):
+        source_code = &#34;&#34;&#34;
+from opshin.prelude import *
+
+def validator(_: None) -&gt; List[int]:
+    return list(range(0, 10, 2))
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
+        self.assertEqual(
+            res, uplc.PlutusList([uplc.PlutusInteger(i) for i in range(0, 10, 2)])
+        )
+
+    def test_constant_folding_math(self):
+        source_code = &#34;&#34;&#34;
+from opshin.prelude import *
+
+def validator(_: None) -&gt; int:
+    return 2 ** 10
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        code_src = code.dumps()
+        self.assertIn(f&#34;(con integer {2**10})&#34;, code_src)
+
+    def test_constant_folding_ignore_reassignment(self):
+        source_code = &#34;&#34;&#34;
+from opshin.prelude import *
+
+def validator(_: None) -&gt; int:
+    def int(a) -&gt; int:
+        return 2
+    return int(5)
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
+        self.assertEqual(res, uplc.PlutusInteger(2))
+
+    def test_constant_folding_no_print_eval(self):
+        source_code = &#34;&#34;&#34;
+from opshin.prelude import *
+
+def validator(_: None) -&gt; None:
+    return print(&#34;hello&#34;)
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        code_src = code.dumps()
+        self.assertIn(f&#39;(con string &#34;hello&#34;)&#39;, code_src)
+
     def test_inner_outer_state_functions(self):
         source_code = &#34;&#34;&#34;
 a = 2
@@ -2113,7 +2254,7 @@ def b() -&gt; int:
 def validator(_: None) -&gt; int:
     a = 3
     return b()
-&#34;&#34;&#34;
+        &#34;&#34;&#34;
         ast = compiler.parse(source_code)
         code = compiler.compile(ast).compile()
         res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
@@ -2152,7 +2293,7 @@ def validator(_: None) -&gt; int:
         self.assertEqual(res, uplc.PlutusInteger(3))
 
     @unittest.expectedFailure
-    def test_f(self):
+    def test_failing_annotated_type(self):
         source_code = &#34;&#34;&#34;
 def c():
     a = 2
@@ -2176,6 +2317,19 @@ def validator(_: None) -&gt; None:
    def d() -&gt; str:
        return a
    print(d())
+   a = &#34;2&#34;
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
+
+    @unittest.expectedFailure
+    def test_access_local_variable_before_assignment(self):
+        # note this is a runtime error, just like it would be in python!
+        source_code = &#34;&#34;&#34;
+a = &#34;1&#34;
+def validator(_: None) -&gt; None:
+   print(a)
    a = &#34;2&#34;
 &#34;&#34;&#34;
         ast = compiler.parse(source_code)
@@ -2206,6 +2360,29 @@ def validator(_: None) -&gt; None:
    def d() -&gt; str:
        return a
    print(d())
+   a = &#34;2&#34;
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_access_local_variable_before_assignment"><code class="name flex">
+<span>def <span class="ident">test_access_local_variable_before_assignment</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    @unittest.expectedFailure
+    def test_access_local_variable_before_assignment(self):
+        # note this is a runtime error, just like it would be in python!
+        source_code = &#34;&#34;&#34;
+a = &#34;1&#34;
+def validator(_: None) -&gt; None:
+   print(a)
    a = &#34;2&#34;
 &#34;&#34;&#34;
         ast = compiler.parse(source_code)
@@ -2300,6 +2477,120 @@ def test_assert_sum_contract_fail(self):
         ),
         ret,
     )</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_constant_folding"><code class="name flex">
+<span>def <span class="ident">test_constant_folding</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    def test_constant_folding(self):
+        source_code = &#34;&#34;&#34;
+from opshin.prelude import *
+
+def validator(_: None) -&gt; bytes:
+    return bytes.fromhex(&#34;0011&#34;)
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
+        self.assertEqual(res, uplc.PlutusByteString(bytes.fromhex(&#34;0011&#34;)))</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_constant_folding_ignore_reassignment"><code class="name flex">
+<span>def <span class="ident">test_constant_folding_ignore_reassignment</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    def test_constant_folding_ignore_reassignment(self):
+        source_code = &#34;&#34;&#34;
+from opshin.prelude import *
+
+def validator(_: None) -&gt; int:
+    def int(a) -&gt; int:
+        return 2
+    return int(5)
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
+        self.assertEqual(res, uplc.PlutusInteger(2))</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_constant_folding_list"><code class="name flex">
+<span>def <span class="ident">test_constant_folding_list</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    def test_constant_folding_list(self):
+        source_code = &#34;&#34;&#34;
+from opshin.prelude import *
+
+def validator(_: None) -&gt; List[int]:
+    return list(range(0, 10, 2))
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
+        self.assertEqual(
+            res, uplc.PlutusList([uplc.PlutusInteger(i) for i in range(0, 10, 2)])
+        )</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_constant_folding_math"><code class="name flex">
+<span>def <span class="ident">test_constant_folding_math</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    def test_constant_folding_math(self):
+        source_code = &#34;&#34;&#34;
+from opshin.prelude import *
+
+def validator(_: None) -&gt; int:
+    return 2 ** 10
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        code_src = code.dumps()
+        self.assertIn(f&#34;(con integer {2**10})&#34;, code_src)</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_constant_folding_no_print_eval"><code class="name flex">
+<span>def <span class="ident">test_constant_folding_no_print_eval</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    def test_constant_folding_no_print_eval(self):
+        source_code = &#34;&#34;&#34;
+from opshin.prelude import *
+
+def validator(_: None) -&gt; None:
+    return print(&#34;hello&#34;)
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        code_src = code.dumps()
+        self.assertIn(f&#39;(con string &#34;hello&#34;)&#39;, code_src)</code></pre>
 </details>
 </dd>
 <dt id="opshin.tests.test_misc.MiscTest.test_datum_cast"><code class="name flex">
@@ -2450,8 +2741,8 @@ def validator(xs: Dict[bytes, Dict[bytes, int]]) -&gt; int:
     f = code.term</code></pre>
 </details>
 </dd>
-<dt id="opshin.tests.test_misc.MiscTest.test_f"><code class="name flex">
-<span>def <span class="ident">test_f</span></span>(<span>self)</span>
+<dt id="opshin.tests.test_misc.MiscTest.test_failing_annotated_type"><code class="name flex">
+<span>def <span class="ident">test_failing_annotated_type</span></span>(<span>self)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -2460,7 +2751,7 @@ def validator(xs: Dict[bytes, Dict[bytes, int]]) -&gt; int:
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">    @unittest.expectedFailure
-    def test_f(self):
+    def test_failing_annotated_type(self):
         source_code = &#34;&#34;&#34;
 def c():
     a = 2
@@ -2660,7 +2951,7 @@ def b() -&gt; int:
 def validator(_: None) -&gt; int:
     a = 3
     return b()
-&#34;&#34;&#34;
+        &#34;&#34;&#34;
         ast = compiler.parse(source_code)
         code = compiler.compile(ast).compile()
         res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
@@ -3804,14 +4095,20 @@ setTimeout(() => input.focus(), 100);
 <h4><code><a title="opshin.tests.test_misc.MiscTest" href="#opshin.tests.test_misc.MiscTest">MiscTest</a></code></h4>
 <ul class="">
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_access_enclosing_variable_before_def" href="#opshin.tests.test_misc.MiscTest.test_access_enclosing_variable_before_def">test_access_enclosing_variable_before_def</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_access_local_variable_before_assignment" href="#opshin.tests.test_misc.MiscTest.test_access_local_variable_before_assignment">test_access_local_variable_before_assignment</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_assert_sum_contract_fail" href="#opshin.tests.test_misc.MiscTest.test_assert_sum_contract_fail">test_assert_sum_contract_fail</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_assert_sum_contract_succeed" href="#opshin.tests.test_misc.MiscTest.test_assert_sum_contract_succeed">test_assert_sum_contract_succeed</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_complex_datum_correct_vals" href="#opshin.tests.test_misc.MiscTest.test_complex_datum_correct_vals">test_complex_datum_correct_vals</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_constant_folding" href="#opshin.tests.test_misc.MiscTest.test_constant_folding">test_constant_folding</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_constant_folding_ignore_reassignment" href="#opshin.tests.test_misc.MiscTest.test_constant_folding_ignore_reassignment">test_constant_folding_ignore_reassignment</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_constant_folding_list" href="#opshin.tests.test_misc.MiscTest.test_constant_folding_list">test_constant_folding_list</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_constant_folding_math" href="#opshin.tests.test_misc.MiscTest.test_constant_folding_math">test_constant_folding_math</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_constant_folding_no_print_eval" href="#opshin.tests.test_misc.MiscTest.test_constant_folding_no_print_eval">test_constant_folding_no_print_eval</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_datum_cast" href="#opshin.tests.test_misc.MiscTest.test_datum_cast">test_datum_cast</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_dict_datum" href="#opshin.tests.test_misc.MiscTest.test_dict_datum">test_dict_datum</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_dict_items_values_deconstr" href="#opshin.tests.test_misc.MiscTest.test_dict_items_values_deconstr">test_dict_items_values_deconstr</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_dual_use_compile" href="#opshin.tests.test_misc.MiscTest.test_dual_use_compile">test_dual_use_compile</a></code></li>
-<li><code><a title="opshin.tests.test_misc.MiscTest.test_f" href="#opshin.tests.test_misc.MiscTest.test_f">test_f</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_failing_annotated_type" href="#opshin.tests.test_misc.MiscTest.test_failing_annotated_type">test_failing_annotated_type</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_fib_iter" href="#opshin.tests.test_misc.MiscTest.test_fib_iter">test_fib_iter</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_fib_rec" href="#opshin.tests.test_misc.MiscTest.test_fib_rec">test_fib_rec</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_gift_contract_fail" href="#opshin.tests.test_misc.MiscTest.test_gift_contract_fail">test_gift_contract_fail</a></code></li>
