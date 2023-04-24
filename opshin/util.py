@@ -1,6 +1,7 @@
 import ast
 import pycardano
 from enum import Enum, auto
+from frozendict import frozendict
 
 from .typed_ast import *
 
@@ -549,12 +550,16 @@ def data_from_json(j: typing.Dict[str, typing.Any]) -> uplc.PlutusData:
     if "int" in j:
         return uplc.PlutusInteger(int(j["int"]))
     if "list" in j:
-        return uplc.PlutusList(list(map(data_from_json, j["list"])))
+        return uplc.PlutusList(FrozenFrozenList(list(map(data_from_json, j["list"]))))
     if "map" in j:
-        return uplc.PlutusMap({d["k"]: d["v"] for d in j["map"]})
+        return uplc.PlutusMap(
+            frozendict(
+                {data_from_json(d["k"]): data_from_json(d["v"]) for d in j["map"]}
+            )
+        )
     if "constructor" in j and "fields" in j:
         return uplc.PlutusConstr(
-            j["constructor"], list(map(data_from_json, j["fields"]))
+            j["constructor"], FrozenFrozenList(list(map(data_from_json, j["fields"])))
         )
     raise NotImplementedError(f"Unknown datum representation {j}")
 
