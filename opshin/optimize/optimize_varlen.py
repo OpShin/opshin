@@ -59,20 +59,17 @@ class OptimizeVarlen(CompilingNodeTransformer):
 
     def visit_Name(self, node: Name) -> Name:
         nc = copy(node)
-        nc.orig_id = node.id
         nc.id = self.varmap[node.id]
         return nc
 
     def visit_ClassDef(self, node: ClassDef) -> ClassDef:
         node_cp = copy(node)
-        node_cp.orig_name = node.name
         node_cp.name = self.varmap[node.name]
         # ignore the content of class definitions
         return node_cp
 
     def visit_FunctionDef(self, node: FunctionDef) -> FunctionDef:
         node_cp = copy(node)
-        node_cp.orig_name = node.name
         node_cp.name = self.varmap[node.name]
         node_cp.args = copy(node.args)
         node_cp.args.args = []
