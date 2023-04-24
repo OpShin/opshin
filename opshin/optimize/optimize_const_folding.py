@@ -1,5 +1,10 @@
 from ast import *
 
+try:
+    unparse
+except NameError:
+    from astunparse import unparse
+
 from ..util import CompilingNodeTransformer
 
 """
@@ -26,8 +31,13 @@ class OptimizeConstantFolding(CompilingNodeTransformer):
         if isinstance(node, Constant):
             # prevents unneccessary computations
             return node
+        node_source = unparse(node)
+        if "print(" in node_source:
+            # do not optimize away print statements
+            return node
         try:
-            node_eval = literal_eval(node)
+            # TODO we can add preceding plutusdata definitions here!
+            node_eval = eval(node_source, globals(), {})
         except Exception as e:
             return node
 
