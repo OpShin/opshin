@@ -2,6 +2,7 @@ import logging
 from logging import getLogger
 from ast import fix_missing_locations
 
+from .optimize.optimize_remove_comments import OptimizeRemoveDeadconstants
 from .rewrite.rewrite_augassign import RewriteAugAssign
 from .rewrite.rewrite_forbidden_overwrites import RewriteForbiddenOverwrites
 from .rewrite.rewrite_import import RewriteImport
@@ -11,7 +12,9 @@ from .rewrite.rewrite_import_plutusdata import RewriteImportPlutusData
 from .rewrite.rewrite_import_typing import RewriteImportTyping
 from .rewrite.rewrite_inject_builtins import RewriteInjectBuiltins
 from .rewrite.rewrite_inject_builtin_constr import RewriteInjectBuiltinsConstr
+from .rewrite.rewrite_orig_name import RewriteOrigName
 from .rewrite.rewrite_remove_type_stuff import RewriteRemoveTypeStuff
+from .rewrite.rewrite_scoping import RewriteScoping
 from .rewrite.rewrite_subscript38 import RewriteSubscript38
 from .rewrite.rewrite_tuple_assign import RewriteTupleAssign
 from .rewrite.rewrite_zero_ary import RewriteZeroAry
@@ -351,6 +354,12 @@ class UPLCCompiler(CompilingNodeTransformer):
             # we need to map this as it will originate from PlutusData
             # AnyType is the only type other than the builtin itself that can be cast to builtin values
             val = transform_ext_params_map(node.target.typ)(val)
+        if isinstance(node.target.typ, InstanceType) and isinstance(
+            node.target.typ.typ, AnyType
+        ):
+            # we need to map this back as it will be treated as PlutusData
+            # AnyType is the only type other than the builtin itself that can be cast to from builtin values
+            val = transform_output_map(node.value.typ)(val)
         return plt.Lambda(
             [STATEMONAD],
             extend_statemonad(
@@ -423,12 +432,9 @@ class UPLCCompiler(CompilingNodeTransformer):
 
     def visit_FunctionDef(self, node: TypedFunctionDef) -> plt.AST:
         body = node.body.copy()
-        if not isinstance(body[-1], Return):
-            tr = Return(None)
+        if not body or not isinstance(body[-1], Return):
+            tr = Return(TypedConstant(None, typ=NoneInstanceType))
             tr.typ = NoneInstanceType
-            assert (
-                node.typ.typ.rettyp == NoneInstanceType
-            ), "Function has no return statement but is supposed to return not-None value"
             body.append(tr)
         compiled_body = self.visit_sequence(body[:-1])
         args_state = extend_statemonad(
@@ -621,6 +627,39 @@ class UPLCCompiler(CompilingNodeTransformer):
                     plt.IndexAccessList(plt.Var("l"), plt.Var("i")),
                 ),
             )
+        elif isinstance(node.value.typ.typ, DictType):
+            dict_typ = node.value.typ.typ
+            if not isinstance(node.slice, Slice):
+                return plt.Lambda(
+                    [STATEMONAD],
+                    plt.Let(
+                        [
+                            (
+                                "key",
+                                plt.Apply(self.visit(node.slice), plt.Var(STATEMONAD)),
+                            )
+                        ],
+                        transform_ext_params_map(dict_typ.value_typ)(
+                            plt.SndPair(
+                                plt.FindList(
+                                    plt.Apply(
+                                        self.visit(node.value), plt.Var(STATEMONAD)
+                                    ),
+                                    plt.Lambda(
+                                        ["x"],
+                                        plt.EqualsData(
+                                            transform_output_map(dict_typ.key_typ)(
+                                                plt.Var("key")
+                                            ),
+                                            plt.FstPair(plt.Var("x")),
+                                        ),
+                                    ),
+                                    plt.TraceError("KeyError"),
+                                ),
+                            ),
+                        ),
+                    ),
+                )
         elif isinstance(node.value.typ.typ, ByteStringType):
             if not isinstance(node.slice, Slice):
                 return plt.Lambda(
@@ -903,9 +942,13 @@ def compile(
 
     # from here on raw uplc may occur, so we dont attempt to fix locations
     compile_pipeline = [
+        # Save the original names of variables
+        RewriteOrigName(),
+        RewriteScoping(),
         # Apply optimizations
         OptimizeRemoveDeadvars(),
         OptimizeVarlen(),
+        OptimizeRemoveDeadconstants(),
         OptimizeRemovePass(),
         # the compiler runs last
         UPLCCompiler(

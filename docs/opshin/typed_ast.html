@@ -132,10 +132,14 @@ class ClassType(Type):
 
 @dataclass(frozen=True, unsafe_hash=True)
 class AnyType(ClassType):
-    &#34;&#34;&#34;The top element in the partial order on types&#34;&#34;&#34;
+    &#34;&#34;&#34;The top element in the partial order on types (excluding FunctionTypes, which do not compare to anything)&#34;&#34;&#34;
 
     def __ge__(self, other):
-        return True
+        return (
+            isinstance(other, ClassType)
+            and not isinstance(other, FunctionType)
+            and not isinstance(other, PolymorphicFunctionType)
+        )
 
 
 @dataclass(frozen=True, unsafe_hash=True)
@@ -1177,7 +1181,9 @@ TransformOutputMap = {
     StringInstanceType: lambda x: plt.BData(plt.EncodeUtf8(x)),
     IntegerInstanceType: lambda x: plt.IData(x),
     ByteStringInstanceType: lambda x: plt.BData(x),
-    UnitInstanceType: lambda x: plt.Apply(plt.Lambda([&#34;_&#34;], plt.Unit()), x),
+    UnitInstanceType: lambda x: plt.Apply(
+        plt.Lambda([&#34;_&#34;], plt.ConstrData(plt.Integer(0), plt.EmptyDataList())), x
+    ),
     BoolInstanceType: lambda x: plt.IData(
         plt.IfThenElse(x, plt.Integer(1), plt.Integer(0))
     ),
@@ -1188,6 +1194,10 @@ def transform_output_map(p: Type):
     assert isinstance(
         p, InstanceType
     ), &#34;Can only transform instances, not classes as input&#34;
+    if isinstance(p.typ, FunctionType) or isinstance(p.typ, PolymorphicFunction):
+        raise NotImplementedError(
+            &#34;Can not map functions into PlutusData and hence not return them from a function as Anything&#34;
+        )
     if p in TransformOutputMap:
         return TransformOutputMap[p]
     if isinstance(p.typ, ListType):
@@ -1336,6 +1346,10 @@ class TypedNodeVisitor(NodeVisitor):
     assert isinstance(
         p, InstanceType
     ), &#34;Can only transform instances, not classes as input&#34;
+    if isinstance(p.typ, FunctionType) or isinstance(p.typ, PolymorphicFunction):
+        raise NotImplementedError(
+            &#34;Can not map functions into PlutusData and hence not return them from a function as Anything&#34;
+        )
     if p in TransformOutputMap:
         return TransformOutputMap[p]
     if isinstance(p.typ, ListType):
@@ -1362,16 +1376,20 @@ class TypedNodeVisitor(NodeVisitor):
 <span>class <span class="ident">AnyType</span></span>
 </code></dt>
 <dd>
-<div class="desc"><p>The top element in the partial order on types</p></div>
+<div class="desc"><p>The top element in the partial order on types (excluding FunctionTypes, which do not compare to anything)</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">class AnyType(ClassType):
-    &#34;&#34;&#34;The top element in the partial order on types&#34;&#34;&#34;
+    &#34;&#34;&#34;The top element in the partial order on types (excluding FunctionTypes, which do not compare to anything)&#34;&#34;&#34;
 
     def __ge__(self, other):
-        return True</code></pre>
+        return (
+            isinstance(other, ClassType)
+            and not isinstance(other, FunctionType)
+            and not isinstance(other, PolymorphicFunctionType)
+        )</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">

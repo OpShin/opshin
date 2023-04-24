@@ -62,10 +62,14 @@ class ClassType(Type):
 
 @dataclass(frozen=True, unsafe_hash=True)
 class AnyType(ClassType):
-    """The top element in the partial order on types"""
+    """The top element in the partial order on types (excluding FunctionTypes, which do not compare to anything)"""
 
     def __ge__(self, other):
-        return True
+        return (
+            isinstance(other, ClassType)
+            and not isinstance(other, FunctionType)
+            and not isinstance(other, PolymorphicFunctionType)
+        )
 
 
 @dataclass(frozen=True, unsafe_hash=True)
@@ -1107,7 +1111,9 @@ TransformOutputMap = {
     StringInstanceType: lambda x: plt.BData(plt.EncodeUtf8(x)),
     IntegerInstanceType: lambda x: plt.IData(x),
     ByteStringInstanceType: lambda x: plt.BData(x),
-    UnitInstanceType: lambda x: plt.Apply(plt.Lambda(["_"], plt.Unit()), x),
+    UnitInstanceType: lambda x: plt.Apply(
+        plt.Lambda(["_"], plt.ConstrData(plt.Integer(0), plt.EmptyDataList())), x
+    ),
     BoolInstanceType: lambda x: plt.IData(
         plt.IfThenElse(x, plt.Integer(1), plt.Integer(0))
     ),
@@ -1118,6 +1124,10 @@ def transform_output_map(p: Type):
     assert isinstance(
         p, InstanceType
     ), "Can only transform instances, not classes as input"
+    if isinstance(p.typ, FunctionType) or isinstance(p.typ, PolymorphicFunction):
+        raise NotImplementedError(
+            "Can not map functions into PlutusData and hence not return them from a function as Anything"
+        )
     if p in TransformOutputMap:
         return TransformOutputMap[p]
     if isinstance(p.typ, ListType):

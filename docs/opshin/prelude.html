@@ -129,7 +129,63 @@ def all_tokens_locked_at_address(
 
 def resolve_spent_utxo(txins: List[TxInInfo], p: Spending) -&gt; TxOut:
     &#34;&#34;&#34;Returns the UTxO whose spending should be validated&#34;&#34;&#34;
-    return [txi.resolved for txi in txins if txi.out_ref == p.tx_out_ref][0]</code></pre>
+    return [txi.resolved for txi in txins if txi.out_ref == p.tx_out_ref][0]
+
+
+def resolve_datum_unsafe(txout: TxOut, tx_info: TxInfo) -&gt; BuiltinData:
+    &#34;&#34;&#34;
+    Returns the datum attached to a given transaction output, independent of whether it was inlined or embedded.
+    Raises an exception if no datum was attached.
+    &#34;&#34;&#34;
+    attached_datum = txout.datum
+    if isinstance(attached_datum, SomeOutputDatumHash):
+        res = tx_info.data[attached_datum.datum_hash]
+    elif isinstance(attached_datum, SomeOutputDatum):
+        res = attached_datum.datum
+    else:
+        # no datum attached
+        assert False, &#34;No datum was attached to the given transaction output&#34;
+    return res
+
+
+def resolve_datum(
+    txout: TxOut, tx_info: TxInfo
+) -&gt; Union[SomeOutputDatum, NoOutputDatum]:
+    &#34;&#34;&#34;
+    Returns SomeOutputDatum with the datum attached to a given transaction output,
+    independent of whether it was inlined or embedded, if there was an attached datum.
+    Otherwise it returns NoOutputDatum.
+    &#34;&#34;&#34;
+    attached_datum = txout.datum
+    if isinstance(attached_datum, SomeOutputDatumHash):
+        res: Union[SomeOutputDatum, NoOutputDatum] = SomeOutputDatum(
+            tx_info.data[attached_datum.datum_hash]
+        )
+    else:
+        res: Union[SomeOutputDatum, NoOutputDatum] = attached_datum
+    return res
+
+
+def own_spent_utxo(txins: List[TxInInfo], p: Spending) -&gt; TxOut:
+    # obtain the resolved txout that is going to be spent from this contract address
+    for txi in txins:
+        if txi.out_ref == p.tx_out_ref:
+            own_txout = txi.resolved
+    # This throws a name error if the txout was not found
+    return own_txout
+
+
+def own_policy_id(own_spent_utxo: TxOut) -&gt; PolicyId:
+    # obtain the policy id for which this contract can validate minting/burning
+    cred = own_spent_utxo.address.payment_credential
+    if isinstance(cred, ScriptCredential):
+        policy_id = cred.credential_hash
+    # This throws a name error if the credential is not a ScriptCredential instance
+    return policy_id
+
+
+def own_address(own_policy_id: PolicyId) -&gt; Address:
+    return Address(ScriptCredential(own_policy_id), NoStakingCredential())</code></pre>
 </details>
 </section>
 <section>
@@ -203,6 +259,110 @@ def resolve_spent_utxo(txins: List[TxInInfo], p: Spending) -&gt; TxOut:
             if txi.resolved.address == address
         ]
     )</code></pre>
+</details>
+</dd>
+<dt id="opshin.prelude.own_address"><code class="name flex">
+<span>def <span class="ident">own_address</span></span>(<span>own_policy_id: bytes) ‑> <a title="opshin.ledger.api_v2.Address" href="ledger/api_v2.html#opshin.ledger.api_v2.Address">Address</a></span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def own_address(own_policy_id: PolicyId) -&gt; Address:
+    return Address(ScriptCredential(own_policy_id), NoStakingCredential())</code></pre>
+</details>
+</dd>
+<dt id="opshin.prelude.own_policy_id"><code class="name flex">
+<span>def <span class="ident">own_policy_id</span></span>(<span>own_spent_utxo: <a title="opshin.ledger.api_v2.TxOut" href="ledger/api_v2.html#opshin.ledger.api_v2.TxOut">TxOut</a>) ‑> bytes</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def own_policy_id(own_spent_utxo: TxOut) -&gt; PolicyId:
+    # obtain the policy id for which this contract can validate minting/burning
+    cred = own_spent_utxo.address.payment_credential
+    if isinstance(cred, ScriptCredential):
+        policy_id = cred.credential_hash
+    # This throws a name error if the credential is not a ScriptCredential instance
+    return policy_id</code></pre>
+</details>
+</dd>
+<dt id="opshin.prelude.own_spent_utxo"><code class="name flex">
+<span>def <span class="ident">own_spent_utxo</span></span>(<span>txins: List[<a title="opshin.ledger.api_v2.TxInInfo" href="ledger/api_v2.html#opshin.ledger.api_v2.TxInInfo">TxInInfo</a>], p: <a title="opshin.ledger.api_v2.Spending" href="ledger/api_v2.html#opshin.ledger.api_v2.Spending">Spending</a>) ‑> <a title="opshin.ledger.api_v2.TxOut" href="ledger/api_v2.html#opshin.ledger.api_v2.TxOut">TxOut</a></span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def own_spent_utxo(txins: List[TxInInfo], p: Spending) -&gt; TxOut:
+    # obtain the resolved txout that is going to be spent from this contract address
+    for txi in txins:
+        if txi.out_ref == p.tx_out_ref:
+            own_txout = txi.resolved
+    # This throws a name error if the txout was not found
+    return own_txout</code></pre>
+</details>
+</dd>
+<dt id="opshin.prelude.resolve_datum"><code class="name flex">
+<span>def <span class="ident">resolve_datum</span></span>(<span>txout: <a title="opshin.ledger.api_v2.TxOut" href="ledger/api_v2.html#opshin.ledger.api_v2.TxOut">TxOut</a>, tx_info: <a title="opshin.ledger.api_v2.TxInfo" href="ledger/api_v2.html#opshin.ledger.api_v2.TxInfo">TxInfo</a>) ‑> Union[<a title="opshin.ledger.api_v2.SomeOutputDatum" href="ledger/api_v2.html#opshin.ledger.api_v2.SomeOutputDatum">SomeOutputDatum</a>, <a title="opshin.ledger.api_v2.NoOutputDatum" href="ledger/api_v2.html#opshin.ledger.api_v2.NoOutputDatum">NoOutputDatum</a>]</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Returns SomeOutputDatum with the datum attached to a given transaction output,
+independent of whether it was inlined or embedded, if there was an attached datum.
+Otherwise it returns NoOutputDatum.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def resolve_datum(
+    txout: TxOut, tx_info: TxInfo
+) -&gt; Union[SomeOutputDatum, NoOutputDatum]:
+    &#34;&#34;&#34;
+    Returns SomeOutputDatum with the datum attached to a given transaction output,
+    independent of whether it was inlined or embedded, if there was an attached datum.
+    Otherwise it returns NoOutputDatum.
+    &#34;&#34;&#34;
+    attached_datum = txout.datum
+    if isinstance(attached_datum, SomeOutputDatumHash):
+        res: Union[SomeOutputDatum, NoOutputDatum] = SomeOutputDatum(
+            tx_info.data[attached_datum.datum_hash]
+        )
+    else:
+        res: Union[SomeOutputDatum, NoOutputDatum] = attached_datum
+    return res</code></pre>
+</details>
+</dd>
+<dt id="opshin.prelude.resolve_datum_unsafe"><code class="name flex">
+<span>def <span class="ident">resolve_datum_unsafe</span></span>(<span>txout: <a title="opshin.ledger.api_v2.TxOut" href="ledger/api_v2.html#opshin.ledger.api_v2.TxOut">TxOut</a>, tx_info: <a title="opshin.ledger.api_v2.TxInfo" href="ledger/api_v2.html#opshin.ledger.api_v2.TxInfo">TxInfo</a>) ‑> Union[pycardano.plutus.PlutusData, dict, pycardano.serialization.IndefiniteList, int, bytes, pycardano.serialization.RawCBOR, pycardano.plutus.RawPlutusData]</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Returns the datum attached to a given transaction output, independent of whether it was inlined or embedded.
+Raises an exception if no datum was attached.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def resolve_datum_unsafe(txout: TxOut, tx_info: TxInfo) -&gt; BuiltinData:
+    &#34;&#34;&#34;
+    Returns the datum attached to a given transaction output, independent of whether it was inlined or embedded.
+    Raises an exception if no datum was attached.
+    &#34;&#34;&#34;
+    attached_datum = txout.datum
+    if isinstance(attached_datum, SomeOutputDatumHash):
+        res = tx_info.data[attached_datum.datum_hash]
+    elif isinstance(attached_datum, SomeOutputDatum):
+        res = attached_datum.datum
+    else:
+        # no datum attached
+        assert False, &#34;No datum was attached to the given transaction output&#34;
+    return res</code></pre>
 </details>
 </dd>
 <dt id="opshin.prelude.resolve_spent_utxo"><code class="name flex">
@@ -332,6 +492,11 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="opshin.prelude.all_tokens_locked_at_address" href="#opshin.prelude.all_tokens_locked_at_address">all_tokens_locked_at_address</a></code></li>
 <li><code><a title="opshin.prelude.all_tokens_locked_at_address_with_datum" href="#opshin.prelude.all_tokens_locked_at_address_with_datum">all_tokens_locked_at_address_with_datum</a></code></li>
 <li><code><a title="opshin.prelude.all_tokens_unlocked_from_address" href="#opshin.prelude.all_tokens_unlocked_from_address">all_tokens_unlocked_from_address</a></code></li>
+<li><code><a title="opshin.prelude.own_address" href="#opshin.prelude.own_address">own_address</a></code></li>
+<li><code><a title="opshin.prelude.own_policy_id" href="#opshin.prelude.own_policy_id">own_policy_id</a></code></li>
+<li><code><a title="opshin.prelude.own_spent_utxo" href="#opshin.prelude.own_spent_utxo">own_spent_utxo</a></code></li>
+<li><code><a title="opshin.prelude.resolve_datum" href="#opshin.prelude.resolve_datum">resolve_datum</a></code></li>
+<li><code><a title="opshin.prelude.resolve_datum_unsafe" href="#opshin.prelude.resolve_datum_unsafe">resolve_datum_unsafe</a></code></li>
 <li><code><a title="opshin.prelude.resolve_spent_utxo" href="#opshin.prelude.resolve_spent_utxo">resolve_spent_utxo</a></code></li>
 </ul>
 </li>

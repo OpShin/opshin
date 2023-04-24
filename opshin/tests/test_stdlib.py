@@ -8,6 +8,65 @@ from .. import compiler
 
 
 class StdlibTest(unittest.TestCase):
+    @given(st.data())
+    def test_dict_get(self, data):
+        # this tests that errors that are caused by assignments are actually triggered at the time of assigning
+        source_code = """
+def validator(x: Dict[int, bytes], y: int, z: bytes) -> bytes:
+    return x.get(y, z)
+            """
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+
+        x = data.draw(st.dictionaries(st.integers(), st.binary()))
+        y = data.draw(st.one_of(st.sampled_from(sorted(x.keys()) + [0]), st.integers()))
+        z = data.draw(st.binary())
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        for d in [
+            uplc.PlutusMap(
+                {uplc.PlutusInteger(k): uplc.PlutusByteString(v) for k, v in x.items()}
+            ),
+            uplc.PlutusInteger(y),
+            uplc.PlutusByteString(z),
+        ]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value
+        self.assertEqual(ret, x.get(y, z), "dict.get returned wrong value")
+
+    @given(st.data())
+    def test_dict_subscript(self, data):
+        # this tests that errors that are caused by assignments are actually triggered at the time of assigning
+        source_code = """
+def validator(x: Dict[int, bytes], y: int) -> bytes:
+    return x[y]
+            """
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+
+        x = data.draw(st.dictionaries(st.integers(), st.binary()))
+        y = data.draw(st.one_of(st.sampled_from(sorted(x.keys()) + [0]), st.integers()))
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        for d in [
+            uplc.PlutusMap(
+                {uplc.PlutusInteger(k): uplc.PlutusByteString(v) for k, v in x.items()}
+            ),
+            uplc.PlutusInteger(y),
+        ]:
+            f = uplc.Apply(f, d)
+        try:
+            ret = uplc_eval(f).value
+        except RuntimeError:
+            ret = None
+        try:
+            exp = x[y]
+        except KeyError:
+            exp = None
+        self.assertEqual(ret, exp, "dict[] returned wrong value")
+
     @given(xs=st.dictionaries(st.integers(), st.binary()))
     def test_dict_keys(self, xs):
         # this tests that errors that are caused by assignments are actually triggered at the time of assigning
@@ -201,7 +260,9 @@ def validator(x: None) -> None:
         for d in [uplc.BuiltinUnit()]:
             f = uplc.Apply(f, d)
         ret = uplc_eval(f)
-        self.assertEqual(ret, uplc.BuiltinUnit(), "literal None returned wrong value")
+        self.assertEqual(
+            ret, uplc.PlutusConstr(0, []), "literal None returned wrong value"
+        )
 
     @given(st.booleans())
     def test_constant_bool(self, x: bool):

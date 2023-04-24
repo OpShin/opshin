@@ -1,3 +1,5 @@
+import ast
+
 import importlib
 import importlib.util
 import pathlib
@@ -40,6 +42,15 @@ def import_module(name, package=None):
     return module
 
 
+class RewriteLocation(CompilingNodeTransformer):
+    def __init__(self, orig_node):
+        self.orig_node = orig_node
+
+    def visit(self, node):
+        node = ast.copy_location(node, self.orig_node)
+        return super().visit(node)
+
+
 class RewriteImport(CompilingNodeTransformer):
     step = "Resolving imports"
 
@@ -74,7 +85,11 @@ class RewriteImport(CompilingNodeTransformer):
         # visit the imported file again - make sure that recursive imports are resolved accordingly
         with module_file.open("r") as fp:
             module_content = fp.read()
+        resolved = parse(module_content, filename=module_file.name)
+        # annotate this to point to the original line number!
+        RewriteLocation(node).visit(resolved)
+        # recursively import all statements there
         recursively_resolved: Module = RewriteImport(
             filename=str(module_file), package=module.__package__
-        ).visit(parse(module_content, filename=module_file.name))
+        ).visit(resolved)
         return recursively_resolved.body
