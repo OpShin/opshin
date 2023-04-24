@@ -953,6 +953,70 @@ def validator(x: Token) -> bool:
             failed = True
         self.assertTrue(failed, "Machine did validate the content")
 
+    def test_constant_folding(self):
+        source_code = """
+from opshin.prelude import *
+
+def validator(_: None) -> bytes:
+    return bytes.fromhex("0011")
+"""
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
+        self.assertEqual(res, uplc.PlutusByteString(bytes.fromhex("0011")))
+
+    def test_constant_folding_list(self):
+        source_code = """
+from opshin.prelude import *
+
+def validator(_: None) -> List[int]:
+    return list(range(0, 10, 2))
+"""
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
+        self.assertEqual(
+            res, uplc.PlutusList([uplc.PlutusInteger(i) for i in range(0, 10, 2)])
+        )
+
+    def test_constant_folding_math(self):
+        source_code = """
+from opshin.prelude import *
+
+def validator(_: None) -> int:
+    return 2 ** 10
+"""
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        code_src = code.dumps()
+        self.assertIn(f"(con integer {2**10})", code_src)
+
+    def test_constant_folding_ignore_reassignment(self):
+        source_code = """
+from opshin.prelude import *
+
+def validator(_: None) -> int:
+    def int(a) -> int:
+        return 2
+    return int(5)
+"""
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
+        self.assertEqual(res, uplc.PlutusInteger(2))
+
+    def test_constant_folding_no_print_eval(self):
+        source_code = """
+from opshin.prelude import *
+
+def validator(_: None) -> None:
+    return print("hello")
+"""
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        code_src = code.dumps()
+        self.assertIn(f'(con string "hello")', code_src)
+
     def test_inner_outer_state_functions(self):
         source_code = """
 a = 2
@@ -962,7 +1026,7 @@ def b() -> int:
 def validator(_: None) -> int:
     a = 3
     return b()
-"""
+        """
         ast = compiler.parse(source_code)
         code = compiler.compile(ast).compile()
         res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
@@ -1001,7 +1065,7 @@ def validator(_: None) -> int:
         self.assertEqual(res, uplc.PlutusInteger(3))
 
     @unittest.expectedFailure
-    def test_f(self):
+    def test_failing_annotated_type(self):
         source_code = """
 def c():
     a = 2
@@ -1025,6 +1089,19 @@ def validator(_: None) -> None:
    def d() -> str:
        return a
    print(d())
+   a = "2"
+"""
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
+
+    @unittest.expectedFailure
+    def test_access_local_variable_before_assignment(self):
+        # note this is a runtime error, just like it would be in python!
+        source_code = """
+a = "1"
+def validator(_: None) -> None:
+   print(a)
    a = "2"
 """
         ast = compiler.parse(source_code)
