@@ -74,6 +74,7 @@ import hypothesis.strategies as hst
 from opshin.std import fractions as oc_fractions
 
 import fractions as native_fractions
+import math as native_math
 
 non_null = hst.one_of(hst.integers(min_value=1), hst.integers(max_value=-1))
 denormalized_fractions = hst.builds(oc_fractions.Fraction, hst.integers(), non_null)
@@ -177,7 +178,23 @@ def test_gt(a: oc_fractions.Fraction, b: oc_fractions.Fraction):
 def test_eq(a: oc_fractions.Fraction, b: oc_fractions.Fraction):
     oc_eq = oc_fractions.eq_fraction(a, b)
     eq = native_fraction_from_oc_fraction(a) == native_fraction_from_oc_fraction(b)
-    assert oc_eq == eq, &#34;Invalid eq&#34;</code></pre>
+    assert oc_eq == eq, &#34;Invalid eq&#34;
+
+
+@hypothesis.given(denormalized_fractions)
+def test_floor(a: oc_fractions.Fraction):
+    oc_floor = oc_fractions.floor_fraction(a)
+    assert (
+        native_math.floor(native_fraction_from_oc_fraction(a)) == oc_floor
+    ), &#34;Invalid floor&#34;
+
+
+@hypothesis.given(denormalized_fractions)
+def test_ceil(a: oc_fractions.Fraction):
+    oc_ceil = oc_fractions.ceil_fraction(a)
+    assert (
+        native_math.ceil(native_fraction_from_oc_fraction(a)) == oc_ceil
+    ), &#34;Invalid ceil&#34;</code></pre>
 </details>
 </section>
 <section>
@@ -218,6 +235,23 @@ def test_add(a: oc_fractions.Fraction, b: oc_fractions.Fraction):
     ), &#34;Invalid add&#34;</code></pre>
 </details>
 </dd>
+<dt id="opshin.tests.test_std.test_fractions.test_ceil"><code class="name flex">
+<span>def <span class="ident">test_ceil</span></span>(<span>) ‑> None</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@hypothesis.given(denormalized_fractions)
+def test_ceil(a: oc_fractions.Fraction):
+    oc_ceil = oc_fractions.ceil_fraction(a)
+    assert (
+        native_math.ceil(native_fraction_from_oc_fraction(a)) == oc_ceil
+    ), &#34;Invalid ceil&#34;</code></pre>
+</details>
+</dd>
 <dt id="opshin.tests.test_std.test_fractions.test_div"><code class="name flex">
 <span>def <span class="ident">test_div</span></span>(<span>) ‑> None</span>
 </code></dt>
@@ -250,6 +284,23 @@ def test_eq(a: oc_fractions.Fraction, b: oc_fractions.Fraction):
     oc_eq = oc_fractions.eq_fraction(a, b)
     eq = native_fraction_from_oc_fraction(a) == native_fraction_from_oc_fraction(b)
     assert oc_eq == eq, &#34;Invalid eq&#34;</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_std.test_fractions.test_floor"><code class="name flex">
+<span>def <span class="ident">test_floor</span></span>(<span>) ‑> None</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@hypothesis.given(denormalized_fractions)
+def test_floor(a: oc_fractions.Fraction):
+    oc_floor = oc_fractions.floor_fraction(a)
+    assert (
+        native_math.floor(native_fraction_from_oc_fraction(a)) == oc_floor
+    ), &#34;Invalid floor&#34;</code></pre>
 </details>
 </dd>
 <dt id="opshin.tests.test_std.test_fractions.test_ge"><code class="name flex">
@@ -477,8 +528,10 @@ setTimeout(() => input.focus(), 100);
 <ul class="">
 <li><code><a title="opshin.tests.test_std.test_fractions.native_fraction_from_oc_fraction" href="#opshin.tests.test_std.test_fractions.native_fraction_from_oc_fraction">native_fraction_from_oc_fraction</a></code></li>
 <li><code><a title="opshin.tests.test_std.test_fractions.test_add" href="#opshin.tests.test_std.test_fractions.test_add">test_add</a></code></li>
+<li><code><a title="opshin.tests.test_std.test_fractions.test_ceil" href="#opshin.tests.test_std.test_fractions.test_ceil">test_ceil</a></code></li>
 <li><code><a title="opshin.tests.test_std.test_fractions.test_div" href="#opshin.tests.test_std.test_fractions.test_div">test_div</a></code></li>
 <li><code><a title="opshin.tests.test_std.test_fractions.test_eq" href="#opshin.tests.test_std.test_fractions.test_eq">test_eq</a></code></li>
+<li><code><a title="opshin.tests.test_std.test_fractions.test_floor" href="#opshin.tests.test_std.test_fractions.test_floor">test_floor</a></code></li>
 <li><code><a title="opshin.tests.test_std.test_fractions.test_ge" href="#opshin.tests.test_std.test_fractions.test_ge">test_ge</a></code></li>
 <li><code><a title="opshin.tests.test_std.test_fractions.test_gt" href="#opshin.tests.test_std.test_fractions.test_gt">test_gt</a></code></li>
 <li><code><a title="opshin.tests.test_std.test_fractions.test_le" href="#opshin.tests.test_std.test_fractions.test_le">test_le</a></code></li>
