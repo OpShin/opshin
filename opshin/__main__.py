@@ -14,7 +14,7 @@ from pycardano import PlutusData
 import uplc
 import uplc.ast
 
-from . import compiler, builder
+from . import compiler, builder, prelude
 from .util import CompilerError, data_from_json
 from .prelude import ScriptContext
 
@@ -108,8 +108,8 @@ def check_params(
     ret_type = validator_args[-1]
     # expect the validator to return None
     assert (
-        ret_type is None
-    ), f"Expected contract to return None, but returns {ret_type.__name__}"
+        ret_type is None or ret_type == prelude.Anything
+    ), f"Expected contract to return None, but returns {ret_type}"
 
     num_onchain_params = 3 if purpose == Purpose.spending or force_three_params else 2
     onchain_params = validator_args[-1 - num_onchain_params : -1]
@@ -184,8 +184,11 @@ def main():
     sc = importlib.import_module(pathlib.Path(tmp_input_file).stem)
     sys.path.pop()
     # load the passed parameters
+    annotations = list(sc.validator.__annotations__.values())
+    if "return" not in sc.validator.__annotations__:
+        annotations.append(prelude.Anything)
     parsed_params = []
-    for i, (c, a) in enumerate(zip(sc.validator.__annotations__.values(), args.args)):
+    for i, (c, a) in enumerate(zip(annotations, args.args)):
         if a[0] == "{":
             try:
                 param_json = json.loads(a)
@@ -216,7 +219,7 @@ def main():
     check_params(
         command,
         purpose,
-        list(sc.validator.__annotations__.values()),
+        annotations,
         parsed_params,
         force_three_params,
     )
