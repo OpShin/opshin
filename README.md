@@ -192,7 +192,7 @@ opshin compile_pluto examples/smart_contracts/assert_sum.py
 
 ### Sponsoring
 
-You can sponsor the development of opshin through GitHub or [Teiki](https://alpha.teiki.network/projects/opshin) or just by sending ADA. Drop me a message on social media and let me know what it is for.
+You can sponsor the development of opshin through GitHub or [Patreon](https://patreon.com/OpShin) or just by sending ADA. Drop me a message on social media and let me know what it is for.
 
 - **Patreon** Support OpShin at [Patreon](https://patreon.com/OpShin) to enjoy member benefits!
 - **GitHub** Sponsor the developers of this project through the button "Sponsor" next to them
