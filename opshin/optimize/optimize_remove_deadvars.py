@@ -93,7 +93,7 @@ class OptimizeRemoveDeadvars(CompilingNodeTransformer):
             # collect all variable names
             collector = NameLoadCollector()
             collector.visit(node_cp)
-            loaded_vars = set(collector.loaded.keys()) | {"validator"}
+            loaded_vars = set(collector.loaded.keys()) | {"validator_0"}
             # break if the set of loaded vars did not change -> set of vars to remove does also not change
             if loaded_vars == self.loaded_vars:
                 break

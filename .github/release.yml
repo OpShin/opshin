@@ -9,3 +9,9 @@ changelog:
     - title: 👒 Dependencies
       labels:
         - dependencies
+    - title: 🐛 Bugfixes
+      labels:
+        - bugfix
+    - title: 🔨 Breaking Changes
+      labels:
+        - breaking

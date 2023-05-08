@@ -174,7 +174,15 @@ def gt_fraction(a: Fraction, b: Fraction) -&gt; bool:
         res = a.numerator * b.denominator &gt; a.denominator * b.numerator
     else:
         res = a.numerator * b.denominator &lt; a.denominator * b.numerator
-    return res</code></pre>
+    return res
+
+
+def floor_fraction(a: Fraction) -&gt; int:
+    return a.numerator // a.denominator
+
+
+def ceil_fraction(a: Fraction) -&gt; int:
+    return (a.numerator + a.denominator - sign(a.denominator)) // a.denominator</code></pre>
 </details>
 </section>
 <section>
@@ -199,6 +207,19 @@ def gt_fraction(a: Fraction, b: Fraction) -&gt; bool:
         (a.numerator * b.denominator) + (b.numerator * a.denominator),
         a.denominator * b.denominator,
     )</code></pre>
+</details>
+</dd>
+<dt id="opshin.std.fractions.ceil_fraction"><code class="name flex">
+<span>def <span class="ident">ceil_fraction</span></span>(<span>a: <a title="opshin.std.fractions.Fraction" href="#opshin.std.fractions.Fraction">Fraction</a>) ‑> int</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def ceil_fraction(a: Fraction) -&gt; int:
+    return (a.numerator + a.denominator - sign(a.denominator)) // a.denominator</code></pre>
 </details>
 </dd>
 <dt id="opshin.std.fractions.div_fraction"><code class="name flex">
@@ -227,6 +248,19 @@ def gt_fraction(a: Fraction, b: Fraction) -&gt; bool:
 <pre><code class="python">def eq_fraction(a: Fraction, b: Fraction) -&gt; bool:
     &#34;&#34;&#34;returns a == b&#34;&#34;&#34;
     return a.numerator * b.denominator == a.denominator * b.numerator</code></pre>
+</details>
+</dd>
+<dt id="opshin.std.fractions.floor_fraction"><code class="name flex">
+<span>def <span class="ident">floor_fraction</span></span>(<span>a: <a title="opshin.std.fractions.Fraction" href="#opshin.std.fractions.Fraction">Fraction</a>) ‑> int</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def floor_fraction(a: Fraction) -&gt; int:
+    return a.numerator // a.denominator</code></pre>
 </details>
 </dd>
 <dt id="opshin.std.fractions.ge_fraction"><code class="name flex">
@@ -469,8 +503,10 @@ setTimeout(() => input.focus(), 100);
 <li><h3><a href="#header-functions">Functions</a></h3>
 <ul class="two-column">
 <li><code><a title="opshin.std.fractions.add_fraction" href="#opshin.std.fractions.add_fraction">add_fraction</a></code></li>
+<li><code><a title="opshin.std.fractions.ceil_fraction" href="#opshin.std.fractions.ceil_fraction">ceil_fraction</a></code></li>
 <li><code><a title="opshin.std.fractions.div_fraction" href="#opshin.std.fractions.div_fraction">div_fraction</a></code></li>
 <li><code><a title="opshin.std.fractions.eq_fraction" href="#opshin.std.fractions.eq_fraction">eq_fraction</a></code></li>
+<li><code><a title="opshin.std.fractions.floor_fraction" href="#opshin.std.fractions.floor_fraction">floor_fraction</a></code></li>
 <li><code><a title="opshin.std.fractions.ge_fraction" href="#opshin.std.fractions.ge_fraction">ge_fraction</a></code></li>
 <li><code><a title="opshin.std.fractions.gt_fraction" href="#opshin.std.fractions.gt_fraction">gt_fraction</a></code></li>
 <li><code><a title="opshin.std.fractions.le_fraction" href="#opshin.std.fractions.le_fraction">le_fraction</a></code></li>

@@ -6,7 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
 <meta name="generator" content="pdoc 0.10.0" />
 <link rel="icon" href="https://raw.githubusercontent.com/OpShin/opshin/dev/docs/opshin_32.png" sizes="32x32" type="image/png">
-<title>opshin.optimize.optimize_varlen API documentation</title>
+<title>opshin.rewrite.rewrite_orig_name API documentation</title>
 <meta name="description" content="" />
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/sanitize.min.css" integrity="sha256-PK9q560IAAa6WVRRh76LtCaI8pjTJ2z11v0miyNNjrs=" crossorigin>
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/typography.min.css" integrity="sha256-7l/o7C8jubJiy74VsKTidCy1yBkRtiUGbVkYBylBqUg=" crossorigin>
@@ -61,7 +61,7 @@ fill="currentColor" class="octo-body"></path>
 </a>
 <article id="content">
 <header>
-<h1 class="title">Module <code>opshin.optimize.optimize_varlen</code></h1>
+<h1 class="title">Module <code>opshin.rewrite.rewrite_orig_name</code></h1>
 </header>
 <section id="section-intro">
 <details class="source">
@@ -70,82 +70,35 @@ fill="currentColor" class="octo-body"></path>
 </summary>
 <pre><code class="python">from ast import *
 from copy import copy
-from collections import defaultdict
 
-from ..util import CompilingNodeTransformer, CompilingNodeVisitor
+from ..util import CompilingNodeTransformer
 
 &#34;&#34;&#34;
-Rewrites all variable names to a minimal length equivalent
+Rewrites all occurrences of names to contain a pointer to the original name for good
 &#34;&#34;&#34;
 
 
-class NameCollector(CompilingNodeVisitor):
-    step = &#34;Collecting occuring variable names&#34;
-
-    def __init__(self):
-        self.vars = defaultdict(int)
-
-    def visit_Name(self, node: Name) -&gt; None:
-        self.vars[node.id] += 1
-
-    def visit_ClassDef(self, node: ClassDef):
-        self.vars[node.name] += 1
-        # ignore the content (i.e. attribute names) of class definitions
-
-    def visit_FunctionDef(self, node: FunctionDef):
-        self.vars[node.name] += 1
-        for a in node.args.args:
-            # ignore type hints
-            self.vars[a.arg] += 1
-        for s in node.body:
-            self.visit(s)
-
-
-def bs_from_int(i: int):
-    hex_str = f&#34;{i:x}&#34;
-    if len(hex_str) % 2 == 1:
-        hex_str = &#34;0&#34; + hex_str
-    return bytes.fromhex(hex_str)
-
-
-class OptimizeVarlen(CompilingNodeTransformer):
-    step = &#34;Reducing the length of variable names&#34;
-
-    varmap = None
-
-    def visit_Module(self, node: Module) -&gt; Module:
-        # collect all variable names
-        collector = NameCollector()
-        collector.visit(node)
-        # sort by most used
-        varmap = {}
-        varnames = sorted(collector.vars.items(), key=lambda x: x[1], reverse=True)
-        for i, (v, _) in enumerate(varnames):
-            varmap[v] = bs_from_int(i)
-        self.varmap = varmap
-        node_cp = copy(node)
-        node_cp.body = [self.visit(s) for s in node.body]
-        return node_cp
+class RewriteOrigName(CompilingNodeTransformer):
+    step = &#34;Assigning the orig_id/orig_name field with the variable name&#34;
 
     def visit_Name(self, node: Name) -&gt; Name:
         nc = copy(node)
-        nc.id = self.varmap[node.id]
+        nc.orig_id = node.id
         return nc
 
     def visit_ClassDef(self, node: ClassDef) -&gt; ClassDef:
         node_cp = copy(node)
-        node_cp.name = self.varmap[node.name]
-        # ignore the content of class definitions
+        node_cp.orig_name = node.name
         return node_cp
 
     def visit_FunctionDef(self, node: FunctionDef) -&gt; FunctionDef:
         node_cp = copy(node)
-        node_cp.name = self.varmap[node.name]
+        node_cp.orig_name = node.name
         node_cp.args = copy(node.args)
         node_cp.args.args = []
         for a in node.args.args:
             a_cp = copy(a)
-            a_cp.arg = self.varmap[a.arg]
+            a_cp.orig_arg = a.arg
             node_cp.args.args.append(a_cp)
         node_cp.body = [self.visit(s) for s in node.body]
         return node_cp</code></pre>
@@ -156,150 +109,12 @@ class OptimizeVarlen(CompilingNodeTransformer):
 <section>
 </section>
 <section>
-<h2 class="section-title" id="header-functions">Functions</h2>
-<dl>
-<dt id="opshin.optimize.optimize_varlen.bs_from_int"><code class="name flex">
-<span>def <span class="ident">bs_from_int</span></span>(<span>i: int)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def bs_from_int(i: int):
-    hex_str = f&#34;{i:x}&#34;
-    if len(hex_str) % 2 == 1:
-        hex_str = &#34;0&#34; + hex_str
-    return bytes.fromhex(hex_str)</code></pre>
-</details>
-</dd>
-</dl>
 </section>
 <section>
 <h2 class="section-title" id="header-classes">Classes</h2>
 <dl>
-<dt id="opshin.optimize.optimize_varlen.NameCollector"><code class="flex name class">
-<span>class <span class="ident">NameCollector</span></span>
-</code></dt>
-<dd>
-<div class="desc"><p>A node visitor base class that walks the abstract syntax tree and calls a
-visitor function for every node found.
-This function may return a value
-which is forwarded by the <code>visit</code> method.</p>
-<p>This class is meant to be subclassed, with the subclass adding visitor
-methods.</p>
-<p>Per default the visitor functions for the nodes are <code>'visit_'</code> +
-class name of the node.
-So a <code>TryFinally</code> node visit function would
-be <code>visit_TryFinally</code>.
-This behavior can be changed by overriding
-the <code>visit</code> method.
-If no visitor function exists for a node
-(return value <code>None</code>) the <code>generic_visit</code> visitor is used instead.</p>
-<p>Don't use the <code>NodeVisitor</code> if you want to apply changes to nodes during
-traversing.
-For this a special visitor exists (<code>NodeTransformer</code>) that
-allows modifications.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">class NameCollector(CompilingNodeVisitor):
-    step = &#34;Collecting occuring variable names&#34;
-
-    def __init__(self):
-        self.vars = defaultdict(int)
-
-    def visit_Name(self, node: Name) -&gt; None:
-        self.vars[node.id] += 1
-
-    def visit_ClassDef(self, node: ClassDef):
-        self.vars[node.name] += 1
-        # ignore the content (i.e. attribute names) of class definitions
-
-    def visit_FunctionDef(self, node: FunctionDef):
-        self.vars[node.name] += 1
-        for a in node.args.args:
-            # ignore type hints
-            self.vars[a.arg] += 1
-        for s in node.body:
-            self.visit(s)</code></pre>
-</details>
-<h3>Ancestors</h3>
-<ul class="hlist">
-<li><a title="opshin.util.CompilingNodeVisitor" href="../util.html#opshin.util.CompilingNodeVisitor">CompilingNodeVisitor</a></li>
-<li><a title="opshin.typed_ast.TypedNodeVisitor" href="../typed_ast.html#opshin.typed_ast.TypedNodeVisitor">TypedNodeVisitor</a></li>
-<li>ast.NodeVisitor</li>
-</ul>
-<h3>Class variables</h3>
-<dl>
-<dt id="opshin.optimize.optimize_varlen.NameCollector.step"><code class="name">var <span class="ident">step</span></code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-</dl>
-<h3>Methods</h3>
-<dl>
-<dt id="opshin.optimize.optimize_varlen.NameCollector.visit"><code class="name flex">
-<span>def <span class="ident">visit</span></span>(<span>self, node)</span>
-</code></dt>
-<dd>
-<p class="inheritance">
-<em>Inherited from:</em>
-<code><a title="opshin.util.CompilingNodeVisitor" href="../util.html#opshin.util.CompilingNodeVisitor">CompilingNodeVisitor</a></code>.<code><a title="opshin.util.CompilingNodeVisitor.visit" href="../util.html#opshin.util.CompilingNodeVisitor.visit">visit</a></code>
-</p>
-<div class="desc inherited"><p>Visit a node.</p></div>
-</dd>
-<dt id="opshin.optimize.optimize_varlen.NameCollector.visit_ClassDef"><code class="name flex">
-<span>def <span class="ident">visit_ClassDef</span></span>(<span>self, node: _ast.ClassDef)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def visit_ClassDef(self, node: ClassDef):
-    self.vars[node.name] += 1
-    # ignore the content (i.e. attribute names) of class definitions</code></pre>
-</details>
-</dd>
-<dt id="opshin.optimize.optimize_varlen.NameCollector.visit_FunctionDef"><code class="name flex">
-<span>def <span class="ident">visit_FunctionDef</span></span>(<span>self, node: _ast.FunctionDef)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def visit_FunctionDef(self, node: FunctionDef):
-    self.vars[node.name] += 1
-    for a in node.args.args:
-        # ignore type hints
-        self.vars[a.arg] += 1
-    for s in node.body:
-        self.visit(s)</code></pre>
-</details>
-</dd>
-<dt id="opshin.optimize.optimize_varlen.NameCollector.visit_Name"><code class="name flex">
-<span>def <span class="ident">visit_Name</span></span>(<span>self, node: _ast.Name) ‑> None</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def visit_Name(self, node: Name) -&gt; None:
-    self.vars[node.id] += 1</code></pre>
-</details>
-</dd>
-</dl>
-</dd>
-<dt id="opshin.optimize.optimize_varlen.OptimizeVarlen"><code class="flex name class">
-<span>class <span class="ident">OptimizeVarlen</span></span>
+<dt id="opshin.rewrite.rewrite_orig_name.RewriteOrigName"><code class="flex name class">
+<span>class <span class="ident">RewriteOrigName</span></span>
 </code></dt>
 <dd>
 <div class="desc"><p>A :class:<code>NodeVisitor</code> subclass that walks the abstract syntax tree and
@@ -333,44 +148,27 @@ just a single node.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">class OptimizeVarlen(CompilingNodeTransformer):
-    step = &#34;Reducing the length of variable names&#34;
-
-    varmap = None
-
-    def visit_Module(self, node: Module) -&gt; Module:
-        # collect all variable names
-        collector = NameCollector()
-        collector.visit(node)
-        # sort by most used
-        varmap = {}
-        varnames = sorted(collector.vars.items(), key=lambda x: x[1], reverse=True)
-        for i, (v, _) in enumerate(varnames):
-            varmap[v] = bs_from_int(i)
-        self.varmap = varmap
-        node_cp = copy(node)
-        node_cp.body = [self.visit(s) for s in node.body]
-        return node_cp
+<pre><code class="python">class RewriteOrigName(CompilingNodeTransformer):
+    step = &#34;Assigning the orig_id/orig_name field with the variable name&#34;
 
     def visit_Name(self, node: Name) -&gt; Name:
         nc = copy(node)
-        nc.id = self.varmap[node.id]
+        nc.orig_id = node.id
         return nc
 
     def visit_ClassDef(self, node: ClassDef) -&gt; ClassDef:
         node_cp = copy(node)
-        node_cp.name = self.varmap[node.name]
-        # ignore the content of class definitions
+        node_cp.orig_name = node.name
         return node_cp
 
     def visit_FunctionDef(self, node: FunctionDef) -&gt; FunctionDef:
         node_cp = copy(node)
-        node_cp.name = self.varmap[node.name]
+        node_cp.orig_name = node.name
         node_cp.args = copy(node.args)
         node_cp.args.args = []
         for a in node.args.args:
             a_cp = copy(a)
-            a_cp.arg = self.varmap[a.arg]
+            a_cp.orig_arg = a.arg
             node_cp.args.args.append(a_cp)
         node_cp.body = [self.visit(s) for s in node.body]
         return node_cp</code></pre>
@@ -384,18 +182,14 @@ just a single node.</p>
 </ul>
 <h3>Class variables</h3>
 <dl>
-<dt id="opshin.optimize.optimize_varlen.OptimizeVarlen.step"><code class="name">var <span class="ident">step</span></code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-<dt id="opshin.optimize.optimize_varlen.OptimizeVarlen.varmap"><code class="name">var <span class="ident">varmap</span></code></dt>
+<dt id="opshin.rewrite.rewrite_orig_name.RewriteOrigName.step"><code class="name">var <span class="ident">step</span></code></dt>
 <dd>
 <div class="desc"></div>
 </dd>
 </dl>
 <h3>Methods</h3>
 <dl>
-<dt id="opshin.optimize.optimize_varlen.OptimizeVarlen.visit"><code class="name flex">
+<dt id="opshin.rewrite.rewrite_orig_name.RewriteOrigName.visit"><code class="name flex">
 <span>def <span class="ident">visit</span></span>(<span>self, node)</span>
 </code></dt>
 <dd>
@@ -405,7 +199,7 @@ just a single node.</p>
 </p>
 <div class="desc inherited"><p>Visit a node.</p></div>
 </dd>
-<dt id="opshin.optimize.optimize_varlen.OptimizeVarlen.visit_ClassDef"><code class="name flex">
+<dt id="opshin.rewrite.rewrite_orig_name.RewriteOrigName.visit_ClassDef"><code class="name flex">
 <span>def <span class="ident">visit_ClassDef</span></span>(<span>self, node: _ast.ClassDef) ‑> _ast.ClassDef</span>
 </code></dt>
 <dd>
@@ -416,12 +210,11 @@ just a single node.</p>
 </summary>
 <pre><code class="python">def visit_ClassDef(self, node: ClassDef) -&gt; ClassDef:
     node_cp = copy(node)
-    node_cp.name = self.varmap[node.name]
-    # ignore the content of class definitions
+    node_cp.orig_name = node.name
     return node_cp</code></pre>
 </details>
 </dd>
-<dt id="opshin.optimize.optimize_varlen.OptimizeVarlen.visit_FunctionDef"><code class="name flex">
+<dt id="opshin.rewrite.rewrite_orig_name.RewriteOrigName.visit_FunctionDef"><code class="name flex">
 <span>def <span class="ident">visit_FunctionDef</span></span>(<span>self, node: _ast.FunctionDef) ‑> _ast.FunctionDef</span>
 </code></dt>
 <dd>
@@ -432,42 +225,18 @@ just a single node.</p>
 </summary>
 <pre><code class="python">def visit_FunctionDef(self, node: FunctionDef) -&gt; FunctionDef:
     node_cp = copy(node)
-    node_cp.name = self.varmap[node.name]
+    node_cp.orig_name = node.name
     node_cp.args = copy(node.args)
     node_cp.args.args = []
     for a in node.args.args:
         a_cp = copy(a)
-        a_cp.arg = self.varmap[a.arg]
+        a_cp.orig_arg = a.arg
         node_cp.args.args.append(a_cp)
     node_cp.body = [self.visit(s) for s in node.body]
     return node_cp</code></pre>
 </details>
 </dd>
-<dt id="opshin.optimize.optimize_varlen.OptimizeVarlen.visit_Module"><code class="name flex">
-<span>def <span class="ident">visit_Module</span></span>(<span>self, node: _ast.Module) ‑> _ast.Module</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def visit_Module(self, node: Module) -&gt; Module:
-    # collect all variable names
-    collector = NameCollector()
-    collector.visit(node)
-    # sort by most used
-    varmap = {}
-    varnames = sorted(collector.vars.items(), key=lambda x: x[1], reverse=True)
-    for i, (v, _) in enumerate(varnames):
-        varmap[v] = bs_from_int(i)
-    self.varmap = varmap
-    node_cp = copy(node)
-    node_cp.body = [self.visit(s) for s in node.body]
-    return node_cp</code></pre>
-</details>
-</dd>
-<dt id="opshin.optimize.optimize_varlen.OptimizeVarlen.visit_Name"><code class="name flex">
+<dt id="opshin.rewrite.rewrite_orig_name.RewriteOrigName.visit_Name"><code class="name flex">
 <span>def <span class="ident">visit_Name</span></span>(<span>self, node: _ast.Name) ‑> _ast.Name</span>
 </code></dt>
 <dd>
@@ -478,7 +247,7 @@ just a single node.</p>
 </summary>
 <pre><code class="python">def visit_Name(self, node: Name) -&gt; Name:
     nc = copy(node)
-    nc.id = self.varmap[node.id]
+    nc.orig_id = node.id
     return nc</code></pre>
 </details>
 </dd>
@@ -548,36 +317,19 @@ setTimeout(() => input.focus(), 100);
 <ul id="index">
 <li><h3>Super-module</h3>
 <ul>
-<li><code><a title="opshin.optimize" href="index.html">opshin.optimize</a></code></li>
-</ul>
-</li>
-<li><h3><a href="#header-functions">Functions</a></h3>
-<ul class="">
-<li><code><a title="opshin.optimize.optimize_varlen.bs_from_int" href="#opshin.optimize.optimize_varlen.bs_from_int">bs_from_int</a></code></li>
+<li><code><a title="opshin.rewrite" href="index.html">opshin.rewrite</a></code></li>
 </ul>
 </li>
 <li><h3><a href="#header-classes">Classes</a></h3>
 <ul>
 <li>
-<h4><code><a title="opshin.optimize.optimize_varlen.NameCollector" href="#opshin.optimize.optimize_varlen.NameCollector">NameCollector</a></code></h4>
+<h4><code><a title="opshin.rewrite.rewrite_orig_name.RewriteOrigName" href="#opshin.rewrite.rewrite_orig_name.RewriteOrigName">RewriteOrigName</a></code></h4>
 <ul class="">
-<li><code><a title="opshin.optimize.optimize_varlen.NameCollector.step" href="#opshin.optimize.optimize_varlen.NameCollector.step">step</a></code></li>
-<li><code><a title="opshin.optimize.optimize_varlen.NameCollector.visit" href="../util.html#opshin.optimize.optimize_varlen.NameCollector.visit">visit</a></code></li>
-<li><code><a title="opshin.optimize.optimize_varlen.NameCollector.visit_ClassDef" href="#opshin.optimize.optimize_varlen.NameCollector.visit_ClassDef">visit_ClassDef</a></code></li>
-<li><code><a title="opshin.optimize.optimize_varlen.NameCollector.visit_FunctionDef" href="#opshin.optimize.optimize_varlen.NameCollector.visit_FunctionDef">visit_FunctionDef</a></code></li>
-<li><code><a title="opshin.optimize.optimize_varlen.NameCollector.visit_Name" href="#opshin.optimize.optimize_varlen.NameCollector.visit_Name">visit_Name</a></code></li>
-</ul>
-</li>
-<li>
-<h4><code><a title="opshin.optimize.optimize_varlen.OptimizeVarlen" href="#opshin.optimize.optimize_varlen.OptimizeVarlen">OptimizeVarlen</a></code></h4>
-<ul class="two-column">
-<li><code><a title="opshin.optimize.optimize_varlen.OptimizeVarlen.step" href="#opshin.optimize.optimize_varlen.OptimizeVarlen.step">step</a></code></li>
-<li><code><a title="opshin.optimize.optimize_varlen.OptimizeVarlen.varmap" href="#opshin.optimize.optimize_varlen.OptimizeVarlen.varmap">varmap</a></code></li>
-<li><code><a title="opshin.optimize.optimize_varlen.OptimizeVarlen.visit" href="../util.html#opshin.optimize.optimize_varlen.OptimizeVarlen.visit">visit</a></code></li>
-<li><code><a title="opshin.optimize.optimize_varlen.OptimizeVarlen.visit_ClassDef" href="#opshin.optimize.optimize_varlen.OptimizeVarlen.visit_ClassDef">visit_ClassDef</a></code></li>
-<li><code><a title="opshin.optimize.optimize_varlen.OptimizeVarlen.visit_FunctionDef" href="#opshin.optimize.optimize_varlen.OptimizeVarlen.visit_FunctionDef">visit_FunctionDef</a></code></li>
-<li><code><a title="opshin.optimize.optimize_varlen.OptimizeVarlen.visit_Module" href="#opshin.optimize.optimize_varlen.OptimizeVarlen.visit_Module">visit_Module</a></code></li>
-<li><code><a title="opshin.optimize.optimize_varlen.OptimizeVarlen.visit_Name" href="#opshin.optimize.optimize_varlen.OptimizeVarlen.visit_Name">visit_Name</a></code></li>
+<li><code><a title="opshin.rewrite.rewrite_orig_name.RewriteOrigName.step" href="#opshin.rewrite.rewrite_orig_name.RewriteOrigName.step">step</a></code></li>
+<li><code><a title="opshin.rewrite.rewrite_orig_name.RewriteOrigName.visit" href="../util.html#opshin.rewrite.rewrite_orig_name.RewriteOrigName.visit">visit</a></code></li>
+<li><code><a title="opshin.rewrite.rewrite_orig_name.RewriteOrigName.visit_ClassDef" href="#opshin.rewrite.rewrite_orig_name.RewriteOrigName.visit_ClassDef">visit_ClassDef</a></code></li>
+<li><code><a title="opshin.rewrite.rewrite_orig_name.RewriteOrigName.visit_FunctionDef" href="#opshin.rewrite.rewrite_orig_name.RewriteOrigName.visit_FunctionDef">visit_FunctionDef</a></code></li>
+<li><code><a title="opshin.rewrite.rewrite_orig_name.RewriteOrigName.visit_Name" href="#opshin.rewrite.rewrite_orig_name.RewriteOrigName.visit_Name">visit_Name</a></code></li>
 </ul>
 </li>
 </ul>

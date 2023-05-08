@@ -71,6 +71,7 @@ fill="currentColor" class="octo-body"></path>
 <pre><code class="python">import ast
 import pycardano
 from enum import Enum, auto
+from frozendict import frozendict
 
 from .typed_ast import *
 
@@ -619,12 +620,16 @@ def data_from_json(j: typing.Dict[str, typing.Any]) -&gt; uplc.PlutusData:
     if &#34;int&#34; in j:
         return uplc.PlutusInteger(int(j[&#34;int&#34;]))
     if &#34;list&#34; in j:
-        return uplc.PlutusList(list(map(data_from_json, j[&#34;list&#34;])))
+        return uplc.PlutusList(FrozenFrozenList(list(map(data_from_json, j[&#34;list&#34;]))))
     if &#34;map&#34; in j:
-        return uplc.PlutusMap({d[&#34;k&#34;]: d[&#34;v&#34;] for d in j[&#34;map&#34;]})
+        return uplc.PlutusMap(
+            frozendict(
+                {data_from_json(d[&#34;k&#34;]): data_from_json(d[&#34;v&#34;]) for d in j[&#34;map&#34;]}
+            )
+        )
     if &#34;constructor&#34; in j and &#34;fields&#34; in j:
         return uplc.PlutusConstr(
-            j[&#34;constructor&#34;], list(map(data_from_json, j[&#34;fields&#34;]))
+            j[&#34;constructor&#34;], FrozenFrozenList(list(map(data_from_json, j[&#34;fields&#34;])))
         )
     raise NotImplementedError(f&#34;Unknown datum representation {j}&#34;)
 
@@ -693,12 +698,16 @@ def datum_to_json(d: pycardano.Datum) -&gt; str:
     if &#34;int&#34; in j:
         return uplc.PlutusInteger(int(j[&#34;int&#34;]))
     if &#34;list&#34; in j:
-        return uplc.PlutusList(list(map(data_from_json, j[&#34;list&#34;])))
+        return uplc.PlutusList(FrozenFrozenList(list(map(data_from_json, j[&#34;list&#34;]))))
     if &#34;map&#34; in j:
-        return uplc.PlutusMap({d[&#34;k&#34;]: d[&#34;v&#34;] for d in j[&#34;map&#34;]})
+        return uplc.PlutusMap(
+            frozendict(
+                {data_from_json(d[&#34;k&#34;]): data_from_json(d[&#34;v&#34;]) for d in j[&#34;map&#34;]}
+            )
+        )
     if &#34;constructor&#34; in j and &#34;fields&#34; in j:
         return uplc.PlutusConstr(
-            j[&#34;constructor&#34;], list(map(data_from_json, j[&#34;fields&#34;]))
+            j[&#34;constructor&#34;], FrozenFrozenList(list(map(data_from_json, j[&#34;fields&#34;])))
         )
     raise NotImplementedError(f&#34;Unknown datum representation {j}&#34;)</code></pre>
 </details>
@@ -811,6 +820,7 @@ just a single node.</p>
 <h3>Subclasses</h3>
 <ul class="hlist">
 <li><a title="opshin.compiler.UPLCCompiler" href="compiler.html#opshin.compiler.UPLCCompiler">UPLCCompiler</a></li>
+<li><a title="opshin.optimize.optimize_const_folding.OptimizeConstantFolding" href="optimize/optimize_const_folding.html#opshin.optimize.optimize_const_folding.OptimizeConstantFolding">OptimizeConstantFolding</a></li>
 <li><a title="opshin.optimize.optimize_remove_comments.OptimizeRemoveDeadconstants" href="optimize/optimize_remove_comments.html#opshin.optimize.optimize_remove_comments.OptimizeRemoveDeadconstants">OptimizeRemoveDeadconstants</a></li>
 <li><a title="opshin.optimize.optimize_remove_deadvars.OptimizeRemoveDeadvars" href="optimize/optimize_remove_deadvars.html#opshin.optimize.optimize_remove_deadvars.OptimizeRemoveDeadvars">OptimizeRemoveDeadvars</a></li>
 <li><a title="opshin.optimize.optimize_remove_pass.OptimizeRemovePass" href="optimize/optimize_remove_pass.html#opshin.optimize.optimize_remove_pass.OptimizeRemovePass">OptimizeRemovePass</a></li>
@@ -825,7 +835,9 @@ just a single node.</p>
 <li><a title="opshin.rewrite.rewrite_import_typing.RewriteImportTyping" href="rewrite/rewrite_import_typing.html#opshin.rewrite.rewrite_import_typing.RewriteImportTyping">RewriteImportTyping</a></li>
 <li><a title="opshin.rewrite.rewrite_inject_builtin_constr.RewriteInjectBuiltinsConstr" href="rewrite/rewrite_inject_builtin_constr.html#opshin.rewrite.rewrite_inject_builtin_constr.RewriteInjectBuiltinsConstr">RewriteInjectBuiltinsConstr</a></li>
 <li><a title="opshin.rewrite.rewrite_inject_builtins.RewriteInjectBuiltins" href="rewrite/rewrite_inject_builtins.html#opshin.rewrite.rewrite_inject_builtins.RewriteInjectBuiltins">RewriteInjectBuiltins</a></li>
+<li><a title="opshin.rewrite.rewrite_orig_name.RewriteOrigName" href="rewrite/rewrite_orig_name.html#opshin.rewrite.rewrite_orig_name.RewriteOrigName">RewriteOrigName</a></li>
 <li><a title="opshin.rewrite.rewrite_remove_type_stuff.RewriteRemoveTypeStuff" href="rewrite/rewrite_remove_type_stuff.html#opshin.rewrite.rewrite_remove_type_stuff.RewriteRemoveTypeStuff">RewriteRemoveTypeStuff</a></li>
+<li><a title="opshin.rewrite.rewrite_scoping.RewriteScoping" href="rewrite/rewrite_scoping.html#opshin.rewrite.rewrite_scoping.RewriteScoping">RewriteScoping</a></li>
 <li><a title="opshin.rewrite.rewrite_subscript38.RewriteSubscript38" href="rewrite/rewrite_subscript38.html#opshin.rewrite.rewrite_subscript38.RewriteSubscript38">RewriteSubscript38</a></li>
 <li><a title="opshin.rewrite.rewrite_tuple_assign.RewriteTupleAssign" href="rewrite/rewrite_tuple_assign.html#opshin.rewrite.rewrite_tuple_assign.RewriteTupleAssign">RewriteTupleAssign</a></li>
 <li><a title="opshin.rewrite.rewrite_zero_ary.RewriteZeroAry" href="rewrite/rewrite_zero_ary.html#opshin.rewrite.rewrite_zero_ary.RewriteZeroAry">RewriteZeroAry</a></li>
@@ -908,9 +920,11 @@ allows modifications.</p></div>
 </ul>
 <h3>Subclasses</h3>
 <ul class="hlist">
+<li><a title="opshin.optimize.optimize_const_folding.ShallowNameDefCollector" href="optimize/optimize_const_folding.html#opshin.optimize.optimize_const_folding.ShallowNameDefCollector">ShallowNameDefCollector</a></li>
 <li><a title="opshin.optimize.optimize_remove_deadvars.NameLoadCollector" href="optimize/optimize_remove_deadvars.html#opshin.optimize.optimize_remove_deadvars.NameLoadCollector">NameLoadCollector</a></li>
 <li><a title="opshin.optimize.optimize_remove_deadvars.SafeOperationVisitor" href="optimize/optimize_remove_deadvars.html#opshin.optimize.optimize_remove_deadvars.SafeOperationVisitor">SafeOperationVisitor</a></li>
 <li><a title="opshin.optimize.optimize_varlen.NameCollector" href="optimize/optimize_varlen.html#opshin.optimize.optimize_varlen.NameCollector">NameCollector</a></li>
+<li><a title="opshin.rewrite.rewrite_scoping.ShallowNameDefCollector" href="rewrite/rewrite_scoping.html#opshin.rewrite.rewrite_scoping.ShallowNameDefCollector">ShallowNameDefCollector</a></li>
 </ul>
 <h3>Class variables</h3>
 <dl>

@@ -94,3 +94,25 @@ def resolve_datum(
     else:
         res: Union[SomeOutputDatum, NoOutputDatum] = attached_datum
     return res
+
+
+def own_spent_utxo(txins: List[TxInInfo], p: Spending) -> TxOut:
+    # obtain the resolved txout that is going to be spent from this contract address
+    for txi in txins:
+        if txi.out_ref == p.tx_out_ref:
+            own_txout = txi.resolved
+    # This throws a name error if the txout was not found
+    return own_txout
+
+
+def own_policy_id(own_spent_utxo: TxOut) -> PolicyId:
+    # obtain the policy id for which this contract can validate minting/burning
+    cred = own_spent_utxo.address.payment_credential
+    if isinstance(cred, ScriptCredential):
+        policy_id = cred.credential_hash
+    # This throws a name error if the credential is not a ScriptCredential instance
+    return policy_id
+
+
+def own_address(own_policy_id: PolicyId) -> Address:
+    return Address(ScriptCredential(own_policy_id), NoStakingCredential())

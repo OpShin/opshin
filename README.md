@@ -192,9 +192,9 @@ opshin compile_pluto examples/smart_contracts/assert_sum.py
 
 ### Sponsoring
 
-You can sponsor the development of opshin through GitHub or [Teiki](https://alpha.teiki.network/projects/opshin) or just by sending ADA. Drop me a message on social media and let me know what it is for.
+You can sponsor the development of opshin through GitHub or [Patreon](https://patreon.com/OpShin) or just by sending ADA. Drop me a message on social media and let me know what it is for.
 
-- **[Kreate](https://beta.kreate.community/projects/opshin)** Stake your ada to support OpShin at [Kreate](https://beta.kreate.community/projects/opshin)
+- **Patreon** Support OpShin at [Patreon](https://patreon.com/OpShin) to enjoy member benefits!
 - **GitHub** Sponsor the developers of this project through the button "Sponsor" next to them
 - **ADA** Donation in ADA can be submitted to `$opshin` or `addr1qyz3vgd5xxevjy2rvqevz9n7n7dney8n6hqggp23479fm6vwpj9clsvsf85cd4xc59zjztr5zwpummwckmzr2myjwjns74lhmr`.
 
@@ -203,6 +203,7 @@ You can sponsor the development of opshin through GitHub or [Teiki](https://alph
 <a href="https://github.com/inversion-dev"><img src="https://avatars.githubusercontent.com/u/127298233?s=200&v=4" width="50"></a>
 <a href="https://github.com/MuesliSwapTeam/"><img  src="https://avatars.githubusercontent.com/u/91151317?v=4" width="50" /></a>
 <a href="https://github.com/AadaFinance/"><img  src="https://avatars.githubusercontent.com/u/89693711?v=4" width="50" /></a>
+<a href="https://github.com/kreate-community/"><img  src="https://avatars.githubusercontent.com/u/118675270?v=4" width="50" /></a>
 
 The main sponsor of this project is [Inversion](https://inversion.dev/cardano/). Here is a word from them!
 
