@@ -537,9 +537,7 @@ def validator(_: None) -> SomeOutputDatum:
         ret = uplc_eval(f)
         self.assertEqual(
             ret,
-            uplc.data_from_cbor(
-                prelude.SomeOutputDatum(b"a").to_cbor(encoding="bytes")
-            ),
+            uplc.data_from_cbor(prelude.SomeOutputDatum(b"a").to_cbor()),
             "Machine did validate the content",
         )
 
