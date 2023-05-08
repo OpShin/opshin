@@ -565,7 +565,7 @@ def data_from_json(j: typing.Dict[str, typing.Any]) -> uplc.PlutusData:
 
 
 def datum_to_cbor(d: pycardano.Datum) -> bytes:
-    return pycardano.PlutusData.to_cbor(d, encoding="bytes")
+    return pycardano.PlutusData.to_cbor(d)
 
 
 def datum_to_json(d: pycardano.Datum) -> str:

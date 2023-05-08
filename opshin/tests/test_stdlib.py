@@ -1,8 +1,10 @@
+from dataclasses import dataclass
 import unittest
 
-from hypothesis import example, given
+from hypothesis import example, given, settings
 from hypothesis import strategies as st
 from uplc import ast as uplc, eval as uplc_eval
+from pycardano import PlutusData
 
 from .. import compiler
 
@@ -279,3 +281,68 @@ def validator(x: None) -> bool:
             f = uplc.Apply(f, d)
         ret = uplc_eval(f).value == 1
         self.assertEqual(ret, x, "literal bool returned wrong value")
+
+    @given(st.integers(), st.binary())
+    @settings(deadline=None)
+    def test_plutusdata_to_cbor(self, x: int, y: bytes):
+        source_code = f"""
+from opshin.prelude import *
+
+@dataclass
+class Test(PlutusData):
+    x: int
+    y: bytes
+
+def validator(x: int, y: bytes) -> bytes:
+    return Test(x, y).to_cbor()
+            """
+
+        @dataclass
+        class Test(PlutusData):
+            x: int
+            y: bytes
+
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        for d in [uplc.PlutusInteger(x), uplc.PlutusByteString(y)]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value
+        self.assertEqual(ret, Test(x, y).to_cbor(), "to_cbor returned wrong value")
+
+    @given(st.integers())
+    @settings(deadline=None)
+    def test_union_to_cbor(self, x: int):
+        source_code = f"""
+from opshin.prelude import *
+
+@dataclass
+class Test(PlutusData):
+    CONSTR_ID = 1
+    x: int
+    y: bytes
+    
+@dataclass
+class Test2(PlutusData):
+    x: int
+
+def validator(x: int) -> bytes:
+    y: Union[Test, Test2] = Test2(x)
+    return y.to_cbor()
+            """
+
+        @dataclass
+        class Test2(PlutusData):
+            x: int
+
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        for d in [uplc.PlutusInteger(x)]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value
+        self.assertEqual(ret, Test2(x).to_cbor(), "to_cbor returned wrong value")
