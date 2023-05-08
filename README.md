@@ -61,7 +61,7 @@ community](https://discord.gg/umR3A2g4uw) of OpShin
 
 #### Installation
 
-Install Python 3.8, 3.9 or 3.10. Then run
+Install Python 3.8, 3.9, 3.10 or 3.11. Then run
 
 ```bash
 python3 -m pip install opshin
