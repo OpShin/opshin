@@ -22,6 +22,7 @@ class Command(enum.Enum):
     parse = "parse"
     eval_uplc = "eval_uplc"
     build = "build"
+    lint = "lint"
 
 
 def plutus_data_from_json(annotation: typing.Type, x: dict):
@@ -134,6 +135,13 @@ def main():
             start_line = 0
             pos_in_line = 0
             source_lines = source_code.splitlines()[0]
+
+        if command == Command.lint:
+            print(
+                f"{args.input_file}:{start_line+1}:{pos_in_line}: {c.orig_err.__class__.__name__}: {c.orig_err}"
+            )
+            return
+
         overwrite_syntaxerror = len("SyntaxError: ") * "\b"
         raise SyntaxError(
             f"""\
