@@ -85,6 +85,11 @@ def main():
         default=[],
         help="Input parameters for the function, in case the command is eval.",
     )
+    a.add_argument(
+        "--output-format-json",
+        action="store_true",
+        help="Changes the output of the Linter to a json format.",
+    )
     args = a.parse_args()
     command = Command(args.command)
     input_file = args.input_file if args.input_file != "-" else sys.stdin
@@ -137,9 +142,19 @@ def main():
             source_lines = source_code.splitlines()[0]
 
         if command == Command.lint:
-            print(
-                f"{args.input_file}:{start_line+1}:{pos_in_line}: {c.orig_err.__class__.__name__}: {c.orig_err}"
-            )
+            if args.output_format_json:
+                print(
+                    convert_linter_to_json(
+                        start_line,
+                        pos_in_line,
+                        c.orig_err.__class__.__name__,
+                        str(c.orig_err),
+                    )
+                )
+            else:
+                print(
+                    f"{args.input_file}:{start_line+1}:{pos_in_line}: {c.orig_err.__class__.__name__}: {c.orig_err}"
+                )
             return
 
         overwrite_syntaxerror = len("SyntaxError: ") * "\b"
@@ -209,6 +224,15 @@ Note that opshin errors may be overly restrictive as they aim to prevent code wi
             ret = e
         print("------------------")
         print(ret)
+
+
+def convert_linter_to_json(line: int, column: int, error_class: str, message: str):
+    return {
+        "line": line,
+        "column": column,
+        "error_class": error_class,
+        "message": message,
+    }
 
 
 if __name__ == "__main__":
