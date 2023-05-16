@@ -145,10 +145,10 @@ def main():
             if args.output_format_json:
                 print(
                     convert_linter_to_json(
-                        start_line,
-                        pos_in_line,
-                        c.orig_err.__class__.__name__,
-                        str(c.orig_err),
+                        line=start_line + 1,
+                        column=pos_in_line,
+                        error_class=c.orig_err.__class__.__name__,
+                        message=str(c.orig_err),
                     )
                 )
             else:
@@ -226,15 +226,26 @@ Note that opshin errors may be overly restrictive as they aim to prevent code wi
         print(ret)
 
 
-def convert_linter_to_json(line: int, column: int, error_class: str, message: str):
+def convert_linter_to_json(
+    line: int,
+    column: int,
+    error_class: str,
+    message: str,
+    end_line: int | None = None,
+    end_column: int | None = None,
+):
     # output in lists
     # TODO: possible to detect more than one error at once?
-    return [{
-        "line": line,
-        "column": column,
-        "error_class": error_class,
-        "message": message,
-    }]
+    return [
+        {
+            "line": line,
+            "column": column,
+            "error_class": error_class,
+            "message": message,
+            "end_line": end_line,
+            "end_column": end_column,
+        }
+    ]
 
 
 if __name__ == "__main__":
