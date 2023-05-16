@@ -231,8 +231,6 @@ def convert_linter_to_json(
     column: int,
     error_class: str,
     message: str,
-    end_line: int | None = None,
-    end_column: int | None = None,
 ):
     # output in lists
     # TODO: possible to detect more than one error at once?
@@ -243,8 +241,6 @@ def convert_linter_to_json(
                 "column": column,
                 "error_class": error_class,
                 "message": message,
-                "end_line": end_line,
-                "end_column": end_column,
             }
         ]
     )
