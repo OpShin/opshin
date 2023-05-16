@@ -227,12 +227,14 @@ Note that opshin errors may be overly restrictive as they aim to prevent code wi
 
 
 def convert_linter_to_json(line: int, column: int, error_class: str, message: str):
-    return {
+    # output in lists
+    # TODO: possible to detect more than one error at once?
+    return [{
         "line": line,
         "column": column,
         "error_class": error_class,
         "message": message,
-    }
+    }]
 
 
 if __name__ == "__main__":
