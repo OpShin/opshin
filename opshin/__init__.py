@@ -11,7 +11,7 @@ __author__ = "nielstron"
 __author_email__ = "n.muendler@web.de"
 __copyright__ = "Copyright (C) 2023 nielstron"
 __license__ = "MIT"
-__url__ = "https://github.com/imperatorlang/opshin"
+__url__ = "https://github.com/OpShin/opshin"
 
 try:
     from .compiler import *
