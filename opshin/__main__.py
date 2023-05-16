@@ -145,7 +145,7 @@ def main():
             if args.output_format_json:
                 print(
                     convert_linter_to_json(
-                        line=start_line + 1,
+                        line=start_line,
                         column=pos_in_line,
                         error_class=c.orig_err.__class__.__name__,
                         message=str(c.orig_err),
@@ -236,16 +236,18 @@ def convert_linter_to_json(
 ):
     # output in lists
     # TODO: possible to detect more than one error at once?
-    return [
-        {
-            "line": line,
-            "column": column,
-            "error_class": error_class,
-            "message": message,
-            "end_line": end_line,
-            "end_column": end_column,
-        }
-    ]
+    return json.dumps(
+        [
+            {
+                "line": line,
+                "column": column,
+                "error_class": error_class,
+                "message": message,
+                "end_line": end_line,
+                "end_column": end_column,
+            }
+        ]
+    )
 
 
 if __name__ == "__main__":
