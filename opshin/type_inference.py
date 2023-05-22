@@ -42,6 +42,37 @@ INITIAL_SCOPE.update(
 )
 
 
+def constant_type(c):
+    if isinstance(c, bool):
+        return BoolInstanceType
+    if isinstance(c, int):
+        return IntegerInstanceType
+    if isinstance(c, type(None)):
+        return UnitInstanceType
+    if isinstance(c, bytes):
+        return ByteStringInstanceType
+    if isinstance(c, str):
+        return StringInstanceType
+    if isinstance(c, list):
+        assert len(c) > 0, "Lists must be non-empty"
+        first_typ = constant_type(c[0])
+        assert all(
+            constant_type(ce) == first_typ for ce in c[1:]
+        ), "Constant lists must contain elements of a single type only"
+        return InstanceType(ListType(first_typ))
+    if isinstance(c, dict):
+        assert len(c) > 0, "Lists must be non-empty"
+        first_key_typ = constant_type(next(iter(c.keys())))
+        first_value_typ = constant_type(next(iter(c.values())))
+        assert all(
+            constant_type(ce) == first_key_typ for ce in c.keys()
+        ), "Constant dicts must contain keys of a single type only"
+        assert all(
+            constant_type(ce) == first_value_typ for ce in c.values()
+        ), "Constant dicts must contain values of a single type only"
+        return InstanceType(DictType(first_key_typ, first_value_typ))
+
+
 class AggressiveTypeInferencer(CompilingNodeTransformer):
     step = "Static Type Inference"
 
@@ -154,7 +185,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             complex,
             type(...),
         ], "Float, complex numbers and ellipsis currently not supported"
-        tc.typ = InstanceType(ATOMIC_TYPES[type(node.value).__name__])
+        tc.typ = constant_type(node.value)
         return tc
 
     def visit_Tuple(self, node: Tuple) -> TypedTuple:

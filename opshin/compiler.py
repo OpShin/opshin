@@ -81,13 +81,30 @@ UnaryOpMap = {
     USub: {IntegerInstanceType: lambda x: plt.SubtractInteger(plt.Integer(0), x)},
 }
 
-ConstantMap = {
-    str: plt.Text,
-    bytes: plt.ByteString,
-    int: plt.Integer,
-    bool: plt.Bool,
-    type(None): lambda _: plt.Unit(),
-}
+
+def rec_constant_map(c):
+    if isinstance(c, bool):
+        return uplc.BuiltinBool(c)
+    if isinstance(c, int):
+        return uplc.BuiltinInteger(c)
+    if isinstance(c, type(None)):
+        return uplc.BuiltinUnit()
+    if isinstance(c, bytes):
+        return uplc.BuiltinByteString(c)
+    if isinstance(c, str):
+        return uplc.BuiltinString(c)
+    if isinstance(c, list):
+        return uplc.BuiltinList([rec_constant_map(ce) for ce in c])
+    if isinstance(c, dict):
+        return uplc.BuiltinList(
+            list(
+                zip(
+                    (rec_constant_map(ce) for ce in c.keys()),
+                    (rec_constant_map(ce) for ce in c.values()),
+                )
+            )
+        )
+    raise NotImplementedError(f"Unsupported constant type {type(c)}")
 
 
 def wrap_validator_double_function(x: plt.AST, pass_through: int = 0):
@@ -310,12 +327,8 @@ class UPLCCompiler(CompilingNodeTransformer):
         return cp
 
     def visit_Constant(self, node: TypedConstant) -> plt.AST:
-        plt_type = ConstantMap.get(type(node.value))
-        if plt_type is None:
-            raise NotImplementedError(
-                f"Constants of type {type(node.value)} are not supported"
-            )
-        return plt.Lambda([STATEMONAD], plt_type(node.value))
+        plt_val = plt.UPLCConstant(rec_constant_map(node.value))
+        return plt.Lambda([STATEMONAD], plt_val)
 
     def visit_NoneType(self, _: typing.Optional[typing.Any]) -> plt.AST:
         return plt.Lambda([STATEMONAD], plt.Unit())
