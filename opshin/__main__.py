@@ -26,6 +26,7 @@ class Command(enum.Enum):
     parse = "parse"
     eval_uplc = "eval_uplc"
     build = "build"
+    lint = "lint"
 
 
 class Purpose(enum.Enum):
@@ -167,6 +168,11 @@ def main():
         default=[],
         help="Input parameters for the validator (parameterizes the contract for compile/build). Either json or CBOR notation.",
     )
+    a.add_argument(
+        "--output-format-json",
+        action="store_true",
+        help="Changes the output of the Linter to a json format.",
+    )
     args = a.parse_args()
     command = Command(args.command)
     purpose = Purpose(args.purpose)
@@ -257,6 +263,23 @@ def main():
             start_line = 0
             pos_in_line = 0
             source_lines = source_code.splitlines()[0]
+
+        if command == Command.lint:
+            if args.output_format_json:
+                print(
+                    convert_linter_to_json(
+                        line=start_line,
+                        column=pos_in_line,
+                        error_class=c.orig_err.__class__.__name__,
+                        message=str(c.orig_err),
+                    )
+                )
+            else:
+                print(
+                    f"{args.input_file}:{start_line+1}:{pos_in_line}: {c.orig_err.__class__.__name__}: {c.orig_err}"
+                )
+            return
+
         overwrite_syntaxerror = len("SyntaxError: ") * "\b"
         raise SyntaxError(
             f"""\
@@ -326,6 +349,26 @@ Note that opshin errors may be overly restrictive as they aim to prevent code wi
             ret = e
         print("------------------")
         print(ret)
+
+
+def convert_linter_to_json(
+    line: int,
+    column: int,
+    error_class: str,
+    message: str,
+):
+    # output in lists
+    # TODO: possible to detect more than one error at once?
+    return json.dumps(
+        [
+            {
+                "line": line,
+                "column": column,
+                "error_class": error_class,
+                "message": message,
+            }
+        ]
+    )
 
 
 if __name__ == "__main__":
