@@ -972,6 +972,7 @@ def validator(_: None) -> List[int]:
 """
         ast = compiler.parse(source_code)
         code = compiler.compile(ast).compile()
+        self.assertIn("(con list<integer> [0, 2, 4, 6, 8])", code.dumps())
         res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
         self.assertEqual(
             res, uplc.PlutusList([uplc.PlutusInteger(i) for i in range(0, 10, 2)])
