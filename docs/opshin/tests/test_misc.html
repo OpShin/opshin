@@ -583,9 +583,7 @@ def validator(_: None) -&gt; SomeOutputDatum:
         ret = uplc_eval(f)
         self.assertEqual(
             ret,
-            uplc.data_from_cbor(
-                prelude.SomeOutputDatum(b&#34;a&#34;).to_cbor(encoding=&#34;bytes&#34;)
-            ),
+            uplc.data_from_cbor(prelude.SomeOutputDatum(b&#34;a&#34;).to_cbor()),
             &#34;Wrapping to generic data failed&#34;,
         )
 
@@ -1741,9 +1739,7 @@ def validator(_: None) -&gt; SomeOutputDatum:
         ret = uplc_eval(f)
         self.assertEqual(
             ret,
-            uplc.data_from_cbor(
-                prelude.SomeOutputDatum(b&#34;a&#34;).to_cbor(encoding=&#34;bytes&#34;)
-            ),
+            uplc.data_from_cbor(prelude.SomeOutputDatum(b&#34;a&#34;).to_cbor()),
             &#34;Wrapping to generic data failed&#34;,
         )
 
@@ -3896,9 +3892,7 @@ def validator(_: None) -&gt; SomeOutputDatum:
         ret = uplc_eval(f)
         self.assertEqual(
             ret,
-            uplc.data_from_cbor(
-                prelude.SomeOutputDatum(b&#34;a&#34;).to_cbor(encoding=&#34;bytes&#34;)
-            ),
+            uplc.data_from_cbor(prelude.SomeOutputDatum(b&#34;a&#34;).to_cbor()),
             &#34;Wrapping to generic data failed&#34;,
         )</code></pre>
 </details>

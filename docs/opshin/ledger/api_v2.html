@@ -1407,7 +1407,7 @@ Its funds can not be delegated.</p></div>
 </dd>
 <dt id="opshin.ledger.api_v2.SomeOutputDatum"><code class="flex name class">
 <span>class <span class="ident">SomeOutputDatum</span></span>
-<span>(</span><span>datum: Union[pycardano.plutus.PlutusData, dict, pycardano.serialization.IndefiniteList, int, bytes, pycardano.serialization.RawCBOR, pycardano.plutus.RawPlutusData])</span>
+<span>(</span><span>datum: Union[pycardano.plutus.PlutusData, dict, int, bytes, pycardano.serialization.IndefiniteList, pycardano.serialization.RawCBOR, pycardano.plutus.RawPlutusData])</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Indicates that there is an datum associated with an output, which is inlined and equal to the attached datum</p></div>
@@ -1435,7 +1435,7 @@ Its funds can not be delegated.</p></div>
 <dd>
 <div class="desc"></div>
 </dd>
-<dt id="opshin.ledger.api_v2.SomeOutputDatum.datum"><code class="name">var <span class="ident">datum</span> : Union[pycardano.plutus.PlutusData, dict, pycardano.serialization.IndefiniteList, int, bytes, pycardano.serialization.RawCBOR, pycardano.plutus.RawPlutusData]</code></dt>
+<dt id="opshin.ledger.api_v2.SomeOutputDatum.datum"><code class="name">var <span class="ident">datum</span> : Union[pycardano.plutus.PlutusData, dict, int, bytes, pycardano.serialization.IndefiniteList, pycardano.serialization.RawCBOR, pycardano.plutus.RawPlutusData]</code></dt>
 <dd>
 <div class="desc"></div>
 </dd>
@@ -1786,7 +1786,7 @@ It is thus used as an encoding for True in the ScriptContext.</p>
 </dd>
 <dt id="opshin.ledger.api_v2.TxInfo"><code class="flex name class">
 <span>class <span class="ident">TxInfo</span></span>
-<span>(</span><span>inputs: List[<a title="opshin.ledger.api_v2.TxInInfo" href="#opshin.ledger.api_v2.TxInInfo">TxInInfo</a>], reference_inputs: List[<a title="opshin.ledger.api_v2.TxInInfo" href="#opshin.ledger.api_v2.TxInInfo">TxInInfo</a>], outputs: List[<a title="opshin.ledger.api_v2.TxOut" href="#opshin.ledger.api_v2.TxOut">TxOut</a>], fee: Dict[bytes, Dict[bytes, int]], mint: Dict[bytes, Dict[bytes, int]], dcert: List[Union[<a title="opshin.ledger.api_v2.DCertDelegRegKey" href="#opshin.ledger.api_v2.DCertDelegRegKey">DCertDelegRegKey</a>, <a title="opshin.ledger.api_v2.DCertDelegDeRegKey" href="#opshin.ledger.api_v2.DCertDelegDeRegKey">DCertDelegDeRegKey</a>, <a title="opshin.ledger.api_v2.DCertDelegDelegate" href="#opshin.ledger.api_v2.DCertDelegDelegate">DCertDelegDelegate</a>, <a title="opshin.ledger.api_v2.DCertPoolRegister" href="#opshin.ledger.api_v2.DCertPoolRegister">DCertPoolRegister</a>, <a title="opshin.ledger.api_v2.DCertPoolRetire" href="#opshin.ledger.api_v2.DCertPoolRetire">DCertPoolRetire</a>, <a title="opshin.ledger.api_v2.DCertGenesis" href="#opshin.ledger.api_v2.DCertGenesis">DCertGenesis</a>, <a title="opshin.ledger.api_v2.DCertMir" href="#opshin.ledger.api_v2.DCertMir">DCertMir</a>]], wdrl: Dict[Union[<a title="opshin.ledger.api_v2.StakingHash" href="#opshin.ledger.api_v2.StakingHash">StakingHash</a>, <a title="opshin.ledger.api_v2.StakingPtr" href="#opshin.ledger.api_v2.StakingPtr">StakingPtr</a>], int], valid_range: <a title="opshin.ledger.api_v2.POSIXTimeRange" href="#opshin.ledger.api_v2.POSIXTimeRange">POSIXTimeRange</a>, signatories: List[bytes], redeemers: Dict[Union[<a title="opshin.ledger.api_v2.Minting" href="#opshin.ledger.api_v2.Minting">Minting</a>, <a title="opshin.ledger.api_v2.Spending" href="#opshin.ledger.api_v2.Spending">Spending</a>, <a title="opshin.ledger.api_v2.Rewarding" href="#opshin.ledger.api_v2.Rewarding">Rewarding</a>, <a title="opshin.ledger.api_v2.Certifying" href="#opshin.ledger.api_v2.Certifying">Certifying</a>], Union[pycardano.plutus.PlutusData, dict, pycardano.serialization.IndefiniteList, int, bytes, pycardano.serialization.RawCBOR, pycardano.plutus.RawPlutusData]], data: Dict[bytes, Union[pycardano.plutus.PlutusData, dict, pycardano.serialization.IndefiniteList, int, bytes, pycardano.serialization.RawCBOR, pycardano.plutus.RawPlutusData]], id: <a title="opshin.ledger.api_v2.TxId" href="#opshin.ledger.api_v2.TxId">TxId</a>)</span>
+<span>(</span><span>inputs: List[<a title="opshin.ledger.api_v2.TxInInfo" href="#opshin.ledger.api_v2.TxInInfo">TxInInfo</a>], reference_inputs: List[<a title="opshin.ledger.api_v2.TxInInfo" href="#opshin.ledger.api_v2.TxInInfo">TxInInfo</a>], outputs: List[<a title="opshin.ledger.api_v2.TxOut" href="#opshin.ledger.api_v2.TxOut">TxOut</a>], fee: Dict[bytes, Dict[bytes, int]], mint: Dict[bytes, Dict[bytes, int]], dcert: List[Union[<a title="opshin.ledger.api_v2.DCertDelegRegKey" href="#opshin.ledger.api_v2.DCertDelegRegKey">DCertDelegRegKey</a>, <a title="opshin.ledger.api_v2.DCertDelegDeRegKey" href="#opshin.ledger.api_v2.DCertDelegDeRegKey">DCertDelegDeRegKey</a>, <a title="opshin.ledger.api_v2.DCertDelegDelegate" href="#opshin.ledger.api_v2.DCertDelegDelegate">DCertDelegDelegate</a>, <a title="opshin.ledger.api_v2.DCertPoolRegister" href="#opshin.ledger.api_v2.DCertPoolRegister">DCertPoolRegister</a>, <a title="opshin.ledger.api_v2.DCertPoolRetire" href="#opshin.ledger.api_v2.DCertPoolRetire">DCertPoolRetire</a>, <a title="opshin.ledger.api_v2.DCertGenesis" href="#opshin.ledger.api_v2.DCertGenesis">DCertGenesis</a>, <a title="opshin.ledger.api_v2.DCertMir" href="#opshin.ledger.api_v2.DCertMir">DCertMir</a>]], wdrl: Dict[Union[<a title="opshin.ledger.api_v2.StakingHash" href="#opshin.ledger.api_v2.StakingHash">StakingHash</a>, <a title="opshin.ledger.api_v2.StakingPtr" href="#opshin.ledger.api_v2.StakingPtr">StakingPtr</a>], int], valid_range: <a title="opshin.ledger.api_v2.POSIXTimeRange" href="#opshin.ledger.api_v2.POSIXTimeRange">POSIXTimeRange</a>, signatories: List[bytes], redeemers: Dict[Union[<a title="opshin.ledger.api_v2.Minting" href="#opshin.ledger.api_v2.Minting">Minting</a>, <a title="opshin.ledger.api_v2.Spending" href="#opshin.ledger.api_v2.Spending">Spending</a>, <a title="opshin.ledger.api_v2.Rewarding" href="#opshin.ledger.api_v2.Rewarding">Rewarding</a>, <a title="opshin.ledger.api_v2.Certifying" href="#opshin.ledger.api_v2.Certifying">Certifying</a>], Union[pycardano.plutus.PlutusData, dict, int, bytes, pycardano.serialization.IndefiniteList, pycardano.serialization.RawCBOR, pycardano.plutus.RawPlutusData]], data: Dict[bytes, Union[pycardano.plutus.PlutusData, dict, int, bytes, pycardano.serialization.IndefiniteList, pycardano.serialization.RawCBOR, pycardano.plutus.RawPlutusData]], id: <a title="opshin.ledger.api_v2.TxId" href="#opshin.ledger.api_v2.TxId">TxId</a>)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>A complex agglomeration of everything that could be of interest to the executed script, regarding the transaction
@@ -1822,7 +1822,7 @@ that invoked the script</p></div>
 </ul>
 <h3>Class variables</h3>
 <dl>
-<dt id="opshin.ledger.api_v2.TxInfo.data"><code class="name">var <span class="ident">data</span> : Dict[bytes, Union[pycardano.plutus.PlutusData, dict, pycardano.serialization.IndefiniteList, int, bytes, pycardano.serialization.RawCBOR, pycardano.plutus.RawPlutusData]]</code></dt>
+<dt id="opshin.ledger.api_v2.TxInfo.data"><code class="name">var <span class="ident">data</span> : Dict[bytes, Union[pycardano.plutus.PlutusData, dict, int, bytes, pycardano.serialization.IndefiniteList, pycardano.serialization.RawCBOR, pycardano.plutus.RawPlutusData]]</code></dt>
 <dd>
 <div class="desc"></div>
 </dd>
@@ -1850,7 +1850,7 @@ that invoked the script</p></div>
 <dd>
 <div class="desc"></div>
 </dd>
-<dt id="opshin.ledger.api_v2.TxInfo.redeemers"><code class="name">var <span class="ident">redeemers</span> : Dict[Union[<a title="opshin.ledger.api_v2.Minting" href="#opshin.ledger.api_v2.Minting">Minting</a>, <a title="opshin.ledger.api_v2.Spending" href="#opshin.ledger.api_v2.Spending">Spending</a>, <a title="opshin.ledger.api_v2.Rewarding" href="#opshin.ledger.api_v2.Rewarding">Rewarding</a>, <a title="opshin.ledger.api_v2.Certifying" href="#opshin.ledger.api_v2.Certifying">Certifying</a>], Union[pycardano.plutus.PlutusData, dict, pycardano.serialization.IndefiniteList, int, bytes, pycardano.serialization.RawCBOR, pycardano.plutus.RawPlutusData]]</code></dt>
+<dt id="opshin.ledger.api_v2.TxInfo.redeemers"><code class="name">var <span class="ident">redeemers</span> : Dict[Union[<a title="opshin.ledger.api_v2.Minting" href="#opshin.ledger.api_v2.Minting">Minting</a>, <a title="opshin.ledger.api_v2.Spending" href="#opshin.ledger.api_v2.Spending">Spending</a>, <a title="opshin.ledger.api_v2.Rewarding" href="#opshin.ledger.api_v2.Rewarding">Rewarding</a>, <a title="opshin.ledger.api_v2.Certifying" href="#opshin.ledger.api_v2.Certifying">Certifying</a>], Union[pycardano.plutus.PlutusData, dict, int, bytes, pycardano.serialization.IndefiniteList, pycardano.serialization.RawCBOR, pycardano.plutus.RawPlutusData]]</code></dt>
 <dd>
 <div class="desc"></div>
 </dd>

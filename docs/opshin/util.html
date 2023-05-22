@@ -635,7 +635,7 @@ def data_from_json(j: typing.Dict[str, typing.Any]) -&gt; uplc.PlutusData:
 
 
 def datum_to_cbor(d: pycardano.Datum) -&gt; bytes:
-    return pycardano.PlutusData.to_cbor(d, encoding=&#34;bytes&#34;)
+    return pycardano.PlutusData.to_cbor(d)
 
 
 def datum_to_json(d: pycardano.Datum) -&gt; str:
@@ -713,7 +713,7 @@ def datum_to_json(d: pycardano.Datum) -&gt; str:
 </details>
 </dd>
 <dt id="opshin.util.datum_to_cbor"><code class="name flex">
-<span>def <span class="ident">datum_to_cbor</span></span>(<span>d: Union[pycardano.plutus.PlutusData, dict, pycardano.serialization.IndefiniteList, int, bytes, pycardano.serialization.RawCBOR, pycardano.plutus.RawPlutusData]) ‑> bytes</span>
+<span>def <span class="ident">datum_to_cbor</span></span>(<span>d: Union[pycardano.plutus.PlutusData, dict, int, bytes, pycardano.serialization.IndefiniteList, pycardano.serialization.RawCBOR, pycardano.plutus.RawPlutusData]) ‑> bytes</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -722,11 +722,11 @@ def datum_to_json(d: pycardano.Datum) -&gt; str:
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def datum_to_cbor(d: pycardano.Datum) -&gt; bytes:
-    return pycardano.PlutusData.to_cbor(d, encoding=&#34;bytes&#34;)</code></pre>
+    return pycardano.PlutusData.to_cbor(d)</code></pre>
 </details>
 </dd>
 <dt id="opshin.util.datum_to_json"><code class="name flex">
-<span>def <span class="ident">datum_to_json</span></span>(<span>d: Union[pycardano.plutus.PlutusData, dict, pycardano.serialization.IndefiniteList, int, bytes, pycardano.serialization.RawCBOR, pycardano.plutus.RawPlutusData]) ‑> str</span>
+<span>def <span class="ident">datum_to_json</span></span>(<span>d: Union[pycardano.plutus.PlutusData, dict, int, bytes, pycardano.serialization.IndefiniteList, pycardano.serialization.RawCBOR, pycardano.plutus.RawPlutusData]) ‑> str</span>
 </code></dt>
 <dd>
 <div class="desc"></div>

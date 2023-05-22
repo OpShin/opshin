@@ -68,11 +68,13 @@ fill="currentColor" class="octo-body"></path>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">import unittest
+<pre><code class="python">from dataclasses import dataclass
+import unittest
 
-from hypothesis import example, given
+from hypothesis import example, given, settings
 from hypothesis import strategies as st
 from uplc import ast as uplc, eval as uplc_eval
+from pycardano import PlutusData
 
 from .. import compiler
 
@@ -348,7 +350,72 @@ def validator(x: None) -&gt; bool:
         for d in [uplc.BuiltinUnit()]:
             f = uplc.Apply(f, d)
         ret = uplc_eval(f).value == 1
-        self.assertEqual(ret, x, &#34;literal bool returned wrong value&#34;)</code></pre>
+        self.assertEqual(ret, x, &#34;literal bool returned wrong value&#34;)
+
+    @given(st.integers(), st.binary())
+    @settings(deadline=None)
+    def test_plutusdata_to_cbor(self, x: int, y: bytes):
+        source_code = f&#34;&#34;&#34;
+from opshin.prelude import *
+
+@dataclass
+class Test(PlutusData):
+    x: int
+    y: bytes
+
+def validator(x: int, y: bytes) -&gt; bytes:
+    return Test(x, y).to_cbor()
+            &#34;&#34;&#34;
+
+        @dataclass
+        class Test(PlutusData):
+            x: int
+            y: bytes
+
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        for d in [uplc.PlutusInteger(x), uplc.PlutusByteString(y)]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value
+        self.assertEqual(ret, Test(x, y).to_cbor(), &#34;to_cbor returned wrong value&#34;)
+
+    @given(st.integers())
+    @settings(deadline=None)
+    def test_union_to_cbor(self, x: int):
+        source_code = f&#34;&#34;&#34;
+from opshin.prelude import *
+
+@dataclass
+class Test(PlutusData):
+    CONSTR_ID = 1
+    x: int
+    y: bytes
+    
+@dataclass
+class Test2(PlutusData):
+    x: int
+
+def validator(x: int) -&gt; bytes:
+    y: Union[Test, Test2] = Test2(x)
+    return y.to_cbor()
+            &#34;&#34;&#34;
+
+        @dataclass
+        class Test2(PlutusData):
+            x: int
+
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        for d in [uplc.PlutusInteger(x)]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value
+        self.assertEqual(ret, Test2(x).to_cbor(), &#34;to_cbor returned wrong value&#34;)</code></pre>
 </details>
 </section>
 <section>
@@ -668,7 +735,72 @@ def validator(x: None) -&gt; bool:
         for d in [uplc.BuiltinUnit()]:
             f = uplc.Apply(f, d)
         ret = uplc_eval(f).value == 1
-        self.assertEqual(ret, x, &#34;literal bool returned wrong value&#34;)</code></pre>
+        self.assertEqual(ret, x, &#34;literal bool returned wrong value&#34;)
+
+    @given(st.integers(), st.binary())
+    @settings(deadline=None)
+    def test_plutusdata_to_cbor(self, x: int, y: bytes):
+        source_code = f&#34;&#34;&#34;
+from opshin.prelude import *
+
+@dataclass
+class Test(PlutusData):
+    x: int
+    y: bytes
+
+def validator(x: int, y: bytes) -&gt; bytes:
+    return Test(x, y).to_cbor()
+            &#34;&#34;&#34;
+
+        @dataclass
+        class Test(PlutusData):
+            x: int
+            y: bytes
+
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        for d in [uplc.PlutusInteger(x), uplc.PlutusByteString(y)]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value
+        self.assertEqual(ret, Test(x, y).to_cbor(), &#34;to_cbor returned wrong value&#34;)
+
+    @given(st.integers())
+    @settings(deadline=None)
+    def test_union_to_cbor(self, x: int):
+        source_code = f&#34;&#34;&#34;
+from opshin.prelude import *
+
+@dataclass
+class Test(PlutusData):
+    CONSTR_ID = 1
+    x: int
+    y: bytes
+    
+@dataclass
+class Test2(PlutusData):
+    x: int
+
+def validator(x: int) -&gt; bytes:
+    y: Union[Test, Test2] = Test2(x)
+    return y.to_cbor()
+            &#34;&#34;&#34;
+
+        @dataclass
+        class Test2(PlutusData):
+            x: int
+
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        for d in [uplc.PlutusInteger(x)]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value
+        self.assertEqual(ret, Test2(x).to_cbor(), &#34;to_cbor returned wrong value&#34;)</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -1017,6 +1149,46 @@ def validator(x: Dict[int, bytes]) -&gt; List[bytes]:
         self.assertEqual(ret, list(xs.values()), &#34;dict.keys returned wrong value&#34;)</code></pre>
 </details>
 </dd>
+<dt id="opshin.tests.test_stdlib.StdlibTest.test_plutusdata_to_cbor"><code class="name flex">
+<span>def <span class="ident">test_plutusdata_to_cbor</span></span>(<span>self) ‑> None</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    @given(st.integers(), st.binary())
+    @settings(deadline=None)
+    def test_plutusdata_to_cbor(self, x: int, y: bytes):
+        source_code = f&#34;&#34;&#34;
+from opshin.prelude import *
+
+@dataclass
+class Test(PlutusData):
+    x: int
+    y: bytes
+
+def validator(x: int, y: bytes) -&gt; bytes:
+    return Test(x, y).to_cbor()
+            &#34;&#34;&#34;
+
+        @dataclass
+        class Test(PlutusData):
+            x: int
+            y: bytes
+
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        for d in [uplc.PlutusInteger(x), uplc.PlutusByteString(y)]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value
+        self.assertEqual(ret, Test(x, y).to_cbor(), &#34;to_cbor returned wrong value&#34;)</code></pre>
+</details>
+</dd>
 <dt id="opshin.tests.test_stdlib.StdlibTest.test_str_decode"><code class="name flex">
 <span>def <span class="ident">test_str_decode</span></span>(<span>self) ‑> None</span>
 </code></dt>
@@ -1076,6 +1248,51 @@ def validator(x: str) -&gt; bytes:
             f = uplc.Apply(f, d)
         ret = uplc_eval(f).value
         self.assertEqual(ret, xs.encode(), &#34;str.encode returned wrong value&#34;)</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_stdlib.StdlibTest.test_union_to_cbor"><code class="name flex">
+<span>def <span class="ident">test_union_to_cbor</span></span>(<span>self) ‑> None</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    @given(st.integers())
+    @settings(deadline=None)
+    def test_union_to_cbor(self, x: int):
+        source_code = f&#34;&#34;&#34;
+from opshin.prelude import *
+
+@dataclass
+class Test(PlutusData):
+    CONSTR_ID = 1
+    x: int
+    y: bytes
+    
+@dataclass
+class Test2(PlutusData):
+    x: int
+
+def validator(x: int) -&gt; bytes:
+    y: Union[Test, Test2] = Test2(x)
+    return y.to_cbor()
+            &#34;&#34;&#34;
+
+        @dataclass
+        class Test2(PlutusData):
+            x: int
+
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        for d in [uplc.PlutusInteger(x)]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value
+        self.assertEqual(ret, Test2(x).to_cbor(), &#34;to_cbor returned wrong value&#34;)</code></pre>
 </details>
 </dd>
 </dl>
@@ -1163,8 +1380,10 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="opshin.tests.test_stdlib.StdlibTest.test_dict_keys" href="#opshin.tests.test_stdlib.StdlibTest.test_dict_keys">test_dict_keys</a></code></li>
 <li><code><a title="opshin.tests.test_stdlib.StdlibTest.test_dict_subscript" href="#opshin.tests.test_stdlib.StdlibTest.test_dict_subscript">test_dict_subscript</a></code></li>
 <li><code><a title="opshin.tests.test_stdlib.StdlibTest.test_dict_values" href="#opshin.tests.test_stdlib.StdlibTest.test_dict_values">test_dict_values</a></code></li>
+<li><code><a title="opshin.tests.test_stdlib.StdlibTest.test_plutusdata_to_cbor" href="#opshin.tests.test_stdlib.StdlibTest.test_plutusdata_to_cbor">test_plutusdata_to_cbor</a></code></li>
 <li><code><a title="opshin.tests.test_stdlib.StdlibTest.test_str_decode" href="#opshin.tests.test_stdlib.StdlibTest.test_str_decode">test_str_decode</a></code></li>
 <li><code><a title="opshin.tests.test_stdlib.StdlibTest.test_str_encode" href="#opshin.tests.test_stdlib.StdlibTest.test_str_encode">test_str_encode</a></code></li>
+<li><code><a title="opshin.tests.test_stdlib.StdlibTest.test_union_to_cbor" href="#opshin.tests.test_stdlib.StdlibTest.test_union_to_cbor">test_union_to_cbor</a></code></li>
 </ul>
 </li>
 </ul>

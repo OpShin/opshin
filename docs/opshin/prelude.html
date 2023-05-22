@@ -340,7 +340,7 @@ Otherwise it returns NoOutputDatum.</p></div>
 </details>
 </dd>
 <dt id="opshin.prelude.resolve_datum_unsafe"><code class="name flex">
-<span>def <span class="ident">resolve_datum_unsafe</span></span>(<span>txout: <a title="opshin.ledger.api_v2.TxOut" href="ledger/api_v2.html#opshin.ledger.api_v2.TxOut">TxOut</a>, tx_info: <a title="opshin.ledger.api_v2.TxInfo" href="ledger/api_v2.html#opshin.ledger.api_v2.TxInfo">TxInfo</a>) ‑> Union[pycardano.plutus.PlutusData, dict, pycardano.serialization.IndefiniteList, int, bytes, pycardano.serialization.RawCBOR, pycardano.plutus.RawPlutusData]</span>
+<span>def <span class="ident">resolve_datum_unsafe</span></span>(<span>txout: <a title="opshin.ledger.api_v2.TxOut" href="ledger/api_v2.html#opshin.ledger.api_v2.TxOut">TxOut</a>, tx_info: <a title="opshin.ledger.api_v2.TxInfo" href="ledger/api_v2.html#opshin.ledger.api_v2.TxInfo">TxInfo</a>) ‑> Union[pycardano.plutus.PlutusData, dict, int, bytes, pycardano.serialization.IndefiniteList, pycardano.serialization.RawCBOR, pycardano.plutus.RawPlutusData]</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Returns the datum attached to a given transaction output, independent of whether it was inlined or embedded.

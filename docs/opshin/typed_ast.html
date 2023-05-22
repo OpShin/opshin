@@ -178,6 +178,10 @@ class RecordType(ClassType):
         for n, t in self.record.fields:
             if n == attr:
                 return t
+        if attr == &#34;to_cbor&#34;:
+            return InstanceType(
+                FunctionType(FrozenFrozenList([]), ByteStringInstanceType)
+            )
         raise TypeInferenceError(
             f&#34;Type {self.record.name} does not have attribute {attr}&#34;
         )
@@ -190,18 +194,27 @@ class RecordType(ClassType):
                 [&#34;self&#34;],
                 plt.Constructor(plt.Var(&#34;self&#34;)),
             )
-        attr_typ = self.attribute_type(attr)
-        pos = next(i for i, (n, _) in enumerate(self.record.fields) if n == attr)
-        # access to normal fields
-        return plt.Lambda(
-            [&#34;self&#34;],
-            transform_ext_params_map(attr_typ)(
-                plt.NthField(
-                    plt.Var(&#34;self&#34;),
-                    plt.Integer(pos),
+        if attr in (n for n, t in self.record.fields):
+            attr_typ = self.attribute_type(attr)
+            pos = next(i for i, (n, _) in enumerate(self.record.fields) if n == attr)
+            # access to normal fields
+            return plt.Lambda(
+                [&#34;self&#34;],
+                transform_ext_params_map(attr_typ)(
+                    plt.NthField(
+                        plt.Var(&#34;self&#34;),
+                        plt.Integer(pos),
+                    ),
                 ),
-            ),
-        )
+            )
+        if attr == &#34;to_cbor&#34;:
+            return plt.Lambda(
+                [&#34;self&#34;, &#34;_&#34;],
+                plt.SerialiseData(
+                    plt.Var(&#34;self&#34;),
+                ),
+            )
+        raise NotImplementedError(f&#34;Attribute {attr} not implemented for type {self}&#34;)
 
     def cmp(self, op: cmpop, o: &#34;Type&#34;) -&gt; plt.AST:
         &#34;&#34;&#34;The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second the comparison.&#34;&#34;&#34;
@@ -283,6 +296,10 @@ class UnionType(ClassType):
                 )
             # return Anytype
             return InstanceType(AnyType())
+        if attr == &#34;to_cbor&#34;:
+            return InstanceType(
+                FunctionType(FrozenFrozenList([]), ByteStringInstanceType)
+            )
         raise TypeInferenceError(
             f&#34;Can not access attribute {attr} of Union type. Cast to desired type with an &#39;if isinstance(_, _):&#39; branch.&#34;
         )
@@ -295,24 +312,33 @@ class UnionType(ClassType):
                 plt.Constructor(plt.Var(&#34;self&#34;)),
             )
         # iterate through all names/types of the unioned records by position
-        attr_typ = self.attribute_type(attr)
-        pos = next(
-            i
-            for i, (ns, _) in enumerate(
-                map(lambda x: zip(*x), zip(*(t.record.fields for t in self.typs)))
+        if any(attr in (n for n, t in r.record.fields) for r in self.typs):
+            attr_typ = self.attribute_type(attr)
+            pos = next(
+                i
+                for i, (ns, _) in enumerate(
+                    map(lambda x: zip(*x), zip(*(t.record.fields for t in self.typs)))
+                )
+                if all(n == attr for n in ns)
             )
-            if all(n == attr for n in ns)
-        )
-        # access to normal fields
-        return plt.Lambda(
-            [&#34;self&#34;],
-            transform_ext_params_map(attr_typ)(
-                plt.NthField(
-                    plt.Var(&#34;self&#34;),
-                    plt.Integer(pos),
+            # access to normal fields
+            return plt.Lambda(
+                [&#34;self&#34;],
+                transform_ext_params_map(attr_typ)(
+                    plt.NthField(
+                        plt.Var(&#34;self&#34;),
+                        plt.Integer(pos),
+                    ),
                 ),
-            ),
-        )
+            )
+        if attr == &#34;to_cbor&#34;:
+            return plt.Lambda(
+                [&#34;self&#34;, &#34;_&#34;],
+                plt.SerialiseData(
+                    plt.Var(&#34;self&#34;),
+                ),
+            )
+        raise NotImplementedError(f&#34;Attribute {attr} not implemented for type {self}&#34;)
 
     def __ge__(self, other):
         if isinstance(other, UnionType):
@@ -3497,6 +3523,10 @@ class TypedNodeVisitor(NodeVisitor):
         for n, t in self.record.fields:
             if n == attr:
                 return t
+        if attr == &#34;to_cbor&#34;:
+            return InstanceType(
+                FunctionType(FrozenFrozenList([]), ByteStringInstanceType)
+            )
         raise TypeInferenceError(
             f&#34;Type {self.record.name} does not have attribute {attr}&#34;
         )
@@ -3509,18 +3539,27 @@ class TypedNodeVisitor(NodeVisitor):
                 [&#34;self&#34;],
                 plt.Constructor(plt.Var(&#34;self&#34;)),
             )
-        attr_typ = self.attribute_type(attr)
-        pos = next(i for i, (n, _) in enumerate(self.record.fields) if n == attr)
-        # access to normal fields
-        return plt.Lambda(
-            [&#34;self&#34;],
-            transform_ext_params_map(attr_typ)(
-                plt.NthField(
-                    plt.Var(&#34;self&#34;),
-                    plt.Integer(pos),
+        if attr in (n for n, t in self.record.fields):
+            attr_typ = self.attribute_type(attr)
+            pos = next(i for i, (n, _) in enumerate(self.record.fields) if n == attr)
+            # access to normal fields
+            return plt.Lambda(
+                [&#34;self&#34;],
+                transform_ext_params_map(attr_typ)(
+                    plt.NthField(
+                        plt.Var(&#34;self&#34;),
+                        plt.Integer(pos),
+                    ),
                 ),
-            ),
-        )
+            )
+        if attr == &#34;to_cbor&#34;:
+            return plt.Lambda(
+                [&#34;self&#34;, &#34;_&#34;],
+                plt.SerialiseData(
+                    plt.Var(&#34;self&#34;),
+                ),
+            )
+        raise NotImplementedError(f&#34;Attribute {attr} not implemented for type {self}&#34;)
 
     def cmp(self, op: cmpop, o: &#34;Type&#34;) -&gt; plt.AST:
         &#34;&#34;&#34;The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second the comparison.&#34;&#34;&#34;
@@ -3604,18 +3643,27 @@ class TypedNodeVisitor(NodeVisitor):
             [&#34;self&#34;],
             plt.Constructor(plt.Var(&#34;self&#34;)),
         )
-    attr_typ = self.attribute_type(attr)
-    pos = next(i for i, (n, _) in enumerate(self.record.fields) if n == attr)
-    # access to normal fields
-    return plt.Lambda(
-        [&#34;self&#34;],
-        transform_ext_params_map(attr_typ)(
-            plt.NthField(
-                plt.Var(&#34;self&#34;),
-                plt.Integer(pos),
+    if attr in (n for n, t in self.record.fields):
+        attr_typ = self.attribute_type(attr)
+        pos = next(i for i, (n, _) in enumerate(self.record.fields) if n == attr)
+        # access to normal fields
+        return plt.Lambda(
+            [&#34;self&#34;],
+            transform_ext_params_map(attr_typ)(
+                plt.NthField(
+                    plt.Var(&#34;self&#34;),
+                    plt.Integer(pos),
+                ),
             ),
-        ),
-    )</code></pre>
+        )
+    if attr == &#34;to_cbor&#34;:
+        return plt.Lambda(
+            [&#34;self&#34;, &#34;_&#34;],
+            plt.SerialiseData(
+                plt.Var(&#34;self&#34;),
+            ),
+        )
+    raise NotImplementedError(f&#34;Attribute {attr} not implemented for type {self}&#34;)</code></pre>
 </details>
 </dd>
 <dt id="opshin.typed_ast.RecordType.attribute_type"><code class="name flex">
@@ -3638,6 +3686,10 @@ class TypedNodeVisitor(NodeVisitor):
     for n, t in self.record.fields:
         if n == attr:
             return t
+    if attr == &#34;to_cbor&#34;:
+        return InstanceType(
+            FunctionType(FrozenFrozenList([]), ByteStringInstanceType)
+        )
     raise TypeInferenceError(
         f&#34;Type {self.record.name} does not have attribute {attr}&#34;
     )</code></pre>
@@ -5339,6 +5391,10 @@ allows modifications.</p></div>
                 )
             # return Anytype
             return InstanceType(AnyType())
+        if attr == &#34;to_cbor&#34;:
+            return InstanceType(
+                FunctionType(FrozenFrozenList([]), ByteStringInstanceType)
+            )
         raise TypeInferenceError(
             f&#34;Can not access attribute {attr} of Union type. Cast to desired type with an &#39;if isinstance(_, _):&#39; branch.&#34;
         )
@@ -5351,24 +5407,33 @@ allows modifications.</p></div>
                 plt.Constructor(plt.Var(&#34;self&#34;)),
             )
         # iterate through all names/types of the unioned records by position
-        attr_typ = self.attribute_type(attr)
-        pos = next(
-            i
-            for i, (ns, _) in enumerate(
-                map(lambda x: zip(*x), zip(*(t.record.fields for t in self.typs)))
+        if any(attr in (n for n, t in r.record.fields) for r in self.typs):
+            attr_typ = self.attribute_type(attr)
+            pos = next(
+                i
+                for i, (ns, _) in enumerate(
+                    map(lambda x: zip(*x), zip(*(t.record.fields for t in self.typs)))
+                )
+                if all(n == attr for n in ns)
             )
-            if all(n == attr for n in ns)
-        )
-        # access to normal fields
-        return plt.Lambda(
-            [&#34;self&#34;],
-            transform_ext_params_map(attr_typ)(
-                plt.NthField(
-                    plt.Var(&#34;self&#34;),
-                    plt.Integer(pos),
+            # access to normal fields
+            return plt.Lambda(
+                [&#34;self&#34;],
+                transform_ext_params_map(attr_typ)(
+                    plt.NthField(
+                        plt.Var(&#34;self&#34;),
+                        plt.Integer(pos),
+                    ),
                 ),
-            ),
-        )
+            )
+        if attr == &#34;to_cbor&#34;:
+            return plt.Lambda(
+                [&#34;self&#34;, &#34;_&#34;],
+                plt.SerialiseData(
+                    plt.Var(&#34;self&#34;),
+                ),
+            )
+        raise NotImplementedError(f&#34;Attribute {attr} not implemented for type {self}&#34;)
 
     def __ge__(self, other):
         if isinstance(other, UnionType):
@@ -5434,24 +5499,33 @@ allows modifications.</p></div>
             plt.Constructor(plt.Var(&#34;self&#34;)),
         )
     # iterate through all names/types of the unioned records by position
-    attr_typ = self.attribute_type(attr)
-    pos = next(
-        i
-        for i, (ns, _) in enumerate(
-            map(lambda x: zip(*x), zip(*(t.record.fields for t in self.typs)))
+    if any(attr in (n for n, t in r.record.fields) for r in self.typs):
+        attr_typ = self.attribute_type(attr)
+        pos = next(
+            i
+            for i, (ns, _) in enumerate(
+                map(lambda x: zip(*x), zip(*(t.record.fields for t in self.typs)))
+            )
+            if all(n == attr for n in ns)
         )
-        if all(n == attr for n in ns)
-    )
-    # access to normal fields
-    return plt.Lambda(
-        [&#34;self&#34;],
-        transform_ext_params_map(attr_typ)(
-            plt.NthField(
-                plt.Var(&#34;self&#34;),
-                plt.Integer(pos),
+        # access to normal fields
+        return plt.Lambda(
+            [&#34;self&#34;],
+            transform_ext_params_map(attr_typ)(
+                plt.NthField(
+                    plt.Var(&#34;self&#34;),
+                    plt.Integer(pos),
+                ),
             ),
-        ),
-    )</code></pre>
+        )
+    if attr == &#34;to_cbor&#34;:
+        return plt.Lambda(
+            [&#34;self&#34;, &#34;_&#34;],
+            plt.SerialiseData(
+                plt.Var(&#34;self&#34;),
+            ),
+        )
+    raise NotImplementedError(f&#34;Attribute {attr} not implemented for type {self}&#34;)</code></pre>
 </details>
 </dd>
 <dt id="opshin.typed_ast.UnionType.attribute_type"><code class="name flex">
@@ -5491,6 +5565,10 @@ allows modifications.</p></div>
             )
         # return Anytype
         return InstanceType(AnyType())
+    if attr == &#34;to_cbor&#34;:
+        return InstanceType(
+            FunctionType(FrozenFrozenList([]), ByteStringInstanceType)
+        )
     raise TypeInferenceError(
         f&#34;Can not access attribute {attr} of Union type. Cast to desired type with an &#39;if isinstance(_, _):&#39; branch.&#34;
     )</code></pre>
