@@ -97,12 +97,13 @@ def rec_constant_map(c):
         return uplc.BuiltinList([rec_constant_map(ce) for ce in c])
     if isinstance(c, dict):
         return uplc.BuiltinList(
-            list(
-                zip(
+            [
+                uplc.BuiltinPair(*p)
+                for p in zip(
                     (rec_constant_map(ce) for ce in c.keys()),
                     (rec_constant_map(ce) for ce in c.values()),
                 )
-            )
+            ]
         )
     raise NotImplementedError(f"Unsupported constant type {type(c)}")
 
