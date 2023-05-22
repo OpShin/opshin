@@ -42,6 +42,12 @@ script:
   coverage run -a --source=opshin -m opshin build any examples/smart_contracts/dual_use.py --force-three-params
 - >
   coverage run -a --source=opshin -m opshin build any examples/smart_contracts/wrapped_token.py '{"bytes": "ae810731b5d21c0d182d89c60a1eff7095dffd1c0dce8707a8611099"}' '{"bytes": "4d494c4b"}' '{"int": 1000000}' --force-three-params
+- >
+  test ! -n "$(coverage run -a --source=opshin -m opshin lint any examples/smart_contracts/wrapped_token.py)"
+- >
+  test -n "$(coverage run -a --source=opshin -m opshin lint any examples/smart_contracts/broken.py)"
+- >
+  test -n "$(coverage run -a --source=opshin -m opshin lint any examples/smart_contracts/broken.py --output-format-json)"
 
 after_success:
 - coverage report
