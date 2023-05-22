@@ -1,6 +1,11 @@
+import uplc.ast
+
 from copy import copy
 
 from ast import *
+
+import pluthon
+from ..typed_ast import RawPlutoExpr
 
 try:
     unparse
@@ -189,13 +194,27 @@ class OptimizeConstantFolding(CompilingNodeTransformer):
                 return new_node
             # TODO dump these values directly as plutus constants in the code (they will be built on chain with this)
             if isinstance(c, list):
-                return List([rec_dump(ce) for ce in c], Load())
+                if len(c) > 0:
+                    return pluthon.UPLCConstant(
+                        uplc.ast.BuiltinList([rec_dump(ce) for ce in c])
+                    )
+                else:
+                    return List([], Load())
             if isinstance(c, dict):
-                return Dict(
-                    [rec_dump(ce) for ce in c.keys()],
-                    [rec_dump(ce) for ce in c.values()],
-                )
+                if len(c) > 0:
+                    return pluthon.UPLCConstant(
+                        uplc.ast.BuiltinList(
+                            list(
+                                zip(
+                                    (rec_dump(ce) for ce in c.keys()),
+                                    (rec_dump(ce) for ce in c.values()),
+                                )
+                            )
+                        )
+                    )
+                else:
+                    return Dict([], [])
 
         if any(isinstance(node_eval, t) for t in ACCEPTED_ATOMIC_TYPES + [list, dict]):
-            return rec_dump(node_eval)
+            return RawPlutoExpr(rec_dump(node_eval))
         return node
