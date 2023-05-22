@@ -82,6 +82,31 @@ UnaryOpMap = {
 }
 
 
+def rec_constant_map_data(c):
+    if isinstance(c, bool):
+        return uplc.PlutusInteger(int(c))
+    if isinstance(c, int):
+        return uplc.PlutusInteger(c)
+    if isinstance(c, type(None)):
+        return uplc.PlutusConstr(0, [])
+    if isinstance(c, bytes):
+        return uplc.PlutusByteString(c)
+    if isinstance(c, str):
+        return uplc.PlutusByteString(c.encode())
+    if isinstance(c, list):
+        return uplc.PlutusList([rec_constant_map_data(ce) for ce in c])
+    if isinstance(c, dict):
+        return uplc.PlutusMap(
+            dict(
+                zip(
+                    (rec_constant_map_data(ce) for ce in c.keys()),
+                    (rec_constant_map_data(ce) for ce in c.values()),
+                )
+            )
+        )
+    raise NotImplementedError(f"Unsupported constant type {type(c)}")
+
+
 def rec_constant_map(c):
     if isinstance(c, bool):
         return uplc.BuiltinBool(c)
@@ -100,8 +125,8 @@ def rec_constant_map(c):
             [
                 uplc.BuiltinPair(*p)
                 for p in zip(
-                    (rec_constant_map(ce) for ce in c.keys()),
-                    (rec_constant_map(ce) for ce in c.values()),
+                    (rec_constant_map_data(ce) for ce in c.keys()),
+                    (rec_constant_map_data(ce) for ce in c.values()),
                 )
             ]
         )

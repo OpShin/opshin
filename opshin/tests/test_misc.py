@@ -988,7 +988,7 @@ def validator(_: None) -> Dict[str, bool]:
         ast = compiler.parse(source_code)
         code = compiler.compile(ast).compile()
         self.assertIn(
-            '(con list<pair<string, bool>> [["s", True], ["m", False]]))', code.dumps()
+            "(con list<pair<data, data>> [[#4173, #01], [#416d, #00]]))", code.dumps()
         )
         res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
         self.assertEqual(
