@@ -5,7 +5,17 @@ from copy import copy
 from ast import *
 
 import pluthon
-from ..typed_ast import RawPlutoExpr
+from ..typed_ast import (
+    RawPlutoExpr,
+    IntegerInstanceType,
+    ByteStringInstanceType,
+    StringInstanceType,
+    ListType,
+    DictType,
+    BoolInstanceType,
+    UnitInstanceType,
+    InstanceType,
+)
 
 try:
     unparse
@@ -165,7 +175,7 @@ class OptimizeConstantFolding(CompilingNodeTransformer):
         if not isinstance(node, expr):
             # only evaluate expressions, not statements
             return node
-        if isinstance(node, Constant):
+        if isinstance(node, RawPlutoExpr):
             # prevents unneccessary computations
             return node
         node_source = unparse(node)
@@ -188,33 +198,59 @@ class OptimizeConstantFolding(CompilingNodeTransformer):
             return node
 
         def rec_dump(c):
-            if any(isinstance(c, a) for a in ACCEPTED_ATOMIC_TYPES):
-                new_node = Constant(c, None)
-                copy_location(new_node, node)
-                return new_node
-            # TODO dump these values directly as plutus constants in the code (they will be built on chain with this)
+            if isinstance(c, int):
+                return uplc.ast.BuiltinInteger(c)
+            if isinstance(c, type(None)):
+                return uplc.ast.BuiltinUnit()
+            if isinstance(c, bytes):
+                return uplc.ast.BuiltinByteString(c)
+            if isinstance(c, str):
+                return uplc.ast.BuiltinString(c)
             if isinstance(c, list):
-                if len(c) > 0:
-                    return pluthon.UPLCConstant(
-                        uplc.ast.BuiltinList([rec_dump(ce) for ce in c])
-                    )
-                else:
-                    return List([], Load())
+                return uplc.ast.BuiltinList([rec_dump(ce) for ce in c])
             if isinstance(c, dict):
-                if len(c) > 0:
-                    return pluthon.UPLCConstant(
-                        uplc.ast.BuiltinList(
-                            list(
-                                zip(
-                                    (rec_dump(ce) for ce in c.keys()),
-                                    (rec_dump(ce) for ce in c.values()),
-                                )
-                            )
+                return uplc.ast.BuiltinList(
+                    list(
+                        zip(
+                            (rec_dump(ce) for ce in c.keys()),
+                            (rec_dump(ce) for ce in c.values()),
                         )
                     )
-                else:
-                    return Dict([], [])
+                )
 
         if any(isinstance(node_eval, t) for t in ACCEPTED_ATOMIC_TYPES + [list, dict]):
-            return RawPlutoExpr(rec_dump(node_eval))
+            new_node = RawPlutoExpr(
+                typ=constant_type(node_eval), expr=rec_dump(node_eval)
+            )
+            copy_location(new_node, node)
+            return new_node
         return node
+
+
+def constant_type(c):
+    if isinstance(c, int):
+        return IntegerInstanceType
+    if isinstance(c, type(None)):
+        return UnitInstanceType
+    if isinstance(c, bytes):
+        return ByteStringInstanceType
+    if isinstance(c, str):
+        return StringInstanceType
+    if isinstance(c, list):
+        assert len(c) > 0, "Lists must be non-empty"
+        first_typ = constant_type(c[0])
+        assert all(
+            constant_type(ce) == first_typ for ce in c[1:]
+        ), "Constant lists must contain elements of a single type only"
+        return InstanceType(ListType(first_typ))
+    if isinstance(c, dict):
+        assert len(c) > 0, "Lists must be non-empty"
+        first_key_typ = constant_type(next(iter(c.keys())))
+        first_value_typ = constant_type(next(iter(c.values())))
+        assert all(
+            constant_type(ce) == first_key_typ for ce in c.keys()
+        ), "Constant dicts must contain keys of a single type only"
+        assert all(
+            constant_type(ce) == first_value_typ for ce in c.values()
+        ), "Constant dicts must contain values of a single type only"
+        return InstanceType(DictType(first_key_typ, first_value_typ))
