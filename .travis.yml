@@ -45,9 +45,9 @@ script:
 - >
   test ! -n "$(coverage run -a --source=opshin -m opshin lint any examples/smart_contracts/wrapped_token.py)"
 - >
-  test -n "$(coverage run -a --source=opshin -m opshin lint any examples/smart_contracts/broken.py)"
+  test -n "$(coverage run -a --source=opshin -m opshin lint any examples/broken.py)"
 - >
-  test -n "$(coverage run -a --source=opshin -m opshin lint any examples/smart_contracts/broken.py --output-format-json)"
+  test -n "$(coverage run -a --source=opshin -m opshin lint any examples/broken.py --output-format-json)"
 
 after_success:
 - coverage report
