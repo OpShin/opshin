@@ -475,6 +475,44 @@ def validator(x: None) -> List[int]:
         ret = [x.value for x in uplc_eval(f).value]
         self.assertEqual(ret, [1, 2, 3, 4, 5], "List expression incorrectly compiled")
 
+    def test_list_expr_not_const(self):
+        # this tests that the list expression is evaluated correctly (for non-constant expressions)
+        source_code = """
+def validator(x: int) -> List[int]:
+    return [x, x+1, x+2, x+3, x+4]
+        """
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        for d in [
+            uplc.PlutusInteger(1),
+        ]:
+            f = uplc.Apply(f, d)
+        ret = [x.value for x in uplc_eval(f).value]
+        self.assertEqual(ret, [1, 2, 3, 4, 5], "List expression incorrectly compiled")
+
+    def test_dict_expr_not_const(self):
+        # this tests that the list expression is evaluated correctly (for non-constant expressions)
+        source_code = """
+def validator(x: int) -> Dict[int, bytes]:
+    return {x: b"a", x+1: b"b"}
+        """
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        for d in [
+            uplc.PlutusInteger(1),
+        ]:
+            f = uplc.Apply(f, d)
+        ret = {x.value: y.value for x, y in uplc_eval(f).value.items()}
+        self.assertEqual(
+            ret, {1: b"a", 2: b"b"}, "Dict expression incorrectly compiled"
+        )
+
     def test_redefine_constr(self):
         # this tests that classes defined by assignment inherit constructors
         source_code = """
