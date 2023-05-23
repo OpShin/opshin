@@ -475,6 +475,44 @@ def validator(x: None) -> List[int]:
         ret = [x.value for x in uplc_eval(f).value]
         self.assertEqual(ret, [1, 2, 3, 4, 5], "List expression incorrectly compiled")
 
+    def test_list_expr_not_const(self):
+        # this tests that the list expression is evaluated correctly (for non-constant expressions)
+        source_code = """
+def validator(x: int) -> List[int]:
+    return [x, x+1, x+2, x+3, x+4]
+        """
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        for d in [
+            uplc.PlutusInteger(1),
+        ]:
+            f = uplc.Apply(f, d)
+        ret = [x.value for x in uplc_eval(f).value]
+        self.assertEqual(ret, [1, 2, 3, 4, 5], "List expression incorrectly compiled")
+
+    def test_dict_expr_not_const(self):
+        # this tests that the list expression is evaluated correctly (for non-constant expressions)
+        source_code = """
+def validator(x: int) -> Dict[int, bytes]:
+    return {x: b"a", x+1: b"b"}
+        """
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        for d in [
+            uplc.PlutusInteger(1),
+        ]:
+            f = uplc.Apply(f, d)
+        ret = {x.value: y.value for x, y in uplc_eval(f).value.items()}
+        self.assertEqual(
+            ret, {1: b"a", 2: b"b"}, "Dict expression incorrectly compiled"
+        )
+
     def test_redefine_constr(self):
         # this tests that classes defined by assignment inherit constructors
         source_code = """
@@ -972,9 +1010,61 @@ def validator(_: None) -> List[int]:
 """
         ast = compiler.parse(source_code)
         code = compiler.compile(ast).compile()
+        self.assertIn("(con list<integer> [0, 2, 4, 6, 8])", code.dumps())
         res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
         self.assertEqual(
             res, uplc.PlutusList([uplc.PlutusInteger(i) for i in range(0, 10, 2)])
+        )
+
+    def test_constant_folding_dict(self):
+        source_code = """
+from opshin.prelude import *
+
+def validator(_: None) -> Dict[str, bool]:
+    return {"s": True, "m": False}
+"""
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        self.assertIn(
+            "(con list<pair<data, data>> [[#4173, #01], [#416d, #00]]))", code.dumps()
+        )
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
+        self.assertEqual(
+            res,
+            uplc.PlutusMap(
+                {
+                    uplc.PlutusByteString("s".encode()): uplc.PlutusInteger(1),
+                    uplc.PlutusByteString("m".encode()): uplc.PlutusInteger(0),
+                }
+            ),
+        )
+
+    def test_constant_folding_complex(self):
+        source_code = """
+from opshin.prelude import *
+
+def validator(_: None) -> Dict[str, List[Dict[bytes, int]]]:
+    return {"s": [{b"": 0}, {b"0": 1}]}
+"""
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
+        self.assertEqual(
+            res,
+            uplc.PlutusMap(
+                {
+                    uplc.PlutusByteString("s".encode()): uplc.PlutusList(
+                        [
+                            uplc.PlutusMap(
+                                {uplc.PlutusByteString(b""): uplc.PlutusInteger(0)}
+                            ),
+                            uplc.PlutusMap(
+                                {uplc.PlutusByteString(b"0"): uplc.PlutusInteger(1)}
+                            ),
+                        ]
+                    ),
+                }
+            ),
         )
 
     def test_constant_folding_math(self):
