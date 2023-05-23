@@ -68,16 +68,77 @@ fill="currentColor" class="octo-body"></path>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">import unittest
+<pre><code class="python">from dataclasses import dataclass
+import unittest
 
-from hypothesis import example, given
+from hypothesis import example, given, settings
 from hypothesis import strategies as st
 from uplc import ast as uplc, eval as uplc_eval
+from pycardano import PlutusData
 
 from .. import compiler
 
 
 class StdlibTest(unittest.TestCase):
+    @given(st.data())
+    def test_dict_get(self, data):
+        # this tests that errors that are caused by assignments are actually triggered at the time of assigning
+        source_code = &#34;&#34;&#34;
+def validator(x: Dict[int, bytes], y: int, z: bytes) -&gt; bytes:
+    return x.get(y, z)
+            &#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+
+        x = data.draw(st.dictionaries(st.integers(), st.binary()))
+        y = data.draw(st.one_of(st.sampled_from(sorted(x.keys()) + [0]), st.integers()))
+        z = data.draw(st.binary())
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        for d in [
+            uplc.PlutusMap(
+                {uplc.PlutusInteger(k): uplc.PlutusByteString(v) for k, v in x.items()}
+            ),
+            uplc.PlutusInteger(y),
+            uplc.PlutusByteString(z),
+        ]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value
+        self.assertEqual(ret, x.get(y, z), &#34;dict.get returned wrong value&#34;)
+
+    @given(st.data())
+    def test_dict_subscript(self, data):
+        # this tests that errors that are caused by assignments are actually triggered at the time of assigning
+        source_code = &#34;&#34;&#34;
+def validator(x: Dict[int, bytes], y: int) -&gt; bytes:
+    return x[y]
+            &#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+
+        x = data.draw(st.dictionaries(st.integers(), st.binary()))
+        y = data.draw(st.one_of(st.sampled_from(sorted(x.keys()) + [0]), st.integers()))
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        for d in [
+            uplc.PlutusMap(
+                {uplc.PlutusInteger(k): uplc.PlutusByteString(v) for k, v in x.items()}
+            ),
+            uplc.PlutusInteger(y),
+        ]:
+            f = uplc.Apply(f, d)
+        try:
+            ret = uplc_eval(f).value
+        except RuntimeError:
+            ret = None
+        try:
+            exp = x[y]
+        except KeyError:
+            exp = None
+        self.assertEqual(ret, exp, &#34;dict[] returned wrong value&#34;)
+
     @given(xs=st.dictionaries(st.integers(), st.binary()))
     def test_dict_keys(self, xs):
         # this tests that errors that are caused by assignments are actually triggered at the time of assigning
@@ -120,6 +181,54 @@ def validator(x: Dict[int, bytes]) -&gt; List[bytes]:
         ret = [x.value for x in uplc_eval(f).value]
         self.assertEqual(ret, list(xs.values()), &#34;dict.keys returned wrong value&#34;)
 
+    @given(xs=st.dictionaries(st.integers(), st.binary()))
+    def test_dict_items_keys_sum(self, xs):
+        # this tests that errors that are caused by assignments are actually triggered at the time of assigning
+        source_code = &#34;&#34;&#34;
+def validator(xs: Dict[int, bytes]) -&gt; int:
+    sum_keys = 0
+    for x in xs.items():
+        sum_keys += x[0]
+    return sum_keys
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        for d in [
+            uplc.PlutusMap(
+                {uplc.PlutusInteger(k): uplc.PlutusByteString(v) for k, v in xs.items()}
+            )
+        ]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value
+        self.assertEqual(ret, sum(xs.keys()), &#34;dict.items returned wrong value&#34;)
+
+    @given(xs=st.dictionaries(st.integers(), st.binary()))
+    def test_dict_items_values_sum(self, xs):
+        # this tests that errors that are caused by assignments are actually triggered at the time of assigning
+        source_code = &#34;&#34;&#34;
+def validator(xs: Dict[int, bytes]) -&gt; bytes:
+    sum_values = b&#34;&#34;
+    for x in xs.items():
+        sum_values += x[1]
+    return sum_values
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        for d in [
+            uplc.PlutusMap(
+                {uplc.PlutusInteger(k): uplc.PlutusByteString(v) for k, v in xs.items()}
+            )
+        ]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value
+        self.assertEqual(ret, b&#34;&#34;.join(xs.values()), &#34;dict.items returned wrong value&#34;)
+
     @given(xs=st.text())
     def test_str_encode(self, xs):
         # this tests that errors that are caused by assignments are actually triggered at the time of assigning
@@ -138,7 +247,7 @@ def validator(x: str) -&gt; bytes:
         self.assertEqual(ret, xs.encode(), &#34;str.encode returned wrong value&#34;)
 
     @given(xs=st.binary())
-    def test_str_decode(self, xs):
+    def test_bytes_decode(self, xs):
         # this tests that errors that are caused by assignments are actually triggered at the time of assigning
         source_code = &#34;&#34;&#34;
 def validator(x: bytes) -&gt; str:
@@ -160,6 +269,30 @@ def validator(x: bytes) -&gt; str:
         except UnicodeDecodeError:
             ret = None
         self.assertEqual(ret, exp, &#34;bytes.decode returned wrong value&#34;)
+
+    @given(xs=st.binary())
+    def test_bytes_hex(self, xs):
+        # this tests that errors that are caused by assignments are actually triggered at the time of assigning
+        source_code = &#34;&#34;&#34;
+def validator(x: bytes) -&gt; str:
+    return x.hex()
+            &#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        try:
+            exp = xs.hex()
+        except UnicodeDecodeError:
+            exp = None
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        for d in [uplc.PlutusByteString(xs)]:
+            f = uplc.Apply(f, d)
+        try:
+            ret = uplc_eval(f).value.decode()
+        except UnicodeDecodeError:
+            ret = None
+        self.assertEqual(ret, exp, &#34;bytes.hex returned wrong value&#34;)
 
     @given(xs=st.binary())
     @example(b&#34;dc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2&#34;)
@@ -223,7 +356,9 @@ def validator(x: None) -&gt; None:
         for d in [uplc.BuiltinUnit()]:
             f = uplc.Apply(f, d)
         ret = uplc_eval(f)
-        self.assertEqual(ret, uplc.BuiltinUnit(), &#34;literal None returned wrong value&#34;)
+        self.assertEqual(
+            ret, uplc.PlutusConstr(0, []), &#34;literal None returned wrong value&#34;
+        )
 
     @given(st.booleans())
     def test_constant_bool(self, x: bool):
@@ -239,7 +374,72 @@ def validator(x: None) -&gt; bool:
         for d in [uplc.BuiltinUnit()]:
             f = uplc.Apply(f, d)
         ret = uplc_eval(f).value == 1
-        self.assertEqual(ret, x, &#34;literal bool returned wrong value&#34;)</code></pre>
+        self.assertEqual(ret, x, &#34;literal bool returned wrong value&#34;)
+
+    @given(st.integers(), st.binary())
+    @settings(deadline=None)
+    def test_plutusdata_to_cbor(self, x: int, y: bytes):
+        source_code = f&#34;&#34;&#34;
+from opshin.prelude import *
+
+@dataclass
+class Test(PlutusData):
+    x: int
+    y: bytes
+
+def validator(x: int, y: bytes) -&gt; bytes:
+    return Test(x, y).to_cbor()
+            &#34;&#34;&#34;
+
+        @dataclass
+        class Test(PlutusData):
+            x: int
+            y: bytes
+
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        for d in [uplc.PlutusInteger(x), uplc.PlutusByteString(y)]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value
+        self.assertEqual(ret, Test(x, y).to_cbor(), &#34;to_cbor returned wrong value&#34;)
+
+    @given(st.integers())
+    @settings(deadline=None)
+    def test_union_to_cbor(self, x: int):
+        source_code = f&#34;&#34;&#34;
+from opshin.prelude import *
+
+@dataclass
+class Test(PlutusData):
+    CONSTR_ID = 1
+    x: int
+    y: bytes
+    
+@dataclass
+class Test2(PlutusData):
+    x: int
+
+def validator(x: int) -&gt; bytes:
+    y: Union[Test, Test2] = Test2(x)
+    return y.to_cbor()
+            &#34;&#34;&#34;
+
+        @dataclass
+        class Test2(PlutusData):
+            x: int
+
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        for d in [uplc.PlutusInteger(x)]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value
+        self.assertEqual(ret, Test2(x).to_cbor(), &#34;to_cbor returned wrong value&#34;)</code></pre>
 </details>
 </section>
 <section>
@@ -289,6 +489,65 @@ not have a method with the specified name.</p></div>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">class StdlibTest(unittest.TestCase):
+    @given(st.data())
+    def test_dict_get(self, data):
+        # this tests that errors that are caused by assignments are actually triggered at the time of assigning
+        source_code = &#34;&#34;&#34;
+def validator(x: Dict[int, bytes], y: int, z: bytes) -&gt; bytes:
+    return x.get(y, z)
+            &#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+
+        x = data.draw(st.dictionaries(st.integers(), st.binary()))
+        y = data.draw(st.one_of(st.sampled_from(sorted(x.keys()) + [0]), st.integers()))
+        z = data.draw(st.binary())
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        for d in [
+            uplc.PlutusMap(
+                {uplc.PlutusInteger(k): uplc.PlutusByteString(v) for k, v in x.items()}
+            ),
+            uplc.PlutusInteger(y),
+            uplc.PlutusByteString(z),
+        ]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value
+        self.assertEqual(ret, x.get(y, z), &#34;dict.get returned wrong value&#34;)
+
+    @given(st.data())
+    def test_dict_subscript(self, data):
+        # this tests that errors that are caused by assignments are actually triggered at the time of assigning
+        source_code = &#34;&#34;&#34;
+def validator(x: Dict[int, bytes], y: int) -&gt; bytes:
+    return x[y]
+            &#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+
+        x = data.draw(st.dictionaries(st.integers(), st.binary()))
+        y = data.draw(st.one_of(st.sampled_from(sorted(x.keys()) + [0]), st.integers()))
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        for d in [
+            uplc.PlutusMap(
+                {uplc.PlutusInteger(k): uplc.PlutusByteString(v) for k, v in x.items()}
+            ),
+            uplc.PlutusInteger(y),
+        ]:
+            f = uplc.Apply(f, d)
+        try:
+            ret = uplc_eval(f).value
+        except RuntimeError:
+            ret = None
+        try:
+            exp = x[y]
+        except KeyError:
+            exp = None
+        self.assertEqual(ret, exp, &#34;dict[] returned wrong value&#34;)
+
     @given(xs=st.dictionaries(st.integers(), st.binary()))
     def test_dict_keys(self, xs):
         # this tests that errors that are caused by assignments are actually triggered at the time of assigning
@@ -331,6 +590,54 @@ def validator(x: Dict[int, bytes]) -&gt; List[bytes]:
         ret = [x.value for x in uplc_eval(f).value]
         self.assertEqual(ret, list(xs.values()), &#34;dict.keys returned wrong value&#34;)
 
+    @given(xs=st.dictionaries(st.integers(), st.binary()))
+    def test_dict_items_keys_sum(self, xs):
+        # this tests that errors that are caused by assignments are actually triggered at the time of assigning
+        source_code = &#34;&#34;&#34;
+def validator(xs: Dict[int, bytes]) -&gt; int:
+    sum_keys = 0
+    for x in xs.items():
+        sum_keys += x[0]
+    return sum_keys
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        for d in [
+            uplc.PlutusMap(
+                {uplc.PlutusInteger(k): uplc.PlutusByteString(v) for k, v in xs.items()}
+            )
+        ]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value
+        self.assertEqual(ret, sum(xs.keys()), &#34;dict.items returned wrong value&#34;)
+
+    @given(xs=st.dictionaries(st.integers(), st.binary()))
+    def test_dict_items_values_sum(self, xs):
+        # this tests that errors that are caused by assignments are actually triggered at the time of assigning
+        source_code = &#34;&#34;&#34;
+def validator(xs: Dict[int, bytes]) -&gt; bytes:
+    sum_values = b&#34;&#34;
+    for x in xs.items():
+        sum_values += x[1]
+    return sum_values
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        for d in [
+            uplc.PlutusMap(
+                {uplc.PlutusInteger(k): uplc.PlutusByteString(v) for k, v in xs.items()}
+            )
+        ]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value
+        self.assertEqual(ret, b&#34;&#34;.join(xs.values()), &#34;dict.items returned wrong value&#34;)
+
     @given(xs=st.text())
     def test_str_encode(self, xs):
         # this tests that errors that are caused by assignments are actually triggered at the time of assigning
@@ -349,7 +656,7 @@ def validator(x: str) -&gt; bytes:
         self.assertEqual(ret, xs.encode(), &#34;str.encode returned wrong value&#34;)
 
     @given(xs=st.binary())
-    def test_str_decode(self, xs):
+    def test_bytes_decode(self, xs):
         # this tests that errors that are caused by assignments are actually triggered at the time of assigning
         source_code = &#34;&#34;&#34;
 def validator(x: bytes) -&gt; str:
@@ -371,6 +678,30 @@ def validator(x: bytes) -&gt; str:
         except UnicodeDecodeError:
             ret = None
         self.assertEqual(ret, exp, &#34;bytes.decode returned wrong value&#34;)
+
+    @given(xs=st.binary())
+    def test_bytes_hex(self, xs):
+        # this tests that errors that are caused by assignments are actually triggered at the time of assigning
+        source_code = &#34;&#34;&#34;
+def validator(x: bytes) -&gt; str:
+    return x.hex()
+            &#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        try:
+            exp = xs.hex()
+        except UnicodeDecodeError:
+            exp = None
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        for d in [uplc.PlutusByteString(xs)]:
+            f = uplc.Apply(f, d)
+        try:
+            ret = uplc_eval(f).value.decode()
+        except UnicodeDecodeError:
+            ret = None
+        self.assertEqual(ret, exp, &#34;bytes.hex returned wrong value&#34;)
 
     @given(xs=st.binary())
     @example(b&#34;dc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2&#34;)
@@ -434,7 +765,9 @@ def validator(x: None) -&gt; None:
         for d in [uplc.BuiltinUnit()]:
             f = uplc.Apply(f, d)
         ret = uplc_eval(f)
-        self.assertEqual(ret, uplc.BuiltinUnit(), &#34;literal None returned wrong value&#34;)
+        self.assertEqual(
+            ret, uplc.PlutusConstr(0, []), &#34;literal None returned wrong value&#34;
+        )
 
     @given(st.booleans())
     def test_constant_bool(self, x: bool):
@@ -450,7 +783,72 @@ def validator(x: None) -&gt; bool:
         for d in [uplc.BuiltinUnit()]:
             f = uplc.Apply(f, d)
         ret = uplc_eval(f).value == 1
-        self.assertEqual(ret, x, &#34;literal bool returned wrong value&#34;)</code></pre>
+        self.assertEqual(ret, x, &#34;literal bool returned wrong value&#34;)
+
+    @given(st.integers(), st.binary())
+    @settings(deadline=None)
+    def test_plutusdata_to_cbor(self, x: int, y: bytes):
+        source_code = f&#34;&#34;&#34;
+from opshin.prelude import *
+
+@dataclass
+class Test(PlutusData):
+    x: int
+    y: bytes
+
+def validator(x: int, y: bytes) -&gt; bytes:
+    return Test(x, y).to_cbor()
+            &#34;&#34;&#34;
+
+        @dataclass
+        class Test(PlutusData):
+            x: int
+            y: bytes
+
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        for d in [uplc.PlutusInteger(x), uplc.PlutusByteString(y)]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value
+        self.assertEqual(ret, Test(x, y).to_cbor(), &#34;to_cbor returned wrong value&#34;)
+
+    @given(st.integers())
+    @settings(deadline=None)
+    def test_union_to_cbor(self, x: int):
+        source_code = f&#34;&#34;&#34;
+from opshin.prelude import *
+
+@dataclass
+class Test(PlutusData):
+    CONSTR_ID = 1
+    x: int
+    y: bytes
+    
+@dataclass
+class Test2(PlutusData):
+    x: int
+
+def validator(x: int) -&gt; bytes:
+    y: Union[Test, Test2] = Test2(x)
+    return y.to_cbor()
+            &#34;&#34;&#34;
+
+        @dataclass
+        class Test2(PlutusData):
+            x: int
+
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        for d in [uplc.PlutusInteger(x)]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value
+        self.assertEqual(ret, Test2(x).to_cbor(), &#34;to_cbor returned wrong value&#34;)</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -458,6 +856,74 @@ def validator(x: None) -&gt; bool:
 </ul>
 <h3>Methods</h3>
 <dl>
+<dt id="opshin.tests.test_stdlib.StdlibTest.test_bytes_decode"><code class="name flex">
+<span>def <span class="ident">test_bytes_decode</span></span>(<span>self) ‑> None</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    @given(xs=st.binary())
+    def test_bytes_decode(self, xs):
+        # this tests that errors that are caused by assignments are actually triggered at the time of assigning
+        source_code = &#34;&#34;&#34;
+def validator(x: bytes) -&gt; str:
+    return x.decode()
+            &#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        try:
+            exp = xs.decode()
+        except UnicodeDecodeError:
+            exp = None
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        for d in [uplc.PlutusByteString(xs)]:
+            f = uplc.Apply(f, d)
+        try:
+            ret = uplc_eval(f).value.decode(&#34;utf8&#34;)
+        except UnicodeDecodeError:
+            ret = None
+        self.assertEqual(ret, exp, &#34;bytes.decode returned wrong value&#34;)</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_stdlib.StdlibTest.test_bytes_hex"><code class="name flex">
+<span>def <span class="ident">test_bytes_hex</span></span>(<span>self) ‑> None</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    @given(xs=st.binary())
+    def test_bytes_hex(self, xs):
+        # this tests that errors that are caused by assignments are actually triggered at the time of assigning
+        source_code = &#34;&#34;&#34;
+def validator(x: bytes) -&gt; str:
+    return x.hex()
+            &#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        try:
+            exp = xs.hex()
+        except UnicodeDecodeError:
+            exp = None
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        for d in [uplc.PlutusByteString(xs)]:
+            f = uplc.Apply(f, d)
+        try:
+            ret = uplc_eval(f).value.decode()
+        except UnicodeDecodeError:
+            ret = None
+        self.assertEqual(ret, exp, &#34;bytes.hex returned wrong value&#34;)</code></pre>
+</details>
+</dd>
 <dt id="opshin.tests.test_stdlib.StdlibTest.test_constant_bool"><code class="name flex">
 <span>def <span class="ident">test_constant_bool</span></span>(<span>self) ‑> None</span>
 </code></dt>
@@ -585,7 +1051,114 @@ def validator(x: None) -&gt; None:
         for d in [uplc.BuiltinUnit()]:
             f = uplc.Apply(f, d)
         ret = uplc_eval(f)
-        self.assertEqual(ret, uplc.BuiltinUnit(), &#34;literal None returned wrong value&#34;)</code></pre>
+        self.assertEqual(
+            ret, uplc.PlutusConstr(0, []), &#34;literal None returned wrong value&#34;
+        )</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_stdlib.StdlibTest.test_dict_get"><code class="name flex">
+<span>def <span class="ident">test_dict_get</span></span>(<span>self) ‑> None</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    @given(st.data())
+    def test_dict_get(self, data):
+        # this tests that errors that are caused by assignments are actually triggered at the time of assigning
+        source_code = &#34;&#34;&#34;
+def validator(x: Dict[int, bytes], y: int, z: bytes) -&gt; bytes:
+    return x.get(y, z)
+            &#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+
+        x = data.draw(st.dictionaries(st.integers(), st.binary()))
+        y = data.draw(st.one_of(st.sampled_from(sorted(x.keys()) + [0]), st.integers()))
+        z = data.draw(st.binary())
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        for d in [
+            uplc.PlutusMap(
+                {uplc.PlutusInteger(k): uplc.PlutusByteString(v) for k, v in x.items()}
+            ),
+            uplc.PlutusInteger(y),
+            uplc.PlutusByteString(z),
+        ]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value
+        self.assertEqual(ret, x.get(y, z), &#34;dict.get returned wrong value&#34;)</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_stdlib.StdlibTest.test_dict_items_keys_sum"><code class="name flex">
+<span>def <span class="ident">test_dict_items_keys_sum</span></span>(<span>self) ‑> None</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    @given(xs=st.dictionaries(st.integers(), st.binary()))
+    def test_dict_items_keys_sum(self, xs):
+        # this tests that errors that are caused by assignments are actually triggered at the time of assigning
+        source_code = &#34;&#34;&#34;
+def validator(xs: Dict[int, bytes]) -&gt; int:
+    sum_keys = 0
+    for x in xs.items():
+        sum_keys += x[0]
+    return sum_keys
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        for d in [
+            uplc.PlutusMap(
+                {uplc.PlutusInteger(k): uplc.PlutusByteString(v) for k, v in xs.items()}
+            )
+        ]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value
+        self.assertEqual(ret, sum(xs.keys()), &#34;dict.items returned wrong value&#34;)</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_stdlib.StdlibTest.test_dict_items_values_sum"><code class="name flex">
+<span>def <span class="ident">test_dict_items_values_sum</span></span>(<span>self) ‑> None</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    @given(xs=st.dictionaries(st.integers(), st.binary()))
+    def test_dict_items_values_sum(self, xs):
+        # this tests that errors that are caused by assignments are actually triggered at the time of assigning
+        source_code = &#34;&#34;&#34;
+def validator(xs: Dict[int, bytes]) -&gt; bytes:
+    sum_values = b&#34;&#34;
+    for x in xs.items():
+        sum_values += x[1]
+    return sum_values
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        for d in [
+            uplc.PlutusMap(
+                {uplc.PlutusInteger(k): uplc.PlutusByteString(v) for k, v in xs.items()}
+            )
+        ]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value
+        self.assertEqual(ret, b&#34;&#34;.join(xs.values()), &#34;dict.items returned wrong value&#34;)</code></pre>
 </details>
 </dd>
 <dt id="opshin.tests.test_stdlib.StdlibTest.test_dict_keys"><code class="name flex">
@@ -619,6 +1192,48 @@ def validator(x: Dict[int, bytes]) -&gt; List[int]:
         self.assertEqual(ret, list(xs.keys()), &#34;dict.keys returned wrong value&#34;)</code></pre>
 </details>
 </dd>
+<dt id="opshin.tests.test_stdlib.StdlibTest.test_dict_subscript"><code class="name flex">
+<span>def <span class="ident">test_dict_subscript</span></span>(<span>self) ‑> None</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    @given(st.data())
+    def test_dict_subscript(self, data):
+        # this tests that errors that are caused by assignments are actually triggered at the time of assigning
+        source_code = &#34;&#34;&#34;
+def validator(x: Dict[int, bytes], y: int) -&gt; bytes:
+    return x[y]
+            &#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+
+        x = data.draw(st.dictionaries(st.integers(), st.binary()))
+        y = data.draw(st.one_of(st.sampled_from(sorted(x.keys()) + [0]), st.integers()))
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        for d in [
+            uplc.PlutusMap(
+                {uplc.PlutusInteger(k): uplc.PlutusByteString(v) for k, v in x.items()}
+            ),
+            uplc.PlutusInteger(y),
+        ]:
+            f = uplc.Apply(f, d)
+        try:
+            ret = uplc_eval(f).value
+        except RuntimeError:
+            ret = None
+        try:
+            exp = x[y]
+        except KeyError:
+            exp = None
+        self.assertEqual(ret, exp, &#34;dict[] returned wrong value&#34;)</code></pre>
+</details>
+</dd>
 <dt id="opshin.tests.test_stdlib.StdlibTest.test_dict_values"><code class="name flex">
 <span>def <span class="ident">test_dict_values</span></span>(<span>self) ‑> None</span>
 </code></dt>
@@ -650,8 +1265,8 @@ def validator(x: Dict[int, bytes]) -&gt; List[bytes]:
         self.assertEqual(ret, list(xs.values()), &#34;dict.keys returned wrong value&#34;)</code></pre>
 </details>
 </dd>
-<dt id="opshin.tests.test_stdlib.StdlibTest.test_str_decode"><code class="name flex">
-<span>def <span class="ident">test_str_decode</span></span>(<span>self) ‑> None</span>
+<dt id="opshin.tests.test_stdlib.StdlibTest.test_plutusdata_to_cbor"><code class="name flex">
+<span>def <span class="ident">test_plutusdata_to_cbor</span></span>(<span>self) ‑> None</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -659,29 +1274,35 @@ def validator(x: Dict[int, bytes]) -&gt; List[bytes]:
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">    @given(xs=st.binary())
-    def test_str_decode(self, xs):
-        # this tests that errors that are caused by assignments are actually triggered at the time of assigning
-        source_code = &#34;&#34;&#34;
-def validator(x: bytes) -&gt; str:
-    return x.decode()
+<pre><code class="python">    @given(st.integers(), st.binary())
+    @settings(deadline=None)
+    def test_plutusdata_to_cbor(self, x: int, y: bytes):
+        source_code = f&#34;&#34;&#34;
+from opshin.prelude import *
+
+@dataclass
+class Test(PlutusData):
+    x: int
+    y: bytes
+
+def validator(x: int, y: bytes) -&gt; bytes:
+    return Test(x, y).to_cbor()
             &#34;&#34;&#34;
+
+        @dataclass
+        class Test(PlutusData):
+            x: int
+            y: bytes
+
         ast = compiler.parse(source_code)
         code = compiler.compile(ast)
         code = code.compile()
         f = code.term
-        try:
-            exp = xs.decode()
-        except UnicodeDecodeError:
-            exp = None
         # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
-        for d in [uplc.PlutusByteString(xs)]:
+        for d in [uplc.PlutusInteger(x), uplc.PlutusByteString(y)]:
             f = uplc.Apply(f, d)
-        try:
-            ret = uplc_eval(f).value.decode(&#34;utf8&#34;)
-        except UnicodeDecodeError:
-            ret = None
-        self.assertEqual(ret, exp, &#34;bytes.decode returned wrong value&#34;)</code></pre>
+        ret = uplc_eval(f).value
+        self.assertEqual(ret, Test(x, y).to_cbor(), &#34;to_cbor returned wrong value&#34;)</code></pre>
 </details>
 </dd>
 <dt id="opshin.tests.test_stdlib.StdlibTest.test_str_encode"><code class="name flex">
@@ -709,6 +1330,51 @@ def validator(x: str) -&gt; bytes:
             f = uplc.Apply(f, d)
         ret = uplc_eval(f).value
         self.assertEqual(ret, xs.encode(), &#34;str.encode returned wrong value&#34;)</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_stdlib.StdlibTest.test_union_to_cbor"><code class="name flex">
+<span>def <span class="ident">test_union_to_cbor</span></span>(<span>self) ‑> None</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    @given(st.integers())
+    @settings(deadline=None)
+    def test_union_to_cbor(self, x: int):
+        source_code = f&#34;&#34;&#34;
+from opshin.prelude import *
+
+@dataclass
+class Test(PlutusData):
+    CONSTR_ID = 1
+    x: int
+    y: bytes
+    
+@dataclass
+class Test2(PlutusData):
+    x: int
+
+def validator(x: int) -&gt; bytes:
+    y: Union[Test, Test2] = Test2(x)
+    return y.to_cbor()
+            &#34;&#34;&#34;
+
+        @dataclass
+        class Test2(PlutusData):
+            x: int
+
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        for d in [uplc.PlutusInteger(x)]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value
+        self.assertEqual(ret, Test2(x).to_cbor(), &#34;to_cbor returned wrong value&#34;)</code></pre>
 </details>
 </dd>
 </dl>
@@ -785,15 +1451,22 @@ setTimeout(() => input.focus(), 100);
 <li>
 <h4><code><a title="opshin.tests.test_stdlib.StdlibTest" href="#opshin.tests.test_stdlib.StdlibTest">StdlibTest</a></code></h4>
 <ul class="">
+<li><code><a title="opshin.tests.test_stdlib.StdlibTest.test_bytes_decode" href="#opshin.tests.test_stdlib.StdlibTest.test_bytes_decode">test_bytes_decode</a></code></li>
+<li><code><a title="opshin.tests.test_stdlib.StdlibTest.test_bytes_hex" href="#opshin.tests.test_stdlib.StdlibTest.test_bytes_hex">test_bytes_hex</a></code></li>
 <li><code><a title="opshin.tests.test_stdlib.StdlibTest.test_constant_bool" href="#opshin.tests.test_stdlib.StdlibTest.test_constant_bool">test_constant_bool</a></code></li>
 <li><code><a title="opshin.tests.test_stdlib.StdlibTest.test_constant_bytestring" href="#opshin.tests.test_stdlib.StdlibTest.test_constant_bytestring">test_constant_bytestring</a></code></li>
 <li><code><a title="opshin.tests.test_stdlib.StdlibTest.test_constant_integer" href="#opshin.tests.test_stdlib.StdlibTest.test_constant_integer">test_constant_integer</a></code></li>
 <li><code><a title="opshin.tests.test_stdlib.StdlibTest.test_constant_string" href="#opshin.tests.test_stdlib.StdlibTest.test_constant_string">test_constant_string</a></code></li>
 <li><code><a title="opshin.tests.test_stdlib.StdlibTest.test_constant_unit" href="#opshin.tests.test_stdlib.StdlibTest.test_constant_unit">test_constant_unit</a></code></li>
+<li><code><a title="opshin.tests.test_stdlib.StdlibTest.test_dict_get" href="#opshin.tests.test_stdlib.StdlibTest.test_dict_get">test_dict_get</a></code></li>
+<li><code><a title="opshin.tests.test_stdlib.StdlibTest.test_dict_items_keys_sum" href="#opshin.tests.test_stdlib.StdlibTest.test_dict_items_keys_sum">test_dict_items_keys_sum</a></code></li>
+<li><code><a title="opshin.tests.test_stdlib.StdlibTest.test_dict_items_values_sum" href="#opshin.tests.test_stdlib.StdlibTest.test_dict_items_values_sum">test_dict_items_values_sum</a></code></li>
 <li><code><a title="opshin.tests.test_stdlib.StdlibTest.test_dict_keys" href="#opshin.tests.test_stdlib.StdlibTest.test_dict_keys">test_dict_keys</a></code></li>
+<li><code><a title="opshin.tests.test_stdlib.StdlibTest.test_dict_subscript" href="#opshin.tests.test_stdlib.StdlibTest.test_dict_subscript">test_dict_subscript</a></code></li>
 <li><code><a title="opshin.tests.test_stdlib.StdlibTest.test_dict_values" href="#opshin.tests.test_stdlib.StdlibTest.test_dict_values">test_dict_values</a></code></li>
-<li><code><a title="opshin.tests.test_stdlib.StdlibTest.test_str_decode" href="#opshin.tests.test_stdlib.StdlibTest.test_str_decode">test_str_decode</a></code></li>
+<li><code><a title="opshin.tests.test_stdlib.StdlibTest.test_plutusdata_to_cbor" href="#opshin.tests.test_stdlib.StdlibTest.test_plutusdata_to_cbor">test_plutusdata_to_cbor</a></code></li>
 <li><code><a title="opshin.tests.test_stdlib.StdlibTest.test_str_encode" href="#opshin.tests.test_stdlib.StdlibTest.test_str_encode">test_str_encode</a></code></li>
+<li><code><a title="opshin.tests.test_stdlib.StdlibTest.test_union_to_cbor" href="#opshin.tests.test_stdlib.StdlibTest.test_union_to_cbor">test_union_to_cbor</a></code></li>
 </ul>
 </li>
 </ul>

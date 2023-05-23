@@ -69,7 +69,9 @@ fill="currentColor" class="octo-body"></path>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">import ast
+import pycardano
 from enum import Enum, auto
+from frozendict import frozendict
 
 from .typed_ast import *
 
@@ -618,14 +620,26 @@ def data_from_json(j: typing.Dict[str, typing.Any]) -&gt; uplc.PlutusData:
     if &#34;int&#34; in j:
         return uplc.PlutusInteger(int(j[&#34;int&#34;]))
     if &#34;list&#34; in j:
-        return uplc.PlutusList(list(map(data_from_json, j[&#34;list&#34;])))
+        return uplc.PlutusList(FrozenFrozenList(list(map(data_from_json, j[&#34;list&#34;]))))
     if &#34;map&#34; in j:
-        return uplc.PlutusMap({d[&#34;k&#34;]: d[&#34;v&#34;] for d in j[&#34;map&#34;]})
+        return uplc.PlutusMap(
+            frozendict(
+                {data_from_json(d[&#34;k&#34;]): data_from_json(d[&#34;v&#34;]) for d in j[&#34;map&#34;]}
+            )
+        )
     if &#34;constructor&#34; in j and &#34;fields&#34; in j:
         return uplc.PlutusConstr(
-            j[&#34;constructor&#34;], list(map(data_from_json, j[&#34;fields&#34;]))
+            j[&#34;constructor&#34;], FrozenFrozenList(list(map(data_from_json, j[&#34;fields&#34;])))
         )
-    raise NotImplementedError(f&#34;Unknown datum representation {j}&#34;)</code></pre>
+    raise NotImplementedError(f&#34;Unknown datum representation {j}&#34;)
+
+
+def datum_to_cbor(d: pycardano.Datum) -&gt; bytes:
+    return pycardano.PlutusData.to_cbor(d)
+
+
+def datum_to_json(d: pycardano.Datum) -&gt; str:
+    return pycardano.PlutusData.to_json(d)</code></pre>
 </details>
 </section>
 <section>
@@ -684,14 +698,44 @@ def data_from_json(j: typing.Dict[str, typing.Any]) -&gt; uplc.PlutusData:
     if &#34;int&#34; in j:
         return uplc.PlutusInteger(int(j[&#34;int&#34;]))
     if &#34;list&#34; in j:
-        return uplc.PlutusList(list(map(data_from_json, j[&#34;list&#34;])))
+        return uplc.PlutusList(FrozenFrozenList(list(map(data_from_json, j[&#34;list&#34;]))))
     if &#34;map&#34; in j:
-        return uplc.PlutusMap({d[&#34;k&#34;]: d[&#34;v&#34;] for d in j[&#34;map&#34;]})
+        return uplc.PlutusMap(
+            frozendict(
+                {data_from_json(d[&#34;k&#34;]): data_from_json(d[&#34;v&#34;]) for d in j[&#34;map&#34;]}
+            )
+        )
     if &#34;constructor&#34; in j and &#34;fields&#34; in j:
         return uplc.PlutusConstr(
-            j[&#34;constructor&#34;], list(map(data_from_json, j[&#34;fields&#34;]))
+            j[&#34;constructor&#34;], FrozenFrozenList(list(map(data_from_json, j[&#34;fields&#34;])))
         )
     raise NotImplementedError(f&#34;Unknown datum representation {j}&#34;)</code></pre>
+</details>
+</dd>
+<dt id="opshin.util.datum_to_cbor"><code class="name flex">
+<span>def <span class="ident">datum_to_cbor</span></span>(<span>d: Union[pycardano.plutus.PlutusData, dict, int, bytes, pycardano.serialization.IndefiniteList, pycardano.serialization.RawCBOR, pycardano.plutus.RawPlutusData]) ‑> bytes</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def datum_to_cbor(d: pycardano.Datum) -&gt; bytes:
+    return pycardano.PlutusData.to_cbor(d)</code></pre>
+</details>
+</dd>
+<dt id="opshin.util.datum_to_json"><code class="name flex">
+<span>def <span class="ident">datum_to_json</span></span>(<span>d: Union[pycardano.plutus.PlutusData, dict, int, bytes, pycardano.serialization.IndefiniteList, pycardano.serialization.RawCBOR, pycardano.plutus.RawPlutusData]) ‑> str</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def datum_to_json(d: pycardano.Datum) -&gt; str:
+    return pycardano.PlutusData.to_json(d)</code></pre>
 </details>
 </dd>
 </dl>
@@ -776,19 +820,25 @@ just a single node.</p>
 <h3>Subclasses</h3>
 <ul class="hlist">
 <li><a title="opshin.compiler.UPLCCompiler" href="compiler.html#opshin.compiler.UPLCCompiler">UPLCCompiler</a></li>
+<li><a title="opshin.optimize.optimize_const_folding.OptimizeConstantFolding" href="optimize/optimize_const_folding.html#opshin.optimize.optimize_const_folding.OptimizeConstantFolding">OptimizeConstantFolding</a></li>
+<li><a title="opshin.optimize.optimize_remove_comments.OptimizeRemoveDeadconstants" href="optimize/optimize_remove_comments.html#opshin.optimize.optimize_remove_comments.OptimizeRemoveDeadconstants">OptimizeRemoveDeadconstants</a></li>
 <li><a title="opshin.optimize.optimize_remove_deadvars.OptimizeRemoveDeadvars" href="optimize/optimize_remove_deadvars.html#opshin.optimize.optimize_remove_deadvars.OptimizeRemoveDeadvars">OptimizeRemoveDeadvars</a></li>
 <li><a title="opshin.optimize.optimize_remove_pass.OptimizeRemovePass" href="optimize/optimize_remove_pass.html#opshin.optimize.optimize_remove_pass.OptimizeRemovePass">OptimizeRemovePass</a></li>
 <li><a title="opshin.optimize.optimize_varlen.OptimizeVarlen" href="optimize/optimize_varlen.html#opshin.optimize.optimize_varlen.OptimizeVarlen">OptimizeVarlen</a></li>
 <li><a title="opshin.rewrite.rewrite_augassign.RewriteAugAssign" href="rewrite/rewrite_augassign.html#opshin.rewrite.rewrite_augassign.RewriteAugAssign">RewriteAugAssign</a></li>
 <li><a title="opshin.rewrite.rewrite_forbidden_overwrites.RewriteForbiddenOverwrites" href="rewrite/rewrite_forbidden_overwrites.html#opshin.rewrite.rewrite_forbidden_overwrites.RewriteForbiddenOverwrites">RewriteForbiddenOverwrites</a></li>
 <li><a title="opshin.rewrite.rewrite_import.RewriteImport" href="rewrite/rewrite_import.html#opshin.rewrite.rewrite_import.RewriteImport">RewriteImport</a></li>
+<li><a title="opshin.rewrite.rewrite_import.RewriteLocation" href="rewrite/rewrite_import.html#opshin.rewrite.rewrite_import.RewriteLocation">RewriteLocation</a></li>
 <li><a title="opshin.rewrite.rewrite_import_dataclasses.RewriteImportDataclasses" href="rewrite/rewrite_import_dataclasses.html#opshin.rewrite.rewrite_import_dataclasses.RewriteImportDataclasses">RewriteImportDataclasses</a></li>
 <li><a title="opshin.rewrite.rewrite_import_hashlib.RewriteImportHashlib" href="rewrite/rewrite_import_hashlib.html#opshin.rewrite.rewrite_import_hashlib.RewriteImportHashlib">RewriteImportHashlib</a></li>
 <li><a title="opshin.rewrite.rewrite_import_plutusdata.RewriteImportPlutusData" href="rewrite/rewrite_import_plutusdata.html#opshin.rewrite.rewrite_import_plutusdata.RewriteImportPlutusData">RewriteImportPlutusData</a></li>
 <li><a title="opshin.rewrite.rewrite_import_typing.RewriteImportTyping" href="rewrite/rewrite_import_typing.html#opshin.rewrite.rewrite_import_typing.RewriteImportTyping">RewriteImportTyping</a></li>
 <li><a title="opshin.rewrite.rewrite_inject_builtin_constr.RewriteInjectBuiltinsConstr" href="rewrite/rewrite_inject_builtin_constr.html#opshin.rewrite.rewrite_inject_builtin_constr.RewriteInjectBuiltinsConstr">RewriteInjectBuiltinsConstr</a></li>
 <li><a title="opshin.rewrite.rewrite_inject_builtins.RewriteInjectBuiltins" href="rewrite/rewrite_inject_builtins.html#opshin.rewrite.rewrite_inject_builtins.RewriteInjectBuiltins">RewriteInjectBuiltins</a></li>
+<li><a title="opshin.rewrite.rewrite_orig_name.RewriteOrigName" href="rewrite/rewrite_orig_name.html#opshin.rewrite.rewrite_orig_name.RewriteOrigName">RewriteOrigName</a></li>
 <li><a title="opshin.rewrite.rewrite_remove_type_stuff.RewriteRemoveTypeStuff" href="rewrite/rewrite_remove_type_stuff.html#opshin.rewrite.rewrite_remove_type_stuff.RewriteRemoveTypeStuff">RewriteRemoveTypeStuff</a></li>
+<li><a title="opshin.rewrite.rewrite_scoping.RewriteScoping" href="rewrite/rewrite_scoping.html#opshin.rewrite.rewrite_scoping.RewriteScoping">RewriteScoping</a></li>
+<li><a title="opshin.rewrite.rewrite_subscript38.RewriteSubscript38" href="rewrite/rewrite_subscript38.html#opshin.rewrite.rewrite_subscript38.RewriteSubscript38">RewriteSubscript38</a></li>
 <li><a title="opshin.rewrite.rewrite_tuple_assign.RewriteTupleAssign" href="rewrite/rewrite_tuple_assign.html#opshin.rewrite.rewrite_tuple_assign.RewriteTupleAssign">RewriteTupleAssign</a></li>
 <li><a title="opshin.rewrite.rewrite_zero_ary.RewriteZeroAry" href="rewrite/rewrite_zero_ary.html#opshin.rewrite.rewrite_zero_ary.RewriteZeroAry">RewriteZeroAry</a></li>
 <li><a title="opshin.type_inference.AggressiveTypeInferencer" href="type_inference.html#opshin.type_inference.AggressiveTypeInferencer">AggressiveTypeInferencer</a></li>
@@ -870,9 +920,11 @@ allows modifications.</p></div>
 </ul>
 <h3>Subclasses</h3>
 <ul class="hlist">
+<li><a title="opshin.optimize.optimize_const_folding.ShallowNameDefCollector" href="optimize/optimize_const_folding.html#opshin.optimize.optimize_const_folding.ShallowNameDefCollector">ShallowNameDefCollector</a></li>
 <li><a title="opshin.optimize.optimize_remove_deadvars.NameLoadCollector" href="optimize/optimize_remove_deadvars.html#opshin.optimize.optimize_remove_deadvars.NameLoadCollector">NameLoadCollector</a></li>
 <li><a title="opshin.optimize.optimize_remove_deadvars.SafeOperationVisitor" href="optimize/optimize_remove_deadvars.html#opshin.optimize.optimize_remove_deadvars.SafeOperationVisitor">SafeOperationVisitor</a></li>
 <li><a title="opshin.optimize.optimize_varlen.NameCollector" href="optimize/optimize_varlen.html#opshin.optimize.optimize_varlen.NameCollector">NameCollector</a></li>
+<li><a title="opshin.rewrite.rewrite_scoping.ShallowNameDefCollector" href="rewrite/rewrite_scoping.html#opshin.rewrite.rewrite_scoping.ShallowNameDefCollector">ShallowNameDefCollector</a></li>
 </ul>
 <h3>Class variables</h3>
 <dl>
@@ -1583,6 +1635,8 @@ setTimeout(() => input.focus(), 100);
 <ul class="">
 <li><code><a title="opshin.util.PowImpl" href="#opshin.util.PowImpl">PowImpl</a></code></li>
 <li><code><a title="opshin.util.data_from_json" href="#opshin.util.data_from_json">data_from_json</a></code></li>
+<li><code><a title="opshin.util.datum_to_cbor" href="#opshin.util.datum_to_cbor">datum_to_cbor</a></code></li>
+<li><code><a title="opshin.util.datum_to_json" href="#opshin.util.datum_to_json">datum_to_json</a></code></li>
 </ul>
 </li>
 <li><h3><a href="#header-classes">Classes</a></h3>

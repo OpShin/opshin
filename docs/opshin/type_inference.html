@@ -112,6 +112,37 @@ INITIAL_SCOPE.update(
 )
 
 
+def constant_type(c):
+    if isinstance(c, bool):
+        return BoolInstanceType
+    if isinstance(c, int):
+        return IntegerInstanceType
+    if isinstance(c, type(None)):
+        return UnitInstanceType
+    if isinstance(c, bytes):
+        return ByteStringInstanceType
+    if isinstance(c, str):
+        return StringInstanceType
+    if isinstance(c, list):
+        assert len(c) &gt; 0, &#34;Lists must be non-empty&#34;
+        first_typ = constant_type(c[0])
+        assert all(
+            constant_type(ce) == first_typ for ce in c[1:]
+        ), &#34;Constant lists must contain elements of a single type only&#34;
+        return InstanceType(ListType(first_typ))
+    if isinstance(c, dict):
+        assert len(c) &gt; 0, &#34;Lists must be non-empty&#34;
+        first_key_typ = constant_type(next(iter(c.keys())))
+        first_value_typ = constant_type(next(iter(c.values())))
+        assert all(
+            constant_type(ce) == first_key_typ for ce in c.keys()
+        ), &#34;Constant dicts must contain keys of a single type only&#34;
+        assert all(
+            constant_type(ce) == first_value_typ for ce in c.values()
+        ), &#34;Constant dicts must contain values of a single type only&#34;
+        return InstanceType(DictType(first_key_typ, first_value_typ))
+
+
 class AggressiveTypeInferencer(CompilingNodeTransformer):
     step = &#34;Static Type Inference&#34;
 
@@ -133,7 +164,10 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         self.scopes.pop()
 
     def set_variable_type(self, name: str, typ: Type, force=False):
-        if not force and name in self.scopes[-1] and typ != self.scopes[-1][name]:
+        if not force and name in self.scopes[-1] and self.scopes[-1][name] != typ:
+            if self.scopes[-1][name] &gt;= typ:
+                # the specified type is broader, we pass on this
+                return
             raise TypeInferenceError(
                 f&#34;Type {self.scopes[-1][name]} of variable {name} in local scope does not match inferred type {typ}&#34;
             )
@@ -156,12 +190,11 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             assert isinstance(
                 ann.value, Name
             ), &#34;Only Union, Dict and List are allowed as Generic types&#34;
-            assert isinstance(ann.slice, Index), &#34;Generic types must be parameterized&#34;
             if ann.value.id == &#34;Union&#34;:
                 assert isinstance(
-                    ann.slice.value, Tuple
+                    ann.slice, Tuple
                 ), &#34;Union must combine multiple classes&#34;
-                ann_types = [self.type_from_annotation(e) for e in ann.slice.value.elts]
+                ann_types = [self.type_from_annotation(e) for e in ann.slice.elts]
                 assert all(
                     isinstance(e, RecordType) for e in ann_types
                 ), &#34;Union must combine multiple PlutusData classes&#34;
@@ -170,7 +203,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                 ), &#34;Union must combine PlutusData classes with unique constructors&#34;
                 return UnionType(FrozenFrozenList(ann_types))
             if ann.value.id == &#34;List&#34;:
-                ann_type = self.type_from_annotation(ann.slice.value)
+                ann_type = self.type_from_annotation(ann.slice)
                 assert isinstance(
                     ann_type, ClassType
                 ), &#34;List must have a single type as parameter&#34;
@@ -179,13 +212,11 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                 ), &#34;List can currently not hold tuples&#34;
                 return ListType(InstanceType(ann_type))
             if ann.value.id == &#34;Dict&#34;:
-                assert isinstance(
-                    ann.slice.value, Tuple
-                ), &#34;Dict must combine two classes&#34;
-                assert len(ann.slice.value.elts) == 2, &#34;Dict must combine two classes&#34;
+                assert isinstance(ann.slice, Tuple), &#34;Dict must combine two classes&#34;
+                assert len(ann.slice.elts) == 2, &#34;Dict must combine two classes&#34;
                 ann_types = self.type_from_annotation(
-                    ann.slice.value.elts[0]
-                ), self.type_from_annotation(ann.slice.value.elts[1])
+                    ann.slice.elts[0]
+                ), self.type_from_annotation(ann.slice.elts[1])
                 assert all(
                     isinstance(e, ClassType) for e in ann_types
                 ), &#34;Dict must combine two classes&#34;
@@ -195,9 +226,9 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                 return DictType(*(InstanceType(a) for a in ann_types))
             if ann.value.id == &#34;Tuple&#34;:
                 assert isinstance(
-                    ann.slice.value, Tuple
+                    ann.slice, Tuple
                 ), &#34;Tuple must combine several classes&#34;
-                ann_types = [self.type_from_annotation(e) for e in ann.slice.value.elts]
+                ann_types = [self.type_from_annotation(e) for e in ann.slice.elts]
                 assert all(
                     isinstance(e, ClassType) for e in ann_types
                 ), &#34;Tuple must combine classes&#34;
@@ -206,9 +237,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                 &#34;Only Union, Dict and List are allowed as Generic types&#34;
             )
         if ann is None:
-            raise TypeInferenceError(
-                &#34;Type annotation is missing for a function argument or return value&#34;
-            )
+            return AnyType()
         raise NotImplementedError(f&#34;Annotation type {ann.__class__} is not supported&#34;)
 
     def visit_ClassDef(self, node: ClassDef) -&gt; TypedClassDef:
@@ -226,10 +255,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             complex,
             type(...),
         ], &#34;Float, complex numbers and ellipsis currently not supported&#34;
-        if tc.value is None:
-            tc.typ = NoneInstanceType
-        else:
-            tc.typ = InstanceType(ATOMIC_TYPES[type(node.value).__name__])
+        tc.typ = constant_type(node.value)
         return tc
 
     def visit_Tuple(self, node: Tuple) -&gt; TypedTuple:
@@ -284,9 +310,10 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             node.target.id, InstanceType(typed_ass.annotation), force=True
         )
         typed_ass.target = self.visit(node.target)
-        assert typed_ass.value.typ &gt;= InstanceType(
-            typed_ass.annotation
-        ), &#34;Can only downcast to a specialized type&#34;
+        assert (
+            typed_ass.value.typ &gt;= InstanceType(typed_ass.annotation)
+            or InstanceType(typed_ass.annotation) &gt;= typed_ass.value.typ
+        ), &#34;Can only cast between related types&#34;
         return typed_ass
 
     def visit_If(self, node: If) -&gt; TypedIf:
@@ -424,7 +451,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         # Check that return type and annotated return type match
         if not isinstance(node.body[-1], Return):
             assert (
-                functyp.rettyp == NoneInstanceType
+                functyp.rettyp &gt;= NoneInstanceType
             ), f&#34;Function &#39;{node.name}&#39; has no return statement but is supposed to return not-None value&#34;
         else:
             assert (
@@ -481,9 +508,6 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             &#34;Dict&#34;,
             &#34;List&#34;,
         ]:
-            assert isinstance(
-                ts.slice, Index
-            ), &#34;Only single index slices for generic types are currently supported&#34;
             ts.value = ts.typ = self.type_from_annotation(ts)
             return ts
 
@@ -493,34 +517,35 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             assert (
                 ts.value.typ.typ.typs
             ), &#34;Accessing elements from the empty tuple is not allowed&#34;
-            assert isinstance(
-                ts.slice, Index
-            ), &#34;Only single index slices for tuples are currently supported&#34;
             if all(ts.value.typ.typ.typs[0] == t for t in ts.value.typ.typ.typs):
                 ts.typ = ts.value.typ.typ.typs[0]
-            elif isinstance(ts.slice.value, Constant) and isinstance(
-                ts.slice.value.value, int
-            ):
-                ts.typ = ts.value.typ.typ.typs[ts.slice.value.value]
+            elif isinstance(ts.slice, Constant) and isinstance(ts.slice.value, int):
+                ts.typ = ts.value.typ.typ.typs[ts.slice.value]
             else:
                 raise TypeInferenceError(
-                    f&#34;Could not infer type of subscript of typ {ts.value.typ.__class__}&#34;
+                    f&#34;Could not infer type of subscript of typ {ts.value.typ.typ.__class__}&#34;
+                )
+        elif isinstance(ts.value.typ.typ, PairType):
+            if isinstance(ts.slice, Constant) and isinstance(ts.slice.value, int):
+                ts.typ = (
+                    ts.value.typ.typ.l_typ
+                    if ts.slice.value == 0
+                    else ts.value.typ.typ.r_typ
+                )
+            else:
+                raise TypeInferenceError(
+                    f&#34;Could not infer type of subscript of typ {ts.value.typ.typ.__class__}&#34;
                 )
         elif isinstance(ts.value.typ.typ, ListType):
-            assert isinstance(
-                ts.slice, Index
-            ), &#34;Only single index slices for lists are currently supported&#34;
             ts.typ = ts.value.typ.typ.typ
-            ts.slice.value = self.visit(node.slice.value)
-            assert (
-                ts.slice.value.typ == IntegerInstanceType
-            ), &#34;List indices must be integers&#34;
+            ts.slice = self.visit(node.slice)
+            assert ts.slice.typ == IntegerInstanceType, &#34;List indices must be integers&#34;
         elif isinstance(ts.value.typ.typ, ByteStringType):
-            if isinstance(ts.slice, Index):
+            if not isinstance(ts.slice, Slice):
                 ts.typ = IntegerInstanceType
-                ts.slice.value = self.visit(node.slice.value)
+                ts.slice = self.visit(node.slice)
                 assert (
-                    ts.slice.value.typ == IntegerInstanceType
+                    ts.slice.typ == IntegerInstanceType
                 ), &#34;bytes indices must be integers&#34;
             elif isinstance(ts.slice, Slice):
                 ts.typ = ByteStringInstanceType
@@ -544,9 +569,16 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                 )
         elif isinstance(ts.value.typ.typ, DictType):
             # TODO could be implemented with potentially just erroring. It might be desired to avoid this though.
-            raise TypeInferenceError(
-                f&#34;Could not infer type of subscript of dict. Use &#39;get&#39; with a default value instead.&#34;
-            )
+            if not isinstance(ts.slice, Slice):
+                ts.slice = self.visit(node.slice)
+                assert (
+                    ts.slice.typ == ts.value.typ.typ.key_typ
+                ), f&#34;Dict subscript must have dict key type {ts.value.typ.typ.key_typ} but has type {ts.slice.typ}&#34;
+                ts.typ = ts.value.typ.typ.value_typ
+            else:
+                raise TypeInferenceError(
+                    f&#34;Could not infer type of subscript of dict with a slice.&#34;
+                )
         else:
             raise TypeInferenceError(
                 f&#34;Could not infer type of subscript of typ {ts.value.typ.__class__}&#34;
@@ -772,6 +804,46 @@ def typed_ast(ast: AST):
 <section>
 <h2 class="section-title" id="header-functions">Functions</h2>
 <dl>
+<dt id="opshin.type_inference.constant_type"><code class="name flex">
+<span>def <span class="ident">constant_type</span></span>(<span>c)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def constant_type(c):
+    if isinstance(c, bool):
+        return BoolInstanceType
+    if isinstance(c, int):
+        return IntegerInstanceType
+    if isinstance(c, type(None)):
+        return UnitInstanceType
+    if isinstance(c, bytes):
+        return ByteStringInstanceType
+    if isinstance(c, str):
+        return StringInstanceType
+    if isinstance(c, list):
+        assert len(c) &gt; 0, &#34;Lists must be non-empty&#34;
+        first_typ = constant_type(c[0])
+        assert all(
+            constant_type(ce) == first_typ for ce in c[1:]
+        ), &#34;Constant lists must contain elements of a single type only&#34;
+        return InstanceType(ListType(first_typ))
+    if isinstance(c, dict):
+        assert len(c) &gt; 0, &#34;Lists must be non-empty&#34;
+        first_key_typ = constant_type(next(iter(c.keys())))
+        first_value_typ = constant_type(next(iter(c.values())))
+        assert all(
+            constant_type(ce) == first_key_typ for ce in c.keys()
+        ), &#34;Constant dicts must contain keys of a single type only&#34;
+        assert all(
+            constant_type(ce) == first_value_typ for ce in c.values()
+        ), &#34;Constant dicts must contain values of a single type only&#34;
+        return InstanceType(DictType(first_key_typ, first_value_typ))</code></pre>
+</details>
+</dd>
 <dt id="opshin.type_inference.typed_ast"><code class="name flex">
 <span>def <span class="ident">typed_ast</span></span>(<span>ast: _ast.AST)</span>
 </code></dt>
@@ -846,7 +918,10 @@ just a single node.</p>
         self.scopes.pop()
 
     def set_variable_type(self, name: str, typ: Type, force=False):
-        if not force and name in self.scopes[-1] and typ != self.scopes[-1][name]:
+        if not force and name in self.scopes[-1] and self.scopes[-1][name] != typ:
+            if self.scopes[-1][name] &gt;= typ:
+                # the specified type is broader, we pass on this
+                return
             raise TypeInferenceError(
                 f&#34;Type {self.scopes[-1][name]} of variable {name} in local scope does not match inferred type {typ}&#34;
             )
@@ -869,12 +944,11 @@ just a single node.</p>
             assert isinstance(
                 ann.value, Name
             ), &#34;Only Union, Dict and List are allowed as Generic types&#34;
-            assert isinstance(ann.slice, Index), &#34;Generic types must be parameterized&#34;
             if ann.value.id == &#34;Union&#34;:
                 assert isinstance(
-                    ann.slice.value, Tuple
+                    ann.slice, Tuple
                 ), &#34;Union must combine multiple classes&#34;
-                ann_types = [self.type_from_annotation(e) for e in ann.slice.value.elts]
+                ann_types = [self.type_from_annotation(e) for e in ann.slice.elts]
                 assert all(
                     isinstance(e, RecordType) for e in ann_types
                 ), &#34;Union must combine multiple PlutusData classes&#34;
@@ -883,7 +957,7 @@ just a single node.</p>
                 ), &#34;Union must combine PlutusData classes with unique constructors&#34;
                 return UnionType(FrozenFrozenList(ann_types))
             if ann.value.id == &#34;List&#34;:
-                ann_type = self.type_from_annotation(ann.slice.value)
+                ann_type = self.type_from_annotation(ann.slice)
                 assert isinstance(
                     ann_type, ClassType
                 ), &#34;List must have a single type as parameter&#34;
@@ -892,13 +966,11 @@ just a single node.</p>
                 ), &#34;List can currently not hold tuples&#34;
                 return ListType(InstanceType(ann_type))
             if ann.value.id == &#34;Dict&#34;:
-                assert isinstance(
-                    ann.slice.value, Tuple
-                ), &#34;Dict must combine two classes&#34;
-                assert len(ann.slice.value.elts) == 2, &#34;Dict must combine two classes&#34;
+                assert isinstance(ann.slice, Tuple), &#34;Dict must combine two classes&#34;
+                assert len(ann.slice.elts) == 2, &#34;Dict must combine two classes&#34;
                 ann_types = self.type_from_annotation(
-                    ann.slice.value.elts[0]
-                ), self.type_from_annotation(ann.slice.value.elts[1])
+                    ann.slice.elts[0]
+                ), self.type_from_annotation(ann.slice.elts[1])
                 assert all(
                     isinstance(e, ClassType) for e in ann_types
                 ), &#34;Dict must combine two classes&#34;
@@ -908,9 +980,9 @@ just a single node.</p>
                 return DictType(*(InstanceType(a) for a in ann_types))
             if ann.value.id == &#34;Tuple&#34;:
                 assert isinstance(
-                    ann.slice.value, Tuple
+                    ann.slice, Tuple
                 ), &#34;Tuple must combine several classes&#34;
-                ann_types = [self.type_from_annotation(e) for e in ann.slice.value.elts]
+                ann_types = [self.type_from_annotation(e) for e in ann.slice.elts]
                 assert all(
                     isinstance(e, ClassType) for e in ann_types
                 ), &#34;Tuple must combine classes&#34;
@@ -919,9 +991,7 @@ just a single node.</p>
                 &#34;Only Union, Dict and List are allowed as Generic types&#34;
             )
         if ann is None:
-            raise TypeInferenceError(
-                &#34;Type annotation is missing for a function argument or return value&#34;
-            )
+            return AnyType()
         raise NotImplementedError(f&#34;Annotation type {ann.__class__} is not supported&#34;)
 
     def visit_ClassDef(self, node: ClassDef) -&gt; TypedClassDef:
@@ -939,10 +1009,7 @@ just a single node.</p>
             complex,
             type(...),
         ], &#34;Float, complex numbers and ellipsis currently not supported&#34;
-        if tc.value is None:
-            tc.typ = NoneInstanceType
-        else:
-            tc.typ = InstanceType(ATOMIC_TYPES[type(node.value).__name__])
+        tc.typ = constant_type(node.value)
         return tc
 
     def visit_Tuple(self, node: Tuple) -&gt; TypedTuple:
@@ -997,9 +1064,10 @@ just a single node.</p>
             node.target.id, InstanceType(typed_ass.annotation), force=True
         )
         typed_ass.target = self.visit(node.target)
-        assert typed_ass.value.typ &gt;= InstanceType(
-            typed_ass.annotation
-        ), &#34;Can only downcast to a specialized type&#34;
+        assert (
+            typed_ass.value.typ &gt;= InstanceType(typed_ass.annotation)
+            or InstanceType(typed_ass.annotation) &gt;= typed_ass.value.typ
+        ), &#34;Can only cast between related types&#34;
         return typed_ass
 
     def visit_If(self, node: If) -&gt; TypedIf:
@@ -1137,7 +1205,7 @@ just a single node.</p>
         # Check that return type and annotated return type match
         if not isinstance(node.body[-1], Return):
             assert (
-                functyp.rettyp == NoneInstanceType
+                functyp.rettyp &gt;= NoneInstanceType
             ), f&#34;Function &#39;{node.name}&#39; has no return statement but is supposed to return not-None value&#34;
         else:
             assert (
@@ -1194,9 +1262,6 @@ just a single node.</p>
             &#34;Dict&#34;,
             &#34;List&#34;,
         ]:
-            assert isinstance(
-                ts.slice, Index
-            ), &#34;Only single index slices for generic types are currently supported&#34;
             ts.value = ts.typ = self.type_from_annotation(ts)
             return ts
 
@@ -1206,34 +1271,35 @@ just a single node.</p>
             assert (
                 ts.value.typ.typ.typs
             ), &#34;Accessing elements from the empty tuple is not allowed&#34;
-            assert isinstance(
-                ts.slice, Index
-            ), &#34;Only single index slices for tuples are currently supported&#34;
             if all(ts.value.typ.typ.typs[0] == t for t in ts.value.typ.typ.typs):
                 ts.typ = ts.value.typ.typ.typs[0]
-            elif isinstance(ts.slice.value, Constant) and isinstance(
-                ts.slice.value.value, int
-            ):
-                ts.typ = ts.value.typ.typ.typs[ts.slice.value.value]
+            elif isinstance(ts.slice, Constant) and isinstance(ts.slice.value, int):
+                ts.typ = ts.value.typ.typ.typs[ts.slice.value]
             else:
                 raise TypeInferenceError(
-                    f&#34;Could not infer type of subscript of typ {ts.value.typ.__class__}&#34;
+                    f&#34;Could not infer type of subscript of typ {ts.value.typ.typ.__class__}&#34;
+                )
+        elif isinstance(ts.value.typ.typ, PairType):
+            if isinstance(ts.slice, Constant) and isinstance(ts.slice.value, int):
+                ts.typ = (
+                    ts.value.typ.typ.l_typ
+                    if ts.slice.value == 0
+                    else ts.value.typ.typ.r_typ
+                )
+            else:
+                raise TypeInferenceError(
+                    f&#34;Could not infer type of subscript of typ {ts.value.typ.typ.__class__}&#34;
                 )
         elif isinstance(ts.value.typ.typ, ListType):
-            assert isinstance(
-                ts.slice, Index
-            ), &#34;Only single index slices for lists are currently supported&#34;
             ts.typ = ts.value.typ.typ.typ
-            ts.slice.value = self.visit(node.slice.value)
-            assert (
-                ts.slice.value.typ == IntegerInstanceType
-            ), &#34;List indices must be integers&#34;
+            ts.slice = self.visit(node.slice)
+            assert ts.slice.typ == IntegerInstanceType, &#34;List indices must be integers&#34;
         elif isinstance(ts.value.typ.typ, ByteStringType):
-            if isinstance(ts.slice, Index):
+            if not isinstance(ts.slice, Slice):
                 ts.typ = IntegerInstanceType
-                ts.slice.value = self.visit(node.slice.value)
+                ts.slice = self.visit(node.slice)
                 assert (
-                    ts.slice.value.typ == IntegerInstanceType
+                    ts.slice.typ == IntegerInstanceType
                 ), &#34;bytes indices must be integers&#34;
             elif isinstance(ts.slice, Slice):
                 ts.typ = ByteStringInstanceType
@@ -1257,9 +1323,16 @@ just a single node.</p>
                 )
         elif isinstance(ts.value.typ.typ, DictType):
             # TODO could be implemented with potentially just erroring. It might be desired to avoid this though.
-            raise TypeInferenceError(
-                f&#34;Could not infer type of subscript of dict. Use &#39;get&#39; with a default value instead.&#34;
-            )
+            if not isinstance(ts.slice, Slice):
+                ts.slice = self.visit(node.slice)
+                assert (
+                    ts.slice.typ == ts.value.typ.typ.key_typ
+                ), f&#34;Dict subscript must have dict key type {ts.value.typ.typ.key_typ} but has type {ts.slice.typ}&#34;
+                ts.typ = ts.value.typ.typ.value_typ
+            else:
+                raise TypeInferenceError(
+                    f&#34;Could not infer type of subscript of dict with a slice.&#34;
+                )
         else:
             raise TypeInferenceError(
                 f&#34;Could not infer type of subscript of typ {ts.value.typ.__class__}&#34;
@@ -1466,7 +1539,10 @@ just a single node.</p>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def set_variable_type(self, name: str, typ: Type, force=False):
-    if not force and name in self.scopes[-1] and typ != self.scopes[-1][name]:
+    if not force and name in self.scopes[-1] and self.scopes[-1][name] != typ:
+        if self.scopes[-1][name] &gt;= typ:
+            # the specified type is broader, we pass on this
+            return
         raise TypeInferenceError(
             f&#34;Type {self.scopes[-1][name]} of variable {name} in local scope does not match inferred type {typ}&#34;
         )
@@ -1499,12 +1575,11 @@ just a single node.</p>
         assert isinstance(
             ann.value, Name
         ), &#34;Only Union, Dict and List are allowed as Generic types&#34;
-        assert isinstance(ann.slice, Index), &#34;Generic types must be parameterized&#34;
         if ann.value.id == &#34;Union&#34;:
             assert isinstance(
-                ann.slice.value, Tuple
+                ann.slice, Tuple
             ), &#34;Union must combine multiple classes&#34;
-            ann_types = [self.type_from_annotation(e) for e in ann.slice.value.elts]
+            ann_types = [self.type_from_annotation(e) for e in ann.slice.elts]
             assert all(
                 isinstance(e, RecordType) for e in ann_types
             ), &#34;Union must combine multiple PlutusData classes&#34;
@@ -1513,7 +1588,7 @@ just a single node.</p>
             ), &#34;Union must combine PlutusData classes with unique constructors&#34;
             return UnionType(FrozenFrozenList(ann_types))
         if ann.value.id == &#34;List&#34;:
-            ann_type = self.type_from_annotation(ann.slice.value)
+            ann_type = self.type_from_annotation(ann.slice)
             assert isinstance(
                 ann_type, ClassType
             ), &#34;List must have a single type as parameter&#34;
@@ -1522,13 +1597,11 @@ just a single node.</p>
             ), &#34;List can currently not hold tuples&#34;
             return ListType(InstanceType(ann_type))
         if ann.value.id == &#34;Dict&#34;:
-            assert isinstance(
-                ann.slice.value, Tuple
-            ), &#34;Dict must combine two classes&#34;
-            assert len(ann.slice.value.elts) == 2, &#34;Dict must combine two classes&#34;
+            assert isinstance(ann.slice, Tuple), &#34;Dict must combine two classes&#34;
+            assert len(ann.slice.elts) == 2, &#34;Dict must combine two classes&#34;
             ann_types = self.type_from_annotation(
-                ann.slice.value.elts[0]
-            ), self.type_from_annotation(ann.slice.value.elts[1])
+                ann.slice.elts[0]
+            ), self.type_from_annotation(ann.slice.elts[1])
             assert all(
                 isinstance(e, ClassType) for e in ann_types
             ), &#34;Dict must combine two classes&#34;
@@ -1538,9 +1611,9 @@ just a single node.</p>
             return DictType(*(InstanceType(a) for a in ann_types))
         if ann.value.id == &#34;Tuple&#34;:
             assert isinstance(
-                ann.slice.value, Tuple
+                ann.slice, Tuple
             ), &#34;Tuple must combine several classes&#34;
-            ann_types = [self.type_from_annotation(e) for e in ann.slice.value.elts]
+            ann_types = [self.type_from_annotation(e) for e in ann.slice.elts]
             assert all(
                 isinstance(e, ClassType) for e in ann_types
             ), &#34;Tuple must combine classes&#34;
@@ -1549,9 +1622,7 @@ just a single node.</p>
             &#34;Only Union, Dict and List are allowed as Generic types&#34;
         )
     if ann is None:
-        raise TypeInferenceError(
-            &#34;Type annotation is missing for a function argument or return value&#34;
-        )
+        return AnyType()
     raise NotImplementedError(f&#34;Annotation type {ann.__class__} is not supported&#34;)</code></pre>
 </details>
 </dd>
@@ -1602,9 +1673,10 @@ just a single node.</p>
         node.target.id, InstanceType(typed_ass.annotation), force=True
     )
     typed_ass.target = self.visit(node.target)
-    assert typed_ass.value.typ &gt;= InstanceType(
-        typed_ass.annotation
-    ), &#34;Can only downcast to a specialized type&#34;
+    assert (
+        typed_ass.value.typ &gt;= InstanceType(typed_ass.annotation)
+        or InstanceType(typed_ass.annotation) &gt;= typed_ass.value.typ
+    ), &#34;Can only cast between related types&#34;
     return typed_ass</code></pre>
 </details>
 </dd>
@@ -1806,10 +1878,7 @@ just a single node.</p>
         complex,
         type(...),
     ], &#34;Float, complex numbers and ellipsis currently not supported&#34;
-    if tc.value is None:
-        tc.typ = NoneInstanceType
-    else:
-        tc.typ = InstanceType(ATOMIC_TYPES[type(node.value).__name__])
+    tc.typ = constant_type(node.value)
     return tc</code></pre>
 </details>
 </dd>
@@ -1916,7 +1985,7 @@ just a single node.</p>
     # Check that return type and annotated return type match
     if not isinstance(node.body[-1], Return):
         assert (
-            functyp.rettyp == NoneInstanceType
+            functyp.rettyp &gt;= NoneInstanceType
         ), f&#34;Function &#39;{node.name}&#39; has no return statement but is supposed to return not-None value&#34;
     else:
         assert (
@@ -2150,9 +2219,6 @@ just a single node.</p>
         &#34;Dict&#34;,
         &#34;List&#34;,
     ]:
-        assert isinstance(
-            ts.slice, Index
-        ), &#34;Only single index slices for generic types are currently supported&#34;
         ts.value = ts.typ = self.type_from_annotation(ts)
         return ts
 
@@ -2162,34 +2228,35 @@ just a single node.</p>
         assert (
             ts.value.typ.typ.typs
         ), &#34;Accessing elements from the empty tuple is not allowed&#34;
-        assert isinstance(
-            ts.slice, Index
-        ), &#34;Only single index slices for tuples are currently supported&#34;
         if all(ts.value.typ.typ.typs[0] == t for t in ts.value.typ.typ.typs):
             ts.typ = ts.value.typ.typ.typs[0]
-        elif isinstance(ts.slice.value, Constant) and isinstance(
-            ts.slice.value.value, int
-        ):
-            ts.typ = ts.value.typ.typ.typs[ts.slice.value.value]
+        elif isinstance(ts.slice, Constant) and isinstance(ts.slice.value, int):
+            ts.typ = ts.value.typ.typ.typs[ts.slice.value]
         else:
             raise TypeInferenceError(
-                f&#34;Could not infer type of subscript of typ {ts.value.typ.__class__}&#34;
+                f&#34;Could not infer type of subscript of typ {ts.value.typ.typ.__class__}&#34;
+            )
+    elif isinstance(ts.value.typ.typ, PairType):
+        if isinstance(ts.slice, Constant) and isinstance(ts.slice.value, int):
+            ts.typ = (
+                ts.value.typ.typ.l_typ
+                if ts.slice.value == 0
+                else ts.value.typ.typ.r_typ
+            )
+        else:
+            raise TypeInferenceError(
+                f&#34;Could not infer type of subscript of typ {ts.value.typ.typ.__class__}&#34;
             )
     elif isinstance(ts.value.typ.typ, ListType):
-        assert isinstance(
-            ts.slice, Index
-        ), &#34;Only single index slices for lists are currently supported&#34;
         ts.typ = ts.value.typ.typ.typ
-        ts.slice.value = self.visit(node.slice.value)
-        assert (
-            ts.slice.value.typ == IntegerInstanceType
-        ), &#34;List indices must be integers&#34;
+        ts.slice = self.visit(node.slice)
+        assert ts.slice.typ == IntegerInstanceType, &#34;List indices must be integers&#34;
     elif isinstance(ts.value.typ.typ, ByteStringType):
-        if isinstance(ts.slice, Index):
+        if not isinstance(ts.slice, Slice):
             ts.typ = IntegerInstanceType
-            ts.slice.value = self.visit(node.slice.value)
+            ts.slice = self.visit(node.slice)
             assert (
-                ts.slice.value.typ == IntegerInstanceType
+                ts.slice.typ == IntegerInstanceType
             ), &#34;bytes indices must be integers&#34;
         elif isinstance(ts.slice, Slice):
             ts.typ = ByteStringInstanceType
@@ -2213,9 +2280,16 @@ just a single node.</p>
             )
     elif isinstance(ts.value.typ.typ, DictType):
         # TODO could be implemented with potentially just erroring. It might be desired to avoid this though.
-        raise TypeInferenceError(
-            f&#34;Could not infer type of subscript of dict. Use &#39;get&#39; with a default value instead.&#34;
-        )
+        if not isinstance(ts.slice, Slice):
+            ts.slice = self.visit(node.slice)
+            assert (
+                ts.slice.typ == ts.value.typ.typ.key_typ
+            ), f&#34;Dict subscript must have dict key type {ts.value.typ.typ.key_typ} but has type {ts.slice.typ}&#34;
+            ts.typ = ts.value.typ.typ.value_typ
+        else:
+            raise TypeInferenceError(
+                f&#34;Could not infer type of subscript of dict with a slice.&#34;
+            )
     else:
         raise TypeInferenceError(
             f&#34;Could not infer type of subscript of typ {ts.value.typ.__class__}&#34;
@@ -2685,6 +2759,7 @@ setTimeout(() => input.focus(), 100);
 </li>
 <li><h3><a href="#header-functions">Functions</a></h3>
 <ul class="">
+<li><code><a title="opshin.type_inference.constant_type" href="#opshin.type_inference.constant_type">constant_type</a></code></li>
 <li><code><a title="opshin.type_inference.typed_ast" href="#opshin.type_inference.typed_ast">typed_ast</a></code></li>
 </ul>
 </li>

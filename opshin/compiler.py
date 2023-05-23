@@ -2,6 +2,8 @@ import logging
 from logging import getLogger
 from ast import fix_missing_locations
 
+from .optimize.optimize_const_folding import OptimizeConstantFolding
+from .optimize.optimize_remove_comments import OptimizeRemoveDeadconstants
 from .rewrite.rewrite_augassign import RewriteAugAssign
 from .rewrite.rewrite_forbidden_overwrites import RewriteForbiddenOverwrites
 from .rewrite.rewrite_import import RewriteImport
@@ -11,7 +13,9 @@ from .rewrite.rewrite_import_plutusdata import RewriteImportPlutusData
 from .rewrite.rewrite_import_typing import RewriteImportTyping
 from .rewrite.rewrite_inject_builtins import RewriteInjectBuiltins
 from .rewrite.rewrite_inject_builtin_constr import RewriteInjectBuiltinsConstr
+from .rewrite.rewrite_orig_name import RewriteOrigName
 from .rewrite.rewrite_remove_type_stuff import RewriteRemoveTypeStuff
+from .rewrite.rewrite_scoping import RewriteScoping
 from .rewrite.rewrite_subscript38 import RewriteSubscript38
 from .rewrite.rewrite_tuple_assign import RewriteTupleAssign
 from .rewrite.rewrite_zero_ary import RewriteZeroAry
@@ -77,13 +81,56 @@ UnaryOpMap = {
     USub: {IntegerInstanceType: lambda x: plt.SubtractInteger(plt.Integer(0), x)},
 }
 
-ConstantMap = {
-    str: plt.Text,
-    bytes: lambda x: plt.ByteString(x),
-    int: lambda x: plt.Integer(x),
-    bool: plt.Bool,
-    type(None): lambda _: plt.Unit(),
-}
+
+def rec_constant_map_data(c):
+    if isinstance(c, bool):
+        return uplc.PlutusInteger(int(c))
+    if isinstance(c, int):
+        return uplc.PlutusInteger(c)
+    if isinstance(c, type(None)):
+        return uplc.PlutusConstr(0, [])
+    if isinstance(c, bytes):
+        return uplc.PlutusByteString(c)
+    if isinstance(c, str):
+        return uplc.PlutusByteString(c.encode())
+    if isinstance(c, list):
+        return uplc.PlutusList([rec_constant_map_data(ce) for ce in c])
+    if isinstance(c, dict):
+        return uplc.PlutusMap(
+            dict(
+                zip(
+                    (rec_constant_map_data(ce) for ce in c.keys()),
+                    (rec_constant_map_data(ce) for ce in c.values()),
+                )
+            )
+        )
+    raise NotImplementedError(f"Unsupported constant type {type(c)}")
+
+
+def rec_constant_map(c):
+    if isinstance(c, bool):
+        return uplc.BuiltinBool(c)
+    if isinstance(c, int):
+        return uplc.BuiltinInteger(c)
+    if isinstance(c, type(None)):
+        return uplc.BuiltinUnit()
+    if isinstance(c, bytes):
+        return uplc.BuiltinByteString(c)
+    if isinstance(c, str):
+        return uplc.BuiltinString(c)
+    if isinstance(c, list):
+        return uplc.BuiltinList([rec_constant_map(ce) for ce in c])
+    if isinstance(c, dict):
+        return uplc.BuiltinList(
+            [
+                uplc.BuiltinPair(*p)
+                for p in zip(
+                    (rec_constant_map_data(ce) for ce in c.keys()),
+                    (rec_constant_map_data(ce) for ce in c.values()),
+                )
+            ]
+        )
+    raise NotImplementedError(f"Unsupported constant type {type(c)}")
 
 
 def wrap_validator_double_function(x: plt.AST, pass_through: int = 0):
@@ -306,12 +353,8 @@ class UPLCCompiler(CompilingNodeTransformer):
         return cp
 
     def visit_Constant(self, node: TypedConstant) -> plt.AST:
-        plt_type = ConstantMap.get(type(node.value))
-        if plt_type is None:
-            raise NotImplementedError(
-                f"Constants of type {type(node.value)} are not supported"
-            )
-        return plt.Lambda([STATEMONAD], plt_type(node.value))
+        plt_val = plt.UPLCConstant(rec_constant_map(node.value))
+        return plt.Lambda([STATEMONAD], plt_val)
 
     def visit_NoneType(self, _: typing.Optional[typing.Any]) -> plt.AST:
         return plt.Lambda([STATEMONAD], plt.Unit())
@@ -351,6 +394,12 @@ class UPLCCompiler(CompilingNodeTransformer):
             # we need to map this as it will originate from PlutusData
             # AnyType is the only type other than the builtin itself that can be cast to builtin values
             val = transform_ext_params_map(node.target.typ)(val)
+        if isinstance(node.target.typ, InstanceType) and isinstance(
+            node.target.typ.typ, AnyType
+        ):
+            # we need to map this back as it will be treated as PlutusData
+            # AnyType is the only type other than the builtin itself that can be cast to from builtin values
+            val = transform_output_map(node.value.typ)(val)
         return plt.Lambda(
             [STATEMONAD],
             extend_statemonad(
@@ -423,12 +472,9 @@ class UPLCCompiler(CompilingNodeTransformer):
 
     def visit_FunctionDef(self, node: TypedFunctionDef) -> plt.AST:
         body = node.body.copy()
-        if not isinstance(body[-1], Return):
-            tr = Return(None)
+        if not body or not isinstance(body[-1], Return):
+            tr = Return(TypedConstant(None, typ=NoneInstanceType))
             tr.typ = NoneInstanceType
-            assert (
-                node.typ.typ.rettyp == NoneInstanceType
-            ), "Function has no return statement but is supposed to return not-None value"
             body.append(tr)
         compiled_body = self.visit_sequence(body[:-1])
         args_state = extend_statemonad(
@@ -621,6 +667,39 @@ class UPLCCompiler(CompilingNodeTransformer):
                     plt.IndexAccessList(plt.Var("l"), plt.Var("i")),
                 ),
             )
+        elif isinstance(node.value.typ.typ, DictType):
+            dict_typ = node.value.typ.typ
+            if not isinstance(node.slice, Slice):
+                return plt.Lambda(
+                    [STATEMONAD],
+                    plt.Let(
+                        [
+                            (
+                                "key",
+                                plt.Apply(self.visit(node.slice), plt.Var(STATEMONAD)),
+                            )
+                        ],
+                        transform_ext_params_map(dict_typ.value_typ)(
+                            plt.SndPair(
+                                plt.FindList(
+                                    plt.Apply(
+                                        self.visit(node.value), plt.Var(STATEMONAD)
+                                    ),
+                                    plt.Lambda(
+                                        ["x"],
+                                        plt.EqualsData(
+                                            transform_output_map(dict_typ.key_typ)(
+                                                plt.Var("key")
+                                            ),
+                                            plt.FstPair(plt.Var("x")),
+                                        ),
+                                    ),
+                                    plt.TraceError("KeyError"),
+                                ),
+                            ),
+                        ),
+                    ),
+                )
         elif isinstance(node.value.typ.typ, ByteStringType):
             if not isinstance(node.slice, Slice):
                 return plt.Lambda(
@@ -881,6 +960,7 @@ def compile(
         # Important to call this one first - it imports all further files
         RewriteImport(filename=filename),
         # Rewrites that simplify the python code
+        OptimizeConstantFolding(),
         RewriteSubscript38(),
         RewriteAugAssign(),
         RewriteTupleAssign(),
@@ -903,9 +983,13 @@ def compile(
 
     # from here on raw uplc may occur, so we dont attempt to fix locations
     compile_pipeline = [
+        # Save the original names of variables
+        RewriteOrigName(),
+        RewriteScoping(),
         # Apply optimizations
         OptimizeRemoveDeadvars(),
         OptimizeVarlen(),
+        OptimizeRemoveDeadconstants(),
         OptimizeRemovePass(),
         # the compiler runs last
         UPLCCompiler(

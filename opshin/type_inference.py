@@ -42,6 +42,37 @@ INITIAL_SCOPE.update(
 )
 
 
+def constant_type(c):
+    if isinstance(c, bool):
+        return BoolInstanceType
+    if isinstance(c, int):
+        return IntegerInstanceType
+    if isinstance(c, type(None)):
+        return UnitInstanceType
+    if isinstance(c, bytes):
+        return ByteStringInstanceType
+    if isinstance(c, str):
+        return StringInstanceType
+    if isinstance(c, list):
+        assert len(c) > 0, "Lists must be non-empty"
+        first_typ = constant_type(c[0])
+        assert all(
+            constant_type(ce) == first_typ for ce in c[1:]
+        ), "Constant lists must contain elements of a single type only"
+        return InstanceType(ListType(first_typ))
+    if isinstance(c, dict):
+        assert len(c) > 0, "Lists must be non-empty"
+        first_key_typ = constant_type(next(iter(c.keys())))
+        first_value_typ = constant_type(next(iter(c.values())))
+        assert all(
+            constant_type(ce) == first_key_typ for ce in c.keys()
+        ), "Constant dicts must contain keys of a single type only"
+        assert all(
+            constant_type(ce) == first_value_typ for ce in c.values()
+        ), "Constant dicts must contain values of a single type only"
+        return InstanceType(DictType(first_key_typ, first_value_typ))
+
+
 class AggressiveTypeInferencer(CompilingNodeTransformer):
     step = "Static Type Inference"
 
@@ -63,7 +94,10 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         self.scopes.pop()
 
     def set_variable_type(self, name: str, typ: Type, force=False):
-        if not force and name in self.scopes[-1] and typ != self.scopes[-1][name]:
+        if not force and name in self.scopes[-1] and self.scopes[-1][name] != typ:
+            if self.scopes[-1][name] >= typ:
+                # the specified type is broader, we pass on this
+                return
             raise TypeInferenceError(
                 f"Type {self.scopes[-1][name]} of variable {name} in local scope does not match inferred type {typ}"
             )
@@ -151,10 +185,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             complex,
             type(...),
         ], "Float, complex numbers and ellipsis currently not supported"
-        if tc.value is None:
-            tc.typ = NoneInstanceType
-        else:
-            tc.typ = InstanceType(ATOMIC_TYPES[type(node.value).__name__])
+        tc.typ = constant_type(node.value)
         return tc
 
     def visit_Tuple(self, node: Tuple) -> TypedTuple:
@@ -209,9 +240,10 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             node.target.id, InstanceType(typed_ass.annotation), force=True
         )
         typed_ass.target = self.visit(node.target)
-        assert typed_ass.value.typ >= InstanceType(
-            typed_ass.annotation
-        ), "Can only downcast to a specialized type"
+        assert (
+            typed_ass.value.typ >= InstanceType(typed_ass.annotation)
+            or InstanceType(typed_ass.annotation) >= typed_ass.value.typ
+        ), "Can only cast between related types"
         return typed_ass
 
     def visit_If(self, node: If) -> TypedIf:
@@ -349,7 +381,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         # Check that return type and annotated return type match
         if not isinstance(node.body[-1], Return):
             assert (
-                functyp.rettyp == NoneInstanceType
+                functyp.rettyp >= NoneInstanceType
             ), f"Function '{node.name}' has no return statement but is supposed to return not-None value"
         else:
             assert (
@@ -467,9 +499,16 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                 )
         elif isinstance(ts.value.typ.typ, DictType):
             # TODO could be implemented with potentially just erroring. It might be desired to avoid this though.
-            raise TypeInferenceError(
-                f"Could not infer type of subscript of dict. Use 'get' with a default value instead."
-            )
+            if not isinstance(ts.slice, Slice):
+                ts.slice = self.visit(node.slice)
+                assert (
+                    ts.slice.typ == ts.value.typ.typ.key_typ
+                ), f"Dict subscript must have dict key type {ts.value.typ.typ.key_typ} but has type {ts.slice.typ}"
+                ts.typ = ts.value.typ.typ.value_typ
+            else:
+                raise TypeInferenceError(
+                    f"Could not infer type of subscript of dict with a slice."
+                )
         else:
             raise TypeInferenceError(
                 f"Could not infer type of subscript of typ {ts.value.typ.__class__}"

@@ -72,6 +72,8 @@ fill="currentColor" class="octo-body"></path>
 from logging import getLogger
 from ast import fix_missing_locations
 
+from .optimize.optimize_const_folding import OptimizeConstantFolding
+from .optimize.optimize_remove_comments import OptimizeRemoveDeadconstants
 from .rewrite.rewrite_augassign import RewriteAugAssign
 from .rewrite.rewrite_forbidden_overwrites import RewriteForbiddenOverwrites
 from .rewrite.rewrite_import import RewriteImport
@@ -81,7 +83,10 @@ from .rewrite.rewrite_import_plutusdata import RewriteImportPlutusData
 from .rewrite.rewrite_import_typing import RewriteImportTyping
 from .rewrite.rewrite_inject_builtins import RewriteInjectBuiltins
 from .rewrite.rewrite_inject_builtin_constr import RewriteInjectBuiltinsConstr
+from .rewrite.rewrite_orig_name import RewriteOrigName
 from .rewrite.rewrite_remove_type_stuff import RewriteRemoveTypeStuff
+from .rewrite.rewrite_scoping import RewriteScoping
+from .rewrite.rewrite_subscript38 import RewriteSubscript38
 from .rewrite.rewrite_tuple_assign import RewriteTupleAssign
 from .rewrite.rewrite_zero_ary import RewriteZeroAry
 from .optimize.optimize_remove_pass import OptimizeRemovePass
@@ -146,13 +151,56 @@ UnaryOpMap = {
     USub: {IntegerInstanceType: lambda x: plt.SubtractInteger(plt.Integer(0), x)},
 }
 
-ConstantMap = {
-    str: plt.Text,
-    bytes: lambda x: plt.ByteString(x),
-    int: lambda x: plt.Integer(x),
-    bool: plt.Bool,
-    type(None): lambda _: plt.Unit(),
-}
+
+def rec_constant_map_data(c):
+    if isinstance(c, bool):
+        return uplc.PlutusInteger(int(c))
+    if isinstance(c, int):
+        return uplc.PlutusInteger(c)
+    if isinstance(c, type(None)):
+        return uplc.PlutusConstr(0, [])
+    if isinstance(c, bytes):
+        return uplc.PlutusByteString(c)
+    if isinstance(c, str):
+        return uplc.PlutusByteString(c.encode())
+    if isinstance(c, list):
+        return uplc.PlutusList([rec_constant_map_data(ce) for ce in c])
+    if isinstance(c, dict):
+        return uplc.PlutusMap(
+            dict(
+                zip(
+                    (rec_constant_map_data(ce) for ce in c.keys()),
+                    (rec_constant_map_data(ce) for ce in c.values()),
+                )
+            )
+        )
+    raise NotImplementedError(f&#34;Unsupported constant type {type(c)}&#34;)
+
+
+def rec_constant_map(c):
+    if isinstance(c, bool):
+        return uplc.BuiltinBool(c)
+    if isinstance(c, int):
+        return uplc.BuiltinInteger(c)
+    if isinstance(c, type(None)):
+        return uplc.BuiltinUnit()
+    if isinstance(c, bytes):
+        return uplc.BuiltinByteString(c)
+    if isinstance(c, str):
+        return uplc.BuiltinString(c)
+    if isinstance(c, list):
+        return uplc.BuiltinList([rec_constant_map(ce) for ce in c])
+    if isinstance(c, dict):
+        return uplc.BuiltinList(
+            [
+                uplc.BuiltinPair(*p)
+                for p in zip(
+                    (rec_constant_map_data(ce) for ce in c.keys()),
+                    (rec_constant_map_data(ce) for ce in c.values()),
+                )
+            ]
+        )
+    raise NotImplementedError(f&#34;Unsupported constant type {type(c)}&#34;)
 
 
 def wrap_validator_double_function(x: plt.AST, pass_through: int = 0):
@@ -213,8 +261,9 @@ class UPLCCompiler(CompilingNodeTransformer):
 
     step = &#34;Compiling python statements to UPLC&#34;
 
-    def __init__(self, force_three_params=False):
+    def __init__(self, force_three_params=False, validator_function_name=&#34;validator&#34;):
         self.force_three_params = force_three_params
+        self.validator_function_name = validator_function_name
 
     def visit_sequence(self, node_seq: typing.List[typedstmt]) -&gt; plt.AST:
         s = plt.Var(STATEMONAD)
@@ -291,13 +340,18 @@ class UPLCCompiler(CompilingNodeTransformer):
         # TODO can use more sophisiticated procedure here i.e. functions marked by comment
         main_fun: typing.Optional[InstanceType] = None
         for s in node.body:
-            if isinstance(s, FunctionDef) and s.orig_name == &#34;validator&#34;:
+            if (
+                isinstance(s, FunctionDef)
+                and s.orig_name == self.validator_function_name
+            ):
                 main_fun = s
-        assert main_fun is not None, &#34;Could not find function named validator&#34;
+        assert (
+            main_fun is not None
+        ), f&#34;Could not find function named {self.validator_function_name}&#34;
         main_fun_typ: FunctionType = main_fun.typ.typ
         assert isinstance(
             main_fun_typ, FunctionType
-        ), &#34;Variable named validator is not of type function&#34;
+        ), f&#34;Variable named {self.validator_function_name} is not of type function&#34;
 
         # check if this is a contract written to double function
         enable_double_func_mint_spend = False
@@ -339,7 +393,9 @@ class UPLCCompiler(CompilingNodeTransformer):
                             plt.FunctionalMapAccess(
                                 plt.Var(&#34;s&#34;),
                                 plt.ByteString(main_fun.name),
-                                plt.TraceError(&#34;NameError: validator&#34;),
+                                plt.TraceError(
+                                    f&#34;NameError: {self.validator_function_name}&#34;
+                                ),
                             ),
                         ),
                     ],
@@ -363,16 +419,12 @@ class UPLCCompiler(CompilingNodeTransformer):
             raise RuntimeError(
                 &#34;The contract can not always detect if it was passed three or two parameters on-chain.&#34;
             )
-        cp = plt.Program(&#34;1.0.0&#34;, validator)
+        cp = plt.Program((1, 0, 0), validator)
         return cp
 
     def visit_Constant(self, node: TypedConstant) -&gt; plt.AST:
-        plt_type = ConstantMap.get(type(node.value))
-        if plt_type is None:
-            raise NotImplementedError(
-                f&#34;Constants of type {type(node.value)} are not supported&#34;
-            )
-        return plt.Lambda([STATEMONAD], plt_type(node.value))
+        plt_val = plt.UPLCConstant(rec_constant_map(node.value))
+        return plt.Lambda([STATEMONAD], plt_val)
 
     def visit_NoneType(self, _: typing.Optional[typing.Any]) -&gt; plt.AST:
         return plt.Lambda([STATEMONAD], plt.Unit())
@@ -412,6 +464,12 @@ class UPLCCompiler(CompilingNodeTransformer):
             # we need to map this as it will originate from PlutusData
             # AnyType is the only type other than the builtin itself that can be cast to builtin values
             val = transform_ext_params_map(node.target.typ)(val)
+        if isinstance(node.target.typ, InstanceType) and isinstance(
+            node.target.typ.typ, AnyType
+        ):
+            # we need to map this back as it will be treated as PlutusData
+            # AnyType is the only type other than the builtin itself that can be cast to from builtin values
+            val = transform_output_map(node.value.typ)(val)
         return plt.Lambda(
             [STATEMONAD],
             extend_statemonad(
@@ -484,21 +542,27 @@ class UPLCCompiler(CompilingNodeTransformer):
 
     def visit_FunctionDef(self, node: TypedFunctionDef) -&gt; plt.AST:
         body = node.body.copy()
-        if not isinstance(body[-1], Return):
-            tr = Return(None)
+        if not body or not isinstance(body[-1], Return):
+            tr = Return(TypedConstant(None, typ=NoneInstanceType))
             tr.typ = NoneInstanceType
-            assert (
-                node.typ.typ.rettyp == NoneInstanceType
-            ), &#34;Function has no return statement but is supposed to return not-None value&#34;
             body.append(tr)
         compiled_body = self.visit_sequence(body[:-1])
-        compiled_return = self.visit(body[-1].value)
         args_state = extend_statemonad(
             # the function can see its argument under the argument names
             [a.arg for a in node.args.args],
             [plt.Var(f&#34;p{i}&#34;) for i in range(len(node.args.args))],
             plt.Var(STATEMONAD),
         )
+        compiled_return = plt.Apply(
+            self.visit(body[-1].value),
+            plt.Apply(
+                compiled_body,
+                args_state,
+            ),
+        )
+        if isinstance(node.typ.typ.rettyp.typ, AnyType):
+            # if the function returns generic data, wrap the function return value
+            compiled_return = transform_output_map(body[-1].value.typ)(compiled_return)
         return plt.Lambda(
             [STATEMONAD],
             extend_statemonad(
@@ -507,13 +571,7 @@ class UPLCCompiler(CompilingNodeTransformer):
                     plt.Lambda(
                         # expect the statemonad again -&gt; this is the basis for internally available values
                         [f&#34;p{i}&#34; for i in range(len(node.args.args))] + [STATEMONAD],
-                        plt.Apply(
-                            compiled_return,
-                            plt.Apply(
-                                compiled_body,
-                                args_state,
-                            ),
-                        ),
+                        compiled_return,
                     )
                 ],
                 plt.Var(STATEMONAD),
@@ -610,15 +668,12 @@ class UPLCCompiler(CompilingNodeTransformer):
         ), &#34;Can only access elements of instances, not classes&#34;
         if isinstance(node.value.typ.typ, TupleType):
             assert isinstance(
-                node.slice, Index
-            ), &#34;Only single index slices for tuples are currently supported&#34;
-            assert isinstance(
-                node.slice.value, Constant
+                node.slice, Constant
             ), &#34;Only constant index access for tuples is supported&#34;
             assert isinstance(
-                node.slice.value.value, int
+                node.slice.value, int
             ), &#34;Only constant index integer access for tuples is supported&#34;
-            index = node.slice.value.value
+            index = node.slice.value
             if index &lt; 0:
                 index += len(node.value.typ.typ.typs)
             assert isinstance(node.ctx, Load), &#34;Tuples are read-only&#34;
@@ -630,12 +685,34 @@ class UPLCCompiler(CompilingNodeTransformer):
                     len(node.value.typ.typ.typs),
                 ),
             )
-        if isinstance(node.value.typ.typ, ListType):
+        if isinstance(node.value.typ.typ, PairType):
             assert isinstance(
-                node.slice, Index
-            ), &#34;Only single index slices for lists are currently supported&#34;
+                node.slice, Constant
+            ), &#34;Only constant index access for pairs is supported&#34;
+            assert isinstance(
+                node.slice.value, int
+            ), &#34;Only constant index integer access for pairs is supported&#34;
+            index = node.slice.value
+            if index &lt; 0:
+                index += 2
+            assert isinstance(node.ctx, Load), &#34;Pairs are read-only&#34;
             assert (
-                node.slice.value.typ == IntegerInstanceType
+                0 &lt;= index &lt; 2
+            ), f&#34;Pairs only have 2 elements, index should be 0 or 1, is {node.slice.value}&#34;
+            member_func = plt.FstPair if index == 0 else plt.SndPair
+            # the content of pairs is always Data, so we need to unwrap
+            member_typ = node.typ
+            return plt.Lambda(
+                [STATEMONAD],
+                transform_ext_params_map(member_typ)(
+                    member_func(
+                        plt.Apply(self.visit(node.value), plt.Var(STATEMONAD)),
+                    ),
+                ),
+            )
+        if isinstance(node.value.typ.typ, ListType):
+            assert (
+                node.slice.typ == IntegerInstanceType
             ), &#34;Only single element list index access supported&#34;
             return plt.Lambda(
                 [STATEMONAD],
@@ -644,9 +721,7 @@ class UPLCCompiler(CompilingNodeTransformer):
                         (&#34;l&#34;, plt.Apply(self.visit(node.value), plt.Var(STATEMONAD))),
                         (
                             &#34;raw_i&#34;,
-                            plt.Apply(
-                                self.visit(node.slice.value), plt.Var(STATEMONAD)
-                            ),
+                            plt.Apply(self.visit(node.slice), plt.Var(STATEMONAD)),
                         ),
                         (
                             &#34;i&#34;,
@@ -662,8 +737,41 @@ class UPLCCompiler(CompilingNodeTransformer):
                     plt.IndexAccessList(plt.Var(&#34;l&#34;), plt.Var(&#34;i&#34;)),
                 ),
             )
+        elif isinstance(node.value.typ.typ, DictType):
+            dict_typ = node.value.typ.typ
+            if not isinstance(node.slice, Slice):
+                return plt.Lambda(
+                    [STATEMONAD],
+                    plt.Let(
+                        [
+                            (
+                                &#34;key&#34;,
+                                plt.Apply(self.visit(node.slice), plt.Var(STATEMONAD)),
+                            )
+                        ],
+                        transform_ext_params_map(dict_typ.value_typ)(
+                            plt.SndPair(
+                                plt.FindList(
+                                    plt.Apply(
+                                        self.visit(node.value), plt.Var(STATEMONAD)
+                                    ),
+                                    plt.Lambda(
+                                        [&#34;x&#34;],
+                                        plt.EqualsData(
+                                            transform_output_map(dict_typ.key_typ)(
+                                                plt.Var(&#34;key&#34;)
+                                            ),
+                                            plt.FstPair(plt.Var(&#34;x&#34;)),
+                                        ),
+                                    ),
+                                    plt.TraceError(&#34;KeyError&#34;),
+                                ),
+                            ),
+                        ),
+                    ),
+                )
         elif isinstance(node.value.typ.typ, ByteStringType):
-            if isinstance(node.slice, Index):
+            if not isinstance(node.slice, Slice):
                 return plt.Lambda(
                     [STATEMONAD],
                     plt.Let(
@@ -674,9 +782,7 @@ class UPLCCompiler(CompilingNodeTransformer):
                             ),
                             (
                                 &#34;raw_ix&#34;,
-                                plt.Apply(
-                                    self.visit(node.slice.value), plt.Var(STATEMONAD)
-                                ),
+                                plt.Apply(self.visit(node.slice), plt.Var(STATEMONAD)),
                             ),
                             (
                                 &#34;ix&#34;,
@@ -768,7 +874,9 @@ class UPLCCompiler(CompilingNodeTransformer):
                         ),
                     ),
                 )
-        raise NotImplementedError(f&#34;Could not implement subscript of {node}&#34;)
+        raise NotImplementedError(
+            f&#39;Could not implement subscript &#34;{node.slice}&#34; of &#34;{node.value}&#34;&#39;
+        )
 
     def visit_Tuple(self, node: TypedTuple) -&gt; plt.AST:
         return plt.Lambda(
@@ -912,11 +1020,18 @@ class UPLCCompiler(CompilingNodeTransformer):
         raise NotImplementedError(f&#34;Can not compile {node}&#34;)
 
 
-def compile(prog: AST, filename=None, force_three_params=False):
+def compile(
+    prog: AST,
+    filename=None,
+    force_three_params=False,
+    validator_function_name=&#34;validator&#34;,
+):
     rewrite_steps = [
         # Important to call this one first - it imports all further files
         RewriteImport(filename=filename),
         # Rewrites that simplify the python code
+        OptimizeConstantFolding(),
+        RewriteSubscript38(),
         RewriteAugAssign(),
         RewriteTupleAssign(),
         RewriteImportPlutusData(),
@@ -938,12 +1053,19 @@ def compile(prog: AST, filename=None, force_three_params=False):
 
     # from here on raw uplc may occur, so we dont attempt to fix locations
     compile_pipeline = [
+        # Save the original names of variables
+        RewriteOrigName(),
+        RewriteScoping(),
         # Apply optimizations
         OptimizeRemoveDeadvars(),
         OptimizeVarlen(),
+        OptimizeRemoveDeadconstants(),
         OptimizeRemovePass(),
         # the compiler runs last
-        UPLCCompiler(force_three_params=force_three_params),
+        UPLCCompiler(
+            force_three_params=force_three_params,
+            validator_function_name=validator_function_name,
+        ),
     ]
     for s in compile_pipeline:
         prog = s.visit(prog)
@@ -959,7 +1081,7 @@ def compile(prog: AST, filename=None, force_three_params=False):
 <h2 class="section-title" id="header-functions">Functions</h2>
 <dl>
 <dt id="opshin.compiler.compile"><code class="name flex">
-<span>def <span class="ident">compile</span></span>(<span>prog: _ast.AST, filename=None, force_three_params=False)</span>
+<span>def <span class="ident">compile</span></span>(<span>prog: _ast.AST, filename=None, force_three_params=False, validator_function_name='validator')</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -967,11 +1089,18 @@ def compile(prog: AST, filename=None, force_three_params=False):
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def compile(prog: AST, filename=None, force_three_params=False):
+<pre><code class="python">def compile(
+    prog: AST,
+    filename=None,
+    force_three_params=False,
+    validator_function_name=&#34;validator&#34;,
+):
     rewrite_steps = [
         # Important to call this one first - it imports all further files
         RewriteImport(filename=filename),
         # Rewrites that simplify the python code
+        OptimizeConstantFolding(),
+        RewriteSubscript38(),
         RewriteAugAssign(),
         RewriteTupleAssign(),
         RewriteImportPlutusData(),
@@ -993,12 +1122,19 @@ def compile(prog: AST, filename=None, force_three_params=False):
 
     # from here on raw uplc may occur, so we dont attempt to fix locations
     compile_pipeline = [
+        # Save the original names of variables
+        RewriteOrigName(),
+        RewriteScoping(),
         # Apply optimizations
         OptimizeRemoveDeadvars(),
         OptimizeVarlen(),
+        OptimizeRemoveDeadconstants(),
         OptimizeRemovePass(),
         # the compiler runs last
-        UPLCCompiler(force_three_params=force_three_params),
+        UPLCCompiler(
+            force_three_params=force_three_params,
+            validator_function_name=validator_function_name,
+        ),
     ]
     for s in compile_pipeline:
         prog = s.visit(prog)
@@ -1032,6 +1168,75 @@ def compile(prog: AST, filename=None, force_three_params=False):
         ),
         *values,
     )</code></pre>
+</details>
+</dd>
+<dt id="opshin.compiler.rec_constant_map"><code class="name flex">
+<span>def <span class="ident">rec_constant_map</span></span>(<span>c)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def rec_constant_map(c):
+    if isinstance(c, bool):
+        return uplc.BuiltinBool(c)
+    if isinstance(c, int):
+        return uplc.BuiltinInteger(c)
+    if isinstance(c, type(None)):
+        return uplc.BuiltinUnit()
+    if isinstance(c, bytes):
+        return uplc.BuiltinByteString(c)
+    if isinstance(c, str):
+        return uplc.BuiltinString(c)
+    if isinstance(c, list):
+        return uplc.BuiltinList([rec_constant_map(ce) for ce in c])
+    if isinstance(c, dict):
+        return uplc.BuiltinList(
+            [
+                uplc.BuiltinPair(*p)
+                for p in zip(
+                    (rec_constant_map_data(ce) for ce in c.keys()),
+                    (rec_constant_map_data(ce) for ce in c.values()),
+                )
+            ]
+        )
+    raise NotImplementedError(f&#34;Unsupported constant type {type(c)}&#34;)</code></pre>
+</details>
+</dd>
+<dt id="opshin.compiler.rec_constant_map_data"><code class="name flex">
+<span>def <span class="ident">rec_constant_map_data</span></span>(<span>c)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def rec_constant_map_data(c):
+    if isinstance(c, bool):
+        return uplc.PlutusInteger(int(c))
+    if isinstance(c, int):
+        return uplc.PlutusInteger(c)
+    if isinstance(c, type(None)):
+        return uplc.PlutusConstr(0, [])
+    if isinstance(c, bytes):
+        return uplc.PlutusByteString(c)
+    if isinstance(c, str):
+        return uplc.PlutusByteString(c.encode())
+    if isinstance(c, list):
+        return uplc.PlutusList([rec_constant_map_data(ce) for ce in c])
+    if isinstance(c, dict):
+        return uplc.PlutusMap(
+            dict(
+                zip(
+                    (rec_constant_map_data(ce) for ce in c.keys()),
+                    (rec_constant_map_data(ce) for ce in c.values()),
+                )
+            )
+        )
+    raise NotImplementedError(f&#34;Unsupported constant type {type(c)}&#34;)</code></pre>
 </details>
 </dd>
 <dt id="opshin.compiler.wrap_validator_double_function"><code class="name flex">
@@ -1080,7 +1285,7 @@ def compile(prog: AST, filename=None, force_three_params=False):
 <dl>
 <dt id="opshin.compiler.UPLCCompiler"><code class="flex name class">
 <span>class <span class="ident">UPLCCompiler</span></span>
-<span>(</span><span>force_three_params=False)</span>
+<span>(</span><span>force_three_params=False, validator_function_name='validator')</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Expects a TypedAST and returns UPLC/Pluto like code</p></div>
@@ -1095,8 +1300,9 @@ def compile(prog: AST, filename=None, force_three_params=False):
 
     step = &#34;Compiling python statements to UPLC&#34;
 
-    def __init__(self, force_three_params=False):
+    def __init__(self, force_three_params=False, validator_function_name=&#34;validator&#34;):
         self.force_three_params = force_three_params
+        self.validator_function_name = validator_function_name
 
     def visit_sequence(self, node_seq: typing.List[typedstmt]) -&gt; plt.AST:
         s = plt.Var(STATEMONAD)
@@ -1173,13 +1379,18 @@ def compile(prog: AST, filename=None, force_three_params=False):
         # TODO can use more sophisiticated procedure here i.e. functions marked by comment
         main_fun: typing.Optional[InstanceType] = None
         for s in node.body:
-            if isinstance(s, FunctionDef) and s.orig_name == &#34;validator&#34;:
+            if (
+                isinstance(s, FunctionDef)
+                and s.orig_name == self.validator_function_name
+            ):
                 main_fun = s
-        assert main_fun is not None, &#34;Could not find function named validator&#34;
+        assert (
+            main_fun is not None
+        ), f&#34;Could not find function named {self.validator_function_name}&#34;
         main_fun_typ: FunctionType = main_fun.typ.typ
         assert isinstance(
             main_fun_typ, FunctionType
-        ), &#34;Variable named validator is not of type function&#34;
+        ), f&#34;Variable named {self.validator_function_name} is not of type function&#34;
 
         # check if this is a contract written to double function
         enable_double_func_mint_spend = False
@@ -1221,7 +1432,9 @@ def compile(prog: AST, filename=None, force_three_params=False):
                             plt.FunctionalMapAccess(
                                 plt.Var(&#34;s&#34;),
                                 plt.ByteString(main_fun.name),
-                                plt.TraceError(&#34;NameError: validator&#34;),
+                                plt.TraceError(
+                                    f&#34;NameError: {self.validator_function_name}&#34;
+                                ),
                             ),
                         ),
                     ],
@@ -1245,16 +1458,12 @@ def compile(prog: AST, filename=None, force_three_params=False):
             raise RuntimeError(
                 &#34;The contract can not always detect if it was passed three or two parameters on-chain.&#34;
             )
-        cp = plt.Program(&#34;1.0.0&#34;, validator)
+        cp = plt.Program((1, 0, 0), validator)
         return cp
 
     def visit_Constant(self, node: TypedConstant) -&gt; plt.AST:
-        plt_type = ConstantMap.get(type(node.value))
-        if plt_type is None:
-            raise NotImplementedError(
-                f&#34;Constants of type {type(node.value)} are not supported&#34;
-            )
-        return plt.Lambda([STATEMONAD], plt_type(node.value))
+        plt_val = plt.UPLCConstant(rec_constant_map(node.value))
+        return plt.Lambda([STATEMONAD], plt_val)
 
     def visit_NoneType(self, _: typing.Optional[typing.Any]) -&gt; plt.AST:
         return plt.Lambda([STATEMONAD], plt.Unit())
@@ -1294,6 +1503,12 @@ def compile(prog: AST, filename=None, force_three_params=False):
             # we need to map this as it will originate from PlutusData
             # AnyType is the only type other than the builtin itself that can be cast to builtin values
             val = transform_ext_params_map(node.target.typ)(val)
+        if isinstance(node.target.typ, InstanceType) and isinstance(
+            node.target.typ.typ, AnyType
+        ):
+            # we need to map this back as it will be treated as PlutusData
+            # AnyType is the only type other than the builtin itself that can be cast to from builtin values
+            val = transform_output_map(node.value.typ)(val)
         return plt.Lambda(
             [STATEMONAD],
             extend_statemonad(
@@ -1366,21 +1581,27 @@ def compile(prog: AST, filename=None, force_three_params=False):
 
     def visit_FunctionDef(self, node: TypedFunctionDef) -&gt; plt.AST:
         body = node.body.copy()
-        if not isinstance(body[-1], Return):
-            tr = Return(None)
+        if not body or not isinstance(body[-1], Return):
+            tr = Return(TypedConstant(None, typ=NoneInstanceType))
             tr.typ = NoneInstanceType
-            assert (
-                node.typ.typ.rettyp == NoneInstanceType
-            ), &#34;Function has no return statement but is supposed to return not-None value&#34;
             body.append(tr)
         compiled_body = self.visit_sequence(body[:-1])
-        compiled_return = self.visit(body[-1].value)
         args_state = extend_statemonad(
             # the function can see its argument under the argument names
             [a.arg for a in node.args.args],
             [plt.Var(f&#34;p{i}&#34;) for i in range(len(node.args.args))],
             plt.Var(STATEMONAD),
         )
+        compiled_return = plt.Apply(
+            self.visit(body[-1].value),
+            plt.Apply(
+                compiled_body,
+                args_state,
+            ),
+        )
+        if isinstance(node.typ.typ.rettyp.typ, AnyType):
+            # if the function returns generic data, wrap the function return value
+            compiled_return = transform_output_map(body[-1].value.typ)(compiled_return)
         return plt.Lambda(
             [STATEMONAD],
             extend_statemonad(
@@ -1389,13 +1610,7 @@ def compile(prog: AST, filename=None, force_three_params=False):
                     plt.Lambda(
                         # expect the statemonad again -&gt; this is the basis for internally available values
                         [f&#34;p{i}&#34; for i in range(len(node.args.args))] + [STATEMONAD],
-                        plt.Apply(
-                            compiled_return,
-                            plt.Apply(
-                                compiled_body,
-                                args_state,
-                            ),
-                        ),
+                        compiled_return,
                     )
                 ],
                 plt.Var(STATEMONAD),
@@ -1492,15 +1707,12 @@ def compile(prog: AST, filename=None, force_three_params=False):
         ), &#34;Can only access elements of instances, not classes&#34;
         if isinstance(node.value.typ.typ, TupleType):
             assert isinstance(
-                node.slice, Index
-            ), &#34;Only single index slices for tuples are currently supported&#34;
-            assert isinstance(
-                node.slice.value, Constant
+                node.slice, Constant
             ), &#34;Only constant index access for tuples is supported&#34;
             assert isinstance(
-                node.slice.value.value, int
+                node.slice.value, int
             ), &#34;Only constant index integer access for tuples is supported&#34;
-            index = node.slice.value.value
+            index = node.slice.value
             if index &lt; 0:
                 index += len(node.value.typ.typ.typs)
             assert isinstance(node.ctx, Load), &#34;Tuples are read-only&#34;
@@ -1512,12 +1724,34 @@ def compile(prog: AST, filename=None, force_three_params=False):
                     len(node.value.typ.typ.typs),
                 ),
             )
-        if isinstance(node.value.typ.typ, ListType):
+        if isinstance(node.value.typ.typ, PairType):
             assert isinstance(
-                node.slice, Index
-            ), &#34;Only single index slices for lists are currently supported&#34;
+                node.slice, Constant
+            ), &#34;Only constant index access for pairs is supported&#34;
+            assert isinstance(
+                node.slice.value, int
+            ), &#34;Only constant index integer access for pairs is supported&#34;
+            index = node.slice.value
+            if index &lt; 0:
+                index += 2
+            assert isinstance(node.ctx, Load), &#34;Pairs are read-only&#34;
             assert (
-                node.slice.value.typ == IntegerInstanceType
+                0 &lt;= index &lt; 2
+            ), f&#34;Pairs only have 2 elements, index should be 0 or 1, is {node.slice.value}&#34;
+            member_func = plt.FstPair if index == 0 else plt.SndPair
+            # the content of pairs is always Data, so we need to unwrap
+            member_typ = node.typ
+            return plt.Lambda(
+                [STATEMONAD],
+                transform_ext_params_map(member_typ)(
+                    member_func(
+                        plt.Apply(self.visit(node.value), plt.Var(STATEMONAD)),
+                    ),
+                ),
+            )
+        if isinstance(node.value.typ.typ, ListType):
+            assert (
+                node.slice.typ == IntegerInstanceType
             ), &#34;Only single element list index access supported&#34;
             return plt.Lambda(
                 [STATEMONAD],
@@ -1526,9 +1760,7 @@ def compile(prog: AST, filename=None, force_three_params=False):
                         (&#34;l&#34;, plt.Apply(self.visit(node.value), plt.Var(STATEMONAD))),
                         (
                             &#34;raw_i&#34;,
-                            plt.Apply(
-                                self.visit(node.slice.value), plt.Var(STATEMONAD)
-                            ),
+                            plt.Apply(self.visit(node.slice), plt.Var(STATEMONAD)),
                         ),
                         (
                             &#34;i&#34;,
@@ -1544,8 +1776,41 @@ def compile(prog: AST, filename=None, force_three_params=False):
                     plt.IndexAccessList(plt.Var(&#34;l&#34;), plt.Var(&#34;i&#34;)),
                 ),
             )
+        elif isinstance(node.value.typ.typ, DictType):
+            dict_typ = node.value.typ.typ
+            if not isinstance(node.slice, Slice):
+                return plt.Lambda(
+                    [STATEMONAD],
+                    plt.Let(
+                        [
+                            (
+                                &#34;key&#34;,
+                                plt.Apply(self.visit(node.slice), plt.Var(STATEMONAD)),
+                            )
+                        ],
+                        transform_ext_params_map(dict_typ.value_typ)(
+                            plt.SndPair(
+                                plt.FindList(
+                                    plt.Apply(
+                                        self.visit(node.value), plt.Var(STATEMONAD)
+                                    ),
+                                    plt.Lambda(
+                                        [&#34;x&#34;],
+                                        plt.EqualsData(
+                                            transform_output_map(dict_typ.key_typ)(
+                                                plt.Var(&#34;key&#34;)
+                                            ),
+                                            plt.FstPair(plt.Var(&#34;x&#34;)),
+                                        ),
+                                    ),
+                                    plt.TraceError(&#34;KeyError&#34;),
+                                ),
+                            ),
+                        ),
+                    ),
+                )
         elif isinstance(node.value.typ.typ, ByteStringType):
-            if isinstance(node.slice, Index):
+            if not isinstance(node.slice, Slice):
                 return plt.Lambda(
                     [STATEMONAD],
                     plt.Let(
@@ -1556,9 +1821,7 @@ def compile(prog: AST, filename=None, force_three_params=False):
                             ),
                             (
                                 &#34;raw_ix&#34;,
-                                plt.Apply(
-                                    self.visit(node.slice.value), plt.Var(STATEMONAD)
-                                ),
+                                plt.Apply(self.visit(node.slice), plt.Var(STATEMONAD)),
                             ),
                             (
                                 &#34;ix&#34;,
@@ -1650,7 +1913,9 @@ def compile(prog: AST, filename=None, force_three_params=False):
                         ),
                     ),
                 )
-        raise NotImplementedError(f&#34;Could not implement subscript of {node}&#34;)
+        raise NotImplementedError(
+            f&#39;Could not implement subscript &#34;{node.slice}&#34; of &#34;{node.value}&#34;&#39;
+        )
 
     def visit_Tuple(self, node: TypedTuple) -&gt; plt.AST:
         return plt.Lambda(
@@ -1857,6 +2122,12 @@ def compile(prog: AST, filename=None, force_three_params=False):
         # we need to map this as it will originate from PlutusData
         # AnyType is the only type other than the builtin itself that can be cast to builtin values
         val = transform_ext_params_map(node.target.typ)(val)
+    if isinstance(node.target.typ, InstanceType) and isinstance(
+        node.target.typ.typ, AnyType
+    ):
+        # we need to map this back as it will be treated as PlutusData
+        # AnyType is the only type other than the builtin itself that can be cast to from builtin values
+        val = transform_output_map(node.value.typ)(val)
     return plt.Lambda(
         [STATEMONAD],
         extend_statemonad(
@@ -2094,12 +2365,8 @@ def compile(prog: AST, filename=None, force_three_params=False):
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def visit_Constant(self, node: TypedConstant) -&gt; plt.AST:
-    plt_type = ConstantMap.get(type(node.value))
-    if plt_type is None:
-        raise NotImplementedError(
-            f&#34;Constants of type {type(node.value)} are not supported&#34;
-        )
-    return plt.Lambda([STATEMONAD], plt_type(node.value))</code></pre>
+    plt_val = plt.UPLCConstant(rec_constant_map(node.value))
+    return plt.Lambda([STATEMONAD], plt_val)</code></pre>
 </details>
 </dd>
 <dt id="opshin.compiler.UPLCCompiler.visit_Dict"><code class="name flex">
@@ -2208,21 +2475,27 @@ def compile(prog: AST, filename=None, force_three_params=False):
 </summary>
 <pre><code class="python">def visit_FunctionDef(self, node: TypedFunctionDef) -&gt; plt.AST:
     body = node.body.copy()
-    if not isinstance(body[-1], Return):
-        tr = Return(None)
+    if not body or not isinstance(body[-1], Return):
+        tr = Return(TypedConstant(None, typ=NoneInstanceType))
         tr.typ = NoneInstanceType
-        assert (
-            node.typ.typ.rettyp == NoneInstanceType
-        ), &#34;Function has no return statement but is supposed to return not-None value&#34;
         body.append(tr)
     compiled_body = self.visit_sequence(body[:-1])
-    compiled_return = self.visit(body[-1].value)
     args_state = extend_statemonad(
         # the function can see its argument under the argument names
         [a.arg for a in node.args.args],
         [plt.Var(f&#34;p{i}&#34;) for i in range(len(node.args.args))],
         plt.Var(STATEMONAD),
     )
+    compiled_return = plt.Apply(
+        self.visit(body[-1].value),
+        plt.Apply(
+            compiled_body,
+            args_state,
+        ),
+    )
+    if isinstance(node.typ.typ.rettyp.typ, AnyType):
+        # if the function returns generic data, wrap the function return value
+        compiled_return = transform_output_map(body[-1].value.typ)(compiled_return)
     return plt.Lambda(
         [STATEMONAD],
         extend_statemonad(
@@ -2231,13 +2504,7 @@ def compile(prog: AST, filename=None, force_three_params=False):
                 plt.Lambda(
                     # expect the statemonad again -&gt; this is the basis for internally available values
                     [f&#34;p{i}&#34; for i in range(len(node.args.args))] + [STATEMONAD],
-                    plt.Apply(
-                        compiled_return,
-                        plt.Apply(
-                            compiled_body,
-                            args_state,
-                        ),
-                    ),
+                    compiled_return,
                 )
             ],
             plt.Var(STATEMONAD),
@@ -2379,13 +2646,18 @@ def compile(prog: AST, filename=None, force_three_params=False):
     # TODO can use more sophisiticated procedure here i.e. functions marked by comment
     main_fun: typing.Optional[InstanceType] = None
     for s in node.body:
-        if isinstance(s, FunctionDef) and s.orig_name == &#34;validator&#34;:
+        if (
+            isinstance(s, FunctionDef)
+            and s.orig_name == self.validator_function_name
+        ):
             main_fun = s
-    assert main_fun is not None, &#34;Could not find function named validator&#34;
+    assert (
+        main_fun is not None
+    ), f&#34;Could not find function named {self.validator_function_name}&#34;
     main_fun_typ: FunctionType = main_fun.typ.typ
     assert isinstance(
         main_fun_typ, FunctionType
-    ), &#34;Variable named validator is not of type function&#34;
+    ), f&#34;Variable named {self.validator_function_name} is not of type function&#34;
 
     # check if this is a contract written to double function
     enable_double_func_mint_spend = False
@@ -2427,7 +2699,9 @@ def compile(prog: AST, filename=None, force_three_params=False):
                         plt.FunctionalMapAccess(
                             plt.Var(&#34;s&#34;),
                             plt.ByteString(main_fun.name),
-                            plt.TraceError(&#34;NameError: validator&#34;),
+                            plt.TraceError(
+                                f&#34;NameError: {self.validator_function_name}&#34;
+                            ),
                         ),
                     ),
                 ],
@@ -2451,7 +2725,7 @@ def compile(prog: AST, filename=None, force_three_params=False):
         raise RuntimeError(
             &#34;The contract can not always detect if it was passed three or two parameters on-chain.&#34;
         )
-    cp = plt.Program(&#34;1.0.0&#34;, validator)
+    cp = plt.Program((1, 0, 0), validator)
     return cp</code></pre>
 </details>
 </dd>
@@ -2553,15 +2827,12 @@ def compile(prog: AST, filename=None, force_three_params=False):
     ), &#34;Can only access elements of instances, not classes&#34;
     if isinstance(node.value.typ.typ, TupleType):
         assert isinstance(
-            node.slice, Index
-        ), &#34;Only single index slices for tuples are currently supported&#34;
-        assert isinstance(
-            node.slice.value, Constant
+            node.slice, Constant
         ), &#34;Only constant index access for tuples is supported&#34;
         assert isinstance(
-            node.slice.value.value, int
+            node.slice.value, int
         ), &#34;Only constant index integer access for tuples is supported&#34;
-        index = node.slice.value.value
+        index = node.slice.value
         if index &lt; 0:
             index += len(node.value.typ.typ.typs)
         assert isinstance(node.ctx, Load), &#34;Tuples are read-only&#34;
@@ -2573,12 +2844,34 @@ def compile(prog: AST, filename=None, force_three_params=False):
                 len(node.value.typ.typ.typs),
             ),
         )
-    if isinstance(node.value.typ.typ, ListType):
+    if isinstance(node.value.typ.typ, PairType):
         assert isinstance(
-            node.slice, Index
-        ), &#34;Only single index slices for lists are currently supported&#34;
+            node.slice, Constant
+        ), &#34;Only constant index access for pairs is supported&#34;
+        assert isinstance(
+            node.slice.value, int
+        ), &#34;Only constant index integer access for pairs is supported&#34;
+        index = node.slice.value
+        if index &lt; 0:
+            index += 2
+        assert isinstance(node.ctx, Load), &#34;Pairs are read-only&#34;
         assert (
-            node.slice.value.typ == IntegerInstanceType
+            0 &lt;= index &lt; 2
+        ), f&#34;Pairs only have 2 elements, index should be 0 or 1, is {node.slice.value}&#34;
+        member_func = plt.FstPair if index == 0 else plt.SndPair
+        # the content of pairs is always Data, so we need to unwrap
+        member_typ = node.typ
+        return plt.Lambda(
+            [STATEMONAD],
+            transform_ext_params_map(member_typ)(
+                member_func(
+                    plt.Apply(self.visit(node.value), plt.Var(STATEMONAD)),
+                ),
+            ),
+        )
+    if isinstance(node.value.typ.typ, ListType):
+        assert (
+            node.slice.typ == IntegerInstanceType
         ), &#34;Only single element list index access supported&#34;
         return plt.Lambda(
             [STATEMONAD],
@@ -2587,9 +2880,7 @@ def compile(prog: AST, filename=None, force_three_params=False):
                     (&#34;l&#34;, plt.Apply(self.visit(node.value), plt.Var(STATEMONAD))),
                     (
                         &#34;raw_i&#34;,
-                        plt.Apply(
-                            self.visit(node.slice.value), plt.Var(STATEMONAD)
-                        ),
+                        plt.Apply(self.visit(node.slice), plt.Var(STATEMONAD)),
                     ),
                     (
                         &#34;i&#34;,
@@ -2605,8 +2896,41 @@ def compile(prog: AST, filename=None, force_three_params=False):
                 plt.IndexAccessList(plt.Var(&#34;l&#34;), plt.Var(&#34;i&#34;)),
             ),
         )
+    elif isinstance(node.value.typ.typ, DictType):
+        dict_typ = node.value.typ.typ
+        if not isinstance(node.slice, Slice):
+            return plt.Lambda(
+                [STATEMONAD],
+                plt.Let(
+                    [
+                        (
+                            &#34;key&#34;,
+                            plt.Apply(self.visit(node.slice), plt.Var(STATEMONAD)),
+                        )
+                    ],
+                    transform_ext_params_map(dict_typ.value_typ)(
+                        plt.SndPair(
+                            plt.FindList(
+                                plt.Apply(
+                                    self.visit(node.value), plt.Var(STATEMONAD)
+                                ),
+                                plt.Lambda(
+                                    [&#34;x&#34;],
+                                    plt.EqualsData(
+                                        transform_output_map(dict_typ.key_typ)(
+                                            plt.Var(&#34;key&#34;)
+                                        ),
+                                        plt.FstPair(plt.Var(&#34;x&#34;)),
+                                    ),
+                                ),
+                                plt.TraceError(&#34;KeyError&#34;),
+                            ),
+                        ),
+                    ),
+                ),
+            )
     elif isinstance(node.value.typ.typ, ByteStringType):
-        if isinstance(node.slice, Index):
+        if not isinstance(node.slice, Slice):
             return plt.Lambda(
                 [STATEMONAD],
                 plt.Let(
@@ -2617,9 +2941,7 @@ def compile(prog: AST, filename=None, force_three_params=False):
                         ),
                         (
                             &#34;raw_ix&#34;,
-                            plt.Apply(
-                                self.visit(node.slice.value), plt.Var(STATEMONAD)
-                            ),
+                            plt.Apply(self.visit(node.slice), plt.Var(STATEMONAD)),
                         ),
                         (
                             &#34;ix&#34;,
@@ -2711,7 +3033,9 @@ def compile(prog: AST, filename=None, force_three_params=False):
                     ),
                 ),
             )
-    raise NotImplementedError(f&#34;Could not implement subscript of {node}&#34;)</code></pre>
+    raise NotImplementedError(
+        f&#39;Could not implement subscript &#34;{node.slice}&#34; of &#34;{node.value}&#34;&#39;
+    )</code></pre>
 </details>
 </dd>
 <dt id="opshin.compiler.UPLCCompiler.visit_Tuple"><code class="name flex">
@@ -2887,6 +3211,8 @@ setTimeout(() => input.focus(), 100);
 <ul class="">
 <li><code><a title="opshin.compiler.compile" href="#opshin.compiler.compile">compile</a></code></li>
 <li><code><a title="opshin.compiler.extend_statemonad" href="#opshin.compiler.extend_statemonad">extend_statemonad</a></code></li>
+<li><code><a title="opshin.compiler.rec_constant_map" href="#opshin.compiler.rec_constant_map">rec_constant_map</a></code></li>
+<li><code><a title="opshin.compiler.rec_constant_map_data" href="#opshin.compiler.rec_constant_map_data">rec_constant_map_data</a></code></li>
 <li><code><a title="opshin.compiler.wrap_validator_double_function" href="#opshin.compiler.wrap_validator_double_function">wrap_validator_double_function</a></code></li>
 </ul>
 </li>

@@ -73,10 +73,10 @@ fill="currentColor" class="octo-body"></path>
 import frozendict
 from hypothesis import given
 from hypothesis import strategies as st
-from parameterized import parameterized
 from uplc import ast as uplc, eval as uplc_eval
 
 from .. import compiler, prelude
+from ..util import CompilerError
 
 
 def fib(n):
@@ -99,8 +99,9 @@ class MiscTest(unittest.TestCase):
         for d in [uplc.PlutusInteger(20), uplc.PlutusInteger(22), uplc.BuiltinUnit()]:
             f = uplc.Apply(f, d)
         ret = uplc_eval(f)
-        self.assertEqual(ret, uplc.BuiltinUnit())
+        self.assertEqual(ret, uplc.PlutusConstr(0, []))
 
+    @unittest.expectedFailure
     def test_assert_sum_contract_fail(self):
         input_file = &#34;examples/smart_contracts/assert_sum.py&#34;
         with open(input_file) as fp:
@@ -108,20 +109,15 @@ class MiscTest(unittest.TestCase):
         ast = compiler.parse(source_code)
         code = compiler.compile(ast)
         code = code.compile()
-        try:
-            f = code.term
-            # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
-            for d in [
-                uplc.PlutusInteger(0),
-                uplc.PlutusInteger(23),
-                uplc.BuiltinUnit(),
-            ]:
-                f = uplc.Apply(f, d)
-            ret = uplc_eval(f)
-            failed = False
-        except Exception as e:
-            failed = True
-        self.assertTrue(failed, &#34;Machine did validate the content&#34;)
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        for d in [
+            uplc.PlutusInteger(0),
+            uplc.PlutusInteger(23),
+            uplc.BuiltinUnit(),
+        ]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f)
 
     @given(
         a=st.integers(min_value=-10, max_value=10),
@@ -287,25 +283,6 @@ class MiscTest(unittest.TestCase):
             ret,
         )
 
-    @parameterized.expand(
-        [
-            (
-                &#34;d8799fd8799f9fd8799fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffd8799fd8799fd87a9f581cdbe769758f26efb21f008dc097bb194cffc622acc37fcefc5372eee3ffd87a80ffa140a1401a00989680d87a9f5820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dffd87a80ffffff809fd8799fd8799fd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd87a80ffa140a14000d87980d87a80ffffa140a14000a140a1400080a0d8799fd8799fd87980d87a80ffd8799fd87b80d87a80ffff80a1d87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffd87980a15820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd8799f5820746957f0eb57f2b11119684e611a98f373afea93473fefbb7632d579af2f6259ffffd87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffff&#34;
-            ),
-            (
-                &#34;d8799fd8799f9fd8799fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffd8799fd8799fd87a9f581cdbe769758f26efb21f008dc097bb194cffc622acc37fcefc5372eee3ffd87a80ffa140a1401a00989680d87a9f5820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dffd87a80ffffff809fd8799fd8799fd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd87a80ffa140a14000d87980d87a80ffffa140a14000a140a1400080a0d8799fd8799fd87a9f1b000001836ac117d8ffd87a80ffd8799fd87b80d87a80ffff80a1d87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffd87980a15820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd8799f5820797a1e1720b63621c6b185088184cb8e23af6e46b55bd83e7a91024c823a6c2affffd87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffff&#34;
-            ),
-            (
-                &#34;d8799fd8799f9fd8799fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffd8799fd8799fd87a9f581cdbe769758f26efb21f008dc097bb194cffc622acc37fcefc5372eee3ffd87a80ffa140a1401a00989680d87a9f5820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dffd87a80ffffff809fd8799fd8799fd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd87a80ffa140a14000d87980d87a80ffd8799fd8799fd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd87a80ffa140a1401a000f4240d87980d87a80ffffa140a14000a140a1400080a0d8799fd8799fd87a9f1b000001836ac117d8ffd87a80ffd8799fd87b80d87a80ffff9f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffa1d87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffd87980a15820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd8799f5820c17c32f6433ae22c2acaebfb796bbfaee3993ff7ebb58a2bac6b4a3bdd2f6d28ffffd87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffff&#34;
-            ),
-        ]
-    )
-    def test_script_context_repr_correct(self, p):
-        # Make sure that this parses correctly and does not throw an error
-        # Note that this was extracted from a PlutusV2 invocation
-        # in increasing complexity...
-        prelude.ScriptContext.from_cbor(p)
-
     def test_gift_contract_succeed(self):
         input_file = &#34;examples/smart_contracts/gift.py&#34;
         with open(input_file) as fp:
@@ -337,8 +314,9 @@ class MiscTest(unittest.TestCase):
         ]:
             f = uplc.Apply(f, d)
         ret = uplc_eval(f)
-        self.assertEqual(ret, uplc.BuiltinUnit())
+        self.assertEqual(ret, uplc.PlutusConstr(0, []))
 
+    @unittest.expectedFailure
     def test_gift_contract_fail(self):
         input_file = &#34;examples/smart_contracts/gift.py&#34;
         with open(input_file) as fp:
@@ -348,34 +326,29 @@ class MiscTest(unittest.TestCase):
         code = code.compile()
         f = code.term
         # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
-        try:
-            # required sig missing int this script context
-            for d in [
-                uplc.PlutusConstr(
-                    0,
-                    [
-                        uplc.PlutusByteString(
-                            bytes.fromhex(
-                                &#34;dc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2&#34;
-                            )
-                        )
-                    ],
-                ),
-                uplc.PlutusConstr(0, []),
-                uplc.data_from_cbor(
-                    bytes.fromhex(
-                        (
-                            &#34;d8799fd8799f9fd8799fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffd8799fd8799fd87a9f581cdbe769758f26efb21f008dc097bb194cffc622acc37fcefc5372eee3ffd87a80ffa140a1401a00989680d87a9f5820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dffd87a80ffffff809fd8799fd8799fd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd87a80ffa140a14000d87980d87a80ffffa140a14000a140a1400080a0d8799fd8799fd87a9f1b000001836ac117d8ffd87a80ffd8799fd87b80d87a80ffff80a1d87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffd87980a15820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd8799f5820797a1e1720b63621c6b185088184cb8e23af6e46b55bd83e7a91024c823a6c2affffd87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffff&#34;
+        # required sig missing int this script context
+        for d in [
+            uplc.PlutusConstr(
+                0,
+                [
+                    uplc.PlutusByteString(
+                        bytes.fromhex(
+                            &#34;dc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2&#34;
                         )
                     )
-                ),
-            ]:
-                f = uplc.Apply(f, d)
-            ret = uplc_eval(f)
-            failed = False
-        except Exception as e:
-            failed = True
-        self.assertTrue(failed, &#34;Machine did validate the content&#34;)
+                ],
+            ),
+            uplc.PlutusConstr(0, []),
+            uplc.data_from_cbor(
+                bytes.fromhex(
+                    (
+                        &#34;d8799fd8799f9fd8799fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffd8799fd8799fd87a9f581cdbe769758f26efb21f008dc097bb194cffc622acc37fcefc5372eee3ffd87a80ffa140a1401a00989680d87a9f5820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dffd87a80ffffff809fd8799fd8799fd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd87a80ffa140a14000d87980d87a80ffffa140a14000a140a1400080a0d8799fd8799fd87a9f1b000001836ac117d8ffd87a80ffd8799fd87b80d87a80ffff80a1d87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffd87980a15820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd8799f5820797a1e1720b63621c6b185088184cb8e23af6e46b55bd83e7a91024c823a6c2affffd87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffff&#34;
+                    )
+                )
+            ),
+        ]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f)
 
     def test_recursion(self):
         source_code = &#34;&#34;&#34;
@@ -485,6 +458,7 @@ def validator(_: None) -&gt; int:
         code = code.compile()
         f = code.term
 
+    @unittest.expectedFailure
     def test_dict_datum(self):
         input_file = &#34;examples/dict_datum.py&#34;
         with open(input_file) as fp:
@@ -494,31 +468,23 @@ def validator(_: None) -&gt; int:
         code = code.compile()
         f = code.term
         # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
-        try:
-            # required sig missing int this script context
-            for d in [
-                uplc.PlutusConstr(
-                    0,
-                    [
-                        uplc.PlutusMap(
-                            frozendict.frozendict(
-                                {
-                                    uplc.PlutusConstr(
-                                        0, [uplc.PlutusByteString(b&#34;\x01&#34;)]
-                                    ): 2
-                                }
-                            )
+        # required sig missing int this script context
+        for d in [
+            uplc.PlutusConstr(
+                0,
+                [
+                    uplc.PlutusMap(
+                        frozendict.frozendict(
+                            {uplc.PlutusConstr(0, [uplc.PlutusByteString(b&#34;\x01&#34;)]): 2}
                         )
-                    ],
-                ),
-            ]:
-                f = uplc.Apply(f, d)
-            ret = uplc_eval(f)
-            failed = False
-        except Exception as e:
-            failed = True
-        self.assertTrue(failed, &#34;Machine did validate the content&#34;)
+                    )
+                ],
+            ),
+        ]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f)
 
+    @unittest.expectedFailure
     def test_overopt_removedeadvar(self):
         # this tests that errors that are caused by assignments are actually triggered at the time of assigning
         source_code = &#34;&#34;&#34;
@@ -532,17 +498,13 @@ def validator(x: Token) -&gt; bool:
         code = code.compile()
         f = code.term
         # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
-        try:
-            for d in [
-                uplc.PlutusConstr(0, []),
-            ]:
-                f = uplc.Apply(f, d)
-            ret = uplc_eval(f)
-            failed = False
-        except Exception as e:
-            failed = True
-        self.assertTrue(failed, &#34;Machine did validate the content&#34;)
+        for d in [
+            uplc.PlutusConstr(0, []),
+        ]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f)
 
+    @unittest.expectedFailure
     def test_opt_shared_var(self):
         # this tests that errors that are caused by assignments are actually triggered at the time of assigning
         source_code = &#34;&#34;&#34;
@@ -559,16 +521,11 @@ def validator(x: Token) -&gt; bool:
         code = code.compile()
         f = code.term
         # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
-        try:
-            for d in [
-                uplc.PlutusConstr(0, []),
-            ]:
-                f = uplc.Apply(f, d)
-            ret = uplc_eval(f)
-            failed = False
-        except Exception as e:
-            failed = True
-        self.assertTrue(failed, &#34;Machine did validate the content&#34;)
+        for d in [
+            uplc.PlutusConstr(0, []),
+        ]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f)
 
     def test_list_expr(self):
         # this tests that the list expression is evaluated correctly
@@ -586,7 +543,45 @@ def validator(x: None) -&gt; List[int]:
         ]:
             f = uplc.Apply(f, d)
         ret = [x.value for x in uplc_eval(f).value]
-        self.assertEqual(ret, [1, 2, 3, 4, 5], &#34;Machine did validate the content&#34;)
+        self.assertEqual(ret, [1, 2, 3, 4, 5], &#34;List expression incorrectly compiled&#34;)
+
+    def test_list_expr_not_const(self):
+        # this tests that the list expression is evaluated correctly (for non-constant expressions)
+        source_code = &#34;&#34;&#34;
+def validator(x: int) -&gt; List[int]:
+    return [x, x+1, x+2, x+3, x+4]
+        &#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        for d in [
+            uplc.PlutusInteger(1),
+        ]:
+            f = uplc.Apply(f, d)
+        ret = [x.value for x in uplc_eval(f).value]
+        self.assertEqual(ret, [1, 2, 3, 4, 5], &#34;List expression incorrectly compiled&#34;)
+
+    def test_dict_expr_not_const(self):
+        # this tests that the list expression is evaluated correctly (for non-constant expressions)
+        source_code = &#34;&#34;&#34;
+def validator(x: int) -&gt; Dict[int, bytes]:
+    return {x: b&#34;a&#34;, x+1: b&#34;b&#34;}
+        &#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        for d in [
+            uplc.PlutusInteger(1),
+        ]:
+            f = uplc.Apply(f, d)
+        ret = {x.value: y.value for x, y in uplc_eval(f).value.items()}
+        self.assertEqual(
+            ret, {1: b&#34;a&#34;, 2: b&#34;b&#34;}, &#34;Dict expression incorrectly compiled&#34;
+        )
 
     def test_redefine_constr(self):
         # this tests that classes defined by assignment inherit constructors
@@ -605,7 +600,7 @@ def validator(x: None) -&gt; bytes:
         ]:
             f = uplc.Apply(f, d)
         ret = uplc_eval(f).value
-        self.assertEqual(ret, bytes([2, 3]), &#34;Machine did validate the content&#34;)
+        self.assertEqual(ret, bytes([2, 3]), &#34;Re-assignment of global variable failed&#34;)
 
     def test_wrap_into_generic_data(self):
         # this tests that errors that are caused by assignments are actually triggered at the time of assigning
@@ -626,10 +621,8 @@ def validator(_: None) -&gt; SomeOutputDatum:
         ret = uplc_eval(f)
         self.assertEqual(
             ret,
-            uplc.data_from_cbor(
-                prelude.SomeOutputDatum(b&#34;a&#34;).to_cbor(encoding=&#34;bytes&#34;)
-            ),
-            &#34;Machine did validate the content&#34;,
+            uplc.data_from_cbor(prelude.SomeOutputDatum(b&#34;a&#34;).to_cbor()),
+            &#34;Wrapping to generic data failed&#34;,
         )
 
     def test_list_comprehension_even(self):
@@ -792,14 +785,49 @@ def validator(x: Anything) -&gt; int:
         res = uplc_eval(uplc.Apply(code, uplc.PlutusInteger(0))).value
         self.assertEqual(res, 0)
 
-    @unittest.expectedFailure
     def test_typecast_int_anything(self):
-        # this should not compile, we can not upcast with this notation
-        # up to discussion whether this should be allowed, but i.g. it should never be necessary or useful
+        # this should compile, it happens implicitly anyways when calling a function with Any parameters
         source_code = &#34;&#34;&#34;
 def validator(x: int) -&gt; Anything:
     b: Anything = x
-    return x
+    return b
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusInteger(0))).value
+        self.assertEqual(res, 0)
+
+    def test_typecast_int_anything_int(self):
+        source_code = &#34;&#34;&#34;
+def validator(x: int) -&gt; Anything:
+    b: Anything = x
+    c: int = b
+    return c + 1
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusInteger(0))).value
+        self.assertEqual(res, 1)
+
+    def test_typecast_anything_int_anything(self):
+        source_code = &#34;&#34;&#34;
+def validator(x: Anything) -&gt; Anything:
+    b: int = x
+    c: Anything = b + 1
+    return c
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusInteger(0))).value
+        self.assertEqual(res, 1)
+
+    @unittest.expectedFailure
+    def test_typecast_int_str(self):
+        # this should compile, the two types are unrelated and there is no meaningful way to cast them either direction
+        source_code = &#34;&#34;&#34;
+def validator(x: int) -&gt; str:
+    b: str = x
+    return b
 &#34;&#34;&#34;
         ast = compiler.parse(source_code)
         code = compiler.compile(ast)
@@ -865,7 +893,378 @@ def validator(x: None) -&gt; None:
 &#34;&#34;&#34;
         ast = compiler.parse(source_code)
         code = compiler.compile(ast).compile()
-        res = uplc_eval(uplc.Apply(code, uplc.PlutusInteger(0)))</code></pre>
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusInteger(0)))
+
+    def test_return_anything(self):
+        source_code = &#34;&#34;&#34;
+from opshin.prelude import *
+
+def validator() -&gt; Anything:
+    return b&#34;&#34;
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
+        self.assertEqual(res, uplc.PlutusByteString(b&#34;&#34;))
+
+    def test_no_return_annotation(self):
+        source_code = &#34;&#34;&#34;
+from opshin.prelude import *
+
+def validator():
+    return b&#34;&#34;
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
+        self.assertEqual(res, uplc.PlutusByteString(b&#34;&#34;))
+
+    def test_no_parameter_annotation(self):
+        source_code = &#34;&#34;&#34;
+from opshin.prelude import *
+
+def validator(a) -&gt; bytes:
+    b: bytes = a
+    return b
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusByteString(b&#34;&#34;)))
+        self.assertEqual(res, uplc.PlutusByteString(b&#34;&#34;))
+
+    @given(xs=st.dictionaries(st.integers(), st.binary()))
+    def test_dict_items_values_deconstr(self, xs):
+        # asserts that deconstruction of parameters works for for loops too
+        source_code = &#34;&#34;&#34;
+def validator(xs: Dict[int, bytes]) -&gt; bytes:
+    sum_values = b&#34;&#34;
+    for _, x in xs.items():
+        sum_values += x
+    return sum_values
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        for d in [
+            uplc.PlutusMap(
+                {uplc.PlutusInteger(k): uplc.PlutusByteString(v) for k, v in xs.items()}
+            )
+        ]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value
+        self.assertEqual(
+            ret,
+            b&#34;&#34;.join(xs.values()),
+            &#34;for loop deconstruction did not behave as expected&#34;,
+        )
+
+    def test_nested_deconstruction(self):
+        source_code = &#34;&#34;&#34;
+def validator(xs) -&gt; int:
+    a, ((b, c), d) = (1, ((2, 3), 4))
+    return a + b + c + d
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        f = uplc.Apply(f, uplc.PlutusConstr(0, []))
+        ret = uplc_eval(f).value
+        self.assertEqual(
+            ret,
+            1 + 2 + 3 + 4,
+            &#34;for loop deconstruction did not behave as expected&#34;,
+        )
+
+    @given(
+        xs=st.dictionaries(
+            st.binary(),
+            st.dictionaries(st.binary(), st.integers(), max_size=3),
+            max_size=5,
+        )
+    )
+    def test_dict_items_values_deconstr(self, xs):
+        # nested deconstruction with a Value-like object
+        source_code = &#34;&#34;&#34;
+def validator(xs: Dict[bytes, Dict[bytes, int]]) -&gt; int:
+    sum_values = 0
+    for pid, tk_dict in xs.items():
+        for tk_name, tk_amount in tk_dict.items():
+            sum_values += tk_amount
+    return sum_values
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        for d in [
+            uplc.PlutusMap(
+                {
+                    uplc.PlutusByteString(k): uplc.PlutusMap(
+                        {
+                            uplc.PlutusByteString(k2): uplc.PlutusInteger(v2)
+                            for k2, v2 in v.items()
+                        }
+                    )
+                    for k, v in xs.items()
+                }
+            )
+        ]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value
+        self.assertEqual(
+            ret,
+            sum(v for pid, d in xs.items() for nam, v in d.items()),
+            &#34;for loop deconstruction did not behave as expected&#34;,
+        )
+
+    def test_no_return_annotation_no_return(self):
+        source_code = &#34;&#34;&#34;
+from opshin.prelude import *
+
+def validator(a):
+    pass
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
+        self.assertEqual(res, uplc.PlutusConstr(0, []))
+
+    def test_opt_unsafe_cast(self):
+        # test that unsafe casts are not optimized away
+        source_code = &#34;&#34;&#34;
+from opshin.prelude import *
+def validator(x: Token) -&gt; bool:
+    b: Anything = x
+    a: int = b
+    return True
+        &#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        try:
+            for d in [
+                uplc.PlutusConstr(0, []),
+            ]:
+                f = uplc.Apply(f, d)
+            ret = uplc_eval(f)
+            failed = False
+        except Exception as e:
+            failed = True
+        self.assertTrue(failed, &#34;Machine did validate the content&#34;)
+
+    def test_constant_folding(self):
+        source_code = &#34;&#34;&#34;
+from opshin.prelude import *
+
+def validator(_: None) -&gt; bytes:
+    return bytes.fromhex(&#34;0011&#34;)
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
+        self.assertEqual(res, uplc.PlutusByteString(bytes.fromhex(&#34;0011&#34;)))
+
+    def test_constant_folding_list(self):
+        source_code = &#34;&#34;&#34;
+from opshin.prelude import *
+
+def validator(_: None) -&gt; List[int]:
+    return list(range(0, 10, 2))
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        self.assertIn(&#34;(con list&lt;integer&gt; [0, 2, 4, 6, 8])&#34;, code.dumps())
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
+        self.assertEqual(
+            res, uplc.PlutusList([uplc.PlutusInteger(i) for i in range(0, 10, 2)])
+        )
+
+    def test_constant_folding_dict(self):
+        source_code = &#34;&#34;&#34;
+from opshin.prelude import *
+
+def validator(_: None) -&gt; Dict[str, bool]:
+    return {&#34;s&#34;: True, &#34;m&#34;: False}
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        self.assertIn(
+            &#34;(con list&lt;pair&lt;data, data&gt;&gt; [[#4173, #01], [#416d, #00]]))&#34;, code.dumps()
+        )
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
+        self.assertEqual(
+            res,
+            uplc.PlutusMap(
+                {
+                    uplc.PlutusByteString(&#34;s&#34;.encode()): uplc.PlutusInteger(1),
+                    uplc.PlutusByteString(&#34;m&#34;.encode()): uplc.PlutusInteger(0),
+                }
+            ),
+        )
+
+    def test_constant_folding_complex(self):
+        source_code = &#34;&#34;&#34;
+from opshin.prelude import *
+
+def validator(_: None) -&gt; Dict[str, List[Dict[bytes, int]]]:
+    return {&#34;s&#34;: [{b&#34;&#34;: 0}, {b&#34;0&#34;: 1}]}
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
+        self.assertEqual(
+            res,
+            uplc.PlutusMap(
+                {
+                    uplc.PlutusByteString(&#34;s&#34;.encode()): uplc.PlutusList(
+                        [
+                            uplc.PlutusMap(
+                                {uplc.PlutusByteString(b&#34;&#34;): uplc.PlutusInteger(0)}
+                            ),
+                            uplc.PlutusMap(
+                                {uplc.PlutusByteString(b&#34;0&#34;): uplc.PlutusInteger(1)}
+                            ),
+                        ]
+                    ),
+                }
+            ),
+        )
+
+    def test_constant_folding_math(self):
+        source_code = &#34;&#34;&#34;
+from opshin.prelude import *
+
+def validator(_: None) -&gt; int:
+    return 2 ** 10
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        code_src = code.dumps()
+        self.assertIn(f&#34;(con integer {2**10})&#34;, code_src)
+
+    def test_constant_folding_ignore_reassignment(self):
+        source_code = &#34;&#34;&#34;
+from opshin.prelude import *
+
+def validator(_: None) -&gt; int:
+    def int(a) -&gt; int:
+        return 2
+    return int(5)
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
+        self.assertEqual(res, uplc.PlutusInteger(2))
+
+    def test_constant_folding_no_print_eval(self):
+        source_code = &#34;&#34;&#34;
+from opshin.prelude import *
+
+def validator(_: None) -&gt; None:
+    return print(&#34;hello&#34;)
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        code_src = code.dumps()
+        self.assertIn(f&#39;(con string &#34;hello&#34;)&#39;, code_src)
+
+    def test_inner_outer_state_functions(self):
+        source_code = &#34;&#34;&#34;
+a = 2
+def b() -&gt; int:
+    return a
+
+def validator(_: None) -&gt; int:
+    a = 3
+    return b()
+        &#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
+        self.assertEqual(res, uplc.PlutusInteger(2))
+
+    def test_inner_outer_state_functions_nonglobal(self):
+        source_code = &#34;&#34;&#34;
+
+def validator(_: None) -&gt; int:
+    a = 2
+    def b() -&gt; int:
+        return a
+    def c() -&gt; int:
+        a = 3
+        return b()
+    return c()
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
+        self.assertEqual(res, uplc.PlutusInteger(2))
+
+    def test_outer_state_change_functions(self):
+        source_code = &#34;&#34;&#34;
+a = 2
+def b() -&gt; int:
+    return a
+a = 3
+
+def validator(_: None) -&gt; int:
+    return b()
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
+        self.assertEqual(res, uplc.PlutusInteger(3))
+
+    @unittest.expectedFailure
+    def test_failing_annotated_type(self):
+        source_code = &#34;&#34;&#34;
+def c():
+    a = 2
+    def b() -&gt; int:
+        return a
+    return b
+
+def validator(_: None):
+    a = 3
+    return c()
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+
+    @unittest.expectedFailure
+    def test_access_enclosing_variable_before_def(self):
+        # note this is a runtime error, just like it would be in python!
+        source_code = &#34;&#34;&#34;
+a = &#34;1&#34;
+def validator(_: None) -&gt; None:
+   def d() -&gt; str:
+       return a
+   print(d())
+   a = &#34;2&#34;
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
+
+    @unittest.expectedFailure
+    def test_access_local_variable_before_assignment(self):
+        # note this is a runtime error, just like it would be in python!
+        source_code = &#34;&#34;&#34;
+a = &#34;1&#34;
+def validator(_: None) -&gt; None:
+   print(a)
+   a = &#34;2&#34;
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))</code></pre>
 </details>
 </section>
 <section>
@@ -946,8 +1345,9 @@ not have a method with the specified name.</p></div>
         for d in [uplc.PlutusInteger(20), uplc.PlutusInteger(22), uplc.BuiltinUnit()]:
             f = uplc.Apply(f, d)
         ret = uplc_eval(f)
-        self.assertEqual(ret, uplc.BuiltinUnit())
+        self.assertEqual(ret, uplc.PlutusConstr(0, []))
 
+    @unittest.expectedFailure
     def test_assert_sum_contract_fail(self):
         input_file = &#34;examples/smart_contracts/assert_sum.py&#34;
         with open(input_file) as fp:
@@ -955,20 +1355,15 @@ not have a method with the specified name.</p></div>
         ast = compiler.parse(source_code)
         code = compiler.compile(ast)
         code = code.compile()
-        try:
-            f = code.term
-            # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
-            for d in [
-                uplc.PlutusInteger(0),
-                uplc.PlutusInteger(23),
-                uplc.BuiltinUnit(),
-            ]:
-                f = uplc.Apply(f, d)
-            ret = uplc_eval(f)
-            failed = False
-        except Exception as e:
-            failed = True
-        self.assertTrue(failed, &#34;Machine did validate the content&#34;)
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        for d in [
+            uplc.PlutusInteger(0),
+            uplc.PlutusInteger(23),
+            uplc.BuiltinUnit(),
+        ]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f)
 
     @given(
         a=st.integers(min_value=-10, max_value=10),
@@ -1134,25 +1529,6 @@ not have a method with the specified name.</p></div>
             ret,
         )
 
-    @parameterized.expand(
-        [
-            (
-                &#34;d8799fd8799f9fd8799fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffd8799fd8799fd87a9f581cdbe769758f26efb21f008dc097bb194cffc622acc37fcefc5372eee3ffd87a80ffa140a1401a00989680d87a9f5820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dffd87a80ffffff809fd8799fd8799fd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd87a80ffa140a14000d87980d87a80ffffa140a14000a140a1400080a0d8799fd8799fd87980d87a80ffd8799fd87b80d87a80ffff80a1d87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffd87980a15820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd8799f5820746957f0eb57f2b11119684e611a98f373afea93473fefbb7632d579af2f6259ffffd87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffff&#34;
-            ),
-            (
-                &#34;d8799fd8799f9fd8799fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffd8799fd8799fd87a9f581cdbe769758f26efb21f008dc097bb194cffc622acc37fcefc5372eee3ffd87a80ffa140a1401a00989680d87a9f5820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dffd87a80ffffff809fd8799fd8799fd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd87a80ffa140a14000d87980d87a80ffffa140a14000a140a1400080a0d8799fd8799fd87a9f1b000001836ac117d8ffd87a80ffd8799fd87b80d87a80ffff80a1d87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffd87980a15820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd8799f5820797a1e1720b63621c6b185088184cb8e23af6e46b55bd83e7a91024c823a6c2affffd87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffff&#34;
-            ),
-            (
-                &#34;d8799fd8799f9fd8799fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffd8799fd8799fd87a9f581cdbe769758f26efb21f008dc097bb194cffc622acc37fcefc5372eee3ffd87a80ffa140a1401a00989680d87a9f5820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dffd87a80ffffff809fd8799fd8799fd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd87a80ffa140a14000d87980d87a80ffd8799fd8799fd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd87a80ffa140a1401a000f4240d87980d87a80ffffa140a14000a140a1400080a0d8799fd8799fd87a9f1b000001836ac117d8ffd87a80ffd8799fd87b80d87a80ffff9f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffa1d87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffd87980a15820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd8799f5820c17c32f6433ae22c2acaebfb796bbfaee3993ff7ebb58a2bac6b4a3bdd2f6d28ffffd87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffff&#34;
-            ),
-        ]
-    )
-    def test_script_context_repr_correct(self, p):
-        # Make sure that this parses correctly and does not throw an error
-        # Note that this was extracted from a PlutusV2 invocation
-        # in increasing complexity...
-        prelude.ScriptContext.from_cbor(p)
-
     def test_gift_contract_succeed(self):
         input_file = &#34;examples/smart_contracts/gift.py&#34;
         with open(input_file) as fp:
@@ -1184,8 +1560,9 @@ not have a method with the specified name.</p></div>
         ]:
             f = uplc.Apply(f, d)
         ret = uplc_eval(f)
-        self.assertEqual(ret, uplc.BuiltinUnit())
+        self.assertEqual(ret, uplc.PlutusConstr(0, []))
 
+    @unittest.expectedFailure
     def test_gift_contract_fail(self):
         input_file = &#34;examples/smart_contracts/gift.py&#34;
         with open(input_file) as fp:
@@ -1195,34 +1572,29 @@ not have a method with the specified name.</p></div>
         code = code.compile()
         f = code.term
         # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
-        try:
-            # required sig missing int this script context
-            for d in [
-                uplc.PlutusConstr(
-                    0,
-                    [
-                        uplc.PlutusByteString(
-                            bytes.fromhex(
-                                &#34;dc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2&#34;
-                            )
-                        )
-                    ],
-                ),
-                uplc.PlutusConstr(0, []),
-                uplc.data_from_cbor(
-                    bytes.fromhex(
-                        (
-                            &#34;d8799fd8799f9fd8799fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffd8799fd8799fd87a9f581cdbe769758f26efb21f008dc097bb194cffc622acc37fcefc5372eee3ffd87a80ffa140a1401a00989680d87a9f5820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dffd87a80ffffff809fd8799fd8799fd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd87a80ffa140a14000d87980d87a80ffffa140a14000a140a1400080a0d8799fd8799fd87a9f1b000001836ac117d8ffd87a80ffd8799fd87b80d87a80ffff80a1d87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffd87980a15820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd8799f5820797a1e1720b63621c6b185088184cb8e23af6e46b55bd83e7a91024c823a6c2affffd87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffff&#34;
+        # required sig missing int this script context
+        for d in [
+            uplc.PlutusConstr(
+                0,
+                [
+                    uplc.PlutusByteString(
+                        bytes.fromhex(
+                            &#34;dc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2&#34;
                         )
                     )
-                ),
-            ]:
-                f = uplc.Apply(f, d)
-            ret = uplc_eval(f)
-            failed = False
-        except Exception as e:
-            failed = True
-        self.assertTrue(failed, &#34;Machine did validate the content&#34;)
+                ],
+            ),
+            uplc.PlutusConstr(0, []),
+            uplc.data_from_cbor(
+                bytes.fromhex(
+                    (
+                        &#34;d8799fd8799f9fd8799fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffd8799fd8799fd87a9f581cdbe769758f26efb21f008dc097bb194cffc622acc37fcefc5372eee3ffd87a80ffa140a1401a00989680d87a9f5820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dffd87a80ffffff809fd8799fd8799fd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd87a80ffa140a14000d87980d87a80ffffa140a14000a140a1400080a0d8799fd8799fd87a9f1b000001836ac117d8ffd87a80ffd8799fd87b80d87a80ffff80a1d87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffd87980a15820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd8799f5820797a1e1720b63621c6b185088184cb8e23af6e46b55bd83e7a91024c823a6c2affffd87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffff&#34;
+                    )
+                )
+            ),
+        ]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f)
 
     def test_recursion(self):
         source_code = &#34;&#34;&#34;
@@ -1332,6 +1704,7 @@ def validator(_: None) -&gt; int:
         code = code.compile()
         f = code.term
 
+    @unittest.expectedFailure
     def test_dict_datum(self):
         input_file = &#34;examples/dict_datum.py&#34;
         with open(input_file) as fp:
@@ -1341,31 +1714,23 @@ def validator(_: None) -&gt; int:
         code = code.compile()
         f = code.term
         # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
-        try:
-            # required sig missing int this script context
-            for d in [
-                uplc.PlutusConstr(
-                    0,
-                    [
-                        uplc.PlutusMap(
-                            frozendict.frozendict(
-                                {
-                                    uplc.PlutusConstr(
-                                        0, [uplc.PlutusByteString(b&#34;\x01&#34;)]
-                                    ): 2
-                                }
-                            )
+        # required sig missing int this script context
+        for d in [
+            uplc.PlutusConstr(
+                0,
+                [
+                    uplc.PlutusMap(
+                        frozendict.frozendict(
+                            {uplc.PlutusConstr(0, [uplc.PlutusByteString(b&#34;\x01&#34;)]): 2}
                         )
-                    ],
-                ),
-            ]:
-                f = uplc.Apply(f, d)
-            ret = uplc_eval(f)
-            failed = False
-        except Exception as e:
-            failed = True
-        self.assertTrue(failed, &#34;Machine did validate the content&#34;)
+                    )
+                ],
+            ),
+        ]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f)
 
+    @unittest.expectedFailure
     def test_overopt_removedeadvar(self):
         # this tests that errors that are caused by assignments are actually triggered at the time of assigning
         source_code = &#34;&#34;&#34;
@@ -1379,17 +1744,13 @@ def validator(x: Token) -&gt; bool:
         code = code.compile()
         f = code.term
         # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
-        try:
-            for d in [
-                uplc.PlutusConstr(0, []),
-            ]:
-                f = uplc.Apply(f, d)
-            ret = uplc_eval(f)
-            failed = False
-        except Exception as e:
-            failed = True
-        self.assertTrue(failed, &#34;Machine did validate the content&#34;)
+        for d in [
+            uplc.PlutusConstr(0, []),
+        ]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f)
 
+    @unittest.expectedFailure
     def test_opt_shared_var(self):
         # this tests that errors that are caused by assignments are actually triggered at the time of assigning
         source_code = &#34;&#34;&#34;
@@ -1406,16 +1767,11 @@ def validator(x: Token) -&gt; bool:
         code = code.compile()
         f = code.term
         # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
-        try:
-            for d in [
-                uplc.PlutusConstr(0, []),
-            ]:
-                f = uplc.Apply(f, d)
-            ret = uplc_eval(f)
-            failed = False
-        except Exception as e:
-            failed = True
-        self.assertTrue(failed, &#34;Machine did validate the content&#34;)
+        for d in [
+            uplc.PlutusConstr(0, []),
+        ]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f)
 
     def test_list_expr(self):
         # this tests that the list expression is evaluated correctly
@@ -1433,7 +1789,45 @@ def validator(x: None) -&gt; List[int]:
         ]:
             f = uplc.Apply(f, d)
         ret = [x.value for x in uplc_eval(f).value]
-        self.assertEqual(ret, [1, 2, 3, 4, 5], &#34;Machine did validate the content&#34;)
+        self.assertEqual(ret, [1, 2, 3, 4, 5], &#34;List expression incorrectly compiled&#34;)
+
+    def test_list_expr_not_const(self):
+        # this tests that the list expression is evaluated correctly (for non-constant expressions)
+        source_code = &#34;&#34;&#34;
+def validator(x: int) -&gt; List[int]:
+    return [x, x+1, x+2, x+3, x+4]
+        &#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        for d in [
+            uplc.PlutusInteger(1),
+        ]:
+            f = uplc.Apply(f, d)
+        ret = [x.value for x in uplc_eval(f).value]
+        self.assertEqual(ret, [1, 2, 3, 4, 5], &#34;List expression incorrectly compiled&#34;)
+
+    def test_dict_expr_not_const(self):
+        # this tests that the list expression is evaluated correctly (for non-constant expressions)
+        source_code = &#34;&#34;&#34;
+def validator(x: int) -&gt; Dict[int, bytes]:
+    return {x: b&#34;a&#34;, x+1: b&#34;b&#34;}
+        &#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        for d in [
+            uplc.PlutusInteger(1),
+        ]:
+            f = uplc.Apply(f, d)
+        ret = {x.value: y.value for x, y in uplc_eval(f).value.items()}
+        self.assertEqual(
+            ret, {1: b&#34;a&#34;, 2: b&#34;b&#34;}, &#34;Dict expression incorrectly compiled&#34;
+        )
 
     def test_redefine_constr(self):
         # this tests that classes defined by assignment inherit constructors
@@ -1452,7 +1846,7 @@ def validator(x: None) -&gt; bytes:
         ]:
             f = uplc.Apply(f, d)
         ret = uplc_eval(f).value
-        self.assertEqual(ret, bytes([2, 3]), &#34;Machine did validate the content&#34;)
+        self.assertEqual(ret, bytes([2, 3]), &#34;Re-assignment of global variable failed&#34;)
 
     def test_wrap_into_generic_data(self):
         # this tests that errors that are caused by assignments are actually triggered at the time of assigning
@@ -1473,10 +1867,8 @@ def validator(_: None) -&gt; SomeOutputDatum:
         ret = uplc_eval(f)
         self.assertEqual(
             ret,
-            uplc.data_from_cbor(
-                prelude.SomeOutputDatum(b&#34;a&#34;).to_cbor(encoding=&#34;bytes&#34;)
-            ),
-            &#34;Machine did validate the content&#34;,
+            uplc.data_from_cbor(prelude.SomeOutputDatum(b&#34;a&#34;).to_cbor()),
+            &#34;Wrapping to generic data failed&#34;,
         )
 
     def test_list_comprehension_even(self):
@@ -1639,14 +2031,49 @@ def validator(x: Anything) -&gt; int:
         res = uplc_eval(uplc.Apply(code, uplc.PlutusInteger(0))).value
         self.assertEqual(res, 0)
 
-    @unittest.expectedFailure
     def test_typecast_int_anything(self):
-        # this should not compile, we can not upcast with this notation
-        # up to discussion whether this should be allowed, but i.g. it should never be necessary or useful
+        # this should compile, it happens implicitly anyways when calling a function with Any parameters
         source_code = &#34;&#34;&#34;
 def validator(x: int) -&gt; Anything:
     b: Anything = x
-    return x
+    return b
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusInteger(0))).value
+        self.assertEqual(res, 0)
+
+    def test_typecast_int_anything_int(self):
+        source_code = &#34;&#34;&#34;
+def validator(x: int) -&gt; Anything:
+    b: Anything = x
+    c: int = b
+    return c + 1
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusInteger(0))).value
+        self.assertEqual(res, 1)
+
+    def test_typecast_anything_int_anything(self):
+        source_code = &#34;&#34;&#34;
+def validator(x: Anything) -&gt; Anything:
+    b: int = x
+    c: Anything = b + 1
+    return c
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusInteger(0))).value
+        self.assertEqual(res, 1)
+
+    @unittest.expectedFailure
+    def test_typecast_int_str(self):
+        # this should compile, the two types are unrelated and there is no meaningful way to cast them either direction
+        source_code = &#34;&#34;&#34;
+def validator(x: int) -&gt; str:
+    b: str = x
+    return b
 &#34;&#34;&#34;
         ast = compiler.parse(source_code)
         code = compiler.compile(ast)
@@ -1712,21 +2139,433 @@ def validator(x: None) -&gt; None:
 &#34;&#34;&#34;
         ast = compiler.parse(source_code)
         code = compiler.compile(ast).compile()
-        res = uplc_eval(uplc.Apply(code, uplc.PlutusInteger(0)))</code></pre>
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusInteger(0)))
+
+    def test_return_anything(self):
+        source_code = &#34;&#34;&#34;
+from opshin.prelude import *
+
+def validator() -&gt; Anything:
+    return b&#34;&#34;
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
+        self.assertEqual(res, uplc.PlutusByteString(b&#34;&#34;))
+
+    def test_no_return_annotation(self):
+        source_code = &#34;&#34;&#34;
+from opshin.prelude import *
+
+def validator():
+    return b&#34;&#34;
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
+        self.assertEqual(res, uplc.PlutusByteString(b&#34;&#34;))
+
+    def test_no_parameter_annotation(self):
+        source_code = &#34;&#34;&#34;
+from opshin.prelude import *
+
+def validator(a) -&gt; bytes:
+    b: bytes = a
+    return b
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusByteString(b&#34;&#34;)))
+        self.assertEqual(res, uplc.PlutusByteString(b&#34;&#34;))
+
+    @given(xs=st.dictionaries(st.integers(), st.binary()))
+    def test_dict_items_values_deconstr(self, xs):
+        # asserts that deconstruction of parameters works for for loops too
+        source_code = &#34;&#34;&#34;
+def validator(xs: Dict[int, bytes]) -&gt; bytes:
+    sum_values = b&#34;&#34;
+    for _, x in xs.items():
+        sum_values += x
+    return sum_values
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        for d in [
+            uplc.PlutusMap(
+                {uplc.PlutusInteger(k): uplc.PlutusByteString(v) for k, v in xs.items()}
+            )
+        ]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value
+        self.assertEqual(
+            ret,
+            b&#34;&#34;.join(xs.values()),
+            &#34;for loop deconstruction did not behave as expected&#34;,
+        )
+
+    def test_nested_deconstruction(self):
+        source_code = &#34;&#34;&#34;
+def validator(xs) -&gt; int:
+    a, ((b, c), d) = (1, ((2, 3), 4))
+    return a + b + c + d
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        f = uplc.Apply(f, uplc.PlutusConstr(0, []))
+        ret = uplc_eval(f).value
+        self.assertEqual(
+            ret,
+            1 + 2 + 3 + 4,
+            &#34;for loop deconstruction did not behave as expected&#34;,
+        )
+
+    @given(
+        xs=st.dictionaries(
+            st.binary(),
+            st.dictionaries(st.binary(), st.integers(), max_size=3),
+            max_size=5,
+        )
+    )
+    def test_dict_items_values_deconstr(self, xs):
+        # nested deconstruction with a Value-like object
+        source_code = &#34;&#34;&#34;
+def validator(xs: Dict[bytes, Dict[bytes, int]]) -&gt; int:
+    sum_values = 0
+    for pid, tk_dict in xs.items():
+        for tk_name, tk_amount in tk_dict.items():
+            sum_values += tk_amount
+    return sum_values
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        for d in [
+            uplc.PlutusMap(
+                {
+                    uplc.PlutusByteString(k): uplc.PlutusMap(
+                        {
+                            uplc.PlutusByteString(k2): uplc.PlutusInteger(v2)
+                            for k2, v2 in v.items()
+                        }
+                    )
+                    for k, v in xs.items()
+                }
+            )
+        ]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value
+        self.assertEqual(
+            ret,
+            sum(v for pid, d in xs.items() for nam, v in d.items()),
+            &#34;for loop deconstruction did not behave as expected&#34;,
+        )
+
+    def test_no_return_annotation_no_return(self):
+        source_code = &#34;&#34;&#34;
+from opshin.prelude import *
+
+def validator(a):
+    pass
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
+        self.assertEqual(res, uplc.PlutusConstr(0, []))
+
+    def test_opt_unsafe_cast(self):
+        # test that unsafe casts are not optimized away
+        source_code = &#34;&#34;&#34;
+from opshin.prelude import *
+def validator(x: Token) -&gt; bool:
+    b: Anything = x
+    a: int = b
+    return True
+        &#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        try:
+            for d in [
+                uplc.PlutusConstr(0, []),
+            ]:
+                f = uplc.Apply(f, d)
+            ret = uplc_eval(f)
+            failed = False
+        except Exception as e:
+            failed = True
+        self.assertTrue(failed, &#34;Machine did validate the content&#34;)
+
+    def test_constant_folding(self):
+        source_code = &#34;&#34;&#34;
+from opshin.prelude import *
+
+def validator(_: None) -&gt; bytes:
+    return bytes.fromhex(&#34;0011&#34;)
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
+        self.assertEqual(res, uplc.PlutusByteString(bytes.fromhex(&#34;0011&#34;)))
+
+    def test_constant_folding_list(self):
+        source_code = &#34;&#34;&#34;
+from opshin.prelude import *
+
+def validator(_: None) -&gt; List[int]:
+    return list(range(0, 10, 2))
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        self.assertIn(&#34;(con list&lt;integer&gt; [0, 2, 4, 6, 8])&#34;, code.dumps())
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
+        self.assertEqual(
+            res, uplc.PlutusList([uplc.PlutusInteger(i) for i in range(0, 10, 2)])
+        )
+
+    def test_constant_folding_dict(self):
+        source_code = &#34;&#34;&#34;
+from opshin.prelude import *
+
+def validator(_: None) -&gt; Dict[str, bool]:
+    return {&#34;s&#34;: True, &#34;m&#34;: False}
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        self.assertIn(
+            &#34;(con list&lt;pair&lt;data, data&gt;&gt; [[#4173, #01], [#416d, #00]]))&#34;, code.dumps()
+        )
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
+        self.assertEqual(
+            res,
+            uplc.PlutusMap(
+                {
+                    uplc.PlutusByteString(&#34;s&#34;.encode()): uplc.PlutusInteger(1),
+                    uplc.PlutusByteString(&#34;m&#34;.encode()): uplc.PlutusInteger(0),
+                }
+            ),
+        )
+
+    def test_constant_folding_complex(self):
+        source_code = &#34;&#34;&#34;
+from opshin.prelude import *
+
+def validator(_: None) -&gt; Dict[str, List[Dict[bytes, int]]]:
+    return {&#34;s&#34;: [{b&#34;&#34;: 0}, {b&#34;0&#34;: 1}]}
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
+        self.assertEqual(
+            res,
+            uplc.PlutusMap(
+                {
+                    uplc.PlutusByteString(&#34;s&#34;.encode()): uplc.PlutusList(
+                        [
+                            uplc.PlutusMap(
+                                {uplc.PlutusByteString(b&#34;&#34;): uplc.PlutusInteger(0)}
+                            ),
+                            uplc.PlutusMap(
+                                {uplc.PlutusByteString(b&#34;0&#34;): uplc.PlutusInteger(1)}
+                            ),
+                        ]
+                    ),
+                }
+            ),
+        )
+
+    def test_constant_folding_math(self):
+        source_code = &#34;&#34;&#34;
+from opshin.prelude import *
+
+def validator(_: None) -&gt; int:
+    return 2 ** 10
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        code_src = code.dumps()
+        self.assertIn(f&#34;(con integer {2**10})&#34;, code_src)
+
+    def test_constant_folding_ignore_reassignment(self):
+        source_code = &#34;&#34;&#34;
+from opshin.prelude import *
+
+def validator(_: None) -&gt; int:
+    def int(a) -&gt; int:
+        return 2
+    return int(5)
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
+        self.assertEqual(res, uplc.PlutusInteger(2))
+
+    def test_constant_folding_no_print_eval(self):
+        source_code = &#34;&#34;&#34;
+from opshin.prelude import *
+
+def validator(_: None) -&gt; None:
+    return print(&#34;hello&#34;)
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        code_src = code.dumps()
+        self.assertIn(f&#39;(con string &#34;hello&#34;)&#39;, code_src)
+
+    def test_inner_outer_state_functions(self):
+        source_code = &#34;&#34;&#34;
+a = 2
+def b() -&gt; int:
+    return a
+
+def validator(_: None) -&gt; int:
+    a = 3
+    return b()
+        &#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
+        self.assertEqual(res, uplc.PlutusInteger(2))
+
+    def test_inner_outer_state_functions_nonglobal(self):
+        source_code = &#34;&#34;&#34;
+
+def validator(_: None) -&gt; int:
+    a = 2
+    def b() -&gt; int:
+        return a
+    def c() -&gt; int:
+        a = 3
+        return b()
+    return c()
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
+        self.assertEqual(res, uplc.PlutusInteger(2))
+
+    def test_outer_state_change_functions(self):
+        source_code = &#34;&#34;&#34;
+a = 2
+def b() -&gt; int:
+    return a
+a = 3
+
+def validator(_: None) -&gt; int:
+    return b()
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
+        self.assertEqual(res, uplc.PlutusInteger(3))
+
+    @unittest.expectedFailure
+    def test_failing_annotated_type(self):
+        source_code = &#34;&#34;&#34;
+def c():
+    a = 2
+    def b() -&gt; int:
+        return a
+    return b
+
+def validator(_: None):
+    a = 3
+    return c()
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+
+    @unittest.expectedFailure
+    def test_access_enclosing_variable_before_def(self):
+        # note this is a runtime error, just like it would be in python!
+        source_code = &#34;&#34;&#34;
+a = &#34;1&#34;
+def validator(_: None) -&gt; None:
+   def d() -&gt; str:
+       return a
+   print(d())
+   a = &#34;2&#34;
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
+
+    @unittest.expectedFailure
+    def test_access_local_variable_before_assignment(self):
+        # note this is a runtime error, just like it would be in python!
+        source_code = &#34;&#34;&#34;
+a = &#34;1&#34;
+def validator(_: None) -&gt; None:
+   print(a)
+   a = &#34;2&#34;
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
 <li>unittest.case.TestCase</li>
 </ul>
-<h3>Class variables</h3>
-<dl>
-<dt id="opshin.tests.test_misc.MiscTest.test_script_context_repr_correct"><code class="name">var <span class="ident">test_script_context_repr_correct</span></code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-</dl>
 <h3>Methods</h3>
 <dl>
+<dt id="opshin.tests.test_misc.MiscTest.test_access_enclosing_variable_before_def"><code class="name flex">
+<span>def <span class="ident">test_access_enclosing_variable_before_def</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    @unittest.expectedFailure
+    def test_access_enclosing_variable_before_def(self):
+        # note this is a runtime error, just like it would be in python!
+        source_code = &#34;&#34;&#34;
+a = &#34;1&#34;
+def validator(_: None) -&gt; None:
+   def d() -&gt; str:
+       return a
+   print(d())
+   a = &#34;2&#34;
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_access_local_variable_before_assignment"><code class="name flex">
+<span>def <span class="ident">test_access_local_variable_before_assignment</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    @unittest.expectedFailure
+    def test_access_local_variable_before_assignment(self):
+        # note this is a runtime error, just like it would be in python!
+        source_code = &#34;&#34;&#34;
+a = &#34;1&#34;
+def validator(_: None) -&gt; None:
+   print(a)
+   a = &#34;2&#34;
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))</code></pre>
+</details>
+</dd>
 <dt id="opshin.tests.test_misc.MiscTest.test_assert_sum_contract_fail"><code class="name flex">
 <span>def <span class="ident">test_assert_sum_contract_fail</span></span>(<span>self)</span>
 </code></dt>
@@ -1736,27 +2575,23 @@ def validator(x: None) -&gt; None:
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def test_assert_sum_contract_fail(self):
+<pre><code class="python">@unittest.expectedFailure
+def test_assert_sum_contract_fail(self):
     input_file = &#34;examples/smart_contracts/assert_sum.py&#34;
     with open(input_file) as fp:
         source_code = fp.read()
     ast = compiler.parse(source_code)
     code = compiler.compile(ast)
     code = code.compile()
-    try:
-        f = code.term
-        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
-        for d in [
-            uplc.PlutusInteger(0),
-            uplc.PlutusInteger(23),
-            uplc.BuiltinUnit(),
-        ]:
-            f = uplc.Apply(f, d)
-        ret = uplc_eval(f)
-        failed = False
-    except Exception as e:
-        failed = True
-    self.assertTrue(failed, &#34;Machine did validate the content&#34;)</code></pre>
+    f = code.term
+    # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+    for d in [
+        uplc.PlutusInteger(0),
+        uplc.PlutusInteger(23),
+        uplc.BuiltinUnit(),
+    ]:
+        f = uplc.Apply(f, d)
+    ret = uplc_eval(f)</code></pre>
 </details>
 </dd>
 <dt id="opshin.tests.test_misc.MiscTest.test_assert_sum_contract_succeed"><code class="name flex">
@@ -1780,7 +2615,7 @@ def validator(x: None) -&gt; None:
     for d in [uplc.PlutusInteger(20), uplc.PlutusInteger(22), uplc.BuiltinUnit()]:
         f = uplc.Apply(f, d)
     ret = uplc_eval(f)
-    self.assertEqual(ret, uplc.BuiltinUnit())</code></pre>
+    self.assertEqual(ret, uplc.PlutusConstr(0, []))</code></pre>
 </details>
 </dd>
 <dt id="opshin.tests.test_misc.MiscTest.test_complex_datum_correct_vals"><code class="name flex">
@@ -1818,6 +2653,192 @@ def validator(x: None) -&gt; None:
         ),
         ret,
     )</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_constant_folding"><code class="name flex">
+<span>def <span class="ident">test_constant_folding</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    def test_constant_folding(self):
+        source_code = &#34;&#34;&#34;
+from opshin.prelude import *
+
+def validator(_: None) -&gt; bytes:
+    return bytes.fromhex(&#34;0011&#34;)
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
+        self.assertEqual(res, uplc.PlutusByteString(bytes.fromhex(&#34;0011&#34;)))</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_constant_folding_complex"><code class="name flex">
+<span>def <span class="ident">test_constant_folding_complex</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    def test_constant_folding_complex(self):
+        source_code = &#34;&#34;&#34;
+from opshin.prelude import *
+
+def validator(_: None) -&gt; Dict[str, List[Dict[bytes, int]]]:
+    return {&#34;s&#34;: [{b&#34;&#34;: 0}, {b&#34;0&#34;: 1}]}
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
+        self.assertEqual(
+            res,
+            uplc.PlutusMap(
+                {
+                    uplc.PlutusByteString(&#34;s&#34;.encode()): uplc.PlutusList(
+                        [
+                            uplc.PlutusMap(
+                                {uplc.PlutusByteString(b&#34;&#34;): uplc.PlutusInteger(0)}
+                            ),
+                            uplc.PlutusMap(
+                                {uplc.PlutusByteString(b&#34;0&#34;): uplc.PlutusInteger(1)}
+                            ),
+                        ]
+                    ),
+                }
+            ),
+        )</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_constant_folding_dict"><code class="name flex">
+<span>def <span class="ident">test_constant_folding_dict</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    def test_constant_folding_dict(self):
+        source_code = &#34;&#34;&#34;
+from opshin.prelude import *
+
+def validator(_: None) -&gt; Dict[str, bool]:
+    return {&#34;s&#34;: True, &#34;m&#34;: False}
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        self.assertIn(
+            &#34;(con list&lt;pair&lt;data, data&gt;&gt; [[#4173, #01], [#416d, #00]]))&#34;, code.dumps()
+        )
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
+        self.assertEqual(
+            res,
+            uplc.PlutusMap(
+                {
+                    uplc.PlutusByteString(&#34;s&#34;.encode()): uplc.PlutusInteger(1),
+                    uplc.PlutusByteString(&#34;m&#34;.encode()): uplc.PlutusInteger(0),
+                }
+            ),
+        )</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_constant_folding_ignore_reassignment"><code class="name flex">
+<span>def <span class="ident">test_constant_folding_ignore_reassignment</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    def test_constant_folding_ignore_reassignment(self):
+        source_code = &#34;&#34;&#34;
+from opshin.prelude import *
+
+def validator(_: None) -&gt; int:
+    def int(a) -&gt; int:
+        return 2
+    return int(5)
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
+        self.assertEqual(res, uplc.PlutusInteger(2))</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_constant_folding_list"><code class="name flex">
+<span>def <span class="ident">test_constant_folding_list</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    def test_constant_folding_list(self):
+        source_code = &#34;&#34;&#34;
+from opshin.prelude import *
+
+def validator(_: None) -&gt; List[int]:
+    return list(range(0, 10, 2))
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        self.assertIn(&#34;(con list&lt;integer&gt; [0, 2, 4, 6, 8])&#34;, code.dumps())
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
+        self.assertEqual(
+            res, uplc.PlutusList([uplc.PlutusInteger(i) for i in range(0, 10, 2)])
+        )</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_constant_folding_math"><code class="name flex">
+<span>def <span class="ident">test_constant_folding_math</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    def test_constant_folding_math(self):
+        source_code = &#34;&#34;&#34;
+from opshin.prelude import *
+
+def validator(_: None) -&gt; int:
+    return 2 ** 10
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        code_src = code.dumps()
+        self.assertIn(f&#34;(con integer {2**10})&#34;, code_src)</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_constant_folding_no_print_eval"><code class="name flex">
+<span>def <span class="ident">test_constant_folding_no_print_eval</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    def test_constant_folding_no_print_eval(self):
+        source_code = &#34;&#34;&#34;
+from opshin.prelude import *
+
+def validator(_: None) -&gt; None:
+    return print(&#34;hello&#34;)
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        code_src = code.dumps()
+        self.assertIn(f&#39;(con string &#34;hello&#34;)&#39;, code_src)</code></pre>
 </details>
 </dd>
 <dt id="opshin.tests.test_misc.MiscTest.test_datum_cast"><code class="name flex">
@@ -1868,7 +2889,8 @@ def validator(x: None) -&gt; None:
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def test_dict_datum(self):
+<pre><code class="python">@unittest.expectedFailure
+def test_dict_datum(self):
     input_file = &#34;examples/dict_datum.py&#34;
     with open(input_file) as fp:
         source_code = fp.read()
@@ -1877,30 +2899,104 @@ def validator(x: None) -&gt; None:
     code = code.compile()
     f = code.term
     # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
-    try:
-        # required sig missing int this script context
-        for d in [
-            uplc.PlutusConstr(
-                0,
-                [
-                    uplc.PlutusMap(
-                        frozendict.frozendict(
-                            {
-                                uplc.PlutusConstr(
-                                    0, [uplc.PlutusByteString(b&#34;\x01&#34;)]
-                                ): 2
-                            }
-                        )
+    # required sig missing int this script context
+    for d in [
+        uplc.PlutusConstr(
+            0,
+            [
+                uplc.PlutusMap(
+                    frozendict.frozendict(
+                        {uplc.PlutusConstr(0, [uplc.PlutusByteString(b&#34;\x01&#34;)]): 2}
                     )
-                ],
-            ),
+                )
+            ],
+        ),
+    ]:
+        f = uplc.Apply(f, d)
+    ret = uplc_eval(f)</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_dict_expr_not_const"><code class="name flex">
+<span>def <span class="ident">test_dict_expr_not_const</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    def test_dict_expr_not_const(self):
+        # this tests that the list expression is evaluated correctly (for non-constant expressions)
+        source_code = &#34;&#34;&#34;
+def validator(x: int) -&gt; Dict[int, bytes]:
+    return {x: b&#34;a&#34;, x+1: b&#34;b&#34;}
+        &#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        for d in [
+            uplc.PlutusInteger(1),
         ]:
             f = uplc.Apply(f, d)
-        ret = uplc_eval(f)
-        failed = False
-    except Exception as e:
-        failed = True
-    self.assertTrue(failed, &#34;Machine did validate the content&#34;)</code></pre>
+        ret = {x.value: y.value for x, y in uplc_eval(f).value.items()}
+        self.assertEqual(
+            ret, {1: b&#34;a&#34;, 2: b&#34;b&#34;}, &#34;Dict expression incorrectly compiled&#34;
+        )</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_dict_items_values_deconstr"><code class="name flex">
+<span>def <span class="ident">test_dict_items_values_deconstr</span></span>(<span>self) ‑> None</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    @given(
+        xs=st.dictionaries(
+            st.binary(),
+            st.dictionaries(st.binary(), st.integers(), max_size=3),
+            max_size=5,
+        )
+    )
+    def test_dict_items_values_deconstr(self, xs):
+        # nested deconstruction with a Value-like object
+        source_code = &#34;&#34;&#34;
+def validator(xs: Dict[bytes, Dict[bytes, int]]) -&gt; int:
+    sum_values = 0
+    for pid, tk_dict in xs.items():
+        for tk_name, tk_amount in tk_dict.items():
+            sum_values += tk_amount
+    return sum_values
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        for d in [
+            uplc.PlutusMap(
+                {
+                    uplc.PlutusByteString(k): uplc.PlutusMap(
+                        {
+                            uplc.PlutusByteString(k2): uplc.PlutusInteger(v2)
+                            for k2, v2 in v.items()
+                        }
+                    )
+                    for k, v in xs.items()
+                }
+            )
+        ]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value
+        self.assertEqual(
+            ret,
+            sum(v for pid, d in xs.items() for nam, v in d.items()),
+            &#34;for loop deconstruction did not behave as expected&#34;,
+        )</code></pre>
 </details>
 </dd>
 <dt id="opshin.tests.test_misc.MiscTest.test_dual_use_compile"><code class="name flex">
@@ -1921,6 +3017,32 @@ def validator(x: None) -&gt; None:
     code = compiler.compile(ast, force_three_params=True)
     code = code.compile()
     f = code.term</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_failing_annotated_type"><code class="name flex">
+<span>def <span class="ident">test_failing_annotated_type</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    @unittest.expectedFailure
+    def test_failing_annotated_type(self):
+        source_code = &#34;&#34;&#34;
+def c():
+    a = 2
+    def b() -&gt; int:
+        return a
+    return b
+
+def validator(_: None):
+    a = 3
+    return c()
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()</code></pre>
 </details>
 </dd>
 <dt id="opshin.tests.test_misc.MiscTest.test_fib_iter"><code class="name flex">
@@ -1988,7 +3110,8 @@ def test_fib_rec(self, n):
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def test_gift_contract_fail(self):
+<pre><code class="python">@unittest.expectedFailure
+def test_gift_contract_fail(self):
     input_file = &#34;examples/smart_contracts/gift.py&#34;
     with open(input_file) as fp:
         source_code = fp.read()
@@ -1997,34 +3120,29 @@ def test_fib_rec(self, n):
     code = code.compile()
     f = code.term
     # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
-    try:
-        # required sig missing int this script context
-        for d in [
-            uplc.PlutusConstr(
-                0,
-                [
-                    uplc.PlutusByteString(
-                        bytes.fromhex(
-                            &#34;dc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2&#34;
-                        )
-                    )
-                ],
-            ),
-            uplc.PlutusConstr(0, []),
-            uplc.data_from_cbor(
-                bytes.fromhex(
-                    (
-                        &#34;d8799fd8799f9fd8799fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffd8799fd8799fd87a9f581cdbe769758f26efb21f008dc097bb194cffc622acc37fcefc5372eee3ffd87a80ffa140a1401a00989680d87a9f5820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dffd87a80ffffff809fd8799fd8799fd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd87a80ffa140a14000d87980d87a80ffffa140a14000a140a1400080a0d8799fd8799fd87a9f1b000001836ac117d8ffd87a80ffd8799fd87b80d87a80ffff80a1d87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffd87980a15820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd8799f5820797a1e1720b63621c6b185088184cb8e23af6e46b55bd83e7a91024c823a6c2affffd87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffff&#34;
+    # required sig missing int this script context
+    for d in [
+        uplc.PlutusConstr(
+            0,
+            [
+                uplc.PlutusByteString(
+                    bytes.fromhex(
+                        &#34;dc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2&#34;
                     )
                 )
-            ),
-        ]:
-            f = uplc.Apply(f, d)
-        ret = uplc_eval(f)
-        failed = False
-    except Exception as e:
-        failed = True
-    self.assertTrue(failed, &#34;Machine did validate the content&#34;)</code></pre>
+            ],
+        ),
+        uplc.PlutusConstr(0, []),
+        uplc.data_from_cbor(
+            bytes.fromhex(
+                (
+                    &#34;d8799fd8799f9fd8799fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffd8799fd8799fd87a9f581cdbe769758f26efb21f008dc097bb194cffc622acc37fcefc5372eee3ffd87a80ffa140a1401a00989680d87a9f5820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dffd87a80ffffff809fd8799fd8799fd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd87a80ffa140a14000d87980d87a80ffffa140a14000a140a1400080a0d8799fd8799fd87a9f1b000001836ac117d8ffd87a80ffd8799fd87b80d87a80ffff80a1d87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffd87980a15820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd8799f5820797a1e1720b63621c6b185088184cb8e23af6e46b55bd83e7a91024c823a6c2affffd87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffff&#34;
+                )
+            )
+        ),
+    ]:
+        f = uplc.Apply(f, d)
+    ret = uplc_eval(f)</code></pre>
 </details>
 </dd>
 <dt id="opshin.tests.test_misc.MiscTest.test_gift_contract_succeed"><code class="name flex">
@@ -2067,7 +3185,7 @@ def test_fib_rec(self, n):
     ]:
         f = uplc.Apply(f, d)
     ret = uplc_eval(f)
-    self.assertEqual(ret, uplc.BuiltinUnit())</code></pre>
+    self.assertEqual(ret, uplc.PlutusConstr(0, []))</code></pre>
 </details>
 </dd>
 <dt id="opshin.tests.test_misc.MiscTest.test_hello_world"><code class="name flex">
@@ -2091,6 +3209,58 @@ def test_fib_rec(self, n):
     for d in [uplc.PlutusConstr(0, [])]:
         f = uplc.Apply(f, d)
     ret = uplc_eval(f)</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_inner_outer_state_functions"><code class="name flex">
+<span>def <span class="ident">test_inner_outer_state_functions</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    def test_inner_outer_state_functions(self):
+        source_code = &#34;&#34;&#34;
+a = 2
+def b() -&gt; int:
+    return a
+
+def validator(_: None) -&gt; int:
+    a = 3
+    return b()
+        &#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
+        self.assertEqual(res, uplc.PlutusInteger(2))</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_inner_outer_state_functions_nonglobal"><code class="name flex">
+<span>def <span class="ident">test_inner_outer_state_functions_nonglobal</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    def test_inner_outer_state_functions_nonglobal(self):
+        source_code = &#34;&#34;&#34;
+
+def validator(_: None) -&gt; int:
+    a = 2
+    def b() -&gt; int:
+        return a
+    def c() -&gt; int:
+        a = 3
+        return b()
+    return c()
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
+        self.assertEqual(res, uplc.PlutusInteger(2))</code></pre>
 </details>
 </dd>
 <dt id="opshin.tests.test_misc.MiscTest.test_list_comprehension_all"><code class="name flex">
@@ -2207,7 +3377,35 @@ def validator(x: None) -&gt; List[int]:
         ]:
             f = uplc.Apply(f, d)
         ret = [x.value for x in uplc_eval(f).value]
-        self.assertEqual(ret, [1, 2, 3, 4, 5], &#34;Machine did validate the content&#34;)</code></pre>
+        self.assertEqual(ret, [1, 2, 3, 4, 5], &#34;List expression incorrectly compiled&#34;)</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_list_expr_not_const"><code class="name flex">
+<span>def <span class="ident">test_list_expr_not_const</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    def test_list_expr_not_const(self):
+        # this tests that the list expression is evaluated correctly (for non-constant expressions)
+        source_code = &#34;&#34;&#34;
+def validator(x: int) -&gt; List[int]:
+    return [x, x+1, x+2, x+3, x+4]
+        &#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        for d in [
+            uplc.PlutusInteger(1),
+        ]:
+            f = uplc.Apply(f, d)
+        ret = [x.value for x in uplc_eval(f).value]
+        self.assertEqual(ret, [1, 2, 3, 4, 5], &#34;List expression incorrectly compiled&#34;)</code></pre>
 </details>
 </dd>
 <dt id="opshin.tests.test_misc.MiscTest.test_marketplace_compile"><code class="name flex">
@@ -2310,6 +3508,102 @@ def test_mult_while(self, a: int, b: int):
     self.assertEqual(ret, uplc.PlutusInteger(a * b))</code></pre>
 </details>
 </dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_nested_deconstruction"><code class="name flex">
+<span>def <span class="ident">test_nested_deconstruction</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    def test_nested_deconstruction(self):
+        source_code = &#34;&#34;&#34;
+def validator(xs) -&gt; int:
+    a, ((b, c), d) = (1, ((2, 3), 4))
+    return a + b + c + d
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        f = uplc.Apply(f, uplc.PlutusConstr(0, []))
+        ret = uplc_eval(f).value
+        self.assertEqual(
+            ret,
+            1 + 2 + 3 + 4,
+            &#34;for loop deconstruction did not behave as expected&#34;,
+        )</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_no_parameter_annotation"><code class="name flex">
+<span>def <span class="ident">test_no_parameter_annotation</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    def test_no_parameter_annotation(self):
+        source_code = &#34;&#34;&#34;
+from opshin.prelude import *
+
+def validator(a) -&gt; bytes:
+    b: bytes = a
+    return b
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusByteString(b&#34;&#34;)))
+        self.assertEqual(res, uplc.PlutusByteString(b&#34;&#34;))</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_no_return_annotation"><code class="name flex">
+<span>def <span class="ident">test_no_return_annotation</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    def test_no_return_annotation(self):
+        source_code = &#34;&#34;&#34;
+from opshin.prelude import *
+
+def validator():
+    return b&#34;&#34;
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
+        self.assertEqual(res, uplc.PlutusByteString(b&#34;&#34;))</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_no_return_annotation_no_return"><code class="name flex">
+<span>def <span class="ident">test_no_return_annotation_no_return</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    def test_no_return_annotation_no_return(self):
+        source_code = &#34;&#34;&#34;
+from opshin.prelude import *
+
+def validator(a):
+    pass
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
+        self.assertEqual(res, uplc.PlutusConstr(0, []))</code></pre>
+</details>
+</dd>
 <dt id="opshin.tests.test_misc.MiscTest.test_opt_shared_var"><code class="name flex">
 <span>def <span class="ident">test_opt_shared_var</span></span>(<span>self)</span>
 </code></dt>
@@ -2319,7 +3613,8 @@ def test_mult_while(self, a: int, b: int):
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">    def test_opt_shared_var(self):
+<pre><code class="python">    @unittest.expectedFailure
+    def test_opt_shared_var(self):
         # this tests that errors that are caused by assignments are actually triggered at the time of assigning
         source_code = &#34;&#34;&#34;
 from opshin.prelude import *
@@ -2328,6 +3623,36 @@ def validator(x: Token) -&gt; bool:
         y = x
     else:
         a = y
+    return True
+        &#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        for d in [
+            uplc.PlutusConstr(0, []),
+        ]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f)</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_opt_unsafe_cast"><code class="name flex">
+<span>def <span class="ident">test_opt_unsafe_cast</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    def test_opt_unsafe_cast(self):
+        # test that unsafe casts are not optimized away
+        source_code = &#34;&#34;&#34;
+from opshin.prelude import *
+def validator(x: Token) -&gt; bool:
+    b: Anything = x
+    a: int = b
     return True
         &#34;&#34;&#34;
         ast = compiler.parse(source_code)
@@ -2347,6 +3672,31 @@ def validator(x: Token) -&gt; bool:
         self.assertTrue(failed, &#34;Machine did validate the content&#34;)</code></pre>
 </details>
 </dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_outer_state_change_functions"><code class="name flex">
+<span>def <span class="ident">test_outer_state_change_functions</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    def test_outer_state_change_functions(self):
+        source_code = &#34;&#34;&#34;
+a = 2
+def b() -&gt; int:
+    return a
+a = 3
+
+def validator(_: None) -&gt; int:
+    return b()
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
+        self.assertEqual(res, uplc.PlutusInteger(3))</code></pre>
+</details>
+</dd>
 <dt id="opshin.tests.test_misc.MiscTest.test_overopt_removedeadvar"><code class="name flex">
 <span>def <span class="ident">test_overopt_removedeadvar</span></span>(<span>self)</span>
 </code></dt>
@@ -2356,7 +3706,8 @@ def validator(x: Token) -&gt; bool:
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">    def test_overopt_removedeadvar(self):
+<pre><code class="python">    @unittest.expectedFailure
+    def test_overopt_removedeadvar(self):
         # this tests that errors that are caused by assignments are actually triggered at the time of assigning
         source_code = &#34;&#34;&#34;
 from opshin.prelude import *
@@ -2369,16 +3720,11 @@ def validator(x: Token) -&gt; bool:
         code = code.compile()
         f = code.term
         # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
-        try:
-            for d in [
-                uplc.PlutusConstr(0, []),
-            ]:
-                f = uplc.Apply(f, d)
-            ret = uplc_eval(f)
-            failed = False
-        except Exception as e:
-            failed = True
-        self.assertTrue(failed, &#34;Machine did validate the content&#34;)</code></pre>
+        for d in [
+            uplc.PlutusConstr(0, []),
+        ]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f)</code></pre>
 </details>
 </dd>
 <dt id="opshin.tests.test_misc.MiscTest.test_parameterized_compile"><code class="name flex">
@@ -2462,11 +3808,11 @@ def validator(x: None) -&gt; bytes:
         ]:
             f = uplc.Apply(f, d)
         ret = uplc_eval(f).value
-        self.assertEqual(ret, bytes([2, 3]), &#34;Machine did validate the content&#34;)</code></pre>
+        self.assertEqual(ret, bytes([2, 3]), &#34;Re-assignment of global variable failed&#34;)</code></pre>
 </details>
 </dd>
-<dt id="opshin.tests.test_misc.MiscTest.test_script_context_repr_correct_0_d8799fd8799f9fd8799fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffd8799fd8799fd87a9f581cdbe769758f26efb21f008dc097bb194cffc622acc37fcefc5372eee3ffd87a80ffa140a1401a00989680d87a9f5820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dffd87a80ffffff809fd8799fd8799fd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd87a80ffa140a14000d87980d87a80ffffa140a14000a140a1400080a0d8799fd8799fd87980d87a80ffd8799fd87b80d87a80ffff80a1d87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffd87980a15820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd8799f5820746957f0eb57f2b11119684e611a98f373afea93473fefbb7632d579af2f6259ffffd87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffff"><code class="name flex">
-<span>def <span class="ident">test_script_context_repr_correct_0_d8799fd8799f9fd8799fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffd8799fd8799fd87a9f581cdbe769758f26efb21f008dc097bb194cffc622acc37fcefc5372eee3ffd87a80ffa140a1401a00989680d87a9f5820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dffd87a80ffffff809fd8799fd8799fd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd87a80ffa140a14000d87980d87a80ffffa140a14000a140a1400080a0d8799fd8799fd87980d87a80ffd8799fd87b80d87a80ffff80a1d87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffd87980a15820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd8799f5820746957f0eb57f2b11119684e611a98f373afea93473fefbb7632d579af2f6259ffffd87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffff</span></span>(<span>*a)</span>
+<dt id="opshin.tests.test_misc.MiscTest.test_return_anything"><code class="name flex">
+<span>def <span class="ident">test_return_anything</span></span>(<span>self)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -2474,37 +3820,17 @@ def validator(x: None) -&gt; bytes:
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">@wraps(func)
-def standalone_func(*a):
-    return func(*(a + p.args), **p.kwargs)</code></pre>
-</details>
-</dd>
-<dt id="opshin.tests.test_misc.MiscTest.test_script_context_repr_correct_1_d8799fd8799f9fd8799fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffd8799fd8799fd87a9f581cdbe769758f26efb21f008dc097bb194cffc622acc37fcefc5372eee3ffd87a80ffa140a1401a00989680d87a9f5820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dffd87a80ffffff809fd8799fd8799fd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd87a80ffa140a14000d87980d87a80ffffa140a14000a140a1400080a0d8799fd8799fd87a9f1b000001836ac117d8ffd87a80ffd8799fd87b80d87a80ffff80a1d87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffd87980a15820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd8799f5820797a1e1720b63621c6b185088184cb8e23af6e46b55bd83e7a91024c823a6c2affffd87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffff"><code class="name flex">
-<span>def <span class="ident">test_script_context_repr_correct_1_d8799fd8799f9fd8799fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffd8799fd8799fd87a9f581cdbe769758f26efb21f008dc097bb194cffc622acc37fcefc5372eee3ffd87a80ffa140a1401a00989680d87a9f5820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dffd87a80ffffff809fd8799fd8799fd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd87a80ffa140a14000d87980d87a80ffffa140a14000a140a1400080a0d8799fd8799fd87a9f1b000001836ac117d8ffd87a80ffd8799fd87b80d87a80ffff80a1d87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffd87980a15820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd8799f5820797a1e1720b63621c6b185088184cb8e23af6e46b55bd83e7a91024c823a6c2affffd87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffff</span></span>(<span>*a)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">@wraps(func)
-def standalone_func(*a):
-    return func(*(a + p.args), **p.kwargs)</code></pre>
-</details>
-</dd>
-<dt id="opshin.tests.test_misc.MiscTest.test_script_context_repr_correct_2_d8799fd8799f9fd8799fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffd8799fd8799fd87a9f581cdbe769758f26efb21f008dc097bb194cffc622acc37fcefc5372eee3ffd87a80ffa140a1401a00989680d87a9f5820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dffd87a80ffffff809fd8799fd8799fd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd87a80ffa140a14000d87980d87a80ffd8799fd8799fd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd87a80ffa140a1401a000f4240d87980d87a80ffffa140a14000a140a1400080a0d8799fd8799fd87a9f1b000001836ac117d8ffd87a80ffd8799fd87b80d87a80ffff9f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffa1d87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffd87980a15820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd8799f5820c17c32f6433ae22c2acaebfb796bbfaee3993ff7ebb58a2bac6b4a3bdd2f6d28ffffd87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffff"><code class="name flex">
-<span>def <span class="ident">test_script_context_repr_correct_2_d8799fd8799f9fd8799fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffd8799fd8799fd87a9f581cdbe769758f26efb21f008dc097bb194cffc622acc37fcefc5372eee3ffd87a80ffa140a1401a00989680d87a9f5820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dffd87a80ffffff809fd8799fd8799fd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd87a80ffa140a14000d87980d87a80ffd8799fd8799fd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd87a80ffa140a1401a000f4240d87980d87a80ffffa140a14000a140a1400080a0d8799fd8799fd87a9f1b000001836ac117d8ffd87a80ffd8799fd87b80d87a80ffff9f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffa1d87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffd87980a15820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd8799f5820c17c32f6433ae22c2acaebfb796bbfaee3993ff7ebb58a2bac6b4a3bdd2f6d28ffffd87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffff</span></span>(<span>*a)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">@wraps(func)
-def standalone_func(*a):
-    return func(*(a + p.args), **p.kwargs)</code></pre>
+<pre><code class="python">    def test_return_anything(self):
+        source_code = &#34;&#34;&#34;
+from opshin.prelude import *
+
+def validator() -&gt; Anything:
+    return b&#34;&#34;
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
+        self.assertEqual(res, uplc.PlutusByteString(b&#34;&#34;))</code></pre>
 </details>
 </dd>
 <dt id="opshin.tests.test_misc.MiscTest.test_showcase"><code class="name flex">
@@ -2583,6 +3909,28 @@ def validator(x: Anything) -&gt; int:
         self.assertEqual(res, 0)</code></pre>
 </details>
 </dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_typecast_anything_int_anything"><code class="name flex">
+<span>def <span class="ident">test_typecast_anything_int_anything</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    def test_typecast_anything_int_anything(self):
+        source_code = &#34;&#34;&#34;
+def validator(x: Anything) -&gt; Anything:
+    b: int = x
+    c: Anything = b + 1
+    return c
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusInteger(0))).value
+        self.assertEqual(res, 1)</code></pre>
+</details>
+</dd>
 <dt id="opshin.tests.test_misc.MiscTest.test_typecast_int_anything"><code class="name flex">
 <span>def <span class="ident">test_typecast_int_anything</span></span>(<span>self)</span>
 </code></dt>
@@ -2592,17 +3940,39 @@ def validator(x: Anything) -&gt; int:
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">    @unittest.expectedFailure
-    def test_typecast_int_anything(self):
-        # this should not compile, we can not upcast with this notation
-        # up to discussion whether this should be allowed, but i.g. it should never be necessary or useful
+<pre><code class="python">    def test_typecast_int_anything(self):
+        # this should compile, it happens implicitly anyways when calling a function with Any parameters
         source_code = &#34;&#34;&#34;
 def validator(x: int) -&gt; Anything:
     b: Anything = x
-    return x
+    return b
 &#34;&#34;&#34;
         ast = compiler.parse(source_code)
-        code = compiler.compile(ast)</code></pre>
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusInteger(0))).value
+        self.assertEqual(res, 0)</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_typecast_int_anything_int"><code class="name flex">
+<span>def <span class="ident">test_typecast_int_anything_int</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    def test_typecast_int_anything_int(self):
+        source_code = &#34;&#34;&#34;
+def validator(x: int) -&gt; Anything:
+    b: Anything = x
+    c: int = b
+    return c + 1
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusInteger(0))).value
+        self.assertEqual(res, 1)</code></pre>
 </details>
 </dd>
 <dt id="opshin.tests.test_misc.MiscTest.test_typecast_int_int"><code class="name flex">
@@ -2624,6 +3994,27 @@ def validator(x: int) -&gt; int:
         code = compiler.compile(ast).compile()
         res = uplc_eval(uplc.Apply(code, uplc.PlutusInteger(0))).value
         self.assertEqual(res, 0)</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_typecast_int_str"><code class="name flex">
+<span>def <span class="ident">test_typecast_int_str</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    @unittest.expectedFailure
+    def test_typecast_int_str(self):
+        # this should compile, the two types are unrelated and there is no meaningful way to cast them either direction
+        source_code = &#34;&#34;&#34;
+def validator(x: int) -&gt; str:
+    b: str = x
+    return b
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)</code></pre>
 </details>
 </dd>
 <dt id="opshin.tests.test_misc.MiscTest.test_union_type_all_records_same_constr"><code class="name flex">
@@ -2811,10 +4202,8 @@ def validator(_: None) -&gt; SomeOutputDatum:
         ret = uplc_eval(f)
         self.assertEqual(
             ret,
-            uplc.data_from_cbor(
-                prelude.SomeOutputDatum(b&#34;a&#34;).to_cbor(encoding=&#34;bytes&#34;)
-            ),
-            &#34;Machine did validate the content&#34;,
+            uplc.data_from_cbor(prelude.SomeOutputDatum(b&#34;a&#34;).to_cbor()),
+            &#34;Wrapping to generic data failed&#34;,
         )</code></pre>
 </details>
 </dd>
@@ -3009,39 +4398,60 @@ setTimeout(() => input.focus(), 100);
 <li>
 <h4><code><a title="opshin.tests.test_misc.MiscTest" href="#opshin.tests.test_misc.MiscTest">MiscTest</a></code></h4>
 <ul class="">
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_access_enclosing_variable_before_def" href="#opshin.tests.test_misc.MiscTest.test_access_enclosing_variable_before_def">test_access_enclosing_variable_before_def</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_access_local_variable_before_assignment" href="#opshin.tests.test_misc.MiscTest.test_access_local_variable_before_assignment">test_access_local_variable_before_assignment</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_assert_sum_contract_fail" href="#opshin.tests.test_misc.MiscTest.test_assert_sum_contract_fail">test_assert_sum_contract_fail</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_assert_sum_contract_succeed" href="#opshin.tests.test_misc.MiscTest.test_assert_sum_contract_succeed">test_assert_sum_contract_succeed</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_complex_datum_correct_vals" href="#opshin.tests.test_misc.MiscTest.test_complex_datum_correct_vals">test_complex_datum_correct_vals</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_constant_folding" href="#opshin.tests.test_misc.MiscTest.test_constant_folding">test_constant_folding</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_constant_folding_complex" href="#opshin.tests.test_misc.MiscTest.test_constant_folding_complex">test_constant_folding_complex</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_constant_folding_dict" href="#opshin.tests.test_misc.MiscTest.test_constant_folding_dict">test_constant_folding_dict</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_constant_folding_ignore_reassignment" href="#opshin.tests.test_misc.MiscTest.test_constant_folding_ignore_reassignment">test_constant_folding_ignore_reassignment</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_constant_folding_list" href="#opshin.tests.test_misc.MiscTest.test_constant_folding_list">test_constant_folding_list</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_constant_folding_math" href="#opshin.tests.test_misc.MiscTest.test_constant_folding_math">test_constant_folding_math</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_constant_folding_no_print_eval" href="#opshin.tests.test_misc.MiscTest.test_constant_folding_no_print_eval">test_constant_folding_no_print_eval</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_datum_cast" href="#opshin.tests.test_misc.MiscTest.test_datum_cast">test_datum_cast</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_dict_datum" href="#opshin.tests.test_misc.MiscTest.test_dict_datum">test_dict_datum</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_dict_expr_not_const" href="#opshin.tests.test_misc.MiscTest.test_dict_expr_not_const">test_dict_expr_not_const</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_dict_items_values_deconstr" href="#opshin.tests.test_misc.MiscTest.test_dict_items_values_deconstr">test_dict_items_values_deconstr</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_dual_use_compile" href="#opshin.tests.test_misc.MiscTest.test_dual_use_compile">test_dual_use_compile</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_failing_annotated_type" href="#opshin.tests.test_misc.MiscTest.test_failing_annotated_type">test_failing_annotated_type</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_fib_iter" href="#opshin.tests.test_misc.MiscTest.test_fib_iter">test_fib_iter</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_fib_rec" href="#opshin.tests.test_misc.MiscTest.test_fib_rec">test_fib_rec</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_gift_contract_fail" href="#opshin.tests.test_misc.MiscTest.test_gift_contract_fail">test_gift_contract_fail</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_gift_contract_succeed" href="#opshin.tests.test_misc.MiscTest.test_gift_contract_succeed">test_gift_contract_succeed</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_hello_world" href="#opshin.tests.test_misc.MiscTest.test_hello_world">test_hello_world</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_inner_outer_state_functions" href="#opshin.tests.test_misc.MiscTest.test_inner_outer_state_functions">test_inner_outer_state_functions</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_inner_outer_state_functions_nonglobal" href="#opshin.tests.test_misc.MiscTest.test_inner_outer_state_functions_nonglobal">test_inner_outer_state_functions_nonglobal</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_list_comprehension_all" href="#opshin.tests.test_misc.MiscTest.test_list_comprehension_all">test_list_comprehension_all</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_list_comprehension_even" href="#opshin.tests.test_misc.MiscTest.test_list_comprehension_even">test_list_comprehension_even</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_list_datum_correct_vals" href="#opshin.tests.test_misc.MiscTest.test_list_datum_correct_vals">test_list_datum_correct_vals</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_list_expr" href="#opshin.tests.test_misc.MiscTest.test_list_expr">test_list_expr</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_list_expr_not_const" href="#opshin.tests.test_misc.MiscTest.test_list_expr_not_const">test_list_expr_not_const</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_marketplace_compile" href="#opshin.tests.test_misc.MiscTest.test_marketplace_compile">test_marketplace_compile</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_marketplace_compile_fail" href="#opshin.tests.test_misc.MiscTest.test_marketplace_compile_fail">test_marketplace_compile_fail</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_mult_for" href="#opshin.tests.test_misc.MiscTest.test_mult_for">test_mult_for</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_mult_while" href="#opshin.tests.test_misc.MiscTest.test_mult_while">test_mult_while</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_nested_deconstruction" href="#opshin.tests.test_misc.MiscTest.test_nested_deconstruction">test_nested_deconstruction</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_no_parameter_annotation" href="#opshin.tests.test_misc.MiscTest.test_no_parameter_annotation">test_no_parameter_annotation</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_no_return_annotation" href="#opshin.tests.test_misc.MiscTest.test_no_return_annotation">test_no_return_annotation</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_no_return_annotation_no_return" href="#opshin.tests.test_misc.MiscTest.test_no_return_annotation_no_return">test_no_return_annotation_no_return</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_opt_shared_var" href="#opshin.tests.test_misc.MiscTest.test_opt_shared_var">test_opt_shared_var</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_opt_unsafe_cast" href="#opshin.tests.test_misc.MiscTest.test_opt_unsafe_cast">test_opt_unsafe_cast</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_outer_state_change_functions" href="#opshin.tests.test_misc.MiscTest.test_outer_state_change_functions">test_outer_state_change_functions</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_overopt_removedeadvar" href="#opshin.tests.test_misc.MiscTest.test_overopt_removedeadvar">test_overopt_removedeadvar</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_parameterized_compile" href="#opshin.tests.test_misc.MiscTest.test_parameterized_compile">test_parameterized_compile</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_recursion" href="#opshin.tests.test_misc.MiscTest.test_recursion">test_recursion</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_redefine_constr" href="#opshin.tests.test_misc.MiscTest.test_redefine_constr">test_redefine_constr</a></code></li>
-<li><code><a title="opshin.tests.test_misc.MiscTest.test_script_context_repr_correct" href="#opshin.tests.test_misc.MiscTest.test_script_context_repr_correct">test_script_context_repr_correct</a></code></li>
-<li><code><a title="opshin.tests.test_misc.MiscTest.test_script_context_repr_correct_0_d8799fd8799f9fd8799fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffd8799fd8799fd87a9f581cdbe769758f26efb21f008dc097bb194cffc622acc37fcefc5372eee3ffd87a80ffa140a1401a00989680d87a9f5820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dffd87a80ffffff809fd8799fd8799fd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd87a80ffa140a14000d87980d87a80ffffa140a14000a140a1400080a0d8799fd8799fd87980d87a80ffd8799fd87b80d87a80ffff80a1d87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffd87980a15820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd8799f5820746957f0eb57f2b11119684e611a98f373afea93473fefbb7632d579af2f6259ffffd87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffff" href="#opshin.tests.test_misc.MiscTest.test_script_context_repr_correct_0_d8799fd8799f9fd8799fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffd8799fd8799fd87a9f581cdbe769758f26efb21f008dc097bb194cffc622acc37fcefc5372eee3ffd87a80ffa140a1401a00989680d87a9f5820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dffd87a80ffffff809fd8799fd8799fd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd87a80ffa140a14000d87980d87a80ffffa140a14000a140a1400080a0d8799fd8799fd87980d87a80ffd8799fd87b80d87a80ffff80a1d87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffd87980a15820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd8799f5820746957f0eb57f2b11119684e611a98f373afea93473fefbb7632d579af2f6259ffffd87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffff">test_script_context_repr_correct_0_d8799fd8799f9fd8799fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffd8799fd8799fd87a9f581cdbe769758f26efb21f008dc097bb194cffc622acc37fcefc5372eee3ffd87a80ffa140a1401a00989680d87a9f5820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dffd87a80ffffff809fd8799fd8799fd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd87a80ffa140a14000d87980d87a80ffffa140a14000a140a1400080a0d8799fd8799fd87980d87a80ffd8799fd87b80d87a80ffff80a1d87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffd87980a15820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd8799f5820746957f0eb57f2b11119684e611a98f373afea93473fefbb7632d579af2f6259ffffd87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffff</a></code></li>
-<li><code><a title="opshin.tests.test_misc.MiscTest.test_script_context_repr_correct_1_d8799fd8799f9fd8799fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffd8799fd8799fd87a9f581cdbe769758f26efb21f008dc097bb194cffc622acc37fcefc5372eee3ffd87a80ffa140a1401a00989680d87a9f5820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dffd87a80ffffff809fd8799fd8799fd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd87a80ffa140a14000d87980d87a80ffffa140a14000a140a1400080a0d8799fd8799fd87a9f1b000001836ac117d8ffd87a80ffd8799fd87b80d87a80ffff80a1d87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffd87980a15820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd8799f5820797a1e1720b63621c6b185088184cb8e23af6e46b55bd83e7a91024c823a6c2affffd87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffff" href="#opshin.tests.test_misc.MiscTest.test_script_context_repr_correct_1_d8799fd8799f9fd8799fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffd8799fd8799fd87a9f581cdbe769758f26efb21f008dc097bb194cffc622acc37fcefc5372eee3ffd87a80ffa140a1401a00989680d87a9f5820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dffd87a80ffffff809fd8799fd8799fd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd87a80ffa140a14000d87980d87a80ffffa140a14000a140a1400080a0d8799fd8799fd87a9f1b000001836ac117d8ffd87a80ffd8799fd87b80d87a80ffff80a1d87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffd87980a15820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd8799f5820797a1e1720b63621c6b185088184cb8e23af6e46b55bd83e7a91024c823a6c2affffd87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffff">test_script_context_repr_correct_1_d8799fd8799f9fd8799fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffd8799fd8799fd87a9f581cdbe769758f26efb21f008dc097bb194cffc622acc37fcefc5372eee3ffd87a80ffa140a1401a00989680d87a9f5820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dffd87a80ffffff809fd8799fd8799fd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd87a80ffa140a14000d87980d87a80ffffa140a14000a140a1400080a0d8799fd8799fd87a9f1b000001836ac117d8ffd87a80ffd8799fd87b80d87a80ffff80a1d87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffd87980a15820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd8799f5820797a1e1720b63621c6b185088184cb8e23af6e46b55bd83e7a91024c823a6c2affffd87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffff</a></code></li>
-<li><code><a title="opshin.tests.test_misc.MiscTest.test_script_context_repr_correct_2_d8799fd8799f9fd8799fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffd8799fd8799fd87a9f581cdbe769758f26efb21f008dc097bb194cffc622acc37fcefc5372eee3ffd87a80ffa140a1401a00989680d87a9f5820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dffd87a80ffffff809fd8799fd8799fd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd87a80ffa140a14000d87980d87a80ffd8799fd8799fd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd87a80ffa140a1401a000f4240d87980d87a80ffffa140a14000a140a1400080a0d8799fd8799fd87a9f1b000001836ac117d8ffd87a80ffd8799fd87b80d87a80ffff9f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffa1d87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffd87980a15820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd8799f5820c17c32f6433ae22c2acaebfb796bbfaee3993ff7ebb58a2bac6b4a3bdd2f6d28ffffd87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffff" href="#opshin.tests.test_misc.MiscTest.test_script_context_repr_correct_2_d8799fd8799f9fd8799fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffd8799fd8799fd87a9f581cdbe769758f26efb21f008dc097bb194cffc622acc37fcefc5372eee3ffd87a80ffa140a1401a00989680d87a9f5820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dffd87a80ffffff809fd8799fd8799fd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd87a80ffa140a14000d87980d87a80ffd8799fd8799fd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd87a80ffa140a1401a000f4240d87980d87a80ffffa140a14000a140a1400080a0d8799fd8799fd87a9f1b000001836ac117d8ffd87a80ffd8799fd87b80d87a80ffff9f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffa1d87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffd87980a15820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd8799f5820c17c32f6433ae22c2acaebfb796bbfaee3993ff7ebb58a2bac6b4a3bdd2f6d28ffffd87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffff">test_script_context_repr_correct_2_d8799fd8799f9fd8799fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffd8799fd8799fd87a9f581cdbe769758f26efb21f008dc097bb194cffc622acc37fcefc5372eee3ffd87a80ffa140a1401a00989680d87a9f5820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dffd87a80ffffff809fd8799fd8799fd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd87a80ffa140a14000d87980d87a80ffd8799fd8799fd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd87a80ffa140a1401a000f4240d87980d87a80ffffa140a14000a140a1400080a0d8799fd8799fd87a9f1b000001836ac117d8ffd87a80ffd8799fd87b80d87a80ffff9f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffa1d87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffd87980a15820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd8799f5820c17c32f6433ae22c2acaebfb796bbfaee3993ff7ebb58a2bac6b4a3bdd2f6d28ffffd87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffff</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_return_anything" href="#opshin.tests.test_misc.MiscTest.test_return_anything">test_return_anything</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_showcase" href="#opshin.tests.test_misc.MiscTest.test_showcase">test_showcase</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_sum" href="#opshin.tests.test_misc.MiscTest.test_sum">test_sum</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_typecast_anything_int" href="#opshin.tests.test_misc.MiscTest.test_typecast_anything_int">test_typecast_anything_int</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_typecast_anything_int_anything" href="#opshin.tests.test_misc.MiscTest.test_typecast_anything_int_anything">test_typecast_anything_int_anything</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_typecast_int_anything" href="#opshin.tests.test_misc.MiscTest.test_typecast_int_anything">test_typecast_int_anything</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_typecast_int_anything_int" href="#opshin.tests.test_misc.MiscTest.test_typecast_int_anything_int">test_typecast_int_anything_int</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_typecast_int_int" href="#opshin.tests.test_misc.MiscTest.test_typecast_int_int">test_typecast_int_int</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_typecast_int_str" href="#opshin.tests.test_misc.MiscTest.test_typecast_int_str">test_typecast_int_str</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_union_type_all_records_same_constr" href="#opshin.tests.test_misc.MiscTest.test_union_type_all_records_same_constr">test_union_type_all_records_same_constr</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_union_type_attr_access_all_records" href="#opshin.tests.test_misc.MiscTest.test_union_type_attr_access_all_records">test_union_type_attr_access_all_records</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_union_type_attr_access_all_records_same_constr" href="#opshin.tests.test_misc.MiscTest.test_union_type_attr_access_all_records_same_constr">test_union_type_attr_access_all_records_same_constr</a></code></li>

@@ -1,15 +1,15 @@
 
 <div align="center">
 
-<img  src="https://raw.githubusercontent.com/OpShin/opshin/master/opshin.png" width="240" />
+<img  src="https://raw.githubusercontent.com/OpShin/opshin/main/opshin.png" width="240" />
 <h1 style="text-align: center;">opshin</h1></br>
 
 
-<a href="https://app.travis-ci.com/OpShin/opshin"><img alt="Build Status" src="https://app.travis-ci.com/OpShin/opshin.svg?branch=master"/></a>
+<a href="https://app.travis-ci.com/OpShin/opshin"><img alt="Build Status" src="https://app.travis-ci.com/OpShin/opshin.svg?branch=main"/></a>
 <a href="https://pypi.org/project/opshin/"><img alt="PyPI version" src="https://badge.fury.io/py/opshin.svg"/></a>
 <img alt="PyPI - Python Version" src="https://img.shields.io/pypi/pyversions/opshin.svg" />
 <a href="https://pypi.org/project/opshin/"><img alt="PyPI - Status" src="https://img.shields.io/pypi/status/opshin.svg" /></a>
-<a href="https://coveralls.io/github/OpShin/opshin?branch=master"><img alt="Coverage Status" src="https://coveralls.io/repos/github/OpShin/opshin/badge.svg?branch=master" /></a>
+<a href="https://coveralls.io/github/OpShin/opshin?branch=main"><img alt="Coverage Status" src="https://coveralls.io/repos/github/OpShin/opshin/badge.svg?branch=main" /></a>
 
 </div>
 
@@ -61,7 +61,7 @@ community](https://discord.gg/umR3A2g4uw) of OpShin
 
 #### Installation
 
-Install Python 3.8, 3.9 or 3.10. Then run
+Install Python 3.8, 3.9, 3.10 or 3.11. Then run
 
 ```bash
 python3 -m pip install opshin
@@ -75,7 +75,7 @@ A short non-complete introduction in starting to write smart contracts follows.
 2. Make sure you understand python. opshin works like python and uses python. There are tons of tutorials for python, choose what suits you best.
 3. Make sure your contract is valid python and the types check out. Write simple contracts first and run them using `opshin eval` to get a feeling for how they work.
 4. Make sure your contract is valid opshin code. Run `opshin compile` and look at the compiler erros for guidance along what works and doesn't work and why.
-5. Dig into the [`examples`](https://github.com/OpShin/opshin/tree/master/examples) to understand common patterns. Check out the [`prelude`](https://opshin.opshin.dev/opshin/prelude.html) for understanding how the Script Context is structured and how complex datums are defined.
+5. Dig into the [`examples`](https://github.com/OpShin/opshin/tree/main/examples) to understand common patterns. Check out the [`prelude`](https://opshin.opshin.dev/opshin/prelude.html) for understanding how the Script Context is structured and how complex datums are defined.
 6. Check out the [sample repository](https://github.com/OpShin/opshin-starter-kit) to find a sample setup for developing your own contract.
 
 
@@ -115,9 +115,9 @@ def validator(datum: WithdrawDatum, redeemer: None, context: ScriptContext) -> N
 
 All contracts written in opshin are 100% valid python.
 Minting policies expect only a redeemer and script context as argument.
-Check out the [Architecture guide](https://github.com/OpShin/opshin/blob/master/ARCHITECTURE.md#minting-policy---spending-validator-double-function)
+Check out the [Architecture guide](https://github.com/OpShin/opshin/blob/main/ARCHITECTURE.md#minting-policy---spending-validator-double-function)
 for details on how to write double functioning contracts.
-The [`examples`](https://github.com/OpShin/opshin/blob/master/examples) folder contains more examples.
+The [`examples`](https://github.com/OpShin/opshin/blob/main/examples) folder contains more examples.
 Also check out the [opshin-pioneer-program](
 https://github.com/OpShin/opshin-pioneer-program)
  and [opshin-starter-kit](
@@ -131,10 +131,10 @@ Arguments to scripts are passed in as Plutus Data objects in JSON notation.
 You can run any of the following commands
 ```bash
 # Evaluate script in Python - this can be used to make sure there are no obvious errors
-opshin eval examples/smart_contracts/assert_sum.py "{\"int\": 4}" "{\"int\": 38}" "{\"constructor\": 0, \"fields\": []}"
+opshin eval spending examples/smart_contracts/assert_sum.py "{\"int\": 4}" "{\"int\": 38}" d8799fd8799f9fd8799fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffd8799fd8799fd87a9f581cdbe769758f26efb21f008dc097bb194cffc622acc37fcefc5372eee3ffd87a80ffa140a1401a00989680d87a9f5820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dffd87a80ffffff809fd8799fd8799fd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd87a80ffa140a14000d87980d87a80ffffa140a14000a140a1400080a0d8799fd8799fd87980d87a80ffd8799fd87b80d87a80ffff80a1d87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffd87980a15820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd8799f5820746957f0eb57f2b11119684e611a98f373afea93473fefbb7632d579af2f6259ffffd87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffff
 
 # Compile script to 'uplc', the Cardano Smart Contract assembly
-opshin compile examples/smart_contracts/assert_sum.py
+opshin compile spending examples/smart_contracts/assert_sum.py
 ```
 
 ### Deploying
@@ -143,7 +143,7 @@ The deploy process generates all artifacts required for usage with common librar
 
 ```bash
 # Automatically generate all artifacts needed for using this contract
-opshin build examples/smart_contracts/assert_sum.py
+opshin build spending examples/smart_contracts/assert_sum.py
 ```
 
 See the [tutorial by `pycardano`](https://pycardano.readthedocs.io/en/latest/guides/plutus.html) for explanations how to build transactions with `opshin` contracts.
@@ -184,17 +184,17 @@ For debugging purposes, you can also run
 
 ```bash
 # Compile script to 'uplc', and evaluate the script in UPLC (for debugging purposes)
-opshin eval_uplc examples/smart_contracts/assert_sum.py "{\"int\": 4}" "{\"int\": 38}" "{\"constructor\": 0, \"fields\": []}"
+opshin eval_uplc spending examples/smart_contracts/assert_sum.py "{\"int\": 4}" "{\"int\": 38}" d8799fd8799f9fd8799fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffd8799fd8799fd87a9f581cdbe769758f26efb21f008dc097bb194cffc622acc37fcefc5372eee3ffd87a80ffa140a1401a00989680d87a9f5820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dffd87a80ffffff809fd8799fd8799fd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd87a80ffa140a14000d87980d87a80ffffa140a14000a140a1400080a0d8799fd8799fd87980d87a80ffd8799fd87b80d87a80ffff80a1d87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffd87980a15820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd8799f5820746957f0eb57f2b11119684e611a98f373afea93473fefbb7632d579af2f6259ffffd87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffff
 
 # Compile script to 'pluto', an intermediate language (for debugging purposes)
-opshin compile_pluto examples/smart_contracts/assert_sum.py
+opshin compile_pluto spending examples/smart_contracts/assert_sum.py
 ```
 
 ### Sponsoring
 
-You can sponsor the development of opshin through GitHub or [Teiki](https://alpha.teiki.network/projects/opshin) or just by sending ADA. Drop me a message on social media and let me know what it is for.
+You can sponsor the development of opshin through GitHub or [Patreon](https://patreon.com/OpShin) or just by sending ADA. Drop me a message on social media and let me know what it is for.
 
-- **[Teiki](https://alpha.teiki.network/projects/opshin)** Stake your ada to support OpShin at [Teiki](https://alpha.teiki.network/projects/opshin)
+- **Patreon** Support OpShin at [Patreon](https://patreon.com/OpShin) to enjoy member benefits!
 - **GitHub** Sponsor the developers of this project through the button "Sponsor" next to them
 - **ADA** Donation in ADA can be submitted to `$opshin` or `addr1qyz3vgd5xxevjy2rvqevz9n7n7dney8n6hqggp23479fm6vwpj9clsvsf85cd4xc59zjztr5zwpummwckmzr2myjwjns74lhmr`.
 
