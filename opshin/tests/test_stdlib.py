@@ -177,7 +177,7 @@ def validator(x: str) -> bytes:
         self.assertEqual(ret, xs.encode(), "str.encode returned wrong value")
 
     @given(xs=st.binary())
-    def test_str_decode(self, xs):
+    def test_bytes_decode(self, xs):
         # this tests that errors that are caused by assignments are actually triggered at the time of assigning
         source_code = """
 def validator(x: bytes) -> str:
@@ -199,6 +199,30 @@ def validator(x: bytes) -> str:
         except UnicodeDecodeError:
             ret = None
         self.assertEqual(ret, exp, "bytes.decode returned wrong value")
+
+    @given(xs=st.binary())
+    def test_bytes_hex(self, xs):
+        # this tests that errors that are caused by assignments are actually triggered at the time of assigning
+        source_code = """
+def validator(x: bytes) -> str:
+    return x.hex()
+            """
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        try:
+            exp = xs.hex()
+        except UnicodeDecodeError:
+            exp = None
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        for d in [uplc.PlutusByteString(xs)]:
+            f = uplc.Apply(f, d)
+        try:
+            ret = uplc_eval(f).value.decode()
+        except UnicodeDecodeError:
+            ret = None
+        self.assertEqual(ret, exp, "bytes.hex returned wrong value")
 
     @given(xs=st.binary())
     @example(b"dc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2")

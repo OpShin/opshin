@@ -748,12 +748,87 @@ class ByteStringType(AtomicType):
     def attribute_type(self, attr) -> Type:
         if attr == "decode":
             return InstanceType(FunctionType([], StringInstanceType))
+        if attr == "hex":
+            return InstanceType(FunctionType([], StringInstanceType))
         return super().attribute_type(attr)
 
     def attribute(self, attr) -> plt.AST:
         if attr == "decode":
             # No codec -> only the default (utf8) is allowed
             return plt.Lambda(["x", "_"], plt.DecodeUtf8(plt.Var("x")))
+        if attr == "hex":
+            return plt.Lambda(
+                ["x", "_"],
+                plt.DecodeUtf8(
+                    plt.Let(
+                        [
+                            (
+                                "hexlist",
+                                plt.RecFun(
+                                    plt.Lambda(
+                                        ["f", "i"],
+                                        plt.Ite(
+                                            plt.LessThanInteger(
+                                                plt.Var("i"), plt.Integer(0)
+                                            ),
+                                            plt.EmptyIntegerList(),
+                                            plt.MkCons(
+                                                plt.IndexByteString(
+                                                    plt.Var("x"), plt.Var("i")
+                                                ),
+                                                plt.Apply(
+                                                    plt.Var("f"),
+                                                    plt.Var("f"),
+                                                    plt.SubtractInteger(
+                                                        plt.Var("i"), plt.Integer(1)
+                                                    ),
+                                                ),
+                                            ),
+                                        ),
+                                    ),
+                                ),
+                            ),
+                            (
+                                "mkstr",
+                                plt.Lambda(
+                                    ["i"],
+                                    plt.FoldList(
+                                        plt.Apply(plt.Var("hexlist"), plt.Var("i")),
+                                        plt.Lambda(
+                                            ["b", "i"],
+                                            plt.ConsByteString(
+                                                plt.AddInteger(
+                                                    plt.DivideInteger(
+                                                        plt.Var("i"), plt.Integer(16)
+                                                    ),
+                                                    plt.Integer(ord("0")),
+                                                ),
+                                                plt.ConsByteString(
+                                                    plt.AddInteger(
+                                                        plt.ModInteger(
+                                                            plt.Var("i"),
+                                                            plt.Integer(16),
+                                                        ),
+                                                        plt.Integer(ord("0")),
+                                                    ),
+                                                    plt.Var("b"),
+                                                ),
+                                            ),
+                                        ),
+                                        plt.ByteString(b""),
+                                    ),
+                                ),
+                            ),
+                        ],
+                        plt.Apply(
+                            plt.Var("mkstr"),
+                            plt.SubtractInteger(
+                                plt.LengthOfByteString(plt.Var("x")), plt.Integer(1)
+                            ),
+                        ),
+                    ),
+                ),
+            )
         return super().attribute(attr)
 
     def cmp(self, op: cmpop, o: "Type") -> plt.AST:
