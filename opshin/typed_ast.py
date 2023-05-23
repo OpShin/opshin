@@ -789,6 +789,22 @@ class ByteStringType(AtomicType):
                                 ),
                             ),
                             (
+                                "map_str",
+                                plt.Lambda(
+                                    ["i"],
+                                    plt.AddInteger(
+                                        plt.Var("i"),
+                                        plt.IfThenElse(
+                                            plt.LessThanInteger(
+                                                plt.Var("i"), plt.Integer(10)
+                                            ),
+                                            plt.Integer(ord("0")),
+                                            plt.Integer(ord("a") - 10),
+                                        ),
+                                    ),
+                                ),
+                            ),
+                            (
                                 "mkstr",
                                 plt.Lambda(
                                     ["i"],
@@ -797,19 +813,19 @@ class ByteStringType(AtomicType):
                                         plt.Lambda(
                                             ["b", "i"],
                                             plt.ConsByteString(
-                                                plt.AddInteger(
+                                                plt.Apply(
+                                                    plt.Var("map_str"),
                                                     plt.DivideInteger(
                                                         plt.Var("i"), plt.Integer(16)
                                                     ),
-                                                    plt.Integer(ord("0")),
                                                 ),
                                                 plt.ConsByteString(
-                                                    plt.AddInteger(
+                                                    plt.Apply(
+                                                        plt.Var("map_str"),
                                                         plt.ModInteger(
                                                             plt.Var("i"),
                                                             plt.Integer(16),
                                                         ),
-                                                        plt.Integer(ord("0")),
                                                     ),
                                                     plt.Var("b"),
                                                 ),
