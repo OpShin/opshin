@@ -818,12 +818,103 @@ class ByteStringType(AtomicType):
     def attribute_type(self, attr) -&gt; Type:
         if attr == &#34;decode&#34;:
             return InstanceType(FunctionType([], StringInstanceType))
+        if attr == &#34;hex&#34;:
+            return InstanceType(FunctionType([], StringInstanceType))
         return super().attribute_type(attr)
 
     def attribute(self, attr) -&gt; plt.AST:
         if attr == &#34;decode&#34;:
             # No codec -&gt; only the default (utf8) is allowed
             return plt.Lambda([&#34;x&#34;, &#34;_&#34;], plt.DecodeUtf8(plt.Var(&#34;x&#34;)))
+        if attr == &#34;hex&#34;:
+            return plt.Lambda(
+                [&#34;x&#34;, &#34;_&#34;],
+                plt.DecodeUtf8(
+                    plt.Let(
+                        [
+                            (
+                                &#34;hexlist&#34;,
+                                plt.RecFun(
+                                    plt.Lambda(
+                                        [&#34;f&#34;, &#34;i&#34;],
+                                        plt.Ite(
+                                            plt.LessThanInteger(
+                                                plt.Var(&#34;i&#34;), plt.Integer(0)
+                                            ),
+                                            plt.EmptyIntegerList(),
+                                            plt.MkCons(
+                                                plt.IndexByteString(
+                                                    plt.Var(&#34;x&#34;), plt.Var(&#34;i&#34;)
+                                                ),
+                                                plt.Apply(
+                                                    plt.Var(&#34;f&#34;),
+                                                    plt.Var(&#34;f&#34;),
+                                                    plt.SubtractInteger(
+                                                        plt.Var(&#34;i&#34;), plt.Integer(1)
+                                                    ),
+                                                ),
+                                            ),
+                                        ),
+                                    ),
+                                ),
+                            ),
+                            (
+                                &#34;map_str&#34;,
+                                plt.Lambda(
+                                    [&#34;i&#34;],
+                                    plt.AddInteger(
+                                        plt.Var(&#34;i&#34;),
+                                        plt.IfThenElse(
+                                            plt.LessThanInteger(
+                                                plt.Var(&#34;i&#34;), plt.Integer(10)
+                                            ),
+                                            plt.Integer(ord(&#34;0&#34;)),
+                                            plt.Integer(ord(&#34;a&#34;) - 10),
+                                        ),
+                                    ),
+                                ),
+                            ),
+                            (
+                                &#34;mkstr&#34;,
+                                plt.Lambda(
+                                    [&#34;i&#34;],
+                                    plt.FoldList(
+                                        plt.Apply(plt.Var(&#34;hexlist&#34;), plt.Var(&#34;i&#34;)),
+                                        plt.Lambda(
+                                            [&#34;b&#34;, &#34;i&#34;],
+                                            plt.ConsByteString(
+                                                plt.Apply(
+                                                    plt.Var(&#34;map_str&#34;),
+                                                    plt.DivideInteger(
+                                                        plt.Var(&#34;i&#34;), plt.Integer(16)
+                                                    ),
+                                                ),
+                                                plt.ConsByteString(
+                                                    plt.Apply(
+                                                        plt.Var(&#34;map_str&#34;),
+                                                        plt.ModInteger(
+                                                            plt.Var(&#34;i&#34;),
+                                                            plt.Integer(16),
+                                                        ),
+                                                    ),
+                                                    plt.Var(&#34;b&#34;),
+                                                ),
+                                            ),
+                                        ),
+                                        plt.ByteString(b&#34;&#34;),
+                                    ),
+                                ),
+                            ),
+                        ],
+                        plt.Apply(
+                            plt.Var(&#34;mkstr&#34;),
+                            plt.SubtractInteger(
+                                plt.LengthOfByteString(plt.Var(&#34;x&#34;)), plt.Integer(1)
+                            ),
+                        ),
+                    ),
+                ),
+            )
         return super().attribute(attr)
 
     def cmp(self, op: cmpop, o: &#34;Type&#34;) -&gt; plt.AST:
@@ -1725,12 +1816,103 @@ class TypedNodeVisitor(NodeVisitor):
     def attribute_type(self, attr) -&gt; Type:
         if attr == &#34;decode&#34;:
             return InstanceType(FunctionType([], StringInstanceType))
+        if attr == &#34;hex&#34;:
+            return InstanceType(FunctionType([], StringInstanceType))
         return super().attribute_type(attr)
 
     def attribute(self, attr) -&gt; plt.AST:
         if attr == &#34;decode&#34;:
             # No codec -&gt; only the default (utf8) is allowed
             return plt.Lambda([&#34;x&#34;, &#34;_&#34;], plt.DecodeUtf8(plt.Var(&#34;x&#34;)))
+        if attr == &#34;hex&#34;:
+            return plt.Lambda(
+                [&#34;x&#34;, &#34;_&#34;],
+                plt.DecodeUtf8(
+                    plt.Let(
+                        [
+                            (
+                                &#34;hexlist&#34;,
+                                plt.RecFun(
+                                    plt.Lambda(
+                                        [&#34;f&#34;, &#34;i&#34;],
+                                        plt.Ite(
+                                            plt.LessThanInteger(
+                                                plt.Var(&#34;i&#34;), plt.Integer(0)
+                                            ),
+                                            plt.EmptyIntegerList(),
+                                            plt.MkCons(
+                                                plt.IndexByteString(
+                                                    plt.Var(&#34;x&#34;), plt.Var(&#34;i&#34;)
+                                                ),
+                                                plt.Apply(
+                                                    plt.Var(&#34;f&#34;),
+                                                    plt.Var(&#34;f&#34;),
+                                                    plt.SubtractInteger(
+                                                        plt.Var(&#34;i&#34;), plt.Integer(1)
+                                                    ),
+                                                ),
+                                            ),
+                                        ),
+                                    ),
+                                ),
+                            ),
+                            (
+                                &#34;map_str&#34;,
+                                plt.Lambda(
+                                    [&#34;i&#34;],
+                                    plt.AddInteger(
+                                        plt.Var(&#34;i&#34;),
+                                        plt.IfThenElse(
+                                            plt.LessThanInteger(
+                                                plt.Var(&#34;i&#34;), plt.Integer(10)
+                                            ),
+                                            plt.Integer(ord(&#34;0&#34;)),
+                                            plt.Integer(ord(&#34;a&#34;) - 10),
+                                        ),
+                                    ),
+                                ),
+                            ),
+                            (
+                                &#34;mkstr&#34;,
+                                plt.Lambda(
+                                    [&#34;i&#34;],
+                                    plt.FoldList(
+                                        plt.Apply(plt.Var(&#34;hexlist&#34;), plt.Var(&#34;i&#34;)),
+                                        plt.Lambda(
+                                            [&#34;b&#34;, &#34;i&#34;],
+                                            plt.ConsByteString(
+                                                plt.Apply(
+                                                    plt.Var(&#34;map_str&#34;),
+                                                    plt.DivideInteger(
+                                                        plt.Var(&#34;i&#34;), plt.Integer(16)
+                                                    ),
+                                                ),
+                                                plt.ConsByteString(
+                                                    plt.Apply(
+                                                        plt.Var(&#34;map_str&#34;),
+                                                        plt.ModInteger(
+                                                            plt.Var(&#34;i&#34;),
+                                                            plt.Integer(16),
+                                                        ),
+                                                    ),
+                                                    plt.Var(&#34;b&#34;),
+                                                ),
+                                            ),
+                                        ),
+                                        plt.ByteString(b&#34;&#34;),
+                                    ),
+                                ),
+                            ),
+                        ],
+                        plt.Apply(
+                            plt.Var(&#34;mkstr&#34;),
+                            plt.SubtractInteger(
+                                plt.LengthOfByteString(plt.Var(&#34;x&#34;)), plt.Integer(1)
+                            ),
+                        ),
+                    ),
+                ),
+            )
         return super().attribute(attr)
 
     def cmp(self, op: cmpop, o: &#34;Type&#34;) -&gt; plt.AST:
@@ -1818,6 +2000,95 @@ class TypedNodeVisitor(NodeVisitor):
     if attr == &#34;decode&#34;:
         # No codec -&gt; only the default (utf8) is allowed
         return plt.Lambda([&#34;x&#34;, &#34;_&#34;], plt.DecodeUtf8(plt.Var(&#34;x&#34;)))
+    if attr == &#34;hex&#34;:
+        return plt.Lambda(
+            [&#34;x&#34;, &#34;_&#34;],
+            plt.DecodeUtf8(
+                plt.Let(
+                    [
+                        (
+                            &#34;hexlist&#34;,
+                            plt.RecFun(
+                                plt.Lambda(
+                                    [&#34;f&#34;, &#34;i&#34;],
+                                    plt.Ite(
+                                        plt.LessThanInteger(
+                                            plt.Var(&#34;i&#34;), plt.Integer(0)
+                                        ),
+                                        plt.EmptyIntegerList(),
+                                        plt.MkCons(
+                                            plt.IndexByteString(
+                                                plt.Var(&#34;x&#34;), plt.Var(&#34;i&#34;)
+                                            ),
+                                            plt.Apply(
+                                                plt.Var(&#34;f&#34;),
+                                                plt.Var(&#34;f&#34;),
+                                                plt.SubtractInteger(
+                                                    plt.Var(&#34;i&#34;), plt.Integer(1)
+                                                ),
+                                            ),
+                                        ),
+                                    ),
+                                ),
+                            ),
+                        ),
+                        (
+                            &#34;map_str&#34;,
+                            plt.Lambda(
+                                [&#34;i&#34;],
+                                plt.AddInteger(
+                                    plt.Var(&#34;i&#34;),
+                                    plt.IfThenElse(
+                                        plt.LessThanInteger(
+                                            plt.Var(&#34;i&#34;), plt.Integer(10)
+                                        ),
+                                        plt.Integer(ord(&#34;0&#34;)),
+                                        plt.Integer(ord(&#34;a&#34;) - 10),
+                                    ),
+                                ),
+                            ),
+                        ),
+                        (
+                            &#34;mkstr&#34;,
+                            plt.Lambda(
+                                [&#34;i&#34;],
+                                plt.FoldList(
+                                    plt.Apply(plt.Var(&#34;hexlist&#34;), plt.Var(&#34;i&#34;)),
+                                    plt.Lambda(
+                                        [&#34;b&#34;, &#34;i&#34;],
+                                        plt.ConsByteString(
+                                            plt.Apply(
+                                                plt.Var(&#34;map_str&#34;),
+                                                plt.DivideInteger(
+                                                    plt.Var(&#34;i&#34;), plt.Integer(16)
+                                                ),
+                                            ),
+                                            plt.ConsByteString(
+                                                plt.Apply(
+                                                    plt.Var(&#34;map_str&#34;),
+                                                    plt.ModInteger(
+                                                        plt.Var(&#34;i&#34;),
+                                                        plt.Integer(16),
+                                                    ),
+                                                ),
+                                                plt.Var(&#34;b&#34;),
+                                            ),
+                                        ),
+                                    ),
+                                    plt.ByteString(b&#34;&#34;),
+                                ),
+                            ),
+                        ),
+                    ],
+                    plt.Apply(
+                        plt.Var(&#34;mkstr&#34;),
+                        plt.SubtractInteger(
+                            plt.LengthOfByteString(plt.Var(&#34;x&#34;)), plt.Integer(1)
+                        ),
+                    ),
+                ),
+            ),
+        )
     return super().attribute(attr)</code></pre>
 </details>
 </dd>
@@ -1836,6 +2107,8 @@ class TypedNodeVisitor(NodeVisitor):
 </summary>
 <pre><code class="python">def attribute_type(self, attr) -&gt; Type:
     if attr == &#34;decode&#34;:
+        return InstanceType(FunctionType([], StringInstanceType))
+    if attr == &#34;hex&#34;:
         return InstanceType(FunctionType([], StringInstanceType))
     return super().attribute_type(attr)</code></pre>
 </details>

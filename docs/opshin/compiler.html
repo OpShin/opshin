@@ -151,13 +151,56 @@ UnaryOpMap = {
     USub: {IntegerInstanceType: lambda x: plt.SubtractInteger(plt.Integer(0), x)},
 }
 
-ConstantMap = {
-    str: plt.Text,
-    bytes: plt.ByteString,
-    int: plt.Integer,
-    bool: plt.Bool,
-    type(None): lambda _: plt.Unit(),
-}
+
+def rec_constant_map_data(c):
+    if isinstance(c, bool):
+        return uplc.PlutusInteger(int(c))
+    if isinstance(c, int):
+        return uplc.PlutusInteger(c)
+    if isinstance(c, type(None)):
+        return uplc.PlutusConstr(0, [])
+    if isinstance(c, bytes):
+        return uplc.PlutusByteString(c)
+    if isinstance(c, str):
+        return uplc.PlutusByteString(c.encode())
+    if isinstance(c, list):
+        return uplc.PlutusList([rec_constant_map_data(ce) for ce in c])
+    if isinstance(c, dict):
+        return uplc.PlutusMap(
+            dict(
+                zip(
+                    (rec_constant_map_data(ce) for ce in c.keys()),
+                    (rec_constant_map_data(ce) for ce in c.values()),
+                )
+            )
+        )
+    raise NotImplementedError(f&#34;Unsupported constant type {type(c)}&#34;)
+
+
+def rec_constant_map(c):
+    if isinstance(c, bool):
+        return uplc.BuiltinBool(c)
+    if isinstance(c, int):
+        return uplc.BuiltinInteger(c)
+    if isinstance(c, type(None)):
+        return uplc.BuiltinUnit()
+    if isinstance(c, bytes):
+        return uplc.BuiltinByteString(c)
+    if isinstance(c, str):
+        return uplc.BuiltinString(c)
+    if isinstance(c, list):
+        return uplc.BuiltinList([rec_constant_map(ce) for ce in c])
+    if isinstance(c, dict):
+        return uplc.BuiltinList(
+            [
+                uplc.BuiltinPair(*p)
+                for p in zip(
+                    (rec_constant_map_data(ce) for ce in c.keys()),
+                    (rec_constant_map_data(ce) for ce in c.values()),
+                )
+            ]
+        )
+    raise NotImplementedError(f&#34;Unsupported constant type {type(c)}&#34;)
 
 
 def wrap_validator_double_function(x: plt.AST, pass_through: int = 0):
@@ -380,12 +423,8 @@ class UPLCCompiler(CompilingNodeTransformer):
         return cp
 
     def visit_Constant(self, node: TypedConstant) -&gt; plt.AST:
-        plt_type = ConstantMap.get(type(node.value))
-        if plt_type is None:
-            raise NotImplementedError(
-                f&#34;Constants of type {type(node.value)} are not supported&#34;
-            )
-        return plt.Lambda([STATEMONAD], plt_type(node.value))
+        plt_val = plt.UPLCConstant(rec_constant_map(node.value))
+        return plt.Lambda([STATEMONAD], plt_val)
 
     def visit_NoneType(self, _: typing.Optional[typing.Any]) -&gt; plt.AST:
         return plt.Lambda([STATEMONAD], plt.Unit())
@@ -1131,6 +1170,75 @@ def compile(
     )</code></pre>
 </details>
 </dd>
+<dt id="opshin.compiler.rec_constant_map"><code class="name flex">
+<span>def <span class="ident">rec_constant_map</span></span>(<span>c)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def rec_constant_map(c):
+    if isinstance(c, bool):
+        return uplc.BuiltinBool(c)
+    if isinstance(c, int):
+        return uplc.BuiltinInteger(c)
+    if isinstance(c, type(None)):
+        return uplc.BuiltinUnit()
+    if isinstance(c, bytes):
+        return uplc.BuiltinByteString(c)
+    if isinstance(c, str):
+        return uplc.BuiltinString(c)
+    if isinstance(c, list):
+        return uplc.BuiltinList([rec_constant_map(ce) for ce in c])
+    if isinstance(c, dict):
+        return uplc.BuiltinList(
+            [
+                uplc.BuiltinPair(*p)
+                for p in zip(
+                    (rec_constant_map_data(ce) for ce in c.keys()),
+                    (rec_constant_map_data(ce) for ce in c.values()),
+                )
+            ]
+        )
+    raise NotImplementedError(f&#34;Unsupported constant type {type(c)}&#34;)</code></pre>
+</details>
+</dd>
+<dt id="opshin.compiler.rec_constant_map_data"><code class="name flex">
+<span>def <span class="ident">rec_constant_map_data</span></span>(<span>c)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def rec_constant_map_data(c):
+    if isinstance(c, bool):
+        return uplc.PlutusInteger(int(c))
+    if isinstance(c, int):
+        return uplc.PlutusInteger(c)
+    if isinstance(c, type(None)):
+        return uplc.PlutusConstr(0, [])
+    if isinstance(c, bytes):
+        return uplc.PlutusByteString(c)
+    if isinstance(c, str):
+        return uplc.PlutusByteString(c.encode())
+    if isinstance(c, list):
+        return uplc.PlutusList([rec_constant_map_data(ce) for ce in c])
+    if isinstance(c, dict):
+        return uplc.PlutusMap(
+            dict(
+                zip(
+                    (rec_constant_map_data(ce) for ce in c.keys()),
+                    (rec_constant_map_data(ce) for ce in c.values()),
+                )
+            )
+        )
+    raise NotImplementedError(f&#34;Unsupported constant type {type(c)}&#34;)</code></pre>
+</details>
+</dd>
 <dt id="opshin.compiler.wrap_validator_double_function"><code class="name flex">
 <span>def <span class="ident">wrap_validator_double_function</span></span>(<span>x: pluthon.pluthon_ast.AST, pass_through: int = 0)</span>
 </code></dt>
@@ -1354,12 +1462,8 @@ def compile(
         return cp
 
     def visit_Constant(self, node: TypedConstant) -&gt; plt.AST:
-        plt_type = ConstantMap.get(type(node.value))
-        if plt_type is None:
-            raise NotImplementedError(
-                f&#34;Constants of type {type(node.value)} are not supported&#34;
-            )
-        return plt.Lambda([STATEMONAD], plt_type(node.value))
+        plt_val = plt.UPLCConstant(rec_constant_map(node.value))
+        return plt.Lambda([STATEMONAD], plt_val)
 
     def visit_NoneType(self, _: typing.Optional[typing.Any]) -&gt; plt.AST:
         return plt.Lambda([STATEMONAD], plt.Unit())
@@ -2261,12 +2365,8 @@ def compile(
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def visit_Constant(self, node: TypedConstant) -&gt; plt.AST:
-    plt_type = ConstantMap.get(type(node.value))
-    if plt_type is None:
-        raise NotImplementedError(
-            f&#34;Constants of type {type(node.value)} are not supported&#34;
-        )
-    return plt.Lambda([STATEMONAD], plt_type(node.value))</code></pre>
+    plt_val = plt.UPLCConstant(rec_constant_map(node.value))
+    return plt.Lambda([STATEMONAD], plt_val)</code></pre>
 </details>
 </dd>
 <dt id="opshin.compiler.UPLCCompiler.visit_Dict"><code class="name flex">
@@ -3111,6 +3211,8 @@ setTimeout(() => input.focus(), 100);
 <ul class="">
 <li><code><a title="opshin.compiler.compile" href="#opshin.compiler.compile">compile</a></code></li>
 <li><code><a title="opshin.compiler.extend_statemonad" href="#opshin.compiler.extend_statemonad">extend_statemonad</a></code></li>
+<li><code><a title="opshin.compiler.rec_constant_map" href="#opshin.compiler.rec_constant_map">rec_constant_map</a></code></li>
+<li><code><a title="opshin.compiler.rec_constant_map_data" href="#opshin.compiler.rec_constant_map_data">rec_constant_map_data</a></code></li>
 <li><code><a title="opshin.compiler.wrap_validator_double_function" href="#opshin.compiler.wrap_validator_double_function">wrap_validator_double_function</a></code></li>
 </ul>
 </li>
