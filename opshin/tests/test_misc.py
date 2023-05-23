@@ -1001,6 +1001,34 @@ def validator(_: None) -> Dict[str, bool]:
             ),
         )
 
+    def test_constant_folding_complex(self):
+        source_code = """
+from opshin.prelude import *
+
+def validator(_: None) -> Dict[str, List[Dict[bytes, int]]]:
+    return {"s": [{b"": 0}, {b"0": 1}]}
+"""
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
+        self.assertEqual(
+            res,
+            uplc.PlutusMap(
+                {
+                    uplc.PlutusByteString("s".encode()): uplc.PlutusList(
+                        [
+                            uplc.PlutusMap(
+                                {uplc.PlutusByteString(b""): uplc.PlutusInteger(0)}
+                            ),
+                            uplc.PlutusMap(
+                                {uplc.PlutusByteString(b"0"): uplc.PlutusInteger(1)}
+                            ),
+                        ]
+                    ),
+                }
+            ),
+        )
+
     def test_constant_folding_math(self):
         source_code = """
 from opshin.prelude import *
