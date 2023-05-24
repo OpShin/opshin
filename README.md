@@ -137,6 +137,15 @@ opshin eval spending examples/smart_contracts/assert_sum.py "{\"int\": 4}" "{\"i
 opshin compile spending examples/smart_contracts/assert_sum.py
 ```
 
+Furthermore, you can add a shebang to the first line of the python file to indicate that it represents an opshin smart contract.
+You can choose from the following options:
+
+- a general shebang: `#!opshin`, which represents `opshin eval any`
+- or a more specific purpose: `#!/usr/bin/env -S opshin eval minting`
+
+By doing so, you can transform your python file to an executable: `chmod +x your_file.py` and execute it with `./your_file.py`, which will run `opshin eval any ./your_file.py` under the hood.
+
+
 ### Deploying
 
 The deploy process generates all artifacts required for usage with common libraries like [pycardano](https://github.com/Python-Cardano/pycardano), [lucid](https://github.com/spacebudz/lucid) and the [cardano-cli](https://github.com/input-output-hk/cardano-node).
@@ -158,6 +167,12 @@ Further, only immutable objects may be generated.
 
 For your program to be accepted, make sure to only make use of language constructs supported by the compiler.
 You will be notified of which constructs are not supported when trying to compile.
+
+You can also make use of the built-in linting command and check it for example with the following command:
+
+```bash
+opshin lint spending examples/smart_contracts/assert_sum.py
+```
 
 ### Name
 
