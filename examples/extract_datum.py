@@ -1,3 +1,4 @@
+#!opshin
 # This is an example of how to determine the structure of the datum files to use with you opshin custom datums.
 # The JSON file is usually required by third party tools like the cardano-cli
 
