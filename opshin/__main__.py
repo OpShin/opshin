@@ -138,6 +138,8 @@ def main():
         type=str,
         choices=Command.__members__.keys(),
         help="The command to execute on the input file.",
+        default="eval",
+        nargs="?",
     )
     a.add_argument(
         "purpose",
@@ -146,6 +148,8 @@ def main():
         help="The intended script purpose. Determines the number of on-chain parameters "
         "(spending = 3, minting, rewarding, certifying = 2, any = no checks). "
         "This allows the compiler to check whether the correct amount of parameters was passed during compilation.",
+        default="any",
+        nargs="?",
     )
     a.add_argument(
         "input_file", type=str, help="The input program to parse. Set to - for stdin."
