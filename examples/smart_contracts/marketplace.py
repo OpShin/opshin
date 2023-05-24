@@ -1,3 +1,4 @@
+#!/usr/bin/env -S opshin eval spending
 from opshin.prelude import *
 
 
