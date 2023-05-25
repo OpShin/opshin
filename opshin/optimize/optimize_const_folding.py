@@ -120,6 +120,9 @@ class DefinedTimesVisitor(CompilingNodeVisitor):
         self.vars = defaultdict(int)
 
     def visit_For(self, node: For) -> None:
+        # visit twice to have all names bumped to min 2 assignments
+        self.generic_visit(node)
+        self.generic_visit(node)
         return
         # TODO future items: use this together with guaranteed available
         # visit twice to have this name bumped to min 2 assignments
@@ -129,7 +132,9 @@ class DefinedTimesVisitor(CompilingNodeVisitor):
 
     def visit_If(self, node: If) -> None:
         # TODO future items: use this together with guaranteed available
-        return
+        # visit twice to have all names bumped to min 2 assignments
+        self.generic_visit(node)
+        self.generic_visit(node)
 
     def visit_Name(self, node: Name) -> None:
         if isinstance(node.ctx, Store):
