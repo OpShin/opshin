@@ -1085,6 +1085,23 @@ def validator(_: None) -> PubKeyCredential:
             ),
         )
 
+    def test_constant_folding_user_def(self):
+        source_code = """
+def fib(i: int) -> int:
+    return i if i < 2 else fib(i-1) + fib(i-2)
+
+def validator(_: None) -> int:
+    return fib(10)
+"""
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        self.assertIn("(con integer 55)", code.dumps())
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
+        self.assertEqual(
+            res.value,
+            55,
+        )
+
     def test_constant_folding_math(self):
         source_code = """
 from opshin.prelude import *

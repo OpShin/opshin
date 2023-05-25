@@ -242,6 +242,19 @@ class OptimizeConstantFolding(CompilingNodeTransformer):
 
     def visit_FunctionDef(self, node: FunctionDef) -> FunctionDef:
         self.add_var_visible(node.name)
+        if node.name in self.constants:
+            a = self._non_overwritten_globals()
+            a.update(self._constant_vars())
+            g = a
+            try:
+                # we need to pass the global dict as local dict here to make closures possible (rec functions)
+                exec(unparse(node), g, g)
+            except Exception as e:
+                _LOGGER.debug(e)
+            else:
+                # the class is defined and added to the globals
+                self.scopes_constants[-1][node.name] = g[node.name]
+
         self.enter_scope()
         self.add_vars_visible(arg.arg for arg in node.args.args)
         def_vars_collector = ShallowNameDefCollector()
@@ -249,9 +262,6 @@ class OptimizeConstantFolding(CompilingNodeTransformer):
             def_vars_collector.visit(s)
         def_vars = def_vars_collector.vars
         self.add_vars_visible(def_vars)
-
-        if node.name in self.constants:
-            self.update_constants(node)
 
         res_node = self.generic_visit(node)
         self.exit_scope()
@@ -308,9 +318,9 @@ class OptimizeConstantFolding(CompilingNodeTransformer):
             return node
         try:
             # we add preceding constant plutusdata definitions here!
-            node_eval = eval(
-                node_source, self._non_overwritten_globals(), self._constant_vars()
-            )
+            g = self._non_overwritten_globals()
+            l = self._constant_vars()
+            node_eval = eval(node_source, g, l)
         except Exception as e:
             _LOGGER.debug(e)
             return node
