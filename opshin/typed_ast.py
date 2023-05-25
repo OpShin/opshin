@@ -158,9 +158,10 @@ class RecordType(ClassType):
     def cmp(self, op: cmpop, o: "Type") -> plt.AST:
         """The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second the comparison."""
         # this will reject comparisons that will always be false - most likely due to faults during programming
-        if (isinstance(o, RecordType) and o.record == self.record) or (
-            isinstance(o, UnionType) and self in o.typs
-        ):
+        if (
+            isinstance(o, RecordType)
+            and (self.record >= o.record or o.record >= self.record)
+        ) or (isinstance(o, UnionType) and any(self >= o or self >= o for o in o.typs)):
             if isinstance(op, Eq):
                 return plt.BuiltIn(uplc.BuiltInFun.EqualsData)
             if isinstance(op, NotEq):
@@ -177,7 +178,7 @@ class RecordType(ClassType):
         if (
             isinstance(o, ListType)
             and isinstance(o.typ, InstanceType)
-            and o.typ.typ >= self
+            and (o.typ.typ >= self or self >= o.typ.typ)
         ):
             if isinstance(op, In):
                 return plt.Lambda(
@@ -288,8 +289,9 @@ class UnionType(ClassType):
         """The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second the comparison."""
         # this will reject comparisons that will always be false - most likely due to faults during programming
         # note we require that there is an overlapt between the possible types for unions
-        if (isinstance(o, RecordType) and o in self.typs) or (
-            isinstance(o, UnionType) and set(self.typs).intersection(o.typs)
+        if (isinstance(o, RecordType) and any(t >= o or o >= t for t in self.typs)) or (
+            isinstance(o, UnionType)
+            and any(t >= o or t >= o for t in self.typs for o in o.typs)
         ):
             if isinstance(op, Eq):
                 return plt.BuiltIn(uplc.BuiltInFun.EqualsData)
@@ -302,6 +304,31 @@ class UnionType(ClassType):
                             plt.Var("x"),
                             plt.Var("y"),
                         )
+                    ),
+                )
+        if (
+            isinstance(o, ListType)
+            and isinstance(o.typ, InstanceType)
+            and (o.typ.typ >= t or t >= o.typ.typ for t in self.typs)
+        ):
+            if isinstance(op, In):
+                return plt.Lambda(
+                    ["x", "y"],
+                    plt.EqualsData(
+                        plt.Var("x"),
+                        plt.FindList(
+                            plt.Var("y"),
+                            plt.Apply(
+                                plt.BuiltIn(uplc.BuiltInFun.EqualsData), plt.Var("x")
+                            ),
+                            # this simply ensures the default is always unequal to the searched value
+                            plt.ConstrData(
+                                plt.AddInteger(
+                                    plt.Constructor(plt.Var("x")), plt.Integer(1)
+                                ),
+                                plt.MkNilData(plt.Unit()),
+                            ),
+                        ),
                     ),
                 )
         raise NotImplementedError(
