@@ -1067,6 +1067,24 @@ def validator(_: None) -> Dict[str, List[Dict[bytes, int]]]:
             ),
         )
 
+    def test_constant_folding_plutusdata(self):
+        source_code = """
+from opshin.prelude import *
+
+def validator(_: None) -> PubKeyCredential:
+    return PubKeyCredential(bytes.fromhex("0011"))
+"""
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        self.assertIn("(con data #d8799f420011ff)", code.dumps())
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
+        self.assertEqual(
+            res,
+            uplc.PlutusConstr(
+                constructor=0, fields=[uplc.PlutusByteString(value=b"\x00\x11")]
+            ),
+        )
+
     def test_constant_folding_math(self):
         source_code = """
 from opshin.prelude import *
