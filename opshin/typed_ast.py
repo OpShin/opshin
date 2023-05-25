@@ -53,6 +53,15 @@ class Record:
     constructor: int
     fields: typing.Union[typing.List[typing.Tuple[str, Type]], FrozenList]
 
+    def __ge__(self, other):
+        if not isinstance(other, Record):
+            return False
+        return (
+            self.constructor == other.constructor
+            and len(self.fields) == len(other.fields)
+            and all(a >= b for a, b in zip(self.fields, other.fields))
+        )
+
 
 @dataclass(frozen=True, unsafe_hash=True)
 class ClassType(Type):
@@ -195,7 +204,7 @@ class RecordType(ClassType):
     def __ge__(self, other):
         # Can only substitute for its own type, records need to be equal
         # if someone wants to be funny, they can implement <= to be true if all fields match up to some point
-        return isinstance(other, self.__class__) and other.record == self.record
+        return isinstance(other, self.__class__) and self.record >= other.record
 
 
 @dataclass(frozen=True, unsafe_hash=True)

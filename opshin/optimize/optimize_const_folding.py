@@ -4,6 +4,8 @@ import logging
 
 from ast import *
 
+from pycardano import PlutusData
+
 try:
     unparse
 except NameError:
@@ -308,7 +310,10 @@ class OptimizeConstantFolding(CompilingNodeTransformer):
             _LOGGER.debug(e)
             return node
 
-        if any(isinstance(node_eval, t) for t in ACCEPTED_ATOMIC_TYPES + [list, dict]):
+        if any(
+            isinstance(node_eval, t)
+            for t in ACCEPTED_ATOMIC_TYPES + [list, dict, PlutusData]
+        ):
             new_node = Constant(node_eval, None)
             copy_location(new_node, node)
             return new_node
