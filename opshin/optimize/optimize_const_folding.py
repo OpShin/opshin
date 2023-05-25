@@ -1,7 +1,6 @@
 import typing
 from collections import defaultdict
-
-from copy import copy
+import logging
 
 from ast import *
 
@@ -16,6 +15,8 @@ from ..type_inference import INITIAL_SCOPE
 """
 Pre-evaluates constant statements
 """
+
+_LOGGER = logging.getLogger(__name__)
 
 ACCEPTED_ATOMIC_TYPES = [
     int,
@@ -142,6 +143,14 @@ class DefinedTimesVisitor(CompilingNodeVisitor):
         self.generic_visit(node.args)
         self.generic_visit(node)
 
+    def visit_Import(self, node: Import):
+        for n in node.names:
+            self.vars[n] += 1
+
+    def visit_ImportFrom(self, node: ImportFrom):
+        for n in node.names:
+            self.vars[n] += 1
+
 
 class OptimizeConstantFolding(CompilingNodeTransformer):
     step = "Constant folding"
@@ -172,7 +181,7 @@ class OptimizeConstantFolding(CompilingNodeTransformer):
             res_set.update(s)
         return res_set
 
-    def constant_vars(self):
+    def _constant_vars(self):
         res_d = {}
         for s in self.scopes_constants:
             res_d.update(s)
@@ -182,7 +191,7 @@ class OptimizeConstantFolding(CompilingNodeTransformer):
         self.scopes_visible.pop(-1)
         self.scopes_constants.pop(-1)
 
-    def non_overwritten_globals(self):
+    def _non_overwritten_globals(self):
         overwritten_vars = self.visible_vars()
 
         def err():
@@ -193,6 +202,19 @@ class OptimizeConstantFolding(CompilingNodeTransformer):
             for k, v in SAFE_GLOBALS.items()
         }
         return non_overwritten_globals
+
+    def update_constants(self, node):
+        a = self._non_overwritten_globals()
+        a.update(self._constant_vars())
+        g = a
+        l = {}
+        try:
+            exec(unparse(node), g, l)
+        except Exception as e:
+            _LOGGER.debug(e)
+        else:
+            # the class is defined and added to the globals
+            self.scopes_constants[-1].update(l)
 
     def visit_Module(self, node: Module) -> Module:
         self.enter_scope()
@@ -222,11 +244,7 @@ class OptimizeConstantFolding(CompilingNodeTransformer):
         self.add_vars_visible(def_vars)
 
         if node.name in self.constants:
-            g = self.non_overwritten_globals()
-            l = self.constant_vars()
-            exec(unparse(node), g, l)
-            # the function is defined and added to the globals
-            self.add_constant(node.name, l[node.name])
+            self.update_constants(node)
 
         res_node = self.generic_visit(node)
         self.exit_scope()
@@ -234,26 +252,18 @@ class OptimizeConstantFolding(CompilingNodeTransformer):
 
     def visit_ClassDef(self, node: ClassDef):
         if node.name in self.constants:
-            g = self.non_overwritten_globals()
-            l = self.constant_vars()
-            exec(unparse(node), g, l)
-            # the class is defined and added to the globals
-            self.add_constant(node.name, l[node.name])
+            self.update_constants(node)
+        return node
+
+    def visit_ImportFrom(self, node: ImportFrom):
+        if all(n in self.constants for n in node.names):
+            self.update_constants(node)
         return node
 
     def visit_Import(self, node: Import):
         if all(n in self.constants for n in node.names):
-            g = self.non_overwritten_globals()
-            l = self.constant_vars()
-            g.update(l)
-            new_l = {}
-            try:
-                exec(unparse(node), g, new_l)
-            except:
-                pass
-            else:
-                # the class is defined and added to the globals
-                self.scopes_constants[-1].update(new_l)
+            self.update_constants(node)
+        return node
 
     def visit_Assign(self, node: Assign):
         if len(node.targets) != 1:
@@ -263,15 +273,7 @@ class OptimizeConstantFolding(CompilingNodeTransformer):
             return node
 
         if target.id in self.constants:
-            g = self.non_overwritten_globals()
-            l = self.constant_vars()
-            try:
-                exec(unparse(node), g, l)
-            except:
-                pass
-            else:
-                # the class is defined and added to the globals
-                self.add_constant(target.id, l[target.id])
+            self.update_constants(node)
         node.value = self.visit(node.value)
         return node
 
@@ -281,10 +283,7 @@ class OptimizeConstantFolding(CompilingNodeTransformer):
             return node
 
         if target.id in self.constants:
-            g = self.non_overwritten_globals()
-            exec(unparse(node), g, self.constant_vars())
-            # the class is defined and added to the globals
-            self.add_constant(target.id, g[target.id])
+            self.update_constants(node)
         node.value = self.visit(node.value)
         return node
 
@@ -301,11 +300,12 @@ class OptimizeConstantFolding(CompilingNodeTransformer):
             # do not optimize away print statements
             return node
         try:
-            # TODO we can add preceding plutusdata definitions here!
+            # we add preceding constant plutusdata definitions here!
             node_eval = eval(
-                node_source, self.non_overwritten_globals(), self.constant_vars()
+                node_source, self._non_overwritten_globals(), self._constant_vars()
             )
         except Exception as e:
+            _LOGGER.debug(e)
             return node
 
         if any(isinstance(node_eval, t) for t in ACCEPTED_ATOMIC_TYPES + [list, dict]):
