@@ -1150,6 +1150,22 @@ def validator(_: None) -> int:
         code = compiler.compile(ast).compile()
         res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
 
+    @unittest.skip
+    def test_constant_folding_advanced(self):
+        source_code = """
+def validator(_: None) -> int:
+    if False:
+        a = 20
+        b = 2 * a
+    else:
+        b = 2
+    return b
+"""
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
+        self.assertIn("(con integer 40)", code.dumps())
+
     def test_constant_folding_math(self):
         source_code = """
 from opshin.prelude import *
