@@ -1102,6 +1102,54 @@ def validator(_: None) -> int:
             55,
         )
 
+    @unittest.expectedFailure
+    def test_constant_folding_ifelse(self):
+        source_code = """
+def validator(_: None) -> int:
+    if False:
+        a = 10
+    return a
+"""
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
+
+    @unittest.expectedFailure
+    def test_constant_folding_for(self):
+        source_code = """
+def validator(x: List[int]) -> int:
+    for i in x:
+        a = 10
+    return a
+"""
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusList([])))
+
+    @unittest.expectedFailure
+    def test_constant_folding_for_target(self):
+        source_code = """
+def validator(x: List[int]) -> int:
+    for i in x:
+        a = 10
+    return i
+"""
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusList([])))
+
+    @unittest.expectedFailure
+    def test_constant_folding_while(self):
+        source_code = """
+def validator(_: None) -> int:
+    while False:
+        a = 10
+    return a
+"""
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
+
     def test_constant_folding_math(self):
         source_code = """
 from opshin.prelude import *

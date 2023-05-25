@@ -130,6 +130,13 @@ class DefinedTimesVisitor(CompilingNodeVisitor):
         # visit the whole function
         self.generic_visit(node)
 
+    def visit_While(self, node: While) -> None:
+        # visit twice to have all names bumped to min 2 assignments
+        self.generic_visit(node)
+        self.generic_visit(node)
+        return
+        # TODO future items: use this together with guaranteed available
+
     def visit_If(self, node: If) -> None:
         # TODO future items: use this together with guaranteed available
         # visit twice to have all names bumped to min 2 assignments
