@@ -959,6 +959,7 @@ def compile(
     prog: AST,
     filename=None,
     force_three_params=False,
+    remove_dead_code=True,
     validator_function_name="validator",
 ):
     rewrite_steps = [
