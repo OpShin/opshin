@@ -1348,3 +1348,14 @@ def validator(_: None) -> None:
         ast = compiler.parse(source_code)
         code = compiler.compile(ast).compile()
         res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
+
+    def test_warn_bytestring(self):
+        # note this is a runtime error, just like it would be in python!
+        source_code = """
+b = b"0011ff"
+def validator(_: None) -> None:
+    pass
+"""
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
