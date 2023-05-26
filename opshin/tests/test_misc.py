@@ -1086,7 +1086,7 @@ def validator(_: None) -> PubKeyCredential:
     return PubKeyCredential(bytes.fromhex("0011"))
 """
         ast = compiler.parse(source_code)
-        code = compiler.compile(ast).compile()
+        code = compiler.compile(ast, constant_folding=True).compile()
         self.assertIn("(con data #d8799f420011ff)", code.dumps())
         res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
         self.assertEqual(
@@ -1105,7 +1105,7 @@ def validator(_: None) -> int:
     return fib(10)
 """
         ast = compiler.parse(source_code)
-        code = compiler.compile(ast).compile()
+        code = compiler.compile(ast, constant_folding=True).compile()
         self.assertIn("(con integer 55)", code.dumps())
         res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
         self.assertEqual(
@@ -1122,7 +1122,7 @@ def validator(_: None) -> int:
     return a
 """
         ast = compiler.parse(source_code)
-        code = compiler.compile(ast).compile()
+        code = compiler.compile(ast, constant_folding=True).compile()
         res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
 
     @unittest.expectedFailure
@@ -1134,7 +1134,7 @@ def validator(x: List[int]) -> int:
     return a
 """
         ast = compiler.parse(source_code)
-        code = compiler.compile(ast).compile()
+        code = compiler.compile(ast, constant_folding=True).compile()
         res = uplc_eval(uplc.Apply(code, uplc.PlutusList([])))
 
     @unittest.expectedFailure
@@ -1146,7 +1146,7 @@ def validator(x: List[int]) -> int:
     return i
 """
         ast = compiler.parse(source_code)
-        code = compiler.compile(ast).compile()
+        code = compiler.compile(ast, constant_folding=True).compile()
         res = uplc_eval(uplc.Apply(code, uplc.PlutusList([])))
 
     @unittest.expectedFailure
@@ -1158,7 +1158,7 @@ def validator(_: None) -> int:
     return a
 """
         ast = compiler.parse(source_code)
-        code = compiler.compile(ast).compile()
+        code = compiler.compile(ast, constant_folding=True).compile()
         res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
 
     @unittest.skip("Fine from a guarantee perspective, but needs better inspection")
@@ -1173,7 +1173,7 @@ def validator(_: None) -> int:
     return b
 """
         ast = compiler.parse(source_code)
-        code = compiler.compile(ast).compile()
+        code = compiler.compile(ast, constant_folding=True).compile()
         res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
         self.assertIn("(con integer 40)", code.dumps())
 
@@ -1187,7 +1187,7 @@ def validator(_: None) -> int:
     return b
 """
         ast = compiler.parse(source_code)
-        code = compiler.compile(ast).compile()
+        code = compiler.compile(ast, constant_folding=True).compile()
         res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
         self.assertIn("(con integer 10)", code.dumps())
 
@@ -1201,7 +1201,7 @@ def validator(_: None) -> int:
     return b
 """
         ast = compiler.parse(source_code)
-        code = compiler.compile(ast).compile()
+        code = compiler.compile(ast, constant_folding=True).compile()
         res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
         self.assertIn("(con integer 10)", code.dumps())
 
@@ -1214,7 +1214,7 @@ def validator(i: int) -> int:
     return a
 """
         ast = compiler.parse(source_code)
-        code = compiler.compile(ast).compile()
+        code = compiler.compile(ast, constant_folding=True).compile()
         res = uplc_eval(uplc.Apply(code, uplc.PlutusInteger(0)))
         self.assertEqual(res.value, 4)
         res = uplc_eval(uplc.Apply(code, uplc.PlutusInteger(1)))
