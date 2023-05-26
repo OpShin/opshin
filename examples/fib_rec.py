@@ -1,3 +1,6 @@
+#!opshin
+
+
 def fib(n: int) -> int:
     if n == 0:
         res = 0

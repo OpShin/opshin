@@ -1,3 +1,4 @@
+#!opshin
 from opshin.prelude import *
 
 
