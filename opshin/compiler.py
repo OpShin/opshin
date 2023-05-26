@@ -994,7 +994,7 @@ def compile(
         RewriteOrigName(),
         RewriteScoping(),
         # Apply optimizations
-        OptimizeRemoveDeadvars(),
+        OptimizeRemoveDeadvars() if remove_dead_code else NoOp(),
         OptimizeVarlen(),
         OptimizeRemoveDeadconstants(),
         OptimizeRemovePass(),

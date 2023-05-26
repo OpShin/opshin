@@ -272,6 +272,8 @@ def main():
             force_three_params=force_three_params,
             validator_function_name="validator" if purpose != Purpose.lib else None,
             constant_folding=constant_folding,
+            # do not remove dead code when compiling a library - none of the code will be used
+            remove_dead_code=purpose != Purpose.lib,
         )
     except CompilerError as c:
         # Generate nice error message from compiler error
