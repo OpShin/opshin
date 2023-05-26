@@ -163,8 +163,15 @@ def main():
     )
     a.add_argument(
         "--force-three-params",
+        "--ftp",
         action="store_true",
         help="Enforces that the contract is always called with three virtual parameters on-chain. Enable if the script should support spending and other purposes.",
+    )
+    a.add_argument(
+        "--constant-folding",
+        "--cf",
+        action="store_true",
+        help="Enables experimental constant folding, including propagation and code execution.",
     )
     a.add_argument(
         "args",
@@ -182,6 +189,7 @@ def main():
     purpose = Purpose(args.purpose)
     input_file = args.input_file if args.input_file != "-" else sys.stdin
     force_three_params = args.force_three_params
+    constant_folding = args.constant_folding
 
     # read and import the contract
     with open(input_file, "r") as f:
@@ -253,7 +261,10 @@ def main():
 
     try:
         code = compiler.compile(
-            source_ast, filename=input_file, force_three_params=force_three_params
+            source_ast,
+            filename=input_file,
+            force_three_params=force_three_params,
+            constant_folding=constant_folding,
         )
     except CompilerError as c:
         # Generate nice error message from compiler error
