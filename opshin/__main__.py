@@ -193,6 +193,7 @@ def main():
     # load the passed parameters if not a lib
     if purpose == Purpose.lib:
         assert not args.args, "Can not pass arguments to a library"
+        parsed_params = []
     else:
         annotations = list(sc.validator.__annotations__.values())
         if "return" not in sc.validator.__annotations__:
