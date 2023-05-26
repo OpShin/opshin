@@ -360,6 +360,15 @@ class UPLCCompiler(CompilingNodeTransformer):
         return cp
 
     def visit_Constant(self, node: TypedConstant) -> plt.AST:
+        if isinstance(node.value, bytes):
+            try:
+                bytes.fromhex(node.value.decode())
+            except ValueError:
+                pass
+            else:
+                _LOGGER.warning(
+                    f"The string {node.value} looks like it is supposed to be a hex-encoded bytestring but is actually utf8-encoded. Try using `bytes.fromhex('{node.value.decode()}')` instead."
+                )
         plt_val = plt.UPLCConstant(rec_constant_map(node.value))
         return plt.Lambda([STATEMONAD], plt_val)
 
