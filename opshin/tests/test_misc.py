@@ -1078,6 +1078,148 @@ def validator(_: None) -> Dict[str, List[Dict[bytes, int]]]:
             ),
         )
 
+    def test_constant_folding_plutusdata(self):
+        source_code = """
+from opshin.prelude import *
+
+def validator(_: None) -> PubKeyCredential:
+    return PubKeyCredential(bytes.fromhex("0011"))
+"""
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        self.assertIn("(con data #d8799f420011ff)", code.dumps())
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
+        self.assertEqual(
+            res,
+            uplc.PlutusConstr(
+                constructor=0, fields=[uplc.PlutusByteString(value=b"\x00\x11")]
+            ),
+        )
+
+    def test_constant_folding_user_def(self):
+        source_code = """
+def fib(i: int) -> int:
+    return i if i < 2 else fib(i-1) + fib(i-2)
+
+def validator(_: None) -> int:
+    return fib(10)
+"""
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        self.assertIn("(con integer 55)", code.dumps())
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
+        self.assertEqual(
+            res.value,
+            55,
+        )
+
+    @unittest.expectedFailure
+    def test_constant_folding_ifelse(self):
+        source_code = """
+def validator(_: None) -> int:
+    if False:
+        a = 10
+    return a
+"""
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
+
+    @unittest.expectedFailure
+    def test_constant_folding_for(self):
+        source_code = """
+def validator(x: List[int]) -> int:
+    for i in x:
+        a = 10
+    return a
+"""
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusList([])))
+
+    @unittest.expectedFailure
+    def test_constant_folding_for_target(self):
+        source_code = """
+def validator(x: List[int]) -> int:
+    for i in x:
+        a = 10
+    return i
+"""
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusList([])))
+
+    @unittest.expectedFailure
+    def test_constant_folding_while(self):
+        source_code = """
+def validator(_: None) -> int:
+    while False:
+        a = 10
+    return a
+"""
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
+
+    @unittest.skip("Fine from a guarantee perspective, but needs better inspection")
+    def test_constant_folding_guaranteed_branch(self):
+        source_code = """
+def validator(_: None) -> int:
+    if False:
+        a = 20
+        b = 2 * a
+    else:
+        b = 2
+    return b
+"""
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
+        self.assertIn("(con integer 40)", code.dumps())
+
+    @unittest.skip("Fine from a guarantee perspective, but needs better inspection")
+    def test_constant_folding_scoping(self):
+        source_code = """
+a = 4
+def validator(_: None) -> int:
+    a = 2
+    b = 5 * a
+    return b
+"""
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
+        self.assertIn("(con integer 10)", code.dumps())
+
+    @unittest.skip("Fine from a guarantee perspective, but needs better inspection")
+    def test_constant_folding_no_scoping(self):
+        source_code = """
+def validator(_: None) -> int:
+    a = 4
+    a = 2
+    b = 5 * a
+    return b
+"""
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
+        self.assertIn("(con integer 10)", code.dumps())
+
+    def test_constant_folding_repeated_assign(self):
+        source_code = """
+def validator(i: int) -> int:
+    a = 4
+    for k in range(i):
+        a = 2
+    return a
+"""
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusInteger(0)))
+        self.assertEqual(res.value, 4)
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusInteger(1)))
+        self.assertEqual(res.value, 2)
+
     def test_constant_folding_math(self):
         source_code = """
 from opshin.prelude import *

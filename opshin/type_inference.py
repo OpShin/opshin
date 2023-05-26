@@ -1,5 +1,8 @@
+from dataclasses import asdict
+
 from copy import copy
 import ast
+from pycardano import PlutusData
 
 from .typed_ast import *
 from .util import PythonBuiltInTypes, CompilingNodeTransformer
@@ -42,6 +45,14 @@ INITIAL_SCOPE.update(
 )
 
 
+def record_from_plutusdata(c: PlutusData):
+    return Record(
+        name=c.__class__.__name__,
+        constructor=c.CONSTR_ID,
+        fields=FrozenFrozenList([(k, constant_type(v)) for k, v in asdict(c).items()]),
+    )
+
+
 def constant_type(c):
     if isinstance(c, bool):
         return BoolInstanceType
@@ -71,6 +82,9 @@ def constant_type(c):
             constant_type(ce) == first_value_typ for ce in c.values()
         ), "Constant dicts must contain values of a single type only"
         return InstanceType(DictType(first_key_typ, first_value_typ))
+    if isinstance(c, PlutusData):
+        return InstanceType(RecordType(record=record_from_plutusdata(c)))
+    raise NotImplementedError(f"Type {type(c)} not supported")
 
 
 class AggressiveTypeInferencer(CompilingNodeTransformer):
