@@ -291,7 +291,7 @@ class UnionType(ClassType):
         # note we require that there is an overlapt between the possible types for unions
         if (isinstance(o, RecordType) and any(t >= o or o >= t for t in self.typs)) or (
             isinstance(o, UnionType)
-            and any(t >= o or t >= o for t in self.typs for o in o.typs)
+            and any(t >= ot or t >= ot for t in self.typs for ot in o.typs)
         ):
             if isinstance(op, Eq):
                 return plt.BuiltIn(uplc.BuiltInFun.EqualsData)
