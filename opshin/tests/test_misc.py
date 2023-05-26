@@ -997,20 +997,9 @@ def validator(_: None) -> bytes:
     return bytes.fromhex("0011")
 """
         ast = compiler.parse(source_code)
-        code = compiler.compile(ast, constant_folding=True).compile()
+        code = compiler.compile(ast).compile()
         res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
         self.assertEqual(res, uplc.PlutusByteString(bytes.fromhex("0011")))
-
-    @unittest.expectedFailure
-    def test_constant_folding_disabled(self):
-        source_code = """
-from opshin.prelude import *
-
-def validator(_: None) -> bytes:
-    return bytes.fromhex("0011")
-"""
-        ast = compiler.parse(source_code)
-        code = compiler.compile(ast, constant_folding=False).compile()
 
     def test_constant_folding_list(self):
         source_code = """
@@ -1020,7 +1009,7 @@ def validator(_: None) -> List[int]:
     return list(range(0, 10, 2))
 """
         ast = compiler.parse(source_code)
-        code = compiler.compile(ast, constant_folding=True).compile()
+        code = compiler.compile(ast).compile()
         self.assertIn("(con list<integer> [0, 2, 4, 6, 8])", code.dumps())
         res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
         self.assertEqual(
@@ -1035,7 +1024,7 @@ def validator(_: None) -> Dict[str, bool]:
     return {"s": True, "m": False}
 """
         ast = compiler.parse(source_code)
-        code = compiler.compile(ast, constant_folding=True).compile()
+        code = compiler.compile(ast).compile()
         self.assertIn(
             "(con list<pair<data, data>> [[#4173, #01], [#416d, #00]]))", code.dumps()
         )
@@ -1058,7 +1047,7 @@ def validator(_: None) -> Dict[str, List[Dict[bytes, int]]]:
     return {"s": [{b"": 0}, {b"0": 1}]}
 """
         ast = compiler.parse(source_code)
-        code = compiler.compile(ast, constant_folding=True).compile()
+        code = compiler.compile(ast).compile()
         res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
         self.assertEqual(
             res,
@@ -1086,7 +1075,7 @@ def validator(_: None) -> int:
     return 2 ** 10
 """
         ast = compiler.parse(source_code)
-        code = compiler.compile(ast, constant_folding=True).compile()
+        code = compiler.compile(ast).compile()
         code_src = code.dumps()
         self.assertIn(f"(con integer {2**10})", code_src)
 
@@ -1100,7 +1089,7 @@ def validator(_: None) -> int:
     return int(5)
 """
         ast = compiler.parse(source_code)
-        code = compiler.compile(ast, constant_folding=True).compile()
+        code = compiler.compile(ast).compile()
         res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
         self.assertEqual(res, uplc.PlutusInteger(2))
 
@@ -1112,7 +1101,7 @@ def validator(_: None) -> None:
     return print("hello")
 """
         ast = compiler.parse(source_code)
-        code = compiler.compile(ast, constant_folding=True).compile()
+        code = compiler.compile(ast).compile()
         code_src = code.dumps()
         self.assertIn(f'(con string "hello")', code_src)
 

@@ -532,12 +532,6 @@ class CompilingNodeTransformer(TypedNodeTransformer):
             raise CompilerError(e, node, self.step)
 
 
-class NoOp(CompilingNodeTransformer):
-    """A variation of the Compiling Node transformer that performs no changes"""
-
-    pass
-
-
 class CompilingNodeVisitor(TypedNodeVisitor):
     step = "Node visiting"
 
