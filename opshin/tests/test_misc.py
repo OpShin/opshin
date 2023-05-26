@@ -1150,8 +1150,8 @@ def validator(_: None) -> int:
         code = compiler.compile(ast).compile()
         res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
 
-    @unittest.skip
-    def test_constant_folding_advanced(self):
+    @unittest.skip("Fine from a guarantee perspective, but needs better inspection")
+    def test_constant_folding_guaranteed_branch(self):
         source_code = """
 def validator(_: None) -> int:
     if False:
@@ -1165,6 +1165,49 @@ def validator(_: None) -> int:
         code = compiler.compile(ast).compile()
         res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
         self.assertIn("(con integer 40)", code.dumps())
+
+    @unittest.skip("Fine from a guarantee perspective, but needs better inspection")
+    def test_constant_folding_scoping(self):
+        source_code = """
+a = 4
+def validator(_: None) -> int:
+    a = 2
+    b = 5 * a
+    return b
+"""
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
+        self.assertIn("(con integer 10)", code.dumps())
+
+    @unittest.skip("Fine from a guarantee perspective, but needs better inspection")
+    def test_constant_folding_no_scoping(self):
+        source_code = """
+def validator(_: None) -> int:
+    a = 4
+    a = 2
+    b = 5 * a
+    return b
+"""
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
+        self.assertIn("(con integer 10)", code.dumps())
+
+    def test_constant_folding_repeated_assign(self):
+        source_code = """
+def validator(i: int) -> int:
+    a = 4
+    for k in range(i):
+        a = 2
+    return a
+"""
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusInteger(0)))
+        self.assertEqual(res.value, 4)
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusInteger(1)))
+        self.assertEqual(res.value, 2)
 
     def test_constant_folding_math(self):
         source_code = """

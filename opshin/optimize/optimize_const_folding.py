@@ -154,7 +154,8 @@ class DefinedTimesVisitor(CompilingNodeVisitor):
     def visit_FunctionDef(self, node: FunctionDef):
         self.vars[node.name] += 1
         # visit arguments twice, they are generally assigned more than once
-        self.generic_visit(node.args)
+        for arg in node.args.args:
+            self.vars[arg.arg] += 2
         self.generic_visit(node)
 
     def visit_Import(self, node: Import):
