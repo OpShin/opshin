@@ -1,3 +1,4 @@
+#!opshin
 from opshin.prelude import *
 
 """ This contract can be parameterized at compile time with a secret value to supply for spending """

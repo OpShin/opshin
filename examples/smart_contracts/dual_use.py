@@ -1,3 +1,4 @@
+#!opshin
 from opshin.prelude import *
 
 """ This contract allows both minting and spending from its address """
