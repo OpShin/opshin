@@ -35,6 +35,7 @@ class Purpose(enum.Enum):
     rewarding = "rewarding"
     certifying = "certifying"
     any = "any"
+    lib = "lib"
 
 
 def plutus_data_from_json(annotation: typing.Type, x: dict):
@@ -189,48 +190,52 @@ def main():
     sys.path.append(str(pathlib.Path(tmp_input_file).parent.absolute()))
     sc = importlib.import_module(pathlib.Path(tmp_input_file).stem)
     sys.path.pop()
-    # load the passed parameters
-    annotations = list(sc.validator.__annotations__.values())
-    if "return" not in sc.validator.__annotations__:
-        annotations.append(prelude.Anything)
-    parsed_params = []
-    for i, (c, a) in enumerate(zip(annotations, args.args)):
-        if a[0] == "{":
-            try:
-                param_json = json.loads(a)
-            except Exception as e:
-                raise ValueError(
-                    f'Invalid parameter for contract passed at position {i}, expected json value, got "{a}". Did you correctly encode the value as json and wrap it in quotes?'
-                ) from e
-            try:
-                param = plutus_data_from_json(c, param_json)
-            except Exception as e:
-                raise ValueError(
-                    f"Invalid parameter for contract passed at position {i}, expected type {c.__name__}."
-                ) from e
-        else:
-            try:
-                param_bytes = bytes.fromhex(a)
-            except Exception as e:
-                raise ValueError(
-                    "Expected hexadecimal CBOR representation of plutus datum but could not transform hex string to bytes."
-                ) from e
-            try:
-                param = plutus_data_from_cbor(c, param_bytes)
-            except Exception as e:
-                raise ValueError(
-                    f"Invalid parameter for contract passed at position {i}, expected type {c.__name__}."
-                ) from e
-        parsed_params.append(param)
-    check_params(
-        command,
-        purpose,
-        annotations,
-        parsed_params,
-        force_three_params,
-    )
+    # load the passed parameters if not a lib
+    if purpose == Purpose.lib:
+        assert not args.args, "Can not pass arguments to a library"
+    else:
+        annotations = list(sc.validator.__annotations__.values())
+        if "return" not in sc.validator.__annotations__:
+            annotations.append(prelude.Anything)
+        parsed_params = []
+        for i, (c, a) in enumerate(zip(annotations, args.args)):
+            if a[0] == "{":
+                try:
+                    param_json = json.loads(a)
+                except Exception as e:
+                    raise ValueError(
+                        f'Invalid parameter for contract passed at position {i}, expected json value, got "{a}". Did you correctly encode the value as json and wrap it in quotes?'
+                    ) from e
+                try:
+                    param = plutus_data_from_json(c, param_json)
+                except Exception as e:
+                    raise ValueError(
+                        f"Invalid parameter for contract passed at position {i}, expected type {c.__name__}."
+                    ) from e
+            else:
+                try:
+                    param_bytes = bytes.fromhex(a)
+                except Exception as e:
+                    raise ValueError(
+                        "Expected hexadecimal CBOR representation of plutus datum but could not transform hex string to bytes."
+                    ) from e
+                try:
+                    param = plutus_data_from_cbor(c, param_bytes)
+                except Exception as e:
+                    raise ValueError(
+                        f"Invalid parameter for contract passed at position {i}, expected type {c.__name__}."
+                    ) from e
+            parsed_params.append(param)
+        check_params(
+            command,
+            purpose,
+            annotations,
+            parsed_params,
+            force_three_params,
+        )
 
     if command == Command.eval:
+        assert purpose != Purpose.lib, "Can not evaluate a library"
         print("Starting execution")
         print("------------------")
         try:
@@ -249,7 +254,10 @@ def main():
 
     try:
         code = compiler.compile(
-            source_ast, filename=input_file, force_three_params=force_three_params
+            source_ast,
+            filename=input_file,
+            force_three_params=force_three_params,
+            validator_function_name="validator" if purpose != Purpose.lib else None,
         )
     except CompilerError as c:
         # Generate nice error message from compiler error

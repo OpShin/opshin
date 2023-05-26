@@ -266,7 +266,11 @@ class UPLCCompiler(CompilingNodeTransformer):
         )
 
     def visit_Module(self, node: TypedModule) -> plt.AST:
-        # find main function
+        compiled_body = plt.Apply(self.visit_sequence(node.body), INITIAL_STATE)
+        if self.validator_function_name is None:
+            # for libraries, just return the body (a statemonad)
+            return compiled_body
+        # for validators find main function
         # TODO can use more sophisiticated procedure here i.e. functions marked by comment
         main_fun: typing.Optional[InstanceType] = None
         for s in node.body:
@@ -316,7 +320,7 @@ class UPLCCompiler(CompilingNodeTransformer):
                     [
                         (
                             "s",
-                            plt.Apply(self.visit_sequence(node.body), INITIAL_STATE),
+                            compiled_body,
                         ),
                         (
                             "g",
