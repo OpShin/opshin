@@ -23,7 +23,7 @@ from .optimize.optimize_remove_pass import OptimizeRemovePass
 from .optimize.optimize_remove_deadvars import OptimizeRemoveDeadvars
 from .optimize.optimize_varlen import OptimizeVarlen
 from .type_inference import *
-from .util import CompilingNodeTransformer, PowImpl
+from .util import CompilingNodeTransformer, PowImpl, NoOp
 from .typed_ast import transform_ext_params_map, transform_output_map, RawPlutoExpr
 
 
@@ -954,13 +954,14 @@ def compile(
     prog: AST,
     filename=None,
     force_three_params=False,
+    constant_folding=False,
     validator_function_name="validator",
 ):
     rewrite_steps = [
         # Important to call this one first - it imports all further files
         RewriteImport(filename=filename),
         # Rewrites that simplify the python code
-        OptimizeConstantFolding(),
+        OptimizeConstantFolding() if constant_folding else NoOp(),
         RewriteSubscript38(),
         RewriteAugAssign(),
         RewriteTupleAssign(),
