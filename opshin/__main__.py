@@ -207,6 +207,7 @@ def main():
         assert not args.args, "Can not pass arguments to a library"
         parsed_params = []
     else:
+        assert hasattr(sc, "validator"), "Could not find function named validator"
         annotations = list(sc.validator.__annotations__.values())
         if "return" not in sc.validator.__annotations__:
             annotations.append(prelude.Anything)
