@@ -197,188 +197,205 @@ def main():
     input_file = args.input_file if args.input_file != "-" else sys.stdin
     force_three_params = args.force_three_params
     constant_folding = args.constant_folding
-
-    # read and import the contract
-    with open(input_file, "r") as f:
-        source_code = f.read()
-    tmp_input_file = pathlib.Path("build").joinpath("__tmp_opshin.py")
-    tmp_input_file.parent.mkdir(exist_ok=True)
-    with tmp_input_file.open("w") as fp:
-        fp.write(source_code)
-    sys.path.append(str(pathlib.Path(tmp_input_file).parent.absolute()))
-    sc = importlib.import_module(pathlib.Path(tmp_input_file).stem)
-    sys.path.pop()
-    # load the passed parameters if not a lib
-    if purpose == Purpose.lib:
-        assert not args.args, "Can not pass arguments to a library"
-        parsed_params = []
-    else:
-        annotations = list(sc.validator.__annotations__.values())
-        if "return" not in sc.validator.__annotations__:
-            annotations.append(prelude.Anything)
-        parsed_params = []
-        for i, (c, a) in enumerate(zip(annotations, args.args)):
-            if a[0] == "{":
-                try:
-                    param_json = json.loads(a)
-                except Exception as e:
-                    raise ValueError(
-                        f'Invalid parameter for contract passed at position {i}, expected json value, got "{a}". Did you correctly encode the value as json and wrap it in quotes?'
-                    ) from e
-                try:
-                    param = plutus_data_from_json(c, param_json)
-                except Exception as e:
-                    raise ValueError(
-                        f"Invalid parameter for contract passed at position {i}, expected type {c.__name__}."
-                    ) from e
-            else:
-                try:
-                    param_bytes = bytes.fromhex(a)
-                except Exception as e:
-                    raise ValueError(
-                        "Expected hexadecimal CBOR representation of plutus datum but could not transform hex string to bytes."
-                    ) from e
-                try:
-                    param = plutus_data_from_cbor(c, param_bytes)
-                except Exception as e:
-                    raise ValueError(
-                        f"Invalid parameter for contract passed at position {i}, expected type {c.__name__}."
-                    ) from e
-            parsed_params.append(param)
-        check_params(
-            command,
-            purpose,
-            annotations,
-            parsed_params,
-            force_three_params,
-        )
-
-    if command == Command.eval:
-        assert purpose != Purpose.lib, "Can not evaluate a library"
-        print("Starting execution")
-        print("------------------")
-        try:
-            ret = sc.validator(*parsed_params)
-        except Exception as e:
-            print(f"Exception of type {type(e).__name__} caused")
-            ret = e
-        print("------------------")
-        print(ret)
-
-    source_ast = compiler.parse(source_code, filename=input_file)
-
-    if command == Command.parse:
-        print("Parsed successfully.")
-        return
-
     try:
-        code = compiler.compile(
-            source_ast,
-            filename=input_file,
-            force_three_params=force_three_params,
-            validator_function_name="validator" if purpose != Purpose.lib else None,
-            constant_folding=constant_folding,
-            # do not remove dead code when compiling a library - none of the code will be used
-            remove_dead_code=purpose != Purpose.lib,
-        )
-    except CompilerError as c:
-        # Generate nice error message from compiler error
-        if not isinstance(c.node, ast.Module):
-            source_seg = ast.get_source_segment(source_code, c.node)
-            start_line = c.node.lineno - 1
-            end_line = start_line + len(source_seg.splitlines())
-            source_lines = "\n".join(source_code.splitlines()[start_line:end_line])
-            pos_in_line = source_lines.find(source_seg)
+        # read and import the contract
+        with open(input_file, "r") as f:
+            source_code = f.read()
+        tmp_input_file = pathlib.Path("build").joinpath("__tmp_opshin.py")
+        tmp_input_file.parent.mkdir(exist_ok=True)
+        with tmp_input_file.open("w") as fp:
+            fp.write(source_code)
+        sys.path.append(str(pathlib.Path(tmp_input_file).parent.absolute()))
+        sc = importlib.import_module(pathlib.Path(tmp_input_file).stem)
+        sys.path.pop()
+        # load the passed parameters if not a lib
+        if purpose == Purpose.lib:
+            assert not args.args, "Can not pass arguments to a library"
+            parsed_params = []
         else:
-            start_line = 0
-            pos_in_line = 0
-            source_lines = source_code.splitlines()[0]
+            annotations = list(sc.validator.__annotations__.values())
+            if "return" not in sc.validator.__annotations__:
+                annotations.append(prelude.Anything)
+            parsed_params = []
+            for i, (c, a) in enumerate(zip(annotations, args.args)):
+                if a[0] == "{":
+                    try:
+                        param_json = json.loads(a)
+                    except Exception as e:
+                        raise ValueError(
+                            f'Invalid parameter for contract passed at position {i}, expected json value, got "{a}". Did you correctly encode the value as json and wrap it in quotes?'
+                        ) from e
+                    try:
+                        param = plutus_data_from_json(c, param_json)
+                    except Exception as e:
+                        raise ValueError(
+                            f"Invalid parameter for contract passed at position {i}, expected type {c.__name__}."
+                        ) from e
+                else:
+                    try:
+                        param_bytes = bytes.fromhex(a)
+                    except Exception as e:
+                        raise ValueError(
+                            "Expected hexadecimal CBOR representation of plutus datum but could not transform hex string to bytes."
+                        ) from e
+                    try:
+                        param = plutus_data_from_cbor(c, param_bytes)
+                    except Exception as e:
+                        raise ValueError(
+                            f"Invalid parameter for contract passed at position {i}, expected type {c.__name__}."
+                        ) from e
+                parsed_params.append(param)
+            check_params(
+                command,
+                purpose,
+                annotations,
+                parsed_params,
+                force_three_params,
+            )
 
+        if command == Command.eval:
+            assert purpose != Purpose.lib, "Can not evaluate a library"
+            print("Starting execution")
+            print("------------------")
+            try:
+                ret = sc.validator(*parsed_params)
+            except Exception as e:
+                print(f"Exception of type {type(e).__name__} caused")
+                ret = e
+            print("------------------")
+            print(ret)
+
+        source_ast = compiler.parse(source_code, filename=input_file)
+
+        if command == Command.parse:
+            print("Parsed successfully.")
+            return
+
+        try:
+            code = compiler.compile(
+                source_ast,
+                filename=input_file,
+                force_three_params=force_three_params,
+                validator_function_name="validator" if purpose != Purpose.lib else None,
+                constant_folding=constant_folding,
+                # do not remove dead code when compiling a library - none of the code will be used
+                remove_dead_code=purpose != Purpose.lib,
+            )
+        except CompilerError as c:
+            # Generate nice error message from compiler error
+            if not isinstance(c.node, ast.Module):
+                source_seg = ast.get_source_segment(source_code, c.node)
+                start_line = c.node.lineno - 1
+                end_line = start_line + len(source_seg.splitlines())
+                source_lines = "\n".join(source_code.splitlines()[start_line:end_line])
+                pos_in_line = source_lines.find(source_seg)
+            else:
+                start_line = 0
+                pos_in_line = 0
+                source_lines = source_code.splitlines()[0]
+
+            overwrite_syntaxerror = (
+                len("SyntaxError: ") * "\b" if command != Command.lint else ""
+            )
+            err = SyntaxError(
+                f"""\
+{overwrite_syntaxerror}{c.orig_err.__class__.__name__}: {c.orig_err}
+Note that opshin errors may be overly restrictive as they aim to prevent code with unintended consequences.
+""",
+                (
+                    args.input_file,
+                    start_line + 1,
+                    pos_in_line,
+                    source_lines,
+                )
+                # we remove chaining so that users to not see the internal trace back,
+            )
+            err.orig_err = c.orig_err
+            raise err from None
+
+        if command == Command.compile_pluto:
+            print(code.dumps())
+            return
+        code = code.compile()
+
+        # apply parameters from the command line to the contract (instantiates parameterized contract!)
+        code = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        for d in map(
+            data_from_json,
+            map(json.loads, (PlutusData.to_json(p) for p in parsed_params)),
+        ):
+            code = uplc.ast.Apply(code, d)
+        code = uplc.ast.Program((1, 0, 0), code)
+
+        if command == Command.compile:
+            print(code.dumps())
+            return
+
+        if command == Command.build:
+            if args.output_directory == "":
+                if args.input_file == "-":
+                    print(
+                        "Please supply an output directory if no input file is specified."
+                    )
+                    exit(-1)
+                target_dir = pathlib.Path("build") / pathlib.Path(input_file).stem
+            else:
+                target_dir = pathlib.Path(args.output_directory)
+            target_dir.mkdir(exist_ok=True, parents=True)
+            artifacts = builder.generate_artifacts(builder._build(code))
+            with (target_dir / "script.cbor").open("w") as fp:
+                fp.write(artifacts.cbor_hex)
+            with (target_dir / "script.plutus").open("w") as fp:
+                fp.write(artifacts.plutus_json)
+            with (target_dir / "script.policy_id").open("w") as fp:
+                fp.write(artifacts.policy_id)
+            with (target_dir / "mainnet.addr").open("w") as fp:
+                fp.write(artifacts.mainnet_addr)
+            with (target_dir / "testnet.addr").open("w") as fp:
+                fp.write(artifacts.testnet_addr)
+
+            print(f"Wrote script artifacts to {target_dir}/")
+            return
+        if command == Command.eval_uplc:
+            print("Starting execution")
+            print("------------------")
+            assert isinstance(code, uplc.ast.Program)
+            try:
+                ret = uplc.dumps(uplc.eval(code))
+            except Exception as e:
+                print("An exception was raised")
+                ret = e
+            print("------------------")
+            print(ret)
+    except Exception as e:
         if command == Command.lint:
+            error_class_name = e.__class__.__name__
+            message = str(e)
+            if isinstance(e, SyntaxError):
+                start_line = e.lineno
+                pos_in_line = e.offset
+                if hasattr(e, "orig_err"):
+                    error_class_name = e.orig_err.__class__.__name__
+                    message = str(e.orig_err)
+            else:
+                start_line = 1
+                pos_in_line = 1
             if args.output_format_json:
                 print(
                     convert_linter_to_json(
                         line=start_line,
                         column=pos_in_line,
-                        error_class=c.orig_err.__class__.__name__,
-                        message=str(c.orig_err),
+                        error_class=error_class_name,
+                        message=message,
                     )
                 )
             else:
                 print(
-                    f"{args.input_file}:{start_line+1}:{pos_in_line}: {c.orig_err.__class__.__name__}: {c.orig_err}"
+                    f"{args.input_file}:{start_line+1}:{pos_in_line}: {error_class_name}: {message}"
                 )
             return
-
-        overwrite_syntaxerror = len("SyntaxError: ") * "\b"
-        raise SyntaxError(
-            f"""\
-{overwrite_syntaxerror}{c.orig_err.__class__.__name__}: {c.orig_err}
-Note that opshin errors may be overly restrictive as they aim to prevent code with unintended consequences.
-""",
-            (
-                args.input_file,
-                start_line + 1,
-                pos_in_line,
-                source_lines,
-            )
-            # we remove chaining so that users to not see the internal trace back,
-        ) from None
-
-    if command == Command.compile_pluto:
-        print(code.dumps())
-        return
-    code = code.compile()
-
-    # apply parameters from the command line to the contract (instantiates parameterized contract!)
-    code = code.term
-    # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
-    for d in map(
-        data_from_json, map(json.loads, (PlutusData.to_json(p) for p in parsed_params))
-    ):
-        code = uplc.ast.Apply(code, d)
-    code = uplc.ast.Program((1, 0, 0), code)
-
-    if command == Command.compile:
-        print(code.dumps())
-        return
-
-    if command == Command.build:
-        if args.output_directory == "":
-            if args.input_file == "-":
-                print(
-                    "Please supply an output directory if no input file is specified."
-                )
-                exit(-1)
-            target_dir = pathlib.Path("build") / pathlib.Path(input_file).stem
-        else:
-            target_dir = pathlib.Path(args.output_directory)
-        target_dir.mkdir(exist_ok=True, parents=True)
-        artifacts = builder.generate_artifacts(builder._build(code))
-        with (target_dir / "script.cbor").open("w") as fp:
-            fp.write(artifacts.cbor_hex)
-        with (target_dir / "script.plutus").open("w") as fp:
-            fp.write(artifacts.plutus_json)
-        with (target_dir / "script.policy_id").open("w") as fp:
-            fp.write(artifacts.policy_id)
-        with (target_dir / "mainnet.addr").open("w") as fp:
-            fp.write(artifacts.mainnet_addr)
-        with (target_dir / "testnet.addr").open("w") as fp:
-            fp.write(artifacts.testnet_addr)
-
-        print(f"Wrote script artifacts to {target_dir}/")
-        return
-    if command == Command.eval_uplc:
-        print("Starting execution")
-        print("------------------")
-        assert isinstance(code, uplc.ast.Program)
-        try:
-            ret = uplc.dumps(uplc.eval(code))
-        except Exception as e:
-            print("An exception was raised")
-            ret = e
-        print("------------------")
-        print(ret)
+        raise e
 
 
 def convert_linter_to_json(
