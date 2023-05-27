@@ -116,6 +116,12 @@ def check_params(
     num_onchain_params = 3 if purpose == Purpose.spending or force_three_params else 2
     onchain_params = validator_args[-1 - num_onchain_params : -1]
     param_types = validator_args[: -1 - num_onchain_params]
+    required_onchain_parameters = 3 if purpose == Purpose.spending else 2
+    assert (
+        len(onchain_params) == required_onchain_parameters
+    ), f"""\
+{purpose.value.capitalize()} validator must expect {required_onchain_parameters} parameters at evaluation (on-chain), but was specified to have {len(onchain_params)}.
+Make sure the validator expects parameters {'datum, ' if purpose == Purpose.spending else ''}redeemer and script context."""
 
     if command in (Command.eval, Command.eval_uplc):
         assert len(validator_params) == len(param_types) + len(
