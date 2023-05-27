@@ -602,6 +602,12 @@ class CompilingNodeTransformer(TypedNodeTransformer):
             raise CompilerError(e, node, self.step)
 
 
+class NoOp(CompilingNodeTransformer):
+    &#34;&#34;&#34;A variation of the Compiling Node transformer that performs no changes&#34;&#34;&#34;
+
+    pass
+
+
 class CompilingNodeVisitor(TypedNodeVisitor):
     step = &#34;Node visiting&#34;
 
@@ -842,6 +848,7 @@ just a single node.</p>
 <li><a title="opshin.rewrite.rewrite_tuple_assign.RewriteTupleAssign" href="rewrite/rewrite_tuple_assign.html#opshin.rewrite.rewrite_tuple_assign.RewriteTupleAssign">RewriteTupleAssign</a></li>
 <li><a title="opshin.rewrite.rewrite_zero_ary.RewriteZeroAry" href="rewrite/rewrite_zero_ary.html#opshin.rewrite.rewrite_zero_ary.RewriteZeroAry">RewriteZeroAry</a></li>
 <li><a title="opshin.type_inference.AggressiveTypeInferencer" href="type_inference.html#opshin.type_inference.AggressiveTypeInferencer">AggressiveTypeInferencer</a></li>
+<li><a title="opshin.util.NoOp" href="#opshin.util.NoOp">NoOp</a></li>
 </ul>
 <h3>Class variables</h3>
 <dl>
@@ -920,6 +927,7 @@ allows modifications.</p></div>
 </ul>
 <h3>Subclasses</h3>
 <ul class="hlist">
+<li><a title="opshin.optimize.optimize_const_folding.DefinedTimesVisitor" href="optimize/optimize_const_folding.html#opshin.optimize.optimize_const_folding.DefinedTimesVisitor">DefinedTimesVisitor</a></li>
 <li><a title="opshin.optimize.optimize_const_folding.ShallowNameDefCollector" href="optimize/optimize_const_folding.html#opshin.optimize.optimize_const_folding.ShallowNameDefCollector">ShallowNameDefCollector</a></li>
 <li><a title="opshin.optimize.optimize_remove_deadvars.NameLoadCollector" href="optimize/optimize_remove_deadvars.html#opshin.optimize.optimize_remove_deadvars.NameLoadCollector">NameLoadCollector</a></li>
 <li><a title="opshin.optimize.optimize_remove_deadvars.SafeOperationVisitor" href="optimize/optimize_remove_deadvars.html#opshin.optimize.optimize_remove_deadvars.SafeOperationVisitor">SafeOperationVisitor</a></li>
@@ -1050,6 +1058,41 @@ allows modifications.</p></div>
     ), &#34;Can only determine length of instances&#34;
     return FunctionType(args, IntegerInstanceType)</code></pre>
 </details>
+</dd>
+</dl>
+</dd>
+<dt id="opshin.util.NoOp"><code class="flex name class">
+<span>class <span class="ident">NoOp</span></span>
+</code></dt>
+<dd>
+<div class="desc"><p>A variation of the Compiling Node transformer that performs no changes</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class NoOp(CompilingNodeTransformer):
+    &#34;&#34;&#34;A variation of the Compiling Node transformer that performs no changes&#34;&#34;&#34;
+
+    pass</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li><a title="opshin.util.CompilingNodeTransformer" href="#opshin.util.CompilingNodeTransformer">CompilingNodeTransformer</a></li>
+<li><a title="opshin.typed_ast.TypedNodeTransformer" href="typed_ast.html#opshin.typed_ast.TypedNodeTransformer">TypedNodeTransformer</a></li>
+<li>ast.NodeTransformer</li>
+<li>ast.NodeVisitor</li>
+</ul>
+<h3>Methods</h3>
+<dl>
+<dt id="opshin.util.NoOp.visit"><code class="name flex">
+<span>def <span class="ident">visit</span></span>(<span>self, node)</span>
+</code></dt>
+<dd>
+<p class="inheritance">
+<em>Inherited from:</em>
+<code><a title="opshin.util.CompilingNodeTransformer" href="#opshin.util.CompilingNodeTransformer">CompilingNodeTransformer</a></code>.<code><a title="opshin.util.CompilingNodeTransformer.visit" href="#opshin.util.CompilingNodeTransformer.visit">visit</a></code>
+</p>
+<div class="desc inherited"><p>Visit a node.</p></div>
 </dd>
 </dl>
 </dd>
@@ -1663,6 +1706,12 @@ setTimeout(() => input.focus(), 100);
 <ul class="">
 <li><code><a title="opshin.util.LenImpl.impl_from_args" href="#opshin.util.LenImpl.impl_from_args">impl_from_args</a></code></li>
 <li><code><a title="opshin.util.LenImpl.type_from_args" href="#opshin.util.LenImpl.type_from_args">type_from_args</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="opshin.util.NoOp" href="#opshin.util.NoOp">NoOp</a></code></h4>
+<ul class="">
+<li><code><a title="opshin.util.NoOp.visit" href="#opshin.util.NoOp.visit">visit</a></code></li>
 </ul>
 </li>
 <li>

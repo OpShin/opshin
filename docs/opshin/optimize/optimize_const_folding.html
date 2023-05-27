@@ -68,9 +68,13 @@ fill="currentColor" class="octo-body"></path>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">from copy import copy
+<pre><code class="python">import typing
+from collections import defaultdict
+import logging
 
 from ast import *
+
+from pycardano import PlutusData
 
 try:
     unparse
@@ -83,6 +87,8 @@ from ..type_inference import INITIAL_SCOPE
 &#34;&#34;&#34;
 Pre-evaluates constant statements
 &#34;&#34;&#34;
+
+_LOGGER = logging.getLogger(__name__)
 
 ACCEPTED_ATOMIC_TYPES = [
     int,
@@ -177,53 +183,204 @@ class ShallowNameDefCollector(CompilingNodeVisitor):
         # ignore the recursive stuff
 
 
+class DefinedTimesVisitor(CompilingNodeVisitor):
+    step = &#34;Collecting how often variables are written&#34;
+
+    def __init__(self):
+        self.vars = defaultdict(int)
+
+    def visit_For(self, node: For) -&gt; None:
+        # visit twice to have all names bumped to min 2 assignments
+        self.generic_visit(node)
+        self.generic_visit(node)
+        return
+        # TODO future items: use this together with guaranteed available
+        # visit twice to have this name bumped to min 2 assignments
+        self.visit(node.target)
+        # visit the whole function
+        self.generic_visit(node)
+
+    def visit_While(self, node: While) -&gt; None:
+        # visit twice to have all names bumped to min 2 assignments
+        self.generic_visit(node)
+        self.generic_visit(node)
+        return
+        # TODO future items: use this together with guaranteed available
+
+    def visit_If(self, node: If) -&gt; None:
+        # TODO future items: use this together with guaranteed available
+        # visit twice to have all names bumped to min 2 assignments
+        self.generic_visit(node)
+        self.generic_visit(node)
+
+    def visit_Name(self, node: Name) -&gt; None:
+        if isinstance(node.ctx, Store):
+            self.vars[node.id] += 1
+
+    def visit_ClassDef(self, node: ClassDef):
+        self.vars[node.name] += 1
+        # ignore the content (i.e. attribute names) of class definitions
+
+    def visit_FunctionDef(self, node: FunctionDef):
+        self.vars[node.name] += 1
+        # visit arguments twice, they are generally assigned more than once
+        for arg in node.args.args:
+            self.vars[arg.arg] += 2
+        self.generic_visit(node)
+
+    def visit_Import(self, node: Import):
+        for n in node.names:
+            self.vars[n] += 1
+
+    def visit_ImportFrom(self, node: ImportFrom):
+        for n in node.names:
+            self.vars[n] += 1
+
+
 class OptimizeConstantFolding(CompilingNodeTransformer):
     step = &#34;Constant folding&#34;
 
     def __init__(self):
-        self.scopes = [set(INITIAL_SCOPE.keys()).difference(SAFE_GLOBALS.keys())]
+        self.scopes_visible = [
+            set(INITIAL_SCOPE.keys()).difference(SAFE_GLOBALS.keys())
+        ]
+        self.scopes_constants = [dict()]
+        self.constants = set()
 
     def enter_scope(self):
-        self.scopes.append(set())
+        self.scopes_visible.append(set())
+        self.scopes_constants.append(dict())
 
-    def add_var(self, var: str):
-        self.scopes[-1].add(var)
+    def add_var_visible(self, var: str):
+        self.scopes_visible[-1].add(var)
+
+    def add_vars_visible(self, var: typing.Iterable[str]):
+        self.scopes_visible[-1].update(var)
+
+    def add_constant(self, var: str, value: typing.Any):
+        self.scopes_constants[-1][var] = value
 
     def visible_vars(self):
         res_set = set()
-        for s in self.scopes:
+        for s in self.scopes_visible:
             res_set.update(s)
         return res_set
 
+    def _constant_vars(self):
+        res_d = {}
+        for s in self.scopes_constants:
+            res_d.update(s)
+        return res_d
+
     def exit_scope(self):
-        self.scopes.pop(-1)
+        self.scopes_visible.pop(-1)
+        self.scopes_constants.pop(-1)
+
+    def _non_overwritten_globals(self):
+        overwritten_vars = self.visible_vars()
+
+        def err():
+            raise ValueError(&#34;Was overwritten!&#34;)
+
+        non_overwritten_globals = {
+            k: (v if k not in overwritten_vars else err)
+            for k, v in SAFE_GLOBALS.items()
+        }
+        return non_overwritten_globals
+
+    def update_constants(self, node):
+        a = self._non_overwritten_globals()
+        a.update(self._constant_vars())
+        g = a
+        l = {}
+        try:
+            exec(unparse(node), g, l)
+        except Exception as e:
+            _LOGGER.debug(e)
+        else:
+            # the class is defined and added to the globals
+            self.scopes_constants[-1].update(l)
 
     def visit_Module(self, node: Module) -&gt; Module:
         self.enter_scope()
         def_vars_collector = ShallowNameDefCollector()
-        for s in node.body:
-            def_vars_collector.visit(s)
+        def_vars_collector.visit(node)
         def_vars = def_vars_collector.vars
-        for def_var in def_vars:
-            self.add_var(def_var)
+        self.add_vars_visible(def_vars)
+
+        constant_collector = DefinedTimesVisitor()
+        constant_collector.visit(node)
+        constants = constant_collector.vars
+        # if it is only assigned exactly once, it must be a constant (due to immutability)
+        self.constants = {c for c, i in constants.items() if i == 1}
+
         res = self.generic_visit(node)
         self.exit_scope()
         return res
 
     def visit_FunctionDef(self, node: FunctionDef) -&gt; FunctionDef:
-        self.add_var(node.name)
+        self.add_var_visible(node.name)
+        if node.name in self.constants:
+            a = self._non_overwritten_globals()
+            a.update(self._constant_vars())
+            g = a
+            try:
+                # we need to pass the global dict as local dict here to make closures possible (rec functions)
+                exec(unparse(node), g, g)
+            except Exception as e:
+                _LOGGER.debug(e)
+            else:
+                # the class is defined and added to the globals
+                self.scopes_constants[-1][node.name] = g[node.name]
+
         self.enter_scope()
-        for arg in node.args.args:
-            self.add_var(arg.arg)
+        self.add_vars_visible(arg.arg for arg in node.args.args)
         def_vars_collector = ShallowNameDefCollector()
         for s in node.body:
             def_vars_collector.visit(s)
         def_vars = def_vars_collector.vars
-        for def_var in def_vars:
-            self.add_var(def_var)
+        self.add_vars_visible(def_vars)
+
         res_node = self.generic_visit(node)
         self.exit_scope()
         return res_node
+
+    def visit_ClassDef(self, node: ClassDef):
+        if node.name in self.constants:
+            self.update_constants(node)
+        return node
+
+    def visit_ImportFrom(self, node: ImportFrom):
+        if all(n in self.constants for n in node.names):
+            self.update_constants(node)
+        return node
+
+    def visit_Import(self, node: Import):
+        if all(n in self.constants for n in node.names):
+            self.update_constants(node)
+        return node
+
+    def visit_Assign(self, node: Assign):
+        if len(node.targets) != 1:
+            return node
+        target = node.targets[0]
+        if not isinstance(target, Name):
+            return node
+
+        if target.id in self.constants:
+            self.update_constants(node)
+        node.value = self.visit(node.value)
+        return node
+
+    def visit_AnnAssign(self, node: AnnAssign):
+        target = node.target
+        if not isinstance(target, Name):
+            return node
+
+        if target.id in self.constants:
+            self.update_constants(node)
+        node.value = self.visit(node.value)
+        return node
 
     def generic_visit(self, node: AST):
         node = super().generic_visit(node)
@@ -237,22 +394,19 @@ class OptimizeConstantFolding(CompilingNodeTransformer):
         if &#34;print(&#34; in node_source:
             # do not optimize away print statements
             return node
-        overwritten_vars = self.visible_vars()
-
-        def err():
-            raise ValueError(&#34;Was overwritten!&#34;)
-
-        non_overwritten_globals = {
-            k: (v if k not in overwritten_vars else err)
-            for k, v in SAFE_GLOBALS.items()
-        }
         try:
-            # TODO we can add preceding plutusdata definitions here!
-            node_eval = eval(node_source, non_overwritten_globals, {})
+            # we add preceding constant plutusdata definitions here!
+            g = self._non_overwritten_globals()
+            l = self._constant_vars()
+            node_eval = eval(node_source, g, l)
         except Exception as e:
+            _LOGGER.debug(e)
             return node
 
-        if any(isinstance(node_eval, t) for t in ACCEPTED_ATOMIC_TYPES + [list, dict]):
+        if any(
+            isinstance(node_eval, t)
+            for t in ACCEPTED_ATOMIC_TYPES + [list, dict, PlutusData]
+        ):
             new_node = Constant(node_eval, None)
             copy_location(new_node, node)
             return new_node
@@ -268,6 +422,239 @@ class OptimizeConstantFolding(CompilingNodeTransformer):
 <section>
 <h2 class="section-title" id="header-classes">Classes</h2>
 <dl>
+<dt id="opshin.optimize.optimize_const_folding.DefinedTimesVisitor"><code class="flex name class">
+<span>class <span class="ident">DefinedTimesVisitor</span></span>
+</code></dt>
+<dd>
+<div class="desc"><p>A node visitor base class that walks the abstract syntax tree and calls a
+visitor function for every node found.
+This function may return a value
+which is forwarded by the <code>visit</code> method.</p>
+<p>This class is meant to be subclassed, with the subclass adding visitor
+methods.</p>
+<p>Per default the visitor functions for the nodes are <code>'visit_'</code> +
+class name of the node.
+So a <code>TryFinally</code> node visit function would
+be <code>visit_TryFinally</code>.
+This behavior can be changed by overriding
+the <code>visit</code> method.
+If no visitor function exists for a node
+(return value <code>None</code>) the <code>generic_visit</code> visitor is used instead.</p>
+<p>Don't use the <code>NodeVisitor</code> if you want to apply changes to nodes during
+traversing.
+For this a special visitor exists (<code>NodeTransformer</code>) that
+allows modifications.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class DefinedTimesVisitor(CompilingNodeVisitor):
+    step = &#34;Collecting how often variables are written&#34;
+
+    def __init__(self):
+        self.vars = defaultdict(int)
+
+    def visit_For(self, node: For) -&gt; None:
+        # visit twice to have all names bumped to min 2 assignments
+        self.generic_visit(node)
+        self.generic_visit(node)
+        return
+        # TODO future items: use this together with guaranteed available
+        # visit twice to have this name bumped to min 2 assignments
+        self.visit(node.target)
+        # visit the whole function
+        self.generic_visit(node)
+
+    def visit_While(self, node: While) -&gt; None:
+        # visit twice to have all names bumped to min 2 assignments
+        self.generic_visit(node)
+        self.generic_visit(node)
+        return
+        # TODO future items: use this together with guaranteed available
+
+    def visit_If(self, node: If) -&gt; None:
+        # TODO future items: use this together with guaranteed available
+        # visit twice to have all names bumped to min 2 assignments
+        self.generic_visit(node)
+        self.generic_visit(node)
+
+    def visit_Name(self, node: Name) -&gt; None:
+        if isinstance(node.ctx, Store):
+            self.vars[node.id] += 1
+
+    def visit_ClassDef(self, node: ClassDef):
+        self.vars[node.name] += 1
+        # ignore the content (i.e. attribute names) of class definitions
+
+    def visit_FunctionDef(self, node: FunctionDef):
+        self.vars[node.name] += 1
+        # visit arguments twice, they are generally assigned more than once
+        for arg in node.args.args:
+            self.vars[arg.arg] += 2
+        self.generic_visit(node)
+
+    def visit_Import(self, node: Import):
+        for n in node.names:
+            self.vars[n] += 1
+
+    def visit_ImportFrom(self, node: ImportFrom):
+        for n in node.names:
+            self.vars[n] += 1</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li><a title="opshin.util.CompilingNodeVisitor" href="../util.html#opshin.util.CompilingNodeVisitor">CompilingNodeVisitor</a></li>
+<li><a title="opshin.typed_ast.TypedNodeVisitor" href="../typed_ast.html#opshin.typed_ast.TypedNodeVisitor">TypedNodeVisitor</a></li>
+<li>ast.NodeVisitor</li>
+</ul>
+<h3>Class variables</h3>
+<dl>
+<dt id="opshin.optimize.optimize_const_folding.DefinedTimesVisitor.step"><code class="name">var <span class="ident">step</span></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+</dl>
+<h3>Methods</h3>
+<dl>
+<dt id="opshin.optimize.optimize_const_folding.DefinedTimesVisitor.visit"><code class="name flex">
+<span>def <span class="ident">visit</span></span>(<span>self, node)</span>
+</code></dt>
+<dd>
+<p class="inheritance">
+<em>Inherited from:</em>
+<code><a title="opshin.util.CompilingNodeVisitor" href="../util.html#opshin.util.CompilingNodeVisitor">CompilingNodeVisitor</a></code>.<code><a title="opshin.util.CompilingNodeVisitor.visit" href="../util.html#opshin.util.CompilingNodeVisitor.visit">visit</a></code>
+</p>
+<div class="desc inherited"><p>Visit a node.</p></div>
+</dd>
+<dt id="opshin.optimize.optimize_const_folding.DefinedTimesVisitor.visit_ClassDef"><code class="name flex">
+<span>def <span class="ident">visit_ClassDef</span></span>(<span>self, node: _ast.ClassDef)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def visit_ClassDef(self, node: ClassDef):
+    self.vars[node.name] += 1
+    # ignore the content (i.e. attribute names) of class definitions</code></pre>
+</details>
+</dd>
+<dt id="opshin.optimize.optimize_const_folding.DefinedTimesVisitor.visit_For"><code class="name flex">
+<span>def <span class="ident">visit_For</span></span>(<span>self, node: _ast.For) ‑> None</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def visit_For(self, node: For) -&gt; None:
+    # visit twice to have all names bumped to min 2 assignments
+    self.generic_visit(node)
+    self.generic_visit(node)
+    return
+    # TODO future items: use this together with guaranteed available
+    # visit twice to have this name bumped to min 2 assignments
+    self.visit(node.target)
+    # visit the whole function
+    self.generic_visit(node)</code></pre>
+</details>
+</dd>
+<dt id="opshin.optimize.optimize_const_folding.DefinedTimesVisitor.visit_FunctionDef"><code class="name flex">
+<span>def <span class="ident">visit_FunctionDef</span></span>(<span>self, node: _ast.FunctionDef)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def visit_FunctionDef(self, node: FunctionDef):
+    self.vars[node.name] += 1
+    # visit arguments twice, they are generally assigned more than once
+    for arg in node.args.args:
+        self.vars[arg.arg] += 2
+    self.generic_visit(node)</code></pre>
+</details>
+</dd>
+<dt id="opshin.optimize.optimize_const_folding.DefinedTimesVisitor.visit_If"><code class="name flex">
+<span>def <span class="ident">visit_If</span></span>(<span>self, node: _ast.If) ‑> None</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def visit_If(self, node: If) -&gt; None:
+    # TODO future items: use this together with guaranteed available
+    # visit twice to have all names bumped to min 2 assignments
+    self.generic_visit(node)
+    self.generic_visit(node)</code></pre>
+</details>
+</dd>
+<dt id="opshin.optimize.optimize_const_folding.DefinedTimesVisitor.visit_Import"><code class="name flex">
+<span>def <span class="ident">visit_Import</span></span>(<span>self, node: _ast.Import)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def visit_Import(self, node: Import):
+    for n in node.names:
+        self.vars[n] += 1</code></pre>
+</details>
+</dd>
+<dt id="opshin.optimize.optimize_const_folding.DefinedTimesVisitor.visit_ImportFrom"><code class="name flex">
+<span>def <span class="ident">visit_ImportFrom</span></span>(<span>self, node: _ast.ImportFrom)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def visit_ImportFrom(self, node: ImportFrom):
+    for n in node.names:
+        self.vars[n] += 1</code></pre>
+</details>
+</dd>
+<dt id="opshin.optimize.optimize_const_folding.DefinedTimesVisitor.visit_Name"><code class="name flex">
+<span>def <span class="ident">visit_Name</span></span>(<span>self, node: _ast.Name) ‑> None</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def visit_Name(self, node: Name) -&gt; None:
+    if isinstance(node.ctx, Store):
+        self.vars[node.id] += 1</code></pre>
+</details>
+</dd>
+<dt id="opshin.optimize.optimize_const_folding.DefinedTimesVisitor.visit_While"><code class="name flex">
+<span>def <span class="ident">visit_While</span></span>(<span>self, node: _ast.While) ‑> None</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def visit_While(self, node: While) -&gt; None:
+    # visit twice to have all names bumped to min 2 assignments
+    self.generic_visit(node)
+    self.generic_visit(node)
+    return
+    # TODO future items: use this together with guaranteed available</code></pre>
+</details>
+</dd>
+</dl>
+</dd>
 <dt id="opshin.optimize.optimize_const_folding.OptimizeConstantFolding"><code class="flex name class">
 <span>class <span class="ident">OptimizeConstantFolding</span></span>
 </code></dt>
@@ -307,49 +694,146 @@ just a single node.</p>
     step = &#34;Constant folding&#34;
 
     def __init__(self):
-        self.scopes = [set(INITIAL_SCOPE.keys()).difference(SAFE_GLOBALS.keys())]
+        self.scopes_visible = [
+            set(INITIAL_SCOPE.keys()).difference(SAFE_GLOBALS.keys())
+        ]
+        self.scopes_constants = [dict()]
+        self.constants = set()
 
     def enter_scope(self):
-        self.scopes.append(set())
+        self.scopes_visible.append(set())
+        self.scopes_constants.append(dict())
 
-    def add_var(self, var: str):
-        self.scopes[-1].add(var)
+    def add_var_visible(self, var: str):
+        self.scopes_visible[-1].add(var)
+
+    def add_vars_visible(self, var: typing.Iterable[str]):
+        self.scopes_visible[-1].update(var)
+
+    def add_constant(self, var: str, value: typing.Any):
+        self.scopes_constants[-1][var] = value
 
     def visible_vars(self):
         res_set = set()
-        for s in self.scopes:
+        for s in self.scopes_visible:
             res_set.update(s)
         return res_set
 
+    def _constant_vars(self):
+        res_d = {}
+        for s in self.scopes_constants:
+            res_d.update(s)
+        return res_d
+
     def exit_scope(self):
-        self.scopes.pop(-1)
+        self.scopes_visible.pop(-1)
+        self.scopes_constants.pop(-1)
+
+    def _non_overwritten_globals(self):
+        overwritten_vars = self.visible_vars()
+
+        def err():
+            raise ValueError(&#34;Was overwritten!&#34;)
+
+        non_overwritten_globals = {
+            k: (v if k not in overwritten_vars else err)
+            for k, v in SAFE_GLOBALS.items()
+        }
+        return non_overwritten_globals
+
+    def update_constants(self, node):
+        a = self._non_overwritten_globals()
+        a.update(self._constant_vars())
+        g = a
+        l = {}
+        try:
+            exec(unparse(node), g, l)
+        except Exception as e:
+            _LOGGER.debug(e)
+        else:
+            # the class is defined and added to the globals
+            self.scopes_constants[-1].update(l)
 
     def visit_Module(self, node: Module) -&gt; Module:
         self.enter_scope()
         def_vars_collector = ShallowNameDefCollector()
-        for s in node.body:
-            def_vars_collector.visit(s)
+        def_vars_collector.visit(node)
         def_vars = def_vars_collector.vars
-        for def_var in def_vars:
-            self.add_var(def_var)
+        self.add_vars_visible(def_vars)
+
+        constant_collector = DefinedTimesVisitor()
+        constant_collector.visit(node)
+        constants = constant_collector.vars
+        # if it is only assigned exactly once, it must be a constant (due to immutability)
+        self.constants = {c for c, i in constants.items() if i == 1}
+
         res = self.generic_visit(node)
         self.exit_scope()
         return res
 
     def visit_FunctionDef(self, node: FunctionDef) -&gt; FunctionDef:
-        self.add_var(node.name)
+        self.add_var_visible(node.name)
+        if node.name in self.constants:
+            a = self._non_overwritten_globals()
+            a.update(self._constant_vars())
+            g = a
+            try:
+                # we need to pass the global dict as local dict here to make closures possible (rec functions)
+                exec(unparse(node), g, g)
+            except Exception as e:
+                _LOGGER.debug(e)
+            else:
+                # the class is defined and added to the globals
+                self.scopes_constants[-1][node.name] = g[node.name]
+
         self.enter_scope()
-        for arg in node.args.args:
-            self.add_var(arg.arg)
+        self.add_vars_visible(arg.arg for arg in node.args.args)
         def_vars_collector = ShallowNameDefCollector()
         for s in node.body:
             def_vars_collector.visit(s)
         def_vars = def_vars_collector.vars
-        for def_var in def_vars:
-            self.add_var(def_var)
+        self.add_vars_visible(def_vars)
+
         res_node = self.generic_visit(node)
         self.exit_scope()
         return res_node
+
+    def visit_ClassDef(self, node: ClassDef):
+        if node.name in self.constants:
+            self.update_constants(node)
+        return node
+
+    def visit_ImportFrom(self, node: ImportFrom):
+        if all(n in self.constants for n in node.names):
+            self.update_constants(node)
+        return node
+
+    def visit_Import(self, node: Import):
+        if all(n in self.constants for n in node.names):
+            self.update_constants(node)
+        return node
+
+    def visit_Assign(self, node: Assign):
+        if len(node.targets) != 1:
+            return node
+        target = node.targets[0]
+        if not isinstance(target, Name):
+            return node
+
+        if target.id in self.constants:
+            self.update_constants(node)
+        node.value = self.visit(node.value)
+        return node
+
+    def visit_AnnAssign(self, node: AnnAssign):
+        target = node.target
+        if not isinstance(target, Name):
+            return node
+
+        if target.id in self.constants:
+            self.update_constants(node)
+        node.value = self.visit(node.value)
+        return node
 
     def generic_visit(self, node: AST):
         node = super().generic_visit(node)
@@ -363,22 +847,19 @@ just a single node.</p>
         if &#34;print(&#34; in node_source:
             # do not optimize away print statements
             return node
-        overwritten_vars = self.visible_vars()
-
-        def err():
-            raise ValueError(&#34;Was overwritten!&#34;)
-
-        non_overwritten_globals = {
-            k: (v if k not in overwritten_vars else err)
-            for k, v in SAFE_GLOBALS.items()
-        }
         try:
-            # TODO we can add preceding plutusdata definitions here!
-            node_eval = eval(node_source, non_overwritten_globals, {})
+            # we add preceding constant plutusdata definitions here!
+            g = self._non_overwritten_globals()
+            l = self._constant_vars()
+            node_eval = eval(node_source, g, l)
         except Exception as e:
+            _LOGGER.debug(e)
             return node
 
-        if any(isinstance(node_eval, t) for t in ACCEPTED_ATOMIC_TYPES + [list, dict]):
+        if any(
+            isinstance(node_eval, t)
+            for t in ACCEPTED_ATOMIC_TYPES + [list, dict, PlutusData]
+        ):
             new_node = Constant(node_eval, None)
             copy_location(new_node, node)
             return new_node
@@ -400,8 +881,8 @@ just a single node.</p>
 </dl>
 <h3>Methods</h3>
 <dl>
-<dt id="opshin.optimize.optimize_const_folding.OptimizeConstantFolding.add_var"><code class="name flex">
-<span>def <span class="ident">add_var</span></span>(<span>self, var: str)</span>
+<dt id="opshin.optimize.optimize_const_folding.OptimizeConstantFolding.add_constant"><code class="name flex">
+<span>def <span class="ident">add_constant</span></span>(<span>self, var: str, value: Any)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -409,8 +890,34 @@ just a single node.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def add_var(self, var: str):
-    self.scopes[-1].add(var)</code></pre>
+<pre><code class="python">def add_constant(self, var: str, value: typing.Any):
+    self.scopes_constants[-1][var] = value</code></pre>
+</details>
+</dd>
+<dt id="opshin.optimize.optimize_const_folding.OptimizeConstantFolding.add_var_visible"><code class="name flex">
+<span>def <span class="ident">add_var_visible</span></span>(<span>self, var: str)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def add_var_visible(self, var: str):
+    self.scopes_visible[-1].add(var)</code></pre>
+</details>
+</dd>
+<dt id="opshin.optimize.optimize_const_folding.OptimizeConstantFolding.add_vars_visible"><code class="name flex">
+<span>def <span class="ident">add_vars_visible</span></span>(<span>self, var: Iterable[str])</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def add_vars_visible(self, var: typing.Iterable[str]):
+    self.scopes_visible[-1].update(var)</code></pre>
 </details>
 </dd>
 <dt id="opshin.optimize.optimize_const_folding.OptimizeConstantFolding.enter_scope"><code class="name flex">
@@ -423,7 +930,8 @@ just a single node.</p>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def enter_scope(self):
-    self.scopes.append(set())</code></pre>
+    self.scopes_visible.append(set())
+    self.scopes_constants.append(dict())</code></pre>
 </details>
 </dd>
 <dt id="opshin.optimize.optimize_const_folding.OptimizeConstantFolding.exit_scope"><code class="name flex">
@@ -436,7 +944,8 @@ just a single node.</p>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def exit_scope(self):
-    self.scopes.pop(-1)</code></pre>
+    self.scopes_visible.pop(-1)
+    self.scopes_constants.pop(-1)</code></pre>
 </details>
 </dd>
 <dt id="opshin.optimize.optimize_const_folding.OptimizeConstantFolding.generic_visit"><code class="name flex">
@@ -460,26 +969,46 @@ just a single node.</p>
     if &#34;print(&#34; in node_source:
         # do not optimize away print statements
         return node
-    overwritten_vars = self.visible_vars()
-
-    def err():
-        raise ValueError(&#34;Was overwritten!&#34;)
-
-    non_overwritten_globals = {
-        k: (v if k not in overwritten_vars else err)
-        for k, v in SAFE_GLOBALS.items()
-    }
     try:
-        # TODO we can add preceding plutusdata definitions here!
-        node_eval = eval(node_source, non_overwritten_globals, {})
+        # we add preceding constant plutusdata definitions here!
+        g = self._non_overwritten_globals()
+        l = self._constant_vars()
+        node_eval = eval(node_source, g, l)
     except Exception as e:
+        _LOGGER.debug(e)
         return node
 
-    if any(isinstance(node_eval, t) for t in ACCEPTED_ATOMIC_TYPES + [list, dict]):
+    if any(
+        isinstance(node_eval, t)
+        for t in ACCEPTED_ATOMIC_TYPES + [list, dict, PlutusData]
+    ):
         new_node = Constant(node_eval, None)
         copy_location(new_node, node)
         return new_node
     return node</code></pre>
+</details>
+</dd>
+<dt id="opshin.optimize.optimize_const_folding.OptimizeConstantFolding.update_constants"><code class="name flex">
+<span>def <span class="ident">update_constants</span></span>(<span>self, node)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def update_constants(self, node):
+    a = self._non_overwritten_globals()
+    a.update(self._constant_vars())
+    g = a
+    l = {}
+    try:
+        exec(unparse(node), g, l)
+    except Exception as e:
+        _LOGGER.debug(e)
+    else:
+        # the class is defined and added to the globals
+        self.scopes_constants[-1].update(l)</code></pre>
 </details>
 </dd>
 <dt id="opshin.optimize.optimize_const_folding.OptimizeConstantFolding.visible_vars"><code class="name flex">
@@ -493,7 +1022,7 @@ just a single node.</p>
 </summary>
 <pre><code class="python">def visible_vars(self):
     res_set = set()
-    for s in self.scopes:
+    for s in self.scopes_visible:
         res_set.update(s)
     return res_set</code></pre>
 </details>
@@ -508,6 +1037,63 @@ just a single node.</p>
 </p>
 <div class="desc inherited"><p>Visit a node.</p></div>
 </dd>
+<dt id="opshin.optimize.optimize_const_folding.OptimizeConstantFolding.visit_AnnAssign"><code class="name flex">
+<span>def <span class="ident">visit_AnnAssign</span></span>(<span>self, node: _ast.AnnAssign)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def visit_AnnAssign(self, node: AnnAssign):
+    target = node.target
+    if not isinstance(target, Name):
+        return node
+
+    if target.id in self.constants:
+        self.update_constants(node)
+    node.value = self.visit(node.value)
+    return node</code></pre>
+</details>
+</dd>
+<dt id="opshin.optimize.optimize_const_folding.OptimizeConstantFolding.visit_Assign"><code class="name flex">
+<span>def <span class="ident">visit_Assign</span></span>(<span>self, node: _ast.Assign)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def visit_Assign(self, node: Assign):
+    if len(node.targets) != 1:
+        return node
+    target = node.targets[0]
+    if not isinstance(target, Name):
+        return node
+
+    if target.id in self.constants:
+        self.update_constants(node)
+    node.value = self.visit(node.value)
+    return node</code></pre>
+</details>
+</dd>
+<dt id="opshin.optimize.optimize_const_folding.OptimizeConstantFolding.visit_ClassDef"><code class="name flex">
+<span>def <span class="ident">visit_ClassDef</span></span>(<span>self, node: _ast.ClassDef)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def visit_ClassDef(self, node: ClassDef):
+    if node.name in self.constants:
+        self.update_constants(node)
+    return node</code></pre>
+</details>
+</dd>
 <dt id="opshin.optimize.optimize_const_folding.OptimizeConstantFolding.visit_FunctionDef"><code class="name flex">
 <span>def <span class="ident">visit_FunctionDef</span></span>(<span>self, node: _ast.FunctionDef) ‑> _ast.FunctionDef</span>
 </code></dt>
@@ -518,19 +1104,61 @@ just a single node.</p>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def visit_FunctionDef(self, node: FunctionDef) -&gt; FunctionDef:
-    self.add_var(node.name)
+    self.add_var_visible(node.name)
+    if node.name in self.constants:
+        a = self._non_overwritten_globals()
+        a.update(self._constant_vars())
+        g = a
+        try:
+            # we need to pass the global dict as local dict here to make closures possible (rec functions)
+            exec(unparse(node), g, g)
+        except Exception as e:
+            _LOGGER.debug(e)
+        else:
+            # the class is defined and added to the globals
+            self.scopes_constants[-1][node.name] = g[node.name]
+
     self.enter_scope()
-    for arg in node.args.args:
-        self.add_var(arg.arg)
+    self.add_vars_visible(arg.arg for arg in node.args.args)
     def_vars_collector = ShallowNameDefCollector()
     for s in node.body:
         def_vars_collector.visit(s)
     def_vars = def_vars_collector.vars
-    for def_var in def_vars:
-        self.add_var(def_var)
+    self.add_vars_visible(def_vars)
+
     res_node = self.generic_visit(node)
     self.exit_scope()
     return res_node</code></pre>
+</details>
+</dd>
+<dt id="opshin.optimize.optimize_const_folding.OptimizeConstantFolding.visit_Import"><code class="name flex">
+<span>def <span class="ident">visit_Import</span></span>(<span>self, node: _ast.Import)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def visit_Import(self, node: Import):
+    if all(n in self.constants for n in node.names):
+        self.update_constants(node)
+    return node</code></pre>
+</details>
+</dd>
+<dt id="opshin.optimize.optimize_const_folding.OptimizeConstantFolding.visit_ImportFrom"><code class="name flex">
+<span>def <span class="ident">visit_ImportFrom</span></span>(<span>self, node: _ast.ImportFrom)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def visit_ImportFrom(self, node: ImportFrom):
+    if all(n in self.constants for n in node.names):
+        self.update_constants(node)
+    return node</code></pre>
 </details>
 </dd>
 <dt id="opshin.optimize.optimize_const_folding.OptimizeConstantFolding.visit_Module"><code class="name flex">
@@ -545,11 +1173,16 @@ just a single node.</p>
 <pre><code class="python">def visit_Module(self, node: Module) -&gt; Module:
     self.enter_scope()
     def_vars_collector = ShallowNameDefCollector()
-    for s in node.body:
-        def_vars_collector.visit(s)
+    def_vars_collector.visit(node)
     def_vars = def_vars_collector.vars
-    for def_var in def_vars:
-        self.add_var(def_var)
+    self.add_vars_visible(def_vars)
+
+    constant_collector = DefinedTimesVisitor()
+    constant_collector.visit(node)
+    constants = constant_collector.vars
+    # if it is only assigned exactly once, it must be a constant (due to immutability)
+    self.constants = {c for c, i in constants.items() if i == 1}
+
     res = self.generic_visit(node)
     self.exit_scope()
     return res</code></pre>
@@ -740,16 +1373,39 @@ setTimeout(() => input.focus(), 100);
 <li><h3><a href="#header-classes">Classes</a></h3>
 <ul>
 <li>
+<h4><code><a title="opshin.optimize.optimize_const_folding.DefinedTimesVisitor" href="#opshin.optimize.optimize_const_folding.DefinedTimesVisitor">DefinedTimesVisitor</a></code></h4>
+<ul class="two-column">
+<li><code><a title="opshin.optimize.optimize_const_folding.DefinedTimesVisitor.step" href="#opshin.optimize.optimize_const_folding.DefinedTimesVisitor.step">step</a></code></li>
+<li><code><a title="opshin.optimize.optimize_const_folding.DefinedTimesVisitor.visit" href="../util.html#opshin.optimize.optimize_const_folding.DefinedTimesVisitor.visit">visit</a></code></li>
+<li><code><a title="opshin.optimize.optimize_const_folding.DefinedTimesVisitor.visit_ClassDef" href="#opshin.optimize.optimize_const_folding.DefinedTimesVisitor.visit_ClassDef">visit_ClassDef</a></code></li>
+<li><code><a title="opshin.optimize.optimize_const_folding.DefinedTimesVisitor.visit_For" href="#opshin.optimize.optimize_const_folding.DefinedTimesVisitor.visit_For">visit_For</a></code></li>
+<li><code><a title="opshin.optimize.optimize_const_folding.DefinedTimesVisitor.visit_FunctionDef" href="#opshin.optimize.optimize_const_folding.DefinedTimesVisitor.visit_FunctionDef">visit_FunctionDef</a></code></li>
+<li><code><a title="opshin.optimize.optimize_const_folding.DefinedTimesVisitor.visit_If" href="#opshin.optimize.optimize_const_folding.DefinedTimesVisitor.visit_If">visit_If</a></code></li>
+<li><code><a title="opshin.optimize.optimize_const_folding.DefinedTimesVisitor.visit_Import" href="#opshin.optimize.optimize_const_folding.DefinedTimesVisitor.visit_Import">visit_Import</a></code></li>
+<li><code><a title="opshin.optimize.optimize_const_folding.DefinedTimesVisitor.visit_ImportFrom" href="#opshin.optimize.optimize_const_folding.DefinedTimesVisitor.visit_ImportFrom">visit_ImportFrom</a></code></li>
+<li><code><a title="opshin.optimize.optimize_const_folding.DefinedTimesVisitor.visit_Name" href="#opshin.optimize.optimize_const_folding.DefinedTimesVisitor.visit_Name">visit_Name</a></code></li>
+<li><code><a title="opshin.optimize.optimize_const_folding.DefinedTimesVisitor.visit_While" href="#opshin.optimize.optimize_const_folding.DefinedTimesVisitor.visit_While">visit_While</a></code></li>
+</ul>
+</li>
+<li>
 <h4><code><a title="opshin.optimize.optimize_const_folding.OptimizeConstantFolding" href="#opshin.optimize.optimize_const_folding.OptimizeConstantFolding">OptimizeConstantFolding</a></code></h4>
 <ul class="two-column">
-<li><code><a title="opshin.optimize.optimize_const_folding.OptimizeConstantFolding.add_var" href="#opshin.optimize.optimize_const_folding.OptimizeConstantFolding.add_var">add_var</a></code></li>
+<li><code><a title="opshin.optimize.optimize_const_folding.OptimizeConstantFolding.add_constant" href="#opshin.optimize.optimize_const_folding.OptimizeConstantFolding.add_constant">add_constant</a></code></li>
+<li><code><a title="opshin.optimize.optimize_const_folding.OptimizeConstantFolding.add_var_visible" href="#opshin.optimize.optimize_const_folding.OptimizeConstantFolding.add_var_visible">add_var_visible</a></code></li>
+<li><code><a title="opshin.optimize.optimize_const_folding.OptimizeConstantFolding.add_vars_visible" href="#opshin.optimize.optimize_const_folding.OptimizeConstantFolding.add_vars_visible">add_vars_visible</a></code></li>
 <li><code><a title="opshin.optimize.optimize_const_folding.OptimizeConstantFolding.enter_scope" href="#opshin.optimize.optimize_const_folding.OptimizeConstantFolding.enter_scope">enter_scope</a></code></li>
 <li><code><a title="opshin.optimize.optimize_const_folding.OptimizeConstantFolding.exit_scope" href="#opshin.optimize.optimize_const_folding.OptimizeConstantFolding.exit_scope">exit_scope</a></code></li>
 <li><code><a title="opshin.optimize.optimize_const_folding.OptimizeConstantFolding.generic_visit" href="#opshin.optimize.optimize_const_folding.OptimizeConstantFolding.generic_visit">generic_visit</a></code></li>
 <li><code><a title="opshin.optimize.optimize_const_folding.OptimizeConstantFolding.step" href="#opshin.optimize.optimize_const_folding.OptimizeConstantFolding.step">step</a></code></li>
+<li><code><a title="opshin.optimize.optimize_const_folding.OptimizeConstantFolding.update_constants" href="#opshin.optimize.optimize_const_folding.OptimizeConstantFolding.update_constants">update_constants</a></code></li>
 <li><code><a title="opshin.optimize.optimize_const_folding.OptimizeConstantFolding.visible_vars" href="#opshin.optimize.optimize_const_folding.OptimizeConstantFolding.visible_vars">visible_vars</a></code></li>
 <li><code><a title="opshin.optimize.optimize_const_folding.OptimizeConstantFolding.visit" href="../util.html#opshin.optimize.optimize_const_folding.OptimizeConstantFolding.visit">visit</a></code></li>
+<li><code><a title="opshin.optimize.optimize_const_folding.OptimizeConstantFolding.visit_AnnAssign" href="#opshin.optimize.optimize_const_folding.OptimizeConstantFolding.visit_AnnAssign">visit_AnnAssign</a></code></li>
+<li><code><a title="opshin.optimize.optimize_const_folding.OptimizeConstantFolding.visit_Assign" href="#opshin.optimize.optimize_const_folding.OptimizeConstantFolding.visit_Assign">visit_Assign</a></code></li>
+<li><code><a title="opshin.optimize.optimize_const_folding.OptimizeConstantFolding.visit_ClassDef" href="#opshin.optimize.optimize_const_folding.OptimizeConstantFolding.visit_ClassDef">visit_ClassDef</a></code></li>
 <li><code><a title="opshin.optimize.optimize_const_folding.OptimizeConstantFolding.visit_FunctionDef" href="#opshin.optimize.optimize_const_folding.OptimizeConstantFolding.visit_FunctionDef">visit_FunctionDef</a></code></li>
+<li><code><a title="opshin.optimize.optimize_const_folding.OptimizeConstantFolding.visit_Import" href="#opshin.optimize.optimize_const_folding.OptimizeConstantFolding.visit_Import">visit_Import</a></code></li>
+<li><code><a title="opshin.optimize.optimize_const_folding.OptimizeConstantFolding.visit_ImportFrom" href="#opshin.optimize.optimize_const_folding.OptimizeConstantFolding.visit_ImportFrom">visit_ImportFrom</a></code></li>
 <li><code><a title="opshin.optimize.optimize_const_folding.OptimizeConstantFolding.visit_Module" href="#opshin.optimize.optimize_const_folding.OptimizeConstantFolding.visit_Module">visit_Module</a></code></li>
 </ul>
 </li>

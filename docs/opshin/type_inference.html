@@ -68,8 +68,11 @@ fill="currentColor" class="octo-body"></path>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">from copy import copy
+<pre><code class="python">from dataclasses import asdict
+
+from copy import copy
 import ast
+from pycardano import PlutusData
 
 from .typed_ast import *
 from .util import PythonBuiltInTypes, CompilingNodeTransformer
@@ -112,6 +115,14 @@ INITIAL_SCOPE.update(
 )
 
 
+def record_from_plutusdata(c: PlutusData):
+    return Record(
+        name=c.__class__.__name__,
+        constructor=c.CONSTR_ID,
+        fields=FrozenFrozenList([(k, constant_type(v)) for k, v in asdict(c).items()]),
+    )
+
+
 def constant_type(c):
     if isinstance(c, bool):
         return BoolInstanceType
@@ -141,6 +152,9 @@ def constant_type(c):
             constant_type(ce) == first_value_typ for ce in c.values()
         ), &#34;Constant dicts must contain values of a single type only&#34;
         return InstanceType(DictType(first_key_typ, first_value_typ))
+    if isinstance(c, PlutusData):
+        return InstanceType(RecordType(record=record_from_plutusdata(c)))
+    raise NotImplementedError(f&#34;Type {type(c)} not supported&#34;)
 
 
 class AggressiveTypeInferencer(CompilingNodeTransformer):
@@ -841,7 +855,27 @@ def typed_ast(ast: AST):
         assert all(
             constant_type(ce) == first_value_typ for ce in c.values()
         ), &#34;Constant dicts must contain values of a single type only&#34;
-        return InstanceType(DictType(first_key_typ, first_value_typ))</code></pre>
+        return InstanceType(DictType(first_key_typ, first_value_typ))
+    if isinstance(c, PlutusData):
+        return InstanceType(RecordType(record=record_from_plutusdata(c)))
+    raise NotImplementedError(f&#34;Type {type(c)} not supported&#34;)</code></pre>
+</details>
+</dd>
+<dt id="opshin.type_inference.record_from_plutusdata"><code class="name flex">
+<span>def <span class="ident">record_from_plutusdata</span></span>(<span>c: pycardano.plutus.PlutusData)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def record_from_plutusdata(c: PlutusData):
+    return Record(
+        name=c.__class__.__name__,
+        constructor=c.CONSTR_ID,
+        fields=FrozenFrozenList([(k, constant_type(v)) for k, v in asdict(c).items()]),
+    )</code></pre>
 </details>
 </dd>
 <dt id="opshin.type_inference.typed_ast"><code class="name flex">
@@ -2760,6 +2794,7 @@ setTimeout(() => input.focus(), 100);
 <li><h3><a href="#header-functions">Functions</a></h3>
 <ul class="">
 <li><code><a title="opshin.type_inference.constant_type" href="#opshin.type_inference.constant_type">constant_type</a></code></li>
+<li><code><a title="opshin.type_inference.record_from_plutusdata" href="#opshin.type_inference.record_from_plutusdata">record_from_plutusdata</a></code></li>
 <li><code><a title="opshin.type_inference.typed_ast" href="#opshin.type_inference.typed_ast">typed_ast</a></code></li>
 </ul>
 </li>

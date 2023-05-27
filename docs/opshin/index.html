@@ -169,6 +169,13 @@ opshin eval spending examples/smart_contracts/assert_sum.py &quot;{\&quot;int\&q
 # Compile script to 'uplc', the Cardano Smart Contract assembly
 opshin compile spending examples/smart_contracts/assert_sum.py
 </code></pre>
+<p>Furthermore, you can add a shebang to the first line of the python file to indicate that it represents an opshin smart contract.
+You can choose from the following options:</p>
+<ul>
+<li>a general shebang: <code>#!opshin</code>, which represents <code><a title="opshin" href="#opshin">opshin</a> eval any</code></li>
+<li>or a more specific purpose: <code>#!/usr/bin/env -S opshin eval minting</code></li>
+</ul>
+<p>By doing so, you can transform your python file to an executable: <code>chmod +x your_file.py</code> and execute it with <code>./your_file.py</code>, which will run <code>opshin eval any ./your_file.py</code> under the hood.</p>
 <h3 id="deploying">Deploying</h3>
 <p>The deploy process generates all artifacts required for usage with common libraries like <a href="https://github.com/Python-Cardano/pycardano">pycardano</a>, <a href="https://github.com/spacebudz/lucid">lucid</a> and the <a href="https://github.com/input-output-hk/cardano-node">cardano-cli</a>.</p>
 <pre><code class="language-bash"># Automatically generate all artifacts needed for using this contract
@@ -183,6 +190,9 @@ Specifically, only a pure subset of python is allowed.
 Further, only immutable objects may be generated.</p>
 <p>For your program to be accepted, make sure to only make use of language constructs supported by the compiler.
 You will be notified of which constructs are not supported when trying to compile.</p>
+<p>You can also make use of the built-in linting command and check it for example with the following command:</p>
+<pre><code class="language-bash">opshin lint spending examples/smart_contracts/assert_sum.py
+</code></pre>
 <h3 id="name">Name</h3>
 <blockquote>
 <p>Eopsin (Korean: 업신; Hanja: 業神) is the goddess of the storage and wealth in Korean mythology and shamanism.
@@ -240,7 +250,7 @@ src="https://avatars.githubusercontent.com/u/118675270?v=4" width="50" /></a></p
 
 import warnings
 
-__version__ = &#34;0.14.0&#34;
+__version__ = &#34;0.14.2&#34;
 __author__ = &#34;nielstron&#34;
 __author_email__ = &#34;n.muendler@web.de&#34;
 __copyright__ = &#34;Copyright (C) 2023 nielstron&#34;
