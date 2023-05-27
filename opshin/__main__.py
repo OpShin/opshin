@@ -213,7 +213,12 @@ def main():
         assert not args.args, "Can not pass arguments to a library"
         parsed_params = []
     else:
-        annotations = list(sc.validator.__annotations__.values())
+        try:
+            annotations = list(sc.validator.__annotations__.values())
+        except AttributeError:
+            raise AssertionError(
+                f"Contract has no function called 'validator'. Make sure the compiled contract contains one function called 'validator' or {command.value} using `opshin {command.value} lib {str(input_file)}`."
+            )
         if "return" not in sc.validator.__annotations__:
             annotations.append(prelude.Anything)
         parsed_params = []
