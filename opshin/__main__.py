@@ -136,68 +136,12 @@ Make sure the validator expects parameters {'datum, ' if purpose == Purpose.spen
     ), f"Last parameter of the validator is always ScriptContext, but is {onchain_params[-1].__name__} here."
 
 
-def main():
-    a = argparse.ArgumentParser(
-        description="An evaluator and compiler from python into UPLC. Translate imperative programs into functional quasi-assembly."
-    )
-    a.add_argument(
-        "command",
-        type=str,
-        choices=Command.__members__.keys(),
-        help="The command to execute on the input file.",
-        default="eval",
-        nargs="?",
-    )
-    a.add_argument(
-        "purpose",
-        type=str,
-        choices=Purpose.__members__.keys(),
-        help="The intended script purpose. Determines the number of on-chain parameters "
-        "(spending = 3, minting, rewarding, certifying = 2, any = no checks). "
-        "This allows the compiler to check whether the correct amount of parameters was passed during compilation.",
-        default="any",
-        nargs="?",
-    )
-    a.add_argument(
-        "input_file", type=str, help="The input program to parse. Set to - for stdin."
-    )
-    a.add_argument(
-        "-o",
-        "--output-directory",
-        default="",
-        type=str,
-        help="The output directory for artefacts of the build command. Defaults to the filename of the compiled contract. of the compiled contract.",
-    )
-    a.add_argument(
-        "--force-three-params",
-        "--ftp",
-        action="store_true",
-        help="Enforces that the contract is always called with three virtual parameters on-chain. Enable if the script should support spending and other purposes.",
-    )
-    a.add_argument(
-        "--constant-folding",
-        "--cf",
-        action="store_true",
-        help="Enables experimental constant folding, including propagation and code execution.",
-    )
-    a.add_argument(
-        "args",
-        nargs="*",
-        default=[],
-        help="Input parameters for the validator (parameterizes the contract for compile/build). Either json or CBOR notation.",
-    )
-    a.add_argument(
-        "--output-format-json",
-        action="store_true",
-        help="Changes the output of the Linter to a json format.",
-    )
-    args = a.parse_args()
+def perform_command(args):
     command = Command(args.command)
     purpose = Purpose(args.purpose)
     input_file = args.input_file if args.input_file != "-" else sys.stdin
     force_three_params = args.force_three_params
     constant_folding = args.constant_folding
-
     # read and import the contract
     with open(input_file, "r") as f:
         source_code = f.read()
@@ -299,24 +243,10 @@ def main():
             pos_in_line = 0
             source_lines = source_code.splitlines()[0]
 
-        if command == Command.lint:
-            if args.output_format_json:
-                print(
-                    convert_linter_to_json(
-                        line=start_line,
-                        column=pos_in_line,
-                        error_class=c.orig_err.__class__.__name__,
-                        message=str(c.orig_err),
-                    )
-                )
-            else:
-                print(
-                    f"{args.input_file}:{start_line+1}:{pos_in_line}: {c.orig_err.__class__.__name__}: {c.orig_err}"
-                )
-            return
-
-        overwrite_syntaxerror = len("SyntaxError: ") * "\b"
-        raise SyntaxError(
+        overwrite_syntaxerror = (
+            len("SyntaxError: ") * "\b" if command != Command.lint else ""
+        )
+        err = SyntaxError(
             f"""\
 {overwrite_syntaxerror}{c.orig_err.__class__.__name__}: {c.orig_err}
 Note that opshin errors may be overly restrictive as they aim to prevent code with unintended consequences.
@@ -328,7 +258,9 @@ Note that opshin errors may be overly restrictive as they aim to prevent code wi
                 source_lines,
             )
             # we remove chaining so that users to not see the internal trace back,
-        ) from None
+        )
+        err.orig_err = c.orig_err
+        raise err from None
 
     if command == Command.compile_pluto:
         print(code.dumps())
@@ -339,7 +271,8 @@ Note that opshin errors may be overly restrictive as they aim to prevent code wi
     code = code.term
     # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
     for d in map(
-        data_from_json, map(json.loads, (PlutusData.to_json(p) for p in parsed_params))
+        data_from_json,
+        map(json.loads, (PlutusData.to_json(p) for p in parsed_params)),
     ):
         code = uplc.ast.Apply(code, d)
     code = uplc.ast.Program((1, 0, 0), code)
@@ -386,6 +319,98 @@ Note that opshin errors may be overly restrictive as they aim to prevent code wi
         print(ret)
 
 
+def parse_args():
+    a = argparse.ArgumentParser(
+        description="An evaluator and compiler from python into UPLC. Translate imperative programs into functional quasi-assembly."
+    )
+    a.add_argument(
+        "command",
+        type=str,
+        choices=Command.__members__.keys(),
+        help="The command to execute on the input file.",
+        default="eval",
+        nargs="?",
+    )
+    a.add_argument(
+        "purpose",
+        type=str,
+        choices=Purpose.__members__.keys(),
+        help="The intended script purpose. Determines the number of on-chain parameters "
+        "(spending = 3, minting, rewarding, certifying = 2, any = no checks). "
+        "This allows the compiler to check whether the correct amount of parameters was passed during compilation.",
+        default="any",
+        nargs="?",
+    )
+    a.add_argument(
+        "input_file", type=str, help="The input program to parse. Set to - for stdin."
+    )
+    a.add_argument(
+        "-o",
+        "--output-directory",
+        default="",
+        type=str,
+        help="The output directory for artefacts of the build command. Defaults to the filename of the compiled contract. of the compiled contract.",
+    )
+    a.add_argument(
+        "--force-three-params",
+        "--ftp",
+        action="store_true",
+        help="Enforces that the contract is always called with three virtual parameters on-chain. Enable if the script should support spending and other purposes.",
+    )
+    a.add_argument(
+        "--constant-folding",
+        "--cf",
+        action="store_true",
+        help="Enables experimental constant folding, including propagation and code execution.",
+    )
+    a.add_argument(
+        "args",
+        nargs="*",
+        default=[],
+        help="Input parameters for the validator (parameterizes the contract for compile/build). Either json or CBOR notation.",
+    )
+    a.add_argument(
+        "--output-format-json",
+        action="store_true",
+        help="Changes the output of the Linter to a json format.",
+    )
+    return a.parse_args()
+
+
+def main():
+    args = parse_args()
+    if Command(args.command) != Command.lint:
+        perform_command(args)
+    else:
+        try:
+            perform_command(args)
+        except Exception as e:
+            error_class_name = e.__class__.__name__
+            message = str(e)
+            if isinstance(e, SyntaxError):
+                start_line = e.lineno
+                pos_in_line = e.offset
+                if hasattr(e, "orig_err"):
+                    error_class_name = e.orig_err.__class__.__name__
+                    message = str(e.orig_err)
+            else:
+                start_line = 1
+                pos_in_line = 1
+            if args.output_format_json:
+                print(
+                    convert_linter_to_json(
+                        line=start_line,
+                        column=pos_in_line,
+                        error_class=error_class_name,
+                        message=message,
+                    )
+                )
+            else:
+                print(
+                    f"{args.input_file}:{start_line+1}:{pos_in_line}: {error_class_name}: {message}"
+                )
+
+
 def convert_linter_to_json(
     line: int,
     column: int,
@@ -393,7 +418,6 @@ def convert_linter_to_json(
     message: str,
 ):
     # output in lists
-    # TODO: possible to detect more than one error at once?
     return json.dumps(
         [
             {
