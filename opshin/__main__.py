@@ -14,7 +14,7 @@ from pycardano import PlutusData
 import uplc
 import uplc.ast
 
-from . import compiler, builder, prelude
+from . import compiler, builder, prelude, __version__, __copyright__
 from .util import CompilerError, data_from_json
 from .prelude import ScriptContext
 
@@ -368,6 +368,11 @@ def parse_args():
         "--output-format-json",
         action="store_true",
         help="Changes the output of the Linter to a json format.",
+    )
+    a.add_argument(
+        "--version",
+        action="version",
+        version=f"opshin {__version__} {__copyright__}",
     )
     return a.parse_args()
 
