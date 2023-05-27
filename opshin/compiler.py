@@ -360,7 +360,7 @@ class UPLCCompiler(CompilingNodeTransformer):
         return cp
 
     def visit_Constant(self, node: TypedConstant) -> plt.AST:
-        if isinstance(node.value, bytes):
+        if isinstance(node.value, bytes) and node.value != b"":
             try:
                 bytes.fromhex(node.value.decode())
             except ValueError:
