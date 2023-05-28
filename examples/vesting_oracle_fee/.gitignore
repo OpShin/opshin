@@ -1,0 +1,8 @@
+.idea
+*/__pycache__
+*/build
+*/transactions/tx*
+*/venv
+*.addr
+*.skey
+*.vkey
