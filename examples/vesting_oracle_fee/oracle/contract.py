@@ -9,6 +9,7 @@ class PublishParams(PlutusData):
     deadline:  the deadline after which the datum UTxO can be refunded
     info: the useful information in the oracle datum, an int in this case
     """
+
     owner: PubKeyHash
     deadline: POSIXTime
     info: int
@@ -20,10 +21,9 @@ class RefundRedeemer(PlutusData):
 
 
 def validator(
-        datum: PublishParams,
-        redeemer: RefundRedeemer,
-        context: ScriptContext
+    datum: PublishParams, redeemer: RefundRedeemer, context: ScriptContext
 ) -> None:
-
-    assert contains(make_from(datum.deadline), context.tx_info.valid_range), "TX submitted too early!"
+    assert contains(
+        make_from(datum.deadline), context.tx_info.valid_range
+    ), "TX submitted too early!"
     assert datum.owner in context.tx_info.signatories, "Refund signature missing!"

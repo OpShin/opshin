@@ -13,6 +13,7 @@ class VestingParams(PlutusData):
     deadline: the vesting deadline
     limit: the minimum limit for the datum value which allows the UTxO to be claimed by the beneficiary
     """
+
     source: PubKeyHash
     beneficiary: PubKeyHash
     fee_address: bytes
@@ -29,6 +30,7 @@ class PublishParams(PlutusData):
     deadline:  the deadline after which the datum UTxO can be refunded
     info: the useful information in the oracle datum, an int in this case
     """
+
     owner: PubKeyHash
     deadline: POSIXTime
     info: int
@@ -47,18 +49,21 @@ class RefundRedeemer(PlutusData):
 
 
 def validator(
-        datum: VestingParams,
-        redeemer: Union[ClaimRedeemer, RefundRedeemer],
-        context: ScriptContext
+    datum: VestingParams,
+    redeemer: Union[ClaimRedeemer, RefundRedeemer],
+    context: ScriptContext,
 ) -> None:
-
     if isinstance(redeemer, ClaimRedeemer):
         """
-        first check if the beneficiary signed the transaction 
+        first check if the beneficiary signed the transaction
         and if the transaction was submitted after the deadline
         """
-        assert datum.beneficiary in context.tx_info.signatories, "Collect signature missing!"
-        assert contains(make_from(datum.deadline), context.tx_info.valid_range), "TX submitted too early!"
+        assert (
+            datum.beneficiary in context.tx_info.signatories
+        ), "Collect signature missing!"
+        assert contains(
+            make_from(datum.deadline), context.tx_info.valid_range
+        ), "TX submitted too early!"
         """
         check if the fee has been paid to the fee address
         """
@@ -67,7 +72,7 @@ def validator(
         for item in context.tx_info.outputs:
             if datum.fee_address == item.address.payment_credential.credential_hash:
                 ff = True
-                if item.value.get(b'', {b'': 0}).get(b'', 0) >= datum.fee:
+                if item.value.get(b"", {b"": 0}).get(b"", 0) >= datum.fee:
                     fp = True
         assert ff, "Fee address not found in outputs!"
         assert fp, "Fee too small!"

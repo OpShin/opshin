@@ -21,6 +21,6 @@ collateral_address = Address(collateral_vkey.hash(), network=network)
 
 def save_transaction(trans: Transaction, file: str):
     tx = tx_template.copy()
-    tx['cborHex'] = trans.to_cbor().hex()
-    with open(file, 'w') as tf:
+    tx["cborHex"] = trans.to_cbor().hex()
+    with open(file, "w") as tf:
         tf.write(json.dumps(tx, indent=4))

@@ -17,13 +17,17 @@ datum = VestingParams(
     fee_address=fee_address,
     fee=fee,
     deadline=deadline,
-    limit=limit
+    limit=limit,
 )
 
 builder = TransactionBuilder(context)
 builder.add_input_address(source_address)
-builder.add_output(TransactionOutput(script_address, amount=amount, datum=datum, script=contract_script))
+builder.add_output(
+    TransactionOutput(
+        script_address, amount=amount, datum=datum, script=contract_script
+    )
+)
 signed_tx = builder.build_and_sign([source_skey], change_address=source_address)
 
-save_transaction(signed_tx, 'transactions/tx_deploy.signed')
+save_transaction(signed_tx, "transactions/tx_deploy.signed")
 context.submit_tx(signed_tx.to_cbor())

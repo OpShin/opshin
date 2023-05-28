@@ -4,8 +4,8 @@ import json
 
 
 script_utxos = context.utxos(str(script_address))
-sc_utxo = ''
-utxo_to_spend = ''
+sc_utxo = ""
+utxo_to_spend = ""
 for item in script_utxos:
     if item.output.script:
         sc_utxo = item
@@ -13,11 +13,11 @@ for item in script_utxos:
         utxo_to_spend = item
 
 if not sc_utxo:
-    print('smart contract UTxO not found!')
+    print("smart contract UTxO not found!")
     exit(1)
 
 if not utxo_to_spend:
-    print('no utxo to refund!')
+    print("no utxo to refund!")
     exit(1)
 
 collateral_utxo = context.utxos(str(collateral_address))[0]
@@ -31,7 +31,9 @@ builder.collaterals.append(collateral_utxo)
 builder.required_signers = [payment1_vkey.hash(), collateral_vkey.hash()]
 builder.validity_start = context.last_block_slot
 builder.ttl = builder.validity_start + 3600
-signed_tx = builder.build_and_sign([payment1_skey, collateral_skey], change_address=payment1_address)
+signed_tx = builder.build_and_sign(
+    [payment1_skey, collateral_skey], change_address=payment1_address
+)
 
-save_transaction(signed_tx, 'transactions/tx_refund.signed')
+save_transaction(signed_tx, "transactions/tx_refund.signed")
 context.submit_tx(signed_tx.to_cbor())
