@@ -17,7 +17,7 @@ jobs:
           skipIfReleaseExists: true
       # Build and publish the package to pypi.
       - name: Build and publish to pypi
-        uses: JRubics/poetry-publish@v1.16
+        uses: JRubics/poetry-publish@v1.17
         with:
           python_version: "3.8"
           pypi_token: ${{ secrets.PYPI_TOKEN }}
