@@ -1,4 +1,6 @@
 import argparse
+import tempfile
+
 import cbor2
 import enum
 import importlib
@@ -145,13 +147,13 @@ def perform_command(args):
     # read and import the contract
     with open(input_file, "r") as f:
         source_code = f.read()
-    tmp_input_file = pathlib.Path("build").joinpath("__tmp_opshin.py")
-    tmp_input_file.parent.mkdir(exist_ok=True)
-    with tmp_input_file.open("w") as fp:
-        fp.write(source_code)
-    sys.path.append(str(pathlib.Path(tmp_input_file).parent.absolute()))
-    sc = importlib.import_module(pathlib.Path(tmp_input_file).stem)
-    sys.path.pop()
+    with tempfile.TemporaryDirectory(prefix="build") as tmpdir:
+        tmp_input_file = pathlib.Path(tmpdir).joinpath("__tmp_opshin.py")
+        with tmp_input_file.open("w") as fp:
+            fp.write(source_code)
+        sys.path.append(str(pathlib.Path(tmp_input_file).parent.absolute()))
+        sc = importlib.import_module(pathlib.Path(tmp_input_file).stem)
+        sys.path.pop()
     # load the passed parameters if not a lib
     if purpose == Purpose.lib:
         assert not args.args, "Can not pass arguments to a library"
