@@ -49,7 +49,7 @@ def record_from_plutusdata(c: PlutusData):
     return Record(
         name=c.__class__.__name__,
         constructor=c.CONSTR_ID,
-        fields=FrozenFrozenList([(k, constant_type(v)) for k, v in asdict(c).items()]),
+        fields=FrozenFrozenList([(k, constant_type(v)) for k, v in c.__dict__.items()]),
     )
 
 
