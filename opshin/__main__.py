@@ -414,7 +414,7 @@ def main():
                 )
             else:
                 print(
-                    f"{args.input_file}:{start_line+1}:{pos_in_line}: {error_class_name}: {message}"
+                    f"{args.input_file}:{start_line}:{pos_in_line}: {error_class_name}: {message}"
                 )
 
 
