@@ -325,7 +325,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         typed_for.iter = self.visit(node.iter)
         if isinstance(node.target, Tuple):
             raise NotImplementedError(
-                "Type deconstruction in for loops is not supported yet"
+                "Tuple deconstruction in for loops is not supported yet"
             )
         vartyp = None
         itertyp = typed_for.iter.typ
