@@ -183,16 +183,6 @@ Since this project tries to merge Python (a large serpent) and Pluto/Plutus (Gre
 The name e_opsin is pronounced _op-shin_.
 e
 
-## Contributing
-
-### Architecture
-
-This program consists of a few independent components:
-
-1. An aggressive static type inferencer
-2. Rewriting tools to simplify complex python expressions
-3. A compiler from a subset of python into UPLC
-
 ### Debugging artefacts
 
 For debugging purposes, you can also run
@@ -204,6 +194,14 @@ opshin eval_uplc spending examples/smart_contracts/assert_sum.py "{\"int\": 4}" 
 # Compile script to 'pluto', an intermediate language (for debugging purposes)
 opshin compile_pluto spending examples/smart_contracts/assert_sum.py
 ```
+
+
+## Contributing
+
+### Developing and Technical Documentation
+
+Generally, all contributions on the code side are very welcome.
+To get an overview over the architecture and idea behind OpShin, check out [the Technical Documentation](./ARCHITECTURE.md).
 
 ### Sponsoring
 
