@@ -67,16 +67,16 @@ def size_bitmap(bmp: BitMap) -> int:
     return len(bmp) * BYTE_SIZE
 
 
-def any_bitmap(b: BitMap) -> int:
+def any_bitmap(b: BitMap) -> bool:
     """Returns whether any bit was set to 1"""
     return b != (b"\x00" * len(b))
 
 
-def all_bitmap(b: BitMap) -> int:
+def all_bitmap(b: BitMap) -> bool:
     """Returns whether all bits were set to 1"""
     return b == (b"\xFF" * len(b))
 
 
-def none_bitmap(b: BitMap) -> int:
+def none_bitmap(b: BitMap) -> bool:
     """Returns whether no bits were set to 1"""
     return b == (b"\x00" * len(b))
