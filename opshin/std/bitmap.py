@@ -20,14 +20,16 @@ def set_bitmap(bmp: BitMap, i: int, v: bool) -> BitMap:
     i: index of the value to set
     v: value of the bit to be set (0 or 1)
     """
-    byte = bmp[i // BYTE_SIZE]
-    bit = (byte // POWS[i % BYTE_SIZE]) % 2
+    scaled_i = i // BYTE_SIZE
+    byte = bmp[scaled_i]
+    powi = POWS[(BYTE_SIZE - 1) - (i % BYTE_SIZE)]
+    bit = (byte // powi) % 2
     if bit == v:
         new_byte = byte
     elif not v:
         # v == 0
-        new_byte = byte - POWS[i]
+        new_byte = byte - powi
     else:
         # v == 1
-        new_byte = byte + POWS[i]
-    return (bmp[: i - 1] if i > 0 else b"") + bytes([new_byte]) + bmp[i + 1 :]
+        new_byte = byte + powi
+    return bmp[:scaled_i] + bytes([new_byte]) + bmp[scaled_i + 1 :]

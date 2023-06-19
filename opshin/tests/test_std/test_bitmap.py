@@ -25,3 +25,14 @@ def test_isset_bitmap(p: Tuple[bytes, int]):
     a, i = p
     ith_bit = int.from_bytes(a, "big") & (1 << ((len(a) * 8) - i - 1))
     assert oc_bitmap.isset_bitmap(a, i) == (ith_bit != 0), "Invalid isset check"
+
+
+@hypothesis.given(bytes_and_index(), hst.booleans())
+def test_set_bitmap(p: Tuple[bytes, int], v: bool):
+    a, i = p
+    if v:
+        set_bit = int.from_bytes(a, "big") | (1 << ((len(a) * 8) - i - 1))
+    else:
+        set_bit = int.from_bytes(a, "big") & (~(1 << ((len(a) * 8) - i - 1)))
+    set_bit = set_bit.to_bytes(len(a), byteorder="big")
+    assert oc_bitmap.set_bitmap(a, i, v) == set_bit, "Set bit incorrectly"
