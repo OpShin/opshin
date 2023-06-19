@@ -9,29 +9,37 @@ import pluthon as plt
 import uplc.ast as uplc
 
 
-def PowImpl(x: plt.AST, y: plt.AST):
-    return plt.Apply(
-        plt.RecFun(
-            plt.Lambda(
-                ["f", "x", "y"],
-                plt.Ite(
-                    plt.LessThanEqualsInteger(plt.Var("y"), plt.Integer(0)),
-                    plt.Integer(1),
-                    plt.MultiplyInteger(
-                        plt.Var("x"),
-                        plt.Apply(
-                            plt.Var("f"),
-                            plt.Var("f"),
+def repeated_addition(zero, add):
+    def RepeatedAdd(x: plt.AST, y: plt.AST):
+        return plt.Apply(
+            plt.RecFun(
+                plt.Lambda(
+                    ["f", "x", "y"],
+                    plt.Ite(
+                        plt.LessThanEqualsInteger(plt.Var("y"), plt.Integer(0)),
+                        zero,
+                        add(
                             plt.Var("x"),
-                            plt.SubtractInteger(plt.Var("y"), plt.Integer(1)),
+                            plt.Apply(
+                                plt.Var("f"),
+                                plt.Var("f"),
+                                plt.Var("x"),
+                                plt.SubtractInteger(plt.Var("y"), plt.Integer(1)),
+                            ),
                         ),
                     ),
                 ),
             ),
-        ),
-        x,
-        y,
-    )
+            x,
+            y,
+        )
+
+    return RepeatedAdd
+
+
+PowImpl = repeated_addition(plt.Integer(1), plt.MultiplyInteger)
+ByteStrIntMulImpl = repeated_addition(plt.ByteString(b""), plt.AppendByteString)
+StrIntMulImpl = repeated_addition(plt.Text(""), plt.AppendString)
 
 
 class PythonBuiltIn(Enum):
