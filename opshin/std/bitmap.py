@@ -4,7 +4,7 @@ BYTE_SIZE = 8
 POWS = [2**i for i in range(BYTE_SIZE)]
 
 
-def init_bitmap(size: int):
+def init_bitmap(size: int) -> BitMap:
     """Creates an empty bitmap with size bits"""
     return b"\x00" * ((size + BYTE_SIZE - 1) // BYTE_SIZE)
 
