@@ -5,7 +5,7 @@ POWS = [2**i for i in range(BYTE_SIZE)]
 
 
 def init_bitmap(size: int):
-    return b"\x00" * (size // BYTE_SIZE)
+    return b"\x00" * ((size + BYTE_SIZE - 1) // BYTE_SIZE)
 
 
 def isset_bitmap(bmp: BitMap, i: int) -> bool:
