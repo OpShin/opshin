@@ -10,7 +10,7 @@ def init_bitmap(size: int):
 
 def isset_bitmap(bmp: BitMap, i: int) -> bool:
     byte = bmp[i // BYTE_SIZE]
-    bit = (byte // POWS[i % BYTE_SIZE]) % 2
+    bit = (byte // POWS[(BYTE_SIZE - 1) - (i % BYTE_SIZE)]) % 2
     return bit == 1
 
 
