@@ -17,3 +17,13 @@ def unsigned_int_from_bytes_big(b: bytes) -> int:
     for i in range(len(b)):
         acc = acc * 256 + b[i]
     return acc
+
+
+def ceil(a: int, b: int):
+    """Returns a divided by b rounded towards positive infinity"""
+    return (a + b - 1) // b if b > 0 else (a + b + 1) // b
+
+
+def floor(a: int, b: int):
+    """Returns a divided by b rounded towards negative infinity"""
+    return a // b

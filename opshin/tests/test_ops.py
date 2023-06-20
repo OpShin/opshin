@@ -449,3 +449,67 @@ def validator(x: bool, y: bool) -> bool:
             f = uplc.Apply(f, d)
         ret = uplc_eval(f).value
         self.assertEqual(ret, exp, "str eq returned wrong value")
+
+    @given(x=st.integers(min_value=0, max_value=150), y=st.text())
+    def test_mul_int_str(self, x, y):
+        source_code = """
+def validator(x: int, y: str) -> str:
+    return x * y
+            """
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        for d in [uplc.PlutusInteger(int(x)), uplc.PlutusByteString(str(y).encode())]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value.decode()
+        self.assertEqual(ret, x * y, "* returned wrong value")
+
+    @given(x=st.text(), y=st.integers(min_value=0, max_value=150))
+    def test_mul_str_int(self, x, y):
+        source_code = """
+def validator(x: str, y: int) -> str:
+    return x * y
+            """
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        for d in [uplc.PlutusByteString(str(x).encode()), uplc.PlutusInteger(int(y))]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value.decode()
+        self.assertEqual(ret, x * y, "* returned wrong value")
+
+    @given(x=st.integers(min_value=0, max_value=150), y=st.binary())
+    def test_mul_int_bytes(self, x, y):
+        source_code = """
+def validator(x: int, y: bytes) -> bytes:
+    return x * y
+            """
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        for d in [uplc.PlutusInteger(int(x)), uplc.PlutusByteString(y)]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value
+        self.assertEqual(ret, x * y, "* returned wrong value")
+
+    @given(x=st.binary(), y=st.integers(min_value=0, max_value=150))
+    def test_mul_bytes_int(self, x, y):
+        source_code = """
+def validator(x: bytes, y: int) -> bytes:
+    return x * y
+            """
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        for d in [uplc.PlutusByteString(x), uplc.PlutusInteger(int(y))]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value
+        self.assertEqual(ret, x * y, "* returned wrong value")

@@ -23,7 +23,13 @@ from .optimize.optimize_remove_pass import OptimizeRemovePass
 from .optimize.optimize_remove_deadvars import OptimizeRemoveDeadvars
 from .optimize.optimize_varlen import OptimizeVarlen
 from .type_inference import *
-from .util import CompilingNodeTransformer, PowImpl, NoOp
+from .util import (
+    CompilingNodeTransformer,
+    PowImpl,
+    NoOp,
+    ByteStrIntMulImpl,
+    StrIntMulImpl,
+)
 from .typed_ast import transform_ext_params_map, transform_output_map, RawPlutoExpr
 
 
@@ -52,7 +58,15 @@ BinOpMap = {
     Mult: {
         IntegerInstanceType: {
             IntegerInstanceType: plt.MultiplyInteger,
-        }
+            ByteStringInstanceType: lambda x, y: ByteStrIntMulImpl(y, x),
+            StringInstanceType: lambda x, y: StrIntMulImpl(y, x),
+        },
+        StringInstanceType: {
+            IntegerInstanceType: StrIntMulImpl,
+        },
+        ByteStringInstanceType: {
+            IntegerInstanceType: ByteStrIntMulImpl,
+        },
     },
     FloorDiv: {
         IntegerInstanceType: {
