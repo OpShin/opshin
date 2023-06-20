@@ -382,7 +382,10 @@ class UnionType(ClassType):
             )
         return plt.Lambda(
             ["self"],
-            plt.Let([("c", plt.Constructor(plt.Var("self")))], decide_string_func),
+            plt.Let(
+                [("c", plt.Constructor(plt.Var("self")))],
+                plt.Apply(decide_string_func, plt.Var("self")),
+            ),
         )
 
 
