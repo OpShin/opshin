@@ -1088,6 +1088,9 @@ class UnitType(AtomicType):
                 return plt.Lambda(["x", "y"], plt.Bool(False))
         return super().cmp(op, o)
 
+    def stringify(self) -> plt.AST:
+        return plt.Lambda(["self", "_"], plt.Text("None"))
+
 
 IntegerInstanceType = InstanceType(IntegerType())
 StringInstanceType = InstanceType(StringType())
