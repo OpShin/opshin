@@ -49,6 +49,12 @@ script:
 - >
   test -n "$(coverage run -a --source=opshin -m opshin lint any examples/broken.py --output-format-json)"
 - coverage run -a --source=opshin -m opshin compile lib opshin/prelude.py
+# build the libraries
+- >
+  for i in $(find opshin/std opshin/ledger -type f -name "*.py"); do
+    echo "$i"
+    coverage run -a --source=opshin -m opshin compile lib "$i" > /dev/null
+  done
 
 after_success:
 - coverage report

@@ -21,10 +21,7 @@ def unsigned_int_from_bytes_big(b: bytes) -> int:
 
 def ceil(a: int, b: int):
     """Returns a divided by b rounded towards positive infinity"""
-    if b > 0:
-        return (a + b - 1) // b
-    else:
-        return (a + b + 1) // b
+    return (a + b - 1) // b if b > 0 else (a + b + 1) // b
 
 
 def floor(a: int, b: int):
