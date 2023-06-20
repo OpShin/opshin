@@ -433,6 +433,19 @@ class PairType(ClassType):
             for t, ot in zip((self.l_typ, self.r_typ), (other.l_typ, other.r_typ))
         )
 
+    def stringify(self) -> plt.AST:
+        tuple_content = plt.AppendString(
+            plt.Apply(self.l_typ.stringify(), plt.FstPair(plt.Var("self"))),
+            plt.AppendString(
+                plt.Text(", "),
+                plt.Apply(self.r_typ.stringify(), plt.SndPair(plt.Var("self"))),
+            ),
+        )
+        return plt.Lambda(
+            ["self"],
+            plt.AppendString(plt.AppendString(plt.Text("("), tuple_content), ")"),
+        )
+
 
 @dataclass(frozen=True, unsafe_hash=True)
 class ListType(ClassType):
