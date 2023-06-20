@@ -851,6 +851,9 @@ class StringType(AtomicType):
                 return plt.BuiltIn(uplc.BuiltInFun.EqualsString)
         return super().cmp(op, o)
 
+    def stringify(self) -> plt.AST:
+        return plt.Lambda(["self", "_"], plt.Var("self"))
+
 
 @dataclass(frozen=True, unsafe_hash=True)
 class ByteStringType(AtomicType):
