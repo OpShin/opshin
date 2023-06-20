@@ -240,7 +240,7 @@ class RecordType(ClassType):
                 map_fields,
             )
         return plt.Lambda(
-            ["self"],
+            ["self", "_"],
             plt.AppendString(plt.Text(f"{self.record.name}("), map_fields),
         )
 
@@ -381,7 +381,7 @@ class UnionType(ClassType):
                 decide_string_func,
             )
         return plt.Lambda(
-            ["self"],
+            ["self", "_"],
             plt.Let(
                 [("c", plt.Constructor(plt.Var("self")))],
                 plt.Apply(decide_string_func, plt.Var("self")),
@@ -415,7 +415,7 @@ class TupleType(ClassType):
                 tuple_content,
             )
         return plt.Lambda(
-            ["self"],
+            ["self", "_"],
             plt.AppendString(plt.AppendString(plt.Text("("), tuple_content), ")"),
         )
 
@@ -442,7 +442,7 @@ class PairType(ClassType):
             ),
         )
         return plt.Lambda(
-            ["self"],
+            ["self", "_"],
             plt.AppendString(plt.AppendString(plt.Text("("), tuple_content), ")"),
         )
 
@@ -758,14 +758,7 @@ class IntegerType(AtomicType):
                 )
         return super().cmp(op, o)
 
-
-@dataclass(frozen=True, unsafe_hash=True)
-class StringType(AtomicType):
-    def constr_type(self) -> InstanceType:
-        return InstanceType(FunctionType([IntegerInstanceType], InstanceType(self)))
-
-    def constr(self) -> plt.AST:
-        # constructs a string representation of an integer
+    def stringify(self) -> plt.AST:
         return plt.Lambda(
             ["x", "_"],
             plt.DecodeUtf8(
@@ -830,6 +823,16 @@ class StringType(AtomicType):
                 )
             ),
         )
+
+
+@dataclass(frozen=True, unsafe_hash=True)
+class StringType(AtomicType):
+    def constr_type(self) -> InstanceType:
+        return InstanceType(FunctionType([IntegerInstanceType], InstanceType(self)))
+
+    def constr(self) -> plt.AST:
+        # constructs a string representation of an integer
+        return IntegerInstanceType.stringify()
 
     def attribute_type(self, attr) -> Type:
         if attr == "encode":
