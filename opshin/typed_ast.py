@@ -1067,6 +1067,16 @@ class BoolType(AtomicType):
                 return plt.Lambda(["x", "y"], plt.Iff(plt.Var("x"), plt.Var("y")))
         return super().cmp(op, o)
 
+    def stringify(self) -> plt.AST:
+        return plt.Lambda(
+            ["self", "_"],
+            plt.Ite(
+                plt.Var("self"),
+                plt.Text("True"),
+                plt.Text("False"),
+            ),
+        )
+
 
 @dataclass(frozen=True, unsafe_hash=True)
 class UnitType(AtomicType):
