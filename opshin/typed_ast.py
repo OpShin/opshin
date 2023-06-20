@@ -398,6 +398,27 @@ class TupleType(ClassType):
             t >= ot for t, ot in zip(self.typs, other.typs)
         )
 
+    def stringify(self) -> plt.AST:
+        tuple_content = plt.Apply(
+            self.typs[0].stringify(),
+            plt.FunctionalTupleAccess(plt.Var("self"), 0, len(self.typs)),
+        )
+        for i, t in enumerate(self.typs[1:], start=1):
+            tuple_content = plt.AppendString(
+                plt.AppendString(
+                    plt.Text(", "),
+                    plt.Apply(
+                        t.stringify(),
+                        plt.FunctionalTupleAccess(plt.Var("self"), i, len(self.typs)),
+                    ),
+                ),
+                tuple_content,
+            )
+        return plt.Lambda(
+            ["self"],
+            plt.AppendString(plt.AppendString(plt.Text("("), tuple_content), ")"),
+        )
+
 
 @dataclass(frozen=True, unsafe_hash=True)
 class PairType(ClassType):
