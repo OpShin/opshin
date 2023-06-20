@@ -46,6 +46,10 @@ class Type:
             f"Comparison {type(op).__name__} for {self.__class__.__name__} and {o.__class__.__name__} is not implemented. This is likely intended because it would always evaluate to False."
         )
 
+    def stringify(self) -> plt.AST:
+        """Returns a stringified version of the object"""
+        raise NotImplementedError(f"{type(self).__name__} can not be stringified")
+
 
 @dataclass(frozen=True, unsafe_hash=True)
 class Record:
@@ -206,6 +210,39 @@ class RecordType(ClassType):
         # Can only substitute for its own type, records need to be equal
         # if someone wants to be funny, they can implement <= to be true if all fields match up to some point
         return isinstance(other, self.__class__) and self.record >= other.record
+
+    def stringify(self) -> plt.AST:
+        """Returns a stringified version of the object"""
+        map_fields = plt.Text(")")
+        if self.record.fields:
+            # TODO access to fields is a bit inefficient but this is debugging stuff only anyways
+            pos = len(self.record.fields) - 1
+            for field_name, field_type in reversed(self.record.fields[1:]):
+                map_fields = plt.AppendString(
+                    plt.AppendString(
+                        plt.Text(f", {field_name}="),
+                        plt.Apply(
+                            self.record.fields[pos][1].stringify(),
+                            plt.NthField(plt.Var("self"), plt.Integer(pos)),
+                        ),
+                    ),
+                    map_fields,
+                )
+                pos -= 1
+            map_fields = plt.AppendString(
+                plt.AppendString(
+                    plt.Text(f"{self.record.fields[0][0]}="),
+                    plt.Apply(
+                        self.record.fields[0][1].stringify(),
+                        plt.NthField(plt.Var("self"), plt.Integer(pos)),
+                    ),
+                ),
+                map_fields,
+            )
+        return plt.Lambda(
+            ["self"],
+            plt.AppendString(plt.Text(f"{self.record.name}("), map_fields),
+        )
 
 
 @dataclass(frozen=True, unsafe_hash=True)
