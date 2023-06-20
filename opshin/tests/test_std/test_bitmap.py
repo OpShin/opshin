@@ -86,3 +86,25 @@ def test_none_bitmap(x: bytes):
     assert oc_bitmap.none_bitmap(x) == all(
         b == 0x00 for b in x
     ), "None is incorrect for bitmap"
+
+
+@hypothesis.given(bytes_and_index())
+def test_flip_roundtrip(p: Tuple[bytes, int]):
+    a, i = p
+    assert (
+        oc_bitmap.flip_bitmap(oc_bitmap.flip_bitmap(a, i), i) == a
+    ), "Flipped bit incorrectly"
+
+
+@hypothesis.given(bytes_and_index())
+def test_set_test(p: Tuple[bytes, int]):
+    a, i = p
+    assert oc_bitmap.test_bitmap(oc_bitmap.set_bitmap(a, i), i), "Set bit incorrectly"
+
+
+@hypothesis.given(bytes_and_index())
+def test_reset_test(p: Tuple[bytes, int]):
+    a, i = p
+    assert not oc_bitmap.test_bitmap(
+        oc_bitmap.reset_bitmap(a, i), i
+    ), "Reset bit incorrectly"
