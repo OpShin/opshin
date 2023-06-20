@@ -372,6 +372,19 @@ class UnionType(ClassType):
             f"Can not compare {o} and {self} with operation {op.__class__}. Note that comparisons that always return false are also rejected."
         )
 
+    def stringify(self) -> plt.AST:
+        decide_string_func = plt.TraceError("Invalid constructor id in Union")
+        for t in self.typs:
+            decide_string_func = plt.Ite(
+                plt.EqualsInteger(plt.Var("c"), plt.Integer(t.record.constructor)),
+                t.stringify(),
+                decide_string_func,
+            )
+        return plt.Lambda(
+            ["self"],
+            plt.Let([("c", plt.Constructor(plt.Var("self")))], decide_string_func),
+        )
+
 
 @dataclass(frozen=True, unsafe_hash=True)
 class TupleType(ClassType):
