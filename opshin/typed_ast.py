@@ -832,6 +832,7 @@ class StringType(AtomicType):
 
     def constr(self) -> plt.AST:
         # constructs a string representation of an integer
+        # TODO make this function parametric and just call the stringify method of the passed type
         return IntegerInstanceType.stringify()
 
     def attribute_type(self, attr) -> Type:
