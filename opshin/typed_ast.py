@@ -591,6 +591,9 @@ class InstanceType(Type):
     def __ge__(self, other):
         return isinstance(other, InstanceType) and self.typ >= other.typ
 
+    def stringify(self) -> plt.AST:
+        return self.typ.stringify()
+
 
 @dataclass(frozen=True, unsafe_hash=True)
 class IntegerType(AtomicType):
