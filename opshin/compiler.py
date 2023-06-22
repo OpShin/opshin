@@ -966,7 +966,7 @@ class UPLCCompiler(CompilingNodeTransformer):
         return plt.Lambda(
             [STATEMONAD],
             plt.Apply(
-                node.typ.stringify(),
+                node.value.typ.stringify(),
                 plt.Apply(self.visit(node.value), plt.Var(STATEMONAD)),
                 plt.Var(STATEMONAD),
             ),

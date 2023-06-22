@@ -448,4 +448,23 @@ def validator(x: bool, y: bool) -> bool:
         ]:
             f = uplc.Apply(f, d)
         ret = uplc_eval(f).value
-        self.assertEqual(ret, exp, "str eq returned wrong value")
+        self.assertEqual(ret, exp, "bool eq returned wrong value")
+
+    @given(x=st.booleans())
+    def test_fmt_bool(self, x):
+        source_code = """
+def validator(x: bool) -> str:
+    return f"{x}"
+            """
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        exp = f"{x}"
+        for d in [
+            uplc.PlutusInteger(int(x)),
+        ]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value.decode("utf8")
+        self.assertEqual(ret, exp, "bool string formatting returned wrong value")
