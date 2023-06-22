@@ -1258,6 +1258,16 @@ class TypedListComp(typedexpr, ListComp):
     elt: typedexpr
 
 
+class TypedFormattedValue(typedexpr, FormattedValue):
+    value: typing.List[typedexpr]
+    conversion: int
+    format_spec: typing.Optional[JoinedStr]
+
+
+class TypedJoinedStr(typedexpr, JoinedStr):
+    values: typing.List[typedexpr]
+
+
 class TypedDict(typedexpr, Dict):
     pass
 

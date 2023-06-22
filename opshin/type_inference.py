@@ -653,6 +653,25 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         typed_listcomp.typ = InstanceType(ListType(typed_listcomp.elt.typ))
         return typed_listcomp
 
+    def visit_FormattedValue(self, node: FormattedValue) -> TypedFormattedValue:
+        typed_node = copy(node)
+        typed_node.value = self.visit(node.value)
+        assert node.conversion in (
+            -1,
+            115,
+        ), "Only string formatting is allowed but got repr or ascii formatting."
+        assert (
+            node.format_spec is None
+        ), "No format specification is allowed but got formatting specifiers (i.e. decimals)."
+        typed_node.typ = StringInstanceType
+        return typed_node
+
+    def visit_JoinedStr(self, node: JoinedStr) -> TypedJoinedStr:
+        typed_node = copy(node)
+        typed_node.values = [self.visit(v) for v in node.values]
+        typed_node.typ = StringInstanceType
+        return typed_node
+
     def generic_visit(self, node: AST) -> TypedAST:
         raise NotImplementedError(
             f"Cannot infer type of non-implemented node {node.__class__}"
