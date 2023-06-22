@@ -10,26 +10,51 @@ import uplc.ast as uplc
 
 
 def repeated_addition(zero, add):
+    # this is optimized for logarithmic complexity by exponentiation by squaring
+    # it follows the implementation described here: https://en.wikipedia.org/wiki/Exponentiation_by_squaring#With_constant_auxiliary_memory
     def RepeatedAdd(x: plt.AST, y: plt.AST):
         return plt.Apply(
             plt.RecFun(
                 plt.Lambda(
-                    ["f", "x", "y"],
+                    ["f", "y", "x", "n"],
                     plt.Ite(
-                        plt.LessThanEqualsInteger(plt.Var("y"), plt.Integer(0)),
-                        zero,
-                        add(
-                            plt.Var("x"),
-                            plt.Apply(
-                                plt.Var("f"),
-                                plt.Var("f"),
-                                plt.Var("x"),
-                                plt.SubtractInteger(plt.Var("y"), plt.Integer(1)),
+                        plt.LessThanEqualsInteger(plt.Var("n"), plt.Integer(0)),
+                        plt.Var("y"),
+                        plt.Let(
+                            [
+                                (
+                                    "n_half",
+                                    plt.DivideInteger(plt.Var("n"), plt.Integer(2)),
+                                )
+                            ],
+                            plt.Ite(
+                                # tests whether (x//2)*2 == x which is True iff x is even
+                                plt.EqualsInteger(
+                                    plt.AddInteger(
+                                        plt.Var("n_half"), plt.Var("n_half")
+                                    ),
+                                    plt.Var("n"),
+                                ),
+                                plt.Apply(
+                                    plt.Var("f"),
+                                    plt.Var("f"),
+                                    plt.Var("y"),
+                                    add(plt.Var("x"), plt.Var("x")),
+                                    plt.Var("n_half"),
+                                ),
+                                plt.Apply(
+                                    plt.Var("f"),
+                                    plt.Var("f"),
+                                    add(plt.Var("y"), plt.Var("x")),
+                                    add(plt.Var("x"), plt.Var("x")),
+                                    plt.Var("n_half"),
+                                ),
                             ),
                         ),
                     ),
                 ),
             ),
+            zero,
             x,
             y,
         )
