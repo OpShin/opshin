@@ -972,6 +972,14 @@ class UPLCCompiler(CompilingNodeTransformer):
             ),
         )
 
+    def visit_JoinedStr(self, node: TypedJoinedStr) -> plt.AST:
+        joined_str = plt.Text("")
+        for v in reversed(node.values):
+            joined_str = plt.AppendString(
+                plt.Apply(self.visit(v), plt.Var(STATEMONAD)), joined_str
+            )
+        return plt.Lambda([STATEMONAD], joined_str)
+
     def generic_visit(self, node: AST) -> plt.AST:
         raise NotImplementedError(f"Can not compile {node}")
 
