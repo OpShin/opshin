@@ -1259,7 +1259,7 @@ class TypedListComp(typedexpr, ListComp):
 
 
 class TypedFormattedValue(typedexpr, FormattedValue):
-    value: typing.List[typedexpr]
+    value: typedexpr
     conversion: int
     format_spec: typing.Optional[JoinedStr]
 

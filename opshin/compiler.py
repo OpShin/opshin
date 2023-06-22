@@ -962,6 +962,16 @@ class UPLCCompiler(CompilingNodeTransformer):
                 ),
             )
 
+    def visit_FormattedValue(self, node: TypedFormattedValue) -> plt.AST:
+        return plt.Lambda(
+            [STATEMONAD],
+            plt.Apply(
+                node.typ.stringify(),
+                plt.Apply(self.visit(node.value), plt.Var(STATEMONAD)),
+                plt.Var(STATEMONAD),
+            ),
+        )
+
     def generic_visit(self, node: AST) -> plt.AST:
         raise NotImplementedError(f"Can not compile {node}")
 
