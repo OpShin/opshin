@@ -468,3 +468,80 @@ def validator(x: bool) -> str:
             f = uplc.Apply(f, d)
         ret = uplc_eval(f).value.decode("utf8")
         self.assertEqual(ret, exp, "bool string formatting returned wrong value")
+
+    @given(x=st.integers())
+    def test_fmt_int(self, x):
+        source_code = """
+def validator(x: int) -> str:
+    return f"{x}"
+            """
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        exp = f"{x}"
+        for d in [
+            uplc.PlutusInteger(int(x)),
+        ]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value.decode("utf8")
+        self.assertEqual(ret, exp, "int string formatting returned wrong value")
+
+    @given(x=st.text())
+    def test_fmt_str(self, x):
+        source_code = """
+def validator(x: str) -> str:
+    return f"{x}"
+            """
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        exp = f"{x}"
+        for d in [
+            uplc.PlutusByteString(x.encode("utf8")),
+        ]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value.decode("utf8")
+        self.assertEqual(ret, exp, "int string formatting returned wrong value")
+
+    @unittest.skip("Bytes stringification not implented yet")
+    @given(x=st.binary())
+    def test_fmt_bytes(self, x):
+        source_code = """
+def validator(x: bytes) -> str:
+    return f"{x}"
+            """
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        exp = f"{x}"
+        for d in [
+            uplc.PlutusByteString(x),
+        ]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value.decode("utf8")
+        self.assertEqual(ret, exp, "int string formatting returned wrong value")
+
+    @given(x=st.none())
+    def test_fmt_none(self, x):
+        source_code = """
+def validator(x: None) -> str:
+    return f"{x}"
+            """
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        exp = f"{x}"
+        for d in [
+            uplc.PlutusConstr(0, []),
+        ]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value.decode("utf8")
+        self.assertEqual(ret, exp, "int string formatting returned wrong value")
