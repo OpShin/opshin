@@ -1,5 +1,7 @@
+import dataclasses
 import unittest
 
+import pycardano
 from hypothesis import example, given
 from hypothesis import strategies as st
 from uplc import ast as uplc, eval as uplc_eval
@@ -545,6 +547,34 @@ def validator(x: None) -> str:
             f = uplc.Apply(f, d)
         ret = uplc_eval(f).value.decode("utf8")
         self.assertEqual(ret, exp, "none string formatting returned wrong value")
+
+    @given(x=st.integers(), y=st.integers(), z=st.integers())
+    def test_fmt_dataclass(self, x, y, z):
+        from opshin.prelude import StakingPtr
+
+        source_code = """
+from opshin.prelude import *
+
+def validator(x: int, y: int, z: int) -> str:
+    return f"{StakingPtr(x,y,z)}"
+            """
+
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        exp = f"{StakingPtr(x,y ,z)}"
+        for d in [
+            uplc.PlutusInteger(x),
+            uplc.PlutusInteger(y),
+            uplc.PlutusInteger(z),
+        ]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value.decode("utf8")
+        self.assertEqual(
+            ret, exp, "several element string formatting returned wrong value"
+        )
 
     @given(x=st.integers(), y=st.integers())
     def test_fmt_multiple(self, x, y):

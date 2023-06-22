@@ -222,8 +222,11 @@ class RecordType(ClassType):
                     plt.AppendString(
                         plt.Text(f", {field_name}="),
                         plt.Apply(
-                            self.record.fields[pos][1].stringify(),
-                            plt.NthField(plt.Var("self"), plt.Integer(pos)),
+                            field_type.stringify(),
+                            transform_ext_params_map(field_type)(
+                                plt.NthField(plt.Var("self"), plt.Integer(pos))
+                            ),
+                            plt.Var("_"),
                         ),
                     ),
                     map_fields,
@@ -234,7 +237,10 @@ class RecordType(ClassType):
                     plt.Text(f"{self.record.fields[0][0]}="),
                     plt.Apply(
                         self.record.fields[0][1].stringify(),
-                        plt.NthField(plt.Var("self"), plt.Integer(pos)),
+                        transform_ext_params_map(self.record.fields[0][1])(
+                            plt.NthField(plt.Var("self"), plt.Integer(pos))
+                        ),
+                        plt.Var("_"),
                     ),
                 ),
                 map_fields,
