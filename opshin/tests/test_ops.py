@@ -505,7 +505,7 @@ def validator(x: str) -> str:
         ]:
             f = uplc.Apply(f, d)
         ret = uplc_eval(f).value.decode("utf8")
-        self.assertEqual(ret, exp, "int string formatting returned wrong value")
+        self.assertEqual(ret, exp, "string string formatting returned wrong value")
 
     @unittest.skip("Bytes stringification not implented yet")
     @given(x=st.binary())
@@ -525,7 +525,7 @@ def validator(x: bytes) -> str:
         ]:
             f = uplc.Apply(f, d)
         ret = uplc_eval(f).value.decode("utf8")
-        self.assertEqual(ret, exp, "int string formatting returned wrong value")
+        self.assertEqual(ret, exp, "bytes string formatting returned wrong value")
 
     @given(x=st.none())
     def test_fmt_none(self, x):
@@ -544,4 +544,26 @@ def validator(x: None) -> str:
         ]:
             f = uplc.Apply(f, d)
         ret = uplc_eval(f).value.decode("utf8")
-        self.assertEqual(ret, exp, "int string formatting returned wrong value")
+        self.assertEqual(ret, exp, "none string formatting returned wrong value")
+
+    @given(x=st.integers(), y=st.integers())
+    def test_fmt_multiple(self, x, y):
+        source_code = """
+def validator(x: int, y: int) -> str:
+    return f"a{x}b{y}c"
+            """
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        exp = f"a{x}b{y}c"
+        for d in [
+            uplc.PlutusInteger(x),
+            uplc.PlutusInteger(y),
+        ]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value.decode("utf8")
+        self.assertEqual(
+            ret, exp, "several element string formatting returned wrong value"
+        )
