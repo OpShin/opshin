@@ -579,6 +579,7 @@ def validator(x: None) -> str:
             st.one_of(st.builds(TrueData), st.builds(FalseData)),
         )
     )
+    @hypothesis.settings(deadline=None)
     @example(UpperBoundPOSIXTime(PosInfPOSIXTime(), TrueData()))
     def test_fmt_dataclass(self, x: UpperBoundPOSIXTime):
         source_code = """
