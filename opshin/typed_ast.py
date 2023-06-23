@@ -455,11 +455,15 @@ class PairType(ClassType):
     def stringify(self) -> plt.AST:
         tuple_content = plt.ConcatString(
             plt.Apply(
-                self.l_typ.stringify(), plt.FstPair(plt.Var("self")), plt.Var("_")
+                self.l_typ.stringify(),
+                transform_ext_params_map(self.l_typ)(plt.FstPair(plt.Var("self"))),
+                plt.Var("_"),
             ),
             plt.Text(", "),
             plt.Apply(
-                self.r_typ.stringify(), plt.SndPair(plt.Var("self")), plt.Var("_")
+                self.r_typ.stringify(),
+                transform_ext_params_map(self.r_typ)(plt.SndPair(plt.Var("self"))),
+                plt.Var("_"),
             ),
         )
         return plt.Lambda(
