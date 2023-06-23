@@ -1115,25 +1115,57 @@ class ByteStringType(AtomicType):
                                             plt.ConsByteString(
                                                 plt.Var("i"), plt.Var("b")
                                             ),
-                                            plt.AppendByteString(
-                                                plt.ByteString(b"\\x"),
-                                                plt.ConsByteString(
-                                                    plt.Apply(
-                                                        plt.Var("map_str"),
-                                                        plt.DivideInteger(
-                                                            plt.Var("i"),
-                                                            plt.Integer(16),
-                                                        ),
+                                            plt.Ite(
+                                                plt.EqualsInteger(
+                                                    plt.Var("i"), plt.Integer(ord("\t"))
+                                                ),
+                                                plt.AppendByteString(
+                                                    b"\\t", plt.Var("b")
+                                                ),
+                                                plt.Ite(
+                                                    plt.EqualsInteger(
+                                                        plt.Var("i"),
+                                                        plt.Integer(ord("\n")),
                                                     ),
-                                                    plt.ConsByteString(
-                                                        plt.Apply(
-                                                            plt.Var("map_str"),
-                                                            plt.ModInteger(
-                                                                plt.Var("i"),
-                                                                plt.Integer(16),
+                                                    plt.AppendByteString(
+                                                        b"\\n", plt.Var("b")
+                                                    ),
+                                                    plt.Ite(
+                                                        plt.EqualsInteger(
+                                                            plt.Var("i"),
+                                                            plt.Integer(ord("\r")),
+                                                        ),
+                                                        plt.AppendByteString(
+                                                            b"\\r", plt.Var("b")
+                                                        ),
+                                                        plt.AppendByteString(
+                                                            plt.ByteString(b"\\x"),
+                                                            plt.ConsByteString(
+                                                                plt.Apply(
+                                                                    plt.Var("map_str"),
+                                                                    plt.DivideInteger(
+                                                                        plt.Var("i"),
+                                                                        plt.Integer(16),
+                                                                    ),
+                                                                ),
+                                                                plt.ConsByteString(
+                                                                    plt.Apply(
+                                                                        plt.Var(
+                                                                            "map_str"
+                                                                        ),
+                                                                        plt.ModInteger(
+                                                                            plt.Var(
+                                                                                "i"
+                                                                            ),
+                                                                            plt.Integer(
+                                                                                16
+                                                                            ),
+                                                                        ),
+                                                                    ),
+                                                                    plt.Var("b"),
+                                                                ),
                                                             ),
                                                         ),
-                                                        plt.Var("b"),
                                                     ),
                                                 ),
                                             ),
