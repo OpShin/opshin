@@ -479,6 +479,62 @@ class ListType(ClassType):
     def __ge__(self, other):
         return isinstance(other, ListType) and self.typ >= other.typ
 
+    def stringify(self) -> plt.AST:
+        return plt.Lambda(
+            ["self", "_"],
+            plt.Let(
+                [
+                    (
+                        "g",
+                        plt.RecFun(
+                            plt.Lambda(
+                                ["f", "l"],
+                                plt.AppendString(
+                                    plt.HeadList(plt.Var("l")),
+                                    plt.Let(
+                                        [("t", plt.TailList(plt.Var("l")))],
+                                        plt.Ite(
+                                            plt.EmptyList(plt.Var("t")),
+                                            plt.Text("]"),
+                                            plt.AppendString(
+                                                plt.Text(","),
+                                                plt.Apply(
+                                                    plt.Var("f"),
+                                                    plt.Var("f"),
+                                                    plt.Var("t"),
+                                                ),
+                                            ),
+                                        ),
+                                    ),
+                                ),
+                            )
+                        ),
+                    )
+                ],
+                plt.AppendString(
+                    plt.Text("["),
+                    plt.Ite(
+                        plt.EmptyList(plt.Var("self")),
+                        plt.Text("]"),
+                        plt.Apply(
+                            plt.Var("g"),
+                            plt.Var("g"),
+                            plt.MapList(
+                                plt.Var("self"),
+                                plt.Lambda(
+                                    ["x"],
+                                    plt.Apply(
+                                        self.typ.stringify(), plt.Var("x"), plt.Var("_")
+                                    ),
+                                ),
+                                empty_list(self.typ),
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+        )
+
 
 @dataclass(frozen=True, unsafe_hash=True)
 class DictType(ClassType):
