@@ -1112,15 +1112,25 @@ class ByteStringType(AtomicType):
                                                     plt.Var("i"), plt.Integer(0x7E)
                                                 ),
                                             ),
-                                            plt.ConsByteString(
-                                                plt.Var("i"), plt.Var("b")
+                                            plt.Ite(
+                                                plt.EqualsInteger(
+                                                    plt.Var("i"),
+                                                    plt.Integer(ord("\\")),
+                                                ),
+                                                plt.AppendByteString(
+                                                    plt.ByteString(b"\\\\"),
+                                                    plt.Var("b"),
+                                                ),
+                                                plt.ConsByteString(
+                                                    plt.Var("i"), plt.Var("b")
+                                                ),
                                             ),
                                             plt.Ite(
                                                 plt.EqualsInteger(
                                                     plt.Var("i"), plt.Integer(ord("\t"))
                                                 ),
                                                 plt.AppendByteString(
-                                                    b"\\t", plt.Var("b")
+                                                    plt.ByteString(b"\\t"), plt.Var("b")
                                                 ),
                                                 plt.Ite(
                                                     plt.EqualsInteger(
@@ -1128,7 +1138,8 @@ class ByteStringType(AtomicType):
                                                         plt.Integer(ord("\n")),
                                                     ),
                                                     plt.AppendByteString(
-                                                        b"\\n", plt.Var("b")
+                                                        plt.ByteString(b"\\n"),
+                                                        plt.Var("b"),
                                                     ),
                                                     plt.Ite(
                                                         plt.EqualsInteger(
@@ -1136,7 +1147,8 @@ class ByteStringType(AtomicType):
                                                             plt.Integer(ord("\r")),
                                                         ),
                                                         plt.AppendByteString(
-                                                            b"\\r", plt.Var("b")
+                                                            plt.ByteString(b"\\r"),
+                                                            plt.Var("b"),
                                                         ),
                                                         plt.AppendByteString(
                                                             plt.ByteString(b"\\x"),
