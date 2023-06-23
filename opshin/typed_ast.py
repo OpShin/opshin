@@ -1104,29 +1104,19 @@ class ByteStringType(AtomicType):
                                         ["b", "i"],
                                         plt.Ite(
                                             # ascii printable characters are kept unmodified
-                                            plt.Or(
-                                                plt.And(
-                                                    plt.LessThanEqualsInteger(
-                                                        plt.Integer(0x60), plt.Var("i")
-                                                    ),
-                                                    plt.LessThanEqualsInteger(
-                                                        plt.Var("i"), plt.Integer(0x7F)
-                                                    ),
+                                            plt.And(
+                                                plt.LessThanEqualsInteger(
+                                                    plt.Integer(0x20), plt.Var("i")
                                                 ),
-                                                plt.And(
-                                                    plt.LessThanEqualsInteger(
-                                                        plt.Integer(0x20), plt.Var("i")
-                                                    ),
-                                                    plt.LessThanEqualsInteger(
-                                                        plt.Var("i"), plt.Integer(0x3F)
-                                                    ),
+                                                plt.LessThanEqualsInteger(
+                                                    plt.Var("i"), plt.Integer(0x7E)
                                                 ),
                                             ),
                                             plt.ConsByteString(
                                                 plt.Var("i"), plt.Var("b")
                                             ),
                                             plt.AppendByteString(
-                                                b"\\x",
+                                                plt.ByteString(b"\\x"),
                                                 plt.ConsByteString(
                                                     plt.Apply(
                                                         plt.Var("map_str"),
@@ -1154,11 +1144,17 @@ class ByteStringType(AtomicType):
                             ),
                         ),
                     ],
-                    plt.Apply(
-                        plt.Var("mkstr"),
-                        plt.SubtractInteger(
-                            plt.LengthOfByteString(plt.Var("x")), plt.Integer(1)
+                    plt.AppendByteString(
+                        plt.AppendByteString(
+                            plt.ByteString(b"b'"),
+                            plt.Apply(
+                                plt.Var("mkstr"),
+                                plt.SubtractInteger(
+                                    plt.LengthOfByteString(plt.Var("x")), plt.Integer(1)
+                                ),
+                            ),
                         ),
+                        plt.ByteString(b"'"),
                     ),
                 ),
             ),
