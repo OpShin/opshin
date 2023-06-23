@@ -8,6 +8,14 @@ from uplc import ast as uplc, eval as uplc_eval
 
 from .. import compiler
 
+from opshin.ledger.api_v2 import (
+    FinitePOSIXTime,
+    PosInfPOSIXTime,
+    UpperBoundPOSIXTime,
+    FalseData,
+    TrueData,
+)
+
 
 class OpTest(unittest.TestCase):
     @given(x=st.booleans(), y=st.booleans())
@@ -548,15 +556,22 @@ def validator(x: None) -> str:
         ret = uplc_eval(f).value.decode("utf8")
         self.assertEqual(ret, exp, "none string formatting returned wrong value")
 
-    @given(x=st.integers(), y=st.integers(), z=st.integers())
-    def test_fmt_dataclass(self, x, y, z):
-        from opshin.prelude import StakingPtr
-
+    @given(
+        x=st.builds(
+            UpperBoundPOSIXTime,
+            st.one_of(
+                st.builds(FinitePOSIXTime, st.integers()), st.builds(PosInfPOSIXTime)
+            ),
+            st.one_of(st.builds(TrueData), st.builds(FalseData)),
+        )
+    )
+    @example(UpperBoundPOSIXTime(PosInfPOSIXTime(), TrueData()))
+    def test_fmt_dataclass(self, x: UpperBoundPOSIXTime):
         source_code = """
 from opshin.prelude import *
 
-def validator(x: int, y: int, z: int) -> str:
-    return f"{StakingPtr(x,y,z)}"
+def validator(x: UpperBoundPOSIXTime) -> str:
+    return f"{x}"
             """
 
         ast = compiler.parse(source_code)
@@ -564,11 +579,9 @@ def validator(x: int, y: int, z: int) -> str:
         code = code.compile()
         f = code.term
         # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
-        exp = f"{StakingPtr(x,y ,z)}"
+        exp = f"{x}"
         for d in [
-            uplc.PlutusInteger(x),
-            uplc.PlutusInteger(y),
-            uplc.PlutusInteger(z),
+            uplc.data_from_cbor(x.to_cbor()),
         ]:
             f = uplc.Apply(f, d)
         ret = uplc_eval(f).value.decode("utf8")

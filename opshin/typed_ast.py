@@ -390,7 +390,7 @@ class UnionType(ClassType):
             ["self", "_"],
             plt.Let(
                 [("c", plt.Constructor(plt.Var("self")))],
-                plt.Apply(decide_string_func, plt.Var("self")),
+                plt.Apply(decide_string_func, plt.Var("self"), plt.Var("_")),
             ),
         )
 
