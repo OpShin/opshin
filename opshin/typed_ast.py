@@ -1113,8 +1113,18 @@ class ByteStringType(AtomicType):
                                                     plt.ByteString(b"\\\\"),
                                                     plt.Var("b"),
                                                 ),
-                                                plt.ConsByteString(
-                                                    plt.Var("i"), plt.Var("b")
+                                                plt.Ite(
+                                                    plt.EqualsInteger(
+                                                        plt.Var("i"),
+                                                        plt.Integer(ord("'")),
+                                                    ),
+                                                    plt.AppendByteString(
+                                                        plt.ByteString(b"\\'"),
+                                                        plt.Var("b"),
+                                                    ),
+                                                    plt.ConsByteString(
+                                                        plt.Var("i"), plt.Var("b")
+                                                    ),
                                                 ),
                                             ),
                                             plt.Ite(

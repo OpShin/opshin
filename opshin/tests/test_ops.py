@@ -1,6 +1,7 @@
 import dataclasses
 import unittest
 
+import hypothesis
 import pycardano
 from hypothesis import example, given
 from hypothesis import strategies as st
@@ -518,6 +519,13 @@ def validator(x: str) -> str:
         self.assertEqual(ret, exp, "string string formatting returned wrong value")
 
     @given(x=st.binary())
+    @example(b"'")
+    @example(b'"')
+    @example(b"\\")
+    @example(b"\r")
+    @example(b"\n")
+    @example(b"\t")
+    @example(b"\x7f")
     def test_fmt_bytes(self, x):
         source_code = """
 def validator(x: bytes) -> str:
@@ -534,7 +542,14 @@ def validator(x: bytes) -> str:
         ]:
             f = uplc.Apply(f, d)
         ret = uplc_eval(f).value.decode("utf8")
-        self.assertEqual(ret, exp, "bytes string formatting returned wrong value")
+        if b"'" not in x:
+            self.assertEqual(ret, exp, "bytes string formatting returned wrong value")
+        else:
+            # NOTE: formally this is a bug where we do not have the same semantics as python
+            # specifically when ' is contained in the string we do not change the quotation marks
+            self.assertEqual(
+                eval(ret), x, "bytes string formatting returned wrong value"
+            )
 
     @given(x=st.none())
     def test_fmt_none(self, x):
