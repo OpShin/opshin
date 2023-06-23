@@ -218,30 +218,26 @@ class RecordType(ClassType):
             # TODO access to fields is a bit inefficient but this is debugging stuff only anyways
             pos = len(self.record.fields) - 1
             for field_name, field_type in reversed(self.record.fields[1:]):
-                map_fields = plt.AppendString(
-                    plt.AppendString(
-                        plt.Text(f", {field_name}="),
-                        plt.Apply(
-                            field_type.stringify(),
-                            transform_ext_params_map(field_type)(
-                                plt.NthField(plt.Var("self"), plt.Integer(pos))
-                            ),
-                            plt.Var("_"),
-                        ),
-                    ),
-                    map_fields,
-                )
-                pos -= 1
-            map_fields = plt.AppendString(
-                plt.AppendString(
-                    plt.Text(f"{self.record.fields[0][0]}="),
+                map_fields = plt.ConcatString(
+                    plt.Text(f", {field_name}="),
                     plt.Apply(
-                        self.record.fields[0][1].stringify(),
-                        transform_ext_params_map(self.record.fields[0][1])(
+                        field_type.stringify(),
+                        transform_ext_params_map(field_type)(
                             plt.NthField(plt.Var("self"), plt.Integer(pos))
                         ),
                         plt.Var("_"),
                     ),
+                    map_fields,
+                )
+                pos -= 1
+            map_fields = plt.ConcatString(
+                plt.Text(f"{self.record.fields[0][0]}="),
+                plt.Apply(
+                    self.record.fields[0][1].stringify(),
+                    transform_ext_params_map(self.record.fields[0][1])(
+                        plt.NthField(plt.Var("self"), plt.Integer(pos))
+                    ),
+                    plt.Var("_"),
                 ),
                 map_fields,
             )
@@ -410,19 +406,17 @@ class TupleType(ClassType):
             plt.FunctionalTupleAccess(plt.Var("self"), 0, len(self.typs)),
         )
         for i, t in enumerate(self.typs[1:], start=1):
-            tuple_content = plt.AppendString(
-                plt.AppendString(
-                    plt.Text(", "),
-                    plt.Apply(
-                        t.stringify(),
-                        plt.FunctionalTupleAccess(plt.Var("self"), i, len(self.typs)),
-                    ),
+            tuple_content = plt.ConcatString(
+                plt.Text(", "),
+                plt.Apply(
+                    t.stringify(),
+                    plt.FunctionalTupleAccess(plt.Var("self"), i, len(self.typs)),
                 ),
                 tuple_content,
             )
         return plt.Lambda(
             ["self", "_"],
-            plt.AppendString(plt.AppendString(plt.Text("("), tuple_content), ")"),
+            plt.ConcatString(plt.Text("("), tuple_content, ")"),
         )
 
 
@@ -440,16 +434,14 @@ class PairType(ClassType):
         )
 
     def stringify(self) -> plt.AST:
-        tuple_content = plt.AppendString(
+        tuple_content = plt.ConcatString(
             plt.Apply(self.l_typ.stringify(), plt.FstPair(plt.Var("self"))),
-            plt.AppendString(
-                plt.Text(", "),
-                plt.Apply(self.r_typ.stringify(), plt.SndPair(plt.Var("self"))),
-            ),
+            plt.Text(", "),
+            plt.Apply(self.r_typ.stringify(), plt.SndPair(plt.Var("self"))),
         )
         return plt.Lambda(
             ["self", "_"],
-            plt.AppendString(plt.AppendString(plt.Text("("), tuple_content), ")"),
+            plt.ConcatString(plt.Text("("), tuple_content, ")"),
         )
 
 
@@ -1188,14 +1180,12 @@ class ByteStringType(AtomicType):
                             ),
                         ),
                     ],
-                    plt.AppendByteString(
-                        plt.AppendByteString(
-                            plt.ByteString(b"b'"),
-                            plt.Apply(
-                                plt.Var("mkstr"),
-                                plt.SubtractInteger(
-                                    plt.LengthOfByteString(plt.Var("x")), plt.Integer(1)
-                                ),
+                    plt.ConcatByteString(
+                        plt.ByteString(b"b'"),
+                        plt.Apply(
+                            plt.Var("mkstr"),
+                            plt.SubtractInteger(
+                                plt.LengthOfByteString(plt.Var("x")), plt.Integer(1)
                             ),
                         ),
                         plt.ByteString(b"'"),
