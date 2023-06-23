@@ -627,6 +627,7 @@ def validator(x: int, y: int) -> str:
         )
 
     @given(x=st.lists(st.integers()))
+    @hypothesis.settings(deadline=None)
     @example([])
     @example([0])
     def test_fmt_tuple(self, x):
