@@ -1046,6 +1046,99 @@ class ByteStringType(AtomicType):
                 )
         return super().cmp(op, o)
 
+    def stringify(self) -> plt.AST:
+        return plt.Lambda(
+            ["x", "_"],
+            plt.DecodeUtf8(
+                plt.Let(
+                    [
+                        (
+                            "hexlist",
+                            plt.RecFun(
+                                plt.Lambda(
+                                    ["f", "i"],
+                                    plt.Ite(
+                                        plt.LessThanInteger(
+                                            plt.Var("i"), plt.Integer(0)
+                                        ),
+                                        plt.EmptyIntegerList(),
+                                        plt.MkCons(
+                                            plt.IndexByteString(
+                                                plt.Var("x"), plt.Var("i")
+                                            ),
+                                            plt.Apply(
+                                                plt.Var("f"),
+                                                plt.Var("f"),
+                                                plt.SubtractInteger(
+                                                    plt.Var("i"), plt.Integer(1)
+                                                ),
+                                            ),
+                                        ),
+                                    ),
+                                ),
+                            ),
+                        ),
+                        (
+                            "map_str",
+                            plt.Lambda(
+                                ["i"],
+                                plt.AddInteger(
+                                    plt.Var("i"),
+                                    plt.IfThenElse(
+                                        plt.LessThanInteger(
+                                            plt.Var("i"), plt.Integer(10)
+                                        ),
+                                        plt.Integer(ord("0")),
+                                        plt.Integer(ord("a") - 10),
+                                    ),
+                                ),
+                            ),
+                        ),
+                        (
+                            "mkstr",
+                            plt.Lambda(
+                                ["i"],
+                                plt.FoldList(
+                                    plt.Apply(plt.Var("hexlist"), plt.Var("i")),
+                                    plt.Lambda(
+                                        ["b", "i"],
+                                        plt.AppendByteString(
+                                            b"\\x",
+                                            plt.ConsByteString(
+                                                plt.Apply(
+                                                    plt.Var("map_str"),
+                                                    plt.DivideInteger(
+                                                        plt.Var("i"), plt.Integer(16)
+                                                    ),
+                                                ),
+                                                plt.ConsByteString(
+                                                    plt.Apply(
+                                                        plt.Var("map_str"),
+                                                        plt.ModInteger(
+                                                            plt.Var("i"),
+                                                            plt.Integer(16),
+                                                        ),
+                                                    ),
+                                                    plt.Var("b"),
+                                                ),
+                                            ),
+                                        ),
+                                    ),
+                                    plt.ByteString(b""),
+                                ),
+                            ),
+                        ),
+                    ],
+                    plt.Apply(
+                        plt.Var("mkstr"),
+                        plt.SubtractInteger(
+                            plt.LengthOfByteString(plt.Var("x")), plt.Integer(1)
+                        ),
+                    ),
+                ),
+            ),
+        )
+
 
 @dataclass(frozen=True, unsafe_hash=True)
 class BoolType(AtomicType):
