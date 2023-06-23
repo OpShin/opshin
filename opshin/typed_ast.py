@@ -590,6 +590,9 @@ class FunctionType(ClassType):
             and other.rettyp >= self.rettyp
         )
 
+    def stringify(self) -> plt.AST:
+        return plt.Lambda(["x", "_"], plt.Text("<function>"))
+
 
 @dataclass(frozen=True, unsafe_hash=True)
 class InstanceType(Type):
