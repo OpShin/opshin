@@ -401,22 +401,31 @@ class TupleType(ClassType):
         )
 
     def stringify(self) -> plt.AST:
-        tuple_content = plt.Apply(
-            self.typs[0].stringify(),
-            plt.FunctionalTupleAccess(plt.Var("self"), 0, len(self.typs)),
-        )
-        for i, t in enumerate(self.typs[1:], start=1):
+        tuple_content = plt.Text("")
+        for i, t in enumerate(self.typs[: (-1 if len(self.typs) > 1 else None)]):
             tuple_content = plt.ConcatString(
-                plt.Text(", "),
+                tuple_content,
                 plt.Apply(
                     t.stringify(),
                     plt.FunctionalTupleAccess(plt.Var("self"), i, len(self.typs)),
+                    plt.Var("_"),
                 ),
+                plt.Text("," if len(self.typs) == 1 else ", "),
+            )
+        if len(self.typs) > 1:
+            tuple_content = plt.ConcatString(
                 tuple_content,
+                plt.Apply(
+                    self.typs[-1].stringify(),
+                    plt.FunctionalTupleAccess(
+                        plt.Var("self"), len(self.typs) - 1, len(self.typs)
+                    ),
+                    plt.Var("_"),
+                ),
             )
         return plt.Lambda(
             ["self", "_"],
-            plt.ConcatString(plt.Text("("), tuple_content, ")"),
+            plt.ConcatString(plt.Text("("), tuple_content, plt.Text(")")),
         )
 
 
@@ -435,13 +444,17 @@ class PairType(ClassType):
 
     def stringify(self) -> plt.AST:
         tuple_content = plt.ConcatString(
-            plt.Apply(self.l_typ.stringify(), plt.FstPair(plt.Var("self"))),
+            plt.Apply(
+                self.l_typ.stringify(), plt.FstPair(plt.Var("self")), plt.Var("_")
+            ),
             plt.Text(", "),
-            plt.Apply(self.r_typ.stringify(), plt.SndPair(plt.Var("self"))),
+            plt.Apply(
+                self.r_typ.stringify(), plt.SndPair(plt.Var("self")), plt.Var("_")
+            ),
         )
         return plt.Lambda(
             ["self", "_"],
-            plt.ConcatString(plt.Text("("), tuple_content, ")"),
+            plt.ConcatString(plt.Text("("), tuple_content, plt.Text(")")),
         )
 
 

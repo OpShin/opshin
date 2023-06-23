@@ -625,3 +625,25 @@ def validator(x: int, y: int) -> str:
         self.assertEqual(
             ret, exp, "several element string formatting returned wrong value"
         )
+
+    @given(x=st.lists(st.integers()))
+    @example([])
+    @example([0])
+    def test_fmt_tuple(self, x):
+        params = [f"a{i}" for i in range(len(x))]
+        source_code = f"""
+def validator({",".join(p + ": int" for p in params)}) -> str:
+    return f"{{({"".join(p + "," for p in params)})}}"
+            """
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        exp = f"{tuple(x)}"
+        for d in (
+            [uplc.PlutusInteger(xi) for xi in x] if x else [uplc.PlutusConstr(0, [])]
+        ):
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value.decode("utf8")
+        self.assertEqual(ret, exp, "tuple string formatting returned wrong value")
