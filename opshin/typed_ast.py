@@ -1102,24 +1102,49 @@ class ByteStringType(AtomicType):
                                     plt.Apply(plt.Var("hexlist"), plt.Var("i")),
                                     plt.Lambda(
                                         ["b", "i"],
-                                        plt.AppendByteString(
-                                            b"\\x",
-                                            plt.ConsByteString(
-                                                plt.Apply(
-                                                    plt.Var("map_str"),
-                                                    plt.DivideInteger(
-                                                        plt.Var("i"), plt.Integer(16)
+                                        plt.Ite(
+                                            # ascii printable characters are kept unmodified
+                                            plt.Or(
+                                                plt.And(
+                                                    plt.LessThanEqualsInteger(
+                                                        plt.Integer(0x60), plt.Var("i")
+                                                    ),
+                                                    plt.LessThanEqualsInteger(
+                                                        plt.Var("i"), plt.Integer(0x7F)
                                                     ),
                                                 ),
+                                                plt.And(
+                                                    plt.LessThanEqualsInteger(
+                                                        plt.Integer(0x20), plt.Var("i")
+                                                    ),
+                                                    plt.LessThanEqualsInteger(
+                                                        plt.Var("i"), plt.Integer(0x3F)
+                                                    ),
+                                                ),
+                                            ),
+                                            plt.ConsByteString(
+                                                plt.Var("i"), plt.Var("b")
+                                            ),
+                                            plt.AppendByteString(
+                                                b"\\x",
                                                 plt.ConsByteString(
                                                     plt.Apply(
                                                         plt.Var("map_str"),
-                                                        plt.ModInteger(
+                                                        plt.DivideInteger(
                                                             plt.Var("i"),
                                                             plt.Integer(16),
                                                         ),
                                                     ),
-                                                    plt.Var("b"),
+                                                    plt.ConsByteString(
+                                                        plt.Apply(
+                                                            plt.Var("map_str"),
+                                                            plt.ModInteger(
+                                                                plt.Var("i"),
+                                                                plt.Integer(16),
+                                                            ),
+                                                        ),
+                                                        plt.Var("b"),
+                                                    ),
                                                 ),
                                             ),
                                         ),
