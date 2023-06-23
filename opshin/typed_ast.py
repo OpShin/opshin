@@ -401,28 +401,38 @@ class TupleType(ClassType):
         )
 
     def stringify(self) -> plt.AST:
-        tuple_content = plt.Text("")
-        for i, t in enumerate(self.typs[: (-1 if len(self.typs) > 1 else None)]):
+        if not self.typs:
+            return plt.Lambda(
+                ["self", "_"],
+                plt.Text("()"),
+            )
+        elif len(self.typs) == 1:
             tuple_content = plt.ConcatString(
-                tuple_content,
                 plt.Apply(
-                    t.stringify(),
-                    plt.FunctionalTupleAccess(plt.Var("self"), i, len(self.typs)),
+                    self.typs[0].stringify(),
+                    plt.FunctionalTupleAccess(plt.Var("self"), 0, len(self.typs)),
                     plt.Var("_"),
                 ),
-                plt.Text("," if len(self.typs) == 1 else ", "),
+                plt.Text(","),
             )
-        if len(self.typs) > 1:
+        else:
             tuple_content = plt.ConcatString(
-                tuple_content,
                 plt.Apply(
-                    self.typs[-1].stringify(),
-                    plt.FunctionalTupleAccess(
-                        plt.Var("self"), len(self.typs) - 1, len(self.typs)
+                    self.typs[0].stringify(),
+                    plt.FunctionalTupleAccess(plt.Var("self"), 0, len(self.typs)),
+                    plt.Var("_"),
+                ),
+            )
+            for i, t in enumerate(self.typs[1:], start=1):
+                tuple_content = plt.ConcatString(
+                    tuple_content,
+                    plt.Text(", "),
+                    plt.Apply(
+                        t.stringify(),
+                        plt.FunctionalTupleAccess(plt.Var("self"), i, len(self.typs)),
+                        plt.Var("_"),
                     ),
-                    plt.Var("_"),
-                ),
-            )
+                )
         return plt.Lambda(
             ["self", "_"],
             plt.ConcatString(plt.Text("("), tuple_content, plt.Text(")")),
