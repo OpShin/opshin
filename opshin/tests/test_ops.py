@@ -630,7 +630,7 @@ def validator(x: int, y: int) -> str:
     @hypothesis.settings(deadline=None)
     @example([])
     @example([0])
-    def test_fmt_tuple(self, x):
+    def test_fmt_tuple_int(self, x):
         params = [f"a{i}" for i in range(len(x))]
         source_code = f"""
 def validator({",".join(p + ": int" for p in params)}) -> str:
@@ -647,11 +647,39 @@ def validator({",".join(p + ": int" for p in params)}) -> str:
         ):
             f = uplc.Apply(f, d)
         ret = uplc_eval(f).value.decode("utf8")
+        self.assertEqual(
+            ret, exp, "integer tuple string formatting returned wrong value"
+        )
+
+    @given(x=st.lists(st.text()))
+    @hypothesis.settings(deadline=None)
+    def test_fmt_tuple_str(self, x):
+        # TODO strings are not properly escaped here
+        hypothesis.assume(all(s not in o for s in ("'", "\\") for o in x))
+        hypothesis.assume(all(s not in repr(o) for s in "\\" for o in x))
+        params = [f"a{i}" for i in range(len(x))]
+        source_code = f"""
+def validator({",".join(p + ": str" for p in params)}) -> str:
+    return f"{{({"".join(p + "," for p in params)})}}"
+            """
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        exp = f"{tuple(x)}"
+        for d in (
+            [uplc.PlutusByteString(xi.encode("utf8")) for xi in x]
+            if x
+            else [uplc.PlutusConstr(0, [])]
+        ):
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value.decode("utf8")
         self.assertEqual(ret, exp, "tuple string formatting returned wrong value")
 
     @given(x=st.integers(), y=st.integers())
     @hypothesis.settings(deadline=None)
-    def test_fmt_pair(self, x, y):
+    def test_fmt_pair_int(self, x, y):
         source_code = f"""
 def validator(x: int, y: int) -> str:
     a = ""
@@ -671,13 +699,71 @@ def validator(x: int, y: int) -> str:
         ]:
             f = uplc.Apply(f, d)
         ret = uplc_eval(f).value.decode("utf8")
-        self.assertEqual(ret, exp, "tuple string formatting returned wrong value")
+        self.assertEqual(
+            ret, exp, "integer tuple string formatting returned wrong value"
+        )
+
+    @given(x=st.text(), y=st.text())
+    @example("", "\U00010b92")
+    @hypothesis.settings(
+        deadline=None, suppress_health_check=[hypothesis.HealthCheck.filter_too_much]
+    )
+    def test_fmt_pair_str(self, x, y):
+        # TODO strings are not properly escaped here
+        hypothesis.assume(all(s not in o for s in ("'", "\\") for o in (x, y)))
+        hypothesis.assume(all(s not in o for s in "\\" for o in (repr(x), repr(y))))
+        source_code = f"""
+def validator(x: str, y: str) -> str:
+    a = ""
+    for p in {{x:y}}.items():
+        a = f"{{p}}"
+    return a
+            """
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        exp = f"{(x, y)}"
+        for d in [
+            uplc.PlutusByteString(x.encode("utf8")),
+            uplc.PlutusByteString(y.encode("utf8")),
+        ]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value.decode("utf8")
+        self.assertEqual(
+            ret, exp, "string tuple string formatting returned wrong value"
+        )
+
+    @given(xs=st.lists(st.text()))
+    @hypothesis.settings(deadline=None)
+    @example([])
+    @example(["x"])
+    def test_fmt_list_str(self, xs):
+        source_code = """
+from opshin.prelude import *
+
+def validator(x: List[str]) -> str:
+    return f"{x}"
+            """
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        exp = f"{list(xs)}"
+        for d in [
+            uplc.PlutusList([uplc.PlutusByteString(x.encode("utf8")) for x in xs])
+        ]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value.decode("utf8")
+        self.assertEqual(ret, exp, "string list string formatting returned wrong value")
 
     @given(xs=st.lists(st.integers()))
     @hypothesis.settings(deadline=None)
     @example([])
     @example([0])
-    def test_fmt_list(self, xs):
+    def test_fmt_list_int(self, xs):
         source_code = """
 from opshin.prelude import *
 
@@ -693,4 +779,6 @@ def validator(x: List[int]) -> str:
         for d in [uplc.PlutusList([uplc.PlutusInteger(x) for x in xs])]:
             f = uplc.Apply(f, d)
         ret = uplc_eval(f).value.decode("utf8")
-        self.assertEqual(ret, exp, "list string formatting returned wrong value")
+        self.assertEqual(
+            ret, exp, "integer list string formatting returned wrong value"
+        )

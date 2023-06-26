@@ -46,8 +46,12 @@ class Type:
             f"Comparison {type(op).__name__} for {self.__class__.__name__} and {o.__class__.__name__} is not implemented. This is likely intended because it would always evaluate to False."
         )
 
-    def stringify(self) -> plt.AST:
-        """Returns a stringified version of the object"""
+    def stringify(self, recursive: bool = False) -> plt.AST:
+        """
+        Returns a stringified version of the object
+
+        The recursive parameter informs the method whether it was invoked recursively from another invokation
+        """
         raise NotImplementedError(f"{type(self).__name__} can not be stringified")
 
 
@@ -211,7 +215,7 @@ class RecordType(ClassType):
         # if someone wants to be funny, they can implement <= to be true if all fields match up to some point
         return isinstance(other, self.__class__) and self.record >= other.record
 
-    def stringify(self) -> plt.AST:
+    def stringify(self, recursive: bool = False) -> plt.AST:
         """Returns a stringified version of the object"""
         map_fields = plt.Text(")")
         if self.record.fields:
@@ -221,7 +225,7 @@ class RecordType(ClassType):
                 map_fields = plt.ConcatString(
                     plt.Text(f", {field_name}="),
                     plt.Apply(
-                        field_type.stringify(),
+                        field_type.stringify(recursive=True),
                         transform_ext_params_map(field_type)(
                             plt.NthField(plt.Var("self"), plt.Integer(pos))
                         ),
@@ -233,7 +237,7 @@ class RecordType(ClassType):
             map_fields = plt.ConcatString(
                 plt.Text(f"{self.record.fields[0][0]}="),
                 plt.Apply(
-                    self.record.fields[0][1].stringify(),
+                    self.record.fields[0][1].stringify(recursive=True),
                     transform_ext_params_map(self.record.fields[0][1])(
                         plt.NthField(plt.Var("self"), plt.Integer(pos))
                     ),
@@ -374,12 +378,12 @@ class UnionType(ClassType):
             f"Can not compare {o} and {self} with operation {op.__class__}. Note that comparisons that always return false are also rejected."
         )
 
-    def stringify(self) -> plt.AST:
+    def stringify(self, recursive: bool = False) -> plt.AST:
         decide_string_func = plt.TraceError("Invalid constructor id in Union")
         for t in self.typs:
             decide_string_func = plt.Ite(
                 plt.EqualsInteger(plt.Var("c"), plt.Integer(t.record.constructor)),
-                t.stringify(),
+                t.stringify(recursive=True),
                 decide_string_func,
             )
         return plt.Lambda(
@@ -400,7 +404,7 @@ class TupleType(ClassType):
             t >= ot for t, ot in zip(self.typs, other.typs)
         )
 
-    def stringify(self) -> plt.AST:
+    def stringify(self, recursive: bool = False) -> plt.AST:
         if not self.typs:
             return plt.Lambda(
                 ["self", "_"],
@@ -409,7 +413,7 @@ class TupleType(ClassType):
         elif len(self.typs) == 1:
             tuple_content = plt.ConcatString(
                 plt.Apply(
-                    self.typs[0].stringify(),
+                    self.typs[0].stringify(recursive=True),
                     plt.FunctionalTupleAccess(plt.Var("self"), 0, len(self.typs)),
                     plt.Var("_"),
                 ),
@@ -418,7 +422,7 @@ class TupleType(ClassType):
         else:
             tuple_content = plt.ConcatString(
                 plt.Apply(
-                    self.typs[0].stringify(),
+                    self.typs[0].stringify(recursive=True),
                     plt.FunctionalTupleAccess(plt.Var("self"), 0, len(self.typs)),
                     plt.Var("_"),
                 ),
@@ -428,7 +432,7 @@ class TupleType(ClassType):
                     tuple_content,
                     plt.Text(", "),
                     plt.Apply(
-                        t.stringify(),
+                        t.stringify(recursive=True),
                         plt.FunctionalTupleAccess(plt.Var("self"), i, len(self.typs)),
                         plt.Var("_"),
                     ),
@@ -452,16 +456,16 @@ class PairType(ClassType):
             for t, ot in zip((self.l_typ, self.r_typ), (other.l_typ, other.r_typ))
         )
 
-    def stringify(self) -> plt.AST:
+    def stringify(self, recursive: bool = False) -> plt.AST:
         tuple_content = plt.ConcatString(
             plt.Apply(
-                self.l_typ.stringify(),
+                self.l_typ.stringify(recursive=True),
                 transform_ext_params_map(self.l_typ)(plt.FstPair(plt.Var("self"))),
                 plt.Var("_"),
             ),
             plt.Text(", "),
             plt.Apply(
-                self.r_typ.stringify(),
+                self.r_typ.stringify(recursive=True),
                 transform_ext_params_map(self.r_typ)(plt.SndPair(plt.Var("self"))),
                 plt.Var("_"),
             ),
@@ -479,7 +483,7 @@ class ListType(ClassType):
     def __ge__(self, other):
         return isinstance(other, ListType) and self.typ >= other.typ
 
-    def stringify(self) -> plt.AST:
+    def stringify(self, recursive: bool = False) -> plt.AST:
         return plt.Lambda(
             ["self", "_"],
             plt.Let(
@@ -491,7 +495,7 @@ class ListType(ClassType):
                                 ["f", "l"],
                                 plt.AppendString(
                                     plt.Apply(
-                                        self.typ.stringify(),
+                                        self.typ.stringify(recursive=True),
                                         plt.HeadList(plt.Var("l")),
                                         plt.Var("_"),
                                     ),
@@ -627,6 +631,56 @@ class DictType(ClassType):
             and self.value_typ >= other.value_typ
         )
 
+    def stringify(self, recursive: bool = False) -> plt.AST:
+        return plt.Lambda(
+            ["self", "_"],
+            plt.Let(
+                [
+                    (
+                        "g",
+                        plt.RecFun(
+                            plt.Lambda(
+                                ["f", "l"],
+                                plt.AppendString(
+                                    plt.Apply(
+                                        self.typ.stringify(recursive=True),
+                                        plt.HeadList(plt.Var("l")),
+                                        plt.Var("_"),
+                                    ),
+                                    plt.Let(
+                                        [("t", plt.TailList(plt.Var("l")))],
+                                        plt.IteNullList(
+                                            plt.Var("t"),
+                                            plt.Text("]"),
+                                            plt.AppendString(
+                                                plt.Text(", "),
+                                                plt.Apply(
+                                                    plt.Var("f"),
+                                                    plt.Var("f"),
+                                                    plt.Var("t"),
+                                                ),
+                                            ),
+                                        ),
+                                    ),
+                                ),
+                            )
+                        ),
+                    )
+                ],
+                plt.AppendString(
+                    plt.Text("["),
+                    plt.IteNullList(
+                        plt.Var("self"),
+                        plt.Text("]"),
+                        plt.Apply(
+                            plt.Var("g"),
+                            plt.Var("self"),
+                        ),
+                    ),
+                ),
+            ),
+        )
+
 
 @dataclass(frozen=True, unsafe_hash=True)
 class FunctionType(ClassType):
@@ -640,7 +694,7 @@ class FunctionType(ClassType):
             and other.rettyp >= self.rettyp
         )
 
-    def stringify(self) -> plt.AST:
+    def stringify(self, recursive: bool = False) -> plt.AST:
         return plt.Lambda(["x", "_"], plt.Text("<function>"))
 
 
@@ -669,8 +723,8 @@ class InstanceType(Type):
     def __ge__(self, other):
         return isinstance(other, InstanceType) and self.typ >= other.typ
 
-    def stringify(self) -> plt.AST:
-        return self.typ.stringify()
+    def stringify(self, recursive: bool = False) -> plt.AST:
+        return self.typ.stringify(recursive=recursive)
 
 
 @dataclass(frozen=True, unsafe_hash=True)
@@ -839,7 +893,7 @@ class IntegerType(AtomicType):
                 )
         return super().cmp(op, o)
 
-    def stringify(self) -> plt.AST:
+    def stringify(self, recursive: bool = False) -> plt.AST:
         return plt.Lambda(
             ["x", "_"],
             plt.DecodeUtf8(
@@ -914,7 +968,7 @@ class StringType(AtomicType):
     def constr(self) -> plt.AST:
         # constructs a string representation of an integer
         # TODO make this function parametric and just call the stringify method of the passed type
-        return IntegerInstanceType.stringify()
+        return IntegerInstanceType.stringify(recursive=False)
 
     def attribute_type(self, attr) -> Type:
         if attr == "encode":
@@ -933,8 +987,15 @@ class StringType(AtomicType):
                 return plt.BuiltIn(uplc.BuiltInFun.EqualsString)
         return super().cmp(op, o)
 
-    def stringify(self) -> plt.AST:
-        return plt.Lambda(["self", "_"], plt.Var("self"))
+    def stringify(self, recursive: bool = False) -> plt.AST:
+        if recursive:
+            # TODO this is not correct, as the string is not properly escaped
+            return plt.Lambda(
+                ["self", "_"],
+                plt.ConcatString(plt.Text("'"), plt.Var("self"), plt.Text("'")),
+            )
+        else:
+            return plt.Lambda(["self", "_"], plt.Var("self"))
 
 
 @dataclass(frozen=True, unsafe_hash=True)
@@ -1118,7 +1179,7 @@ class ByteStringType(AtomicType):
                 )
         return super().cmp(op, o)
 
-    def stringify(self) -> plt.AST:
+    def stringify(self, recursive: bool = False) -> plt.AST:
         return plt.Lambda(
             ["x", "_"],
             plt.DecodeUtf8(
@@ -1315,7 +1376,7 @@ class BoolType(AtomicType):
                 return plt.Lambda(["x", "y"], plt.Iff(plt.Var("x"), plt.Var("y")))
         return super().cmp(op, o)
 
-    def stringify(self) -> plt.AST:
+    def stringify(self, recursive: bool = False) -> plt.AST:
         return plt.Lambda(
             ["self", "_"],
             plt.Ite(
@@ -1336,7 +1397,7 @@ class UnitType(AtomicType):
                 return plt.Lambda(["x", "y"], plt.Bool(False))
         return super().cmp(op, o)
 
-    def stringify(self) -> plt.AST:
+    def stringify(self, recursive: bool = False) -> plt.AST:
         return plt.Lambda(["self", "_"], plt.Text("None"))
 
 
