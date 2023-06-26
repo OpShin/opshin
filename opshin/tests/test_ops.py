@@ -672,3 +672,25 @@ def validator(x: int, y: int) -> str:
             f = uplc.Apply(f, d)
         ret = uplc_eval(f).value.decode("utf8")
         self.assertEqual(ret, exp, "tuple string formatting returned wrong value")
+
+    @given(xs=st.lists(st.integers()))
+    @hypothesis.settings(deadline=None)
+    @example([])
+    @example([0])
+    def test_fmt_list(self, xs):
+        source_code = """
+from opshin.prelude import *
+
+def validator(x: List[int]) -> str:
+    return f"{x}"
+            """
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        exp = f"{list(xs)}"
+        for d in [uplc.PlutusList([uplc.PlutusInteger(x) for x in xs])]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value.decode("utf8")
+        self.assertEqual(ret, exp, "list string formatting returned wrong value")

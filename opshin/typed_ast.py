@@ -490,14 +490,18 @@ class ListType(ClassType):
                             plt.Lambda(
                                 ["f", "l"],
                                 plt.AppendString(
-                                    plt.HeadList(plt.Var("l")),
+                                    plt.Apply(
+                                        self.typ.stringify(),
+                                        plt.HeadList(plt.Var("l")),
+                                        plt.Var("_"),
+                                    ),
                                     plt.Let(
                                         [("t", plt.TailList(plt.Var("l")))],
-                                        plt.Ite(
-                                            plt.EmptyList(plt.Var("t")),
+                                        plt.IteNullList(
+                                            plt.Var("t"),
                                             plt.Text("]"),
                                             plt.AppendString(
-                                                plt.Text(","),
+                                                plt.Text(", "),
                                                 plt.Apply(
                                                     plt.Var("f"),
                                                     plt.Var("f"),
@@ -513,22 +517,12 @@ class ListType(ClassType):
                 ],
                 plt.AppendString(
                     plt.Text("["),
-                    plt.Ite(
-                        plt.EmptyList(plt.Var("self")),
+                    plt.IteNullList(
+                        plt.Var("self"),
                         plt.Text("]"),
                         plt.Apply(
                             plt.Var("g"),
-                            plt.Var("g"),
-                            plt.MapList(
-                                plt.Var("self"),
-                                plt.Lambda(
-                                    ["x"],
-                                    plt.Apply(
-                                        self.typ.stringify(), plt.Var("x"), plt.Var("_")
-                                    ),
-                                ),
-                                empty_list(self.typ),
-                            ),
+                            plt.Var("self"),
                         ),
                     ),
                 ),
