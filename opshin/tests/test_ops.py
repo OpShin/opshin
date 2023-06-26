@@ -835,4 +835,11 @@ def validator(x: Anything) -> str:
         for d in [x]:
             f = uplc.Apply(f, d)
         ret = uplc_eval(f).value.decode("utf8")
-        self.assertEqual(ret, exp, "raw cbor string formatting returned wrong value")
+        if "\\'" in exp:
+            self.assertEqual(
+                eval(ret), x, "raw cbor string formatting returned wrong value"
+            )
+        else:
+            self.assertEqual(
+                ret, exp, "raw cbor string formatting returned wrong value"
+            )
