@@ -10,7 +10,7 @@
 <img alt="PyPI - Python Version" src="https://img.shields.io/pypi/pyversions/opshin.svg" />
 <a href="https://pypi.org/project/opshin/"><img alt="PyPI - Status" src="https://img.shields.io/pypi/status/opshin.svg" /></a>
 <a href="https://coveralls.io/github/OpShin/opshin?branch=main"><img alt="Coverage Status" src="https://coveralls.io/repos/github/OpShin/opshin/badge.svg?branch=main" /></a>
-
+<a href="https://github.com/OpShin/awesome-opshin"><img src="https://img.shields.io/badge/awesome-opshin-blue?logo=data:image/png;base64,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"></a>
 </div>
 
 > You are building what you want. Why not also build **how** you want?
@@ -61,7 +61,7 @@ community](https://discord.gg/umR3A2g4uw) of OpShin
 
 #### Installation
 
-Install Python 3.8, 3.9 or 3.10. Then run
+Install Python 3.8, 3.9, 3.10 or 3.11. Then run
 
 ```bash
 python3 -m pip install opshin
@@ -131,11 +131,20 @@ Arguments to scripts are passed in as Plutus Data objects in JSON notation.
 You can run any of the following commands
 ```bash
 # Evaluate script in Python - this can be used to make sure there are no obvious errors
-opshin eval examples/smart_contracts/assert_sum.py "{\"int\": 4}" "{\"int\": 38}" "{\"constructor\": 0, \"fields\": []}"
+opshin eval spending examples/smart_contracts/assert_sum.py "{\"int\": 4}" "{\"int\": 38}" d8799fd8799f9fd8799fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffd8799fd8799fd87a9f581cdbe769758f26efb21f008dc097bb194cffc622acc37fcefc5372eee3ffd87a80ffa140a1401a00989680d87a9f5820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dffd87a80ffffff809fd8799fd8799fd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd87a80ffa140a14000d87980d87a80ffffa140a14000a140a1400080a0d8799fd8799fd87980d87a80ffd8799fd87b80d87a80ffff80a1d87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffd87980a15820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd8799f5820746957f0eb57f2b11119684e611a98f373afea93473fefbb7632d579af2f6259ffffd87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffff
 
 # Compile script to 'uplc', the Cardano Smart Contract assembly
-opshin compile examples/smart_contracts/assert_sum.py
+opshin compile spending examples/smart_contracts/assert_sum.py
 ```
+
+Furthermore, you can add a shebang to the first line of the python file to indicate that it represents an opshin smart contract.
+You can choose from the following options:
+
+- a general shebang: `#!opshin`, which represents `opshin eval any`
+- or a more specific purpose: `#!/usr/bin/env -S opshin eval minting`
+
+By doing so, you can transform your python file to an executable: `chmod +x your_file.py` and execute it with `./your_file.py`, which will run `opshin eval any ./your_file.py` under the hood.
+
 
 ### Deploying
 
@@ -143,7 +152,7 @@ The deploy process generates all artifacts required for usage with common librar
 
 ```bash
 # Automatically generate all artifacts needed for using this contract
-opshin build examples/smart_contracts/assert_sum.py
+opshin build spending examples/smart_contracts/assert_sum.py
 ```
 
 See the [tutorial by `pycardano`](https://pycardano.readthedocs.io/en/latest/guides/plutus.html) for explanations how to build transactions with `opshin` contracts.
@@ -159,6 +168,12 @@ Further, only immutable objects may be generated.
 For your program to be accepted, make sure to only make use of language constructs supported by the compiler.
 You will be notified of which constructs are not supported when trying to compile.
 
+You can also make use of the built-in linting command and check it for example with the following command:
+
+```bash
+opshin lint spending examples/smart_contracts/assert_sum.py
+```
+
 ### Name
 
 > Eopsin (Korean: 업신; Hanja: 業神) is the goddess of the storage and wealth in Korean mythology and shamanism. 
@@ -168,33 +183,31 @@ Since this project tries to merge Python (a large serpent) and Pluto/Plutus (Gre
 The name e_opsin is pronounced _op-shin_.
 e
 
-## Contributing
-
-### Architecture
-
-This program consists of a few independent components:
-
-1. An aggressive static type inferencer
-2. Rewriting tools to simplify complex python expressions
-3. A compiler from a subset of python into UPLC
-
 ### Debugging artefacts
 
 For debugging purposes, you can also run
 
 ```bash
 # Compile script to 'uplc', and evaluate the script in UPLC (for debugging purposes)
-opshin eval_uplc examples/smart_contracts/assert_sum.py "{\"int\": 4}" "{\"int\": 38}" "{\"constructor\": 0, \"fields\": []}"
+opshin eval_uplc spending examples/smart_contracts/assert_sum.py "{\"int\": 4}" "{\"int\": 38}" d8799fd8799f9fd8799fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffd8799fd8799fd87a9f581cdbe769758f26efb21f008dc097bb194cffc622acc37fcefc5372eee3ffd87a80ffa140a1401a00989680d87a9f5820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dffd87a80ffffff809fd8799fd8799fd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd87a80ffa140a14000d87980d87a80ffffa140a14000a140a1400080a0d8799fd8799fd87980d87a80ffd8799fd87b80d87a80ffff80a1d87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffd87980a15820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd8799f5820746957f0eb57f2b11119684e611a98f373afea93473fefbb7632d579af2f6259ffffd87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffff
 
 # Compile script to 'pluto', an intermediate language (for debugging purposes)
-opshin compile_pluto examples/smart_contracts/assert_sum.py
+opshin compile_pluto spending examples/smart_contracts/assert_sum.py
 ```
+
+
+## Contributing
+
+### Developing and Technical Documentation
+
+Generally, all contributions on the code side are very welcome.
+To get an overview over the architecture and idea behind OpShin, check out [the Technical Documentation](./ARCHITECTURE.md).
 
 ### Sponsoring
 
-You can sponsor the development of opshin through GitHub or [Teiki](https://alpha.teiki.network/projects/opshin) or just by sending ADA. Drop me a message on social media and let me know what it is for.
+You can sponsor the development of opshin through GitHub or [Patreon](https://patreon.com/OpShin) or just by sending ADA. Drop me a message on social media and let me know what it is for.
 
-- **[Kreate](https://beta.kreate.community/projects/opshin)** Stake your ada to support OpShin at [Kreate](https://beta.kreate.community/projects/opshin)
+- **Patreon** Support OpShin at [Patreon](https://patreon.com/OpShin) to enjoy member benefits!
 - **GitHub** Sponsor the developers of this project through the button "Sponsor" next to them
 - **ADA** Donation in ADA can be submitted to `$opshin` or `addr1qyz3vgd5xxevjy2rvqevz9n7n7dney8n6hqggp23479fm6vwpj9clsvsf85cd4xc59zjztr5zwpummwckmzr2myjwjns74lhmr`.
 
@@ -203,6 +216,7 @@ You can sponsor the development of opshin through GitHub or [Teiki](https://alph
 <a href="https://github.com/inversion-dev"><img src="https://avatars.githubusercontent.com/u/127298233?s=200&v=4" width="50"></a>
 <a href="https://github.com/MuesliSwapTeam/"><img  src="https://avatars.githubusercontent.com/u/91151317?v=4" width="50" /></a>
 <a href="https://github.com/AadaFinance/"><img  src="https://avatars.githubusercontent.com/u/89693711?v=4" width="50" /></a>
+<a href="https://github.com/kreate-community/"><img  src="https://avatars.githubusercontent.com/u/118675270?v=4" width="50" /></a>
 
 The main sponsor of this project is [Inversion](https://inversion.dev/cardano/). Here is a word from them!
 

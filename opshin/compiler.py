@@ -1,7 +1,8 @@
 import logging
-from logging import getLogger
-from ast import fix_missing_locations
+from pycardano import PlutusData
 
+from uplc.ast import data_from_cbor
+from .optimize.optimize_const_folding import OptimizeConstantFolding
 from .optimize.optimize_remove_comments import OptimizeRemoveDeadconstants
 from .rewrite.rewrite_augassign import RewriteAugAssign
 from .rewrite.rewrite_forbidden_overwrites import RewriteForbiddenOverwrites
@@ -12,7 +13,9 @@ from .rewrite.rewrite_import_plutusdata import RewriteImportPlutusData
 from .rewrite.rewrite_import_typing import RewriteImportTyping
 from .rewrite.rewrite_inject_builtins import RewriteInjectBuiltins
 from .rewrite.rewrite_inject_builtin_constr import RewriteInjectBuiltinsConstr
+from .rewrite.rewrite_orig_name import RewriteOrigName
 from .rewrite.rewrite_remove_type_stuff import RewriteRemoveTypeStuff
+from .rewrite.rewrite_scoping import RewriteScoping
 from .rewrite.rewrite_subscript38 import RewriteSubscript38
 from .rewrite.rewrite_tuple_assign import RewriteTupleAssign
 from .rewrite.rewrite_zero_ary import RewriteZeroAry
@@ -20,7 +23,7 @@ from .optimize.optimize_remove_pass import OptimizeRemovePass
 from .optimize.optimize_remove_deadvars import OptimizeRemoveDeadvars
 from .optimize.optimize_varlen import OptimizeVarlen
 from .type_inference import *
-from .util import CompilingNodeTransformer, PowImpl
+from .util import CompilingNodeTransformer, PowImpl, NoOp
 from .typed_ast import transform_ext_params_map, transform_output_map, RawPlutoExpr
 
 
@@ -78,13 +81,58 @@ UnaryOpMap = {
     USub: {IntegerInstanceType: lambda x: plt.SubtractInteger(plt.Integer(0), x)},
 }
 
-ConstantMap = {
-    str: plt.Text,
-    bytes: lambda x: plt.ByteString(x),
-    int: lambda x: plt.Integer(x),
-    bool: plt.Bool,
-    type(None): lambda _: plt.Unit(),
-}
+
+def rec_constant_map_data(c):
+    if isinstance(c, bool):
+        return uplc.PlutusInteger(int(c))
+    if isinstance(c, int):
+        return uplc.PlutusInteger(c)
+    if isinstance(c, type(None)):
+        return uplc.PlutusConstr(0, [])
+    if isinstance(c, bytes):
+        return uplc.PlutusByteString(c)
+    if isinstance(c, str):
+        return uplc.PlutusByteString(c.encode())
+    if isinstance(c, list):
+        return uplc.PlutusList([rec_constant_map_data(ce) for ce in c])
+    if isinstance(c, dict):
+        return uplc.PlutusMap(
+            dict(
+                zip(
+                    (rec_constant_map_data(ce) for ce in c.keys()),
+                    (rec_constant_map_data(ce) for ce in c.values()),
+                )
+            )
+        )
+    raise NotImplementedError(f"Unsupported constant type {type(c)}")
+
+
+def rec_constant_map(c):
+    if isinstance(c, bool):
+        return uplc.BuiltinBool(c)
+    if isinstance(c, int):
+        return uplc.BuiltinInteger(c)
+    if isinstance(c, type(None)):
+        return uplc.BuiltinUnit()
+    if isinstance(c, bytes):
+        return uplc.BuiltinByteString(c)
+    if isinstance(c, str):
+        return uplc.BuiltinString(c)
+    if isinstance(c, list):
+        return uplc.BuiltinList([rec_constant_map(ce) for ce in c])
+    if isinstance(c, dict):
+        return uplc.BuiltinList(
+            [
+                uplc.BuiltinPair(*p)
+                for p in zip(
+                    (rec_constant_map_data(ce) for ce in c.keys()),
+                    (rec_constant_map_data(ce) for ce in c.values()),
+                )
+            ]
+        )
+    if isinstance(c, PlutusData):
+        return data_from_cbor(c.to_cbor())
+    raise NotImplementedError(f"Unsupported constant type {type(c)}")
 
 
 def wrap_validator_double_function(x: plt.AST, pass_through: int = 0):
@@ -220,99 +268,109 @@ class UPLCCompiler(CompilingNodeTransformer):
         )
 
     def visit_Module(self, node: TypedModule) -> plt.AST:
-        # find main function
-        # TODO can use more sophisiticated procedure here i.e. functions marked by comment
-        main_fun: typing.Optional[InstanceType] = None
-        for s in node.body:
-            if (
-                isinstance(s, FunctionDef)
-                and s.orig_name == self.validator_function_name
-            ):
-                main_fun = s
-        assert (
-            main_fun is not None
-        ), f"Could not find function named {self.validator_function_name}"
-        main_fun_typ: FunctionType = main_fun.typ.typ
-        assert isinstance(
-            main_fun_typ, FunctionType
-        ), f"Variable named {self.validator_function_name} is not of type function"
-
-        # check if this is a contract written to double function
-        enable_double_func_mint_spend = False
-        if len(main_fun_typ.argtyps) >= 3 and self.force_three_params:
-            # check if is possible
-            second_last_arg = main_fun_typ.argtyps[-2]
+        compiled_body = plt.Apply(self.visit_sequence(node.body), INITIAL_STATE)
+        if self.validator_function_name is None:
+            # for libraries, just return the body (a statemonad)
+            validator = compiled_body
+        else:
+            # for validators find main function
+            # TODO can use more sophisiticated procedure here i.e. functions marked by comment
+            main_fun: typing.Optional[InstanceType] = None
+            for s in node.body:
+                if (
+                    isinstance(s, FunctionDef)
+                    and s.orig_name == self.validator_function_name
+                ):
+                    main_fun = s
+            assert (
+                main_fun is not None
+            ), f"Could not find function named {self.validator_function_name}"
+            main_fun_typ: FunctionType = main_fun.typ.typ
             assert isinstance(
-                second_last_arg, InstanceType
-            ), "Can not pass Class into validator"
-            if isinstance(second_last_arg.typ, UnionType):
-                possible_types = second_last_arg.typ.typs
-            else:
-                possible_types = [second_last_arg.typ]
-            if any(isinstance(t, UnitType) for t in possible_types):
-                _LOGGER.warning(
-                    "The redeemer is annotated to be 'None'. This value is usually encoded in PlutusData with constructor id 0 and no fields. If you want the script to double function as minting and spending script, annotate the second argument with 'NoRedeemer'."
-                )
-            enable_double_func_mint_spend = not any(
-                (isinstance(t, RecordType) and t.record.constructor == 0)
-                or isinstance(t, UnitType)
-                for t in possible_types
-            )
-            if not enable_double_func_mint_spend:
-                _LOGGER.warning(
-                    "The second argument to the validator function potentially has constructor id 0. The validator will not be able to double function as minting script and spending script."
-                )
+                main_fun_typ, FunctionType
+            ), f"Variable named {self.validator_function_name} is not of type function"
 
-        validator = plt.Lambda(
-            [f"p{i}" for i, _ in enumerate(main_fun_typ.argtyps)],
-            transform_output_map(main_fun_typ.rettyp)(
-                plt.Let(
-                    [
-                        (
-                            "s",
-                            plt.Apply(self.visit_sequence(node.body), INITIAL_STATE),
-                        ),
-                        (
-                            "g",
-                            plt.FunctionalMapAccess(
-                                plt.Var("s"),
-                                plt.ByteString(main_fun.name),
-                                plt.TraceError(
-                                    f"NameError: {self.validator_function_name}"
+            # check if this is a contract written to double function
+            enable_double_func_mint_spend = False
+            if len(main_fun_typ.argtyps) >= 3 and self.force_three_params:
+                # check if is possible
+                second_last_arg = main_fun_typ.argtyps[-2]
+                assert isinstance(
+                    second_last_arg, InstanceType
+                ), "Can not pass Class into validator"
+                if isinstance(second_last_arg.typ, UnionType):
+                    possible_types = second_last_arg.typ.typs
+                else:
+                    possible_types = [second_last_arg.typ]
+                if any(isinstance(t, UnitType) for t in possible_types):
+                    _LOGGER.warning(
+                        "The redeemer is annotated to be 'None'. This value is usually encoded in PlutusData with constructor id 0 and no fields. If you want the script to double function as minting and spending script, annotate the second argument with 'NoRedeemer'."
+                    )
+                enable_double_func_mint_spend = not any(
+                    (isinstance(t, RecordType) and t.record.constructor == 0)
+                    or isinstance(t, UnitType)
+                    for t in possible_types
+                )
+                if not enable_double_func_mint_spend:
+                    _LOGGER.warning(
+                        "The second argument to the validator function potentially has constructor id 0. The validator will not be able to double function as minting script and spending script."
+                    )
+
+            validator = plt.Lambda(
+                [f"p{i}" for i, _ in enumerate(main_fun_typ.argtyps)],
+                transform_output_map(main_fun_typ.rettyp)(
+                    plt.Let(
+                        [
+                            (
+                                "s",
+                                compiled_body,
+                            ),
+                            (
+                                "g",
+                                plt.FunctionalMapAccess(
+                                    plt.Var("s"),
+                                    plt.ByteString(main_fun.name),
+                                    plt.TraceError(
+                                        f"NameError: {self.validator_function_name}"
+                                    ),
                                 ),
                             ),
-                        ),
-                    ],
-                    plt.Apply(
-                        plt.Var("g"),
-                        *[
-                            transform_ext_params_map(a)(plt.Var(f"p{i}"))
-                            for i, a in enumerate(main_fun_typ.argtyps)
                         ],
-                        plt.Var("s"),
+                        plt.Apply(
+                            plt.Var("g"),
+                            *[
+                                transform_ext_params_map(a)(plt.Var(f"p{i}"))
+                                for i, a in enumerate(main_fun_typ.argtyps)
+                            ],
+                            plt.Var("s"),
+                        ),
                     ),
                 ),
-            ),
-        )
-        if enable_double_func_mint_spend:
-            validator = wrap_validator_double_function(
-                validator, pass_through=len(main_fun_typ.argtyps) - 3
             )
-        elif self.force_three_params:
-            # Error if the double function is enforced but not possible
-            raise RuntimeError(
-                "The contract can not always detect if it was passed three or two parameters on-chain."
-            )
+            if enable_double_func_mint_spend:
+                validator = wrap_validator_double_function(
+                    validator, pass_through=len(main_fun_typ.argtyps) - 3
+                )
+            elif self.force_three_params:
+                # Error if the double function is enforced but not possible
+                raise RuntimeError(
+                    "The contract can not always detect if it was passed three or two parameters on-chain."
+                )
         cp = plt.Program((1, 0, 0), validator)
         return cp
 
     def visit_Constant(self, node: TypedConstant) -> plt.AST:
-        plt_type = ConstantMap.get(type(node.value))
-        if plt_type is None:
-            raise NotImplementedError(
-                f"Constants of type {type(node.value)} are not supported"
-            )
-        return plt.Lambda([STATEMONAD], plt_type(node.value))
+        if isinstance(node.value, bytes) and node.value != b"":
+            try:
+                bytes.fromhex(node.value.decode())
+            except ValueError:
+                pass
+            else:
+                _LOGGER.warning(
+                    f"The string {node.value} looks like it is supposed to be a hex-encoded bytestring but is actually utf8-encoded. Try using `bytes.fromhex('{node.value.decode()}')` instead."
+                )
+        plt_val = plt.UPLCConstant(rec_constant_map(node.value))
+        return plt.Lambda([STATEMONAD], plt_val)
 
     def visit_NoneType(self, _: typing.Optional[typing.Any]) -> plt.AST:
         return plt.Lambda([STATEMONAD], plt.Unit())
@@ -912,12 +970,15 @@ def compile(
     prog: AST,
     filename=None,
     force_three_params=False,
+    remove_dead_code=True,
+    constant_folding=False,
     validator_function_name="validator",
 ):
     rewrite_steps = [
         # Important to call this one first - it imports all further files
         RewriteImport(filename=filename),
         # Rewrites that simplify the python code
+        OptimizeConstantFolding() if constant_folding else NoOp(),
         RewriteSubscript38(),
         RewriteAugAssign(),
         RewriteTupleAssign(),
@@ -940,8 +1001,11 @@ def compile(
 
     # from here on raw uplc may occur, so we dont attempt to fix locations
     compile_pipeline = [
+        # Save the original names of variables
+        RewriteOrigName(),
+        RewriteScoping(),
         # Apply optimizations
-        OptimizeRemoveDeadvars(),
+        OptimizeRemoveDeadvars() if remove_dead_code else NoOp(),
         OptimizeVarlen(),
         OptimizeRemoveDeadconstants(),
         OptimizeRemovePass(),

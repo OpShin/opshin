@@ -4,6 +4,7 @@ import hypothesis.strategies as hst
 from opshin.std import fractions as oc_fractions
 
 import fractions as native_fractions
+import math as native_math
 
 non_null = hst.one_of(hst.integers(min_value=1), hst.integers(max_value=-1))
 denormalized_fractions = hst.builds(oc_fractions.Fraction, hst.integers(), non_null)
@@ -108,3 +109,19 @@ def test_eq(a: oc_fractions.Fraction, b: oc_fractions.Fraction):
     oc_eq = oc_fractions.eq_fraction(a, b)
     eq = native_fraction_from_oc_fraction(a) == native_fraction_from_oc_fraction(b)
     assert oc_eq == eq, "Invalid eq"
+
+
+@hypothesis.given(denormalized_fractions)
+def test_floor(a: oc_fractions.Fraction):
+    oc_floor = oc_fractions.floor_fraction(a)
+    assert (
+        native_math.floor(native_fraction_from_oc_fraction(a)) == oc_floor
+    ), "Invalid floor"
+
+
+@hypothesis.given(denormalized_fractions)
+def test_ceil(a: oc_fractions.Fraction):
+    oc_ceil = oc_fractions.ceil_fraction(a)
+    assert (
+        native_math.ceil(native_fraction_from_oc_fraction(a)) == oc_ceil
+    ), "Invalid ceil"

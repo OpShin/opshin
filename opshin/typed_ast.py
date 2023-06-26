@@ -53,6 +53,15 @@ class Record:
     constructor: int
     fields: typing.Union[typing.List[typing.Tuple[str, Type]], FrozenList]
 
+    def __ge__(self, other):
+        if not isinstance(other, Record):
+            return False
+        return (
+            self.constructor == other.constructor
+            and len(self.fields) == len(other.fields)
+            and all(a >= b for a, b in zip(self.fields, other.fields))
+        )
+
 
 @dataclass(frozen=True, unsafe_hash=True)
 class ClassType(Type):
@@ -62,10 +71,14 @@ class ClassType(Type):
 
 @dataclass(frozen=True, unsafe_hash=True)
 class AnyType(ClassType):
-    """The top element in the partial order on types"""
+    """The top element in the partial order on types (excluding FunctionTypes, which do not compare to anything)"""
 
     def __ge__(self, other):
-        return True
+        return (
+            isinstance(other, ClassType)
+            and not isinstance(other, FunctionType)
+            and not isinstance(other, PolymorphicFunctionType)
+        )
 
 
 @dataclass(frozen=True, unsafe_hash=True)
@@ -104,6 +117,10 @@ class RecordType(ClassType):
         for n, t in self.record.fields:
             if n == attr:
                 return t
+        if attr == "to_cbor":
+            return InstanceType(
+                FunctionType(FrozenFrozenList([]), ByteStringInstanceType)
+            )
         raise TypeInferenceError(
             f"Type {self.record.name} does not have attribute {attr}"
         )
@@ -116,25 +133,35 @@ class RecordType(ClassType):
                 ["self"],
                 plt.Constructor(plt.Var("self")),
             )
-        attr_typ = self.attribute_type(attr)
-        pos = next(i for i, (n, _) in enumerate(self.record.fields) if n == attr)
-        # access to normal fields
-        return plt.Lambda(
-            ["self"],
-            transform_ext_params_map(attr_typ)(
-                plt.NthField(
-                    plt.Var("self"),
-                    plt.Integer(pos),
+        if attr in (n for n, t in self.record.fields):
+            attr_typ = self.attribute_type(attr)
+            pos = next(i for i, (n, _) in enumerate(self.record.fields) if n == attr)
+            # access to normal fields
+            return plt.Lambda(
+                ["self"],
+                transform_ext_params_map(attr_typ)(
+                    plt.NthField(
+                        plt.Var("self"),
+                        plt.Integer(pos),
+                    ),
                 ),
-            ),
-        )
+            )
+        if attr == "to_cbor":
+            return plt.Lambda(
+                ["self", "_"],
+                plt.SerialiseData(
+                    plt.Var("self"),
+                ),
+            )
+        raise NotImplementedError(f"Attribute {attr} not implemented for type {self}")
 
     def cmp(self, op: cmpop, o: "Type") -> plt.AST:
         """The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second the comparison."""
         # this will reject comparisons that will always be false - most likely due to faults during programming
-        if (isinstance(o, RecordType) and o.record == self.record) or (
-            isinstance(o, UnionType) and self in o.typs
-        ):
+        if (
+            isinstance(o, RecordType)
+            and (self.record >= o.record or o.record >= self.record)
+        ) or (isinstance(o, UnionType) and any(self >= o or self >= o for o in o.typs)):
             if isinstance(op, Eq):
                 return plt.BuiltIn(uplc.BuiltInFun.EqualsData)
             if isinstance(op, NotEq):
@@ -151,7 +178,7 @@ class RecordType(ClassType):
         if (
             isinstance(o, ListType)
             and isinstance(o.typ, InstanceType)
-            and o.typ.typ >= self
+            and (o.typ.typ >= self or self >= o.typ.typ)
         ):
             if isinstance(op, In):
                 return plt.Lambda(
@@ -178,7 +205,7 @@ class RecordType(ClassType):
     def __ge__(self, other):
         # Can only substitute for its own type, records need to be equal
         # if someone wants to be funny, they can implement <= to be true if all fields match up to some point
-        return isinstance(other, self.__class__) and other.record == self.record
+        return isinstance(other, self.__class__) and self.record >= other.record
 
 
 @dataclass(frozen=True, unsafe_hash=True)
@@ -209,6 +236,10 @@ class UnionType(ClassType):
                 )
             # return Anytype
             return InstanceType(AnyType())
+        if attr == "to_cbor":
+            return InstanceType(
+                FunctionType(FrozenFrozenList([]), ByteStringInstanceType)
+            )
         raise TypeInferenceError(
             f"Can not access attribute {attr} of Union type. Cast to desired type with an 'if isinstance(_, _):' branch."
         )
@@ -221,24 +252,33 @@ class UnionType(ClassType):
                 plt.Constructor(plt.Var("self")),
             )
         # iterate through all names/types of the unioned records by position
-        attr_typ = self.attribute_type(attr)
-        pos = next(
-            i
-            for i, (ns, _) in enumerate(
-                map(lambda x: zip(*x), zip(*(t.record.fields for t in self.typs)))
+        if any(attr in (n for n, t in r.record.fields) for r in self.typs):
+            attr_typ = self.attribute_type(attr)
+            pos = next(
+                i
+                for i, (ns, _) in enumerate(
+                    map(lambda x: zip(*x), zip(*(t.record.fields for t in self.typs)))
+                )
+                if all(n == attr for n in ns)
             )
-            if all(n == attr for n in ns)
-        )
-        # access to normal fields
-        return plt.Lambda(
-            ["self"],
-            transform_ext_params_map(attr_typ)(
-                plt.NthField(
-                    plt.Var("self"),
-                    plt.Integer(pos),
+            # access to normal fields
+            return plt.Lambda(
+                ["self"],
+                transform_ext_params_map(attr_typ)(
+                    plt.NthField(
+                        plt.Var("self"),
+                        plt.Integer(pos),
+                    ),
                 ),
-            ),
-        )
+            )
+        if attr == "to_cbor":
+            return plt.Lambda(
+                ["self", "_"],
+                plt.SerialiseData(
+                    plt.Var("self"),
+                ),
+            )
+        raise NotImplementedError(f"Attribute {attr} not implemented for type {self}")
 
     def __ge__(self, other):
         if isinstance(other, UnionType):
@@ -249,8 +289,9 @@ class UnionType(ClassType):
         """The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second the comparison."""
         # this will reject comparisons that will always be false - most likely due to faults during programming
         # note we require that there is an overlapt between the possible types for unions
-        if (isinstance(o, RecordType) and o in self.typs) or (
-            isinstance(o, UnionType) and set(self.typs).intersection(o.typs)
+        if (isinstance(o, RecordType) and any(t >= o or o >= t for t in self.typs)) or (
+            isinstance(o, UnionType)
+            and any(t >= ot or t >= ot for t in self.typs for ot in o.typs)
         ):
             if isinstance(op, Eq):
                 return plt.BuiltIn(uplc.BuiltInFun.EqualsData)
@@ -263,6 +304,31 @@ class UnionType(ClassType):
                             plt.Var("x"),
                             plt.Var("y"),
                         )
+                    ),
+                )
+        if (
+            isinstance(o, ListType)
+            and isinstance(o.typ, InstanceType)
+            and (o.typ.typ >= t or t >= o.typ.typ for t in self.typs)
+        ):
+            if isinstance(op, In):
+                return plt.Lambda(
+                    ["x", "y"],
+                    plt.EqualsData(
+                        plt.Var("x"),
+                        plt.FindList(
+                            plt.Var("y"),
+                            plt.Apply(
+                                plt.BuiltIn(uplc.BuiltInFun.EqualsData), plt.Var("x")
+                            ),
+                            # this simply ensures the default is always unequal to the searched value
+                            plt.ConstrData(
+                                plt.AddInteger(
+                                    plt.Constructor(plt.Var("x")), plt.Integer(1)
+                                ),
+                                plt.MkNilData(plt.Unit()),
+                            ),
+                        ),
                     ),
                 )
         raise NotImplementedError(
@@ -718,12 +784,103 @@ class ByteStringType(AtomicType):
     def attribute_type(self, attr) -> Type:
         if attr == "decode":
             return InstanceType(FunctionType([], StringInstanceType))
+        if attr == "hex":
+            return InstanceType(FunctionType([], StringInstanceType))
         return super().attribute_type(attr)
 
     def attribute(self, attr) -> plt.AST:
         if attr == "decode":
             # No codec -> only the default (utf8) is allowed
             return plt.Lambda(["x", "_"], plt.DecodeUtf8(plt.Var("x")))
+        if attr == "hex":
+            return plt.Lambda(
+                ["x", "_"],
+                plt.DecodeUtf8(
+                    plt.Let(
+                        [
+                            (
+                                "hexlist",
+                                plt.RecFun(
+                                    plt.Lambda(
+                                        ["f", "i"],
+                                        plt.Ite(
+                                            plt.LessThanInteger(
+                                                plt.Var("i"), plt.Integer(0)
+                                            ),
+                                            plt.EmptyIntegerList(),
+                                            plt.MkCons(
+                                                plt.IndexByteString(
+                                                    plt.Var("x"), plt.Var("i")
+                                                ),
+                                                plt.Apply(
+                                                    plt.Var("f"),
+                                                    plt.Var("f"),
+                                                    plt.SubtractInteger(
+                                                        plt.Var("i"), plt.Integer(1)
+                                                    ),
+                                                ),
+                                            ),
+                                        ),
+                                    ),
+                                ),
+                            ),
+                            (
+                                "map_str",
+                                plt.Lambda(
+                                    ["i"],
+                                    plt.AddInteger(
+                                        plt.Var("i"),
+                                        plt.IfThenElse(
+                                            plt.LessThanInteger(
+                                                plt.Var("i"), plt.Integer(10)
+                                            ),
+                                            plt.Integer(ord("0")),
+                                            plt.Integer(ord("a") - 10),
+                                        ),
+                                    ),
+                                ),
+                            ),
+                            (
+                                "mkstr",
+                                plt.Lambda(
+                                    ["i"],
+                                    plt.FoldList(
+                                        plt.Apply(plt.Var("hexlist"), plt.Var("i")),
+                                        plt.Lambda(
+                                            ["b", "i"],
+                                            plt.ConsByteString(
+                                                plt.Apply(
+                                                    plt.Var("map_str"),
+                                                    plt.DivideInteger(
+                                                        plt.Var("i"), plt.Integer(16)
+                                                    ),
+                                                ),
+                                                plt.ConsByteString(
+                                                    plt.Apply(
+                                                        plt.Var("map_str"),
+                                                        plt.ModInteger(
+                                                            plt.Var("i"),
+                                                            plt.Integer(16),
+                                                        ),
+                                                    ),
+                                                    plt.Var("b"),
+                                                ),
+                                            ),
+                                        ),
+                                        plt.ByteString(b""),
+                                    ),
+                                ),
+                            ),
+                        ],
+                        plt.Apply(
+                            plt.Var("mkstr"),
+                            plt.SubtractInteger(
+                                plt.LengthOfByteString(plt.Var("x")), plt.Integer(1)
+                            ),
+                        ),
+                    ),
+                ),
+            )
         return super().attribute(attr)
 
     def cmp(self, op: cmpop, o: "Type") -> plt.AST:
@@ -839,7 +996,7 @@ ATOMIC_TYPES = {
     int.__name__: IntegerType(),
     str.__name__: StringType(),
     bytes.__name__: ByteStringType(),
-    "Unit": UnitType(),
+    type(None).__name__: UnitType(),
     bool.__name__: BoolType(),
 }
 
@@ -1120,6 +1277,10 @@ def transform_output_map(p: Type):
     assert isinstance(
         p, InstanceType
     ), "Can only transform instances, not classes as input"
+    if isinstance(p.typ, FunctionType) or isinstance(p.typ, PolymorphicFunction):
+        raise NotImplementedError(
+            "Can not map functions into PlutusData and hence not return them from a function as Anything"
+        )
     if p in TransformOutputMap:
         return TransformOutputMap[p]
     if isinstance(p.typ, ListType):

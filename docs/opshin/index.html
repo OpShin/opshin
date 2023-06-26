@@ -108,7 +108,7 @@ Others may be able to help you and will also benefit from the previously shared 
 <p>You can also chat with other developers <a href="https://discord.gg/umR3A2g4uw">in the welcoming discord
 community</a> of OpShin</p>
 <h4 id="installation">Installation</h4>
-<p>Install Python 3.8, 3.9 or 3.10. Then run</p>
+<p>Install Python 3.8, 3.9, 3.10 or 3.11. Then run</p>
 <pre><code class="language-bash">python3 -m pip install opshin
 </code></pre>
 <h4 id="writing-a-smart-contract">Writing a Smart Contract</h4>
@@ -164,15 +164,22 @@ and <a href="https://github.com/OpShin/opshin-starter-kit">opshin-starter-kit</a
 Arguments to scripts are passed in as Plutus Data objects in JSON notation.</p>
 <p>You can run any of the following commands</p>
 <pre><code class="language-bash"># Evaluate script in Python - this can be used to make sure there are no obvious errors
-opshin eval examples/smart_contracts/assert_sum.py &quot;{\&quot;int\&quot;: 4}&quot; &quot;{\&quot;int\&quot;: 38}&quot; &quot;{\&quot;constructor\&quot;: 0, \&quot;fields\&quot;: []}&quot;
+opshin eval spending examples/smart_contracts/assert_sum.py &quot;{\&quot;int\&quot;: 4}&quot; &quot;{\&quot;int\&quot;: 38}&quot; d8799fd8799f9fd8799fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffd8799fd8799fd87a9f581cdbe769758f26efb21f008dc097bb194cffc622acc37fcefc5372eee3ffd87a80ffa140a1401a00989680d87a9f5820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dffd87a80ffffff809fd8799fd8799fd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd87a80ffa140a14000d87980d87a80ffffa140a14000a140a1400080a0d8799fd8799fd87980d87a80ffd8799fd87b80d87a80ffff80a1d87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffd87980a15820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd8799f5820746957f0eb57f2b11119684e611a98f373afea93473fefbb7632d579af2f6259ffffd87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffff
 
 # Compile script to 'uplc', the Cardano Smart Contract assembly
-opshin compile examples/smart_contracts/assert_sum.py
+opshin compile spending examples/smart_contracts/assert_sum.py
 </code></pre>
+<p>Furthermore, you can add a shebang to the first line of the python file to indicate that it represents an opshin smart contract.
+You can choose from the following options:</p>
+<ul>
+<li>a general shebang: <code>#!opshin</code>, which represents <code><a title="opshin" href="#opshin">opshin</a> eval any</code></li>
+<li>or a more specific purpose: <code>#!/usr/bin/env -S opshin eval minting</code></li>
+</ul>
+<p>By doing so, you can transform your python file to an executable: <code>chmod +x your_file.py</code> and execute it with <code>./your_file.py</code>, which will run <code>opshin eval any ./your_file.py</code> under the hood.</p>
 <h3 id="deploying">Deploying</h3>
 <p>The deploy process generates all artifacts required for usage with common libraries like <a href="https://github.com/Python-Cardano/pycardano">pycardano</a>, <a href="https://github.com/spacebudz/lucid">lucid</a> and the <a href="https://github.com/input-output-hk/cardano-node">cardano-cli</a>.</p>
 <pre><code class="language-bash"># Automatically generate all artifacts needed for using this contract
-opshin build examples/smart_contracts/assert_sum.py
+opshin build spending examples/smart_contracts/assert_sum.py
 </code></pre>
 <p>See the <a href="https://pycardano.readthedocs.io/en/latest/guides/plutus.html">tutorial by <code>pycardano</code></a> for explanations how to build transactions with <code><a title="opshin" href="#opshin">opshin</a></code> contracts.</p>
 <h3 id="the-small-print">The small print</h3>
@@ -183,6 +190,9 @@ Specifically, only a pure subset of python is allowed.
 Further, only immutable objects may be generated.</p>
 <p>For your program to be accepted, make sure to only make use of language constructs supported by the compiler.
 You will be notified of which constructs are not supported when trying to compile.</p>
+<p>You can also make use of the built-in linting command and check it for example with the following command:</p>
+<pre><code class="language-bash">opshin lint spending examples/smart_contracts/assert_sum.py
+</code></pre>
 <h3 id="name">Name</h3>
 <blockquote>
 <p>Eopsin (Korean: 업신; Hanja: 業神) is the goddess of the storage and wealth in Korean mythology and shamanism.
@@ -202,15 +212,15 @@ e</p>
 <h3 id="debugging-artefacts">Debugging artefacts</h3>
 <p>For debugging purposes, you can also run</p>
 <pre><code class="language-bash"># Compile script to 'uplc', and evaluate the script in UPLC (for debugging purposes)
-opshin eval_uplc examples/smart_contracts/assert_sum.py &quot;{\&quot;int\&quot;: 4}&quot; &quot;{\&quot;int\&quot;: 38}&quot; &quot;{\&quot;constructor\&quot;: 0, \&quot;fields\&quot;: []}&quot;
+opshin eval_uplc spending examples/smart_contracts/assert_sum.py &quot;{\&quot;int\&quot;: 4}&quot; &quot;{\&quot;int\&quot;: 38}&quot; d8799fd8799f9fd8799fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffd8799fd8799fd87a9f581cdbe769758f26efb21f008dc097bb194cffc622acc37fcefc5372eee3ffd87a80ffa140a1401a00989680d87a9f5820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dffd87a80ffffff809fd8799fd8799fd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd87a80ffa140a14000d87980d87a80ffffa140a14000a140a1400080a0d8799fd8799fd87980d87a80ffd8799fd87b80d87a80ffff80a1d87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffd87980a15820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd8799f5820746957f0eb57f2b11119684e611a98f373afea93473fefbb7632d579af2f6259ffffd87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffff
 
 # Compile script to 'pluto', an intermediate language (for debugging purposes)
-opshin compile_pluto examples/smart_contracts/assert_sum.py
+opshin compile_pluto spending examples/smart_contracts/assert_sum.py
 </code></pre>
 <h3 id="sponsoring">Sponsoring</h3>
-<p>You can sponsor the development of opshin through GitHub or <a href="https://alpha.teiki.network/projects/opshin">Teiki</a> or just by sending ADA. Drop me a message on social media and let me know what it is for.</p>
+<p>You can sponsor the development of opshin through GitHub or <a href="https://patreon.com/OpShin">Patreon</a> or just by sending ADA. Drop me a message on social media and let me know what it is for.</p>
 <ul>
-<li><strong><a href="https://beta.kreate.community/projects/opshin">Kreate</a></strong> Stake your ada to support OpShin at <a href="https://beta.kreate.community/projects/opshin">Kreate</a></li>
+<li><strong>Patreon</strong> Support OpShin at <a href="https://patreon.com/OpShin">Patreon</a> to enjoy member benefits!</li>
 <li><strong>GitHub</strong> Sponsor the developers of this project through the button "Sponsor" next to them</li>
 <li><strong>ADA</strong> Donation in ADA can be submitted to <code>$opshin</code> or <code>addr1qyz3vgd5xxevjy2rvqevz9n7n7dney8n6hqggp23479fm6vwpj9clsvsf85cd4xc59zjztr5zwpummwckmzr2myjwjns74lhmr</code>.</li>
 </ul>
@@ -219,7 +229,9 @@ opshin compile_pluto examples/smart_contracts/assert_sum.py
 <a href="https://github.com/MuesliSwapTeam/"><img
 src="https://avatars.githubusercontent.com/u/91151317?v=4" width="50" /></a>
 <a href="https://github.com/AadaFinance/"><img
-src="https://avatars.githubusercontent.com/u/89693711?v=4" width="50" /></a></p>
+src="https://avatars.githubusercontent.com/u/89693711?v=4" width="50" /></a>
+<a href="https://github.com/kreate-community/"><img
+src="https://avatars.githubusercontent.com/u/118675270?v=4" width="50" /></a></p>
 <p>The main sponsor of this project is <a href="https://inversion.dev/cardano/">Inversion</a>. Here is a word from them!</p>
 <blockquote>
 <p>At Inversion, we pride ourselves on our passion for life and our ability to create exceptional software solutions for our clients. Our team of experts, with over a century of cumulative experience, is dedicated to harnessing the power of the Cardano blockchain to bring innovative and scalable decentralized applications to life. We've successfully built applications for NFT management, staking and delegation, chain data monitoring, analytics, and web3 integrations, as well as countless non-blockchain systems. With a focus on security, transparency, and sustainability, our team is excited to contribute to the Cardano ecosystem, pushing the boundaries of decentralized technologies to improve lives worldwide. Trust Inversion to be your go-to partner for robust, effective, and forward-thinking solutions, whether blockchain based, traditional systems, or a mix of the two.</p>
@@ -238,12 +250,12 @@ src="https://avatars.githubusercontent.com/u/89693711?v=4" width="50" /></a></p>
 
 import warnings
 
-__version__ = &#34;0.12.5&#34;
+__version__ = &#34;0.14.2&#34;
 __author__ = &#34;nielstron&#34;
 __author_email__ = &#34;n.muendler@web.de&#34;
 __copyright__ = &#34;Copyright (C) 2023 nielstron&#34;
 __license__ = &#34;MIT&#34;
-__url__ = &#34;https://github.com/imperatorlang/opshin&#34;
+__url__ = &#34;https://github.com/OpShin/opshin&#34;
 
 try:
     from .compiler import *

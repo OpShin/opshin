@@ -6,7 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
 <meta name="generator" content="pdoc 0.10.0" />
 <link rel="icon" href="https://raw.githubusercontent.com/OpShin/opshin/dev/docs/opshin_32.png" sizes="32x32" type="image/png">
-<title>opshin.builder API documentation</title>
+<title>opshin.rewrite.rewrite_orig_name API documentation</title>
 <meta name="description" content="" />
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/sanitize.min.css" integrity="sha256-PK9q560IAAa6WVRRh76LtCaI8pjTJ2z11v0miyNNjrs=" crossorigin>
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/typography.min.css" integrity="sha256-7l/o7C8jubJiy74VsKTidCy1yBkRtiUGbVkYBylBqUg=" crossorigin>
@@ -61,97 +61,47 @@ fill="currentColor" class="octo-body"></path>
 </a>
 <article id="content">
 <header>
-<h1 class="title">Module <code>opshin.builder</code></h1>
+<h1 class="title">Module <code>opshin.rewrite.rewrite_orig_name</code></h1>
 </header>
 <section id="section-intro">
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">import dataclasses
-import json
+<pre><code class="python">from ast import *
+from copy import copy
 
-from . import __version__, compiler
+from ..util import CompilingNodeTransformer
 
-import uplc.ast
-from uplc import flatten
-import cbor2
-import pycardano
-
-from .util import datum_to_cbor
+&#34;&#34;&#34;
+Rewrites all occurrences of names to contain a pointer to the original name for good
+&#34;&#34;&#34;
 
 
-@dataclasses.dataclass
-class ScriptArtifacts:
-    cbor_hex: str
-    plutus_json: str
-    mainnet_addr: str
-    testnet_addr: str
-    policy_id: str
+class RewriteOrigName(CompilingNodeTransformer):
+    step = &#34;Assigning the orig_id/orig_name field with the variable name&#34;
 
+    def visit_Name(self, node: Name) -&gt; Name:
+        nc = copy(node)
+        nc.orig_id = node.id
+        return nc
 
-def build(
-    contract_file: str,
-    *args: pycardano.Datum,
-    force_three_params=False,
-    validator_function_name=&#34;validator&#34;,
-):
-    &#34;&#34;&#34;
-    Expects a python module and returns the build artifacts from compiling it
-    &#34;&#34;&#34;
-    with open(contract_file) as f:
-        source_code = f.read()
+    def visit_ClassDef(self, node: ClassDef) -&gt; ClassDef:
+        node_cp = copy(node)
+        node_cp.orig_name = node.name
+        return node_cp
 
-    source_ast = compiler.parse(source_code, filename=contract_file)
-    code = compiler.compile(
-        source_ast, filename=contract_file, force_three_params=force_three_params
-    )
-    code = code.compile()
-
-    # apply parameters from the command line to the contract (instantiates parameterized contract!)
-    code = code.term
-    # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
-    for d in args:
-        code = uplc.ast.Apply(code, uplc.ast.data_from_cbor(datum_to_cbor(d)))
-    code = uplc.ast.Program((1, 0, 0), code)
-    return _build(code)
-
-
-def _build(contract: uplc.ast.Program):
-    # create cbor file for use with pycardano/lucid
-    cbor = flatten(contract)
-    return pycardano.PlutusV2Script(cbor)
-
-
-def generate_artifacts(contract: pycardano.PlutusV2Script):
-    cbor_hex = contract.hex()
-    # double wrap
-    cbor_wrapped = cbor2.dumps(contract)
-    cbor_wrapped_hex = cbor_wrapped.hex()
-    # create plutus file
-    d = {
-        &#34;type&#34;: &#34;PlutusScriptV2&#34;,
-        &#34;description&#34;: f&#34;opshin {__version__} Smart Contract&#34;,
-        &#34;cborHex&#34;: cbor_wrapped_hex,
-    }
-    plutus_json = json.dumps(d, indent=2)
-    script_hash = pycardano.plutus_script_hash(pycardano.PlutusV2Script(contract))
-    policy_id = script_hash.to_primitive().hex()
-    # generate policy ids
-    addr_mainnet = pycardano.Address(
-        script_hash, network=pycardano.Network.MAINNET
-    ).encode()
-    # generate addresses
-    addr_testnet = pycardano.Address(
-        script_hash, network=pycardano.Network.TESTNET
-    ).encode()
-    return ScriptArtifacts(
-        cbor_hex,
-        plutus_json,
-        addr_mainnet,
-        addr_testnet,
-        policy_id,
-    )</code></pre>
+    def visit_FunctionDef(self, node: FunctionDef) -&gt; FunctionDef:
+        node_cp = copy(node)
+        node_cp.orig_name = node.name
+        node_cp.args = copy(node.args)
+        node_cp.args.args = []
+        for a in node.args.args:
+            a_cp = copy(a)
+            a_cp.orig_arg = a.arg
+            node_cp.args.args.append(a_cp)
+        node_cp.body = [self.visit(s) for s in node.body]
+        return node_cp</code></pre>
 </details>
 </section>
 <section>
@@ -159,127 +109,147 @@ def generate_artifacts(contract: pycardano.PlutusV2Script):
 <section>
 </section>
 <section>
-<h2 class="section-title" id="header-functions">Functions</h2>
-<dl>
-<dt id="opshin.builder.build"><code class="name flex">
-<span>def <span class="ident">build</span></span>(<span>contract_file: str, *args: Union[pycardano.plutus.PlutusData, dict, int, bytes, pycardano.serialization.IndefiniteList, pycardano.serialization.RawCBOR, pycardano.plutus.RawPlutusData], force_three_params=False, validator_function_name='validator')</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Expects a python module and returns the build artifacts from compiling it</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def build(
-    contract_file: str,
-    *args: pycardano.Datum,
-    force_three_params=False,
-    validator_function_name=&#34;validator&#34;,
-):
-    &#34;&#34;&#34;
-    Expects a python module and returns the build artifacts from compiling it
-    &#34;&#34;&#34;
-    with open(contract_file) as f:
-        source_code = f.read()
-
-    source_ast = compiler.parse(source_code, filename=contract_file)
-    code = compiler.compile(
-        source_ast, filename=contract_file, force_three_params=force_three_params
-    )
-    code = code.compile()
-
-    # apply parameters from the command line to the contract (instantiates parameterized contract!)
-    code = code.term
-    # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
-    for d in args:
-        code = uplc.ast.Apply(code, uplc.ast.data_from_cbor(datum_to_cbor(d)))
-    code = uplc.ast.Program((1, 0, 0), code)
-    return _build(code)</code></pre>
-</details>
-</dd>
-<dt id="opshin.builder.generate_artifacts"><code class="name flex">
-<span>def <span class="ident">generate_artifacts</span></span>(<span>contract: pycardano.plutus.PlutusV2Script)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def generate_artifacts(contract: pycardano.PlutusV2Script):
-    cbor_hex = contract.hex()
-    # double wrap
-    cbor_wrapped = cbor2.dumps(contract)
-    cbor_wrapped_hex = cbor_wrapped.hex()
-    # create plutus file
-    d = {
-        &#34;type&#34;: &#34;PlutusScriptV2&#34;,
-        &#34;description&#34;: f&#34;opshin {__version__} Smart Contract&#34;,
-        &#34;cborHex&#34;: cbor_wrapped_hex,
-    }
-    plutus_json = json.dumps(d, indent=2)
-    script_hash = pycardano.plutus_script_hash(pycardano.PlutusV2Script(contract))
-    policy_id = script_hash.to_primitive().hex()
-    # generate policy ids
-    addr_mainnet = pycardano.Address(
-        script_hash, network=pycardano.Network.MAINNET
-    ).encode()
-    # generate addresses
-    addr_testnet = pycardano.Address(
-        script_hash, network=pycardano.Network.TESTNET
-    ).encode()
-    return ScriptArtifacts(
-        cbor_hex,
-        plutus_json,
-        addr_mainnet,
-        addr_testnet,
-        policy_id,
-    )</code></pre>
-</details>
-</dd>
-</dl>
 </section>
 <section>
 <h2 class="section-title" id="header-classes">Classes</h2>
 <dl>
-<dt id="opshin.builder.ScriptArtifacts"><code class="flex name class">
-<span>class <span class="ident">ScriptArtifacts</span></span>
-<span>(</span><span>cbor_hex: str, plutus_json: str, mainnet_addr: str, testnet_addr: str, policy_id: str)</span>
+<dt id="opshin.rewrite.rewrite_orig_name.RewriteOrigName"><code class="flex name class">
+<span>class <span class="ident">RewriteOrigName</span></span>
 </code></dt>
 <dd>
-<div class="desc"><p>ScriptArtifacts(cbor_hex: str, plutus_json: str, mainnet_addr: str, testnet_addr: str, policy_id: str)</p></div>
+<div class="desc"><p>A :class:<code>NodeVisitor</code> subclass that walks the abstract syntax tree and
+allows modification of nodes.</p>
+<p>The <code>NodeTransformer</code> will walk the AST and use the return value of the
+visitor methods to replace or remove the old node.
+If the return value of
+the visitor method is <code>None</code>, the node will be removed from its location,
+otherwise it is replaced with the return value.
+The return value may be the
+original node in which case no replacement takes place.</p>
+<p>Here is an example transformer that rewrites all occurrences of name lookups
+(<code>foo</code>) to <code>data['foo']</code>::</p>
+<p>class RewriteName(NodeTransformer):</p>
+<pre><code>   def visit_Name(self, node):
+       return Subscript(
+           value=Name(id='data', ctx=Load()),
+           slice=Index(value=Str(s=node.id)),
+           ctx=node.ctx
+       )
+</code></pre>
+<p>Keep in mind that if the node you're operating on has child nodes you must
+either transform the child nodes yourself or call the :meth:<code>generic_visit</code>
+method for the node first.</p>
+<p>For nodes that were part of a collection of statements (that applies to all
+statement nodes), the visitor may also return a list of nodes rather than
+just a single node.</p>
+<p>Usually you use the transformer like this::</p>
+<p>node = YourTransformer().visit(node)</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">class ScriptArtifacts:
-    cbor_hex: str
-    plutus_json: str
-    mainnet_addr: str
-    testnet_addr: str
-    policy_id: str</code></pre>
+<pre><code class="python">class RewriteOrigName(CompilingNodeTransformer):
+    step = &#34;Assigning the orig_id/orig_name field with the variable name&#34;
+
+    def visit_Name(self, node: Name) -&gt; Name:
+        nc = copy(node)
+        nc.orig_id = node.id
+        return nc
+
+    def visit_ClassDef(self, node: ClassDef) -&gt; ClassDef:
+        node_cp = copy(node)
+        node_cp.orig_name = node.name
+        return node_cp
+
+    def visit_FunctionDef(self, node: FunctionDef) -&gt; FunctionDef:
+        node_cp = copy(node)
+        node_cp.orig_name = node.name
+        node_cp.args = copy(node.args)
+        node_cp.args.args = []
+        for a in node.args.args:
+            a_cp = copy(a)
+            a_cp.orig_arg = a.arg
+            node_cp.args.args.append(a_cp)
+        node_cp.body = [self.visit(s) for s in node.body]
+        return node_cp</code></pre>
 </details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li><a title="opshin.util.CompilingNodeTransformer" href="../util.html#opshin.util.CompilingNodeTransformer">CompilingNodeTransformer</a></li>
+<li><a title="opshin.typed_ast.TypedNodeTransformer" href="../typed_ast.html#opshin.typed_ast.TypedNodeTransformer">TypedNodeTransformer</a></li>
+<li>ast.NodeTransformer</li>
+<li>ast.NodeVisitor</li>
+</ul>
 <h3>Class variables</h3>
 <dl>
-<dt id="opshin.builder.ScriptArtifacts.cbor_hex"><code class="name">var <span class="ident">cbor_hex</span> : str</code></dt>
+<dt id="opshin.rewrite.rewrite_orig_name.RewriteOrigName.step"><code class="name">var <span class="ident">step</span></code></dt>
 <dd>
 <div class="desc"></div>
 </dd>
-<dt id="opshin.builder.ScriptArtifacts.mainnet_addr"><code class="name">var <span class="ident">mainnet_addr</span> : str</code></dt>
+</dl>
+<h3>Methods</h3>
+<dl>
+<dt id="opshin.rewrite.rewrite_orig_name.RewriteOrigName.visit"><code class="name flex">
+<span>def <span class="ident">visit</span></span>(<span>self, node)</span>
+</code></dt>
 <dd>
-<div class="desc"></div>
+<p class="inheritance">
+<em>Inherited from:</em>
+<code><a title="opshin.util.CompilingNodeTransformer" href="../util.html#opshin.util.CompilingNodeTransformer">CompilingNodeTransformer</a></code>.<code><a title="opshin.util.CompilingNodeTransformer.visit" href="../util.html#opshin.util.CompilingNodeTransformer.visit">visit</a></code>
+</p>
+<div class="desc inherited"><p>Visit a node.</p></div>
 </dd>
-<dt id="opshin.builder.ScriptArtifacts.plutus_json"><code class="name">var <span class="ident">plutus_json</span> : str</code></dt>
+<dt id="opshin.rewrite.rewrite_orig_name.RewriteOrigName.visit_ClassDef"><code class="name flex">
+<span>def <span class="ident">visit_ClassDef</span></span>(<span>self, node: _ast.ClassDef) ‑> _ast.ClassDef</span>
+</code></dt>
 <dd>
 <div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def visit_ClassDef(self, node: ClassDef) -&gt; ClassDef:
+    node_cp = copy(node)
+    node_cp.orig_name = node.name
+    return node_cp</code></pre>
+</details>
 </dd>
-<dt id="opshin.builder.ScriptArtifacts.policy_id"><code class="name">var <span class="ident">policy_id</span> : str</code></dt>
+<dt id="opshin.rewrite.rewrite_orig_name.RewriteOrigName.visit_FunctionDef"><code class="name flex">
+<span>def <span class="ident">visit_FunctionDef</span></span>(<span>self, node: _ast.FunctionDef) ‑> _ast.FunctionDef</span>
+</code></dt>
 <dd>
 <div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def visit_FunctionDef(self, node: FunctionDef) -&gt; FunctionDef:
+    node_cp = copy(node)
+    node_cp.orig_name = node.name
+    node_cp.args = copy(node.args)
+    node_cp.args.args = []
+    for a in node.args.args:
+        a_cp = copy(a)
+        a_cp.orig_arg = a.arg
+        node_cp.args.args.append(a_cp)
+    node_cp.body = [self.visit(s) for s in node.body]
+    return node_cp</code></pre>
+</details>
 </dd>
-<dt id="opshin.builder.ScriptArtifacts.testnet_addr"><code class="name">var <span class="ident">testnet_addr</span> : str</code></dt>
+<dt id="opshin.rewrite.rewrite_orig_name.RewriteOrigName.visit_Name"><code class="name flex">
+<span>def <span class="ident">visit_Name</span></span>(<span>self, node: _ast.Name) ‑> _ast.Name</span>
+</code></dt>
 <dd>
 <div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def visit_Name(self, node: Name) -&gt; Name:
+    nc = copy(node)
+    nc.orig_id = node.id
+    return nc</code></pre>
+</details>
 </dd>
 </dl>
 </dd>
@@ -328,7 +298,7 @@ const query = new URL(window.location).searchParams.get('q');
 if (query)
 search(query);
 function search(query) {
-const url = '../doc-search.html#' + encodeURIComponent(query);
+const url = '../../doc-search.html#' + encodeURIComponent(query);
 new tingle.modal({
 cssClass: ['modal-dialog'],
 onClose: () => {
@@ -347,25 +317,19 @@ setTimeout(() => input.focus(), 100);
 <ul id="index">
 <li><h3>Super-module</h3>
 <ul>
-<li><code><a title="opshin" href="index.html">opshin</a></code></li>
-</ul>
-</li>
-<li><h3><a href="#header-functions">Functions</a></h3>
-<ul class="">
-<li><code><a title="opshin.builder.build" href="#opshin.builder.build">build</a></code></li>
-<li><code><a title="opshin.builder.generate_artifacts" href="#opshin.builder.generate_artifacts">generate_artifacts</a></code></li>
+<li><code><a title="opshin.rewrite" href="index.html">opshin.rewrite</a></code></li>
 </ul>
 </li>
 <li><h3><a href="#header-classes">Classes</a></h3>
 <ul>
 <li>
-<h4><code><a title="opshin.builder.ScriptArtifacts" href="#opshin.builder.ScriptArtifacts">ScriptArtifacts</a></code></h4>
+<h4><code><a title="opshin.rewrite.rewrite_orig_name.RewriteOrigName" href="#opshin.rewrite.rewrite_orig_name.RewriteOrigName">RewriteOrigName</a></code></h4>
 <ul class="">
-<li><code><a title="opshin.builder.ScriptArtifacts.cbor_hex" href="#opshin.builder.ScriptArtifacts.cbor_hex">cbor_hex</a></code></li>
-<li><code><a title="opshin.builder.ScriptArtifacts.mainnet_addr" href="#opshin.builder.ScriptArtifacts.mainnet_addr">mainnet_addr</a></code></li>
-<li><code><a title="opshin.builder.ScriptArtifacts.plutus_json" href="#opshin.builder.ScriptArtifacts.plutus_json">plutus_json</a></code></li>
-<li><code><a title="opshin.builder.ScriptArtifacts.policy_id" href="#opshin.builder.ScriptArtifacts.policy_id">policy_id</a></code></li>
-<li><code><a title="opshin.builder.ScriptArtifacts.testnet_addr" href="#opshin.builder.ScriptArtifacts.testnet_addr">testnet_addr</a></code></li>
+<li><code><a title="opshin.rewrite.rewrite_orig_name.RewriteOrigName.step" href="#opshin.rewrite.rewrite_orig_name.RewriteOrigName.step">step</a></code></li>
+<li><code><a title="opshin.rewrite.rewrite_orig_name.RewriteOrigName.visit" href="../util.html#opshin.rewrite.rewrite_orig_name.RewriteOrigName.visit">visit</a></code></li>
+<li><code><a title="opshin.rewrite.rewrite_orig_name.RewriteOrigName.visit_ClassDef" href="#opshin.rewrite.rewrite_orig_name.RewriteOrigName.visit_ClassDef">visit_ClassDef</a></code></li>
+<li><code><a title="opshin.rewrite.rewrite_orig_name.RewriteOrigName.visit_FunctionDef" href="#opshin.rewrite.rewrite_orig_name.RewriteOrigName.visit_FunctionDef">visit_FunctionDef</a></code></li>
+<li><code><a title="opshin.rewrite.rewrite_orig_name.RewriteOrigName.visit_Name" href="#opshin.rewrite.rewrite_orig_name.RewriteOrigName.visit_Name">visit_Name</a></code></li>
 </ul>
 </li>
 </ul>

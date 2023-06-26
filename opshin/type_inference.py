@@ -1,5 +1,8 @@
+from dataclasses import asdict
+
 from copy import copy
 import ast
+from pycardano import PlutusData
 
 from .typed_ast import *
 from .util import PythonBuiltInTypes, CompilingNodeTransformer
@@ -40,6 +43,48 @@ INITIAL_SCOPE.update(
         if isinstance(typ.typ, PolymorphicFunctionType)
     }
 )
+
+
+def record_from_plutusdata(c: PlutusData):
+    return Record(
+        name=c.__class__.__name__,
+        constructor=c.CONSTR_ID,
+        fields=FrozenFrozenList([(k, constant_type(v)) for k, v in c.__dict__.items()]),
+    )
+
+
+def constant_type(c):
+    if isinstance(c, bool):
+        return BoolInstanceType
+    if isinstance(c, int):
+        return IntegerInstanceType
+    if isinstance(c, type(None)):
+        return UnitInstanceType
+    if isinstance(c, bytes):
+        return ByteStringInstanceType
+    if isinstance(c, str):
+        return StringInstanceType
+    if isinstance(c, list):
+        assert len(c) > 0, "Lists must be non-empty"
+        first_typ = constant_type(c[0])
+        assert all(
+            constant_type(ce) == first_typ for ce in c[1:]
+        ), "Constant lists must contain elements of a single type only"
+        return InstanceType(ListType(first_typ))
+    if isinstance(c, dict):
+        assert len(c) > 0, "Lists must be non-empty"
+        first_key_typ = constant_type(next(iter(c.keys())))
+        first_value_typ = constant_type(next(iter(c.values())))
+        assert all(
+            constant_type(ce) == first_key_typ for ce in c.keys()
+        ), "Constant dicts must contain keys of a single type only"
+        assert all(
+            constant_type(ce) == first_value_typ for ce in c.values()
+        ), "Constant dicts must contain values of a single type only"
+        return InstanceType(DictType(first_key_typ, first_value_typ))
+    if isinstance(c, PlutusData):
+        return InstanceType(RecordType(record=record_from_plutusdata(c)))
+    raise NotImplementedError(f"Type {type(c)} not supported")
 
 
 class AggressiveTypeInferencer(CompilingNodeTransformer):
@@ -154,10 +199,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             complex,
             type(...),
         ], "Float, complex numbers and ellipsis currently not supported"
-        if tc.value is None:
-            tc.typ = NoneInstanceType
-        else:
-            tc.typ = InstanceType(ATOMIC_TYPES[type(node.value).__name__])
+        tc.typ = constant_type(node.value)
         return tc
 
     def visit_Tuple(self, node: Tuple) -> TypedTuple:
@@ -283,7 +325,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         typed_for.iter = self.visit(node.iter)
         if isinstance(node.target, Tuple):
             raise NotImplementedError(
-                "Type deconstruction in for loops is not supported yet"
+                "Tuple deconstruction in for loops is not supported yet"
             )
         vartyp = None
         itertyp = typed_for.iter.typ

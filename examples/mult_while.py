@@ -1,3 +1,6 @@
+#!opshin
+
+
 def validator(a: int, b: int) -> int:
     # trivial implementation of c = a * b
     c = 0
