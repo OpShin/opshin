@@ -705,9 +705,7 @@ def validator(x: int, y: int) -> str:
 
     @given(x=st.text(), y=st.text())
     @example("", "\U00010b92")
-    @hypothesis.settings(
-        deadline=None, suppress_health_check=[hypothesis.HealthCheck.filter_too_much]
-    )
+    @hypothesis.settings(deadline=None)
     def test_fmt_pair_str(self, x, y):
         # TODO strings are not properly escaped here
         hypothesis.assume(all(s not in o for s in ("'", "\\") for o in (x, y)))
@@ -740,6 +738,9 @@ def validator(x: str, y: str) -> str:
     @example([])
     @example(["x"])
     def test_fmt_list_str(self, xs):
+        # TODO strings are not properly escaped here
+        hypothesis.assume(all(s not in o for s in ("'", "\\") for o in xs))
+        hypothesis.assume(all(s not in repr(o) for s in "\\" for o in xs))
         source_code = """
 from opshin.prelude import *
 
@@ -777,6 +778,40 @@ def validator(x: List[int]) -> str:
         # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
         exp = f"{list(xs)}"
         for d in [uplc.PlutusList([uplc.PlutusInteger(x) for x in xs])]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value.decode("utf8")
+        self.assertEqual(
+            ret, exp, "integer list string formatting returned wrong value"
+        )
+
+    @given(xs=st.dictionaries(st.text(), st.integers()))
+    @hypothesis.settings(deadline=None)
+    @example(dict())
+    @example({"": 0})
+    def test_fmt_dict_int(self, xs):
+        # TODO strings are not properly escaped here
+        hypothesis.assume(all(s not in o for s in ("'", "\\") for o in xs.keys()))
+        hypothesis.assume(all(s not in repr(o) for s in "\\" for o in xs.keys()))
+        source_code = """
+from opshin.prelude import *
+
+def validator(x: Dict[str, int]) -> str:
+    return f"{x}"
+            """
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        exp = f"{dict(xs)}"
+        for d in [
+            uplc.PlutusMap(
+                {
+                    uplc.PlutusByteString(k.encode("utf8")): uplc.PlutusInteger(v)
+                    for (k, v) in xs.items()
+                }
+            )
+        ]:
             f = uplc.Apply(f, d)
         ret = uplc_eval(f).value.decode("utf8")
         self.assertEqual(

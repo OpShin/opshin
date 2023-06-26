@@ -641,17 +641,30 @@ class DictType(ClassType):
                         plt.RecFun(
                             plt.Lambda(
                                 ["f", "l"],
-                                plt.AppendString(
-                                    plt.Apply(
-                                        self.typ.stringify(recursive=True),
-                                        plt.HeadList(plt.Var("l")),
-                                        plt.Var("_"),
-                                    ),
-                                    plt.Let(
-                                        [("t", plt.TailList(plt.Var("l")))],
+                                plt.Let(
+                                    [
+                                        ("h", plt.HeadList(plt.Var("l"))),
+                                        ("t", plt.TailList(plt.Var("l"))),
+                                    ],
+                                    plt.ConcatString(
+                                        plt.Apply(
+                                            self.key_typ.stringify(recursive=True),
+                                            transform_ext_params_map(self.key_typ)(
+                                                plt.FstPair(plt.Var("h"))
+                                            ),
+                                            plt.Var("_"),
+                                        ),
+                                        plt.Text(": "),
+                                        plt.Apply(
+                                            self.value_typ.stringify(recursive=True),
+                                            transform_ext_params_map(self.value_typ)(
+                                                plt.SndPair(plt.Var("h"))
+                                            ),
+                                            plt.Var("_"),
+                                        ),
                                         plt.IteNullList(
                                             plt.Var("t"),
-                                            plt.Text("]"),
+                                            plt.Text("}"),
                                             plt.AppendString(
                                                 plt.Text(", "),
                                                 plt.Apply(
@@ -668,10 +681,10 @@ class DictType(ClassType):
                     )
                 ],
                 plt.AppendString(
-                    plt.Text("["),
+                    plt.Text("{"),
                     plt.IteNullList(
                         plt.Var("self"),
-                        plt.Text("]"),
+                        plt.Text("}"),
                         plt.Apply(
                             plt.Var("g"),
                             plt.Var("self"),
