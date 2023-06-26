@@ -11,6 +11,7 @@ from .rewrite.rewrite_import_dataclasses import RewriteImportDataclasses
 from .rewrite.rewrite_import_hashlib import RewriteImportHashlib
 from .rewrite.rewrite_import_plutusdata import RewriteImportPlutusData
 from .rewrite.rewrite_import_typing import RewriteImportTyping
+from .rewrite.rewrite_import_uplc_builtins import RewriteImportUPLCBuiltins
 from .rewrite.rewrite_inject_builtins import RewriteInjectBuiltins
 from .rewrite.rewrite_inject_builtin_constr import RewriteInjectBuiltinsConstr
 from .rewrite.rewrite_orig_name import RewriteOrigName
@@ -991,6 +992,7 @@ def compile(
         # The type inference needs to be run after complex python operations were rewritten
         AggressiveTypeInferencer(),
         # Rewrites that circumvent the type inference or use its results
+        RewriteImportUPLCBuiltins(),
         RewriteZeroAry(),
         RewriteInjectBuiltinsConstr(),
         RewriteRemoveTypeStuff(),

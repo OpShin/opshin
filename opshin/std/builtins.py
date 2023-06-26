@@ -4,7 +4,7 @@ It is not normally imported during compilation,
 but replaces the mentioned functions by their UPLC implementation.
 """
 from opshin.bridge import wraps_builtin
-from pycardano import Datum as Anything
+from pycardano import Datum as Anything, PlutusData
 
 
 @wraps_builtin
