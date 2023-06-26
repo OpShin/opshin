@@ -814,6 +814,4 @@ def validator(x: Dict[str, int]) -> str:
         ]:
             f = uplc.Apply(f, d)
         ret = uplc_eval(f).value.decode("utf8")
-        self.assertEqual(
-            ret, exp, "integer list string formatting returned wrong value"
-        )
+        self.assertEqual(ret, exp, "dict string formatting returned wrong value")
