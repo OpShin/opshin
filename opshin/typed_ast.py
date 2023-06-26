@@ -1,3 +1,4 @@
+import logging
 import typing
 from ast import *
 from dataclasses import dataclass
@@ -6,6 +7,8 @@ from frozenlist import FrozenList
 
 import pluthon as plt
 import uplc.ast as uplc
+
+_LOGGER = logging.getLogger(__name__)
 
 
 def distinct(xs: list):
@@ -89,6 +92,9 @@ class AnyType(ClassType):
         )
 
     def stringify(self, recursive: bool = False) -> plt.AST:
+        _LOGGER.warning(
+            "Serializing AnyType will result in RawPlutusData (CBOR representation) to be printed without additional type information. Annotate types where possible to avoid this warning."
+        )
         return plt.Lambda(
             ["self", "_"],
             plt.Let(
