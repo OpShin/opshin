@@ -1346,13 +1346,13 @@ testing = ["pytest", "pytest-benchmark"]
 
 [[package]]
 name = "pluthon"
-version = "0.3.7"
+version = "0.3.9"
 description = "Pluto-like programming language for Cardano Smart Contracts in Python"
 optional = false
 python-versions = ">=3"
 files = [
-    {file = "pluthon-0.3.7-py3-none-any.whl", hash = "sha256:ea57cf06733582be0e52a9ed884afcdbf2d8b342ec81e1c105e3a351fbaa890a"},
-    {file = "pluthon-0.3.7.tar.gz", hash = "sha256:014066fc5deaf799c124a624d93504d01716183de2b85de367fa256af8729421"},
+    {file = "pluthon-0.3.9-py3-none-any.whl", hash = "sha256:73a3cda587cb4cbbd58a15006701c01cf1cb9c533b12b08e664391c00645df35"},
+    {file = "pluthon-0.3.9.tar.gz", hash = "sha256:6dffe144abc5fe7f8bc771fb3e8375a265f6105ab5c8fcf759ed1e4563ded36b"},
 ]
 
 [package.dependencies]
