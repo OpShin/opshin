@@ -157,28 +157,80 @@ class AnyType(ClassType):
                                 ["f", "d"],
                                 plt.DelayedChooseData(
                                     plt.Var("d"),
-                                    plt.ConcatString(
-                                        plt.Text("CBORTag("),
-                                        plt.Apply(
-                                            plt.Var("f"),
-                                            plt.Var("f"),
-                                            plt.IData(
+                                    plt.Let(
+                                        [
+                                            (
+                                                "constructor",
                                                 plt.FstPair(
                                                     plt.UnConstrData(plt.Var("d"))
-                                                )
+                                                ),
+                                            )
+                                        ],
+                                        plt.Ite(
+                                            plt.LessThanInteger(
+                                                plt.Var("constructor"), plt.Integer(128)
+                                            ),
+                                            plt.ConcatString(
+                                                plt.Text("CBORTag("),
+                                                plt.Apply(
+                                                    plt.Var("f"),
+                                                    plt.Var("f"),
+                                                    plt.IData(
+                                                        plt.AddInteger(
+                                                            plt.Var("constructor"),
+                                                            plt.Ite(
+                                                                plt.LessThanInteger(
+                                                                    plt.Var(
+                                                                        "constructor"
+                                                                    ),
+                                                                    plt.Integer(7),
+                                                                ),
+                                                                plt.Integer(121),
+                                                                plt.Integer(1280 - 7),
+                                                            ),
+                                                        )
+                                                    ),
+                                                ),
+                                                plt.Text(", "),
+                                                plt.Apply(
+                                                    plt.Var("f"),
+                                                    plt.Var("f"),
+                                                    plt.ListData(
+                                                        plt.SndPair(
+                                                            plt.UnConstrData(
+                                                                plt.Var("d")
+                                                            )
+                                                        )
+                                                    ),
+                                                ),
+                                                plt.Text(")"),
+                                            ),
+                                            plt.ConcatString(
+                                                plt.Text("CBORTag(102, "),
+                                                plt.Apply(
+                                                    plt.Var("f"),
+                                                    plt.Var("f"),
+                                                    plt.ListData(
+                                                        plt.MkCons(
+                                                            plt.IData(
+                                                                plt.Var("constructor")
+                                                            ),
+                                                            plt.MkCons(
+                                                                plt.ListData(
+                                                                    plt.SndPair(
+                                                                        plt.UnConstrData(
+                                                                            plt.Var("d")
+                                                                        )
+                                                                    )
+                                                                ),
+                                                                plt.EmptyDataList(),
+                                                            ),
+                                                        )
+                                                    ),
+                                                ),
+                                                plt.Text(")"),
                                             ),
                                         ),
-                                        plt.Text(", "),
-                                        plt.Apply(
-                                            plt.Var("f"),
-                                            plt.Var("f"),
-                                            plt.ListData(
-                                                plt.SndPair(
-                                                    plt.UnConstrData(plt.Var("d"))
-                                                )
-                                            ),
-                                        ),
-                                        plt.Text(")"),
                                     ),
                                     plt.Apply(
                                         plt.Var("joinMapList"),
