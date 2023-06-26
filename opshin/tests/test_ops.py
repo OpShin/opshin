@@ -1,11 +1,13 @@
 import dataclasses
 import unittest
 
+import cbor2
 import hypothesis
 import pycardano
 from hypothesis import example, given
 from hypothesis import strategies as st
 from uplc import ast as uplc, eval as uplc_eval
+from uplc.tests.test_hypothesis import uplc_data
 
 from .. import compiler
 
@@ -815,3 +817,22 @@ def validator(x: Dict[str, int]) -> str:
             f = uplc.Apply(f, d)
         ret = uplc_eval(f).value.decode("utf8")
         self.assertEqual(ret, exp, "dict string formatting returned wrong value")
+
+    @given(x=uplc_data)
+    @hypothesis.settings(deadline=None)
+    def test_fmt_any(self, x):
+        x_data = pycardano.RawPlutusData(cbor2.loads(uplc.plutus_cbor_dumps(x)))
+        source_code = """
+def validator(x: Anything) -> str:
+    return f"{x}"
+            """
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        exp = f"{x_data}"
+        for d in [x]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value.decode("utf8")
+        self.assertEqual(ret, exp, "raw cbor string formatting returned wrong value")

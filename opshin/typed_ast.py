@@ -88,6 +88,159 @@ class AnyType(ClassType):
             and not isinstance(other, PolymorphicFunctionType)
         )
 
+    def stringify(self, recursive: bool = False) -> plt.AST:
+        return plt.Lambda(
+            ["self", "_"],
+            plt.Let(
+                [
+                    (
+                        "joinMapList",
+                        plt.Lambda(
+                            ["m", "l", "start", "end"],
+                            plt.Let(
+                                [
+                                    (
+                                        "g",
+                                        plt.RecFun(
+                                            plt.Lambda(
+                                                ["f", "l"],
+                                                plt.AppendString(
+                                                    plt.Apply(
+                                                        plt.Var("m"),
+                                                        plt.HeadList(plt.Var("l")),
+                                                    ),
+                                                    plt.Let(
+                                                        [
+                                                            (
+                                                                "t",
+                                                                plt.TailList(
+                                                                    plt.Var("l")
+                                                                ),
+                                                            )
+                                                        ],
+                                                        plt.IteNullList(
+                                                            plt.Var("t"),
+                                                            plt.Var("end"),
+                                                            plt.AppendString(
+                                                                plt.Text(", "),
+                                                                plt.Apply(
+                                                                    plt.Var("f"),
+                                                                    plt.Var("f"),
+                                                                    plt.Var("t"),
+                                                                ),
+                                                            ),
+                                                        ),
+                                                    ),
+                                                ),
+                                            )
+                                        ),
+                                    )
+                                ],
+                                plt.AppendString(
+                                    plt.Var("start"),
+                                    plt.IteNullList(
+                                        plt.Var("l"),
+                                        plt.Var("end"),
+                                        plt.Apply(
+                                            plt.Var("g"),
+                                            plt.Var("l"),
+                                        ),
+                                    ),
+                                ),
+                            ),
+                        ),
+                    ),
+                    (
+                        "stringifyPlutusData",
+                        plt.RecFun(
+                            plt.Lambda(
+                                ["f", "d"],
+                                plt.DelayedChooseData(
+                                    plt.Var("d"),
+                                    plt.ConcatString(
+                                        plt.Text("CBORTag("),
+                                        plt.Apply(
+                                            plt.Var("f"),
+                                            plt.Var("f"),
+                                            plt.IData(
+                                                plt.FstPair(
+                                                    plt.UnConstrData(plt.Var("d"))
+                                                )
+                                            ),
+                                        ),
+                                        plt.Text(", "),
+                                        plt.Apply(
+                                            plt.Var("f"),
+                                            plt.Var("f"),
+                                            plt.ListData(
+                                                plt.SndPair(
+                                                    plt.UnConstrData(plt.Var("d"))
+                                                )
+                                            ),
+                                        ),
+                                        plt.Text(")"),
+                                    ),
+                                    plt.Apply(
+                                        plt.Var("joinMapList"),
+                                        plt.Lambda(
+                                            ["x"],
+                                            plt.ConcatString(
+                                                plt.Apply(
+                                                    plt.Var("f"),
+                                                    plt.Var("f"),
+                                                    plt.FstPair(plt.Var("x")),
+                                                ),
+                                                plt.Text(": "),
+                                                plt.Apply(
+                                                    plt.Var("f"),
+                                                    plt.Var("f"),
+                                                    plt.SndPair(plt.Var("x")),
+                                                ),
+                                            ),
+                                        ),
+                                        plt.UnMapData(plt.Var("d")),
+                                        plt.Text("{"),
+                                        plt.Text("}"),
+                                    ),
+                                    plt.Apply(
+                                        plt.Var("joinMapList"),
+                                        plt.Lambda(
+                                            ["x"],
+                                            plt.Apply(
+                                                plt.Var("f"),
+                                                plt.Var("f"),
+                                                plt.Var("x"),
+                                            ),
+                                        ),
+                                        plt.UnListData(plt.Var("d")),
+                                        plt.Text("["),
+                                        plt.Text("]"),
+                                    ),
+                                    plt.Apply(
+                                        IntegerInstanceType.stringify(recursive=True),
+                                        plt.UnIData(plt.Var("d")),
+                                        plt.Var("_"),
+                                    ),
+                                    plt.Apply(
+                                        ByteStringInstanceType.stringify(
+                                            recursive=True
+                                        ),
+                                        plt.UnBData(plt.Var("d")),
+                                        plt.Var("_"),
+                                    ),
+                                ),
+                            )
+                        ),
+                    ),
+                ],
+                plt.ConcatString(
+                    plt.Text("RawPlutusData(data="),
+                    plt.Apply(plt.Var("stringifyPlutusData"), plt.Var("self")),
+                    plt.Text(")"),
+                ),
+            ),
+        )
+
 
 @dataclass(frozen=True, unsafe_hash=True)
 class AtomicType(ClassType):
