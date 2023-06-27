@@ -42,14 +42,13 @@ class RewriteImportUPLCBuiltins(CompilingNodeTransformer):
         CamelCaseFunName = "".join(
             p.capitalize() for p in re.split(r"_(?!\d)", node.name)
         )
-        uplc_fun = uplc.BuiltInFun.__dict__[CamelCaseFunName]
+        uplc_fun = plt.__dict__[CamelCaseFunName]
         pluto_expression = RawPlutoExpr(
             typ=node.typ.typ.rettyp,
-            expr=plt.Apply(
-                plt.BuiltIn(uplc_fun),
-                *(
-                    plt.FunctionalMapAccess(plt.Var("s"), plt.Var(f"p{i}"))
-                    for i in range(len(node.args.args))
+            expr=plt.Lambda(
+                ["_"],
+                uplc_fun(
+                    *(plt.Var(f"p{i}") for i in range(len(node.args.args))),
                 ),
             ),
         )
