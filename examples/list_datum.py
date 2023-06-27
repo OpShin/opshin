@@ -1,7 +1,8 @@
-from eopsin.prelude import *
+#!opshin
+from opshin.prelude import *
 
 
-@dataclass()
+@dataclass
 class D2(PlutusData):
     list_field: List[DatumHash]
 

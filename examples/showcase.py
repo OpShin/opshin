@@ -1,4 +1,4 @@
-from eopsin.prelude import *
+#!opshin
 
 
 def validator(n: int) -> int:

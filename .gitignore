@@ -1,8 +1,8 @@
 venv
 .vscode
-__tmp_eopsin.py
+__tmp_opshin.py
 test.py
-test/
+build/
 *.uplc
 *.cbor
 *.plutus

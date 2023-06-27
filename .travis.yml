@@ -1,6 +1,9 @@
 language: python
 python:
 - '3.8'
+- '3.9'
+- '3.10'
+- '3.11'
 dist: bionic
 os: linux
 arch:
@@ -8,37 +11,51 @@ arch:
 jobs:
   fast_finish: true
 
+before_install:
+- pip install poetry
 install:
-- if [[ $TRAVIS_PYTHON_VERSION == 3.7 ]]; then pip install -U importlib_metadata;
-  fi
-- pip install coverage coveralls
-- pip install black==22.12.0
-- pip install -e .
+- poetry install
 script:
 - black --check .
-- coverage run --source=eopsin setup.py test
+- coverage run --source=opshin -m pytest opshin/tests
 # the samples from the README file
 - >
-  coverage run -a --source=eopsin -m eopsin eval examples/smart_contracts/assert_sum.py "{\"int\": 4}" "{\"int\": 38}" "{\"constructor\": 0, \"fields\": []}"
+  coverage run -a --source=opshin -m opshin eval spending examples/smart_contracts/assert_sum.py "{\"int\": 4}" "{\"int\": 38}" d8799fd8799f9fd8799fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffd8799fd8799fd87a9f581cdbe769758f26efb21f008dc097bb194cffc622acc37fcefc5372eee3ffd87a80ffa140a1401a00989680d87a9f5820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dffd87a80ffffff809fd8799fd8799fd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd87a80ffa140a14000d87980d87a80ffffa140a14000a140a1400080a0d8799fd8799fd87980d87a80ffd8799fd87b80d87a80ffff80a1d87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffd87980a15820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd8799f5820746957f0eb57f2b11119684e611a98f373afea93473fefbb7632d579af2f6259ffffd87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffff
 - >
-  coverage run -a --source=eopsin -m eopsin compile examples/smart_contracts/assert_sum.py > assert_sum.uplc
+  coverage run -a --source=opshin -m opshin compile spending examples/smart_contracts/assert_sum.py > assert_sum.uplc
 - >
-  coverage run -a --source=eopsin -m eopsin eval_uplc examples/smart_contracts/assert_sum.py "{\"int\": 4}" "{\"int\": 38}" "{\"constructor\": 0, \"fields\": []}"
+  coverage run -a --source=opshin -m opshin eval_uplc spending examples/smart_contracts/assert_sum.py "{\"int\": 4}" "{\"int\": 38}" d8799fd8799f9fd8799fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffd8799fd8799fd87a9f581cdbe769758f26efb21f008dc097bb194cffc622acc37fcefc5372eee3ffd87a80ffa140a1401a00989680d87a9f5820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dffd87a80ffffff809fd8799fd8799fd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd87a80ffa140a14000d87980d87a80ffffa140a14000a140a1400080a0d8799fd8799fd87980d87a80ffd8799fd87b80d87a80ffff80a1d87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffd87980a15820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd8799f5820746957f0eb57f2b11119684e611a98f373afea93473fefbb7632d579af2f6259ffffd87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffff
 - >
-  coverage run -a --source=eopsin -m eopsin compile_pluto examples/smart_contracts/assert_sum.py
+  coverage run -a --source=opshin -m opshin compile_pluto spending examples/smart_contracts/assert_sum.py
 - >
-  coverage run -a --source=eopsin -m eopsin build examples/smart_contracts/assert_sum.py
+  coverage run -a --source=opshin -m opshin build spending examples/smart_contracts/assert_sum.py
+# all smart contracts
+- >
+  for i in $(find examples -type f -name "*.py" -not \( -name "broken*" -o -name "extract*" \)); do
+    echo "$i"
+    coverage run -a --source=opshin -m opshin compile any "$i" > /dev/null
+  done
+# smart contracts with special parameters
+- >
+  coverage run -a --source=opshin -m opshin build spending examples/smart_contracts/parameterized.py '{"int": 42}'
+- >
+  coverage run -a --source=opshin -m opshin build any examples/smart_contracts/dual_use.py --force-three-params
+- >
+  coverage run -a --source=opshin -m opshin build any examples/smart_contracts/wrapped_token.py '{"bytes": "ae810731b5d21c0d182d89c60a1eff7095dffd1c0dce8707a8611099"}' '{"bytes": "4d494c4b"}' '{"int": 1000000}' --force-three-params
+- >
+  test ! -n "$(coverage run -a --source=opshin -m opshin lint any examples/smart_contracts/wrapped_token.py)"
+- >
+  test -n "$(coverage run -a --source=opshin -m opshin lint any examples/broken.py)"
+- >
+  test -n "$(coverage run -a --source=opshin -m opshin lint any examples/broken.py --output-format-json)"
+- coverage run -a --source=opshin -m opshin compile lib opshin/prelude.py
+# build the libraries
+- >
+  for i in $(find opshin/std opshin/ledger -type f -name "*.py"); do
+    echo "$i"
+    coverage run -a --source=opshin -m opshin compile lib "$i" > /dev/null
+  done
 
 after_success:
 - coverage report
 - coveralls
-deploy:
-  provider: pypi
-  on:
-    branch: master
-    python: '3.8'
-  distributions: sdist bdist_wheel
-  skip_existing: true
-  username: __token__
-  password:
-    secure: qCnwlzVj1uqWN6cbfNZnuSAtAVx5zvD5MgLuCsN7RcQ7Ss7Ji4QADGy/yxIkkSc6BwsLogub2Lw9147b6fwX9LULh0tzTnca7h5YAZzuLDP9Mov5LNmL251uBh1IudBlWiGp5ZMbaG4E/A1/nFYwjE6ZnOS5A/a9aCelUbY5MDGsXyELjtbRSy1LbuAAh3ya+mn8RuExF60KYCUuo86cRwYQ5s0gZQq+O0iGGdMWldQ7Dc0NEjTgGQowTtYPebNBdGRQckTKtemY/bZdToOgl3KuKsdwroSgMkp+4NwcFxSQyWBknEdAWhACROvemkF67bT230LtlW8Ttst5Sg9NIfQmtT/5H0/5inGildex3jMfuM2KLv9e724M1ZloUZhSaNclT7ja+3cQqDj2Mxw9Qy7xtzVpq4z6iNYhcgcVMBoctZFaStjq+JmvrBNPka5IYIip4h7vDk9AvtlA14UofPYP2e4AxClhfO1WC/ICI33cBV49ldxlgp3DvTrq+ZWItLRx0isgMAC85qEQW2huxnhMU/x1MAo8QqO4Il5WuunM9rNibp6WWmsJQru/MurANAI/LY2XtjtElispt3Bg1Cg+uPYhSxH8Zh8bOMyjLGasdpC7flp2DwSEY7jwUccNGheS4y6OtBZ68KoYjAh267uOgEYzQCL6966oaWxQ24k=

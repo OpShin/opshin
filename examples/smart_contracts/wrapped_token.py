@@ -1,17 +1,10 @@
-from eopsin.prelude import *
-
-# parameters controlling which token is to be wrapped (currently preprod MILK) and how many decimal places to add
-TOKEN_POLICYID = b"\xae\x81\x071\xb5\xd2\x1c\r\x18-\x89\xc6\n\x1e\xffp\x95\xdf\xfd\x1c\r\xce\x87\x07\xa8a\x10\x99"
-TOKEN_NAME = b"MILK"
-WRAPPING_FACTOR = 1000000
+#!opshin
+from opshin.prelude import *
 
 
-@dataclass()
+@dataclass
 class Empty(PlutusData):
     pass
-
-
-TOKEN = Token(TOKEN_POLICYID, TOKEN_NAME)
 
 
 def all_tokens_unlocked_from_contract_address(
@@ -38,9 +31,9 @@ def own_spent_utxo(txins: List[TxInInfo], p: Spending) -> TxOut:
 
 def own_policy_id(own_spent_utxo: TxOut) -> PolicyId:
     # obtain the policy id for which this contract can validate minting/burning
-    cred = own_spent_utxo.address.credential
+    cred = own_spent_utxo.address.payment_credential
     if isinstance(cred, ScriptCredential):
-        policy_id = cred.validator_hash
+        policy_id = cred.credential_hash
     # This throws a name error if the credential is not a ScriptCredential instance
     return policy_id
 
@@ -63,7 +56,21 @@ def all_tokens_locked_at_contract_address(
     return res
 
 
-def validator(_datum: None, _redeemer: NoRedeemer, ctx: ScriptContext) -> None:
+# this is a parameterized contract. The first three arguments are
+# parameters controlling which token is to be wrapped and how many decimal places to add
+# compile the contract as follows to obtain the parameterized contract (for preprod milk)
+#
+# moreover this contract should always be called with three virtual parameters, so enable --force-three-params
+#
+# $ opshin build examples/smart_contracts/wrapped_token.py '{"bytes": "ae810731b5d21c0d182d89c60a1eff7095dffd1c0dce8707a8611099"}' '{"bytes": "4d494c4b"}' '{"int": 1000000}' --force-three-params
+def validator(
+    token_policy_id: bytes,
+    token_name: bytes,
+    wrapping_factor: int,
+    _datum: None,
+    _redeemer: NoRedeemer,
+    ctx: ScriptContext,
+) -> None:
     purpose = ctx.purpose
     if isinstance(purpose, Minting):
         # whenever tokens should be burned/minted, the minting purpose will be triggered
@@ -76,18 +83,19 @@ def validator(_datum: None, _redeemer: NoRedeemer, ctx: ScriptContext) -> None:
         own_addr = own_utxo.address
     else:
         assert False, "Incorrect purpose given"
+    token = Token(token_policy_id, token_name)
     all_locked = all_tokens_locked_at_contract_address(
-        ctx.tx_info.outputs, own_addr, TOKEN
+        ctx.tx_info.outputs, own_addr, token
     )
     all_unlocked = all_tokens_unlocked_from_contract_address(
-        ctx.tx_info.inputs, own_addr, TOKEN
+        ctx.tx_info.inputs, own_addr, token
     )
-    all_minted = ctx.tx_info.mint.get(own_pid, {b"": 0}).get(b"w" + TOKEN_NAME, 0)
+    all_minted = ctx.tx_info.mint.get(own_pid, {b"": 0}).get(b"w" + token_name, 0)
     print("unlocked from contract: " + str(all_unlocked))
     print("locked at contract: " + str(all_locked))
     print("minted: " + str(all_minted))
     assert (
-        (all_locked - all_unlocked) * WRAPPING_FACTOR
+        (all_locked - all_unlocked) * wrapping_factor
     ) == all_minted, "Wrong amount of tokens minted, difference: " + str(
-        (all_locked - all_unlocked) * WRAPPING_FACTOR - all_minted
+        (all_locked - all_unlocked) * wrapping_factor - all_minted
     )
