@@ -1,5 +1,5 @@
-from hashlib import sha256, sha3_256, blake2b
 from opshin.ledger.api_v2 import *
+from hashlib import sha256, sha3_256, blake2b
 
 
 @dataclass(unsafe_hash=True)

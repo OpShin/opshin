@@ -1,4 +1,5 @@
-from eopsin.prelude import *
+from opshin.ledger.api_v2 import *
+from opshin.std.builtins import *
 
 
 @dataclass()
@@ -68,13 +69,7 @@ def validator(
         amount_bob = 0
         for o in context.tx_info.outputs:
             # Note: in a real world scenario, you will want to make sure the stake key hash matches too!
-            addr_credential = o.address.credential
-            if isinstance(addr_credential, PubKeyCredential):
-                pkh = addr_credential.pubkeyhash
-            elif isinstance(addr_credential, ScriptCredential):
-                pkh = addr_credential.validator_hash
-            else:
-                assert False, "Impossible output address"
+            pkh = o.address.payment_credential.credential_hash
             if pkh == datum.pubkeyhash_alice:
                 amount_alice += o.value.get(b"", {b"": 0}).get(b"", 0)
             elif pkh == datum.pubkeyhash_bob:
@@ -103,17 +98,17 @@ def validator(
             assert payment.amount > 0, "Invalid amount transfer, must be positive"
             nonce = payment.nonce
             if isinstance(payment, MicropaymentAlice):
-                assert verify(
+                assert verify_ed25519_signature(
                     datum.pubkeyhash_alice,
-                    str(payment.amount).encode("utf8"),
+                    str(payment.amount).encode(),
                     payment.sig,
                 ), "Invalid signature of Alice for micropayment"
                 balance_alice -= payment.amount
                 balance_bob += payment.amount
             elif isinstance(payment, MicropaymentBob):
-                assert verify(
+                assert verify_ed25519_signature(
                     datum.pubkeyhash_bob,
-                    str(payment.amount).encode("utf8"),
+                    str(payment.amount).encode(),
                     payment.sig,
                 ), "Invalid signature of Bob for micropayment"
                 balance_alice += payment.amount
@@ -123,7 +118,7 @@ def validator(
 
         # we cast the purpose to spending, every other purpose does not make sense
         purpose: Spending = context.purpose
-        own_tx_out_ref = context.purpose.tx_out_ref
+        own_tx_out_ref = purpose.tx_out_ref
         # this stunt is just to find the output that goes to the same address as the input we are validating to be spent
         own_tx_out = [i for i in context.tx_info.inputs if i.out_ref == own_tx_out_ref][
             0
@@ -133,13 +128,16 @@ def validator(
             0
         ]
         # The value = locked tokens must not change
-        assert (
-            cont_tx_out.value == own_tx_out.value
-        ), "Value of payment channel has changed"
+        for pid, tn_dict in own_tx_out.value.items():
+            for tokenname, amount in tn_dict.items():
+                assert (
+                    amount <= cont_tx_out.value[pid][tokenname]
+                ), "Value of token in payment channel has decreased"
         cont_datum = cont_tx_out.datum
         if isinstance(cont_datum, SomeOutputDatum):
             # Ensure that the state is correctly updated
-            assert cont_datum.datum == PaymentChannel(
+            cont_datum_content: PaymentChannel = cont_datum.datum
+            assert cont_datum_content == PaymentChannel(
                 balance_alice,
                 datum.pubkeyhash_alice,
                 balance_bob,
