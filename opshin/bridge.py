@@ -40,7 +40,7 @@ def to_python(a):
 def wraps_builtin(func):
     snake_case_fun_name = func.__name__
     CamelCaseFunName = "".join(
-        p.title() for p in re.split(r"(?<!\d)_(?!\d)", snake_case_fun_name)
+        p.capitalize() for p in re.split(r"_(?!\d)", snake_case_fun_name)
     )
 
     def wrapped(*args):

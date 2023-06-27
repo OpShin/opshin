@@ -118,12 +118,12 @@ def verify_ed25519_signature(pk: bytes, m: bytes, s: bytes) -> bytes:
 
 
 @wraps_builtin
-def verify_ecdsa_secp256k1(pk: bytes, m: bytes, s: bytes) -> bytes:
+def verify_ecdsa_secp256k1_signature(pk: bytes, m: bytes, s: bytes) -> bytes:
     pass
 
 
 @wraps_builtin
-def verify_schnorr_secp26k1(pk: bytes, m: bytes, s: bytes) -> bytes:
+def verify_schnorr_secp256k1_signature(pk: bytes, m: bytes, s: bytes) -> bytes:
     pass
 
 
