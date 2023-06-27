@@ -1,4 +1,6 @@
 """ Bridging tools between uplc and opshin """
+import re
+
 import uplc.ast
 from pycardano import PlutusData, RawCBOR
 
@@ -37,7 +39,9 @@ def to_python(a):
 
 def wraps_builtin(func):
     snake_case_fun_name = func.__name__
-    CamelCaseFunName = "".join(p.title() for p in snake_case_fun_name.split("_"))
+    CamelCaseFunName = "".join(
+        p.title() for p in re.split(r"(?<!\d)_(?!\d)", snake_case_fun_name)
+    )
 
     def wrapped(*args):
         uplc_fun = uplc.ast.BuiltInFun.__dict__[CamelCaseFunName]

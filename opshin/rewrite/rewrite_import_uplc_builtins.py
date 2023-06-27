@@ -1,3 +1,4 @@
+import re
 from copy import copy
 from typing import Optional
 from enum import Enum
@@ -38,7 +39,9 @@ class RewriteImportUPLCBuiltins(CompilingNodeTransformer):
             self.imports_uplc_builtins
         ), "To wrap builtin functions, you need to import the builtin function. Add `from opshin.bridge import wraps_builtin` to your code."
         # we replace the body with a forwarded call to the wrapped builtin
-        CamelCaseFunName = "".join(p.title() for p in node.name.split("_"))
+        CamelCaseFunName = "".join(
+            p.title() for p in re.split(r"(?<!\d)_(?!\d)", node.name)
+        )
         uplc_fun = uplc.BuiltInFun.__dict__[CamelCaseFunName]
         pluto_expression = RawPlutoExpr(
             typ=node.typ.typ.rettyp,

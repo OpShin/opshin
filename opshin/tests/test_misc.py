@@ -1,6 +1,7 @@
 import unittest
 
 import frozendict
+import hypothesis
 from hypothesis import given
 from hypothesis import strategies as st
 from uplc import ast as uplc, eval as uplc_eval
@@ -1360,13 +1361,19 @@ def validator(_: None) -> None:
         code = compiler.compile(ast).compile()
         res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
 
-    def test_uplc_builtin(self):
+    @hypothesis.given(st.binary(), st.binary())
+    def test_uplc_builtin(self, x, y):
         # note this is a runtime error, just like it would be in python!
         source_code = """
-b = b"0011ff"
-def validator(_: None) -> None:
-    pass
+from opshin.std.builtins import *
+def validator(x: bytes, y: bytes) -> bytes:
+    return append_byte_string(x, y)
 """
         ast = compiler.parse(source_code)
         code = compiler.compile(ast).compile()
-        res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
+        res = uplc_eval(
+            uplc.Apply(
+                uplc.Apply(code, uplc.PlutusByteString(x)), uplc.PlutusByteString(y)
+            )
+        ).value
+        self.assertEqual(res, x + y)
