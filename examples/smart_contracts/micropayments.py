@@ -1,6 +1,12 @@
 from opshin.ledger.api_v2 import *
 from opshin.std.builtins import *
 
+"""
+A micropayment channel between Alice and Bob that lets users exchange funds simply by exchanging signed numbers (off-chain).
+The actual value transfer can happen at any time and be initiated by any party using the signed values.
+This is just an example of a complex contract and should not be used in production without further examination.
+"""
+
 
 @dataclass()
 class PaymentChannel(PlutusData):
@@ -17,9 +23,9 @@ class MicropaymentAlice(PlutusData):
 
     CONSTR_ID = 0  # Needed to distinguish different datums
     amount: int
-    # The signature of str(amount), signed with alice's secret key
-    sig: bytes
     nonce: int
+    # The signature of str(amount) + str(nonce), signed with alice's secret key
+    sig: bytes
 
 
 @dataclass()
@@ -28,9 +34,9 @@ class MicropaymentBob(PlutusData):
 
     CONSTR_ID = 1  # Needed to distinguish different datums
     amount: int
-    # The signature of str(amount), signed with bob's secret key
-    sig: bytes
     nonce: int
+    # The signature of str(amount) + str(nonce), signed with bob's secret key
+    sig: bytes
 
 
 Micropayment = Union[MicropaymentAlice, MicropaymentBob]
@@ -100,7 +106,7 @@ def validator(
             if isinstance(payment, MicropaymentAlice):
                 assert verify_ed25519_signature(
                     datum.pubkeyhash_alice,
-                    str(payment.amount).encode(),
+                    (str(payment.amount) + str(nonce)).encode(),
                     payment.sig,
                 ), "Invalid signature of Alice for micropayment"
                 balance_alice -= payment.amount
@@ -108,7 +114,7 @@ def validator(
             elif isinstance(payment, MicropaymentBob):
                 assert verify_ed25519_signature(
                     datum.pubkeyhash_bob,
-                    str(payment.amount).encode(),
+                    (str(payment.amount) + str(nonce)).encode(),
                     payment.sig,
                 ), "Invalid signature of Bob for micropayment"
                 balance_alice += payment.amount
