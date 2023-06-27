@@ -61,7 +61,13 @@ class RewriteImport(CompilingNodeTransformer):
     def visit_ImportFrom(
         self, node: ImportFrom
     ) -> typing.Union[ImportFrom, typing.List[AST]]:
-        if node.module in ["pycardano", "typing", "dataclasses", "hashlib"]:
+        if node.module in [
+            "pycardano",
+            "typing",
+            "dataclasses",
+            "hashlib",
+            "opshin.bridge",
+        ]:
             return node
         assert (
             len(node.names) == 1
