@@ -31,10 +31,13 @@ script:
   coverage run -a --source=opshin -m opshin build spending examples/smart_contracts/assert_sum.py
 # all smart contracts
 - >
+  failed=0
   for i in $(find examples -type f -name "*.py" -not \( -name "broken*" -o -name "extract*" \)); do
     echo "$i"
     coverage run -a --source=opshin -m opshin compile any "$i" > /dev/null
-  done || exit
+    failed=$(($failed+$?))
+  done
+  [[ $failed -eq 0 ]]
 # smart contracts with special parameters
 - >
   coverage run -a --source=opshin -m opshin build spending examples/smart_contracts/parameterized.py '{"int": 42}'
@@ -51,10 +54,13 @@ script:
 - coverage run -a --source=opshin -m opshin compile lib opshin/prelude.py
 # build the libraries
 - >
+  failed=0
   for i in $(find opshin/std opshin/ledger -type f -name "*.py"); do
     echo "$i"
     coverage run -a --source=opshin -m opshin compile lib "$i" > /dev/null
-  done || exit
+    failed=$(($failed+$?))
+  done
+  [[ $failed -eq 0 ]]
 
 after_success:
 - coverage report
