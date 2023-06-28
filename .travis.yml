@@ -33,7 +33,7 @@ script:
 - >
   for i in $(find examples -type f -name "*.py" -not \( -name "broken*" -o -name "extract*" \)); do
     echo "$i"
-    coverage run -a --source=opshin -m opshin compile any "$i" > /dev/null
+    coverage run -a --source=opshin -m opshin compile any "$i" > /dev/null || exit
   done
 # smart contracts with special parameters
 - >
@@ -53,7 +53,7 @@ script:
 - >
   for i in $(find opshin/std opshin/ledger -type f -name "*.py"); do
     echo "$i"
-    coverage run -a --source=opshin -m opshin compile lib "$i" > /dev/null
+    coverage run -a --source=opshin -m opshin compile lib "$i" > /dev/null || exit
   done
 
 after_success:
