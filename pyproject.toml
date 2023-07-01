@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "opshin"
-version = "0.15.0"
+version = "0.15.1"
 description = "A simple pythonic programming language for Smart Contracts on Cardano"
 authors = ["nielstron <n.muendler@web.de>"]
 license = "MIT"
