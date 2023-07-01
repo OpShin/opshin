@@ -1,13 +1,20 @@
-import dataclasses
 import unittest
 
 import cbor2
 import hypothesis
 import pycardano
+from frozendict import frozendict
+import frozenlist as fl
 from hypothesis import example, given
 from hypothesis import strategies as st
 from uplc import ast as uplc, eval as uplc_eval
-from uplc.tests.test_hypothesis import uplc_data
+from uplc.ast import (
+    PlutusMap,
+    PlutusConstr,
+    PlutusList,
+    PlutusInteger,
+    PlutusByteString,
+)
 
 from .. import compiler
 
@@ -18,6 +25,48 @@ from opshin.ledger.api_v2 import (
     FalseData,
     TrueData,
 )
+
+
+def frozenlist(l):
+    l = fl.FrozenList(l)
+    l.freeze()
+    return l
+
+
+pos_int = st.integers(min_value=0, max_value=2**64 - 1)
+
+
+uplc_data_integer = st.builds(PlutusInteger, st.integers())
+uplc_data_bytestring = st.builds(PlutusByteString, st.binary())
+
+
+def rec_data_strategies(uplc_data):
+    uplc_data_list = st.builds(lambda x: PlutusList(frozenlist(x)), st.lists(uplc_data))
+    uplc_data_constr = st.builds(
+        lambda x, y: PlutusConstr(x, frozenlist(y)),
+        pos_int,
+        st.lists(uplc_data),
+    )
+    uplc_data_map = st.builds(
+        PlutusMap,
+        st.dictionaries(
+            st.one_of(
+                uplc_data_integer, uplc_data_bytestring
+            ),  # TODO technically constr is legal too, but causes hashing error
+            uplc_data,
+            dict_class=frozendict,
+        ),
+    )
+    return st.one_of(uplc_data_map, uplc_data_list, uplc_data_constr)
+
+
+uplc_data = st.recursive(
+    st.one_of(uplc_data_bytestring, uplc_data_integer),
+    rec_data_strategies,
+    max_leaves=4,
+)
+
+formattable_text = st.from_regex(r"[^'\\ -~]*")
 
 
 class OpTest(unittest.TestCase):
@@ -653,12 +702,10 @@ def validator({",".join(p + ": int" for p in params)}) -> str:
             ret, exp, "integer tuple string formatting returned wrong value"
         )
 
-    @given(x=st.lists(st.text()))
+    @given(x=st.lists(formattable_text))
     @hypothesis.settings(deadline=None)
     def test_fmt_tuple_str(self, x):
         # TODO strings are not properly escaped here
-        hypothesis.assume(all(s not in o for s in ("'", "\\") for o in x))
-        hypothesis.assume(all(s not in repr(o) for s in "\\" for o in x))
         params = [f"a{i}" for i in range(len(x))]
         source_code = f"""
 def validator({",".join(p + ": str" for p in params)}) -> str:
@@ -705,13 +752,11 @@ def validator(x: int, y: int) -> str:
             ret, exp, "integer tuple string formatting returned wrong value"
         )
 
-    @given(x=st.text(), y=st.text())
+    @given(x=formattable_text, y=formattable_text)
     @example("", "\U00010b92")
     @hypothesis.settings(deadline=None)
     def test_fmt_pair_str(self, x, y):
         # TODO strings are not properly escaped here
-        hypothesis.assume(all(s not in o for s in ("'", "\\") for o in (x, y)))
-        hypothesis.assume(all(s not in o for s in "\\" for o in (repr(x), repr(y))))
         source_code = f"""
 def validator(x: str, y: str) -> str:
     a = ""
@@ -735,14 +780,12 @@ def validator(x: str, y: str) -> str:
             ret, exp, "string tuple string formatting returned wrong value"
         )
 
-    @given(xs=st.lists(st.text()))
+    @given(xs=st.lists(formattable_text))
     @hypothesis.settings(deadline=None)
     @example([])
     @example(["x"])
     def test_fmt_list_str(self, xs):
         # TODO strings are not properly escaped here
-        hypothesis.assume(all(s not in o for s in ("'", "\\") for o in xs))
-        hypothesis.assume(all(s not in repr(o) for s in "\\" for o in xs))
         source_code = """
 from opshin.prelude import *
 
@@ -786,14 +829,12 @@ def validator(x: List[int]) -> str:
             ret, exp, "integer list string formatting returned wrong value"
         )
 
-    @given(xs=st.dictionaries(st.text(), st.integers()))
+    @given(xs=st.dictionaries(formattable_text, st.integers()))
     @hypothesis.settings(deadline=None)
     @example(dict())
     @example({"": 0})
     def test_fmt_dict_int(self, xs):
         # TODO strings are not properly escaped here
-        hypothesis.assume(all(s not in o for s in ("'", "\\") for o in xs.keys()))
-        hypothesis.assume(all(s not in repr(o) for s in "\\" for o in xs.keys()))
         source_code = """
 from opshin.prelude import *
 
