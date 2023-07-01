@@ -925,6 +925,7 @@ def validator(x: Dict[str, int]) -> str:
         self.assertEqual(ret, exp, "dict string formatting returned wrong value")
 
     @given(x=uplc_data)
+    @example(PlutusConstr(0, [PlutusByteString(b"'")]))
     @hypothesis.settings(deadline=None)
     def test_fmt_any(self, x):
         x_data = pycardano.RawPlutusData(cbor2.loads(uplc.plutus_cbor_dumps(x)))
@@ -943,6 +944,7 @@ def validator(x: Anything) -> str:
         ret = uplc_eval(f).value.decode("utf8")
         if "\\'" in ret:
             RawPlutusData = pycardano.RawPlutusData
+            CBORTag = cbor2.CBORTag
             self.assertEqual(
                 eval(ret), x_data, "raw cbor string formatting returned wrong value"
             )
