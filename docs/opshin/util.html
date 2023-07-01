@@ -79,29 +79,142 @@ import pluthon as plt
 import uplc.ast as uplc
 
 
-def PowImpl(x: plt.AST, y: plt.AST):
-    return plt.Apply(
-        plt.RecFun(
-            plt.Lambda(
-                [&#34;f&#34;, &#34;x&#34;, &#34;y&#34;],
-                plt.Ite(
-                    plt.LessThanEqualsInteger(plt.Var(&#34;y&#34;), plt.Integer(0)),
-                    plt.Integer(1),
-                    plt.MultiplyInteger(
-                        plt.Var(&#34;x&#34;),
-                        plt.Apply(
-                            plt.Var(&#34;f&#34;),
-                            plt.Var(&#34;f&#34;),
-                            plt.Var(&#34;x&#34;),
-                            plt.SubtractInteger(plt.Var(&#34;y&#34;), plt.Integer(1)),
+class LenImpl(PolymorphicFunction):
+    def type_from_args(self, args: typing.List[Type]) -&gt; FunctionType:
+        assert (
+            len(args) == 1
+        ), f&#34;&#39;len&#39; takes only one argument, but {len(args)} were given&#34;
+        assert isinstance(
+            args[0], InstanceType
+        ), &#34;Can only determine length of instances&#34;
+        return FunctionType(args, IntegerInstanceType)
+
+    def impl_from_args(self, args: typing.List[Type]) -&gt; plt.AST:
+        arg = args[0]
+        assert isinstance(arg, InstanceType), &#34;Can only determine length of instances&#34;
+        if arg == ByteStringInstanceType:
+            return plt.Lambda([&#34;x&#34;, &#34;_&#34;], plt.LengthOfByteString(plt.Var(&#34;x&#34;)))
+        elif isinstance(arg.typ, ListType):
+            # simple list length function
+            return plt.Lambda(
+                [&#34;x&#34;, &#34;_&#34;],
+                plt.FoldList(
+                    plt.Var(&#34;x&#34;),
+                    plt.Lambda(
+                        [&#34;a&#34;, &#34;_&#34;], plt.AddInteger(plt.Var(&#34;a&#34;), plt.Integer(1))
+                    ),
+                    plt.Integer(0),
+                ),
+            )
+        raise NotImplementedError(f&#34;&#39;len&#39; is not implemented for type {arg}&#34;)
+
+
+class ReversedImpl(PolymorphicFunction):
+    def type_from_args(self, args: typing.List[Type]) -&gt; FunctionType:
+        assert (
+            len(args) == 1
+        ), f&#34;&#39;reversed&#39; takes only one argument, but {len(args)} were given&#34;
+        typ = args[0]
+        assert isinstance(typ, InstanceType), &#34;Can only reverse instances&#34;
+        assert isinstance(typ.typ, ListType), &#34;Can only reverse instances of lists&#34;
+        # returns list of same type
+        return FunctionType(args, typ)
+
+    def impl_from_args(self, args: typing.List[Type]) -&gt; plt.AST:
+        arg = args[0]
+        assert isinstance(arg, InstanceType), &#34;Can only reverse instances&#34;
+        if isinstance(arg.typ, ListType):
+            empty_l = empty_list(arg.typ.typ)
+            return plt.Lambda(
+                [&#34;xs&#34;, &#34;_&#34;],
+                plt.FoldList(
+                    plt.Var(&#34;xs&#34;),
+                    plt.Lambda([&#34;a&#34;, &#34;x&#34;], plt.MkCons(plt.Var(&#34;x&#34;), plt.Var(&#34;a&#34;))),
+                    empty_l,
+                ),
+            )
+        raise NotImplementedError(f&#34;&#39;reversed&#39; is not implemented for type {arg}&#34;)
+
+
+class PrintImpl(PolymorphicFunction):
+    def type_from_args(self, args: typing.List[Type]) -&gt; FunctionType:
+        assert all(
+            isinstance(typ, InstanceType) for typ in args
+        ), &#34;Can only print instances&#34;
+        return FunctionType(args, NoneInstanceType)
+
+    def impl_from_args(self, args: typing.List[Type]) -&gt; plt.AST:
+        assert all(
+            isinstance(arg, InstanceType) for arg in args
+        ), &#34;Can only stringify instances&#34;
+        stringify_ops = [
+            plt.Apply(arg.typ.stringify(), plt.Var(f&#34;x{i}&#34;), plt.Var(&#34;_&#34;))
+            for i, arg in enumerate(args)
+        ]
+        stringify_ops_joined = sum(((x, plt.Text(&#34; &#34;)) for x in stringify_ops), ())[:-1]
+        print = plt.Lambda(
+            [f&#34;x{i}&#34; for i in range(len(args))] + [&#34;_&#34;],
+            plt.Trace(plt.ConcatString(*stringify_ops_joined), plt.NoneData()),
+        )
+        return print
+
+
+def repeated_addition(zero, add):
+    # this is optimized for logarithmic complexity by exponentiation by squaring
+    # it follows the implementation described here: https://en.wikipedia.org/wiki/Exponentiation_by_squaring#With_constant_auxiliary_memory
+    def RepeatedAdd(x: plt.AST, y: plt.AST):
+        return plt.Apply(
+            plt.RecFun(
+                plt.Lambda(
+                    [&#34;f&#34;, &#34;y&#34;, &#34;x&#34;, &#34;n&#34;],
+                    plt.Ite(
+                        plt.LessThanEqualsInteger(plt.Var(&#34;n&#34;), plt.Integer(0)),
+                        plt.Var(&#34;y&#34;),
+                        plt.Let(
+                            [
+                                (
+                                    &#34;n_half&#34;,
+                                    plt.DivideInteger(plt.Var(&#34;n&#34;), plt.Integer(2)),
+                                )
+                            ],
+                            plt.Ite(
+                                # tests whether (x//2)*2 == x which is True iff x is even
+                                plt.EqualsInteger(
+                                    plt.AddInteger(
+                                        plt.Var(&#34;n_half&#34;), plt.Var(&#34;n_half&#34;)
+                                    ),
+                                    plt.Var(&#34;n&#34;),
+                                ),
+                                plt.Apply(
+                                    plt.Var(&#34;f&#34;),
+                                    plt.Var(&#34;f&#34;),
+                                    plt.Var(&#34;y&#34;),
+                                    add(plt.Var(&#34;x&#34;), plt.Var(&#34;x&#34;)),
+                                    plt.Var(&#34;n_half&#34;),
+                                ),
+                                plt.Apply(
+                                    plt.Var(&#34;f&#34;),
+                                    plt.Var(&#34;f&#34;),
+                                    add(plt.Var(&#34;y&#34;), plt.Var(&#34;x&#34;)),
+                                    add(plt.Var(&#34;x&#34;), plt.Var(&#34;x&#34;)),
+                                    plt.Var(&#34;n_half&#34;),
+                                ),
+                            ),
                         ),
                     ),
                 ),
             ),
-        ),
-        x,
-        y,
-    )
+            zero,
+            x,
+            y,
+        )
+
+    return RepeatedAdd
+
+
+PowImpl = repeated_addition(plt.Integer(1), plt.MultiplyInteger)
+ByteStrIntMulImpl = repeated_addition(plt.ByteString(b&#34;&#34;), plt.AppendByteString)
+StrIntMulImpl = repeated_addition(plt.Text(&#34;&#34;), plt.AppendString)
 
 
 class PythonBuiltIn(Enum):
@@ -361,10 +474,7 @@ class PythonBuiltIn(Enum):
             plt.HeadList(plt.Var(&#34;xs&#34;)),
         ),
     )
-    print = plt.Lambda(
-        [&#34;x&#34;, &#34;_&#34;],
-        plt.Trace(plt.Var(&#34;x&#34;), plt.NoneData()),
-    )
+    print = auto()
     # NOTE: only correctly defined for positive y
     pow = plt.Lambda([&#34;x&#34;, &#34;y&#34;, &#34;_&#34;], PowImpl(plt.Var(&#34;x&#34;), plt.Var(&#34;y&#34;)))
     oct = plt.Lambda(
@@ -450,63 +560,6 @@ class PythonBuiltIn(Enum):
     )
 
 
-class LenImpl(PolymorphicFunction):
-    def type_from_args(self, args: typing.List[Type]) -&gt; FunctionType:
-        assert (
-            len(args) == 1
-        ), f&#34;&#39;len&#39; takes only one argument, but {len(args)} were given&#34;
-        assert isinstance(
-            args[0], InstanceType
-        ), &#34;Can only determine length of instances&#34;
-        return FunctionType(args, IntegerInstanceType)
-
-    def impl_from_args(self, args: typing.List[Type]) -&gt; plt.AST:
-        arg = args[0]
-        assert isinstance(arg, InstanceType), &#34;Can only determine length of instances&#34;
-        if arg == ByteStringInstanceType:
-            return plt.Lambda([&#34;x&#34;, &#34;_&#34;], plt.LengthOfByteString(plt.Var(&#34;x&#34;)))
-        elif isinstance(arg.typ, ListType):
-            # simple list length function
-            return plt.Lambda(
-                [&#34;x&#34;, &#34;_&#34;],
-                plt.FoldList(
-                    plt.Var(&#34;x&#34;),
-                    plt.Lambda(
-                        [&#34;a&#34;, &#34;_&#34;], plt.AddInteger(plt.Var(&#34;a&#34;), plt.Integer(1))
-                    ),
-                    plt.Integer(0),
-                ),
-            )
-        raise NotImplementedError(f&#34;&#39;len&#39; is not implemented for type {arg}&#34;)
-
-
-class ReversedImpl(PolymorphicFunction):
-    def type_from_args(self, args: typing.List[Type]) -&gt; FunctionType:
-        assert (
-            len(args) == 1
-        ), f&#34;&#39;reversed&#39; takes only one argument, but {len(args)} were given&#34;
-        typ = args[0]
-        assert isinstance(typ, InstanceType), &#34;Can only reverse instances&#34;
-        assert isinstance(typ.typ, ListType), &#34;Can only reverse instances of lists&#34;
-        # returns list of same type
-        return FunctionType(args, typ)
-
-    def impl_from_args(self, args: typing.List[Type]) -&gt; plt.AST:
-        arg = args[0]
-        assert isinstance(arg, InstanceType), &#34;Can only reverse instances&#34;
-        if isinstance(arg.typ, ListType):
-            empty_l = empty_list(arg.typ.typ)
-            return plt.Lambda(
-                [&#34;xs&#34;, &#34;_&#34;],
-                plt.FoldList(
-                    plt.Var(&#34;xs&#34;),
-                    plt.Lambda([&#34;a&#34;, &#34;x&#34;], plt.MkCons(plt.Var(&#34;x&#34;), plt.Var(&#34;a&#34;))),
-                    empty_l,
-                ),
-            )
-        raise NotImplementedError(f&#34;&#39;reversed&#39; is not implemented for type {arg}&#34;)
-
-
 PythonBuiltInTypes = {
     PythonBuiltIn.all: InstanceType(
         FunctionType(
@@ -552,9 +605,7 @@ PythonBuiltInTypes = {
             IntegerInstanceType,
         )
     ),
-    PythonBuiltIn.print: InstanceType(
-        FunctionType([StringInstanceType], NoneInstanceType)
-    ),
+    PythonBuiltIn.print: InstanceType(PolymorphicFunctionType(PrintImpl())),
     PythonBuiltIn.pow: InstanceType(
         FunctionType(
             [IntegerInstanceType, IntegerInstanceType],
@@ -655,6 +706,63 @@ def datum_to_json(d: pycardano.Datum) -&gt; str:
 <section>
 <h2 class="section-title" id="header-functions">Functions</h2>
 <dl>
+<dt id="opshin.util.ByteStrIntMulImpl"><code class="name flex">
+<span>def <span class="ident">ByteStrIntMulImpl</span></span>(<span>x: pluthon.pluthon_ast.AST, y: pluthon.pluthon_ast.AST)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def RepeatedAdd(x: plt.AST, y: plt.AST):
+    return plt.Apply(
+        plt.RecFun(
+            plt.Lambda(
+                [&#34;f&#34;, &#34;y&#34;, &#34;x&#34;, &#34;n&#34;],
+                plt.Ite(
+                    plt.LessThanEqualsInteger(plt.Var(&#34;n&#34;), plt.Integer(0)),
+                    plt.Var(&#34;y&#34;),
+                    plt.Let(
+                        [
+                            (
+                                &#34;n_half&#34;,
+                                plt.DivideInteger(plt.Var(&#34;n&#34;), plt.Integer(2)),
+                            )
+                        ],
+                        plt.Ite(
+                            # tests whether (x//2)*2 == x which is True iff x is even
+                            plt.EqualsInteger(
+                                plt.AddInteger(
+                                    plt.Var(&#34;n_half&#34;), plt.Var(&#34;n_half&#34;)
+                                ),
+                                plt.Var(&#34;n&#34;),
+                            ),
+                            plt.Apply(
+                                plt.Var(&#34;f&#34;),
+                                plt.Var(&#34;f&#34;),
+                                plt.Var(&#34;y&#34;),
+                                add(plt.Var(&#34;x&#34;), plt.Var(&#34;x&#34;)),
+                                plt.Var(&#34;n_half&#34;),
+                            ),
+                            plt.Apply(
+                                plt.Var(&#34;f&#34;),
+                                plt.Var(&#34;f&#34;),
+                                add(plt.Var(&#34;y&#34;), plt.Var(&#34;x&#34;)),
+                                add(plt.Var(&#34;x&#34;), plt.Var(&#34;x&#34;)),
+                                plt.Var(&#34;n_half&#34;),
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+        ),
+        zero,
+        x,
+        y,
+    )</code></pre>
+</details>
+</dd>
 <dt id="opshin.util.PowImpl"><code class="name flex">
 <span>def <span class="ident">PowImpl</span></span>(<span>x: pluthon.pluthon_ast.AST, y: pluthon.pluthon_ast.AST)</span>
 </code></dt>
@@ -664,26 +772,106 @@ def datum_to_json(d: pycardano.Datum) -&gt; str:
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def PowImpl(x: plt.AST, y: plt.AST):
+<pre><code class="python">def RepeatedAdd(x: plt.AST, y: plt.AST):
     return plt.Apply(
         plt.RecFun(
             plt.Lambda(
-                [&#34;f&#34;, &#34;x&#34;, &#34;y&#34;],
+                [&#34;f&#34;, &#34;y&#34;, &#34;x&#34;, &#34;n&#34;],
                 plt.Ite(
-                    plt.LessThanEqualsInteger(plt.Var(&#34;y&#34;), plt.Integer(0)),
-                    plt.Integer(1),
-                    plt.MultiplyInteger(
-                        plt.Var(&#34;x&#34;),
-                        plt.Apply(
-                            plt.Var(&#34;f&#34;),
-                            plt.Var(&#34;f&#34;),
-                            plt.Var(&#34;x&#34;),
-                            plt.SubtractInteger(plt.Var(&#34;y&#34;), plt.Integer(1)),
+                    plt.LessThanEqualsInteger(plt.Var(&#34;n&#34;), plt.Integer(0)),
+                    plt.Var(&#34;y&#34;),
+                    plt.Let(
+                        [
+                            (
+                                &#34;n_half&#34;,
+                                plt.DivideInteger(plt.Var(&#34;n&#34;), plt.Integer(2)),
+                            )
+                        ],
+                        plt.Ite(
+                            # tests whether (x//2)*2 == x which is True iff x is even
+                            plt.EqualsInteger(
+                                plt.AddInteger(
+                                    plt.Var(&#34;n_half&#34;), plt.Var(&#34;n_half&#34;)
+                                ),
+                                plt.Var(&#34;n&#34;),
+                            ),
+                            plt.Apply(
+                                plt.Var(&#34;f&#34;),
+                                plt.Var(&#34;f&#34;),
+                                plt.Var(&#34;y&#34;),
+                                add(plt.Var(&#34;x&#34;), plt.Var(&#34;x&#34;)),
+                                plt.Var(&#34;n_half&#34;),
+                            ),
+                            plt.Apply(
+                                plt.Var(&#34;f&#34;),
+                                plt.Var(&#34;f&#34;),
+                                add(plt.Var(&#34;y&#34;), plt.Var(&#34;x&#34;)),
+                                add(plt.Var(&#34;x&#34;), plt.Var(&#34;x&#34;)),
+                                plt.Var(&#34;n_half&#34;),
+                            ),
                         ),
                     ),
                 ),
             ),
         ),
+        zero,
+        x,
+        y,
+    )</code></pre>
+</details>
+</dd>
+<dt id="opshin.util.StrIntMulImpl"><code class="name flex">
+<span>def <span class="ident">StrIntMulImpl</span></span>(<span>x: pluthon.pluthon_ast.AST, y: pluthon.pluthon_ast.AST)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def RepeatedAdd(x: plt.AST, y: plt.AST):
+    return plt.Apply(
+        plt.RecFun(
+            plt.Lambda(
+                [&#34;f&#34;, &#34;y&#34;, &#34;x&#34;, &#34;n&#34;],
+                plt.Ite(
+                    plt.LessThanEqualsInteger(plt.Var(&#34;n&#34;), plt.Integer(0)),
+                    plt.Var(&#34;y&#34;),
+                    plt.Let(
+                        [
+                            (
+                                &#34;n_half&#34;,
+                                plt.DivideInteger(plt.Var(&#34;n&#34;), plt.Integer(2)),
+                            )
+                        ],
+                        plt.Ite(
+                            # tests whether (x//2)*2 == x which is True iff x is even
+                            plt.EqualsInteger(
+                                plt.AddInteger(
+                                    plt.Var(&#34;n_half&#34;), plt.Var(&#34;n_half&#34;)
+                                ),
+                                plt.Var(&#34;n&#34;),
+                            ),
+                            plt.Apply(
+                                plt.Var(&#34;f&#34;),
+                                plt.Var(&#34;f&#34;),
+                                plt.Var(&#34;y&#34;),
+                                add(plt.Var(&#34;x&#34;), plt.Var(&#34;x&#34;)),
+                                plt.Var(&#34;n_half&#34;),
+                            ),
+                            plt.Apply(
+                                plt.Var(&#34;f&#34;),
+                                plt.Var(&#34;f&#34;),
+                                add(plt.Var(&#34;y&#34;), plt.Var(&#34;x&#34;)),
+                                add(plt.Var(&#34;x&#34;), plt.Var(&#34;x&#34;)),
+                                plt.Var(&#34;n_half&#34;),
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+        ),
+        zero,
         x,
         y,
     )</code></pre>
@@ -742,6 +930,68 @@ def datum_to_json(d: pycardano.Datum) -&gt; str:
 </summary>
 <pre><code class="python">def datum_to_json(d: pycardano.Datum) -&gt; str:
     return pycardano.PlutusData.to_json(d)</code></pre>
+</details>
+</dd>
+<dt id="opshin.util.repeated_addition"><code class="name flex">
+<span>def <span class="ident">repeated_addition</span></span>(<span>zero, add)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def repeated_addition(zero, add):
+    # this is optimized for logarithmic complexity by exponentiation by squaring
+    # it follows the implementation described here: https://en.wikipedia.org/wiki/Exponentiation_by_squaring#With_constant_auxiliary_memory
+    def RepeatedAdd(x: plt.AST, y: plt.AST):
+        return plt.Apply(
+            plt.RecFun(
+                plt.Lambda(
+                    [&#34;f&#34;, &#34;y&#34;, &#34;x&#34;, &#34;n&#34;],
+                    plt.Ite(
+                        plt.LessThanEqualsInteger(plt.Var(&#34;n&#34;), plt.Integer(0)),
+                        plt.Var(&#34;y&#34;),
+                        plt.Let(
+                            [
+                                (
+                                    &#34;n_half&#34;,
+                                    plt.DivideInteger(plt.Var(&#34;n&#34;), plt.Integer(2)),
+                                )
+                            ],
+                            plt.Ite(
+                                # tests whether (x//2)*2 == x which is True iff x is even
+                                plt.EqualsInteger(
+                                    plt.AddInteger(
+                                        plt.Var(&#34;n_half&#34;), plt.Var(&#34;n_half&#34;)
+                                    ),
+                                    plt.Var(&#34;n&#34;),
+                                ),
+                                plt.Apply(
+                                    plt.Var(&#34;f&#34;),
+                                    plt.Var(&#34;f&#34;),
+                                    plt.Var(&#34;y&#34;),
+                                    add(plt.Var(&#34;x&#34;), plt.Var(&#34;x&#34;)),
+                                    plt.Var(&#34;n_half&#34;),
+                                ),
+                                plt.Apply(
+                                    plt.Var(&#34;f&#34;),
+                                    plt.Var(&#34;f&#34;),
+                                    add(plt.Var(&#34;y&#34;), plt.Var(&#34;x&#34;)),
+                                    add(plt.Var(&#34;x&#34;), plt.Var(&#34;x&#34;)),
+                                    plt.Var(&#34;n_half&#34;),
+                                ),
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+            zero,
+            x,
+            y,
+        )
+
+    return RepeatedAdd</code></pre>
 </details>
 </dd>
 </dl>
@@ -839,6 +1089,7 @@ just a single node.</p>
 <li><a title="opshin.rewrite.rewrite_import_hashlib.RewriteImportHashlib" href="rewrite/rewrite_import_hashlib.html#opshin.rewrite.rewrite_import_hashlib.RewriteImportHashlib">RewriteImportHashlib</a></li>
 <li><a title="opshin.rewrite.rewrite_import_plutusdata.RewriteImportPlutusData" href="rewrite/rewrite_import_plutusdata.html#opshin.rewrite.rewrite_import_plutusdata.RewriteImportPlutusData">RewriteImportPlutusData</a></li>
 <li><a title="opshin.rewrite.rewrite_import_typing.RewriteImportTyping" href="rewrite/rewrite_import_typing.html#opshin.rewrite.rewrite_import_typing.RewriteImportTyping">RewriteImportTyping</a></li>
+<li><a title="opshin.rewrite.rewrite_import_uplc_builtins.RewriteImportUPLCBuiltins" href="rewrite/rewrite_import_uplc_builtins.html#opshin.rewrite.rewrite_import_uplc_builtins.RewriteImportUPLCBuiltins">RewriteImportUPLCBuiltins</a></li>
 <li><a title="opshin.rewrite.rewrite_inject_builtin_constr.RewriteInjectBuiltinsConstr" href="rewrite/rewrite_inject_builtin_constr.html#opshin.rewrite.rewrite_inject_builtin_constr.RewriteInjectBuiltinsConstr">RewriteInjectBuiltinsConstr</a></li>
 <li><a title="opshin.rewrite.rewrite_inject_builtins.RewriteInjectBuiltins" href="rewrite/rewrite_inject_builtins.html#opshin.rewrite.rewrite_inject_builtins.RewriteInjectBuiltins">RewriteInjectBuiltins</a></li>
 <li><a title="opshin.rewrite.rewrite_orig_name.RewriteOrigName" href="rewrite/rewrite_orig_name.html#opshin.rewrite.rewrite_orig_name.RewriteOrigName">RewriteOrigName</a></li>
@@ -1093,6 +1344,86 @@ allows modifications.</p></div>
 <code><a title="opshin.util.CompilingNodeTransformer" href="#opshin.util.CompilingNodeTransformer">CompilingNodeTransformer</a></code>.<code><a title="opshin.util.CompilingNodeTransformer.visit" href="#opshin.util.CompilingNodeTransformer.visit">visit</a></code>
 </p>
 <div class="desc inherited"><p>Visit a node.</p></div>
+</dd>
+</dl>
+</dd>
+<dt id="opshin.util.PrintImpl"><code class="flex name class">
+<span>class <span class="ident">PrintImpl</span></span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class PrintImpl(PolymorphicFunction):
+    def type_from_args(self, args: typing.List[Type]) -&gt; FunctionType:
+        assert all(
+            isinstance(typ, InstanceType) for typ in args
+        ), &#34;Can only print instances&#34;
+        return FunctionType(args, NoneInstanceType)
+
+    def impl_from_args(self, args: typing.List[Type]) -&gt; plt.AST:
+        assert all(
+            isinstance(arg, InstanceType) for arg in args
+        ), &#34;Can only stringify instances&#34;
+        stringify_ops = [
+            plt.Apply(arg.typ.stringify(), plt.Var(f&#34;x{i}&#34;), plt.Var(&#34;_&#34;))
+            for i, arg in enumerate(args)
+        ]
+        stringify_ops_joined = sum(((x, plt.Text(&#34; &#34;)) for x in stringify_ops), ())[:-1]
+        print = plt.Lambda(
+            [f&#34;x{i}&#34; for i in range(len(args))] + [&#34;_&#34;],
+            plt.Trace(plt.ConcatString(*stringify_ops_joined), plt.NoneData()),
+        )
+        return print</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li><a title="opshin.typed_ast.PolymorphicFunction" href="typed_ast.html#opshin.typed_ast.PolymorphicFunction">PolymorphicFunction</a></li>
+</ul>
+<h3>Methods</h3>
+<dl>
+<dt id="opshin.util.PrintImpl.impl_from_args"><code class="name flex">
+<span>def <span class="ident">impl_from_args</span></span>(<span>self, args: List[<a title="opshin.typed_ast.Type" href="typed_ast.html#opshin.typed_ast.Type">Type</a>]) ‑> pluthon.pluthon_ast.AST</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def impl_from_args(self, args: typing.List[Type]) -&gt; plt.AST:
+    assert all(
+        isinstance(arg, InstanceType) for arg in args
+    ), &#34;Can only stringify instances&#34;
+    stringify_ops = [
+        plt.Apply(arg.typ.stringify(), plt.Var(f&#34;x{i}&#34;), plt.Var(&#34;_&#34;))
+        for i, arg in enumerate(args)
+    ]
+    stringify_ops_joined = sum(((x, plt.Text(&#34; &#34;)) for x in stringify_ops), ())[:-1]
+    print = plt.Lambda(
+        [f&#34;x{i}&#34; for i in range(len(args))] + [&#34;_&#34;],
+        plt.Trace(plt.ConcatString(*stringify_ops_joined), plt.NoneData()),
+    )
+    return print</code></pre>
+</details>
+</dd>
+<dt id="opshin.util.PrintImpl.type_from_args"><code class="name flex">
+<span>def <span class="ident">type_from_args</span></span>(<span>self, args: List[<a title="opshin.typed_ast.Type" href="typed_ast.html#opshin.typed_ast.Type">Type</a>]) ‑> <a title="opshin.typed_ast.FunctionType" href="typed_ast.html#opshin.typed_ast.FunctionType">FunctionType</a></span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def type_from_args(self, args: typing.List[Type]) -&gt; FunctionType:
+    assert all(
+        isinstance(typ, InstanceType) for typ in args
+    ), &#34;Can only print instances&#34;
+    return FunctionType(args, NoneInstanceType)</code></pre>
+</details>
 </dd>
 </dl>
 </dd>
@@ -1363,10 +1694,7 @@ allows modifications.</p></div>
             plt.HeadList(plt.Var(&#34;xs&#34;)),
         ),
     )
-    print = plt.Lambda(
-        [&#34;x&#34;, &#34;_&#34;],
-        plt.Trace(plt.Var(&#34;x&#34;), plt.NoneData()),
-    )
+    print = auto()
     # NOTE: only correctly defined for positive y
     pow = plt.Lambda([&#34;x&#34;, &#34;y&#34;, &#34;_&#34;], PowImpl(plt.Var(&#34;x&#34;), plt.Var(&#34;y&#34;)))
     oct = plt.Lambda(
@@ -1675,11 +2003,14 @@ setTimeout(() => input.focus(), 100);
 </ul>
 </li>
 <li><h3><a href="#header-functions">Functions</a></h3>
-<ul class="">
+<ul class="two-column">
+<li><code><a title="opshin.util.ByteStrIntMulImpl" href="#opshin.util.ByteStrIntMulImpl">ByteStrIntMulImpl</a></code></li>
 <li><code><a title="opshin.util.PowImpl" href="#opshin.util.PowImpl">PowImpl</a></code></li>
+<li><code><a title="opshin.util.StrIntMulImpl" href="#opshin.util.StrIntMulImpl">StrIntMulImpl</a></code></li>
 <li><code><a title="opshin.util.data_from_json" href="#opshin.util.data_from_json">data_from_json</a></code></li>
 <li><code><a title="opshin.util.datum_to_cbor" href="#opshin.util.datum_to_cbor">datum_to_cbor</a></code></li>
 <li><code><a title="opshin.util.datum_to_json" href="#opshin.util.datum_to_json">datum_to_json</a></code></li>
+<li><code><a title="opshin.util.repeated_addition" href="#opshin.util.repeated_addition">repeated_addition</a></code></li>
 </ul>
 </li>
 <li><h3><a href="#header-classes">Classes</a></h3>
@@ -1712,6 +2043,13 @@ setTimeout(() => input.focus(), 100);
 <h4><code><a title="opshin.util.NoOp" href="#opshin.util.NoOp">NoOp</a></code></h4>
 <ul class="">
 <li><code><a title="opshin.util.NoOp.visit" href="#opshin.util.NoOp.visit">visit</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="opshin.util.PrintImpl" href="#opshin.util.PrintImpl">PrintImpl</a></code></h4>
+<ul class="">
+<li><code><a title="opshin.util.PrintImpl.impl_from_args" href="#opshin.util.PrintImpl.impl_from_args">impl_from_args</a></code></li>
+<li><code><a title="opshin.util.PrintImpl.type_from_args" href="#opshin.util.PrintImpl.type_from_args">type_from_args</a></code></li>
 </ul>
 </li>
 <li>

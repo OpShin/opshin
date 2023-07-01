@@ -119,7 +119,7 @@ def record_from_plutusdata(c: PlutusData):
     return Record(
         name=c.__class__.__name__,
         constructor=c.CONSTR_ID,
-        fields=FrozenFrozenList([(k, constant_type(v)) for k, v in asdict(c).items()]),
+        fields=FrozenFrozenList([(k, constant_type(v)) for k, v in c.__dict__.items()]),
     )
 
 
@@ -155,6 +155,54 @@ def constant_type(c):
     if isinstance(c, PlutusData):
         return InstanceType(RecordType(record=record_from_plutusdata(c)))
     raise NotImplementedError(f&#34;Type {type(c)} not supported&#34;)
+
+
+BinOpTypeMap = {
+    Add: {
+        IntegerInstanceType: {
+            IntegerInstanceType: IntegerInstanceType,
+        },
+        ByteStringInstanceType: {
+            ByteStringInstanceType: ByteStringInstanceType,
+        },
+        StringInstanceType: {
+            StringInstanceType: StringInstanceType,
+        },
+    },
+    Sub: {
+        IntegerInstanceType: {
+            IntegerInstanceType: IntegerInstanceType,
+        }
+    },
+    Mult: {
+        IntegerInstanceType: {
+            IntegerInstanceType: IntegerInstanceType,
+            ByteStringInstanceType: ByteStringInstanceType,
+            StringInstanceType: StringInstanceType,
+        },
+        StringInstanceType: {
+            IntegerInstanceType: StringInstanceType,
+        },
+        ByteStringInstanceType: {
+            IntegerInstanceType: ByteStringInstanceType,
+        },
+    },
+    FloorDiv: {
+        IntegerInstanceType: {
+            IntegerInstanceType: IntegerInstanceType,
+        }
+    },
+    Mod: {
+        IntegerInstanceType: {
+            IntegerInstanceType: IntegerInstanceType,
+        }
+    },
+    Pow: {
+        IntegerInstanceType: {
+            IntegerInstanceType: IntegerInstanceType,
+        }
+    },
+}
 
 
 class AggressiveTypeInferencer(CompilingNodeTransformer):
@@ -395,7 +443,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         typed_for.iter = self.visit(node.iter)
         if isinstance(node.target, Tuple):
             raise NotImplementedError(
-                &#34;Type deconstruction in for loops is not supported yet&#34;
+                &#34;Tuple deconstruction in for loops is not supported yet&#34;
             )
         vartyp = None
         itertyp = typed_for.iter.typ
@@ -451,7 +499,16 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
 
     def visit_FunctionDef(self, node: FunctionDef) -&gt; TypedFunctionDef:
         tfd = copy(node)
-        assert not node.decorator_list, &#34;Functions may not have decorators&#34;
+        wraps_builtin = (
+            all(
+                isinstance(o, Name) and o.id == &#34;wraps_builtin&#34;
+                for o in node.decorator_list
+            )
+            and node.decorator_list
+        )
+        assert (
+            not node.decorator_list or wraps_builtin
+        ), &#34;Functions may not have decorators other than wraps_builtin&#34;
         self.enter_scope()
         tfd.args = self.visit(node.args)
         functyp = FunctionType(
@@ -459,18 +516,23 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             InstanceType(self.type_from_annotation(tfd.returns)),
         )
         tfd.typ = InstanceType(functyp)
-        # We need the function type inside for recursion
-        self.set_variable_type(node.name, tfd.typ)
-        tfd.body = [self.visit(s) for s in node.body]
-        # Check that return type and annotated return type match
-        if not isinstance(node.body[-1], Return):
-            assert (
-                functyp.rettyp &gt;= NoneInstanceType
-            ), f&#34;Function &#39;{node.name}&#39; has no return statement but is supposed to return not-None value&#34;
+        if wraps_builtin:
+            # the body of wrapping builtin functions is fully ignored
+            pass
         else:
-            assert (
-                functyp.rettyp &gt;= tfd.body[-1].typ
-            ), f&#34;Function &#39;{node.name}&#39; annotated return type does not match actual return type&#34;
+            # We need the function type inside for recursion
+            self.set_variable_type(node.name, tfd.typ)
+            tfd.body = [self.visit(s) for s in node.body]
+            # Check that return type and annotated return type match
+            if not isinstance(node.body[-1], Return):
+                assert (
+                    functyp.rettyp &gt;= NoneInstanceType
+                ), f&#34;Function &#39;{node.name}&#39; has no return statement but is supposed to return not-None value&#34;
+            else:
+                assert (
+                    functyp.rettyp &gt;= tfd.body[-1].typ
+                ), f&#34;Function &#39;{node.name}&#39; annotated return type does not match actual return type&#34;
+
         self.exit_scope()
         # We need the function type outside for usage
         self.set_variable_type(node.name, tfd.typ)
@@ -492,11 +554,15 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         tb = copy(node)
         tb.left = self.visit(node.left)
         tb.right = self.visit(node.right)
-        # TODO the outcome of the operation may depend on the input types
+        outcome_typ_map = BinOpTypeMap.get(type(node.op)).get(tb.left.typ)
         assert (
-            tb.left.typ == tb.right.typ
-        ), &#34;Inputs to a binary operation need to have the same type&#34;
-        tb.typ = tb.left.typ
+            outcome_typ_map is not None
+        ), f&#34;Operation {node.op} not defined for {tb.left.typ}&#34;
+        outcome_typ = outcome_typ_map.get(tb.right.typ)
+        assert (
+            outcome_typ is not None
+        ), f&#34;Operation {node.op} not defined for types {tb.left.typ} and {tb.right.typ}&#34;
+        tb.typ = outcome_typ
         return tb
 
     def visit_BoolOp(self, node: BoolOp) -&gt; TypedBoolOp:
@@ -623,11 +689,11 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             functyp = tc.func.typ.typ
             assert len(tc.args) == len(
                 functyp.argtyps
-            ), f&#34;Signature of function does not match number of arguments. Expected {len(functyp.argtyps)} arguments with these types: {functyp.argtyps}&#34;
+            ), f&#34;Signature of function does not match number of arguments. Expected {len(functyp.argtyps)} arguments with these types: {functyp.argtyps} but got {len(tc.args)} arguments.&#34;
             # all arguments need to be supertypes of the given type
             assert all(
                 ap &gt;= a.typ for a, ap in zip(tc.args, functyp.argtyps)
-            ), f&#34;Signature of function does not match arguments. Expected {len(functyp.argtyps)} arguments with these types: {functyp.argtyps}&#34;
+            ), f&#34;Signature of function does not match arguments. Expected {len(functyp.argtyps)} arguments with these types: {functyp.argtyps} but got {[a.typ for a in tc.args]}.&#34;
             tc.typ = functyp.rettyp
             return tc
         raise TypeInferenceError(&#34;Could not infer type of call&#34;)
@@ -722,6 +788,29 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         self.exit_scope()
         typed_listcomp.typ = InstanceType(ListType(typed_listcomp.elt.typ))
         return typed_listcomp
+
+    def visit_FormattedValue(self, node: FormattedValue) -&gt; TypedFormattedValue:
+        typed_node = copy(node)
+        typed_node.value = self.visit(node.value)
+        assert node.conversion in (
+            -1,
+            115,
+        ), &#34;Only string formatting is allowed but got repr or ascii formatting.&#34;
+        assert (
+            node.format_spec is None
+        ), &#34;No format specification is allowed but got formatting specifiers (i.e. decimals).&#34;
+        typed_node.typ = StringInstanceType
+        return typed_node
+
+    def visit_JoinedStr(self, node: JoinedStr) -&gt; TypedJoinedStr:
+        typed_node = copy(node)
+        typed_node.values = [self.visit(v) for v in node.values]
+        typed_node.typ = StringInstanceType
+        return typed_node
+
+    def visit_ImportFrom(self, node: ImportFrom) -&gt; ImportFrom:
+        assert node.module == &#34;opshin.bridge&#34;, &#34;Trying to import from invalid location&#34;
+        return node
 
     def generic_visit(self, node: AST) -&gt; TypedAST:
         raise NotImplementedError(
@@ -874,7 +963,7 @@ def typed_ast(ast: AST):
     return Record(
         name=c.__class__.__name__,
         constructor=c.CONSTR_ID,
-        fields=FrozenFrozenList([(k, constant_type(v)) for k, v in asdict(c).items()]),
+        fields=FrozenFrozenList([(k, constant_type(v)) for k, v in c.__dict__.items()]),
     )</code></pre>
 </details>
 </dd>
@@ -1169,7 +1258,7 @@ just a single node.</p>
         typed_for.iter = self.visit(node.iter)
         if isinstance(node.target, Tuple):
             raise NotImplementedError(
-                &#34;Type deconstruction in for loops is not supported yet&#34;
+                &#34;Tuple deconstruction in for loops is not supported yet&#34;
             )
         vartyp = None
         itertyp = typed_for.iter.typ
@@ -1225,7 +1314,16 @@ just a single node.</p>
 
     def visit_FunctionDef(self, node: FunctionDef) -&gt; TypedFunctionDef:
         tfd = copy(node)
-        assert not node.decorator_list, &#34;Functions may not have decorators&#34;
+        wraps_builtin = (
+            all(
+                isinstance(o, Name) and o.id == &#34;wraps_builtin&#34;
+                for o in node.decorator_list
+            )
+            and node.decorator_list
+        )
+        assert (
+            not node.decorator_list or wraps_builtin
+        ), &#34;Functions may not have decorators other than wraps_builtin&#34;
         self.enter_scope()
         tfd.args = self.visit(node.args)
         functyp = FunctionType(
@@ -1233,18 +1331,23 @@ just a single node.</p>
             InstanceType(self.type_from_annotation(tfd.returns)),
         )
         tfd.typ = InstanceType(functyp)
-        # We need the function type inside for recursion
-        self.set_variable_type(node.name, tfd.typ)
-        tfd.body = [self.visit(s) for s in node.body]
-        # Check that return type and annotated return type match
-        if not isinstance(node.body[-1], Return):
-            assert (
-                functyp.rettyp &gt;= NoneInstanceType
-            ), f&#34;Function &#39;{node.name}&#39; has no return statement but is supposed to return not-None value&#34;
+        if wraps_builtin:
+            # the body of wrapping builtin functions is fully ignored
+            pass
         else:
-            assert (
-                functyp.rettyp &gt;= tfd.body[-1].typ
-            ), f&#34;Function &#39;{node.name}&#39; annotated return type does not match actual return type&#34;
+            # We need the function type inside for recursion
+            self.set_variable_type(node.name, tfd.typ)
+            tfd.body = [self.visit(s) for s in node.body]
+            # Check that return type and annotated return type match
+            if not isinstance(node.body[-1], Return):
+                assert (
+                    functyp.rettyp &gt;= NoneInstanceType
+                ), f&#34;Function &#39;{node.name}&#39; has no return statement but is supposed to return not-None value&#34;
+            else:
+                assert (
+                    functyp.rettyp &gt;= tfd.body[-1].typ
+                ), f&#34;Function &#39;{node.name}&#39; annotated return type does not match actual return type&#34;
+
         self.exit_scope()
         # We need the function type outside for usage
         self.set_variable_type(node.name, tfd.typ)
@@ -1266,11 +1369,15 @@ just a single node.</p>
         tb = copy(node)
         tb.left = self.visit(node.left)
         tb.right = self.visit(node.right)
-        # TODO the outcome of the operation may depend on the input types
+        outcome_typ_map = BinOpTypeMap.get(type(node.op)).get(tb.left.typ)
         assert (
-            tb.left.typ == tb.right.typ
-        ), &#34;Inputs to a binary operation need to have the same type&#34;
-        tb.typ = tb.left.typ
+            outcome_typ_map is not None
+        ), f&#34;Operation {node.op} not defined for {tb.left.typ}&#34;
+        outcome_typ = outcome_typ_map.get(tb.right.typ)
+        assert (
+            outcome_typ is not None
+        ), f&#34;Operation {node.op} not defined for types {tb.left.typ} and {tb.right.typ}&#34;
+        tb.typ = outcome_typ
         return tb
 
     def visit_BoolOp(self, node: BoolOp) -&gt; TypedBoolOp:
@@ -1397,11 +1504,11 @@ just a single node.</p>
             functyp = tc.func.typ.typ
             assert len(tc.args) == len(
                 functyp.argtyps
-            ), f&#34;Signature of function does not match number of arguments. Expected {len(functyp.argtyps)} arguments with these types: {functyp.argtyps}&#34;
+            ), f&#34;Signature of function does not match number of arguments. Expected {len(functyp.argtyps)} arguments with these types: {functyp.argtyps} but got {len(tc.args)} arguments.&#34;
             # all arguments need to be supertypes of the given type
             assert all(
                 ap &gt;= a.typ for a, ap in zip(tc.args, functyp.argtyps)
-            ), f&#34;Signature of function does not match arguments. Expected {len(functyp.argtyps)} arguments with these types: {functyp.argtyps}&#34;
+            ), f&#34;Signature of function does not match arguments. Expected {len(functyp.argtyps)} arguments with these types: {functyp.argtyps} but got {[a.typ for a in tc.args]}.&#34;
             tc.typ = functyp.rettyp
             return tc
         raise TypeInferenceError(&#34;Could not infer type of call&#34;)
@@ -1496,6 +1603,29 @@ just a single node.</p>
         self.exit_scope()
         typed_listcomp.typ = InstanceType(ListType(typed_listcomp.elt.typ))
         return typed_listcomp
+
+    def visit_FormattedValue(self, node: FormattedValue) -&gt; TypedFormattedValue:
+        typed_node = copy(node)
+        typed_node.value = self.visit(node.value)
+        assert node.conversion in (
+            -1,
+            115,
+        ), &#34;Only string formatting is allowed but got repr or ascii formatting.&#34;
+        assert (
+            node.format_spec is None
+        ), &#34;No format specification is allowed but got formatting specifiers (i.e. decimals).&#34;
+        typed_node.typ = StringInstanceType
+        return typed_node
+
+    def visit_JoinedStr(self, node: JoinedStr) -&gt; TypedJoinedStr:
+        typed_node = copy(node)
+        typed_node.values = [self.visit(v) for v in node.values]
+        typed_node.typ = StringInstanceType
+        return typed_node
+
+    def visit_ImportFrom(self, node: ImportFrom) -&gt; ImportFrom:
+        assert node.module == &#34;opshin.bridge&#34;, &#34;Trying to import from invalid location&#34;
+        return node
 
     def generic_visit(self, node: AST) -&gt; TypedAST:
         raise NotImplementedError(
@@ -1790,11 +1920,15 @@ just a single node.</p>
     tb = copy(node)
     tb.left = self.visit(node.left)
     tb.right = self.visit(node.right)
-    # TODO the outcome of the operation may depend on the input types
+    outcome_typ_map = BinOpTypeMap.get(type(node.op)).get(tb.left.typ)
     assert (
-        tb.left.typ == tb.right.typ
-    ), &#34;Inputs to a binary operation need to have the same type&#34;
-    tb.typ = tb.left.typ
+        outcome_typ_map is not None
+    ), f&#34;Operation {node.op} not defined for {tb.left.typ}&#34;
+    outcome_typ = outcome_typ_map.get(tb.right.typ)
+    assert (
+        outcome_typ is not None
+    ), f&#34;Operation {node.op} not defined for types {tb.left.typ} and {tb.right.typ}&#34;
+    tb.typ = outcome_typ
     return tb</code></pre>
 </details>
 </dd>
@@ -1850,11 +1984,11 @@ just a single node.</p>
         functyp = tc.func.typ.typ
         assert len(tc.args) == len(
             functyp.argtyps
-        ), f&#34;Signature of function does not match number of arguments. Expected {len(functyp.argtyps)} arguments with these types: {functyp.argtyps}&#34;
+        ), f&#34;Signature of function does not match number of arguments. Expected {len(functyp.argtyps)} arguments with these types: {functyp.argtyps} but got {len(tc.args)} arguments.&#34;
         # all arguments need to be supertypes of the given type
         assert all(
             ap &gt;= a.typ for a, ap in zip(tc.args, functyp.argtyps)
-        ), f&#34;Signature of function does not match arguments. Expected {len(functyp.argtyps)} arguments with these types: {functyp.argtyps}&#34;
+        ), f&#34;Signature of function does not match arguments. Expected {len(functyp.argtyps)} arguments with these types: {functyp.argtyps} but got {[a.typ for a in tc.args]}.&#34;
         tc.typ = functyp.rettyp
         return tc
     raise TypeInferenceError(&#34;Could not infer type of call&#34;)</code></pre>
@@ -1968,7 +2102,7 @@ just a single node.</p>
     typed_for.iter = self.visit(node.iter)
     if isinstance(node.target, Tuple):
         raise NotImplementedError(
-            &#34;Type deconstruction in for loops is not supported yet&#34;
+            &#34;Tuple deconstruction in for loops is not supported yet&#34;
         )
     vartyp = None
     itertyp = typed_for.iter.typ
@@ -1994,6 +2128,29 @@ just a single node.</p>
     return typed_for</code></pre>
 </details>
 </dd>
+<dt id="opshin.type_inference.AggressiveTypeInferencer.visit_FormattedValue"><code class="name flex">
+<span>def <span class="ident">visit_FormattedValue</span></span>(<span>self, node: _ast.FormattedValue) ‑> <a title="opshin.typed_ast.TypedFormattedValue" href="typed_ast.html#opshin.typed_ast.TypedFormattedValue">TypedFormattedValue</a></span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def visit_FormattedValue(self, node: FormattedValue) -&gt; TypedFormattedValue:
+    typed_node = copy(node)
+    typed_node.value = self.visit(node.value)
+    assert node.conversion in (
+        -1,
+        115,
+    ), &#34;Only string formatting is allowed but got repr or ascii formatting.&#34;
+    assert (
+        node.format_spec is None
+    ), &#34;No format specification is allowed but got formatting specifiers (i.e. decimals).&#34;
+    typed_node.typ = StringInstanceType
+    return typed_node</code></pre>
+</details>
+</dd>
 <dt id="opshin.type_inference.AggressiveTypeInferencer.visit_FunctionDef"><code class="name flex">
 <span>def <span class="ident">visit_FunctionDef</span></span>(<span>self, node: _ast.FunctionDef) ‑> <a title="opshin.typed_ast.TypedFunctionDef" href="typed_ast.html#opshin.typed_ast.TypedFunctionDef">TypedFunctionDef</a></span>
 </code></dt>
@@ -2005,7 +2162,16 @@ just a single node.</p>
 </summary>
 <pre><code class="python">def visit_FunctionDef(self, node: FunctionDef) -&gt; TypedFunctionDef:
     tfd = copy(node)
-    assert not node.decorator_list, &#34;Functions may not have decorators&#34;
+    wraps_builtin = (
+        all(
+            isinstance(o, Name) and o.id == &#34;wraps_builtin&#34;
+            for o in node.decorator_list
+        )
+        and node.decorator_list
+    )
+    assert (
+        not node.decorator_list or wraps_builtin
+    ), &#34;Functions may not have decorators other than wraps_builtin&#34;
     self.enter_scope()
     tfd.args = self.visit(node.args)
     functyp = FunctionType(
@@ -2013,18 +2179,23 @@ just a single node.</p>
         InstanceType(self.type_from_annotation(tfd.returns)),
     )
     tfd.typ = InstanceType(functyp)
-    # We need the function type inside for recursion
-    self.set_variable_type(node.name, tfd.typ)
-    tfd.body = [self.visit(s) for s in node.body]
-    # Check that return type and annotated return type match
-    if not isinstance(node.body[-1], Return):
-        assert (
-            functyp.rettyp &gt;= NoneInstanceType
-        ), f&#34;Function &#39;{node.name}&#39; has no return statement but is supposed to return not-None value&#34;
+    if wraps_builtin:
+        # the body of wrapping builtin functions is fully ignored
+        pass
     else:
-        assert (
-            functyp.rettyp &gt;= tfd.body[-1].typ
-        ), f&#34;Function &#39;{node.name}&#39; annotated return type does not match actual return type&#34;
+        # We need the function type inside for recursion
+        self.set_variable_type(node.name, tfd.typ)
+        tfd.body = [self.visit(s) for s in node.body]
+        # Check that return type and annotated return type match
+        if not isinstance(node.body[-1], Return):
+            assert (
+                functyp.rettyp &gt;= NoneInstanceType
+            ), f&#34;Function &#39;{node.name}&#39; has no return statement but is supposed to return not-None value&#34;
+        else:
+            assert (
+                functyp.rettyp &gt;= tfd.body[-1].typ
+            ), f&#34;Function &#39;{node.name}&#39; annotated return type does not match actual return type&#34;
+
     self.exit_scope()
     # We need the function type outside for usage
     self.set_variable_type(node.name, tfd.typ)
@@ -2115,6 +2286,36 @@ just a single node.</p>
             &#34;Branches of if-expression must return compatible types&#34;
         )
     return node_cp</code></pre>
+</details>
+</dd>
+<dt id="opshin.type_inference.AggressiveTypeInferencer.visit_ImportFrom"><code class="name flex">
+<span>def <span class="ident">visit_ImportFrom</span></span>(<span>self, node: _ast.ImportFrom) ‑> _ast.ImportFrom</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def visit_ImportFrom(self, node: ImportFrom) -&gt; ImportFrom:
+    assert node.module == &#34;opshin.bridge&#34;, &#34;Trying to import from invalid location&#34;
+    return node</code></pre>
+</details>
+</dd>
+<dt id="opshin.type_inference.AggressiveTypeInferencer.visit_JoinedStr"><code class="name flex">
+<span>def <span class="ident">visit_JoinedStr</span></span>(<span>self, node: _ast.JoinedStr) ‑> <a title="opshin.typed_ast.TypedJoinedStr" href="typed_ast.html#opshin.typed_ast.TypedJoinedStr">TypedJoinedStr</a></span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def visit_JoinedStr(self, node: JoinedStr) -&gt; TypedJoinedStr:
+    typed_node = copy(node)
+    typed_node.values = [self.visit(v) for v in node.values]
+    typed_node.typ = StringInstanceType
+    return typed_node</code></pre>
 </details>
 </dd>
 <dt id="opshin.type_inference.AggressiveTypeInferencer.visit_List"><code class="name flex">
@@ -2825,9 +3026,12 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="opshin.type_inference.AggressiveTypeInferencer.visit_Dict" href="#opshin.type_inference.AggressiveTypeInferencer.visit_Dict">visit_Dict</a></code></li>
 <li><code><a title="opshin.type_inference.AggressiveTypeInferencer.visit_Expr" href="#opshin.type_inference.AggressiveTypeInferencer.visit_Expr">visit_Expr</a></code></li>
 <li><code><a title="opshin.type_inference.AggressiveTypeInferencer.visit_For" href="#opshin.type_inference.AggressiveTypeInferencer.visit_For">visit_For</a></code></li>
+<li><code><a title="opshin.type_inference.AggressiveTypeInferencer.visit_FormattedValue" href="#opshin.type_inference.AggressiveTypeInferencer.visit_FormattedValue">visit_FormattedValue</a></code></li>
 <li><code><a title="opshin.type_inference.AggressiveTypeInferencer.visit_FunctionDef" href="#opshin.type_inference.AggressiveTypeInferencer.visit_FunctionDef">visit_FunctionDef</a></code></li>
 <li><code><a title="opshin.type_inference.AggressiveTypeInferencer.visit_If" href="#opshin.type_inference.AggressiveTypeInferencer.visit_If">visit_If</a></code></li>
 <li><code><a title="opshin.type_inference.AggressiveTypeInferencer.visit_IfExp" href="#opshin.type_inference.AggressiveTypeInferencer.visit_IfExp">visit_IfExp</a></code></li>
+<li><code><a title="opshin.type_inference.AggressiveTypeInferencer.visit_ImportFrom" href="#opshin.type_inference.AggressiveTypeInferencer.visit_ImportFrom">visit_ImportFrom</a></code></li>
+<li><code><a title="opshin.type_inference.AggressiveTypeInferencer.visit_JoinedStr" href="#opshin.type_inference.AggressiveTypeInferencer.visit_JoinedStr">visit_JoinedStr</a></code></li>
 <li><code><a title="opshin.type_inference.AggressiveTypeInferencer.visit_List" href="#opshin.type_inference.AggressiveTypeInferencer.visit_List">visit_List</a></code></li>
 <li><code><a title="opshin.type_inference.AggressiveTypeInferencer.visit_ListComp" href="#opshin.type_inference.AggressiveTypeInferencer.visit_ListComp">visit_ListComp</a></code></li>
 <li><code><a title="opshin.type_inference.AggressiveTypeInferencer.visit_Module" href="#opshin.type_inference.AggressiveTypeInferencer.visit_Module">visit_Module</a></code></li>

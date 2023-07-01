@@ -81,6 +81,7 @@ from .rewrite.rewrite_import_dataclasses import RewriteImportDataclasses
 from .rewrite.rewrite_import_hashlib import RewriteImportHashlib
 from .rewrite.rewrite_import_plutusdata import RewriteImportPlutusData
 from .rewrite.rewrite_import_typing import RewriteImportTyping
+from .rewrite.rewrite_import_uplc_builtins import RewriteImportUPLCBuiltins
 from .rewrite.rewrite_inject_builtins import RewriteInjectBuiltins
 from .rewrite.rewrite_inject_builtin_constr import RewriteInjectBuiltinsConstr
 from .rewrite.rewrite_orig_name import RewriteOrigName
@@ -93,7 +94,13 @@ from .optimize.optimize_remove_pass import OptimizeRemovePass
 from .optimize.optimize_remove_deadvars import OptimizeRemoveDeadvars
 from .optimize.optimize_varlen import OptimizeVarlen
 from .type_inference import *
-from .util import CompilingNodeTransformer, PowImpl, NoOp
+from .util import (
+    CompilingNodeTransformer,
+    PowImpl,
+    NoOp,
+    ByteStrIntMulImpl,
+    StrIntMulImpl,
+)
 from .typed_ast import transform_ext_params_map, transform_output_map, RawPlutoExpr
 
 
@@ -122,7 +129,15 @@ BinOpMap = {
     Mult: {
         IntegerInstanceType: {
             IntegerInstanceType: plt.MultiplyInteger,
-        }
+            ByteStringInstanceType: lambda x, y: ByteStrIntMulImpl(y, x),
+            StringInstanceType: lambda x, y: StrIntMulImpl(y, x),
+        },
+        StringInstanceType: {
+            IntegerInstanceType: StrIntMulImpl,
+        },
+        ByteStringInstanceType: {
+            IntegerInstanceType: ByteStrIntMulImpl,
+        },
     },
     FloorDiv: {
         IntegerInstanceType: {
@@ -1032,6 +1047,24 @@ class UPLCCompiler(CompilingNodeTransformer):
                 ),
             )
 
+    def visit_FormattedValue(self, node: TypedFormattedValue) -&gt; plt.AST:
+        return plt.Lambda(
+            [STATEMONAD],
+            plt.Apply(
+                node.value.typ.stringify(),
+                plt.Apply(self.visit(node.value), plt.Var(STATEMONAD)),
+                plt.Var(STATEMONAD),
+            ),
+        )
+
+    def visit_JoinedStr(self, node: TypedJoinedStr) -&gt; plt.AST:
+        joined_str = plt.Text(&#34;&#34;)
+        for v in reversed(node.values):
+            joined_str = plt.AppendString(
+                plt.Apply(self.visit(v), plt.Var(STATEMONAD)), joined_str
+            )
+        return plt.Lambda([STATEMONAD], joined_str)
+
     def generic_visit(self, node: AST) -&gt; plt.AST:
         raise NotImplementedError(f&#34;Can not compile {node}&#34;)
 
@@ -1061,6 +1094,7 @@ def compile(
         # The type inference needs to be run after complex python operations were rewritten
         AggressiveTypeInferencer(),
         # Rewrites that circumvent the type inference or use its results
+        RewriteImportUPLCBuiltins(),
         RewriteZeroAry(),
         RewriteInjectBuiltinsConstr(),
         RewriteRemoveTypeStuff(),
@@ -1132,6 +1166,7 @@ def compile(
         # The type inference needs to be run after complex python operations were rewritten
         AggressiveTypeInferencer(),
         # Rewrites that circumvent the type inference or use its results
+        RewriteImportUPLCBuiltins(),
         RewriteZeroAry(),
         RewriteInjectBuiltinsConstr(),
         RewriteRemoveTypeStuff(),
@@ -2091,6 +2126,24 @@ def compile(
                 ),
             )
 
+    def visit_FormattedValue(self, node: TypedFormattedValue) -&gt; plt.AST:
+        return plt.Lambda(
+            [STATEMONAD],
+            plt.Apply(
+                node.value.typ.stringify(),
+                plt.Apply(self.visit(node.value), plt.Var(STATEMONAD)),
+                plt.Var(STATEMONAD),
+            ),
+        )
+
+    def visit_JoinedStr(self, node: TypedJoinedStr) -&gt; plt.AST:
+        joined_str = plt.Text(&#34;&#34;)
+        for v in reversed(node.values):
+            joined_str = plt.AppendString(
+                plt.Apply(self.visit(v), plt.Var(STATEMONAD)), joined_str
+            )
+        return plt.Lambda([STATEMONAD], joined_str)
+
     def generic_visit(self, node: AST) -&gt; plt.AST:
         raise NotImplementedError(f&#34;Can not compile {node}&#34;)</code></pre>
 </details>
@@ -2509,6 +2562,26 @@ def compile(
     )</code></pre>
 </details>
 </dd>
+<dt id="opshin.compiler.UPLCCompiler.visit_FormattedValue"><code class="name flex">
+<span>def <span class="ident">visit_FormattedValue</span></span>(<span>self, node: <a title="opshin.typed_ast.TypedFormattedValue" href="typed_ast.html#opshin.typed_ast.TypedFormattedValue">TypedFormattedValue</a>) ‑> pluthon.pluthon_ast.AST</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def visit_FormattedValue(self, node: TypedFormattedValue) -&gt; plt.AST:
+    return plt.Lambda(
+        [STATEMONAD],
+        plt.Apply(
+            node.value.typ.stringify(),
+            plt.Apply(self.visit(node.value), plt.Var(STATEMONAD)),
+            plt.Var(STATEMONAD),
+        ),
+    )</code></pre>
+</details>
+</dd>
 <dt id="opshin.compiler.UPLCCompiler.visit_FunctionDef"><code class="name flex">
 <span>def <span class="ident">visit_FunctionDef</span></span>(<span>self, node: <a title="opshin.typed_ast.TypedFunctionDef" href="typed_ast.html#opshin.typed_ast.TypedFunctionDef">TypedFunctionDef</a>) ‑> pluthon.pluthon_ast.AST</span>
 </code></dt>
@@ -2595,6 +2668,24 @@ def compile(
             plt.Apply(self.visit(node.orelse), plt.Var(STATEMONAD)),
         ),
     )</code></pre>
+</details>
+</dd>
+<dt id="opshin.compiler.UPLCCompiler.visit_JoinedStr"><code class="name flex">
+<span>def <span class="ident">visit_JoinedStr</span></span>(<span>self, node: <a title="opshin.typed_ast.TypedJoinedStr" href="typed_ast.html#opshin.typed_ast.TypedJoinedStr">TypedJoinedStr</a>) ‑> pluthon.pluthon_ast.AST</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def visit_JoinedStr(self, node: TypedJoinedStr) -&gt; plt.AST:
+    joined_str = plt.Text(&#34;&#34;)
+    for v in reversed(node.values):
+        joined_str = plt.AppendString(
+            plt.Apply(self.visit(v), plt.Var(STATEMONAD)), joined_str
+        )
+    return plt.Lambda([STATEMONAD], joined_str)</code></pre>
 </details>
 </dd>
 <dt id="opshin.compiler.UPLCCompiler.visit_List"><code class="name flex">
@@ -3270,7 +3361,7 @@ setTimeout(() => input.focus(), 100);
 <ul>
 <li>
 <h4><code><a title="opshin.compiler.UPLCCompiler" href="#opshin.compiler.UPLCCompiler">UPLCCompiler</a></code></h4>
-<ul class="two-column">
+<ul class="">
 <li><code><a title="opshin.compiler.UPLCCompiler.generic_visit" href="#opshin.compiler.UPLCCompiler.generic_visit">generic_visit</a></code></li>
 <li><code><a title="opshin.compiler.UPLCCompiler.step" href="#opshin.compiler.UPLCCompiler.step">step</a></code></li>
 <li><code><a title="opshin.compiler.UPLCCompiler.visit" href="util.html#opshin.compiler.UPLCCompiler.visit">visit</a></code></li>
@@ -3287,9 +3378,11 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="opshin.compiler.UPLCCompiler.visit_Dict" href="#opshin.compiler.UPLCCompiler.visit_Dict">visit_Dict</a></code></li>
 <li><code><a title="opshin.compiler.UPLCCompiler.visit_Expr" href="#opshin.compiler.UPLCCompiler.visit_Expr">visit_Expr</a></code></li>
 <li><code><a title="opshin.compiler.UPLCCompiler.visit_For" href="#opshin.compiler.UPLCCompiler.visit_For">visit_For</a></code></li>
+<li><code><a title="opshin.compiler.UPLCCompiler.visit_FormattedValue" href="#opshin.compiler.UPLCCompiler.visit_FormattedValue">visit_FormattedValue</a></code></li>
 <li><code><a title="opshin.compiler.UPLCCompiler.visit_FunctionDef" href="#opshin.compiler.UPLCCompiler.visit_FunctionDef">visit_FunctionDef</a></code></li>
 <li><code><a title="opshin.compiler.UPLCCompiler.visit_If" href="#opshin.compiler.UPLCCompiler.visit_If">visit_If</a></code></li>
 <li><code><a title="opshin.compiler.UPLCCompiler.visit_IfExp" href="#opshin.compiler.UPLCCompiler.visit_IfExp">visit_IfExp</a></code></li>
+<li><code><a title="opshin.compiler.UPLCCompiler.visit_JoinedStr" href="#opshin.compiler.UPLCCompiler.visit_JoinedStr">visit_JoinedStr</a></code></li>
 <li><code><a title="opshin.compiler.UPLCCompiler.visit_List" href="#opshin.compiler.UPLCCompiler.visit_List">visit_List</a></code></li>
 <li><code><a title="opshin.compiler.UPLCCompiler.visit_ListComp" href="#opshin.compiler.UPLCCompiler.visit_ListComp">visit_ListComp</a></code></li>
 <li><code><a title="opshin.compiler.UPLCCompiler.visit_Module" href="#opshin.compiler.UPLCCompiler.visit_Module">visit_Module</a></code></li>

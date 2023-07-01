@@ -68,7 +68,8 @@ fill="currentColor" class="octo-body"></path>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">import typing
+<pre><code class="python">import logging
+import typing
 from ast import *
 from dataclasses import dataclass
 
@@ -76,6 +77,8 @@ from frozenlist import FrozenList
 
 import pluthon as plt
 import uplc.ast as uplc
+
+_LOGGER = logging.getLogger(__name__)
 
 
 def distinct(xs: list):
@@ -116,6 +119,14 @@ class Type:
             f&#34;Comparison {type(op).__name__} for {self.__class__.__name__} and {o.__class__.__name__} is not implemented. This is likely intended because it would always evaluate to False.&#34;
         )
 
+    def stringify(self, recursive: bool = False) -&gt; plt.AST:
+        &#34;&#34;&#34;
+        Returns a stringified version of the object
+
+        The recursive parameter informs the method whether it was invoked recursively from another invokation
+        &#34;&#34;&#34;
+        raise NotImplementedError(f&#34;{type(self).__name__} can not be stringified&#34;)
+
 
 @dataclass(frozen=True, unsafe_hash=True)
 class Record:
@@ -148,6 +159,214 @@ class AnyType(ClassType):
             isinstance(other, ClassType)
             and not isinstance(other, FunctionType)
             and not isinstance(other, PolymorphicFunctionType)
+        )
+
+    def stringify(self, recursive: bool = False) -&gt; plt.AST:
+        _LOGGER.warning(
+            &#34;Serializing AnyType will result in RawPlutusData (CBOR representation) to be printed without additional type information. Annotate types where possible to avoid this warning.&#34;
+        )
+        return plt.Lambda(
+            [&#34;self&#34;, &#34;_&#34;],
+            plt.Let(
+                [
+                    (
+                        &#34;joinMapList&#34;,
+                        plt.Lambda(
+                            [&#34;m&#34;, &#34;l&#34;, &#34;start&#34;, &#34;end&#34;],
+                            plt.Let(
+                                [
+                                    (
+                                        &#34;g&#34;,
+                                        plt.RecFun(
+                                            plt.Lambda(
+                                                [&#34;f&#34;, &#34;l&#34;],
+                                                plt.AppendString(
+                                                    plt.Apply(
+                                                        plt.Var(&#34;m&#34;),
+                                                        plt.HeadList(plt.Var(&#34;l&#34;)),
+                                                    ),
+                                                    plt.Let(
+                                                        [
+                                                            (
+                                                                &#34;t&#34;,
+                                                                plt.TailList(
+                                                                    plt.Var(&#34;l&#34;)
+                                                                ),
+                                                            )
+                                                        ],
+                                                        plt.IteNullList(
+                                                            plt.Var(&#34;t&#34;),
+                                                            plt.Var(&#34;end&#34;),
+                                                            plt.AppendString(
+                                                                plt.Text(&#34;, &#34;),
+                                                                plt.Apply(
+                                                                    plt.Var(&#34;f&#34;),
+                                                                    plt.Var(&#34;f&#34;),
+                                                                    plt.Var(&#34;t&#34;),
+                                                                ),
+                                                            ),
+                                                        ),
+                                                    ),
+                                                ),
+                                            )
+                                        ),
+                                    )
+                                ],
+                                plt.AppendString(
+                                    plt.Var(&#34;start&#34;),
+                                    plt.IteNullList(
+                                        plt.Var(&#34;l&#34;),
+                                        plt.Var(&#34;end&#34;),
+                                        plt.Apply(
+                                            plt.Var(&#34;g&#34;),
+                                            plt.Var(&#34;l&#34;),
+                                        ),
+                                    ),
+                                ),
+                            ),
+                        ),
+                    ),
+                    (
+                        &#34;stringifyPlutusData&#34;,
+                        plt.RecFun(
+                            plt.Lambda(
+                                [&#34;f&#34;, &#34;d&#34;],
+                                plt.DelayedChooseData(
+                                    plt.Var(&#34;d&#34;),
+                                    plt.Let(
+                                        [
+                                            (
+                                                &#34;constructor&#34;,
+                                                plt.FstPair(
+                                                    plt.UnConstrData(plt.Var(&#34;d&#34;))
+                                                ),
+                                            )
+                                        ],
+                                        plt.Ite(
+                                            plt.LessThanInteger(
+                                                plt.Var(&#34;constructor&#34;), plt.Integer(128)
+                                            ),
+                                            plt.ConcatString(
+                                                plt.Text(&#34;CBORTag(&#34;),
+                                                plt.Apply(
+                                                    plt.Var(&#34;f&#34;),
+                                                    plt.Var(&#34;f&#34;),
+                                                    plt.IData(
+                                                        plt.AddInteger(
+                                                            plt.Var(&#34;constructor&#34;),
+                                                            plt.Ite(
+                                                                plt.LessThanInteger(
+                                                                    plt.Var(
+                                                                        &#34;constructor&#34;
+                                                                    ),
+                                                                    plt.Integer(7),
+                                                                ),
+                                                                plt.Integer(121),
+                                                                plt.Integer(1280 - 7),
+                                                            ),
+                                                        )
+                                                    ),
+                                                ),
+                                                plt.Text(&#34;, &#34;),
+                                                plt.Apply(
+                                                    plt.Var(&#34;f&#34;),
+                                                    plt.Var(&#34;f&#34;),
+                                                    plt.ListData(
+                                                        plt.SndPair(
+                                                            plt.UnConstrData(
+                                                                plt.Var(&#34;d&#34;)
+                                                            )
+                                                        )
+                                                    ),
+                                                ),
+                                                plt.Text(&#34;)&#34;),
+                                            ),
+                                            plt.ConcatString(
+                                                plt.Text(&#34;CBORTag(102, &#34;),
+                                                plt.Apply(
+                                                    plt.Var(&#34;f&#34;),
+                                                    plt.Var(&#34;f&#34;),
+                                                    plt.ListData(
+                                                        plt.MkCons(
+                                                            plt.IData(
+                                                                plt.Var(&#34;constructor&#34;)
+                                                            ),
+                                                            plt.MkCons(
+                                                                plt.ListData(
+                                                                    plt.SndPair(
+                                                                        plt.UnConstrData(
+                                                                            plt.Var(&#34;d&#34;)
+                                                                        )
+                                                                    )
+                                                                ),
+                                                                plt.EmptyDataList(),
+                                                            ),
+                                                        )
+                                                    ),
+                                                ),
+                                                plt.Text(&#34;)&#34;),
+                                            ),
+                                        ),
+                                    ),
+                                    plt.Apply(
+                                        plt.Var(&#34;joinMapList&#34;),
+                                        plt.Lambda(
+                                            [&#34;x&#34;],
+                                            plt.ConcatString(
+                                                plt.Apply(
+                                                    plt.Var(&#34;f&#34;),
+                                                    plt.Var(&#34;f&#34;),
+                                                    plt.FstPair(plt.Var(&#34;x&#34;)),
+                                                ),
+                                                plt.Text(&#34;: &#34;),
+                                                plt.Apply(
+                                                    plt.Var(&#34;f&#34;),
+                                                    plt.Var(&#34;f&#34;),
+                                                    plt.SndPair(plt.Var(&#34;x&#34;)),
+                                                ),
+                                            ),
+                                        ),
+                                        plt.UnMapData(plt.Var(&#34;d&#34;)),
+                                        plt.Text(&#34;{&#34;),
+                                        plt.Text(&#34;}&#34;),
+                                    ),
+                                    plt.Apply(
+                                        plt.Var(&#34;joinMapList&#34;),
+                                        plt.Lambda(
+                                            [&#34;x&#34;],
+                                            plt.Apply(
+                                                plt.Var(&#34;f&#34;),
+                                                plt.Var(&#34;f&#34;),
+                                                plt.Var(&#34;x&#34;),
+                                            ),
+                                        ),
+                                        plt.UnListData(plt.Var(&#34;d&#34;)),
+                                        plt.Text(&#34;[&#34;),
+                                        plt.Text(&#34;]&#34;),
+                                    ),
+                                    plt.Apply(
+                                        IntegerInstanceType.stringify(recursive=True),
+                                        plt.UnIData(plt.Var(&#34;d&#34;)),
+                                        plt.Var(&#34;_&#34;),
+                                    ),
+                                    plt.Apply(
+                                        ByteStringInstanceType.stringify(
+                                            recursive=True
+                                        ),
+                                        plt.UnBData(plt.Var(&#34;d&#34;)),
+                                        plt.Var(&#34;_&#34;),
+                                    ),
+                                ),
+                            )
+                        ),
+                    ),
+                ],
+                plt.ConcatString(
+                    plt.Text(&#34;RawPlutusData(data=&#34;),
+                    plt.Apply(plt.Var(&#34;stringifyPlutusData&#34;), plt.Var(&#34;self&#34;)),
+                    plt.Text(&#34;)&#34;),
+                ),
+            ),
         )
 
 
@@ -277,6 +496,41 @@ class RecordType(ClassType):
         # if someone wants to be funny, they can implement &lt;= to be true if all fields match up to some point
         return isinstance(other, self.__class__) and self.record &gt;= other.record
 
+    def stringify(self, recursive: bool = False) -&gt; plt.AST:
+        &#34;&#34;&#34;Returns a stringified version of the object&#34;&#34;&#34;
+        map_fields = plt.Text(&#34;)&#34;)
+        if self.record.fields:
+            # TODO access to fields is a bit inefficient but this is debugging stuff only anyways
+            pos = len(self.record.fields) - 1
+            for field_name, field_type in reversed(self.record.fields[1:]):
+                map_fields = plt.ConcatString(
+                    plt.Text(f&#34;, {field_name}=&#34;),
+                    plt.Apply(
+                        field_type.stringify(recursive=True),
+                        transform_ext_params_map(field_type)(
+                            plt.NthField(plt.Var(&#34;self&#34;), plt.Integer(pos))
+                        ),
+                        plt.Var(&#34;_&#34;),
+                    ),
+                    map_fields,
+                )
+                pos -= 1
+            map_fields = plt.ConcatString(
+                plt.Text(f&#34;{self.record.fields[0][0]}=&#34;),
+                plt.Apply(
+                    self.record.fields[0][1].stringify(recursive=True),
+                    transform_ext_params_map(self.record.fields[0][1])(
+                        plt.NthField(plt.Var(&#34;self&#34;), plt.Integer(pos))
+                    ),
+                    plt.Var(&#34;_&#34;),
+                ),
+                map_fields,
+            )
+        return plt.Lambda(
+            [&#34;self&#34;, &#34;_&#34;],
+            plt.AppendString(plt.Text(f&#34;{self.record.name}(&#34;), map_fields),
+        )
+
 
 @dataclass(frozen=True, unsafe_hash=True)
 class UnionType(ClassType):
@@ -405,6 +659,22 @@ class UnionType(ClassType):
             f&#34;Can not compare {o} and {self} with operation {op.__class__}. Note that comparisons that always return false are also rejected.&#34;
         )
 
+    def stringify(self, recursive: bool = False) -&gt; plt.AST:
+        decide_string_func = plt.TraceError(&#34;Invalid constructor id in Union&#34;)
+        for t in self.typs:
+            decide_string_func = plt.Ite(
+                plt.EqualsInteger(plt.Var(&#34;c&#34;), plt.Integer(t.record.constructor)),
+                t.stringify(recursive=True),
+                decide_string_func,
+            )
+        return plt.Lambda(
+            [&#34;self&#34;, &#34;_&#34;],
+            plt.Let(
+                [(&#34;c&#34;, plt.Constructor(plt.Var(&#34;self&#34;)))],
+                plt.Apply(decide_string_func, plt.Var(&#34;self&#34;), plt.Var(&#34;_&#34;)),
+            ),
+        )
+
 
 @dataclass(frozen=True, unsafe_hash=True)
 class TupleType(ClassType):
@@ -413,6 +683,44 @@ class TupleType(ClassType):
     def __ge__(self, other):
         return isinstance(other, TupleType) and all(
             t &gt;= ot for t, ot in zip(self.typs, other.typs)
+        )
+
+    def stringify(self, recursive: bool = False) -&gt; plt.AST:
+        if not self.typs:
+            return plt.Lambda(
+                [&#34;self&#34;, &#34;_&#34;],
+                plt.Text(&#34;()&#34;),
+            )
+        elif len(self.typs) == 1:
+            tuple_content = plt.ConcatString(
+                plt.Apply(
+                    self.typs[0].stringify(recursive=True),
+                    plt.FunctionalTupleAccess(plt.Var(&#34;self&#34;), 0, len(self.typs)),
+                    plt.Var(&#34;_&#34;),
+                ),
+                plt.Text(&#34;,&#34;),
+            )
+        else:
+            tuple_content = plt.ConcatString(
+                plt.Apply(
+                    self.typs[0].stringify(recursive=True),
+                    plt.FunctionalTupleAccess(plt.Var(&#34;self&#34;), 0, len(self.typs)),
+                    plt.Var(&#34;_&#34;),
+                ),
+            )
+            for i, t in enumerate(self.typs[1:], start=1):
+                tuple_content = plt.ConcatString(
+                    tuple_content,
+                    plt.Text(&#34;, &#34;),
+                    plt.Apply(
+                        t.stringify(recursive=True),
+                        plt.FunctionalTupleAccess(plt.Var(&#34;self&#34;), i, len(self.typs)),
+                        plt.Var(&#34;_&#34;),
+                    ),
+                )
+        return plt.Lambda(
+            [&#34;self&#34;, &#34;_&#34;],
+            plt.ConcatString(plt.Text(&#34;(&#34;), tuple_content, plt.Text(&#34;)&#34;)),
         )
 
 
@@ -429,6 +737,25 @@ class PairType(ClassType):
             for t, ot in zip((self.l_typ, self.r_typ), (other.l_typ, other.r_typ))
         )
 
+    def stringify(self, recursive: bool = False) -&gt; plt.AST:
+        tuple_content = plt.ConcatString(
+            plt.Apply(
+                self.l_typ.stringify(recursive=True),
+                transform_ext_params_map(self.l_typ)(plt.FstPair(plt.Var(&#34;self&#34;))),
+                plt.Var(&#34;_&#34;),
+            ),
+            plt.Text(&#34;, &#34;),
+            plt.Apply(
+                self.r_typ.stringify(recursive=True),
+                transform_ext_params_map(self.r_typ)(plt.SndPair(plt.Var(&#34;self&#34;))),
+                plt.Var(&#34;_&#34;),
+            ),
+        )
+        return plt.Lambda(
+            [&#34;self&#34;, &#34;_&#34;],
+            plt.ConcatString(plt.Text(&#34;(&#34;), tuple_content, plt.Text(&#34;)&#34;)),
+        )
+
 
 @dataclass(frozen=True, unsafe_hash=True)
 class ListType(ClassType):
@@ -436,6 +763,56 @@ class ListType(ClassType):
 
     def __ge__(self, other):
         return isinstance(other, ListType) and self.typ &gt;= other.typ
+
+    def stringify(self, recursive: bool = False) -&gt; plt.AST:
+        return plt.Lambda(
+            [&#34;self&#34;, &#34;_&#34;],
+            plt.Let(
+                [
+                    (
+                        &#34;g&#34;,
+                        plt.RecFun(
+                            plt.Lambda(
+                                [&#34;f&#34;, &#34;l&#34;],
+                                plt.AppendString(
+                                    plt.Apply(
+                                        self.typ.stringify(recursive=True),
+                                        plt.HeadList(plt.Var(&#34;l&#34;)),
+                                        plt.Var(&#34;_&#34;),
+                                    ),
+                                    plt.Let(
+                                        [(&#34;t&#34;, plt.TailList(plt.Var(&#34;l&#34;)))],
+                                        plt.IteNullList(
+                                            plt.Var(&#34;t&#34;),
+                                            plt.Text(&#34;]&#34;),
+                                            plt.AppendString(
+                                                plt.Text(&#34;, &#34;),
+                                                plt.Apply(
+                                                    plt.Var(&#34;f&#34;),
+                                                    plt.Var(&#34;f&#34;),
+                                                    plt.Var(&#34;t&#34;),
+                                                ),
+                                            ),
+                                        ),
+                                    ),
+                                ),
+                            )
+                        ),
+                    )
+                ],
+                plt.AppendString(
+                    plt.Text(&#34;[&#34;),
+                    plt.IteNullList(
+                        plt.Var(&#34;self&#34;),
+                        plt.Text(&#34;]&#34;),
+                        plt.Apply(
+                            plt.Var(&#34;g&#34;),
+                            plt.Var(&#34;self&#34;),
+                        ),
+                    ),
+                ),
+            ),
+        )
 
 
 @dataclass(frozen=True, unsafe_hash=True)
@@ -535,6 +912,69 @@ class DictType(ClassType):
             and self.value_typ &gt;= other.value_typ
         )
 
+    def stringify(self, recursive: bool = False) -&gt; plt.AST:
+        return plt.Lambda(
+            [&#34;self&#34;, &#34;_&#34;],
+            plt.Let(
+                [
+                    (
+                        &#34;g&#34;,
+                        plt.RecFun(
+                            plt.Lambda(
+                                [&#34;f&#34;, &#34;l&#34;],
+                                plt.Let(
+                                    [
+                                        (&#34;h&#34;, plt.HeadList(plt.Var(&#34;l&#34;))),
+                                        (&#34;t&#34;, plt.TailList(plt.Var(&#34;l&#34;))),
+                                    ],
+                                    plt.ConcatString(
+                                        plt.Apply(
+                                            self.key_typ.stringify(recursive=True),
+                                            transform_ext_params_map(self.key_typ)(
+                                                plt.FstPair(plt.Var(&#34;h&#34;))
+                                            ),
+                                            plt.Var(&#34;_&#34;),
+                                        ),
+                                        plt.Text(&#34;: &#34;),
+                                        plt.Apply(
+                                            self.value_typ.stringify(recursive=True),
+                                            transform_ext_params_map(self.value_typ)(
+                                                plt.SndPair(plt.Var(&#34;h&#34;))
+                                            ),
+                                            plt.Var(&#34;_&#34;),
+                                        ),
+                                        plt.IteNullList(
+                                            plt.Var(&#34;t&#34;),
+                                            plt.Text(&#34;}&#34;),
+                                            plt.AppendString(
+                                                plt.Text(&#34;, &#34;),
+                                                plt.Apply(
+                                                    plt.Var(&#34;f&#34;),
+                                                    plt.Var(&#34;f&#34;),
+                                                    plt.Var(&#34;t&#34;),
+                                                ),
+                                            ),
+                                        ),
+                                    ),
+                                ),
+                            )
+                        ),
+                    )
+                ],
+                plt.AppendString(
+                    plt.Text(&#34;{&#34;),
+                    plt.IteNullList(
+                        plt.Var(&#34;self&#34;),
+                        plt.Text(&#34;}&#34;),
+                        plt.Apply(
+                            plt.Var(&#34;g&#34;),
+                            plt.Var(&#34;self&#34;),
+                        ),
+                    ),
+                ),
+            ),
+        )
+
 
 @dataclass(frozen=True, unsafe_hash=True)
 class FunctionType(ClassType):
@@ -547,6 +987,9 @@ class FunctionType(ClassType):
             and all(a &gt;= oa for a, oa in zip(self.argtyps, other.argtyps))
             and other.rettyp &gt;= self.rettyp
         )
+
+    def stringify(self, recursive: bool = False) -&gt; plt.AST:
+        return plt.Lambda([&#34;x&#34;, &#34;_&#34;], plt.Text(&#34;&lt;function&gt;&#34;))
 
 
 @dataclass(frozen=True, unsafe_hash=True)
@@ -573,6 +1016,9 @@ class InstanceType(Type):
 
     def __ge__(self, other):
         return isinstance(other, InstanceType) and self.typ &gt;= other.typ
+
+    def stringify(self, recursive: bool = False) -&gt; plt.AST:
+        return self.typ.stringify(recursive=recursive)
 
 
 @dataclass(frozen=True, unsafe_hash=True)
@@ -741,14 +1187,7 @@ class IntegerType(AtomicType):
                 )
         return super().cmp(op, o)
 
-
-@dataclass(frozen=True, unsafe_hash=True)
-class StringType(AtomicType):
-    def constr_type(self) -&gt; InstanceType:
-        return InstanceType(FunctionType([IntegerInstanceType], InstanceType(self)))
-
-    def constr(self) -&gt; plt.AST:
-        # constructs a string representation of an integer
+    def stringify(self, recursive: bool = False) -&gt; plt.AST:
         return plt.Lambda(
             [&#34;x&#34;, &#34;_&#34;],
             plt.DecodeUtf8(
@@ -814,6 +1253,15 @@ class StringType(AtomicType):
             ),
         )
 
+
+@dataclass(frozen=True, unsafe_hash=True)
+class StringType(AtomicType):
+    def constr_type(self) -&gt; InstanceType:
+        return InstanceType(PolymorphicFunctionType(StrImpl()))
+
+    def constr(self) -&gt; plt.AST:
+        return InstanceType(PolymorphicFunctionType(StrImpl()))
+
     def attribute_type(self, attr) -&gt; Type:
         if attr == &#34;encode&#34;:
             return InstanceType(FunctionType([], ByteStringInstanceType))
@@ -830,6 +1278,16 @@ class StringType(AtomicType):
             if isinstance(op, Eq):
                 return plt.BuiltIn(uplc.BuiltInFun.EqualsString)
         return super().cmp(op, o)
+
+    def stringify(self, recursive: bool = False) -&gt; plt.AST:
+        if recursive:
+            # TODO this is not correct, as the string is not properly escaped
+            return plt.Lambda(
+                [&#34;self&#34;, &#34;_&#34;],
+                plt.ConcatString(plt.Text(&#34;&#39;&#34;), plt.Var(&#34;self&#34;), plt.Text(&#34;&#39;&#34;)),
+            )
+        else:
+            return plt.Lambda([&#34;self&#34;, &#34;_&#34;], plt.Var(&#34;self&#34;))
 
 
 @dataclass(frozen=True, unsafe_hash=True)
@@ -1013,6 +1471,172 @@ class ByteStringType(AtomicType):
                 )
         return super().cmp(op, o)
 
+    def stringify(self, recursive: bool = False) -&gt; plt.AST:
+        return plt.Lambda(
+            [&#34;x&#34;, &#34;_&#34;],
+            plt.DecodeUtf8(
+                plt.Let(
+                    [
+                        (
+                            &#34;hexlist&#34;,
+                            plt.RecFun(
+                                plt.Lambda(
+                                    [&#34;f&#34;, &#34;i&#34;],
+                                    plt.Ite(
+                                        plt.LessThanInteger(
+                                            plt.Var(&#34;i&#34;), plt.Integer(0)
+                                        ),
+                                        plt.EmptyIntegerList(),
+                                        plt.MkCons(
+                                            plt.IndexByteString(
+                                                plt.Var(&#34;x&#34;), plt.Var(&#34;i&#34;)
+                                            ),
+                                            plt.Apply(
+                                                plt.Var(&#34;f&#34;),
+                                                plt.Var(&#34;f&#34;),
+                                                plt.SubtractInteger(
+                                                    plt.Var(&#34;i&#34;), plt.Integer(1)
+                                                ),
+                                            ),
+                                        ),
+                                    ),
+                                ),
+                            ),
+                        ),
+                        (
+                            &#34;map_str&#34;,
+                            plt.Lambda(
+                                [&#34;i&#34;],
+                                plt.AddInteger(
+                                    plt.Var(&#34;i&#34;),
+                                    plt.IfThenElse(
+                                        plt.LessThanInteger(
+                                            plt.Var(&#34;i&#34;), plt.Integer(10)
+                                        ),
+                                        plt.Integer(ord(&#34;0&#34;)),
+                                        plt.Integer(ord(&#34;a&#34;) - 10),
+                                    ),
+                                ),
+                            ),
+                        ),
+                        (
+                            &#34;mkstr&#34;,
+                            plt.Lambda(
+                                [&#34;i&#34;],
+                                plt.FoldList(
+                                    plt.Apply(plt.Var(&#34;hexlist&#34;), plt.Var(&#34;i&#34;)),
+                                    plt.Lambda(
+                                        [&#34;b&#34;, &#34;i&#34;],
+                                        plt.Ite(
+                                            # ascii printable characters are kept unmodified
+                                            plt.And(
+                                                plt.LessThanEqualsInteger(
+                                                    plt.Integer(0x20), plt.Var(&#34;i&#34;)
+                                                ),
+                                                plt.LessThanEqualsInteger(
+                                                    plt.Var(&#34;i&#34;), plt.Integer(0x7E)
+                                                ),
+                                            ),
+                                            plt.Ite(
+                                                plt.EqualsInteger(
+                                                    plt.Var(&#34;i&#34;),
+                                                    plt.Integer(ord(&#34;\\&#34;)),
+                                                ),
+                                                plt.AppendByteString(
+                                                    plt.ByteString(b&#34;\\\\&#34;),
+                                                    plt.Var(&#34;b&#34;),
+                                                ),
+                                                plt.Ite(
+                                                    plt.EqualsInteger(
+                                                        plt.Var(&#34;i&#34;),
+                                                        plt.Integer(ord(&#34;&#39;&#34;)),
+                                                    ),
+                                                    plt.AppendByteString(
+                                                        plt.ByteString(b&#34;\\&#39;&#34;),
+                                                        plt.Var(&#34;b&#34;),
+                                                    ),
+                                                    plt.ConsByteString(
+                                                        plt.Var(&#34;i&#34;), plt.Var(&#34;b&#34;)
+                                                    ),
+                                                ),
+                                            ),
+                                            plt.Ite(
+                                                plt.EqualsInteger(
+                                                    plt.Var(&#34;i&#34;), plt.Integer(ord(&#34;\t&#34;))
+                                                ),
+                                                plt.AppendByteString(
+                                                    plt.ByteString(b&#34;\\t&#34;), plt.Var(&#34;b&#34;)
+                                                ),
+                                                plt.Ite(
+                                                    plt.EqualsInteger(
+                                                        plt.Var(&#34;i&#34;),
+                                                        plt.Integer(ord(&#34;\n&#34;)),
+                                                    ),
+                                                    plt.AppendByteString(
+                                                        plt.ByteString(b&#34;\\n&#34;),
+                                                        plt.Var(&#34;b&#34;),
+                                                    ),
+                                                    plt.Ite(
+                                                        plt.EqualsInteger(
+                                                            plt.Var(&#34;i&#34;),
+                                                            plt.Integer(ord(&#34;\r&#34;)),
+                                                        ),
+                                                        plt.AppendByteString(
+                                                            plt.ByteString(b&#34;\\r&#34;),
+                                                            plt.Var(&#34;b&#34;),
+                                                        ),
+                                                        plt.AppendByteString(
+                                                            plt.ByteString(b&#34;\\x&#34;),
+                                                            plt.ConsByteString(
+                                                                plt.Apply(
+                                                                    plt.Var(&#34;map_str&#34;),
+                                                                    plt.DivideInteger(
+                                                                        plt.Var(&#34;i&#34;),
+                                                                        plt.Integer(16),
+                                                                    ),
+                                                                ),
+                                                                plt.ConsByteString(
+                                                                    plt.Apply(
+                                                                        plt.Var(
+                                                                            &#34;map_str&#34;
+                                                                        ),
+                                                                        plt.ModInteger(
+                                                                            plt.Var(
+                                                                                &#34;i&#34;
+                                                                            ),
+                                                                            plt.Integer(
+                                                                                16
+                                                                            ),
+                                                                        ),
+                                                                    ),
+                                                                    plt.Var(&#34;b&#34;),
+                                                                ),
+                                                            ),
+                                                        ),
+                                                    ),
+                                                ),
+                                            ),
+                                        ),
+                                    ),
+                                    plt.ByteString(b&#34;&#34;),
+                                ),
+                            ),
+                        ),
+                    ],
+                    plt.ConcatByteString(
+                        plt.ByteString(b&#34;b&#39;&#34;),
+                        plt.Apply(
+                            plt.Var(&#34;mkstr&#34;),
+                            plt.SubtractInteger(
+                                plt.LengthOfByteString(plt.Var(&#34;x&#34;)), plt.Integer(1)
+                            ),
+                        ),
+                        plt.ByteString(b&#34;&#39;&#34;),
+                    ),
+                ),
+            ),
+        )
+
 
 @dataclass(frozen=True, unsafe_hash=True)
 class BoolType(AtomicType):
@@ -1044,6 +1668,16 @@ class BoolType(AtomicType):
                 return plt.Lambda([&#34;x&#34;, &#34;y&#34;], plt.Iff(plt.Var(&#34;x&#34;), plt.Var(&#34;y&#34;)))
         return super().cmp(op, o)
 
+    def stringify(self, recursive: bool = False) -&gt; plt.AST:
+        return plt.Lambda(
+            [&#34;self&#34;, &#34;_&#34;],
+            plt.Ite(
+                plt.Var(&#34;self&#34;),
+                plt.Text(&#34;True&#34;),
+                plt.Text(&#34;False&#34;),
+            ),
+        )
+
 
 @dataclass(frozen=True, unsafe_hash=True)
 class UnitType(AtomicType):
@@ -1054,6 +1688,9 @@ class UnitType(AtomicType):
             if isinstance(op, NotEq):
                 return plt.Lambda([&#34;x&#34;, &#34;y&#34;], plt.Bool(False))
         return super().cmp(op, o)
+
+    def stringify(self, recursive: bool = False) -&gt; plt.AST:
+        return plt.Lambda([&#34;self&#34;, &#34;_&#34;], plt.Text(&#34;None&#34;))
 
 
 IntegerInstanceType = InstanceType(IntegerType())
@@ -1086,6 +1723,21 @@ class PolymorphicFunction:
 
     def impl_from_args(self, args: typing.List[Type]) -&gt; plt.AST:
         raise NotImplementedError()
+
+
+class StrImpl(PolymorphicFunction):
+    def type_from_args(self, args: typing.List[Type]) -&gt; FunctionType:
+        assert (
+            len(args) == 1
+        ), f&#34;&#39;str&#39; takes only one argument, but {len(args)} were given&#34;
+        typ = args[0]
+        assert isinstance(typ, InstanceType), &#34;Can only stringify instances&#34;
+        return FunctionType(args, StringInstanceType)
+
+    def impl_from_args(self, args: typing.List[Type]) -&gt; plt.AST:
+        arg = args[0]
+        assert isinstance(arg, InstanceType), &#34;Can only stringify instances&#34;
+        return arg.typ.stringify()
 
 
 @dataclass(frozen=True, unsafe_hash=True)
@@ -1218,6 +1870,16 @@ class TypedListComp(typedexpr, ListComp):
     elt: typedexpr
 
 
+class TypedFormattedValue(typedexpr, FormattedValue):
+    value: typedexpr
+    conversion: int
+    format_spec: typing.Optional[JoinedStr]
+
+
+class TypedJoinedStr(typedexpr, JoinedStr):
+    values: typing.List[typedexpr]
+
+
 class TypedDict(typedexpr, Dict):
     pass
 
@@ -1296,7 +1958,11 @@ def empty_list(p: Type):
                 ),
             )
         )
-    if isinstance(p.typ, RecordType) or isinstance(p.typ, AnyType):
+    if (
+        isinstance(p.typ, RecordType)
+        or isinstance(p.typ, AnyType)
+        or isinstance(p.typ, UnionType)
+    ):
         return plt.EmptyDataList()
     raise NotImplementedError(f&#34;Empty lists of type {p} can&#39;t be constructed yet&#34;)
 
@@ -1452,7 +2118,11 @@ class TypedNodeVisitor(NodeVisitor):
                 ),
             )
         )
-    if isinstance(p.typ, RecordType) or isinstance(p.typ, AnyType):
+    if (
+        isinstance(p.typ, RecordType)
+        or isinstance(p.typ, AnyType)
+        or isinstance(p.typ, UnionType)
+    ):
         return plt.EmptyDataList()
     raise NotImplementedError(f&#34;Empty lists of type {p} can&#39;t be constructed yet&#34;)</code></pre>
 </details>
@@ -1542,6 +2212,214 @@ class TypedNodeVisitor(NodeVisitor):
             isinstance(other, ClassType)
             and not isinstance(other, FunctionType)
             and not isinstance(other, PolymorphicFunctionType)
+        )
+
+    def stringify(self, recursive: bool = False) -&gt; plt.AST:
+        _LOGGER.warning(
+            &#34;Serializing AnyType will result in RawPlutusData (CBOR representation) to be printed without additional type information. Annotate types where possible to avoid this warning.&#34;
+        )
+        return plt.Lambda(
+            [&#34;self&#34;, &#34;_&#34;],
+            plt.Let(
+                [
+                    (
+                        &#34;joinMapList&#34;,
+                        plt.Lambda(
+                            [&#34;m&#34;, &#34;l&#34;, &#34;start&#34;, &#34;end&#34;],
+                            plt.Let(
+                                [
+                                    (
+                                        &#34;g&#34;,
+                                        plt.RecFun(
+                                            plt.Lambda(
+                                                [&#34;f&#34;, &#34;l&#34;],
+                                                plt.AppendString(
+                                                    plt.Apply(
+                                                        plt.Var(&#34;m&#34;),
+                                                        plt.HeadList(plt.Var(&#34;l&#34;)),
+                                                    ),
+                                                    plt.Let(
+                                                        [
+                                                            (
+                                                                &#34;t&#34;,
+                                                                plt.TailList(
+                                                                    plt.Var(&#34;l&#34;)
+                                                                ),
+                                                            )
+                                                        ],
+                                                        plt.IteNullList(
+                                                            plt.Var(&#34;t&#34;),
+                                                            plt.Var(&#34;end&#34;),
+                                                            plt.AppendString(
+                                                                plt.Text(&#34;, &#34;),
+                                                                plt.Apply(
+                                                                    plt.Var(&#34;f&#34;),
+                                                                    plt.Var(&#34;f&#34;),
+                                                                    plt.Var(&#34;t&#34;),
+                                                                ),
+                                                            ),
+                                                        ),
+                                                    ),
+                                                ),
+                                            )
+                                        ),
+                                    )
+                                ],
+                                plt.AppendString(
+                                    plt.Var(&#34;start&#34;),
+                                    plt.IteNullList(
+                                        plt.Var(&#34;l&#34;),
+                                        plt.Var(&#34;end&#34;),
+                                        plt.Apply(
+                                            plt.Var(&#34;g&#34;),
+                                            plt.Var(&#34;l&#34;),
+                                        ),
+                                    ),
+                                ),
+                            ),
+                        ),
+                    ),
+                    (
+                        &#34;stringifyPlutusData&#34;,
+                        plt.RecFun(
+                            plt.Lambda(
+                                [&#34;f&#34;, &#34;d&#34;],
+                                plt.DelayedChooseData(
+                                    plt.Var(&#34;d&#34;),
+                                    plt.Let(
+                                        [
+                                            (
+                                                &#34;constructor&#34;,
+                                                plt.FstPair(
+                                                    plt.UnConstrData(plt.Var(&#34;d&#34;))
+                                                ),
+                                            )
+                                        ],
+                                        plt.Ite(
+                                            plt.LessThanInteger(
+                                                plt.Var(&#34;constructor&#34;), plt.Integer(128)
+                                            ),
+                                            plt.ConcatString(
+                                                plt.Text(&#34;CBORTag(&#34;),
+                                                plt.Apply(
+                                                    plt.Var(&#34;f&#34;),
+                                                    plt.Var(&#34;f&#34;),
+                                                    plt.IData(
+                                                        plt.AddInteger(
+                                                            plt.Var(&#34;constructor&#34;),
+                                                            plt.Ite(
+                                                                plt.LessThanInteger(
+                                                                    plt.Var(
+                                                                        &#34;constructor&#34;
+                                                                    ),
+                                                                    plt.Integer(7),
+                                                                ),
+                                                                plt.Integer(121),
+                                                                plt.Integer(1280 - 7),
+                                                            ),
+                                                        )
+                                                    ),
+                                                ),
+                                                plt.Text(&#34;, &#34;),
+                                                plt.Apply(
+                                                    plt.Var(&#34;f&#34;),
+                                                    plt.Var(&#34;f&#34;),
+                                                    plt.ListData(
+                                                        plt.SndPair(
+                                                            plt.UnConstrData(
+                                                                plt.Var(&#34;d&#34;)
+                                                            )
+                                                        )
+                                                    ),
+                                                ),
+                                                plt.Text(&#34;)&#34;),
+                                            ),
+                                            plt.ConcatString(
+                                                plt.Text(&#34;CBORTag(102, &#34;),
+                                                plt.Apply(
+                                                    plt.Var(&#34;f&#34;),
+                                                    plt.Var(&#34;f&#34;),
+                                                    plt.ListData(
+                                                        plt.MkCons(
+                                                            plt.IData(
+                                                                plt.Var(&#34;constructor&#34;)
+                                                            ),
+                                                            plt.MkCons(
+                                                                plt.ListData(
+                                                                    plt.SndPair(
+                                                                        plt.UnConstrData(
+                                                                            plt.Var(&#34;d&#34;)
+                                                                        )
+                                                                    )
+                                                                ),
+                                                                plt.EmptyDataList(),
+                                                            ),
+                                                        )
+                                                    ),
+                                                ),
+                                                plt.Text(&#34;)&#34;),
+                                            ),
+                                        ),
+                                    ),
+                                    plt.Apply(
+                                        plt.Var(&#34;joinMapList&#34;),
+                                        plt.Lambda(
+                                            [&#34;x&#34;],
+                                            plt.ConcatString(
+                                                plt.Apply(
+                                                    plt.Var(&#34;f&#34;),
+                                                    plt.Var(&#34;f&#34;),
+                                                    plt.FstPair(plt.Var(&#34;x&#34;)),
+                                                ),
+                                                plt.Text(&#34;: &#34;),
+                                                plt.Apply(
+                                                    plt.Var(&#34;f&#34;),
+                                                    plt.Var(&#34;f&#34;),
+                                                    plt.SndPair(plt.Var(&#34;x&#34;)),
+                                                ),
+                                            ),
+                                        ),
+                                        plt.UnMapData(plt.Var(&#34;d&#34;)),
+                                        plt.Text(&#34;{&#34;),
+                                        plt.Text(&#34;}&#34;),
+                                    ),
+                                    plt.Apply(
+                                        plt.Var(&#34;joinMapList&#34;),
+                                        plt.Lambda(
+                                            [&#34;x&#34;],
+                                            plt.Apply(
+                                                plt.Var(&#34;f&#34;),
+                                                plt.Var(&#34;f&#34;),
+                                                plt.Var(&#34;x&#34;),
+                                            ),
+                                        ),
+                                        plt.UnListData(plt.Var(&#34;d&#34;)),
+                                        plt.Text(&#34;[&#34;),
+                                        plt.Text(&#34;]&#34;),
+                                    ),
+                                    plt.Apply(
+                                        IntegerInstanceType.stringify(recursive=True),
+                                        plt.UnIData(plt.Var(&#34;d&#34;)),
+                                        plt.Var(&#34;_&#34;),
+                                    ),
+                                    plt.Apply(
+                                        ByteStringInstanceType.stringify(
+                                            recursive=True
+                                        ),
+                                        plt.UnBData(plt.Var(&#34;d&#34;)),
+                                        plt.Var(&#34;_&#34;),
+                                    ),
+                                ),
+                            )
+                        ),
+                    ),
+                ],
+                plt.ConcatString(
+                    plt.Text(&#34;RawPlutusData(data=&#34;),
+                    plt.Apply(plt.Var(&#34;stringifyPlutusData&#34;), plt.Var(&#34;self&#34;)),
+                    plt.Text(&#34;)&#34;),
+                ),
+            ),
         )</code></pre>
 </details>
 <h3>Ancestors</h3>
@@ -1600,6 +2478,228 @@ class TypedNodeVisitor(NodeVisitor):
 <code><a title="opshin.typed_ast.ClassType" href="#opshin.typed_ast.ClassType">ClassType</a></code>.<code><a title="opshin.typed_ast.ClassType.constr_type" href="#opshin.typed_ast.ClassType.constr_type">constr_type</a></code>
 </p>
 <div class="desc inherited"><p>The type of the constructor for this class</p></div>
+</dd>
+<dt id="opshin.typed_ast.AnyType.stringify"><code class="name flex">
+<span>def <span class="ident">stringify</span></span>(<span>self, recursive: bool = False) ‑> pluthon.pluthon_ast.AST</span>
+</code></dt>
+<dd>
+<p class="inheritance">
+<em>Inherited from:</em>
+<code><a title="opshin.typed_ast.ClassType" href="#opshin.typed_ast.ClassType">ClassType</a></code>.<code><a title="opshin.typed_ast.ClassType.stringify" href="#opshin.typed_ast.ClassType.stringify">stringify</a></code>
+</p>
+<div class="desc inherited"><p>Returns a stringified version of the object …</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def stringify(self, recursive: bool = False) -&gt; plt.AST:
+    _LOGGER.warning(
+        &#34;Serializing AnyType will result in RawPlutusData (CBOR representation) to be printed without additional type information. Annotate types where possible to avoid this warning.&#34;
+    )
+    return plt.Lambda(
+        [&#34;self&#34;, &#34;_&#34;],
+        plt.Let(
+            [
+                (
+                    &#34;joinMapList&#34;,
+                    plt.Lambda(
+                        [&#34;m&#34;, &#34;l&#34;, &#34;start&#34;, &#34;end&#34;],
+                        plt.Let(
+                            [
+                                (
+                                    &#34;g&#34;,
+                                    plt.RecFun(
+                                        plt.Lambda(
+                                            [&#34;f&#34;, &#34;l&#34;],
+                                            plt.AppendString(
+                                                plt.Apply(
+                                                    plt.Var(&#34;m&#34;),
+                                                    plt.HeadList(plt.Var(&#34;l&#34;)),
+                                                ),
+                                                plt.Let(
+                                                    [
+                                                        (
+                                                            &#34;t&#34;,
+                                                            plt.TailList(
+                                                                plt.Var(&#34;l&#34;)
+                                                            ),
+                                                        )
+                                                    ],
+                                                    plt.IteNullList(
+                                                        plt.Var(&#34;t&#34;),
+                                                        plt.Var(&#34;end&#34;),
+                                                        plt.AppendString(
+                                                            plt.Text(&#34;, &#34;),
+                                                            plt.Apply(
+                                                                plt.Var(&#34;f&#34;),
+                                                                plt.Var(&#34;f&#34;),
+                                                                plt.Var(&#34;t&#34;),
+                                                            ),
+                                                        ),
+                                                    ),
+                                                ),
+                                            ),
+                                        )
+                                    ),
+                                )
+                            ],
+                            plt.AppendString(
+                                plt.Var(&#34;start&#34;),
+                                plt.IteNullList(
+                                    plt.Var(&#34;l&#34;),
+                                    plt.Var(&#34;end&#34;),
+                                    plt.Apply(
+                                        plt.Var(&#34;g&#34;),
+                                        plt.Var(&#34;l&#34;),
+                                    ),
+                                ),
+                            ),
+                        ),
+                    ),
+                ),
+                (
+                    &#34;stringifyPlutusData&#34;,
+                    plt.RecFun(
+                        plt.Lambda(
+                            [&#34;f&#34;, &#34;d&#34;],
+                            plt.DelayedChooseData(
+                                plt.Var(&#34;d&#34;),
+                                plt.Let(
+                                    [
+                                        (
+                                            &#34;constructor&#34;,
+                                            plt.FstPair(
+                                                plt.UnConstrData(plt.Var(&#34;d&#34;))
+                                            ),
+                                        )
+                                    ],
+                                    plt.Ite(
+                                        plt.LessThanInteger(
+                                            plt.Var(&#34;constructor&#34;), plt.Integer(128)
+                                        ),
+                                        plt.ConcatString(
+                                            plt.Text(&#34;CBORTag(&#34;),
+                                            plt.Apply(
+                                                plt.Var(&#34;f&#34;),
+                                                plt.Var(&#34;f&#34;),
+                                                plt.IData(
+                                                    plt.AddInteger(
+                                                        plt.Var(&#34;constructor&#34;),
+                                                        plt.Ite(
+                                                            plt.LessThanInteger(
+                                                                plt.Var(
+                                                                    &#34;constructor&#34;
+                                                                ),
+                                                                plt.Integer(7),
+                                                            ),
+                                                            plt.Integer(121),
+                                                            plt.Integer(1280 - 7),
+                                                        ),
+                                                    )
+                                                ),
+                                            ),
+                                            plt.Text(&#34;, &#34;),
+                                            plt.Apply(
+                                                plt.Var(&#34;f&#34;),
+                                                plt.Var(&#34;f&#34;),
+                                                plt.ListData(
+                                                    plt.SndPair(
+                                                        plt.UnConstrData(
+                                                            plt.Var(&#34;d&#34;)
+                                                        )
+                                                    )
+                                                ),
+                                            ),
+                                            plt.Text(&#34;)&#34;),
+                                        ),
+                                        plt.ConcatString(
+                                            plt.Text(&#34;CBORTag(102, &#34;),
+                                            plt.Apply(
+                                                plt.Var(&#34;f&#34;),
+                                                plt.Var(&#34;f&#34;),
+                                                plt.ListData(
+                                                    plt.MkCons(
+                                                        plt.IData(
+                                                            plt.Var(&#34;constructor&#34;)
+                                                        ),
+                                                        plt.MkCons(
+                                                            plt.ListData(
+                                                                plt.SndPair(
+                                                                    plt.UnConstrData(
+                                                                        plt.Var(&#34;d&#34;)
+                                                                    )
+                                                                )
+                                                            ),
+                                                            plt.EmptyDataList(),
+                                                        ),
+                                                    )
+                                                ),
+                                            ),
+                                            plt.Text(&#34;)&#34;),
+                                        ),
+                                    ),
+                                ),
+                                plt.Apply(
+                                    plt.Var(&#34;joinMapList&#34;),
+                                    plt.Lambda(
+                                        [&#34;x&#34;],
+                                        plt.ConcatString(
+                                            plt.Apply(
+                                                plt.Var(&#34;f&#34;),
+                                                plt.Var(&#34;f&#34;),
+                                                plt.FstPair(plt.Var(&#34;x&#34;)),
+                                            ),
+                                            plt.Text(&#34;: &#34;),
+                                            plt.Apply(
+                                                plt.Var(&#34;f&#34;),
+                                                plt.Var(&#34;f&#34;),
+                                                plt.SndPair(plt.Var(&#34;x&#34;)),
+                                            ),
+                                        ),
+                                    ),
+                                    plt.UnMapData(plt.Var(&#34;d&#34;)),
+                                    plt.Text(&#34;{&#34;),
+                                    plt.Text(&#34;}&#34;),
+                                ),
+                                plt.Apply(
+                                    plt.Var(&#34;joinMapList&#34;),
+                                    plt.Lambda(
+                                        [&#34;x&#34;],
+                                        plt.Apply(
+                                            plt.Var(&#34;f&#34;),
+                                            plt.Var(&#34;f&#34;),
+                                            plt.Var(&#34;x&#34;),
+                                        ),
+                                    ),
+                                    plt.UnListData(plt.Var(&#34;d&#34;)),
+                                    plt.Text(&#34;[&#34;),
+                                    plt.Text(&#34;]&#34;),
+                                ),
+                                plt.Apply(
+                                    IntegerInstanceType.stringify(recursive=True),
+                                    plt.UnIData(plt.Var(&#34;d&#34;)),
+                                    plt.Var(&#34;_&#34;),
+                                ),
+                                plt.Apply(
+                                    ByteStringInstanceType.stringify(
+                                        recursive=True
+                                    ),
+                                    plt.UnBData(plt.Var(&#34;d&#34;)),
+                                    plt.Var(&#34;_&#34;),
+                                ),
+                            ),
+                        )
+                    ),
+                ),
+            ],
+            plt.ConcatString(
+                plt.Text(&#34;RawPlutusData(data=&#34;),
+                plt.Apply(plt.Var(&#34;stringifyPlutusData&#34;), plt.Var(&#34;self&#34;)),
+                plt.Text(&#34;)&#34;),
+            ),
+        ),
+    )</code></pre>
+</details>
 </dd>
 </dl>
 </dd>
@@ -1682,6 +2782,16 @@ class TypedNodeVisitor(NodeVisitor):
 </p>
 <div class="desc inherited"><p>The type of the constructor for this class</p></div>
 </dd>
+<dt id="opshin.typed_ast.AtomicType.stringify"><code class="name flex">
+<span>def <span class="ident">stringify</span></span>(<span>self, recursive: bool = False) ‑> pluthon.pluthon_ast.AST</span>
+</code></dt>
+<dd>
+<p class="inheritance">
+<em>Inherited from:</em>
+<code><a title="opshin.typed_ast.ClassType" href="#opshin.typed_ast.ClassType">ClassType</a></code>.<code><a title="opshin.typed_ast.ClassType.stringify" href="#opshin.typed_ast.ClassType.stringify">stringify</a></code>
+</p>
+<div class="desc inherited"><p>Returns a stringified version of the object …</p></div>
+</dd>
 </dl>
 </dd>
 <dt id="opshin.typed_ast.BoolType"><code class="flex name class">
@@ -1720,7 +2830,17 @@ class TypedNodeVisitor(NodeVisitor):
         if isinstance(o, BoolType):
             if isinstance(op, Eq):
                 return plt.Lambda([&#34;x&#34;, &#34;y&#34;], plt.Iff(plt.Var(&#34;x&#34;), plt.Var(&#34;y&#34;)))
-        return super().cmp(op, o)</code></pre>
+        return super().cmp(op, o)
+
+    def stringify(self, recursive: bool = False) -&gt; plt.AST:
+        return plt.Lambda(
+            [&#34;self&#34;, &#34;_&#34;],
+            plt.Ite(
+                plt.Var(&#34;self&#34;),
+                plt.Text(&#34;True&#34;),
+                plt.Text(&#34;False&#34;),
+            ),
+        )</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -1818,6 +2938,30 @@ class TypedNodeVisitor(NodeVisitor):
 </summary>
 <pre><code class="python">def constr_type(self) -&gt; &#34;InstanceType&#34;:
     return InstanceType(FunctionType([IntegerInstanceType], BoolInstanceType))</code></pre>
+</details>
+</dd>
+<dt id="opshin.typed_ast.BoolType.stringify"><code class="name flex">
+<span>def <span class="ident">stringify</span></span>(<span>self, recursive: bool = False) ‑> pluthon.pluthon_ast.AST</span>
+</code></dt>
+<dd>
+<p class="inheritance">
+<em>Inherited from:</em>
+<code><a title="opshin.typed_ast.AtomicType" href="#opshin.typed_ast.AtomicType">AtomicType</a></code>.<code><a title="opshin.typed_ast.AtomicType.stringify" href="#opshin.typed_ast.AtomicType.stringify">stringify</a></code>
+</p>
+<div class="desc inherited"><p>Returns a stringified version of the object …</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def stringify(self, recursive: bool = False) -&gt; plt.AST:
+    return plt.Lambda(
+        [&#34;self&#34;, &#34;_&#34;],
+        plt.Ite(
+            plt.Var(&#34;self&#34;),
+            plt.Text(&#34;True&#34;),
+            plt.Text(&#34;False&#34;),
+        ),
+    )</code></pre>
 </details>
 </dd>
 </dl>
@@ -2009,7 +3153,173 @@ class TypedNodeVisitor(NodeVisitor):
                         ),
                     ),
                 )
-        return super().cmp(op, o)</code></pre>
+        return super().cmp(op, o)
+
+    def stringify(self, recursive: bool = False) -&gt; plt.AST:
+        return plt.Lambda(
+            [&#34;x&#34;, &#34;_&#34;],
+            plt.DecodeUtf8(
+                plt.Let(
+                    [
+                        (
+                            &#34;hexlist&#34;,
+                            plt.RecFun(
+                                plt.Lambda(
+                                    [&#34;f&#34;, &#34;i&#34;],
+                                    plt.Ite(
+                                        plt.LessThanInteger(
+                                            plt.Var(&#34;i&#34;), plt.Integer(0)
+                                        ),
+                                        plt.EmptyIntegerList(),
+                                        plt.MkCons(
+                                            plt.IndexByteString(
+                                                plt.Var(&#34;x&#34;), plt.Var(&#34;i&#34;)
+                                            ),
+                                            plt.Apply(
+                                                plt.Var(&#34;f&#34;),
+                                                plt.Var(&#34;f&#34;),
+                                                plt.SubtractInteger(
+                                                    plt.Var(&#34;i&#34;), plt.Integer(1)
+                                                ),
+                                            ),
+                                        ),
+                                    ),
+                                ),
+                            ),
+                        ),
+                        (
+                            &#34;map_str&#34;,
+                            plt.Lambda(
+                                [&#34;i&#34;],
+                                plt.AddInteger(
+                                    plt.Var(&#34;i&#34;),
+                                    plt.IfThenElse(
+                                        plt.LessThanInteger(
+                                            plt.Var(&#34;i&#34;), plt.Integer(10)
+                                        ),
+                                        plt.Integer(ord(&#34;0&#34;)),
+                                        plt.Integer(ord(&#34;a&#34;) - 10),
+                                    ),
+                                ),
+                            ),
+                        ),
+                        (
+                            &#34;mkstr&#34;,
+                            plt.Lambda(
+                                [&#34;i&#34;],
+                                plt.FoldList(
+                                    plt.Apply(plt.Var(&#34;hexlist&#34;), plt.Var(&#34;i&#34;)),
+                                    plt.Lambda(
+                                        [&#34;b&#34;, &#34;i&#34;],
+                                        plt.Ite(
+                                            # ascii printable characters are kept unmodified
+                                            plt.And(
+                                                plt.LessThanEqualsInteger(
+                                                    plt.Integer(0x20), plt.Var(&#34;i&#34;)
+                                                ),
+                                                plt.LessThanEqualsInteger(
+                                                    plt.Var(&#34;i&#34;), plt.Integer(0x7E)
+                                                ),
+                                            ),
+                                            plt.Ite(
+                                                plt.EqualsInteger(
+                                                    plt.Var(&#34;i&#34;),
+                                                    plt.Integer(ord(&#34;\\&#34;)),
+                                                ),
+                                                plt.AppendByteString(
+                                                    plt.ByteString(b&#34;\\\\&#34;),
+                                                    plt.Var(&#34;b&#34;),
+                                                ),
+                                                plt.Ite(
+                                                    plt.EqualsInteger(
+                                                        plt.Var(&#34;i&#34;),
+                                                        plt.Integer(ord(&#34;&#39;&#34;)),
+                                                    ),
+                                                    plt.AppendByteString(
+                                                        plt.ByteString(b&#34;\\&#39;&#34;),
+                                                        plt.Var(&#34;b&#34;),
+                                                    ),
+                                                    plt.ConsByteString(
+                                                        plt.Var(&#34;i&#34;), plt.Var(&#34;b&#34;)
+                                                    ),
+                                                ),
+                                            ),
+                                            plt.Ite(
+                                                plt.EqualsInteger(
+                                                    plt.Var(&#34;i&#34;), plt.Integer(ord(&#34;\t&#34;))
+                                                ),
+                                                plt.AppendByteString(
+                                                    plt.ByteString(b&#34;\\t&#34;), plt.Var(&#34;b&#34;)
+                                                ),
+                                                plt.Ite(
+                                                    plt.EqualsInteger(
+                                                        plt.Var(&#34;i&#34;),
+                                                        plt.Integer(ord(&#34;\n&#34;)),
+                                                    ),
+                                                    plt.AppendByteString(
+                                                        plt.ByteString(b&#34;\\n&#34;),
+                                                        plt.Var(&#34;b&#34;),
+                                                    ),
+                                                    plt.Ite(
+                                                        plt.EqualsInteger(
+                                                            plt.Var(&#34;i&#34;),
+                                                            plt.Integer(ord(&#34;\r&#34;)),
+                                                        ),
+                                                        plt.AppendByteString(
+                                                            plt.ByteString(b&#34;\\r&#34;),
+                                                            plt.Var(&#34;b&#34;),
+                                                        ),
+                                                        plt.AppendByteString(
+                                                            plt.ByteString(b&#34;\\x&#34;),
+                                                            plt.ConsByteString(
+                                                                plt.Apply(
+                                                                    plt.Var(&#34;map_str&#34;),
+                                                                    plt.DivideInteger(
+                                                                        plt.Var(&#34;i&#34;),
+                                                                        plt.Integer(16),
+                                                                    ),
+                                                                ),
+                                                                plt.ConsByteString(
+                                                                    plt.Apply(
+                                                                        plt.Var(
+                                                                            &#34;map_str&#34;
+                                                                        ),
+                                                                        plt.ModInteger(
+                                                                            plt.Var(
+                                                                                &#34;i&#34;
+                                                                            ),
+                                                                            plt.Integer(
+                                                                                16
+                                                                            ),
+                                                                        ),
+                                                                    ),
+                                                                    plt.Var(&#34;b&#34;),
+                                                                ),
+                                                            ),
+                                                        ),
+                                                    ),
+                                                ),
+                                            ),
+                                        ),
+                                    ),
+                                    plt.ByteString(b&#34;&#34;),
+                                ),
+                            ),
+                        ),
+                    ],
+                    plt.ConcatByteString(
+                        plt.ByteString(b&#34;b&#39;&#34;),
+                        plt.Apply(
+                            plt.Var(&#34;mkstr&#34;),
+                            plt.SubtractInteger(
+                                plt.LengthOfByteString(plt.Var(&#34;x&#34;)), plt.Integer(1)
+                            ),
+                        ),
+                        plt.ByteString(b&#34;&#39;&#34;),
+                    ),
+                ),
+            ),
+        )</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -2268,6 +3578,186 @@ class TypedNodeVisitor(NodeVisitor):
     )</code></pre>
 </details>
 </dd>
+<dt id="opshin.typed_ast.ByteStringType.stringify"><code class="name flex">
+<span>def <span class="ident">stringify</span></span>(<span>self, recursive: bool = False) ‑> pluthon.pluthon_ast.AST</span>
+</code></dt>
+<dd>
+<p class="inheritance">
+<em>Inherited from:</em>
+<code><a title="opshin.typed_ast.AtomicType" href="#opshin.typed_ast.AtomicType">AtomicType</a></code>.<code><a title="opshin.typed_ast.AtomicType.stringify" href="#opshin.typed_ast.AtomicType.stringify">stringify</a></code>
+</p>
+<div class="desc inherited"><p>Returns a stringified version of the object …</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def stringify(self, recursive: bool = False) -&gt; plt.AST:
+    return plt.Lambda(
+        [&#34;x&#34;, &#34;_&#34;],
+        plt.DecodeUtf8(
+            plt.Let(
+                [
+                    (
+                        &#34;hexlist&#34;,
+                        plt.RecFun(
+                            plt.Lambda(
+                                [&#34;f&#34;, &#34;i&#34;],
+                                plt.Ite(
+                                    plt.LessThanInteger(
+                                        plt.Var(&#34;i&#34;), plt.Integer(0)
+                                    ),
+                                    plt.EmptyIntegerList(),
+                                    plt.MkCons(
+                                        plt.IndexByteString(
+                                            plt.Var(&#34;x&#34;), plt.Var(&#34;i&#34;)
+                                        ),
+                                        plt.Apply(
+                                            plt.Var(&#34;f&#34;),
+                                            plt.Var(&#34;f&#34;),
+                                            plt.SubtractInteger(
+                                                plt.Var(&#34;i&#34;), plt.Integer(1)
+                                            ),
+                                        ),
+                                    ),
+                                ),
+                            ),
+                        ),
+                    ),
+                    (
+                        &#34;map_str&#34;,
+                        plt.Lambda(
+                            [&#34;i&#34;],
+                            plt.AddInteger(
+                                plt.Var(&#34;i&#34;),
+                                plt.IfThenElse(
+                                    plt.LessThanInteger(
+                                        plt.Var(&#34;i&#34;), plt.Integer(10)
+                                    ),
+                                    plt.Integer(ord(&#34;0&#34;)),
+                                    plt.Integer(ord(&#34;a&#34;) - 10),
+                                ),
+                            ),
+                        ),
+                    ),
+                    (
+                        &#34;mkstr&#34;,
+                        plt.Lambda(
+                            [&#34;i&#34;],
+                            plt.FoldList(
+                                plt.Apply(plt.Var(&#34;hexlist&#34;), plt.Var(&#34;i&#34;)),
+                                plt.Lambda(
+                                    [&#34;b&#34;, &#34;i&#34;],
+                                    plt.Ite(
+                                        # ascii printable characters are kept unmodified
+                                        plt.And(
+                                            plt.LessThanEqualsInteger(
+                                                plt.Integer(0x20), plt.Var(&#34;i&#34;)
+                                            ),
+                                            plt.LessThanEqualsInteger(
+                                                plt.Var(&#34;i&#34;), plt.Integer(0x7E)
+                                            ),
+                                        ),
+                                        plt.Ite(
+                                            plt.EqualsInteger(
+                                                plt.Var(&#34;i&#34;),
+                                                plt.Integer(ord(&#34;\\&#34;)),
+                                            ),
+                                            plt.AppendByteString(
+                                                plt.ByteString(b&#34;\\\\&#34;),
+                                                plt.Var(&#34;b&#34;),
+                                            ),
+                                            plt.Ite(
+                                                plt.EqualsInteger(
+                                                    plt.Var(&#34;i&#34;),
+                                                    plt.Integer(ord(&#34;&#39;&#34;)),
+                                                ),
+                                                plt.AppendByteString(
+                                                    plt.ByteString(b&#34;\\&#39;&#34;),
+                                                    plt.Var(&#34;b&#34;),
+                                                ),
+                                                plt.ConsByteString(
+                                                    plt.Var(&#34;i&#34;), plt.Var(&#34;b&#34;)
+                                                ),
+                                            ),
+                                        ),
+                                        plt.Ite(
+                                            plt.EqualsInteger(
+                                                plt.Var(&#34;i&#34;), plt.Integer(ord(&#34;\t&#34;))
+                                            ),
+                                            plt.AppendByteString(
+                                                plt.ByteString(b&#34;\\t&#34;), plt.Var(&#34;b&#34;)
+                                            ),
+                                            plt.Ite(
+                                                plt.EqualsInteger(
+                                                    plt.Var(&#34;i&#34;),
+                                                    plt.Integer(ord(&#34;\n&#34;)),
+                                                ),
+                                                plt.AppendByteString(
+                                                    plt.ByteString(b&#34;\\n&#34;),
+                                                    plt.Var(&#34;b&#34;),
+                                                ),
+                                                plt.Ite(
+                                                    plt.EqualsInteger(
+                                                        plt.Var(&#34;i&#34;),
+                                                        plt.Integer(ord(&#34;\r&#34;)),
+                                                    ),
+                                                    plt.AppendByteString(
+                                                        plt.ByteString(b&#34;\\r&#34;),
+                                                        plt.Var(&#34;b&#34;),
+                                                    ),
+                                                    plt.AppendByteString(
+                                                        plt.ByteString(b&#34;\\x&#34;),
+                                                        plt.ConsByteString(
+                                                            plt.Apply(
+                                                                plt.Var(&#34;map_str&#34;),
+                                                                plt.DivideInteger(
+                                                                    plt.Var(&#34;i&#34;),
+                                                                    plt.Integer(16),
+                                                                ),
+                                                            ),
+                                                            plt.ConsByteString(
+                                                                plt.Apply(
+                                                                    plt.Var(
+                                                                        &#34;map_str&#34;
+                                                                    ),
+                                                                    plt.ModInteger(
+                                                                        plt.Var(
+                                                                            &#34;i&#34;
+                                                                        ),
+                                                                        plt.Integer(
+                                                                            16
+                                                                        ),
+                                                                    ),
+                                                                ),
+                                                                plt.Var(&#34;b&#34;),
+                                                            ),
+                                                        ),
+                                                    ),
+                                                ),
+                                            ),
+                                        ),
+                                    ),
+                                ),
+                                plt.ByteString(b&#34;&#34;),
+                            ),
+                        ),
+                    ),
+                ],
+                plt.ConcatByteString(
+                    plt.ByteString(b&#34;b&#39;&#34;),
+                    plt.Apply(
+                        plt.Var(&#34;mkstr&#34;),
+                        plt.SubtractInteger(
+                            plt.LengthOfByteString(plt.Var(&#34;x&#34;)), plt.Integer(1)
+                        ),
+                    ),
+                    plt.ByteString(b&#34;&#39;&#34;),
+                ),
+            ),
+        ),
+    )</code></pre>
+</details>
+</dd>
 </dl>
 </dd>
 <dt id="opshin.typed_ast.ClassType"><code class="flex name class">
@@ -2353,6 +3843,16 @@ class TypedNodeVisitor(NodeVisitor):
 <code><a title="opshin.typed_ast.Type" href="#opshin.typed_ast.Type">Type</a></code>.<code><a title="opshin.typed_ast.Type.constr_type" href="#opshin.typed_ast.Type.constr_type">constr_type</a></code>
 </p>
 <div class="desc inherited"><p>The type of the constructor for this class</p></div>
+</dd>
+<dt id="opshin.typed_ast.ClassType.stringify"><code class="name flex">
+<span>def <span class="ident">stringify</span></span>(<span>self, recursive: bool = False) ‑> pluthon.pluthon_ast.AST</span>
+</code></dt>
+<dd>
+<p class="inheritance">
+<em>Inherited from:</em>
+<code><a title="opshin.typed_ast.Type" href="#opshin.typed_ast.Type">Type</a></code>.<code><a title="opshin.typed_ast.Type.stringify" href="#opshin.typed_ast.Type.stringify">stringify</a></code>
+</p>
+<div class="desc inherited"><p>Returns a stringified version of the object …</p></div>
 </dd>
 </dl>
 </dd>
@@ -2460,6 +3960,69 @@ class TypedNodeVisitor(NodeVisitor):
             isinstance(other, DictType)
             and self.key_typ &gt;= other.key_typ
             and self.value_typ &gt;= other.value_typ
+        )
+
+    def stringify(self, recursive: bool = False) -&gt; plt.AST:
+        return plt.Lambda(
+            [&#34;self&#34;, &#34;_&#34;],
+            plt.Let(
+                [
+                    (
+                        &#34;g&#34;,
+                        plt.RecFun(
+                            plt.Lambda(
+                                [&#34;f&#34;, &#34;l&#34;],
+                                plt.Let(
+                                    [
+                                        (&#34;h&#34;, plt.HeadList(plt.Var(&#34;l&#34;))),
+                                        (&#34;t&#34;, plt.TailList(plt.Var(&#34;l&#34;))),
+                                    ],
+                                    plt.ConcatString(
+                                        plt.Apply(
+                                            self.key_typ.stringify(recursive=True),
+                                            transform_ext_params_map(self.key_typ)(
+                                                plt.FstPair(plt.Var(&#34;h&#34;))
+                                            ),
+                                            plt.Var(&#34;_&#34;),
+                                        ),
+                                        plt.Text(&#34;: &#34;),
+                                        plt.Apply(
+                                            self.value_typ.stringify(recursive=True),
+                                            transform_ext_params_map(self.value_typ)(
+                                                plt.SndPair(plt.Var(&#34;h&#34;))
+                                            ),
+                                            plt.Var(&#34;_&#34;),
+                                        ),
+                                        plt.IteNullList(
+                                            plt.Var(&#34;t&#34;),
+                                            plt.Text(&#34;}&#34;),
+                                            plt.AppendString(
+                                                plt.Text(&#34;, &#34;),
+                                                plt.Apply(
+                                                    plt.Var(&#34;f&#34;),
+                                                    plt.Var(&#34;f&#34;),
+                                                    plt.Var(&#34;t&#34;),
+                                                ),
+                                            ),
+                                        ),
+                                    ),
+                                ),
+                            )
+                        ),
+                    )
+                ],
+                plt.AppendString(
+                    plt.Text(&#34;{&#34;),
+                    plt.IteNullList(
+                        plt.Var(&#34;self&#34;),
+                        plt.Text(&#34;}&#34;),
+                        plt.Apply(
+                            plt.Var(&#34;g&#34;),
+                            plt.Var(&#34;self&#34;),
+                        ),
+                    ),
+                ),
+            ),
         )</code></pre>
 </details>
 <h3>Ancestors</h3>
@@ -2623,6 +4186,83 @@ class TypedNodeVisitor(NodeVisitor):
 </p>
 <div class="desc inherited"><p>The type of the constructor for this class</p></div>
 </dd>
+<dt id="opshin.typed_ast.DictType.stringify"><code class="name flex">
+<span>def <span class="ident">stringify</span></span>(<span>self, recursive: bool = False) ‑> pluthon.pluthon_ast.AST</span>
+</code></dt>
+<dd>
+<p class="inheritance">
+<em>Inherited from:</em>
+<code><a title="opshin.typed_ast.ClassType" href="#opshin.typed_ast.ClassType">ClassType</a></code>.<code><a title="opshin.typed_ast.ClassType.stringify" href="#opshin.typed_ast.ClassType.stringify">stringify</a></code>
+</p>
+<div class="desc inherited"><p>Returns a stringified version of the object …</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def stringify(self, recursive: bool = False) -&gt; plt.AST:
+    return plt.Lambda(
+        [&#34;self&#34;, &#34;_&#34;],
+        plt.Let(
+            [
+                (
+                    &#34;g&#34;,
+                    plt.RecFun(
+                        plt.Lambda(
+                            [&#34;f&#34;, &#34;l&#34;],
+                            plt.Let(
+                                [
+                                    (&#34;h&#34;, plt.HeadList(plt.Var(&#34;l&#34;))),
+                                    (&#34;t&#34;, plt.TailList(plt.Var(&#34;l&#34;))),
+                                ],
+                                plt.ConcatString(
+                                    plt.Apply(
+                                        self.key_typ.stringify(recursive=True),
+                                        transform_ext_params_map(self.key_typ)(
+                                            plt.FstPair(plt.Var(&#34;h&#34;))
+                                        ),
+                                        plt.Var(&#34;_&#34;),
+                                    ),
+                                    plt.Text(&#34;: &#34;),
+                                    plt.Apply(
+                                        self.value_typ.stringify(recursive=True),
+                                        transform_ext_params_map(self.value_typ)(
+                                            plt.SndPair(plt.Var(&#34;h&#34;))
+                                        ),
+                                        plt.Var(&#34;_&#34;),
+                                    ),
+                                    plt.IteNullList(
+                                        plt.Var(&#34;t&#34;),
+                                        plt.Text(&#34;}&#34;),
+                                        plt.AppendString(
+                                            plt.Text(&#34;, &#34;),
+                                            plt.Apply(
+                                                plt.Var(&#34;f&#34;),
+                                                plt.Var(&#34;f&#34;),
+                                                plt.Var(&#34;t&#34;),
+                                            ),
+                                        ),
+                                    ),
+                                ),
+                            ),
+                        )
+                    ),
+                )
+            ],
+            plt.AppendString(
+                plt.Text(&#34;{&#34;),
+                plt.IteNullList(
+                    plt.Var(&#34;self&#34;),
+                    plt.Text(&#34;}&#34;),
+                    plt.Apply(
+                        plt.Var(&#34;g&#34;),
+                        plt.Var(&#34;self&#34;),
+                    ),
+                ),
+            ),
+        ),
+    )</code></pre>
+</details>
+</dd>
 </dl>
 </dd>
 <dt id="opshin.typed_ast.FunctionType"><code class="flex name class">
@@ -2644,7 +4284,10 @@ class TypedNodeVisitor(NodeVisitor):
             isinstance(other, FunctionType)
             and all(a &gt;= oa for a, oa in zip(self.argtyps, other.argtyps))
             and other.rettyp &gt;= self.rettyp
-        )</code></pre>
+        )
+
+    def stringify(self, recursive: bool = False) -&gt; plt.AST:
+        return plt.Lambda([&#34;x&#34;, &#34;_&#34;], plt.Text(&#34;&lt;function&gt;&#34;))</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -2713,6 +4356,23 @@ class TypedNodeVisitor(NodeVisitor):
 <code><a title="opshin.typed_ast.ClassType" href="#opshin.typed_ast.ClassType">ClassType</a></code>.<code><a title="opshin.typed_ast.ClassType.constr_type" href="#opshin.typed_ast.ClassType.constr_type">constr_type</a></code>
 </p>
 <div class="desc inherited"><p>The type of the constructor for this class</p></div>
+</dd>
+<dt id="opshin.typed_ast.FunctionType.stringify"><code class="name flex">
+<span>def <span class="ident">stringify</span></span>(<span>self, recursive: bool = False) ‑> pluthon.pluthon_ast.AST</span>
+</code></dt>
+<dd>
+<p class="inheritance">
+<em>Inherited from:</em>
+<code><a title="opshin.typed_ast.ClassType" href="#opshin.typed_ast.ClassType">ClassType</a></code>.<code><a title="opshin.typed_ast.ClassType.stringify" href="#opshin.typed_ast.ClassType.stringify">stringify</a></code>
+</p>
+<div class="desc inherited"><p>Returns a stringified version of the object …</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def stringify(self, recursive: bool = False) -&gt; plt.AST:
+    return plt.Lambda([&#34;x&#34;, &#34;_&#34;], plt.Text(&#34;&lt;function&gt;&#34;))</code></pre>
+</details>
 </dd>
 </dl>
 </dd>
@@ -2787,6 +4447,16 @@ class TypedNodeVisitor(NodeVisitor):
 </p>
 <div class="desc inherited"><p>The type of the constructor for this class</p></div>
 </dd>
+<dt id="opshin.typed_ast.InaccessibleType.stringify"><code class="name flex">
+<span>def <span class="ident">stringify</span></span>(<span>self, recursive: bool = False) ‑> pluthon.pluthon_ast.AST</span>
+</code></dt>
+<dd>
+<p class="inheritance">
+<em>Inherited from:</em>
+<code><a title="opshin.typed_ast.ClassType" href="#opshin.typed_ast.ClassType">ClassType</a></code>.<code><a title="opshin.typed_ast.ClassType.stringify" href="#opshin.typed_ast.ClassType.stringify">stringify</a></code>
+</p>
+<div class="desc inherited"><p>Returns a stringified version of the object …</p></div>
+</dd>
 </dl>
 </dd>
 <dt id="opshin.typed_ast.InstanceType"><code class="flex name class">
@@ -2821,7 +4491,10 @@ class TypedNodeVisitor(NodeVisitor):
         return super().cmp(op, o)
 
     def __ge__(self, other):
-        return isinstance(other, InstanceType) and self.typ &gt;= other.typ</code></pre>
+        return isinstance(other, InstanceType) and self.typ &gt;= other.typ
+
+    def stringify(self, recursive: bool = False) -&gt; plt.AST:
+        return self.typ.stringify(recursive=recursive)</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -2926,6 +4599,23 @@ class TypedNodeVisitor(NodeVisitor):
 </summary>
 <pre><code class="python">def constr_type(self) -&gt; FunctionType:
     raise TypeInferenceError(f&#34;Can not construct an instance {self}&#34;)</code></pre>
+</details>
+</dd>
+<dt id="opshin.typed_ast.InstanceType.stringify"><code class="name flex">
+<span>def <span class="ident">stringify</span></span>(<span>self, recursive: bool = False) ‑> pluthon.pluthon_ast.AST</span>
+</code></dt>
+<dd>
+<p class="inheritance">
+<em>Inherited from:</em>
+<code><a title="opshin.typed_ast.Type" href="#opshin.typed_ast.Type">Type</a></code>.<code><a title="opshin.typed_ast.Type.stringify" href="#opshin.typed_ast.Type.stringify">stringify</a></code>
+</p>
+<div class="desc inherited"><p>Returns a stringified version of the object …</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def stringify(self, recursive: bool = False) -&gt; plt.AST:
+    return self.typ.stringify(recursive=recursive)</code></pre>
 </details>
 </dd>
 </dl>
@@ -3102,7 +4792,73 @@ class TypedNodeVisitor(NodeVisitor):
                         ),
                     ),
                 )
-        return super().cmp(op, o)</code></pre>
+        return super().cmp(op, o)
+
+    def stringify(self, recursive: bool = False) -&gt; plt.AST:
+        return plt.Lambda(
+            [&#34;x&#34;, &#34;_&#34;],
+            plt.DecodeUtf8(
+                plt.Let(
+                    [
+                        (
+                            &#34;strlist&#34;,
+                            plt.RecFun(
+                                plt.Lambda(
+                                    [&#34;f&#34;, &#34;i&#34;],
+                                    plt.Ite(
+                                        plt.LessThanEqualsInteger(
+                                            plt.Var(&#34;i&#34;), plt.Integer(0)
+                                        ),
+                                        plt.EmptyIntegerList(),
+                                        plt.MkCons(
+                                            plt.AddInteger(
+                                                plt.ModInteger(
+                                                    plt.Var(&#34;i&#34;), plt.Integer(10)
+                                                ),
+                                                plt.Integer(ord(&#34;0&#34;)),
+                                            ),
+                                            plt.Apply(
+                                                plt.Var(&#34;f&#34;),
+                                                plt.Var(&#34;f&#34;),
+                                                plt.DivideInteger(
+                                                    plt.Var(&#34;i&#34;), plt.Integer(10)
+                                                ),
+                                            ),
+                                        ),
+                                    ),
+                                ),
+                            ),
+                        ),
+                        (
+                            &#34;mkstr&#34;,
+                            plt.Lambda(
+                                [&#34;i&#34;],
+                                plt.FoldList(
+                                    plt.Apply(plt.Var(&#34;strlist&#34;), plt.Var(&#34;i&#34;)),
+                                    plt.Lambda(
+                                        [&#34;b&#34;, &#34;i&#34;],
+                                        plt.ConsByteString(plt.Var(&#34;i&#34;), plt.Var(&#34;b&#34;)),
+                                    ),
+                                    plt.ByteString(b&#34;&#34;),
+                                ),
+                            ),
+                        ),
+                    ],
+                    plt.Ite(
+                        plt.EqualsInteger(plt.Var(&#34;x&#34;), plt.Integer(0)),
+                        plt.ByteString(b&#34;0&#34;),
+                        plt.Ite(
+                            plt.LessThanInteger(plt.Var(&#34;x&#34;), plt.Integer(0)),
+                            plt.ConsByteString(
+                                plt.Integer(ord(&#34;-&#34;)),
+                                plt.Apply(plt.Var(&#34;mkstr&#34;), plt.Negate(plt.Var(&#34;x&#34;))),
+                            ),
+                            plt.Apply(plt.Var(&#34;mkstr&#34;), plt.Var(&#34;x&#34;)),
+                        ),
+                    ),
+                )
+            ),
+        )</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -3338,6 +5094,86 @@ class TypedNodeVisitor(NodeVisitor):
     return InstanceType(FunctionType([StringInstanceType], InstanceType(self)))</code></pre>
 </details>
 </dd>
+<dt id="opshin.typed_ast.IntegerType.stringify"><code class="name flex">
+<span>def <span class="ident">stringify</span></span>(<span>self, recursive: bool = False) ‑> pluthon.pluthon_ast.AST</span>
+</code></dt>
+<dd>
+<p class="inheritance">
+<em>Inherited from:</em>
+<code><a title="opshin.typed_ast.AtomicType" href="#opshin.typed_ast.AtomicType">AtomicType</a></code>.<code><a title="opshin.typed_ast.AtomicType.stringify" href="#opshin.typed_ast.AtomicType.stringify">stringify</a></code>
+</p>
+<div class="desc inherited"><p>Returns a stringified version of the object …</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def stringify(self, recursive: bool = False) -&gt; plt.AST:
+    return plt.Lambda(
+        [&#34;x&#34;, &#34;_&#34;],
+        plt.DecodeUtf8(
+            plt.Let(
+                [
+                    (
+                        &#34;strlist&#34;,
+                        plt.RecFun(
+                            plt.Lambda(
+                                [&#34;f&#34;, &#34;i&#34;],
+                                plt.Ite(
+                                    plt.LessThanEqualsInteger(
+                                        plt.Var(&#34;i&#34;), plt.Integer(0)
+                                    ),
+                                    plt.EmptyIntegerList(),
+                                    plt.MkCons(
+                                        plt.AddInteger(
+                                            plt.ModInteger(
+                                                plt.Var(&#34;i&#34;), plt.Integer(10)
+                                            ),
+                                            plt.Integer(ord(&#34;0&#34;)),
+                                        ),
+                                        plt.Apply(
+                                            plt.Var(&#34;f&#34;),
+                                            plt.Var(&#34;f&#34;),
+                                            plt.DivideInteger(
+                                                plt.Var(&#34;i&#34;), plt.Integer(10)
+                                            ),
+                                        ),
+                                    ),
+                                ),
+                            ),
+                        ),
+                    ),
+                    (
+                        &#34;mkstr&#34;,
+                        plt.Lambda(
+                            [&#34;i&#34;],
+                            plt.FoldList(
+                                plt.Apply(plt.Var(&#34;strlist&#34;), plt.Var(&#34;i&#34;)),
+                                plt.Lambda(
+                                    [&#34;b&#34;, &#34;i&#34;],
+                                    plt.ConsByteString(plt.Var(&#34;i&#34;), plt.Var(&#34;b&#34;)),
+                                ),
+                                plt.ByteString(b&#34;&#34;),
+                            ),
+                        ),
+                    ),
+                ],
+                plt.Ite(
+                    plt.EqualsInteger(plt.Var(&#34;x&#34;), plt.Integer(0)),
+                    plt.ByteString(b&#34;0&#34;),
+                    plt.Ite(
+                        plt.LessThanInteger(plt.Var(&#34;x&#34;), plt.Integer(0)),
+                        plt.ConsByteString(
+                            plt.Integer(ord(&#34;-&#34;)),
+                            plt.Apply(plt.Var(&#34;mkstr&#34;), plt.Negate(plt.Var(&#34;x&#34;))),
+                        ),
+                        plt.Apply(plt.Var(&#34;mkstr&#34;), plt.Var(&#34;x&#34;)),
+                    ),
+                ),
+            )
+        ),
+    )</code></pre>
+</details>
+</dd>
 </dl>
 </dd>
 <dt id="opshin.typed_ast.ListType"><code class="flex name class">
@@ -3354,7 +5190,57 @@ class TypedNodeVisitor(NodeVisitor):
     typ: Type
 
     def __ge__(self, other):
-        return isinstance(other, ListType) and self.typ &gt;= other.typ</code></pre>
+        return isinstance(other, ListType) and self.typ &gt;= other.typ
+
+    def stringify(self, recursive: bool = False) -&gt; plt.AST:
+        return plt.Lambda(
+            [&#34;self&#34;, &#34;_&#34;],
+            plt.Let(
+                [
+                    (
+                        &#34;g&#34;,
+                        plt.RecFun(
+                            plt.Lambda(
+                                [&#34;f&#34;, &#34;l&#34;],
+                                plt.AppendString(
+                                    plt.Apply(
+                                        self.typ.stringify(recursive=True),
+                                        plt.HeadList(plt.Var(&#34;l&#34;)),
+                                        plt.Var(&#34;_&#34;),
+                                    ),
+                                    plt.Let(
+                                        [(&#34;t&#34;, plt.TailList(plt.Var(&#34;l&#34;)))],
+                                        plt.IteNullList(
+                                            plt.Var(&#34;t&#34;),
+                                            plt.Text(&#34;]&#34;),
+                                            plt.AppendString(
+                                                plt.Text(&#34;, &#34;),
+                                                plt.Apply(
+                                                    plt.Var(&#34;f&#34;),
+                                                    plt.Var(&#34;f&#34;),
+                                                    plt.Var(&#34;t&#34;),
+                                                ),
+                                            ),
+                                        ),
+                                    ),
+                                ),
+                            )
+                        ),
+                    )
+                ],
+                plt.AppendString(
+                    plt.Text(&#34;[&#34;),
+                    plt.IteNullList(
+                        plt.Var(&#34;self&#34;),
+                        plt.Text(&#34;]&#34;),
+                        plt.Apply(
+                            plt.Var(&#34;g&#34;),
+                            plt.Var(&#34;self&#34;),
+                        ),
+                    ),
+                ),
+            ),
+        )</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -3420,6 +5306,70 @@ class TypedNodeVisitor(NodeVisitor):
 </p>
 <div class="desc inherited"><p>The type of the constructor for this class</p></div>
 </dd>
+<dt id="opshin.typed_ast.ListType.stringify"><code class="name flex">
+<span>def <span class="ident">stringify</span></span>(<span>self, recursive: bool = False) ‑> pluthon.pluthon_ast.AST</span>
+</code></dt>
+<dd>
+<p class="inheritance">
+<em>Inherited from:</em>
+<code><a title="opshin.typed_ast.ClassType" href="#opshin.typed_ast.ClassType">ClassType</a></code>.<code><a title="opshin.typed_ast.ClassType.stringify" href="#opshin.typed_ast.ClassType.stringify">stringify</a></code>
+</p>
+<div class="desc inherited"><p>Returns a stringified version of the object …</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def stringify(self, recursive: bool = False) -&gt; plt.AST:
+    return plt.Lambda(
+        [&#34;self&#34;, &#34;_&#34;],
+        plt.Let(
+            [
+                (
+                    &#34;g&#34;,
+                    plt.RecFun(
+                        plt.Lambda(
+                            [&#34;f&#34;, &#34;l&#34;],
+                            plt.AppendString(
+                                plt.Apply(
+                                    self.typ.stringify(recursive=True),
+                                    plt.HeadList(plt.Var(&#34;l&#34;)),
+                                    plt.Var(&#34;_&#34;),
+                                ),
+                                plt.Let(
+                                    [(&#34;t&#34;, plt.TailList(plt.Var(&#34;l&#34;)))],
+                                    plt.IteNullList(
+                                        plt.Var(&#34;t&#34;),
+                                        plt.Text(&#34;]&#34;),
+                                        plt.AppendString(
+                                            plt.Text(&#34;, &#34;),
+                                            plt.Apply(
+                                                plt.Var(&#34;f&#34;),
+                                                plt.Var(&#34;f&#34;),
+                                                plt.Var(&#34;t&#34;),
+                                            ),
+                                        ),
+                                    ),
+                                ),
+                            ),
+                        )
+                    ),
+                )
+            ],
+            plt.AppendString(
+                plt.Text(&#34;[&#34;),
+                plt.IteNullList(
+                    plt.Var(&#34;self&#34;),
+                    plt.Text(&#34;]&#34;),
+                    plt.Apply(
+                        plt.Var(&#34;g&#34;),
+                        plt.Var(&#34;self&#34;),
+                    ),
+                ),
+            ),
+        ),
+    )</code></pre>
+</details>
+</dd>
 </dl>
 </dd>
 <dt id="opshin.typed_ast.PairType"><code class="flex name class">
@@ -3442,6 +5392,25 @@ class TypedNodeVisitor(NodeVisitor):
         return isinstance(other, PairType) and all(
             t &gt;= ot
             for t, ot in zip((self.l_typ, self.r_typ), (other.l_typ, other.r_typ))
+        )
+
+    def stringify(self, recursive: bool = False) -&gt; plt.AST:
+        tuple_content = plt.ConcatString(
+            plt.Apply(
+                self.l_typ.stringify(recursive=True),
+                transform_ext_params_map(self.l_typ)(plt.FstPair(plt.Var(&#34;self&#34;))),
+                plt.Var(&#34;_&#34;),
+            ),
+            plt.Text(&#34;, &#34;),
+            plt.Apply(
+                self.r_typ.stringify(recursive=True),
+                transform_ext_params_map(self.r_typ)(plt.SndPair(plt.Var(&#34;self&#34;))),
+                plt.Var(&#34;_&#34;),
+            ),
+        )
+        return plt.Lambda(
+            [&#34;self&#34;, &#34;_&#34;],
+            plt.ConcatString(plt.Text(&#34;(&#34;), tuple_content, plt.Text(&#34;)&#34;)),
         )</code></pre>
 </details>
 <h3>Ancestors</h3>
@@ -3512,6 +5481,39 @@ class TypedNodeVisitor(NodeVisitor):
 </p>
 <div class="desc inherited"><p>The type of the constructor for this class</p></div>
 </dd>
+<dt id="opshin.typed_ast.PairType.stringify"><code class="name flex">
+<span>def <span class="ident">stringify</span></span>(<span>self, recursive: bool = False) ‑> pluthon.pluthon_ast.AST</span>
+</code></dt>
+<dd>
+<p class="inheritance">
+<em>Inherited from:</em>
+<code><a title="opshin.typed_ast.ClassType" href="#opshin.typed_ast.ClassType">ClassType</a></code>.<code><a title="opshin.typed_ast.ClassType.stringify" href="#opshin.typed_ast.ClassType.stringify">stringify</a></code>
+</p>
+<div class="desc inherited"><p>Returns a stringified version of the object …</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def stringify(self, recursive: bool = False) -&gt; plt.AST:
+    tuple_content = plt.ConcatString(
+        plt.Apply(
+            self.l_typ.stringify(recursive=True),
+            transform_ext_params_map(self.l_typ)(plt.FstPair(plt.Var(&#34;self&#34;))),
+            plt.Var(&#34;_&#34;),
+        ),
+        plt.Text(&#34;, &#34;),
+        plt.Apply(
+            self.r_typ.stringify(recursive=True),
+            transform_ext_params_map(self.r_typ)(plt.SndPair(plt.Var(&#34;self&#34;))),
+            plt.Var(&#34;_&#34;),
+        ),
+    )
+    return plt.Lambda(
+        [&#34;self&#34;, &#34;_&#34;],
+        plt.ConcatString(plt.Text(&#34;(&#34;), tuple_content, plt.Text(&#34;)&#34;)),
+    )</code></pre>
+</details>
+</dd>
 </dl>
 </dd>
 <dt id="opshin.typed_ast.PolymorphicFunction"><code class="flex name class">
@@ -3532,7 +5534,9 @@ class TypedNodeVisitor(NodeVisitor):
 </details>
 <h3>Subclasses</h3>
 <ul class="hlist">
+<li><a title="opshin.typed_ast.StrImpl" href="#opshin.typed_ast.StrImpl">StrImpl</a></li>
 <li><a title="opshin.util.LenImpl" href="util.html#opshin.util.LenImpl">LenImpl</a></li>
+<li><a title="opshin.util.PrintImpl" href="util.html#opshin.util.PrintImpl">PrintImpl</a></li>
 <li><a title="opshin.util.ReversedImpl" href="util.html#opshin.util.ReversedImpl">ReversedImpl</a></li>
 </ul>
 <h3>Methods</h3>
@@ -3647,6 +5651,16 @@ class TypedNodeVisitor(NodeVisitor):
 </p>
 <div class="desc inherited"><p>The type of the constructor for this class</p></div>
 </dd>
+<dt id="opshin.typed_ast.PolymorphicFunctionInstanceType.stringify"><code class="name flex">
+<span>def <span class="ident">stringify</span></span>(<span>self, recursive: bool = False) ‑> pluthon.pluthon_ast.AST</span>
+</code></dt>
+<dd>
+<p class="inheritance">
+<em>Inherited from:</em>
+<code><a title="opshin.typed_ast.InstanceType" href="#opshin.typed_ast.InstanceType">InstanceType</a></code>.<code><a title="opshin.typed_ast.InstanceType.stringify" href="#opshin.typed_ast.InstanceType.stringify">stringify</a></code>
+</p>
+<div class="desc inherited"><p>Returns a stringified version of the object …</p></div>
+</dd>
 </dl>
 </dd>
 <dt id="opshin.typed_ast.PolymorphicFunctionType"><code class="flex name class">
@@ -3727,6 +5741,16 @@ class TypedNodeVisitor(NodeVisitor):
 <code><a title="opshin.typed_ast.ClassType" href="#opshin.typed_ast.ClassType">ClassType</a></code>.<code><a title="opshin.typed_ast.ClassType.constr_type" href="#opshin.typed_ast.ClassType.constr_type">constr_type</a></code>
 </p>
 <div class="desc inherited"><p>The type of the constructor for this class</p></div>
+</dd>
+<dt id="opshin.typed_ast.PolymorphicFunctionType.stringify"><code class="name flex">
+<span>def <span class="ident">stringify</span></span>(<span>self, recursive: bool = False) ‑> pluthon.pluthon_ast.AST</span>
+</code></dt>
+<dd>
+<p class="inheritance">
+<em>Inherited from:</em>
+<code><a title="opshin.typed_ast.ClassType" href="#opshin.typed_ast.ClassType">ClassType</a></code>.<code><a title="opshin.typed_ast.ClassType.stringify" href="#opshin.typed_ast.ClassType.stringify">stringify</a></code>
+</p>
+<div class="desc inherited"><p>Returns a stringified version of the object …</p></div>
 </dd>
 </dl>
 </dd>
@@ -3929,7 +5953,42 @@ class TypedNodeVisitor(NodeVisitor):
     def __ge__(self, other):
         # Can only substitute for its own type, records need to be equal
         # if someone wants to be funny, they can implement &lt;= to be true if all fields match up to some point
-        return isinstance(other, self.__class__) and self.record &gt;= other.record</code></pre>
+        return isinstance(other, self.__class__) and self.record &gt;= other.record
+
+    def stringify(self, recursive: bool = False) -&gt; plt.AST:
+        &#34;&#34;&#34;Returns a stringified version of the object&#34;&#34;&#34;
+        map_fields = plt.Text(&#34;)&#34;)
+        if self.record.fields:
+            # TODO access to fields is a bit inefficient but this is debugging stuff only anyways
+            pos = len(self.record.fields) - 1
+            for field_name, field_type in reversed(self.record.fields[1:]):
+                map_fields = plt.ConcatString(
+                    plt.Text(f&#34;, {field_name}=&#34;),
+                    plt.Apply(
+                        field_type.stringify(recursive=True),
+                        transform_ext_params_map(field_type)(
+                            plt.NthField(plt.Var(&#34;self&#34;), plt.Integer(pos))
+                        ),
+                        plt.Var(&#34;_&#34;),
+                    ),
+                    map_fields,
+                )
+                pos -= 1
+            map_fields = plt.ConcatString(
+                plt.Text(f&#34;{self.record.fields[0][0]}=&#34;),
+                plt.Apply(
+                    self.record.fields[0][1].stringify(recursive=True),
+                    transform_ext_params_map(self.record.fields[0][1])(
+                        plt.NthField(plt.Var(&#34;self&#34;), plt.Integer(pos))
+                    ),
+                    plt.Var(&#34;_&#34;),
+                ),
+                map_fields,
+            )
+        return plt.Lambda(
+            [&#34;self&#34;, &#34;_&#34;],
+            plt.AppendString(plt.Text(f&#34;{self.record.name}(&#34;), map_fields),
+        )</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -4121,6 +6180,115 @@ class TypedNodeVisitor(NodeVisitor):
     )</code></pre>
 </details>
 </dd>
+<dt id="opshin.typed_ast.RecordType.stringify"><code class="name flex">
+<span>def <span class="ident">stringify</span></span>(<span>self, recursive: bool = False) ‑> pluthon.pluthon_ast.AST</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Returns a stringified version of the object</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def stringify(self, recursive: bool = False) -&gt; plt.AST:
+    &#34;&#34;&#34;Returns a stringified version of the object&#34;&#34;&#34;
+    map_fields = plt.Text(&#34;)&#34;)
+    if self.record.fields:
+        # TODO access to fields is a bit inefficient but this is debugging stuff only anyways
+        pos = len(self.record.fields) - 1
+        for field_name, field_type in reversed(self.record.fields[1:]):
+            map_fields = plt.ConcatString(
+                plt.Text(f&#34;, {field_name}=&#34;),
+                plt.Apply(
+                    field_type.stringify(recursive=True),
+                    transform_ext_params_map(field_type)(
+                        plt.NthField(plt.Var(&#34;self&#34;), plt.Integer(pos))
+                    ),
+                    plt.Var(&#34;_&#34;),
+                ),
+                map_fields,
+            )
+            pos -= 1
+        map_fields = plt.ConcatString(
+            plt.Text(f&#34;{self.record.fields[0][0]}=&#34;),
+            plt.Apply(
+                self.record.fields[0][1].stringify(recursive=True),
+                transform_ext_params_map(self.record.fields[0][1])(
+                    plt.NthField(plt.Var(&#34;self&#34;), plt.Integer(pos))
+                ),
+                plt.Var(&#34;_&#34;),
+            ),
+            map_fields,
+        )
+    return plt.Lambda(
+        [&#34;self&#34;, &#34;_&#34;],
+        plt.AppendString(plt.Text(f&#34;{self.record.name}(&#34;), map_fields),
+    )</code></pre>
+</details>
+</dd>
+</dl>
+</dd>
+<dt id="opshin.typed_ast.StrImpl"><code class="flex name class">
+<span>class <span class="ident">StrImpl</span></span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class StrImpl(PolymorphicFunction):
+    def type_from_args(self, args: typing.List[Type]) -&gt; FunctionType:
+        assert (
+            len(args) == 1
+        ), f&#34;&#39;str&#39; takes only one argument, but {len(args)} were given&#34;
+        typ = args[0]
+        assert isinstance(typ, InstanceType), &#34;Can only stringify instances&#34;
+        return FunctionType(args, StringInstanceType)
+
+    def impl_from_args(self, args: typing.List[Type]) -&gt; plt.AST:
+        arg = args[0]
+        assert isinstance(arg, InstanceType), &#34;Can only stringify instances&#34;
+        return arg.typ.stringify()</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li><a title="opshin.typed_ast.PolymorphicFunction" href="#opshin.typed_ast.PolymorphicFunction">PolymorphicFunction</a></li>
+</ul>
+<h3>Methods</h3>
+<dl>
+<dt id="opshin.typed_ast.StrImpl.impl_from_args"><code class="name flex">
+<span>def <span class="ident">impl_from_args</span></span>(<span>self, args: List[<a title="opshin.typed_ast.Type" href="#opshin.typed_ast.Type">Type</a>]) ‑> pluthon.pluthon_ast.AST</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def impl_from_args(self, args: typing.List[Type]) -&gt; plt.AST:
+    arg = args[0]
+    assert isinstance(arg, InstanceType), &#34;Can only stringify instances&#34;
+    return arg.typ.stringify()</code></pre>
+</details>
+</dd>
+<dt id="opshin.typed_ast.StrImpl.type_from_args"><code class="name flex">
+<span>def <span class="ident">type_from_args</span></span>(<span>self, args: List[<a title="opshin.typed_ast.Type" href="#opshin.typed_ast.Type">Type</a>]) ‑> <a title="opshin.typed_ast.FunctionType" href="#opshin.typed_ast.FunctionType">FunctionType</a></span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def type_from_args(self, args: typing.List[Type]) -&gt; FunctionType:
+    assert (
+        len(args) == 1
+    ), f&#34;&#39;str&#39; takes only one argument, but {len(args)} were given&#34;
+    typ = args[0]
+    assert isinstance(typ, InstanceType), &#34;Can only stringify instances&#34;
+    return FunctionType(args, StringInstanceType)</code></pre>
+</details>
+</dd>
 </dl>
 </dd>
 <dt id="opshin.typed_ast.StringType"><code class="flex name class">
@@ -4134,74 +6302,10 @@ class TypedNodeVisitor(NodeVisitor):
 </summary>
 <pre><code class="python">class StringType(AtomicType):
     def constr_type(self) -&gt; InstanceType:
-        return InstanceType(FunctionType([IntegerInstanceType], InstanceType(self)))
+        return InstanceType(PolymorphicFunctionType(StrImpl()))
 
     def constr(self) -&gt; plt.AST:
-        # constructs a string representation of an integer
-        return plt.Lambda(
-            [&#34;x&#34;, &#34;_&#34;],
-            plt.DecodeUtf8(
-                plt.Let(
-                    [
-                        (
-                            &#34;strlist&#34;,
-                            plt.RecFun(
-                                plt.Lambda(
-                                    [&#34;f&#34;, &#34;i&#34;],
-                                    plt.Ite(
-                                        plt.LessThanEqualsInteger(
-                                            plt.Var(&#34;i&#34;), plt.Integer(0)
-                                        ),
-                                        plt.EmptyIntegerList(),
-                                        plt.MkCons(
-                                            plt.AddInteger(
-                                                plt.ModInteger(
-                                                    plt.Var(&#34;i&#34;), plt.Integer(10)
-                                                ),
-                                                plt.Integer(ord(&#34;0&#34;)),
-                                            ),
-                                            plt.Apply(
-                                                plt.Var(&#34;f&#34;),
-                                                plt.Var(&#34;f&#34;),
-                                                plt.DivideInteger(
-                                                    plt.Var(&#34;i&#34;), plt.Integer(10)
-                                                ),
-                                            ),
-                                        ),
-                                    ),
-                                ),
-                            ),
-                        ),
-                        (
-                            &#34;mkstr&#34;,
-                            plt.Lambda(
-                                [&#34;i&#34;],
-                                plt.FoldList(
-                                    plt.Apply(plt.Var(&#34;strlist&#34;), plt.Var(&#34;i&#34;)),
-                                    plt.Lambda(
-                                        [&#34;b&#34;, &#34;i&#34;],
-                                        plt.ConsByteString(plt.Var(&#34;i&#34;), plt.Var(&#34;b&#34;)),
-                                    ),
-                                    plt.ByteString(b&#34;&#34;),
-                                ),
-                            ),
-                        ),
-                    ],
-                    plt.Ite(
-                        plt.EqualsInteger(plt.Var(&#34;x&#34;), plt.Integer(0)),
-                        plt.ByteString(b&#34;0&#34;),
-                        plt.Ite(
-                            plt.LessThanInteger(plt.Var(&#34;x&#34;), plt.Integer(0)),
-                            plt.ConsByteString(
-                                plt.Integer(ord(&#34;-&#34;)),
-                                plt.Apply(plt.Var(&#34;mkstr&#34;), plt.Negate(plt.Var(&#34;x&#34;))),
-                            ),
-                            plt.Apply(plt.Var(&#34;mkstr&#34;), plt.Var(&#34;x&#34;)),
-                        ),
-                    ),
-                )
-            ),
-        )
+        return InstanceType(PolymorphicFunctionType(StrImpl()))
 
     def attribute_type(self, attr) -&gt; Type:
         if attr == &#34;encode&#34;:
@@ -4218,7 +6322,17 @@ class TypedNodeVisitor(NodeVisitor):
         if isinstance(o, StringType):
             if isinstance(op, Eq):
                 return plt.BuiltIn(uplc.BuiltInFun.EqualsString)
-        return super().cmp(op, o)</code></pre>
+        return super().cmp(op, o)
+
+    def stringify(self, recursive: bool = False) -&gt; plt.AST:
+        if recursive:
+            # TODO this is not correct, as the string is not properly escaped
+            return plt.Lambda(
+                [&#34;self&#34;, &#34;_&#34;],
+                plt.ConcatString(plt.Text(&#34;&#39;&#34;), plt.Var(&#34;self&#34;), plt.Text(&#34;&#39;&#34;)),
+            )
+        else:
+            return plt.Lambda([&#34;self&#34;, &#34;_&#34;], plt.Var(&#34;self&#34;))</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -4301,71 +6415,7 @@ class TypedNodeVisitor(NodeVisitor):
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def constr(self) -&gt; plt.AST:
-    # constructs a string representation of an integer
-    return plt.Lambda(
-        [&#34;x&#34;, &#34;_&#34;],
-        plt.DecodeUtf8(
-            plt.Let(
-                [
-                    (
-                        &#34;strlist&#34;,
-                        plt.RecFun(
-                            plt.Lambda(
-                                [&#34;f&#34;, &#34;i&#34;],
-                                plt.Ite(
-                                    plt.LessThanEqualsInteger(
-                                        plt.Var(&#34;i&#34;), plt.Integer(0)
-                                    ),
-                                    plt.EmptyIntegerList(),
-                                    plt.MkCons(
-                                        plt.AddInteger(
-                                            plt.ModInteger(
-                                                plt.Var(&#34;i&#34;), plt.Integer(10)
-                                            ),
-                                            plt.Integer(ord(&#34;0&#34;)),
-                                        ),
-                                        plt.Apply(
-                                            plt.Var(&#34;f&#34;),
-                                            plt.Var(&#34;f&#34;),
-                                            plt.DivideInteger(
-                                                plt.Var(&#34;i&#34;), plt.Integer(10)
-                                            ),
-                                        ),
-                                    ),
-                                ),
-                            ),
-                        ),
-                    ),
-                    (
-                        &#34;mkstr&#34;,
-                        plt.Lambda(
-                            [&#34;i&#34;],
-                            plt.FoldList(
-                                plt.Apply(plt.Var(&#34;strlist&#34;), plt.Var(&#34;i&#34;)),
-                                plt.Lambda(
-                                    [&#34;b&#34;, &#34;i&#34;],
-                                    plt.ConsByteString(plt.Var(&#34;i&#34;), plt.Var(&#34;b&#34;)),
-                                ),
-                                plt.ByteString(b&#34;&#34;),
-                            ),
-                        ),
-                    ),
-                ],
-                plt.Ite(
-                    plt.EqualsInteger(plt.Var(&#34;x&#34;), plt.Integer(0)),
-                    plt.ByteString(b&#34;0&#34;),
-                    plt.Ite(
-                        plt.LessThanInteger(plt.Var(&#34;x&#34;), plt.Integer(0)),
-                        plt.ConsByteString(
-                            plt.Integer(ord(&#34;-&#34;)),
-                            plt.Apply(plt.Var(&#34;mkstr&#34;), plt.Negate(plt.Var(&#34;x&#34;))),
-                        ),
-                        plt.Apply(plt.Var(&#34;mkstr&#34;), plt.Var(&#34;x&#34;)),
-                    ),
-                ),
-            )
-        ),
-    )</code></pre>
+    return InstanceType(PolymorphicFunctionType(StrImpl()))</code></pre>
 </details>
 </dd>
 <dt id="opshin.typed_ast.StringType.constr_type"><code class="name flex">
@@ -4382,7 +6432,31 @@ class TypedNodeVisitor(NodeVisitor):
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def constr_type(self) -&gt; InstanceType:
-    return InstanceType(FunctionType([IntegerInstanceType], InstanceType(self)))</code></pre>
+    return InstanceType(PolymorphicFunctionType(StrImpl()))</code></pre>
+</details>
+</dd>
+<dt id="opshin.typed_ast.StringType.stringify"><code class="name flex">
+<span>def <span class="ident">stringify</span></span>(<span>self, recursive: bool = False) ‑> pluthon.pluthon_ast.AST</span>
+</code></dt>
+<dd>
+<p class="inheritance">
+<em>Inherited from:</em>
+<code><a title="opshin.typed_ast.AtomicType" href="#opshin.typed_ast.AtomicType">AtomicType</a></code>.<code><a title="opshin.typed_ast.AtomicType.stringify" href="#opshin.typed_ast.AtomicType.stringify">stringify</a></code>
+</p>
+<div class="desc inherited"><p>Returns a stringified version of the object …</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def stringify(self, recursive: bool = False) -&gt; plt.AST:
+    if recursive:
+        # TODO this is not correct, as the string is not properly escaped
+        return plt.Lambda(
+            [&#34;self&#34;, &#34;_&#34;],
+            plt.ConcatString(plt.Text(&#34;&#39;&#34;), plt.Var(&#34;self&#34;), plt.Text(&#34;&#39;&#34;)),
+        )
+    else:
+        return plt.Lambda([&#34;self&#34;, &#34;_&#34;], plt.Var(&#34;self&#34;))</code></pre>
 </details>
 </dd>
 </dl>
@@ -4403,6 +6477,44 @@ class TypedNodeVisitor(NodeVisitor):
     def __ge__(self, other):
         return isinstance(other, TupleType) and all(
             t &gt;= ot for t, ot in zip(self.typs, other.typs)
+        )
+
+    def stringify(self, recursive: bool = False) -&gt; plt.AST:
+        if not self.typs:
+            return plt.Lambda(
+                [&#34;self&#34;, &#34;_&#34;],
+                plt.Text(&#34;()&#34;),
+            )
+        elif len(self.typs) == 1:
+            tuple_content = plt.ConcatString(
+                plt.Apply(
+                    self.typs[0].stringify(recursive=True),
+                    plt.FunctionalTupleAccess(plt.Var(&#34;self&#34;), 0, len(self.typs)),
+                    plt.Var(&#34;_&#34;),
+                ),
+                plt.Text(&#34;,&#34;),
+            )
+        else:
+            tuple_content = plt.ConcatString(
+                plt.Apply(
+                    self.typs[0].stringify(recursive=True),
+                    plt.FunctionalTupleAccess(plt.Var(&#34;self&#34;), 0, len(self.typs)),
+                    plt.Var(&#34;_&#34;),
+                ),
+            )
+            for i, t in enumerate(self.typs[1:], start=1):
+                tuple_content = plt.ConcatString(
+                    tuple_content,
+                    plt.Text(&#34;, &#34;),
+                    plt.Apply(
+                        t.stringify(recursive=True),
+                        plt.FunctionalTupleAccess(plt.Var(&#34;self&#34;), i, len(self.typs)),
+                        plt.Var(&#34;_&#34;),
+                    ),
+                )
+        return plt.Lambda(
+            [&#34;self&#34;, &#34;_&#34;],
+            plt.ConcatString(plt.Text(&#34;(&#34;), tuple_content, plt.Text(&#34;)&#34;)),
         )</code></pre>
 </details>
 <h3>Ancestors</h3>
@@ -4469,6 +6581,58 @@ class TypedNodeVisitor(NodeVisitor):
 </p>
 <div class="desc inherited"><p>The type of the constructor for this class</p></div>
 </dd>
+<dt id="opshin.typed_ast.TupleType.stringify"><code class="name flex">
+<span>def <span class="ident">stringify</span></span>(<span>self, recursive: bool = False) ‑> pluthon.pluthon_ast.AST</span>
+</code></dt>
+<dd>
+<p class="inheritance">
+<em>Inherited from:</em>
+<code><a title="opshin.typed_ast.ClassType" href="#opshin.typed_ast.ClassType">ClassType</a></code>.<code><a title="opshin.typed_ast.ClassType.stringify" href="#opshin.typed_ast.ClassType.stringify">stringify</a></code>
+</p>
+<div class="desc inherited"><p>Returns a stringified version of the object …</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def stringify(self, recursive: bool = False) -&gt; plt.AST:
+    if not self.typs:
+        return plt.Lambda(
+            [&#34;self&#34;, &#34;_&#34;],
+            plt.Text(&#34;()&#34;),
+        )
+    elif len(self.typs) == 1:
+        tuple_content = plt.ConcatString(
+            plt.Apply(
+                self.typs[0].stringify(recursive=True),
+                plt.FunctionalTupleAccess(plt.Var(&#34;self&#34;), 0, len(self.typs)),
+                plt.Var(&#34;_&#34;),
+            ),
+            plt.Text(&#34;,&#34;),
+        )
+    else:
+        tuple_content = plt.ConcatString(
+            plt.Apply(
+                self.typs[0].stringify(recursive=True),
+                plt.FunctionalTupleAccess(plt.Var(&#34;self&#34;), 0, len(self.typs)),
+                plt.Var(&#34;_&#34;),
+            ),
+        )
+        for i, t in enumerate(self.typs[1:], start=1):
+            tuple_content = plt.ConcatString(
+                tuple_content,
+                plt.Text(&#34;, &#34;),
+                plt.Apply(
+                    t.stringify(recursive=True),
+                    plt.FunctionalTupleAccess(plt.Var(&#34;self&#34;), i, len(self.typs)),
+                    plt.Var(&#34;_&#34;),
+                ),
+            )
+    return plt.Lambda(
+        [&#34;self&#34;, &#34;_&#34;],
+        plt.ConcatString(plt.Text(&#34;(&#34;), tuple_content, plt.Text(&#34;)&#34;)),
+    )</code></pre>
+</details>
+</dd>
 </dl>
 </dd>
 <dt id="opshin.typed_ast.Type"><code class="flex name class">
@@ -4505,7 +6669,15 @@ class TypedNodeVisitor(NodeVisitor):
         &#34;&#34;&#34;The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second the comparison.&#34;&#34;&#34;
         raise NotImplementedError(
             f&#34;Comparison {type(op).__name__} for {self.__class__.__name__} and {o.__class__.__name__} is not implemented. This is likely intended because it would always evaluate to False.&#34;
-        )</code></pre>
+        )
+
+    def stringify(self, recursive: bool = False) -&gt; plt.AST:
+        &#34;&#34;&#34;
+        Returns a stringified version of the object
+
+        The recursive parameter informs the method whether it was invoked recursively from another invokation
+        &#34;&#34;&#34;
+        raise NotImplementedError(f&#34;{type(self).__name__} can not be stringified&#34;)</code></pre>
 </details>
 <h3>Subclasses</h3>
 <ul class="hlist">
@@ -4588,6 +6760,25 @@ class TypedNodeVisitor(NodeVisitor):
     raise TypeInferenceError(
         f&#34;Object of type {self.__class__} does not have a constructor&#34;
     )</code></pre>
+</details>
+</dd>
+<dt id="opshin.typed_ast.Type.stringify"><code class="name flex">
+<span>def <span class="ident">stringify</span></span>(<span>self, recursive: bool = False) ‑> pluthon.pluthon_ast.AST</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Returns a stringified version of the object</p>
+<p>The recursive parameter informs the method whether it was invoked recursively from another invokation</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def stringify(self, recursive: bool = False) -&gt; plt.AST:
+    &#34;&#34;&#34;
+    Returns a stringified version of the object
+
+    The recursive parameter informs the method whether it was invoked recursively from another invokation
+    &#34;&#34;&#34;
+    raise NotImplementedError(f&#34;{type(self).__name__} can not be stringified&#34;)</code></pre>
 </details>
 </dd>
 </dl>
@@ -5111,6 +7302,45 @@ class TypedNodeVisitor(NodeVisitor):
 </dd>
 </dl>
 </dd>
+<dt id="opshin.typed_ast.TypedFormattedValue"><code class="flex name class">
+<span>class <span class="ident">TypedFormattedValue</span></span>
+<span>(</span><span>*args, **kwargs)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class TypedFormattedValue(typedexpr, FormattedValue):
+    value: typedexpr
+    conversion: int
+    format_spec: typing.Optional[JoinedStr]</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li><a title="opshin.typed_ast.typedexpr" href="#opshin.typed_ast.typedexpr">typedexpr</a></li>
+<li><a title="opshin.typed_ast.TypedAST" href="#opshin.typed_ast.TypedAST">TypedAST</a></li>
+<li>_ast.FormattedValue</li>
+<li>_ast.expr</li>
+<li>_ast.AST</li>
+</ul>
+<h3>Class variables</h3>
+<dl>
+<dt id="opshin.typed_ast.TypedFormattedValue.conversion"><code class="name">var <span class="ident">conversion</span> : int</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="opshin.typed_ast.TypedFormattedValue.format_spec"><code class="name">var <span class="ident">format_spec</span> : Optional[_ast.JoinedStr]</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="opshin.typed_ast.TypedFormattedValue.value"><code class="name">var <span class="ident">value</span> : <a title="opshin.typed_ast.typedexpr" href="#opshin.typed_ast.typedexpr">typedexpr</a></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+</dl>
+</dd>
 <dt id="opshin.typed_ast.TypedFunctionDef"><code class="flex name class">
 <span>class <span class="ident">TypedFunctionDef</span></span>
 <span>(</span><span>*args, **kwargs)</span>
@@ -5219,6 +7449,35 @@ class TypedNodeVisitor(NodeVisitor):
 <div class="desc"></div>
 </dd>
 <dt id="opshin.typed_ast.TypedIfExp.test"><code class="name">var <span class="ident">test</span> : <a title="opshin.typed_ast.typedexpr" href="#opshin.typed_ast.typedexpr">typedexpr</a></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+</dl>
+</dd>
+<dt id="opshin.typed_ast.TypedJoinedStr"><code class="flex name class">
+<span>class <span class="ident">TypedJoinedStr</span></span>
+<span>(</span><span>*args, **kwargs)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class TypedJoinedStr(typedexpr, JoinedStr):
+    values: typing.List[typedexpr]</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li><a title="opshin.typed_ast.typedexpr" href="#opshin.typed_ast.typedexpr">typedexpr</a></li>
+<li><a title="opshin.typed_ast.TypedAST" href="#opshin.typed_ast.TypedAST">TypedAST</a></li>
+<li>_ast.JoinedStr</li>
+<li>_ast.expr</li>
+<li>_ast.AST</li>
+</ul>
+<h3>Class variables</h3>
+<dl>
+<dt id="opshin.typed_ast.TypedJoinedStr.values"><code class="name">var <span class="ident">values</span> : List[<a title="opshin.typed_ast.typedexpr" href="#opshin.typed_ast.typedexpr">typedexpr</a>]</code></dt>
 <dd>
 <div class="desc"></div>
 </dd>
@@ -5808,6 +8067,22 @@ allows modifications.</p></div>
                 )
         raise NotImplementedError(
             f&#34;Can not compare {o} and {self} with operation {op.__class__}. Note that comparisons that always return false are also rejected.&#34;
+        )
+
+    def stringify(self, recursive: bool = False) -&gt; plt.AST:
+        decide_string_func = plt.TraceError(&#34;Invalid constructor id in Union&#34;)
+        for t in self.typs:
+            decide_string_func = plt.Ite(
+                plt.EqualsInteger(plt.Var(&#34;c&#34;), plt.Integer(t.record.constructor)),
+                t.stringify(recursive=True),
+                decide_string_func,
+            )
+        return plt.Lambda(
+            [&#34;self&#34;, &#34;_&#34;],
+            plt.Let(
+                [(&#34;c&#34;, plt.Constructor(plt.Var(&#34;self&#34;)))],
+                plt.Apply(decide_string_func, plt.Var(&#34;self&#34;), plt.Var(&#34;_&#34;)),
+            ),
         )</code></pre>
 </details>
 <h3>Ancestors</h3>
@@ -6004,6 +8279,36 @@ allows modifications.</p></div>
 </p>
 <div class="desc inherited"><p>The type of the constructor for this class</p></div>
 </dd>
+<dt id="opshin.typed_ast.UnionType.stringify"><code class="name flex">
+<span>def <span class="ident">stringify</span></span>(<span>self, recursive: bool = False) ‑> pluthon.pluthon_ast.AST</span>
+</code></dt>
+<dd>
+<p class="inheritance">
+<em>Inherited from:</em>
+<code><a title="opshin.typed_ast.ClassType" href="#opshin.typed_ast.ClassType">ClassType</a></code>.<code><a title="opshin.typed_ast.ClassType.stringify" href="#opshin.typed_ast.ClassType.stringify">stringify</a></code>
+</p>
+<div class="desc inherited"><p>Returns a stringified version of the object …</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def stringify(self, recursive: bool = False) -&gt; plt.AST:
+    decide_string_func = plt.TraceError(&#34;Invalid constructor id in Union&#34;)
+    for t in self.typs:
+        decide_string_func = plt.Ite(
+            plt.EqualsInteger(plt.Var(&#34;c&#34;), plt.Integer(t.record.constructor)),
+            t.stringify(recursive=True),
+            decide_string_func,
+        )
+    return plt.Lambda(
+        [&#34;self&#34;, &#34;_&#34;],
+        plt.Let(
+            [(&#34;c&#34;, plt.Constructor(plt.Var(&#34;self&#34;)))],
+            plt.Apply(decide_string_func, plt.Var(&#34;self&#34;), plt.Var(&#34;_&#34;)),
+        ),
+    )</code></pre>
+</details>
+</dd>
 </dl>
 </dd>
 <dt id="opshin.typed_ast.UnitType"><code class="flex name class">
@@ -6022,7 +8327,10 @@ allows modifications.</p></div>
                 return plt.Lambda([&#34;x&#34;, &#34;y&#34;], plt.Bool(True))
             if isinstance(op, NotEq):
                 return plt.Lambda([&#34;x&#34;, &#34;y&#34;], plt.Bool(False))
-        return super().cmp(op, o)</code></pre>
+        return super().cmp(op, o)
+
+    def stringify(self, recursive: bool = False) -&gt; plt.AST:
+        return plt.Lambda([&#34;self&#34;, &#34;_&#34;], plt.Text(&#34;None&#34;))</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -6093,6 +8401,23 @@ allows modifications.</p></div>
 <code><a title="opshin.typed_ast.AtomicType" href="#opshin.typed_ast.AtomicType">AtomicType</a></code>.<code><a title="opshin.typed_ast.AtomicType.constr_type" href="#opshin.typed_ast.AtomicType.constr_type">constr_type</a></code>
 </p>
 <div class="desc inherited"><p>The type of the constructor for this class</p></div>
+</dd>
+<dt id="opshin.typed_ast.UnitType.stringify"><code class="name flex">
+<span>def <span class="ident">stringify</span></span>(<span>self, recursive: bool = False) ‑> pluthon.pluthon_ast.AST</span>
+</code></dt>
+<dd>
+<p class="inheritance">
+<em>Inherited from:</em>
+<code><a title="opshin.typed_ast.AtomicType" href="#opshin.typed_ast.AtomicType">AtomicType</a></code>.<code><a title="opshin.typed_ast.AtomicType.stringify" href="#opshin.typed_ast.AtomicType.stringify">stringify</a></code>
+</p>
+<div class="desc inherited"><p>Returns a stringified version of the object …</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def stringify(self, recursive: bool = False) -&gt; plt.AST:
+    return plt.Lambda([&#34;self&#34;, &#34;_&#34;], plt.Text(&#34;None&#34;))</code></pre>
+</details>
 </dd>
 </dl>
 </dd>
@@ -6243,6 +8568,8 @@ allows modifications.</p></div>
 <li><a title="opshin.typed_ast.TypedCompare" href="#opshin.typed_ast.TypedCompare">TypedCompare</a></li>
 <li><a title="opshin.typed_ast.TypedDict" href="#opshin.typed_ast.TypedDict">TypedDict</a></li>
 <li><a title="opshin.typed_ast.TypedExpression" href="#opshin.typed_ast.TypedExpression">TypedExpression</a></li>
+<li><a title="opshin.typed_ast.TypedFormattedValue" href="#opshin.typed_ast.TypedFormattedValue">TypedFormattedValue</a></li>
+<li><a title="opshin.typed_ast.TypedJoinedStr" href="#opshin.typed_ast.TypedJoinedStr">TypedJoinedStr</a></li>
 <li><a title="opshin.typed_ast.TypedList" href="#opshin.typed_ast.TypedList">TypedList</a></li>
 <li><a title="opshin.typed_ast.TypedListComp" href="#opshin.typed_ast.TypedListComp">TypedListComp</a></li>
 <li><a title="opshin.typed_ast.TypedName" href="#opshin.typed_ast.TypedName">TypedName</a></li>
@@ -6383,52 +8710,57 @@ setTimeout(() => input.focus(), 100);
 <ul>
 <li>
 <h4><code><a title="opshin.typed_ast.AnyType" href="#opshin.typed_ast.AnyType">AnyType</a></code></h4>
-<ul class="">
+<ul class="two-column">
 <li><code><a title="opshin.typed_ast.AnyType.attribute" href="#opshin.typed_ast.AnyType.attribute">attribute</a></code></li>
 <li><code><a title="opshin.typed_ast.AnyType.attribute_type" href="#opshin.typed_ast.AnyType.attribute_type">attribute_type</a></code></li>
 <li><code><a title="opshin.typed_ast.AnyType.cmp" href="#opshin.typed_ast.AnyType.cmp">cmp</a></code></li>
 <li><code><a title="opshin.typed_ast.AnyType.constr" href="#opshin.typed_ast.AnyType.constr">constr</a></code></li>
 <li><code><a title="opshin.typed_ast.AnyType.constr_type" href="#opshin.typed_ast.AnyType.constr_type">constr_type</a></code></li>
+<li><code><a title="opshin.typed_ast.AnyType.stringify" href="#opshin.typed_ast.AnyType.stringify">stringify</a></code></li>
 </ul>
 </li>
 <li>
 <h4><code><a title="opshin.typed_ast.AtomicType" href="#opshin.typed_ast.AtomicType">AtomicType</a></code></h4>
-<ul class="">
+<ul class="two-column">
 <li><code><a title="opshin.typed_ast.AtomicType.attribute" href="#opshin.typed_ast.AtomicType.attribute">attribute</a></code></li>
 <li><code><a title="opshin.typed_ast.AtomicType.attribute_type" href="#opshin.typed_ast.AtomicType.attribute_type">attribute_type</a></code></li>
 <li><code><a title="opshin.typed_ast.AtomicType.cmp" href="#opshin.typed_ast.AtomicType.cmp">cmp</a></code></li>
 <li><code><a title="opshin.typed_ast.AtomicType.constr" href="#opshin.typed_ast.AtomicType.constr">constr</a></code></li>
 <li><code><a title="opshin.typed_ast.AtomicType.constr_type" href="#opshin.typed_ast.AtomicType.constr_type">constr_type</a></code></li>
+<li><code><a title="opshin.typed_ast.AtomicType.stringify" href="#opshin.typed_ast.AtomicType.stringify">stringify</a></code></li>
 </ul>
 </li>
 <li>
 <h4><code><a title="opshin.typed_ast.BoolType" href="#opshin.typed_ast.BoolType">BoolType</a></code></h4>
-<ul class="">
+<ul class="two-column">
 <li><code><a title="opshin.typed_ast.BoolType.attribute" href="#opshin.typed_ast.BoolType.attribute">attribute</a></code></li>
 <li><code><a title="opshin.typed_ast.BoolType.attribute_type" href="#opshin.typed_ast.BoolType.attribute_type">attribute_type</a></code></li>
 <li><code><a title="opshin.typed_ast.BoolType.cmp" href="#opshin.typed_ast.BoolType.cmp">cmp</a></code></li>
 <li><code><a title="opshin.typed_ast.BoolType.constr" href="#opshin.typed_ast.BoolType.constr">constr</a></code></li>
 <li><code><a title="opshin.typed_ast.BoolType.constr_type" href="#opshin.typed_ast.BoolType.constr_type">constr_type</a></code></li>
+<li><code><a title="opshin.typed_ast.BoolType.stringify" href="#opshin.typed_ast.BoolType.stringify">stringify</a></code></li>
 </ul>
 </li>
 <li>
 <h4><code><a title="opshin.typed_ast.ByteStringType" href="#opshin.typed_ast.ByteStringType">ByteStringType</a></code></h4>
-<ul class="">
+<ul class="two-column">
 <li><code><a title="opshin.typed_ast.ByteStringType.attribute" href="#opshin.typed_ast.ByteStringType.attribute">attribute</a></code></li>
 <li><code><a title="opshin.typed_ast.ByteStringType.attribute_type" href="#opshin.typed_ast.ByteStringType.attribute_type">attribute_type</a></code></li>
 <li><code><a title="opshin.typed_ast.ByteStringType.cmp" href="#opshin.typed_ast.ByteStringType.cmp">cmp</a></code></li>
 <li><code><a title="opshin.typed_ast.ByteStringType.constr" href="#opshin.typed_ast.ByteStringType.constr">constr</a></code></li>
 <li><code><a title="opshin.typed_ast.ByteStringType.constr_type" href="#opshin.typed_ast.ByteStringType.constr_type">constr_type</a></code></li>
+<li><code><a title="opshin.typed_ast.ByteStringType.stringify" href="#opshin.typed_ast.ByteStringType.stringify">stringify</a></code></li>
 </ul>
 </li>
 <li>
 <h4><code><a title="opshin.typed_ast.ClassType" href="#opshin.typed_ast.ClassType">ClassType</a></code></h4>
-<ul class="">
+<ul class="two-column">
 <li><code><a title="opshin.typed_ast.ClassType.attribute" href="#opshin.typed_ast.ClassType.attribute">attribute</a></code></li>
 <li><code><a title="opshin.typed_ast.ClassType.attribute_type" href="#opshin.typed_ast.ClassType.attribute_type">attribute_type</a></code></li>
 <li><code><a title="opshin.typed_ast.ClassType.cmp" href="#opshin.typed_ast.ClassType.cmp">cmp</a></code></li>
 <li><code><a title="opshin.typed_ast.ClassType.constr" href="#opshin.typed_ast.ClassType.constr">constr</a></code></li>
 <li><code><a title="opshin.typed_ast.ClassType.constr_type" href="#opshin.typed_ast.ClassType.constr_type">constr_type</a></code></li>
+<li><code><a title="opshin.typed_ast.ClassType.stringify" href="#opshin.typed_ast.ClassType.stringify">stringify</a></code></li>
 </ul>
 </li>
 <li>
@@ -6440,6 +8772,7 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="opshin.typed_ast.DictType.constr" href="#opshin.typed_ast.DictType.constr">constr</a></code></li>
 <li><code><a title="opshin.typed_ast.DictType.constr_type" href="#opshin.typed_ast.DictType.constr_type">constr_type</a></code></li>
 <li><code><a title="opshin.typed_ast.DictType.key_typ" href="#opshin.typed_ast.DictType.key_typ">key_typ</a></code></li>
+<li><code><a title="opshin.typed_ast.DictType.stringify" href="#opshin.typed_ast.DictType.stringify">stringify</a></code></li>
 <li><code><a title="opshin.typed_ast.DictType.value_typ" href="#opshin.typed_ast.DictType.value_typ">value_typ</a></code></li>
 </ul>
 </li>
@@ -6453,16 +8786,18 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="opshin.typed_ast.FunctionType.constr" href="#opshin.typed_ast.FunctionType.constr">constr</a></code></li>
 <li><code><a title="opshin.typed_ast.FunctionType.constr_type" href="#opshin.typed_ast.FunctionType.constr_type">constr_type</a></code></li>
 <li><code><a title="opshin.typed_ast.FunctionType.rettyp" href="#opshin.typed_ast.FunctionType.rettyp">rettyp</a></code></li>
+<li><code><a title="opshin.typed_ast.FunctionType.stringify" href="#opshin.typed_ast.FunctionType.stringify">stringify</a></code></li>
 </ul>
 </li>
 <li>
 <h4><code><a title="opshin.typed_ast.InaccessibleType" href="#opshin.typed_ast.InaccessibleType">InaccessibleType</a></code></h4>
-<ul class="">
+<ul class="two-column">
 <li><code><a title="opshin.typed_ast.InaccessibleType.attribute" href="#opshin.typed_ast.InaccessibleType.attribute">attribute</a></code></li>
 <li><code><a title="opshin.typed_ast.InaccessibleType.attribute_type" href="#opshin.typed_ast.InaccessibleType.attribute_type">attribute_type</a></code></li>
 <li><code><a title="opshin.typed_ast.InaccessibleType.cmp" href="#opshin.typed_ast.InaccessibleType.cmp">cmp</a></code></li>
 <li><code><a title="opshin.typed_ast.InaccessibleType.constr" href="#opshin.typed_ast.InaccessibleType.constr">constr</a></code></li>
 <li><code><a title="opshin.typed_ast.InaccessibleType.constr_type" href="#opshin.typed_ast.InaccessibleType.constr_type">constr_type</a></code></li>
+<li><code><a title="opshin.typed_ast.InaccessibleType.stringify" href="#opshin.typed_ast.InaccessibleType.stringify">stringify</a></code></li>
 </ul>
 </li>
 <li>
@@ -6473,17 +8808,19 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="opshin.typed_ast.InstanceType.cmp" href="#opshin.typed_ast.InstanceType.cmp">cmp</a></code></li>
 <li><code><a title="opshin.typed_ast.InstanceType.constr" href="#opshin.typed_ast.InstanceType.constr">constr</a></code></li>
 <li><code><a title="opshin.typed_ast.InstanceType.constr_type" href="#opshin.typed_ast.InstanceType.constr_type">constr_type</a></code></li>
+<li><code><a title="opshin.typed_ast.InstanceType.stringify" href="#opshin.typed_ast.InstanceType.stringify">stringify</a></code></li>
 <li><code><a title="opshin.typed_ast.InstanceType.typ" href="#opshin.typed_ast.InstanceType.typ">typ</a></code></li>
 </ul>
 </li>
 <li>
 <h4><code><a title="opshin.typed_ast.IntegerType" href="#opshin.typed_ast.IntegerType">IntegerType</a></code></h4>
-<ul class="">
+<ul class="two-column">
 <li><code><a title="opshin.typed_ast.IntegerType.attribute" href="#opshin.typed_ast.IntegerType.attribute">attribute</a></code></li>
 <li><code><a title="opshin.typed_ast.IntegerType.attribute_type" href="#opshin.typed_ast.IntegerType.attribute_type">attribute_type</a></code></li>
 <li><code><a title="opshin.typed_ast.IntegerType.cmp" href="#opshin.typed_ast.IntegerType.cmp">cmp</a></code></li>
 <li><code><a title="opshin.typed_ast.IntegerType.constr" href="#opshin.typed_ast.IntegerType.constr">constr</a></code></li>
 <li><code><a title="opshin.typed_ast.IntegerType.constr_type" href="#opshin.typed_ast.IntegerType.constr_type">constr_type</a></code></li>
+<li><code><a title="opshin.typed_ast.IntegerType.stringify" href="#opshin.typed_ast.IntegerType.stringify">stringify</a></code></li>
 </ul>
 </li>
 <li>
@@ -6494,6 +8831,7 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="opshin.typed_ast.ListType.cmp" href="#opshin.typed_ast.ListType.cmp">cmp</a></code></li>
 <li><code><a title="opshin.typed_ast.ListType.constr" href="#opshin.typed_ast.ListType.constr">constr</a></code></li>
 <li><code><a title="opshin.typed_ast.ListType.constr_type" href="#opshin.typed_ast.ListType.constr_type">constr_type</a></code></li>
+<li><code><a title="opshin.typed_ast.ListType.stringify" href="#opshin.typed_ast.ListType.stringify">stringify</a></code></li>
 <li><code><a title="opshin.typed_ast.ListType.typ" href="#opshin.typed_ast.ListType.typ">typ</a></code></li>
 </ul>
 </li>
@@ -6507,6 +8845,7 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="opshin.typed_ast.PairType.constr_type" href="#opshin.typed_ast.PairType.constr_type">constr_type</a></code></li>
 <li><code><a title="opshin.typed_ast.PairType.l_typ" href="#opshin.typed_ast.PairType.l_typ">l_typ</a></code></li>
 <li><code><a title="opshin.typed_ast.PairType.r_typ" href="#opshin.typed_ast.PairType.r_typ">r_typ</a></code></li>
+<li><code><a title="opshin.typed_ast.PairType.stringify" href="#opshin.typed_ast.PairType.stringify">stringify</a></code></li>
 </ul>
 </li>
 <li>
@@ -6525,6 +8864,7 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="opshin.typed_ast.PolymorphicFunctionInstanceType.constr" href="#opshin.typed_ast.PolymorphicFunctionInstanceType.constr">constr</a></code></li>
 <li><code><a title="opshin.typed_ast.PolymorphicFunctionInstanceType.constr_type" href="#opshin.typed_ast.PolymorphicFunctionInstanceType.constr_type">constr_type</a></code></li>
 <li><code><a title="opshin.typed_ast.PolymorphicFunctionInstanceType.polymorphic_function" href="#opshin.typed_ast.PolymorphicFunctionInstanceType.polymorphic_function">polymorphic_function</a></code></li>
+<li><code><a title="opshin.typed_ast.PolymorphicFunctionInstanceType.stringify" href="#opshin.typed_ast.PolymorphicFunctionInstanceType.stringify">stringify</a></code></li>
 <li><code><a title="opshin.typed_ast.PolymorphicFunctionInstanceType.typ" href="#opshin.typed_ast.PolymorphicFunctionInstanceType.typ">typ</a></code></li>
 </ul>
 </li>
@@ -6537,6 +8877,7 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="opshin.typed_ast.PolymorphicFunctionType.constr" href="#opshin.typed_ast.PolymorphicFunctionType.constr">constr</a></code></li>
 <li><code><a title="opshin.typed_ast.PolymorphicFunctionType.constr_type" href="#opshin.typed_ast.PolymorphicFunctionType.constr_type">constr_type</a></code></li>
 <li><code><a title="opshin.typed_ast.PolymorphicFunctionType.polymorphic_function" href="#opshin.typed_ast.PolymorphicFunctionType.polymorphic_function">polymorphic_function</a></code></li>
+<li><code><a title="opshin.typed_ast.PolymorphicFunctionType.stringify" href="#opshin.typed_ast.PolymorphicFunctionType.stringify">stringify</a></code></li>
 </ul>
 </li>
 <li>
@@ -6563,16 +8904,25 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="opshin.typed_ast.RecordType.constr" href="#opshin.typed_ast.RecordType.constr">constr</a></code></li>
 <li><code><a title="opshin.typed_ast.RecordType.constr_type" href="#opshin.typed_ast.RecordType.constr_type">constr_type</a></code></li>
 <li><code><a title="opshin.typed_ast.RecordType.record" href="#opshin.typed_ast.RecordType.record">record</a></code></li>
+<li><code><a title="opshin.typed_ast.RecordType.stringify" href="#opshin.typed_ast.RecordType.stringify">stringify</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="opshin.typed_ast.StrImpl" href="#opshin.typed_ast.StrImpl">StrImpl</a></code></h4>
+<ul class="">
+<li><code><a title="opshin.typed_ast.StrImpl.impl_from_args" href="#opshin.typed_ast.StrImpl.impl_from_args">impl_from_args</a></code></li>
+<li><code><a title="opshin.typed_ast.StrImpl.type_from_args" href="#opshin.typed_ast.StrImpl.type_from_args">type_from_args</a></code></li>
 </ul>
 </li>
 <li>
 <h4><code><a title="opshin.typed_ast.StringType" href="#opshin.typed_ast.StringType">StringType</a></code></h4>
-<ul class="">
+<ul class="two-column">
 <li><code><a title="opshin.typed_ast.StringType.attribute" href="#opshin.typed_ast.StringType.attribute">attribute</a></code></li>
 <li><code><a title="opshin.typed_ast.StringType.attribute_type" href="#opshin.typed_ast.StringType.attribute_type">attribute_type</a></code></li>
 <li><code><a title="opshin.typed_ast.StringType.cmp" href="#opshin.typed_ast.StringType.cmp">cmp</a></code></li>
 <li><code><a title="opshin.typed_ast.StringType.constr" href="#opshin.typed_ast.StringType.constr">constr</a></code></li>
 <li><code><a title="opshin.typed_ast.StringType.constr_type" href="#opshin.typed_ast.StringType.constr_type">constr_type</a></code></li>
+<li><code><a title="opshin.typed_ast.StringType.stringify" href="#opshin.typed_ast.StringType.stringify">stringify</a></code></li>
 </ul>
 </li>
 <li>
@@ -6583,17 +8933,19 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="opshin.typed_ast.TupleType.cmp" href="#opshin.typed_ast.TupleType.cmp">cmp</a></code></li>
 <li><code><a title="opshin.typed_ast.TupleType.constr" href="#opshin.typed_ast.TupleType.constr">constr</a></code></li>
 <li><code><a title="opshin.typed_ast.TupleType.constr_type" href="#opshin.typed_ast.TupleType.constr_type">constr_type</a></code></li>
+<li><code><a title="opshin.typed_ast.TupleType.stringify" href="#opshin.typed_ast.TupleType.stringify">stringify</a></code></li>
 <li><code><a title="opshin.typed_ast.TupleType.typs" href="#opshin.typed_ast.TupleType.typs">typs</a></code></li>
 </ul>
 </li>
 <li>
 <h4><code><a title="opshin.typed_ast.Type" href="#opshin.typed_ast.Type">Type</a></code></h4>
-<ul class="">
+<ul class="two-column">
 <li><code><a title="opshin.typed_ast.Type.attribute" href="#opshin.typed_ast.Type.attribute">attribute</a></code></li>
 <li><code><a title="opshin.typed_ast.Type.attribute_type" href="#opshin.typed_ast.Type.attribute_type">attribute_type</a></code></li>
 <li><code><a title="opshin.typed_ast.Type.cmp" href="#opshin.typed_ast.Type.cmp">cmp</a></code></li>
 <li><code><a title="opshin.typed_ast.Type.constr" href="#opshin.typed_ast.Type.constr">constr</a></code></li>
 <li><code><a title="opshin.typed_ast.Type.constr_type" href="#opshin.typed_ast.Type.constr_type">constr_type</a></code></li>
+<li><code><a title="opshin.typed_ast.Type.stringify" href="#opshin.typed_ast.Type.stringify">stringify</a></code></li>
 </ul>
 </li>
 <li>
@@ -6702,6 +9054,14 @@ setTimeout(() => input.focus(), 100);
 </ul>
 </li>
 <li>
+<h4><code><a title="opshin.typed_ast.TypedFormattedValue" href="#opshin.typed_ast.TypedFormattedValue">TypedFormattedValue</a></code></h4>
+<ul class="">
+<li><code><a title="opshin.typed_ast.TypedFormattedValue.conversion" href="#opshin.typed_ast.TypedFormattedValue.conversion">conversion</a></code></li>
+<li><code><a title="opshin.typed_ast.TypedFormattedValue.format_spec" href="#opshin.typed_ast.TypedFormattedValue.format_spec">format_spec</a></code></li>
+<li><code><a title="opshin.typed_ast.TypedFormattedValue.value" href="#opshin.typed_ast.TypedFormattedValue.value">value</a></code></li>
+</ul>
+</li>
+<li>
 <h4><code><a title="opshin.typed_ast.TypedFunctionDef" href="#opshin.typed_ast.TypedFunctionDef">TypedFunctionDef</a></code></h4>
 <ul class="">
 <li><code><a title="opshin.typed_ast.TypedFunctionDef.args" href="#opshin.typed_ast.TypedFunctionDef.args">args</a></code></li>
@@ -6722,6 +9082,12 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="opshin.typed_ast.TypedIfExp.body" href="#opshin.typed_ast.TypedIfExp.body">body</a></code></li>
 <li><code><a title="opshin.typed_ast.TypedIfExp.orelse" href="#opshin.typed_ast.TypedIfExp.orelse">orelse</a></code></li>
 <li><code><a title="opshin.typed_ast.TypedIfExp.test" href="#opshin.typed_ast.TypedIfExp.test">test</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="opshin.typed_ast.TypedJoinedStr" href="#opshin.typed_ast.TypedJoinedStr">TypedJoinedStr</a></code></h4>
+<ul class="">
+<li><code><a title="opshin.typed_ast.TypedJoinedStr.values" href="#opshin.typed_ast.TypedJoinedStr.values">values</a></code></li>
 </ul>
 </li>
 <li>
@@ -6807,17 +9173,19 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="opshin.typed_ast.UnionType.cmp" href="#opshin.typed_ast.UnionType.cmp">cmp</a></code></li>
 <li><code><a title="opshin.typed_ast.UnionType.constr" href="#opshin.typed_ast.UnionType.constr">constr</a></code></li>
 <li><code><a title="opshin.typed_ast.UnionType.constr_type" href="#opshin.typed_ast.UnionType.constr_type">constr_type</a></code></li>
+<li><code><a title="opshin.typed_ast.UnionType.stringify" href="#opshin.typed_ast.UnionType.stringify">stringify</a></code></li>
 <li><code><a title="opshin.typed_ast.UnionType.typs" href="#opshin.typed_ast.UnionType.typs">typs</a></code></li>
 </ul>
 </li>
 <li>
 <h4><code><a title="opshin.typed_ast.UnitType" href="#opshin.typed_ast.UnitType">UnitType</a></code></h4>
-<ul class="">
+<ul class="two-column">
 <li><code><a title="opshin.typed_ast.UnitType.attribute" href="#opshin.typed_ast.UnitType.attribute">attribute</a></code></li>
 <li><code><a title="opshin.typed_ast.UnitType.attribute_type" href="#opshin.typed_ast.UnitType.attribute_type">attribute_type</a></code></li>
 <li><code><a title="opshin.typed_ast.UnitType.cmp" href="#opshin.typed_ast.UnitType.cmp">cmp</a></code></li>
 <li><code><a title="opshin.typed_ast.UnitType.constr" href="#opshin.typed_ast.UnitType.constr">constr</a></code></li>
 <li><code><a title="opshin.typed_ast.UnitType.constr_type" href="#opshin.typed_ast.UnitType.constr_type">constr_type</a></code></li>
+<li><code><a title="opshin.typed_ast.UnitType.stringify" href="#opshin.typed_ast.UnitType.stringify">stringify</a></code></li>
 </ul>
 </li>
 <li>

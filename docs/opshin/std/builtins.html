@@ -6,8 +6,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
 <meta name="generator" content="pdoc 0.10.0" />
 <link rel="icon" href="https://raw.githubusercontent.com/OpShin/opshin/dev/docs/opshin_32.png" sizes="32x32" type="image/png">
-<title>opshin.std.math API documentation</title>
-<meta name="description" content="An implementation of some math operations in opshin" />
+<title>opshin.std.builtins API documentation</title>
+<meta name="description" content="A special libary that gives direct access to UPLC built-ins
+It is not normally imported during compilation,
+but replaces the mentioned functions by …" />
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/sanitize.min.css" integrity="sha256-PK9q560IAAa6WVRRh76LtCaI8pjTJ2z11v0miyNNjrs=" crossorigin>
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/typography.min.css" integrity="sha256-7l/o7C8jubJiy74VsKTidCy1yBkRtiUGbVkYBylBqUg=" crossorigin>
 <link rel="stylesheet preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/styles/github.min.css" crossorigin>
@@ -61,43 +63,173 @@ fill="currentColor" class="octo-body"></path>
 </a>
 <article id="content">
 <header>
-<h1 class="title">Module <code>opshin.std.math</code></h1>
+<h1 class="title">Module <code>opshin.std.builtins</code></h1>
 </header>
 <section id="section-intro">
-<p>An implementation of some math operations in opshin</p>
+<p>A special libary that gives direct access to UPLC built-ins
+It is not normally imported during compilation,
+but replaces the mentioned functions by their UPLC implementation.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">&#34;&#34;&#34; An implementation of some math operations in opshin &#34;&#34;&#34;
+<pre><code class="python">&#34;&#34;&#34;
+A special libary that gives direct access to UPLC built-ins
+It is not normally imported during compilation,
+but replaces the mentioned functions by their UPLC implementation.
+&#34;&#34;&#34;
+from opshin.bridge import wraps_builtin
+from pycardano import Datum as Anything, PlutusData
 
 
-def gcd(a: int, b: int) -&gt; int:
-    while b != 0:
-        a, b = b, a % b
-    return abs(a)
+@wraps_builtin
+def add_integer(x: int, y: int) -&gt; int:
+    pass
 
 
-def sign(a: int) -&gt; int:
-    return -1 if a &lt; 0 else 1
+@wraps_builtin
+def subtract_integer(x: int, y: int) -&gt; int:
+    pass
 
 
-def unsigned_int_from_bytes_big(b: bytes) -&gt; int:
-    &#34;&#34;&#34;Converts a bytestring into the corresponding integer, big/network byteorder, unsigned&#34;&#34;&#34;
-    acc = 0
-    for i in range(len(b)):
-        acc = acc * 256 + b[i]
-    return acc
+@wraps_builtin
+def multiply_integer(x: int, y: int) -&gt; int:
+    pass
 
 
-def ceil(a: int, b: int):
-    &#34;&#34;&#34;Returns a divided by b rounded towards positive infinity&#34;&#34;&#34;
-    return (a + b - 1) // b if b &gt; 0 else (a + b + 1) // b
+@wraps_builtin
+def divide_integer(x: int, y: int) -&gt; int:
+    pass
 
 
-def floor(a: int, b: int):
-    &#34;&#34;&#34;Returns a divided by b rounded towards negative infinity&#34;&#34;&#34;
-    return a // b</code></pre>
+@wraps_builtin
+def quotient_integer(x: int, y: int) -&gt; int:
+    pass
+
+
+@wraps_builtin
+def remainder_integer(x: int, y: int) -&gt; int:
+    pass
+
+
+@wraps_builtin
+def mod_integer(x: int, y: int) -&gt; int:
+    pass
+
+
+@wraps_builtin
+def equals_integer(x: int, y: int) -&gt; bool:
+    pass
+
+
+@wraps_builtin
+def less_than_integer(x: int, y: int) -&gt; bool:
+    pass
+
+
+@wraps_builtin
+def less_than_equals_integer(x: int, y: int) -&gt; bool:
+    pass
+
+
+@wraps_builtin
+def append_byte_string(x: bytes, y: bytes) -&gt; bytes:
+    pass
+
+
+@wraps_builtin
+def cons_byte_string(x: int, y: bytes) -&gt; bytes:
+    pass
+
+
+@wraps_builtin
+def slice_byte_string(x: int, y: int, z: bytes) -&gt; bytes:
+    pass
+
+
+@wraps_builtin
+def length_of_byte_string(x: bytes) -&gt; int:
+    pass
+
+
+@wraps_builtin
+def index_byte_string(x: bytes, y: int) -&gt; int:
+    pass
+
+
+@wraps_builtin
+def equals_byte_string(x: bytes, y: bytes) -&gt; bool:
+    pass
+
+
+@wraps_builtin
+def less_than_byte_string(x: bytes, y: bytes) -&gt; bool:
+    pass
+
+
+@wraps_builtin
+def less_than_equals_byte_string(x: bytes, y: bytes) -&gt; bool:
+    pass
+
+
+@wraps_builtin
+def sha2_256(x: bytes) -&gt; bytes:
+    pass
+
+
+@wraps_builtin
+def sha3_256(x: bytes) -&gt; bytes:
+    pass
+
+
+@wraps_builtin
+def blake2b_256(x: bytes) -&gt; bytes:
+    pass
+
+
+@wraps_builtin
+def verify_ed25519_signature(pk: bytes, m: bytes, s: bytes) -&gt; bool:
+    pass
+
+
+@wraps_builtin
+def verify_ecdsa_secp256k1_signature(pk: bytes, m: bytes, s: bytes) -&gt; bool:
+    pass
+
+
+@wraps_builtin
+def verify_schnorr_secp256k1_signature(pk: bytes, m: bytes, s: bytes) -&gt; bool:
+    pass
+
+
+@wraps_builtin
+def append_string(x: str, y: str) -&gt; str:
+    pass
+
+
+@wraps_builtin
+def equals_string(x: str, y: str) -&gt; str:
+    pass
+
+
+@wraps_builtin
+def encode_utf8(x: str) -&gt; bytes:
+    pass
+
+
+@wraps_builtin
+def decode_utf8(x: bytes) -&gt; str:
+    pass
+
+
+@wraps_builtin
+def equals_data(x: Anything, y: Anything) -&gt; bool:
+    pass
+
+
+@wraps_builtin
+def serialise_data(x: Anything) -&gt; bytes:
+    pass</code></pre>
 </details>
 </section>
 <section>
@@ -105,82 +237,6 @@ def floor(a: int, b: int):
 <section>
 </section>
 <section>
-<h2 class="section-title" id="header-functions">Functions</h2>
-<dl>
-<dt id="opshin.std.math.ceil"><code class="name flex">
-<span>def <span class="ident">ceil</span></span>(<span>a: int, b: int)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Returns a divided by b rounded towards positive infinity</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def ceil(a: int, b: int):
-    &#34;&#34;&#34;Returns a divided by b rounded towards positive infinity&#34;&#34;&#34;
-    return (a + b - 1) // b if b &gt; 0 else (a + b + 1) // b</code></pre>
-</details>
-</dd>
-<dt id="opshin.std.math.floor"><code class="name flex">
-<span>def <span class="ident">floor</span></span>(<span>a: int, b: int)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Returns a divided by b rounded towards negative infinity</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def floor(a: int, b: int):
-    &#34;&#34;&#34;Returns a divided by b rounded towards negative infinity&#34;&#34;&#34;
-    return a // b</code></pre>
-</details>
-</dd>
-<dt id="opshin.std.math.gcd"><code class="name flex">
-<span>def <span class="ident">gcd</span></span>(<span>a: int, b: int) ‑> int</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def gcd(a: int, b: int) -&gt; int:
-    while b != 0:
-        a, b = b, a % b
-    return abs(a)</code></pre>
-</details>
-</dd>
-<dt id="opshin.std.math.sign"><code class="name flex">
-<span>def <span class="ident">sign</span></span>(<span>a: int) ‑> int</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def sign(a: int) -&gt; int:
-    return -1 if a &lt; 0 else 1</code></pre>
-</details>
-</dd>
-<dt id="opshin.std.math.unsigned_int_from_bytes_big"><code class="name flex">
-<span>def <span class="ident">unsigned_int_from_bytes_big</span></span>(<span>b: bytes) ‑> int</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Converts a bytestring into the corresponding integer, big/network byteorder, unsigned</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def unsigned_int_from_bytes_big(b: bytes) -&gt; int:
-    &#34;&#34;&#34;Converts a bytestring into the corresponding integer, big/network byteorder, unsigned&#34;&#34;&#34;
-    acc = 0
-    for i in range(len(b)):
-        acc = acc * 256 + b[i]
-    return acc</code></pre>
-</details>
-</dd>
-</dl>
 </section>
 <section>
 </section>
@@ -247,15 +303,6 @@ setTimeout(() => input.focus(), 100);
 <li><h3>Super-module</h3>
 <ul>
 <li><code><a title="opshin.std" href="index.html">opshin.std</a></code></li>
-</ul>
-</li>
-<li><h3><a href="#header-functions">Functions</a></h3>
-<ul class="">
-<li><code><a title="opshin.std.math.ceil" href="#opshin.std.math.ceil">ceil</a></code></li>
-<li><code><a title="opshin.std.math.floor" href="#opshin.std.math.floor">floor</a></code></li>
-<li><code><a title="opshin.std.math.gcd" href="#opshin.std.math.gcd">gcd</a></code></li>
-<li><code><a title="opshin.std.math.sign" href="#opshin.std.math.sign">sign</a></code></li>
-<li><code><a title="opshin.std.math.unsigned_int_from_bytes_big" href="#opshin.std.math.unsigned_int_from_bytes_big">unsigned_int_from_bytes_big</a></code></li>
 </ul>
 </li>
 </ul>

@@ -70,11 +70,74 @@ fill="currentColor" class="octo-body"></path>
 </summary>
 <pre><code class="python">import unittest
 
+import cbor2
+import hypothesis
+import pycardano
+from frozendict import frozendict
+import frozenlist as fl
 from hypothesis import example, given
 from hypothesis import strategies as st
 from uplc import ast as uplc, eval as uplc_eval
+from uplc.ast import (
+    PlutusMap,
+    PlutusConstr,
+    PlutusList,
+    PlutusInteger,
+    PlutusByteString,
+)
 
 from .. import compiler
+
+from opshin.ledger.api_v2 import (
+    FinitePOSIXTime,
+    PosInfPOSIXTime,
+    UpperBoundPOSIXTime,
+    FalseData,
+    TrueData,
+)
+
+
+def frozenlist(l):
+    l = fl.FrozenList(l)
+    l.freeze()
+    return l
+
+
+pos_int = st.integers(min_value=0, max_value=2**64 - 1)
+
+
+uplc_data_integer = st.builds(PlutusInteger, st.integers())
+uplc_data_bytestring = st.builds(PlutusByteString, st.binary())
+
+
+def rec_data_strategies(uplc_data):
+    uplc_data_list = st.builds(lambda x: PlutusList(frozenlist(x)), st.lists(uplc_data))
+    uplc_data_constr = st.builds(
+        lambda x, y: PlutusConstr(x, frozenlist(y)),
+        pos_int,
+        st.lists(uplc_data),
+    )
+    uplc_data_map = st.builds(
+        PlutusMap,
+        st.dictionaries(
+            st.one_of(
+                uplc_data_integer, uplc_data_bytestring
+            ),  # TODO technically constr is legal too, but causes hashing error
+            uplc_data,
+            dict_class=frozendict,
+        ),
+    )
+    return st.one_of(uplc_data_map, uplc_data_list, uplc_data_constr)
+
+
+uplc_data = st.recursive(
+    st.one_of(uplc_data_bytestring, uplc_data_integer),
+    rec_data_strategies,
+    max_leaves=4,
+)
+
+# TODO fix handling of these strings
+formattable_text = st.from_regex(r&#34;\A((?![&#39;\\])[ -~])*\Z&#34;)
 
 
 class OpTest(unittest.TestCase):
@@ -518,7 +581,445 @@ def validator(x: bool, y: bool) -&gt; bool:
         ]:
             f = uplc.Apply(f, d)
         ret = uplc_eval(f).value
-        self.assertEqual(ret, exp, &#34;str eq returned wrong value&#34;)</code></pre>
+        self.assertEqual(ret, exp, &#34;bool eq returned wrong value&#34;)
+
+    @given(x=st.integers(min_value=0, max_value=150), y=st.text())
+    def test_mul_int_str(self, x, y):
+        source_code = &#34;&#34;&#34;
+def validator(x: int, y: str) -&gt; str:
+    return x * y
+            &#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        for d in [uplc.PlutusInteger(int(x)), uplc.PlutusByteString(str(y).encode())]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value.decode()
+        self.assertEqual(ret, x * y, &#34;* returned wrong value&#34;)
+
+    @given(x=st.text(), y=st.integers(min_value=0, max_value=150))
+    def test_mul_str_int(self, x, y):
+        source_code = &#34;&#34;&#34;
+def validator(x: str, y: int) -&gt; str:
+    return x * y
+            &#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        for d in [uplc.PlutusByteString(str(x).encode()), uplc.PlutusInteger(int(y))]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value.decode()
+        self.assertEqual(ret, x * y, &#34;* returned wrong value&#34;)
+
+    @given(x=st.integers(min_value=0, max_value=150), y=st.binary())
+    def test_mul_int_bytes(self, x, y):
+        source_code = &#34;&#34;&#34;
+def validator(x: int, y: bytes) -&gt; bytes:
+    return x * y
+        &#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        exp = x * y
+        for d in [
+            uplc.PlutusInteger(int(x)),
+            uplc.PlutusByteString(y),
+        ]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value
+        self.assertEqual(ret, exp, &#34;bytes int multiplication returned wrong value&#34;)
+
+    @given(x=st.binary(), y=st.integers(min_value=0, max_value=150))
+    def test_mul_bytes_int(self, x, y):
+        source_code = &#34;&#34;&#34;
+def validator(x: bytes, y: int) -&gt; bytes:
+    return x * y
+            &#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+
+        for d in [uplc.PlutusByteString(x), uplc.PlutusInteger(int(y))]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value
+        self.assertEqual(ret, x * y, &#34;* returned wrong value&#34;)
+
+    @given(x=st.integers())
+    def test_fmt_int(self, x):
+        source_code = &#34;&#34;&#34;
+def validator(x: int) -&gt; str:
+    return f&#34;{x}&#34;
+    &#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        exp = f&#34;{x}&#34;
+        for d in [
+            uplc.PlutusInteger(int(x)),
+        ]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value.decode(&#34;utf8&#34;)
+        self.assertEqual(ret, exp, &#34;int string formatting returned wrong value&#34;)
+
+    @given(x=st.booleans())
+    def test_fmt_bool(self, x):
+        source_code = &#34;&#34;&#34;
+def validator(x: bool) -&gt; str:
+    return f&#34;{x}&#34;
+    &#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        exp = f&#34;{x}&#34;
+        for d in [
+            uplc.PlutusInteger(int(x)),
+        ]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value.decode(&#34;utf8&#34;)
+        self.assertEqual(ret, exp, &#34;bool string formatting returned wrong value&#34;)
+
+    @given(x=st.text())
+    def test_fmt_str(self, x):
+        source_code = &#34;&#34;&#34;
+def validator(x: str) -&gt; str:
+    return f&#34;{x}&#34;
+            &#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        exp = f&#34;{x}&#34;
+        for d in [
+            uplc.PlutusByteString(x.encode(&#34;utf8&#34;)),
+        ]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value.decode(&#34;utf8&#34;)
+        self.assertEqual(ret, exp, &#34;string string formatting returned wrong value&#34;)
+
+    @given(x=st.binary())
+    @example(b&#34;&#39;&#34;)
+    @example(b&#39;&#34;&#39;)
+    @example(b&#34;\\&#34;)
+    @example(b&#34;\r&#34;)
+    @example(b&#34;\n&#34;)
+    @example(b&#34;\t&#34;)
+    @example(b&#34;\x7f&#34;)
+    def test_fmt_bytes(self, x):
+        source_code = &#34;&#34;&#34;
+def validator(x: bytes) -&gt; str:
+    return f&#34;{x}&#34;
+        &#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        exp = f&#34;{x}&#34;
+        for d in [
+            uplc.PlutusByteString(x),
+        ]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value.decode(&#34;utf8&#34;)
+        if b&#34;&#39;&#34; not in x:
+            self.assertEqual(ret, exp, &#34;bytes string formatting returned wrong value&#34;)
+        else:
+            # NOTE: formally this is a bug where we do not have the same semantics as python
+            # specifically when &#39; is contained in the string we do not change the quotation marks
+            self.assertEqual(
+                eval(ret), x, &#34;bytes string formatting returned wrong value&#34;
+            )
+
+    @given(x=st.none())
+    def test_fmt_none(self, x):
+        source_code = &#34;&#34;&#34;
+def validator(x: None) -&gt; str:
+    return f&#34;{x}&#34;
+            &#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        exp = f&#34;{x}&#34;
+        for d in [
+            uplc.PlutusConstr(0, []),
+        ]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value.decode(&#34;utf8&#34;)
+        self.assertEqual(ret, exp, &#34;none string formatting returned wrong value&#34;)
+
+    @given(
+        x=st.builds(
+            UpperBoundPOSIXTime,
+            st.one_of(
+                st.builds(FinitePOSIXTime, st.integers()), st.builds(PosInfPOSIXTime)
+            ),
+            st.one_of(st.builds(TrueData), st.builds(FalseData)),
+        )
+    )
+    @hypothesis.settings(deadline=None)
+    @example(UpperBoundPOSIXTime(PosInfPOSIXTime(), TrueData()))
+    def test_fmt_dataclass(self, x: UpperBoundPOSIXTime):
+        source_code = &#34;&#34;&#34;
+from opshin.prelude import *
+
+def validator(x: UpperBoundPOSIXTime) -&gt; str:
+    return f&#34;{x}&#34;
+            &#34;&#34;&#34;
+
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        exp = f&#34;{x}&#34;
+        for d in [
+            uplc.data_from_cbor(x.to_cbor()),
+        ]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value.decode(&#34;utf8&#34;)
+        self.assertEqual(
+            ret, exp, &#34;several element string formatting returned wrong value&#34;
+        )
+
+    @given(x=st.integers(), y=st.integers())
+    def test_fmt_multiple(self, x, y):
+        source_code = &#34;&#34;&#34;
+def validator(x: int, y: int) -&gt; str:
+    return f&#34;a{x}b{y}c&#34;
+            &#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        exp = f&#34;a{x}b{y}c&#34;
+        for d in [
+            uplc.PlutusInteger(x),
+            uplc.PlutusInteger(y),
+        ]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value.decode(&#34;utf8&#34;)
+        self.assertEqual(
+            ret, exp, &#34;several element string formatting returned wrong value&#34;
+        )
+
+    @given(x=st.lists(st.integers()))
+    @hypothesis.settings(deadline=None)
+    @example([])
+    @example([0])
+    def test_fmt_tuple_int(self, x):
+        params = [f&#34;a{i}&#34; for i in range(len(x))]
+        source_code = f&#34;&#34;&#34;
+def validator({&#34;,&#34;.join(p + &#34;: int&#34; for p in params)}) -&gt; str:
+    return f&#34;{{({&#34;&#34;.join(p + &#34;,&#34; for p in params)})}}&#34;
+            &#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        exp = f&#34;{tuple(x)}&#34;
+        for d in (
+            [uplc.PlutusInteger(xi) for xi in x] if x else [uplc.PlutusConstr(0, [])]
+        ):
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value.decode(&#34;utf8&#34;)
+        self.assertEqual(
+            ret, exp, &#34;integer tuple string formatting returned wrong value&#34;
+        )
+
+    @given(x=st.lists(formattable_text))
+    @hypothesis.settings(deadline=None)
+    def test_fmt_tuple_str(self, x):
+        # TODO strings are not properly escaped here
+        params = [f&#34;a{i}&#34; for i in range(len(x))]
+        source_code = f&#34;&#34;&#34;
+def validator({&#34;,&#34;.join(p + &#34;: str&#34; for p in params)}) -&gt; str:
+    return f&#34;{{({&#34;&#34;.join(p + &#34;,&#34; for p in params)})}}&#34;
+            &#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        exp = f&#34;{tuple(x)}&#34;
+        for d in (
+            [uplc.PlutusByteString(xi.encode(&#34;utf8&#34;)) for xi in x]
+            if x
+            else [uplc.PlutusConstr(0, [])]
+        ):
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value.decode(&#34;utf8&#34;)
+        self.assertEqual(ret, exp, &#34;tuple string formatting returned wrong value&#34;)
+
+    @given(x=st.integers(), y=st.integers())
+    @hypothesis.settings(deadline=None)
+    def test_fmt_pair_int(self, x, y):
+        source_code = f&#34;&#34;&#34;
+def validator(x: int, y: int) -&gt; str:
+    a = &#34;&#34;
+    for p in {{x:y}}.items():
+        a = f&#34;{{p}}&#34;
+    return a
+            &#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        exp = f&#34;{(x, y)}&#34;
+        for d in [
+            uplc.PlutusInteger(x),
+            uplc.PlutusInteger(y),
+        ]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value.decode(&#34;utf8&#34;)
+        self.assertEqual(
+            ret, exp, &#34;integer tuple string formatting returned wrong value&#34;
+        )
+
+    @given(x=formattable_text, y=formattable_text)
+    @hypothesis.settings(deadline=None)
+    def test_fmt_pair_str(self, x, y):
+        # TODO strings are not properly escaped here
+        source_code = f&#34;&#34;&#34;
+def validator(x: str, y: str) -&gt; str:
+    a = &#34;&#34;
+    for p in {{x:y}}.items():
+        a = f&#34;{{p}}&#34;
+    return a
+            &#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        exp = f&#34;{(x, y)}&#34;
+        for d in [
+            uplc.PlutusByteString(x.encode(&#34;utf8&#34;)),
+            uplc.PlutusByteString(y.encode(&#34;utf8&#34;)),
+        ]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value.decode(&#34;utf8&#34;)
+        self.assertEqual(
+            ret, exp, &#34;string tuple string formatting returned wrong value&#34;
+        )
+
+    @given(xs=st.lists(formattable_text))
+    @hypothesis.settings(deadline=None)
+    @example([])
+    @example([&#34;x&#34;])
+    def test_fmt_list_str(self, xs):
+        # TODO strings are not properly escaped here
+        source_code = &#34;&#34;&#34;
+from opshin.prelude import *
+
+def validator(x: List[str]) -&gt; str:
+    return f&#34;{x}&#34;
+            &#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        exp = f&#34;{list(xs)}&#34;
+        for d in [
+            uplc.PlutusList([uplc.PlutusByteString(x.encode(&#34;utf8&#34;)) for x in xs])
+        ]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value.decode(&#34;utf8&#34;)
+        self.assertEqual(ret, exp, &#34;string list string formatting returned wrong value&#34;)
+
+    @given(xs=st.lists(st.integers()))
+    @hypothesis.settings(deadline=None)
+    @example([])
+    @example([0])
+    def test_fmt_list_int(self, xs):
+        source_code = &#34;&#34;&#34;
+from opshin.prelude import *
+
+def validator(x: List[int]) -&gt; str:
+    return f&#34;{x}&#34;
+            &#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        exp = f&#34;{list(xs)}&#34;
+        for d in [uplc.PlutusList([uplc.PlutusInteger(x) for x in xs])]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value.decode(&#34;utf8&#34;)
+        self.assertEqual(
+            ret, exp, &#34;integer list string formatting returned wrong value&#34;
+        )
+
+    @given(xs=st.dictionaries(formattable_text, st.integers()))
+    @hypothesis.settings(deadline=None)
+    @example(dict())
+    @example({&#34;&#34;: 0})
+    def test_fmt_dict_int(self, xs):
+        # TODO strings are not properly escaped here
+        source_code = &#34;&#34;&#34;
+from opshin.prelude import *
+
+def validator(x: Dict[str, int]) -&gt; str:
+    return f&#34;{x}&#34;
+            &#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        exp = f&#34;{dict(xs)}&#34;
+        for d in [
+            uplc.PlutusMap(
+                {
+                    uplc.PlutusByteString(k.encode(&#34;utf8&#34;)): uplc.PlutusInteger(v)
+                    for (k, v) in xs.items()
+                }
+            )
+        ]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value.decode(&#34;utf8&#34;)
+        self.assertEqual(ret, exp, &#34;dict string formatting returned wrong value&#34;)
+
+    @given(x=uplc_data)
+    @hypothesis.settings(deadline=None)
+    def test_fmt_any(self, x):
+        x_data = pycardano.RawPlutusData(cbor2.loads(uplc.plutus_cbor_dumps(x)))
+        source_code = &#34;&#34;&#34;
+def validator(x: Anything) -&gt; str:
+    return f&#34;{x}&#34;
+            &#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        exp = f&#34;{x_data}&#34;
+        for d in [x]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value.decode(&#34;utf8&#34;)
+        if &#34;\\&#39;&#34; in ret:
+            RawPlutusData = pycardano.RawPlutusData
+            self.assertEqual(
+                eval(ret), x_data, &#34;raw cbor string formatting returned wrong value&#34;
+            )
+        else:
+            self.assertEqual(
+                ret, exp, &#34;raw cbor string formatting returned wrong value&#34;
+            )</code></pre>
 </details>
 </section>
 <section>
@@ -526,6 +1027,53 @@ def validator(x: bool, y: bool) -&gt; bool:
 <section>
 </section>
 <section>
+<h2 class="section-title" id="header-functions">Functions</h2>
+<dl>
+<dt id="opshin.tests.test_ops.frozenlist"><code class="name flex">
+<span>def <span class="ident">frozenlist</span></span>(<span>l)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def frozenlist(l):
+    l = fl.FrozenList(l)
+    l.freeze()
+    return l</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_ops.rec_data_strategies"><code class="name flex">
+<span>def <span class="ident">rec_data_strategies</span></span>(<span>uplc_data)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def rec_data_strategies(uplc_data):
+    uplc_data_list = st.builds(lambda x: PlutusList(frozenlist(x)), st.lists(uplc_data))
+    uplc_data_constr = st.builds(
+        lambda x, y: PlutusConstr(x, frozenlist(y)),
+        pos_int,
+        st.lists(uplc_data),
+    )
+    uplc_data_map = st.builds(
+        PlutusMap,
+        st.dictionaries(
+            st.one_of(
+                uplc_data_integer, uplc_data_bytestring
+            ),  # TODO technically constr is legal too, but causes hashing error
+            uplc_data,
+            dict_class=frozendict,
+        ),
+    )
+    return st.one_of(uplc_data_map, uplc_data_list, uplc_data_constr)</code></pre>
+</details>
+</dd>
+</dl>
 </section>
 <section>
 <h2 class="section-title" id="header-classes">Classes</h2>
@@ -1008,7 +1556,445 @@ def validator(x: bool, y: bool) -&gt; bool:
         ]:
             f = uplc.Apply(f, d)
         ret = uplc_eval(f).value
-        self.assertEqual(ret, exp, &#34;str eq returned wrong value&#34;)</code></pre>
+        self.assertEqual(ret, exp, &#34;bool eq returned wrong value&#34;)
+
+    @given(x=st.integers(min_value=0, max_value=150), y=st.text())
+    def test_mul_int_str(self, x, y):
+        source_code = &#34;&#34;&#34;
+def validator(x: int, y: str) -&gt; str:
+    return x * y
+            &#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        for d in [uplc.PlutusInteger(int(x)), uplc.PlutusByteString(str(y).encode())]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value.decode()
+        self.assertEqual(ret, x * y, &#34;* returned wrong value&#34;)
+
+    @given(x=st.text(), y=st.integers(min_value=0, max_value=150))
+    def test_mul_str_int(self, x, y):
+        source_code = &#34;&#34;&#34;
+def validator(x: str, y: int) -&gt; str:
+    return x * y
+            &#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        for d in [uplc.PlutusByteString(str(x).encode()), uplc.PlutusInteger(int(y))]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value.decode()
+        self.assertEqual(ret, x * y, &#34;* returned wrong value&#34;)
+
+    @given(x=st.integers(min_value=0, max_value=150), y=st.binary())
+    def test_mul_int_bytes(self, x, y):
+        source_code = &#34;&#34;&#34;
+def validator(x: int, y: bytes) -&gt; bytes:
+    return x * y
+        &#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        exp = x * y
+        for d in [
+            uplc.PlutusInteger(int(x)),
+            uplc.PlutusByteString(y),
+        ]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value
+        self.assertEqual(ret, exp, &#34;bytes int multiplication returned wrong value&#34;)
+
+    @given(x=st.binary(), y=st.integers(min_value=0, max_value=150))
+    def test_mul_bytes_int(self, x, y):
+        source_code = &#34;&#34;&#34;
+def validator(x: bytes, y: int) -&gt; bytes:
+    return x * y
+            &#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+
+        for d in [uplc.PlutusByteString(x), uplc.PlutusInteger(int(y))]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value
+        self.assertEqual(ret, x * y, &#34;* returned wrong value&#34;)
+
+    @given(x=st.integers())
+    def test_fmt_int(self, x):
+        source_code = &#34;&#34;&#34;
+def validator(x: int) -&gt; str:
+    return f&#34;{x}&#34;
+    &#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        exp = f&#34;{x}&#34;
+        for d in [
+            uplc.PlutusInteger(int(x)),
+        ]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value.decode(&#34;utf8&#34;)
+        self.assertEqual(ret, exp, &#34;int string formatting returned wrong value&#34;)
+
+    @given(x=st.booleans())
+    def test_fmt_bool(self, x):
+        source_code = &#34;&#34;&#34;
+def validator(x: bool) -&gt; str:
+    return f&#34;{x}&#34;
+    &#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        exp = f&#34;{x}&#34;
+        for d in [
+            uplc.PlutusInteger(int(x)),
+        ]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value.decode(&#34;utf8&#34;)
+        self.assertEqual(ret, exp, &#34;bool string formatting returned wrong value&#34;)
+
+    @given(x=st.text())
+    def test_fmt_str(self, x):
+        source_code = &#34;&#34;&#34;
+def validator(x: str) -&gt; str:
+    return f&#34;{x}&#34;
+            &#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        exp = f&#34;{x}&#34;
+        for d in [
+            uplc.PlutusByteString(x.encode(&#34;utf8&#34;)),
+        ]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value.decode(&#34;utf8&#34;)
+        self.assertEqual(ret, exp, &#34;string string formatting returned wrong value&#34;)
+
+    @given(x=st.binary())
+    @example(b&#34;&#39;&#34;)
+    @example(b&#39;&#34;&#39;)
+    @example(b&#34;\\&#34;)
+    @example(b&#34;\r&#34;)
+    @example(b&#34;\n&#34;)
+    @example(b&#34;\t&#34;)
+    @example(b&#34;\x7f&#34;)
+    def test_fmt_bytes(self, x):
+        source_code = &#34;&#34;&#34;
+def validator(x: bytes) -&gt; str:
+    return f&#34;{x}&#34;
+        &#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        exp = f&#34;{x}&#34;
+        for d in [
+            uplc.PlutusByteString(x),
+        ]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value.decode(&#34;utf8&#34;)
+        if b&#34;&#39;&#34; not in x:
+            self.assertEqual(ret, exp, &#34;bytes string formatting returned wrong value&#34;)
+        else:
+            # NOTE: formally this is a bug where we do not have the same semantics as python
+            # specifically when &#39; is contained in the string we do not change the quotation marks
+            self.assertEqual(
+                eval(ret), x, &#34;bytes string formatting returned wrong value&#34;
+            )
+
+    @given(x=st.none())
+    def test_fmt_none(self, x):
+        source_code = &#34;&#34;&#34;
+def validator(x: None) -&gt; str:
+    return f&#34;{x}&#34;
+            &#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        exp = f&#34;{x}&#34;
+        for d in [
+            uplc.PlutusConstr(0, []),
+        ]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value.decode(&#34;utf8&#34;)
+        self.assertEqual(ret, exp, &#34;none string formatting returned wrong value&#34;)
+
+    @given(
+        x=st.builds(
+            UpperBoundPOSIXTime,
+            st.one_of(
+                st.builds(FinitePOSIXTime, st.integers()), st.builds(PosInfPOSIXTime)
+            ),
+            st.one_of(st.builds(TrueData), st.builds(FalseData)),
+        )
+    )
+    @hypothesis.settings(deadline=None)
+    @example(UpperBoundPOSIXTime(PosInfPOSIXTime(), TrueData()))
+    def test_fmt_dataclass(self, x: UpperBoundPOSIXTime):
+        source_code = &#34;&#34;&#34;
+from opshin.prelude import *
+
+def validator(x: UpperBoundPOSIXTime) -&gt; str:
+    return f&#34;{x}&#34;
+            &#34;&#34;&#34;
+
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        exp = f&#34;{x}&#34;
+        for d in [
+            uplc.data_from_cbor(x.to_cbor()),
+        ]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value.decode(&#34;utf8&#34;)
+        self.assertEqual(
+            ret, exp, &#34;several element string formatting returned wrong value&#34;
+        )
+
+    @given(x=st.integers(), y=st.integers())
+    def test_fmt_multiple(self, x, y):
+        source_code = &#34;&#34;&#34;
+def validator(x: int, y: int) -&gt; str:
+    return f&#34;a{x}b{y}c&#34;
+            &#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        exp = f&#34;a{x}b{y}c&#34;
+        for d in [
+            uplc.PlutusInteger(x),
+            uplc.PlutusInteger(y),
+        ]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value.decode(&#34;utf8&#34;)
+        self.assertEqual(
+            ret, exp, &#34;several element string formatting returned wrong value&#34;
+        )
+
+    @given(x=st.lists(st.integers()))
+    @hypothesis.settings(deadline=None)
+    @example([])
+    @example([0])
+    def test_fmt_tuple_int(self, x):
+        params = [f&#34;a{i}&#34; for i in range(len(x))]
+        source_code = f&#34;&#34;&#34;
+def validator({&#34;,&#34;.join(p + &#34;: int&#34; for p in params)}) -&gt; str:
+    return f&#34;{{({&#34;&#34;.join(p + &#34;,&#34; for p in params)})}}&#34;
+            &#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        exp = f&#34;{tuple(x)}&#34;
+        for d in (
+            [uplc.PlutusInteger(xi) for xi in x] if x else [uplc.PlutusConstr(0, [])]
+        ):
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value.decode(&#34;utf8&#34;)
+        self.assertEqual(
+            ret, exp, &#34;integer tuple string formatting returned wrong value&#34;
+        )
+
+    @given(x=st.lists(formattable_text))
+    @hypothesis.settings(deadline=None)
+    def test_fmt_tuple_str(self, x):
+        # TODO strings are not properly escaped here
+        params = [f&#34;a{i}&#34; for i in range(len(x))]
+        source_code = f&#34;&#34;&#34;
+def validator({&#34;,&#34;.join(p + &#34;: str&#34; for p in params)}) -&gt; str:
+    return f&#34;{{({&#34;&#34;.join(p + &#34;,&#34; for p in params)})}}&#34;
+            &#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        exp = f&#34;{tuple(x)}&#34;
+        for d in (
+            [uplc.PlutusByteString(xi.encode(&#34;utf8&#34;)) for xi in x]
+            if x
+            else [uplc.PlutusConstr(0, [])]
+        ):
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value.decode(&#34;utf8&#34;)
+        self.assertEqual(ret, exp, &#34;tuple string formatting returned wrong value&#34;)
+
+    @given(x=st.integers(), y=st.integers())
+    @hypothesis.settings(deadline=None)
+    def test_fmt_pair_int(self, x, y):
+        source_code = f&#34;&#34;&#34;
+def validator(x: int, y: int) -&gt; str:
+    a = &#34;&#34;
+    for p in {{x:y}}.items():
+        a = f&#34;{{p}}&#34;
+    return a
+            &#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        exp = f&#34;{(x, y)}&#34;
+        for d in [
+            uplc.PlutusInteger(x),
+            uplc.PlutusInteger(y),
+        ]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value.decode(&#34;utf8&#34;)
+        self.assertEqual(
+            ret, exp, &#34;integer tuple string formatting returned wrong value&#34;
+        )
+
+    @given(x=formattable_text, y=formattable_text)
+    @hypothesis.settings(deadline=None)
+    def test_fmt_pair_str(self, x, y):
+        # TODO strings are not properly escaped here
+        source_code = f&#34;&#34;&#34;
+def validator(x: str, y: str) -&gt; str:
+    a = &#34;&#34;
+    for p in {{x:y}}.items():
+        a = f&#34;{{p}}&#34;
+    return a
+            &#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        exp = f&#34;{(x, y)}&#34;
+        for d in [
+            uplc.PlutusByteString(x.encode(&#34;utf8&#34;)),
+            uplc.PlutusByteString(y.encode(&#34;utf8&#34;)),
+        ]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value.decode(&#34;utf8&#34;)
+        self.assertEqual(
+            ret, exp, &#34;string tuple string formatting returned wrong value&#34;
+        )
+
+    @given(xs=st.lists(formattable_text))
+    @hypothesis.settings(deadline=None)
+    @example([])
+    @example([&#34;x&#34;])
+    def test_fmt_list_str(self, xs):
+        # TODO strings are not properly escaped here
+        source_code = &#34;&#34;&#34;
+from opshin.prelude import *
+
+def validator(x: List[str]) -&gt; str:
+    return f&#34;{x}&#34;
+            &#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        exp = f&#34;{list(xs)}&#34;
+        for d in [
+            uplc.PlutusList([uplc.PlutusByteString(x.encode(&#34;utf8&#34;)) for x in xs])
+        ]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value.decode(&#34;utf8&#34;)
+        self.assertEqual(ret, exp, &#34;string list string formatting returned wrong value&#34;)
+
+    @given(xs=st.lists(st.integers()))
+    @hypothesis.settings(deadline=None)
+    @example([])
+    @example([0])
+    def test_fmt_list_int(self, xs):
+        source_code = &#34;&#34;&#34;
+from opshin.prelude import *
+
+def validator(x: List[int]) -&gt; str:
+    return f&#34;{x}&#34;
+            &#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        exp = f&#34;{list(xs)}&#34;
+        for d in [uplc.PlutusList([uplc.PlutusInteger(x) for x in xs])]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value.decode(&#34;utf8&#34;)
+        self.assertEqual(
+            ret, exp, &#34;integer list string formatting returned wrong value&#34;
+        )
+
+    @given(xs=st.dictionaries(formattable_text, st.integers()))
+    @hypothesis.settings(deadline=None)
+    @example(dict())
+    @example({&#34;&#34;: 0})
+    def test_fmt_dict_int(self, xs):
+        # TODO strings are not properly escaped here
+        source_code = &#34;&#34;&#34;
+from opshin.prelude import *
+
+def validator(x: Dict[str, int]) -&gt; str:
+    return f&#34;{x}&#34;
+            &#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        exp = f&#34;{dict(xs)}&#34;
+        for d in [
+            uplc.PlutusMap(
+                {
+                    uplc.PlutusByteString(k.encode(&#34;utf8&#34;)): uplc.PlutusInteger(v)
+                    for (k, v) in xs.items()
+                }
+            )
+        ]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value.decode(&#34;utf8&#34;)
+        self.assertEqual(ret, exp, &#34;dict string formatting returned wrong value&#34;)
+
+    @given(x=uplc_data)
+    @hypothesis.settings(deadline=None)
+    def test_fmt_any(self, x):
+        x_data = pycardano.RawPlutusData(cbor2.loads(uplc.plutus_cbor_dumps(x)))
+        source_code = &#34;&#34;&#34;
+def validator(x: Anything) -&gt; str:
+    return f&#34;{x}&#34;
+            &#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        exp = f&#34;{x_data}&#34;
+        for d in [x]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value.decode(&#34;utf8&#34;)
+        if &#34;\\&#39;&#34; in ret:
+            RawPlutusData = pycardano.RawPlutusData
+            self.assertEqual(
+                eval(ret), x_data, &#34;raw cbor string formatting returned wrong value&#34;
+            )
+        else:
+            self.assertEqual(
+                ret, exp, &#34;raw cbor string formatting returned wrong value&#34;
+            )</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -1189,7 +2175,7 @@ def validator(x: bool, y: bool) -&gt; bool:
         ]:
             f = uplc.Apply(f, d)
         ret = uplc_eval(f).value
-        self.assertEqual(ret, exp, &#34;str eq returned wrong value&#34;)</code></pre>
+        self.assertEqual(ret, exp, &#34;bool eq returned wrong value&#34;)</code></pre>
 </details>
 </dd>
 <dt id="opshin.tests.test_ops.OpTest.test_eq_bytes"><code class="name flex">
@@ -1252,6 +2238,526 @@ def validator(x: str, y: str) -&gt; bool:
             f = uplc.Apply(f, d)
         ret = uplc_eval(f).value
         self.assertEqual(ret, exp, &#34;str eq returned wrong value&#34;)</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_ops.OpTest.test_fmt_any"><code class="name flex">
+<span>def <span class="ident">test_fmt_any</span></span>(<span>self) ‑> None</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    @given(x=uplc_data)
+    @hypothesis.settings(deadline=None)
+    def test_fmt_any(self, x):
+        x_data = pycardano.RawPlutusData(cbor2.loads(uplc.plutus_cbor_dumps(x)))
+        source_code = &#34;&#34;&#34;
+def validator(x: Anything) -&gt; str:
+    return f&#34;{x}&#34;
+            &#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        exp = f&#34;{x_data}&#34;
+        for d in [x]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value.decode(&#34;utf8&#34;)
+        if &#34;\\&#39;&#34; in ret:
+            RawPlutusData = pycardano.RawPlutusData
+            self.assertEqual(
+                eval(ret), x_data, &#34;raw cbor string formatting returned wrong value&#34;
+            )
+        else:
+            self.assertEqual(
+                ret, exp, &#34;raw cbor string formatting returned wrong value&#34;
+            )</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_ops.OpTest.test_fmt_bool"><code class="name flex">
+<span>def <span class="ident">test_fmt_bool</span></span>(<span>self) ‑> None</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    @given(x=st.booleans())
+    def test_fmt_bool(self, x):
+        source_code = &#34;&#34;&#34;
+def validator(x: bool) -&gt; str:
+    return f&#34;{x}&#34;
+    &#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        exp = f&#34;{x}&#34;
+        for d in [
+            uplc.PlutusInteger(int(x)),
+        ]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value.decode(&#34;utf8&#34;)
+        self.assertEqual(ret, exp, &#34;bool string formatting returned wrong value&#34;)</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_ops.OpTest.test_fmt_bytes"><code class="name flex">
+<span>def <span class="ident">test_fmt_bytes</span></span>(<span>self) ‑> None</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    @given(x=st.binary())
+    @example(b&#34;&#39;&#34;)
+    @example(b&#39;&#34;&#39;)
+    @example(b&#34;\\&#34;)
+    @example(b&#34;\r&#34;)
+    @example(b&#34;\n&#34;)
+    @example(b&#34;\t&#34;)
+    @example(b&#34;\x7f&#34;)
+    def test_fmt_bytes(self, x):
+        source_code = &#34;&#34;&#34;
+def validator(x: bytes) -&gt; str:
+    return f&#34;{x}&#34;
+        &#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        exp = f&#34;{x}&#34;
+        for d in [
+            uplc.PlutusByteString(x),
+        ]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value.decode(&#34;utf8&#34;)
+        if b&#34;&#39;&#34; not in x:
+            self.assertEqual(ret, exp, &#34;bytes string formatting returned wrong value&#34;)
+        else:
+            # NOTE: formally this is a bug where we do not have the same semantics as python
+            # specifically when &#39; is contained in the string we do not change the quotation marks
+            self.assertEqual(
+                eval(ret), x, &#34;bytes string formatting returned wrong value&#34;
+            )</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_ops.OpTest.test_fmt_dataclass"><code class="name flex">
+<span>def <span class="ident">test_fmt_dataclass</span></span>(<span>self) ‑> None</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    @given(
+        x=st.builds(
+            UpperBoundPOSIXTime,
+            st.one_of(
+                st.builds(FinitePOSIXTime, st.integers()), st.builds(PosInfPOSIXTime)
+            ),
+            st.one_of(st.builds(TrueData), st.builds(FalseData)),
+        )
+    )
+    @hypothesis.settings(deadline=None)
+    @example(UpperBoundPOSIXTime(PosInfPOSIXTime(), TrueData()))
+    def test_fmt_dataclass(self, x: UpperBoundPOSIXTime):
+        source_code = &#34;&#34;&#34;
+from opshin.prelude import *
+
+def validator(x: UpperBoundPOSIXTime) -&gt; str:
+    return f&#34;{x}&#34;
+            &#34;&#34;&#34;
+
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        exp = f&#34;{x}&#34;
+        for d in [
+            uplc.data_from_cbor(x.to_cbor()),
+        ]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value.decode(&#34;utf8&#34;)
+        self.assertEqual(
+            ret, exp, &#34;several element string formatting returned wrong value&#34;
+        )</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_ops.OpTest.test_fmt_dict_int"><code class="name flex">
+<span>def <span class="ident">test_fmt_dict_int</span></span>(<span>self) ‑> None</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    @given(xs=st.dictionaries(formattable_text, st.integers()))
+    @hypothesis.settings(deadline=None)
+    @example(dict())
+    @example({&#34;&#34;: 0})
+    def test_fmt_dict_int(self, xs):
+        # TODO strings are not properly escaped here
+        source_code = &#34;&#34;&#34;
+from opshin.prelude import *
+
+def validator(x: Dict[str, int]) -&gt; str:
+    return f&#34;{x}&#34;
+            &#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        exp = f&#34;{dict(xs)}&#34;
+        for d in [
+            uplc.PlutusMap(
+                {
+                    uplc.PlutusByteString(k.encode(&#34;utf8&#34;)): uplc.PlutusInteger(v)
+                    for (k, v) in xs.items()
+                }
+            )
+        ]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value.decode(&#34;utf8&#34;)
+        self.assertEqual(ret, exp, &#34;dict string formatting returned wrong value&#34;)</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_ops.OpTest.test_fmt_int"><code class="name flex">
+<span>def <span class="ident">test_fmt_int</span></span>(<span>self) ‑> None</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    @given(x=st.integers())
+    def test_fmt_int(self, x):
+        source_code = &#34;&#34;&#34;
+def validator(x: int) -&gt; str:
+    return f&#34;{x}&#34;
+    &#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        exp = f&#34;{x}&#34;
+        for d in [
+            uplc.PlutusInteger(int(x)),
+        ]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value.decode(&#34;utf8&#34;)
+        self.assertEqual(ret, exp, &#34;int string formatting returned wrong value&#34;)</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_ops.OpTest.test_fmt_list_int"><code class="name flex">
+<span>def <span class="ident">test_fmt_list_int</span></span>(<span>self) ‑> None</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    @given(xs=st.lists(st.integers()))
+    @hypothesis.settings(deadline=None)
+    @example([])
+    @example([0])
+    def test_fmt_list_int(self, xs):
+        source_code = &#34;&#34;&#34;
+from opshin.prelude import *
+
+def validator(x: List[int]) -&gt; str:
+    return f&#34;{x}&#34;
+            &#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        exp = f&#34;{list(xs)}&#34;
+        for d in [uplc.PlutusList([uplc.PlutusInteger(x) for x in xs])]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value.decode(&#34;utf8&#34;)
+        self.assertEqual(
+            ret, exp, &#34;integer list string formatting returned wrong value&#34;
+        )</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_ops.OpTest.test_fmt_list_str"><code class="name flex">
+<span>def <span class="ident">test_fmt_list_str</span></span>(<span>self) ‑> None</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    @given(xs=st.lists(formattable_text))
+    @hypothesis.settings(deadline=None)
+    @example([])
+    @example([&#34;x&#34;])
+    def test_fmt_list_str(self, xs):
+        # TODO strings are not properly escaped here
+        source_code = &#34;&#34;&#34;
+from opshin.prelude import *
+
+def validator(x: List[str]) -&gt; str:
+    return f&#34;{x}&#34;
+            &#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        exp = f&#34;{list(xs)}&#34;
+        for d in [
+            uplc.PlutusList([uplc.PlutusByteString(x.encode(&#34;utf8&#34;)) for x in xs])
+        ]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value.decode(&#34;utf8&#34;)
+        self.assertEqual(ret, exp, &#34;string list string formatting returned wrong value&#34;)</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_ops.OpTest.test_fmt_multiple"><code class="name flex">
+<span>def <span class="ident">test_fmt_multiple</span></span>(<span>self) ‑> None</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    @given(x=st.integers(), y=st.integers())
+    def test_fmt_multiple(self, x, y):
+        source_code = &#34;&#34;&#34;
+def validator(x: int, y: int) -&gt; str:
+    return f&#34;a{x}b{y}c&#34;
+            &#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        exp = f&#34;a{x}b{y}c&#34;
+        for d in [
+            uplc.PlutusInteger(x),
+            uplc.PlutusInteger(y),
+        ]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value.decode(&#34;utf8&#34;)
+        self.assertEqual(
+            ret, exp, &#34;several element string formatting returned wrong value&#34;
+        )</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_ops.OpTest.test_fmt_none"><code class="name flex">
+<span>def <span class="ident">test_fmt_none</span></span>(<span>self) ‑> None</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    @given(x=st.none())
+    def test_fmt_none(self, x):
+        source_code = &#34;&#34;&#34;
+def validator(x: None) -&gt; str:
+    return f&#34;{x}&#34;
+            &#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        exp = f&#34;{x}&#34;
+        for d in [
+            uplc.PlutusConstr(0, []),
+        ]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value.decode(&#34;utf8&#34;)
+        self.assertEqual(ret, exp, &#34;none string formatting returned wrong value&#34;)</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_ops.OpTest.test_fmt_pair_int"><code class="name flex">
+<span>def <span class="ident">test_fmt_pair_int</span></span>(<span>self) ‑> None</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    @given(x=st.integers(), y=st.integers())
+    @hypothesis.settings(deadline=None)
+    def test_fmt_pair_int(self, x, y):
+        source_code = f&#34;&#34;&#34;
+def validator(x: int, y: int) -&gt; str:
+    a = &#34;&#34;
+    for p in {{x:y}}.items():
+        a = f&#34;{{p}}&#34;
+    return a
+            &#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        exp = f&#34;{(x, y)}&#34;
+        for d in [
+            uplc.PlutusInteger(x),
+            uplc.PlutusInteger(y),
+        ]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value.decode(&#34;utf8&#34;)
+        self.assertEqual(
+            ret, exp, &#34;integer tuple string formatting returned wrong value&#34;
+        )</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_ops.OpTest.test_fmt_pair_str"><code class="name flex">
+<span>def <span class="ident">test_fmt_pair_str</span></span>(<span>self) ‑> None</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    @given(x=formattable_text, y=formattable_text)
+    @hypothesis.settings(deadline=None)
+    def test_fmt_pair_str(self, x, y):
+        # TODO strings are not properly escaped here
+        source_code = f&#34;&#34;&#34;
+def validator(x: str, y: str) -&gt; str:
+    a = &#34;&#34;
+    for p in {{x:y}}.items():
+        a = f&#34;{{p}}&#34;
+    return a
+            &#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        exp = f&#34;{(x, y)}&#34;
+        for d in [
+            uplc.PlutusByteString(x.encode(&#34;utf8&#34;)),
+            uplc.PlutusByteString(y.encode(&#34;utf8&#34;)),
+        ]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value.decode(&#34;utf8&#34;)
+        self.assertEqual(
+            ret, exp, &#34;string tuple string formatting returned wrong value&#34;
+        )</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_ops.OpTest.test_fmt_str"><code class="name flex">
+<span>def <span class="ident">test_fmt_str</span></span>(<span>self) ‑> None</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    @given(x=st.text())
+    def test_fmt_str(self, x):
+        source_code = &#34;&#34;&#34;
+def validator(x: str) -&gt; str:
+    return f&#34;{x}&#34;
+            &#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        exp = f&#34;{x}&#34;
+        for d in [
+            uplc.PlutusByteString(x.encode(&#34;utf8&#34;)),
+        ]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value.decode(&#34;utf8&#34;)
+        self.assertEqual(ret, exp, &#34;string string formatting returned wrong value&#34;)</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_ops.OpTest.test_fmt_tuple_int"><code class="name flex">
+<span>def <span class="ident">test_fmt_tuple_int</span></span>(<span>self) ‑> None</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    @given(x=st.lists(st.integers()))
+    @hypothesis.settings(deadline=None)
+    @example([])
+    @example([0])
+    def test_fmt_tuple_int(self, x):
+        params = [f&#34;a{i}&#34; for i in range(len(x))]
+        source_code = f&#34;&#34;&#34;
+def validator({&#34;,&#34;.join(p + &#34;: int&#34; for p in params)}) -&gt; str:
+    return f&#34;{{({&#34;&#34;.join(p + &#34;,&#34; for p in params)})}}&#34;
+            &#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        exp = f&#34;{tuple(x)}&#34;
+        for d in (
+            [uplc.PlutusInteger(xi) for xi in x] if x else [uplc.PlutusConstr(0, [])]
+        ):
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value.decode(&#34;utf8&#34;)
+        self.assertEqual(
+            ret, exp, &#34;integer tuple string formatting returned wrong value&#34;
+        )</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_ops.OpTest.test_fmt_tuple_str"><code class="name flex">
+<span>def <span class="ident">test_fmt_tuple_str</span></span>(<span>self) ‑> None</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    @given(x=st.lists(formattable_text))
+    @hypothesis.settings(deadline=None)
+    def test_fmt_tuple_str(self, x):
+        # TODO strings are not properly escaped here
+        params = [f&#34;a{i}&#34; for i in range(len(x))]
+        source_code = f&#34;&#34;&#34;
+def validator({&#34;,&#34;.join(p + &#34;: str&#34; for p in params)}) -&gt; str:
+    return f&#34;{{({&#34;&#34;.join(p + &#34;,&#34; for p in params)})}}&#34;
+            &#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        exp = f&#34;{tuple(x)}&#34;
+        for d in (
+            [uplc.PlutusByteString(xi.encode(&#34;utf8&#34;)) for xi in x]
+            if x
+            else [uplc.PlutusConstr(0, [])]
+        ):
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value.decode(&#34;utf8&#34;)
+        self.assertEqual(ret, exp, &#34;tuple string formatting returned wrong value&#34;)</code></pre>
 </details>
 </dd>
 <dt id="opshin.tests.test_ops.OpTest.test_in_list_bytes"><code class="name flex">
@@ -1431,6 +2937,33 @@ def validator(x: int, y: int) -&gt; int:
         self.assertEqual(ret, exp, &#34;% returned wrong value&#34;)</code></pre>
 </details>
 </dd>
+<dt id="opshin.tests.test_ops.OpTest.test_mul_bytes_int"><code class="name flex">
+<span>def <span class="ident">test_mul_bytes_int</span></span>(<span>self) ‑> None</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    @given(x=st.binary(), y=st.integers(min_value=0, max_value=150))
+    def test_mul_bytes_int(self, x, y):
+        source_code = &#34;&#34;&#34;
+def validator(x: bytes, y: int) -&gt; bytes:
+    return x * y
+            &#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+
+        for d in [uplc.PlutusByteString(x), uplc.PlutusInteger(int(y))]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value
+        self.assertEqual(ret, x * y, &#34;* returned wrong value&#34;)</code></pre>
+</details>
+</dd>
 <dt id="opshin.tests.test_ops.OpTest.test_mul_int"><code class="name flex">
 <span>def <span class="ident">test_mul_int</span></span>(<span>self) ‑> None</span>
 </code></dt>
@@ -1455,6 +2988,87 @@ def validator(x: int, y: int) -&gt; int:
         for d in [uplc.PlutusInteger(int(x)), uplc.PlutusInteger(int(y))]:
             f = uplc.Apply(f, d)
         ret = uplc_eval(f).value
+        self.assertEqual(ret, x * y, &#34;* returned wrong value&#34;)</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_ops.OpTest.test_mul_int_bytes"><code class="name flex">
+<span>def <span class="ident">test_mul_int_bytes</span></span>(<span>self) ‑> None</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    @given(x=st.integers(min_value=0, max_value=150), y=st.binary())
+    def test_mul_int_bytes(self, x, y):
+        source_code = &#34;&#34;&#34;
+def validator(x: int, y: bytes) -&gt; bytes:
+    return x * y
+        &#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        exp = x * y
+        for d in [
+            uplc.PlutusInteger(int(x)),
+            uplc.PlutusByteString(y),
+        ]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value
+        self.assertEqual(ret, exp, &#34;bytes int multiplication returned wrong value&#34;)</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_ops.OpTest.test_mul_int_str"><code class="name flex">
+<span>def <span class="ident">test_mul_int_str</span></span>(<span>self) ‑> None</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    @given(x=st.integers(min_value=0, max_value=150), y=st.text())
+    def test_mul_int_str(self, x, y):
+        source_code = &#34;&#34;&#34;
+def validator(x: int, y: str) -&gt; str:
+    return x * y
+            &#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        for d in [uplc.PlutusInteger(int(x)), uplc.PlutusByteString(str(y).encode())]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value.decode()
+        self.assertEqual(ret, x * y, &#34;* returned wrong value&#34;)</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_ops.OpTest.test_mul_str_int"><code class="name flex">
+<span>def <span class="ident">test_mul_str_int</span></span>(<span>self) ‑> None</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    @given(x=st.text(), y=st.integers(min_value=0, max_value=150))
+    def test_mul_str_int(self, x, y):
+        source_code = &#34;&#34;&#34;
+def validator(x: str, y: int) -&gt; str:
+    return x * y
+            &#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        for d in [uplc.PlutusByteString(str(x).encode()), uplc.PlutusInteger(int(y))]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value.decode()
         self.assertEqual(ret, x * y, &#34;* returned wrong value&#34;)</code></pre>
 </details>
 </dd>
@@ -1706,6 +3320,12 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="opshin.tests" href="index.html">opshin.tests</a></code></li>
 </ul>
 </li>
+<li><h3><a href="#header-functions">Functions</a></h3>
+<ul class="">
+<li><code><a title="opshin.tests.test_ops.frozenlist" href="#opshin.tests.test_ops.frozenlist">frozenlist</a></code></li>
+<li><code><a title="opshin.tests.test_ops.rec_data_strategies" href="#opshin.tests.test_ops.rec_data_strategies">rec_data_strategies</a></code></li>
+</ul>
+</li>
 <li><h3><a href="#header-classes">Classes</a></h3>
 <ul>
 <li>
@@ -1719,12 +3339,31 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="opshin.tests.test_ops.OpTest.test_eq_bool" href="#opshin.tests.test_ops.OpTest.test_eq_bool">test_eq_bool</a></code></li>
 <li><code><a title="opshin.tests.test_ops.OpTest.test_eq_bytes" href="#opshin.tests.test_ops.OpTest.test_eq_bytes">test_eq_bytes</a></code></li>
 <li><code><a title="opshin.tests.test_ops.OpTest.test_eq_str" href="#opshin.tests.test_ops.OpTest.test_eq_str">test_eq_str</a></code></li>
+<li><code><a title="opshin.tests.test_ops.OpTest.test_fmt_any" href="#opshin.tests.test_ops.OpTest.test_fmt_any">test_fmt_any</a></code></li>
+<li><code><a title="opshin.tests.test_ops.OpTest.test_fmt_bool" href="#opshin.tests.test_ops.OpTest.test_fmt_bool">test_fmt_bool</a></code></li>
+<li><code><a title="opshin.tests.test_ops.OpTest.test_fmt_bytes" href="#opshin.tests.test_ops.OpTest.test_fmt_bytes">test_fmt_bytes</a></code></li>
+<li><code><a title="opshin.tests.test_ops.OpTest.test_fmt_dataclass" href="#opshin.tests.test_ops.OpTest.test_fmt_dataclass">test_fmt_dataclass</a></code></li>
+<li><code><a title="opshin.tests.test_ops.OpTest.test_fmt_dict_int" href="#opshin.tests.test_ops.OpTest.test_fmt_dict_int">test_fmt_dict_int</a></code></li>
+<li><code><a title="opshin.tests.test_ops.OpTest.test_fmt_int" href="#opshin.tests.test_ops.OpTest.test_fmt_int">test_fmt_int</a></code></li>
+<li><code><a title="opshin.tests.test_ops.OpTest.test_fmt_list_int" href="#opshin.tests.test_ops.OpTest.test_fmt_list_int">test_fmt_list_int</a></code></li>
+<li><code><a title="opshin.tests.test_ops.OpTest.test_fmt_list_str" href="#opshin.tests.test_ops.OpTest.test_fmt_list_str">test_fmt_list_str</a></code></li>
+<li><code><a title="opshin.tests.test_ops.OpTest.test_fmt_multiple" href="#opshin.tests.test_ops.OpTest.test_fmt_multiple">test_fmt_multiple</a></code></li>
+<li><code><a title="opshin.tests.test_ops.OpTest.test_fmt_none" href="#opshin.tests.test_ops.OpTest.test_fmt_none">test_fmt_none</a></code></li>
+<li><code><a title="opshin.tests.test_ops.OpTest.test_fmt_pair_int" href="#opshin.tests.test_ops.OpTest.test_fmt_pair_int">test_fmt_pair_int</a></code></li>
+<li><code><a title="opshin.tests.test_ops.OpTest.test_fmt_pair_str" href="#opshin.tests.test_ops.OpTest.test_fmt_pair_str">test_fmt_pair_str</a></code></li>
+<li><code><a title="opshin.tests.test_ops.OpTest.test_fmt_str" href="#opshin.tests.test_ops.OpTest.test_fmt_str">test_fmt_str</a></code></li>
+<li><code><a title="opshin.tests.test_ops.OpTest.test_fmt_tuple_int" href="#opshin.tests.test_ops.OpTest.test_fmt_tuple_int">test_fmt_tuple_int</a></code></li>
+<li><code><a title="opshin.tests.test_ops.OpTest.test_fmt_tuple_str" href="#opshin.tests.test_ops.OpTest.test_fmt_tuple_str">test_fmt_tuple_str</a></code></li>
 <li><code><a title="opshin.tests.test_ops.OpTest.test_in_list_bytes" href="#opshin.tests.test_ops.OpTest.test_in_list_bytes">test_in_list_bytes</a></code></li>
 <li><code><a title="opshin.tests.test_ops.OpTest.test_in_list_int" href="#opshin.tests.test_ops.OpTest.test_in_list_int">test_in_list_int</a></code></li>
 <li><code><a title="opshin.tests.test_ops.OpTest.test_index_bytes" href="#opshin.tests.test_ops.OpTest.test_index_bytes">test_index_bytes</a></code></li>
 <li><code><a title="opshin.tests.test_ops.OpTest.test_index_list" href="#opshin.tests.test_ops.OpTest.test_index_list">test_index_list</a></code></li>
 <li><code><a title="opshin.tests.test_ops.OpTest.test_mod_int" href="#opshin.tests.test_ops.OpTest.test_mod_int">test_mod_int</a></code></li>
+<li><code><a title="opshin.tests.test_ops.OpTest.test_mul_bytes_int" href="#opshin.tests.test_ops.OpTest.test_mul_bytes_int">test_mul_bytes_int</a></code></li>
 <li><code><a title="opshin.tests.test_ops.OpTest.test_mul_int" href="#opshin.tests.test_ops.OpTest.test_mul_int">test_mul_int</a></code></li>
+<li><code><a title="opshin.tests.test_ops.OpTest.test_mul_int_bytes" href="#opshin.tests.test_ops.OpTest.test_mul_int_bytes">test_mul_int_bytes</a></code></li>
+<li><code><a title="opshin.tests.test_ops.OpTest.test_mul_int_str" href="#opshin.tests.test_ops.OpTest.test_mul_int_str">test_mul_int_str</a></code></li>
+<li><code><a title="opshin.tests.test_ops.OpTest.test_mul_str_int" href="#opshin.tests.test_ops.OpTest.test_mul_str_int">test_mul_str_int</a></code></li>
 <li><code><a title="opshin.tests.test_ops.OpTest.test_not_bool" href="#opshin.tests.test_ops.OpTest.test_not_bool">test_not_bool</a></code></li>
 <li><code><a title="opshin.tests.test_ops.OpTest.test_or_bool" href="#opshin.tests.test_ops.OpTest.test_or_bool">test_or_bool</a></code></li>
 <li><code><a title="opshin.tests.test_ops.OpTest.test_pow_int" href="#opshin.tests.test_ops.OpTest.test_pow_int">test_pow_int</a></code></li>

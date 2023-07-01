@@ -421,6 +421,23 @@ def validator(x: int) -&gt; str:
         ret = uplc_eval(f).value.decode(&#34;utf8&#34;)
         self.assertEqual(ret, str(x), &#34;str returned wrong value&#34;)
 
+    @given(x=st.booleans())
+    def test_str_bool(self, x):
+        # this tests that errors that are caused by assignments are actually triggered at the time of assigning
+        source_code = &#34;&#34;&#34;
+def validator(x: bool) -&gt; str:
+    return str(x)
+        &#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        for d in [uplc.PlutusInteger(x)]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value.decode(&#34;utf8&#34;)
+        self.assertEqual(ret, str(x), &#34;str returned wrong value&#34;)
+
     @given(xs=st.lists(st.integers()))
     def test_sum(self, xs):
         # this tests that errors that are caused by assignments are actually triggered at the time of assigning
@@ -470,7 +487,27 @@ def validator(x: int) -&gt; bool:
         for d in [uplc.PlutusInteger(x)]:
             f = uplc.Apply(f, d)
         ret = bool(uplc_eval(f).value)
-        self.assertEqual(ret, bool(x), &#34;reversed returned wrong value&#34;)</code></pre>
+        self.assertEqual(ret, bool(x), &#34;reversed returned wrong value&#34;)
+
+    @given(x=st.integers(), y=st.booleans(), z=st.none())
+    def test_print_compile(self, x, y, z):
+        # this tests that errors that are caused by assignments are actually triggered at the time of assigning
+        source_code = &#34;&#34;&#34;
+def validator(x: int, y: bool, z: None) -&gt; None:
+    print(x, y, z)
+        &#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        for d in [
+            uplc.PlutusInteger(x),
+            uplc.PlutusInteger(y),
+            uplc.PlutusConstr(0, []),
+        ]:
+            f = uplc.Apply(f, d)
+        uplc_eval(f)</code></pre>
 </details>
 </section>
 <section>
@@ -862,6 +899,23 @@ def validator(x: int) -&gt; str:
         ret = uplc_eval(f).value.decode(&#34;utf8&#34;)
         self.assertEqual(ret, str(x), &#34;str returned wrong value&#34;)
 
+    @given(x=st.booleans())
+    def test_str_bool(self, x):
+        # this tests that errors that are caused by assignments are actually triggered at the time of assigning
+        source_code = &#34;&#34;&#34;
+def validator(x: bool) -&gt; str:
+    return str(x)
+        &#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        for d in [uplc.PlutusInteger(x)]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value.decode(&#34;utf8&#34;)
+        self.assertEqual(ret, str(x), &#34;str returned wrong value&#34;)
+
     @given(xs=st.lists(st.integers()))
     def test_sum(self, xs):
         # this tests that errors that are caused by assignments are actually triggered at the time of assigning
@@ -911,7 +965,27 @@ def validator(x: int) -&gt; bool:
         for d in [uplc.PlutusInteger(x)]:
             f = uplc.Apply(f, d)
         ret = bool(uplc_eval(f).value)
-        self.assertEqual(ret, bool(x), &#34;reversed returned wrong value&#34;)</code></pre>
+        self.assertEqual(ret, bool(x), &#34;reversed returned wrong value&#34;)
+
+    @given(x=st.integers(), y=st.booleans(), z=st.none())
+    def test_print_compile(self, x, y, z):
+        # this tests that errors that are caused by assignments are actually triggered at the time of assigning
+        source_code = &#34;&#34;&#34;
+def validator(x: int, y: bool, z: None) -&gt; None:
+    print(x, y, z)
+        &#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        for d in [
+            uplc.PlutusInteger(x),
+            uplc.PlutusInteger(y),
+            uplc.PlutusConstr(0, []),
+        ]:
+            f = uplc.Apply(f, d)
+        uplc_eval(f)</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -1422,6 +1496,36 @@ def validator(x: int, y: int) -&gt; int:
         self.assertEqual(ret, exp, &#34;pow returned wrong value&#34;)</code></pre>
 </details>
 </dd>
+<dt id="opshin.tests.test_builtins.BuiltinTest.test_print_compile"><code class="name flex">
+<span>def <span class="ident">test_print_compile</span></span>(<span>self) ‑> None</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    @given(x=st.integers(), y=st.booleans(), z=st.none())
+    def test_print_compile(self, x, y, z):
+        # this tests that errors that are caused by assignments are actually triggered at the time of assigning
+        source_code = &#34;&#34;&#34;
+def validator(x: int, y: bool, z: None) -&gt; None:
+    print(x, y, z)
+        &#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        for d in [
+            uplc.PlutusInteger(x),
+            uplc.PlutusInteger(y),
+            uplc.PlutusConstr(0, []),
+        ]:
+            f = uplc.Apply(f, d)
+        uplc_eval(f)</code></pre>
+</details>
+</dd>
 <dt id="opshin.tests.test_builtins.BuiltinTest.test_range"><code class="name flex">
 <span>def <span class="ident">test_range</span></span>(<span>self) ‑> None</span>
 </code></dt>
@@ -1474,6 +1578,33 @@ def validator(x: List[int]) -&gt; List[int]:
             f = uplc.Apply(f, d)
         ret = [x.value for x in uplc_eval(f).value]
         self.assertEqual(ret, list(reversed(xs)), &#34;reversed returned wrong value&#34;)</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_builtins.BuiltinTest.test_str_bool"><code class="name flex">
+<span>def <span class="ident">test_str_bool</span></span>(<span>self) ‑> None</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    @given(x=st.booleans())
+    def test_str_bool(self, x):
+        # this tests that errors that are caused by assignments are actually triggered at the time of assigning
+        source_code = &#34;&#34;&#34;
+def validator(x: bool) -&gt; str:
+    return str(x)
+        &#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        for d in [uplc.PlutusInteger(x)]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value.decode(&#34;utf8&#34;)
+        self.assertEqual(ret, str(x), &#34;str returned wrong value&#34;)</code></pre>
 </details>
 </dd>
 <dt id="opshin.tests.test_builtins.BuiltinTest.test_str_int"><code class="name flex">
@@ -1628,8 +1759,10 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="opshin.tests.test_builtins.BuiltinTest.test_min" href="#opshin.tests.test_builtins.BuiltinTest.test_min">test_min</a></code></li>
 <li><code><a title="opshin.tests.test_builtins.BuiltinTest.test_oct" href="#opshin.tests.test_builtins.BuiltinTest.test_oct">test_oct</a></code></li>
 <li><code><a title="opshin.tests.test_builtins.BuiltinTest.test_pow" href="#opshin.tests.test_builtins.BuiltinTest.test_pow">test_pow</a></code></li>
+<li><code><a title="opshin.tests.test_builtins.BuiltinTest.test_print_compile" href="#opshin.tests.test_builtins.BuiltinTest.test_print_compile">test_print_compile</a></code></li>
 <li><code><a title="opshin.tests.test_builtins.BuiltinTest.test_range" href="#opshin.tests.test_builtins.BuiltinTest.test_range">test_range</a></code></li>
 <li><code><a title="opshin.tests.test_builtins.BuiltinTest.test_reversed" href="#opshin.tests.test_builtins.BuiltinTest.test_reversed">test_reversed</a></code></li>
+<li><code><a title="opshin.tests.test_builtins.BuiltinTest.test_str_bool" href="#opshin.tests.test_builtins.BuiltinTest.test_str_bool">test_str_bool</a></code></li>
 <li><code><a title="opshin.tests.test_builtins.BuiltinTest.test_str_int" href="#opshin.tests.test_builtins.BuiltinTest.test_str_int">test_str_int</a></code></li>
 <li><code><a title="opshin.tests.test_builtins.BuiltinTest.test_sum" href="#opshin.tests.test_builtins.BuiltinTest.test_sum">test_sum</a></code></li>
 </ul>

@@ -131,7 +131,13 @@ class RewriteImport(CompilingNodeTransformer):
     def visit_ImportFrom(
         self, node: ImportFrom
     ) -&gt; typing.Union[ImportFrom, typing.List[AST]]:
-        if node.module in [&#34;pycardano&#34;, &#34;typing&#34;, &#34;dataclasses&#34;, &#34;hashlib&#34;]:
+        if node.module in [
+            &#34;pycardano&#34;,
+            &#34;typing&#34;,
+            &#34;dataclasses&#34;,
+            &#34;hashlib&#34;,
+            &#34;opshin.bridge&#34;,
+        ]:
             return node
         assert (
             len(node.names) == 1
@@ -260,7 +266,13 @@ just a single node.</p>
     def visit_ImportFrom(
         self, node: ImportFrom
     ) -&gt; typing.Union[ImportFrom, typing.List[AST]]:
-        if node.module in [&#34;pycardano&#34;, &#34;typing&#34;, &#34;dataclasses&#34;, &#34;hashlib&#34;]:
+        if node.module in [
+            &#34;pycardano&#34;,
+            &#34;typing&#34;,
+            &#34;dataclasses&#34;,
+            &#34;hashlib&#34;,
+            &#34;opshin.bridge&#34;,
+        ]:
             return node
         assert (
             len(node.names) == 1
@@ -331,7 +343,13 @@ just a single node.</p>
 <pre><code class="python">def visit_ImportFrom(
     self, node: ImportFrom
 ) -&gt; typing.Union[ImportFrom, typing.List[AST]]:
-    if node.module in [&#34;pycardano&#34;, &#34;typing&#34;, &#34;dataclasses&#34;, &#34;hashlib&#34;]:
+    if node.module in [
+        &#34;pycardano&#34;,
+        &#34;typing&#34;,
+        &#34;dataclasses&#34;,
+        &#34;hashlib&#34;,
+        &#34;opshin.bridge&#34;,
+    ]:
         return node
     assert (
         len(node.names) == 1
