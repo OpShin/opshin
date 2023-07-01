@@ -5,6 +5,7 @@ but replaces the mentioned functions by their UPLC implementation.
 """
 from opshin.bridge import wraps_builtin
 from pycardano import Datum as Anything, PlutusData
+from typing import Dict, List, Union
 
 
 @wraps_builtin
@@ -168,10 +169,10 @@ def bn256_add(x: Anything, y: Anything) -> Anything:
 
 
 @wraps_builtin
-def bn256_mul(x: Anything, y: Anything) -> Anything:
+def bn256_mul(x: Anything, y: int) -> Anything:
     pass
 
 
 @wraps_builtin
-def bn128_pairing(x: Anything, y: Anything) -> Anything:
+def bn128_pairing(x: List[Anything], y: List[Anything]) -> bool:
     pass
