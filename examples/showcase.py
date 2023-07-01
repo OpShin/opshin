@@ -11,7 +11,7 @@ def validator(n: int) -> int:
     while b < 5:
         b += 1
     for i in range(2):
-        print("loop")
+        print("loop", i)
 
     # sha256, sha3_256 and blake2b
     from hashlib import sha256 as hsh

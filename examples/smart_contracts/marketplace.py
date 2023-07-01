@@ -42,11 +42,13 @@ def check_single_utxo_spent(txins: List[TxInInfo], addr: Address) -> None:
     for txi in txins:
         if txi.resolved.address == addr:
             count += 1
-    assert count == 1, "Only 1 contract utxo allowed"
+    assert count == 1, f"Only 1 contract utxo allowed but found {count}"
 
 
 def check_owner_signed(signatories: List[PubKeyHash], owner: PubKeyHash) -> None:
-    assert owner in signatories, "Owner did not sign transaction"
+    assert (
+        owner in signatories
+    ), f"Owner did not sign transaction, requires {owner.hex()} but got {[s.hex() for s in signatories]}"
 
 
 def validator(datum: Listing, redeemer: ListingAction, context: ScriptContext) -> None:
