@@ -903,22 +903,13 @@ lxml = ["lxml"]
 
 [[package]]
 name = "hypothesis"
-<<<<<<< HEAD
-version = "6.79.2"
-=======
 version = "6.79.3"
->>>>>>> dev
 description = "A library for property-based testing"
 optional = false
 python-versions = ">=3.7"
 files = [
-<<<<<<< HEAD
-    {file = "hypothesis-6.79.2-py3-none-any.whl", hash = "sha256:564d9860ed5e09b0434b7bafea392b0da8f67131190202c6002e58c2c96b7596"},
-    {file = "hypothesis-6.79.2.tar.gz", hash = "sha256:51fb2259489dc446d3edc04cbc8ebd5848d7d3f238121183bee5449b91f7a8d8"},
-=======
     {file = "hypothesis-6.79.3-py3-none-any.whl", hash = "sha256:245bed0fcf7612caa0ca1ecaa5c1e3a7100bbf9fd0fe4a24bdd9e46249b2774f"},
     {file = "hypothesis-6.79.3.tar.gz", hash = "sha256:69b55ee1dae2c7edd214e273a977d0dfba542946a211c9ef1f958743b49e430e"},
->>>>>>> dev
 ]
 
 [package.dependencies]
@@ -1655,22 +1646,13 @@ files = [
 
 [[package]]
 name = "pytest"
-<<<<<<< HEAD
-version = "7.3.2"
-=======
 version = "7.4.0"
->>>>>>> dev
 description = "pytest: simple powerful testing with Python"
 optional = false
 python-versions = ">=3.7"
 files = [
-<<<<<<< HEAD
-    {file = "pytest-7.3.2-py3-none-any.whl", hash = "sha256:cdcbd012c9312258922f8cd3f1b62a6580fdced17db6014896053d47cddf9295"},
-    {file = "pytest-7.3.2.tar.gz", hash = "sha256:ee990a3cc55ba808b80795a79944756f315c67c12b56abd3ac993a7b8c17030b"},
-=======
     {file = "pytest-7.4.0-py3-none-any.whl", hash = "sha256:78bf16451a2eb8c7a2ea98e32dc119fd2aa758f1d5d66dbf0a59d69a3969df32"},
     {file = "pytest-7.4.0.tar.gz", hash = "sha256:b4bf8c45bd59934ed84001ad51e11b4ee40d40a1229d2c79f9c592b0a3f6bd8a"},
->>>>>>> dev
 ]
 
 [package.dependencies]
@@ -1700,13 +1682,8 @@ typing-extensions = ["typing-extensions (>=3.6)"]
 
 [[package]]
 name = "pywin32-ctypes"
-<<<<<<< HEAD
 version = "0.2.1"
 description = "A (partial) reimplementation of pywin32 using ctypes/cffi"
-=======
-version = "0.2.0"
-description = ""
->>>>>>> dev
 optional = false
 python-versions = ">=3.6"
 files = [
