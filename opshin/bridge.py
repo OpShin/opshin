@@ -20,6 +20,7 @@ def to_uplc_builtin(a):
         )
     if isinstance(a, PlutusData):
         return uplc.ast.data_from_cbor(a.to_cbor())
+    raise NotImplementedError(f"Can not convert {a} to UPLC builtin")
 
 
 def to_python(a):
@@ -35,6 +36,7 @@ def to_python(a):
     # TODO how to remap data? use type annotations?
     if isinstance(a, uplc.ast.PlutusData):
         return RawCBOR(uplc.ast.plutus_cbor_dumps(a))
+    return a
 
 
 def wraps_builtin(func):
