@@ -1,3 +1,4 @@
+import logging
 import typing
 from ast import *
 from dataclasses import dataclass
@@ -6,6 +7,8 @@ from frozenlist import FrozenList
 
 import pluthon as plt
 import uplc.ast as uplc
+
+_LOGGER = logging.getLogger(__name__)
 
 
 def distinct(xs: list):
@@ -46,6 +49,14 @@ class Type:
             f"Comparison {type(op).__name__} for {self.__class__.__name__} and {o.__class__.__name__} is not implemented. This is likely intended because it would always evaluate to False."
         )
 
+    def stringify(self, recursive: bool = False) -> plt.AST:
+        """
+        Returns a stringified version of the object
+
+        The recursive parameter informs the method whether it was invoked recursively from another invokation
+        """
+        raise NotImplementedError(f"{type(self).__name__} can not be stringified")
+
 
 @dataclass(frozen=True, unsafe_hash=True)
 class Record:
@@ -78,6 +89,214 @@ class AnyType(ClassType):
             isinstance(other, ClassType)
             and not isinstance(other, FunctionType)
             and not isinstance(other, PolymorphicFunctionType)
+        )
+
+    def stringify(self, recursive: bool = False) -> plt.AST:
+        _LOGGER.warning(
+            "Serializing AnyType will result in RawPlutusData (CBOR representation) to be printed without additional type information. Annotate types where possible to avoid this warning."
+        )
+        return plt.Lambda(
+            ["self", "_"],
+            plt.Let(
+                [
+                    (
+                        "joinMapList",
+                        plt.Lambda(
+                            ["m", "l", "start", "end"],
+                            plt.Let(
+                                [
+                                    (
+                                        "g",
+                                        plt.RecFun(
+                                            plt.Lambda(
+                                                ["f", "l"],
+                                                plt.AppendString(
+                                                    plt.Apply(
+                                                        plt.Var("m"),
+                                                        plt.HeadList(plt.Var("l")),
+                                                    ),
+                                                    plt.Let(
+                                                        [
+                                                            (
+                                                                "t",
+                                                                plt.TailList(
+                                                                    plt.Var("l")
+                                                                ),
+                                                            )
+                                                        ],
+                                                        plt.IteNullList(
+                                                            plt.Var("t"),
+                                                            plt.Var("end"),
+                                                            plt.AppendString(
+                                                                plt.Text(", "),
+                                                                plt.Apply(
+                                                                    plt.Var("f"),
+                                                                    plt.Var("f"),
+                                                                    plt.Var("t"),
+                                                                ),
+                                                            ),
+                                                        ),
+                                                    ),
+                                                ),
+                                            )
+                                        ),
+                                    )
+                                ],
+                                plt.AppendString(
+                                    plt.Var("start"),
+                                    plt.IteNullList(
+                                        plt.Var("l"),
+                                        plt.Var("end"),
+                                        plt.Apply(
+                                            plt.Var("g"),
+                                            plt.Var("l"),
+                                        ),
+                                    ),
+                                ),
+                            ),
+                        ),
+                    ),
+                    (
+                        "stringifyPlutusData",
+                        plt.RecFun(
+                            plt.Lambda(
+                                ["f", "d"],
+                                plt.DelayedChooseData(
+                                    plt.Var("d"),
+                                    plt.Let(
+                                        [
+                                            (
+                                                "constructor",
+                                                plt.FstPair(
+                                                    plt.UnConstrData(plt.Var("d"))
+                                                ),
+                                            )
+                                        ],
+                                        plt.Ite(
+                                            plt.LessThanInteger(
+                                                plt.Var("constructor"), plt.Integer(128)
+                                            ),
+                                            plt.ConcatString(
+                                                plt.Text("CBORTag("),
+                                                plt.Apply(
+                                                    plt.Var("f"),
+                                                    plt.Var("f"),
+                                                    plt.IData(
+                                                        plt.AddInteger(
+                                                            plt.Var("constructor"),
+                                                            plt.Ite(
+                                                                plt.LessThanInteger(
+                                                                    plt.Var(
+                                                                        "constructor"
+                                                                    ),
+                                                                    plt.Integer(7),
+                                                                ),
+                                                                plt.Integer(121),
+                                                                plt.Integer(1280 - 7),
+                                                            ),
+                                                        )
+                                                    ),
+                                                ),
+                                                plt.Text(", "),
+                                                plt.Apply(
+                                                    plt.Var("f"),
+                                                    plt.Var("f"),
+                                                    plt.ListData(
+                                                        plt.SndPair(
+                                                            plt.UnConstrData(
+                                                                plt.Var("d")
+                                                            )
+                                                        )
+                                                    ),
+                                                ),
+                                                plt.Text(")"),
+                                            ),
+                                            plt.ConcatString(
+                                                plt.Text("CBORTag(102, "),
+                                                plt.Apply(
+                                                    plt.Var("f"),
+                                                    plt.Var("f"),
+                                                    plt.ListData(
+                                                        plt.MkCons(
+                                                            plt.IData(
+                                                                plt.Var("constructor")
+                                                            ),
+                                                            plt.MkCons(
+                                                                plt.ListData(
+                                                                    plt.SndPair(
+                                                                        plt.UnConstrData(
+                                                                            plt.Var("d")
+                                                                        )
+                                                                    )
+                                                                ),
+                                                                plt.EmptyDataList(),
+                                                            ),
+                                                        )
+                                                    ),
+                                                ),
+                                                plt.Text(")"),
+                                            ),
+                                        ),
+                                    ),
+                                    plt.Apply(
+                                        plt.Var("joinMapList"),
+                                        plt.Lambda(
+                                            ["x"],
+                                            plt.ConcatString(
+                                                plt.Apply(
+                                                    plt.Var("f"),
+                                                    plt.Var("f"),
+                                                    plt.FstPair(plt.Var("x")),
+                                                ),
+                                                plt.Text(": "),
+                                                plt.Apply(
+                                                    plt.Var("f"),
+                                                    plt.Var("f"),
+                                                    plt.SndPair(plt.Var("x")),
+                                                ),
+                                            ),
+                                        ),
+                                        plt.UnMapData(plt.Var("d")),
+                                        plt.Text("{"),
+                                        plt.Text("}"),
+                                    ),
+                                    plt.Apply(
+                                        plt.Var("joinMapList"),
+                                        plt.Lambda(
+                                            ["x"],
+                                            plt.Apply(
+                                                plt.Var("f"),
+                                                plt.Var("f"),
+                                                plt.Var("x"),
+                                            ),
+                                        ),
+                                        plt.UnListData(plt.Var("d")),
+                                        plt.Text("["),
+                                        plt.Text("]"),
+                                    ),
+                                    plt.Apply(
+                                        IntegerInstanceType.stringify(recursive=True),
+                                        plt.UnIData(plt.Var("d")),
+                                        plt.Var("_"),
+                                    ),
+                                    plt.Apply(
+                                        ByteStringInstanceType.stringify(
+                                            recursive=True
+                                        ),
+                                        plt.UnBData(plt.Var("d")),
+                                        plt.Var("_"),
+                                    ),
+                                ),
+                            )
+                        ),
+                    ),
+                ],
+                plt.ConcatString(
+                    plt.Text("RawPlutusData(data="),
+                    plt.Apply(plt.Var("stringifyPlutusData"), plt.Var("self")),
+                    plt.Text(")"),
+                ),
+            ),
         )
 
 
@@ -207,6 +426,41 @@ class RecordType(ClassType):
         # if someone wants to be funny, they can implement <= to be true if all fields match up to some point
         return isinstance(other, self.__class__) and self.record >= other.record
 
+    def stringify(self, recursive: bool = False) -> plt.AST:
+        """Returns a stringified version of the object"""
+        map_fields = plt.Text(")")
+        if self.record.fields:
+            # TODO access to fields is a bit inefficient but this is debugging stuff only anyways
+            pos = len(self.record.fields) - 1
+            for field_name, field_type in reversed(self.record.fields[1:]):
+                map_fields = plt.ConcatString(
+                    plt.Text(f", {field_name}="),
+                    plt.Apply(
+                        field_type.stringify(recursive=True),
+                        transform_ext_params_map(field_type)(
+                            plt.NthField(plt.Var("self"), plt.Integer(pos))
+                        ),
+                        plt.Var("_"),
+                    ),
+                    map_fields,
+                )
+                pos -= 1
+            map_fields = plt.ConcatString(
+                plt.Text(f"{self.record.fields[0][0]}="),
+                plt.Apply(
+                    self.record.fields[0][1].stringify(recursive=True),
+                    transform_ext_params_map(self.record.fields[0][1])(
+                        plt.NthField(plt.Var("self"), plt.Integer(pos))
+                    ),
+                    plt.Var("_"),
+                ),
+                map_fields,
+            )
+        return plt.Lambda(
+            ["self", "_"],
+            plt.AppendString(plt.Text(f"{self.record.name}("), map_fields),
+        )
+
 
 @dataclass(frozen=True, unsafe_hash=True)
 class UnionType(ClassType):
@@ -335,6 +589,22 @@ class UnionType(ClassType):
             f"Can not compare {o} and {self} with operation {op.__class__}. Note that comparisons that always return false are also rejected."
         )
 
+    def stringify(self, recursive: bool = False) -> plt.AST:
+        decide_string_func = plt.TraceError("Invalid constructor id in Union")
+        for t in self.typs:
+            decide_string_func = plt.Ite(
+                plt.EqualsInteger(plt.Var("c"), plt.Integer(t.record.constructor)),
+                t.stringify(recursive=True),
+                decide_string_func,
+            )
+        return plt.Lambda(
+            ["self", "_"],
+            plt.Let(
+                [("c", plt.Constructor(plt.Var("self")))],
+                plt.Apply(decide_string_func, plt.Var("self"), plt.Var("_")),
+            ),
+        )
+
 
 @dataclass(frozen=True, unsafe_hash=True)
 class TupleType(ClassType):
@@ -343,6 +613,44 @@ class TupleType(ClassType):
     def __ge__(self, other):
         return isinstance(other, TupleType) and all(
             t >= ot for t, ot in zip(self.typs, other.typs)
+        )
+
+    def stringify(self, recursive: bool = False) -> plt.AST:
+        if not self.typs:
+            return plt.Lambda(
+                ["self", "_"],
+                plt.Text("()"),
+            )
+        elif len(self.typs) == 1:
+            tuple_content = plt.ConcatString(
+                plt.Apply(
+                    self.typs[0].stringify(recursive=True),
+                    plt.FunctionalTupleAccess(plt.Var("self"), 0, len(self.typs)),
+                    plt.Var("_"),
+                ),
+                plt.Text(","),
+            )
+        else:
+            tuple_content = plt.ConcatString(
+                plt.Apply(
+                    self.typs[0].stringify(recursive=True),
+                    plt.FunctionalTupleAccess(plt.Var("self"), 0, len(self.typs)),
+                    plt.Var("_"),
+                ),
+            )
+            for i, t in enumerate(self.typs[1:], start=1):
+                tuple_content = plt.ConcatString(
+                    tuple_content,
+                    plt.Text(", "),
+                    plt.Apply(
+                        t.stringify(recursive=True),
+                        plt.FunctionalTupleAccess(plt.Var("self"), i, len(self.typs)),
+                        plt.Var("_"),
+                    ),
+                )
+        return plt.Lambda(
+            ["self", "_"],
+            plt.ConcatString(plt.Text("("), tuple_content, plt.Text(")")),
         )
 
 
@@ -359,6 +667,25 @@ class PairType(ClassType):
             for t, ot in zip((self.l_typ, self.r_typ), (other.l_typ, other.r_typ))
         )
 
+    def stringify(self, recursive: bool = False) -> plt.AST:
+        tuple_content = plt.ConcatString(
+            plt.Apply(
+                self.l_typ.stringify(recursive=True),
+                transform_ext_params_map(self.l_typ)(plt.FstPair(plt.Var("self"))),
+                plt.Var("_"),
+            ),
+            plt.Text(", "),
+            plt.Apply(
+                self.r_typ.stringify(recursive=True),
+                transform_ext_params_map(self.r_typ)(plt.SndPair(plt.Var("self"))),
+                plt.Var("_"),
+            ),
+        )
+        return plt.Lambda(
+            ["self", "_"],
+            plt.ConcatString(plt.Text("("), tuple_content, plt.Text(")")),
+        )
+
 
 @dataclass(frozen=True, unsafe_hash=True)
 class ListType(ClassType):
@@ -366,6 +693,56 @@ class ListType(ClassType):
 
     def __ge__(self, other):
         return isinstance(other, ListType) and self.typ >= other.typ
+
+    def stringify(self, recursive: bool = False) -> plt.AST:
+        return plt.Lambda(
+            ["self", "_"],
+            plt.Let(
+                [
+                    (
+                        "g",
+                        plt.RecFun(
+                            plt.Lambda(
+                                ["f", "l"],
+                                plt.AppendString(
+                                    plt.Apply(
+                                        self.typ.stringify(recursive=True),
+                                        plt.HeadList(plt.Var("l")),
+                                        plt.Var("_"),
+                                    ),
+                                    plt.Let(
+                                        [("t", plt.TailList(plt.Var("l")))],
+                                        plt.IteNullList(
+                                            plt.Var("t"),
+                                            plt.Text("]"),
+                                            plt.AppendString(
+                                                plt.Text(", "),
+                                                plt.Apply(
+                                                    plt.Var("f"),
+                                                    plt.Var("f"),
+                                                    plt.Var("t"),
+                                                ),
+                                            ),
+                                        ),
+                                    ),
+                                ),
+                            )
+                        ),
+                    )
+                ],
+                plt.AppendString(
+                    plt.Text("["),
+                    plt.IteNullList(
+                        plt.Var("self"),
+                        plt.Text("]"),
+                        plt.Apply(
+                            plt.Var("g"),
+                            plt.Var("self"),
+                        ),
+                    ),
+                ),
+            ),
+        )
 
 
 @dataclass(frozen=True, unsafe_hash=True)
@@ -465,6 +842,69 @@ class DictType(ClassType):
             and self.value_typ >= other.value_typ
         )
 
+    def stringify(self, recursive: bool = False) -> plt.AST:
+        return plt.Lambda(
+            ["self", "_"],
+            plt.Let(
+                [
+                    (
+                        "g",
+                        plt.RecFun(
+                            plt.Lambda(
+                                ["f", "l"],
+                                plt.Let(
+                                    [
+                                        ("h", plt.HeadList(plt.Var("l"))),
+                                        ("t", plt.TailList(plt.Var("l"))),
+                                    ],
+                                    plt.ConcatString(
+                                        plt.Apply(
+                                            self.key_typ.stringify(recursive=True),
+                                            transform_ext_params_map(self.key_typ)(
+                                                plt.FstPair(plt.Var("h"))
+                                            ),
+                                            plt.Var("_"),
+                                        ),
+                                        plt.Text(": "),
+                                        plt.Apply(
+                                            self.value_typ.stringify(recursive=True),
+                                            transform_ext_params_map(self.value_typ)(
+                                                plt.SndPair(plt.Var("h"))
+                                            ),
+                                            plt.Var("_"),
+                                        ),
+                                        plt.IteNullList(
+                                            plt.Var("t"),
+                                            plt.Text("}"),
+                                            plt.AppendString(
+                                                plt.Text(", "),
+                                                plt.Apply(
+                                                    plt.Var("f"),
+                                                    plt.Var("f"),
+                                                    plt.Var("t"),
+                                                ),
+                                            ),
+                                        ),
+                                    ),
+                                ),
+                            )
+                        ),
+                    )
+                ],
+                plt.AppendString(
+                    plt.Text("{"),
+                    plt.IteNullList(
+                        plt.Var("self"),
+                        plt.Text("}"),
+                        plt.Apply(
+                            plt.Var("g"),
+                            plt.Var("self"),
+                        ),
+                    ),
+                ),
+            ),
+        )
+
 
 @dataclass(frozen=True, unsafe_hash=True)
 class FunctionType(ClassType):
@@ -477,6 +917,9 @@ class FunctionType(ClassType):
             and all(a >= oa for a, oa in zip(self.argtyps, other.argtyps))
             and other.rettyp >= self.rettyp
         )
+
+    def stringify(self, recursive: bool = False) -> plt.AST:
+        return plt.Lambda(["x", "_"], plt.Text("<function>"))
 
 
 @dataclass(frozen=True, unsafe_hash=True)
@@ -503,6 +946,9 @@ class InstanceType(Type):
 
     def __ge__(self, other):
         return isinstance(other, InstanceType) and self.typ >= other.typ
+
+    def stringify(self, recursive: bool = False) -> plt.AST:
+        return self.typ.stringify(recursive=recursive)
 
 
 @dataclass(frozen=True, unsafe_hash=True)
@@ -671,14 +1117,7 @@ class IntegerType(AtomicType):
                 )
         return super().cmp(op, o)
 
-
-@dataclass(frozen=True, unsafe_hash=True)
-class StringType(AtomicType):
-    def constr_type(self) -> InstanceType:
-        return InstanceType(FunctionType([IntegerInstanceType], InstanceType(self)))
-
-    def constr(self) -> plt.AST:
-        # constructs a string representation of an integer
+    def stringify(self, recursive: bool = False) -> plt.AST:
         return plt.Lambda(
             ["x", "_"],
             plt.DecodeUtf8(
@@ -744,6 +1183,15 @@ class StringType(AtomicType):
             ),
         )
 
+
+@dataclass(frozen=True, unsafe_hash=True)
+class StringType(AtomicType):
+    def constr_type(self) -> InstanceType:
+        return InstanceType(PolymorphicFunctionType(StrImpl()))
+
+    def constr(self) -> plt.AST:
+        return InstanceType(PolymorphicFunctionType(StrImpl()))
+
     def attribute_type(self, attr) -> Type:
         if attr == "encode":
             return InstanceType(FunctionType([], ByteStringInstanceType))
@@ -760,6 +1208,16 @@ class StringType(AtomicType):
             if isinstance(op, Eq):
                 return plt.BuiltIn(uplc.BuiltInFun.EqualsString)
         return super().cmp(op, o)
+
+    def stringify(self, recursive: bool = False) -> plt.AST:
+        if recursive:
+            # TODO this is not correct, as the string is not properly escaped
+            return plt.Lambda(
+                ["self", "_"],
+                plt.ConcatString(plt.Text("'"), plt.Var("self"), plt.Text("'")),
+            )
+        else:
+            return plt.Lambda(["self", "_"], plt.Var("self"))
 
 
 @dataclass(frozen=True, unsafe_hash=True)
@@ -943,6 +1401,172 @@ class ByteStringType(AtomicType):
                 )
         return super().cmp(op, o)
 
+    def stringify(self, recursive: bool = False) -> plt.AST:
+        return plt.Lambda(
+            ["x", "_"],
+            plt.DecodeUtf8(
+                plt.Let(
+                    [
+                        (
+                            "hexlist",
+                            plt.RecFun(
+                                plt.Lambda(
+                                    ["f", "i"],
+                                    plt.Ite(
+                                        plt.LessThanInteger(
+                                            plt.Var("i"), plt.Integer(0)
+                                        ),
+                                        plt.EmptyIntegerList(),
+                                        plt.MkCons(
+                                            plt.IndexByteString(
+                                                plt.Var("x"), plt.Var("i")
+                                            ),
+                                            plt.Apply(
+                                                plt.Var("f"),
+                                                plt.Var("f"),
+                                                plt.SubtractInteger(
+                                                    plt.Var("i"), plt.Integer(1)
+                                                ),
+                                            ),
+                                        ),
+                                    ),
+                                ),
+                            ),
+                        ),
+                        (
+                            "map_str",
+                            plt.Lambda(
+                                ["i"],
+                                plt.AddInteger(
+                                    plt.Var("i"),
+                                    plt.IfThenElse(
+                                        plt.LessThanInteger(
+                                            plt.Var("i"), plt.Integer(10)
+                                        ),
+                                        plt.Integer(ord("0")),
+                                        plt.Integer(ord("a") - 10),
+                                    ),
+                                ),
+                            ),
+                        ),
+                        (
+                            "mkstr",
+                            plt.Lambda(
+                                ["i"],
+                                plt.FoldList(
+                                    plt.Apply(plt.Var("hexlist"), plt.Var("i")),
+                                    plt.Lambda(
+                                        ["b", "i"],
+                                        plt.Ite(
+                                            # ascii printable characters are kept unmodified
+                                            plt.And(
+                                                plt.LessThanEqualsInteger(
+                                                    plt.Integer(0x20), plt.Var("i")
+                                                ),
+                                                plt.LessThanEqualsInteger(
+                                                    plt.Var("i"), plt.Integer(0x7E)
+                                                ),
+                                            ),
+                                            plt.Ite(
+                                                plt.EqualsInteger(
+                                                    plt.Var("i"),
+                                                    plt.Integer(ord("\\")),
+                                                ),
+                                                plt.AppendByteString(
+                                                    plt.ByteString(b"\\\\"),
+                                                    plt.Var("b"),
+                                                ),
+                                                plt.Ite(
+                                                    plt.EqualsInteger(
+                                                        plt.Var("i"),
+                                                        plt.Integer(ord("'")),
+                                                    ),
+                                                    plt.AppendByteString(
+                                                        plt.ByteString(b"\\'"),
+                                                        plt.Var("b"),
+                                                    ),
+                                                    plt.ConsByteString(
+                                                        plt.Var("i"), plt.Var("b")
+                                                    ),
+                                                ),
+                                            ),
+                                            plt.Ite(
+                                                plt.EqualsInteger(
+                                                    plt.Var("i"), plt.Integer(ord("\t"))
+                                                ),
+                                                plt.AppendByteString(
+                                                    plt.ByteString(b"\\t"), plt.Var("b")
+                                                ),
+                                                plt.Ite(
+                                                    plt.EqualsInteger(
+                                                        plt.Var("i"),
+                                                        plt.Integer(ord("\n")),
+                                                    ),
+                                                    plt.AppendByteString(
+                                                        plt.ByteString(b"\\n"),
+                                                        plt.Var("b"),
+                                                    ),
+                                                    plt.Ite(
+                                                        plt.EqualsInteger(
+                                                            plt.Var("i"),
+                                                            plt.Integer(ord("\r")),
+                                                        ),
+                                                        plt.AppendByteString(
+                                                            plt.ByteString(b"\\r"),
+                                                            plt.Var("b"),
+                                                        ),
+                                                        plt.AppendByteString(
+                                                            plt.ByteString(b"\\x"),
+                                                            plt.ConsByteString(
+                                                                plt.Apply(
+                                                                    plt.Var("map_str"),
+                                                                    plt.DivideInteger(
+                                                                        plt.Var("i"),
+                                                                        plt.Integer(16),
+                                                                    ),
+                                                                ),
+                                                                plt.ConsByteString(
+                                                                    plt.Apply(
+                                                                        plt.Var(
+                                                                            "map_str"
+                                                                        ),
+                                                                        plt.ModInteger(
+                                                                            plt.Var(
+                                                                                "i"
+                                                                            ),
+                                                                            plt.Integer(
+                                                                                16
+                                                                            ),
+                                                                        ),
+                                                                    ),
+                                                                    plt.Var("b"),
+                                                                ),
+                                                            ),
+                                                        ),
+                                                    ),
+                                                ),
+                                            ),
+                                        ),
+                                    ),
+                                    plt.ByteString(b""),
+                                ),
+                            ),
+                        ),
+                    ],
+                    plt.ConcatByteString(
+                        plt.ByteString(b"b'"),
+                        plt.Apply(
+                            plt.Var("mkstr"),
+                            plt.SubtractInteger(
+                                plt.LengthOfByteString(plt.Var("x")), plt.Integer(1)
+                            ),
+                        ),
+                        plt.ByteString(b"'"),
+                    ),
+                ),
+            ),
+        )
+
 
 @dataclass(frozen=True, unsafe_hash=True)
 class BoolType(AtomicType):
@@ -974,6 +1598,16 @@ class BoolType(AtomicType):
                 return plt.Lambda(["x", "y"], plt.Iff(plt.Var("x"), plt.Var("y")))
         return super().cmp(op, o)
 
+    def stringify(self, recursive: bool = False) -> plt.AST:
+        return plt.Lambda(
+            ["self", "_"],
+            plt.Ite(
+                plt.Var("self"),
+                plt.Text("True"),
+                plt.Text("False"),
+            ),
+        )
+
 
 @dataclass(frozen=True, unsafe_hash=True)
 class UnitType(AtomicType):
@@ -984,6 +1618,9 @@ class UnitType(AtomicType):
             if isinstance(op, NotEq):
                 return plt.Lambda(["x", "y"], plt.Bool(False))
         return super().cmp(op, o)
+
+    def stringify(self, recursive: bool = False) -> plt.AST:
+        return plt.Lambda(["self", "_"], plt.Text("None"))
 
 
 IntegerInstanceType = InstanceType(IntegerType())
@@ -1016,6 +1653,21 @@ class PolymorphicFunction:
 
     def impl_from_args(self, args: typing.List[Type]) -> plt.AST:
         raise NotImplementedError()
+
+
+class StrImpl(PolymorphicFunction):
+    def type_from_args(self, args: typing.List[Type]) -> FunctionType:
+        assert (
+            len(args) == 1
+        ), f"'str' takes only one argument, but {len(args)} were given"
+        typ = args[0]
+        assert isinstance(typ, InstanceType), "Can only stringify instances"
+        return FunctionType(args, StringInstanceType)
+
+    def impl_from_args(self, args: typing.List[Type]) -> plt.AST:
+        arg = args[0]
+        assert isinstance(arg, InstanceType), "Can only stringify instances"
+        return arg.typ.stringify()
 
 
 @dataclass(frozen=True, unsafe_hash=True)
@@ -1146,6 +1798,16 @@ class typedcomprehension(typedexpr, comprehension):
 class TypedListComp(typedexpr, ListComp):
     generators: typing.List[typedcomprehension]
     elt: typedexpr
+
+
+class TypedFormattedValue(typedexpr, FormattedValue):
+    value: typedexpr
+    conversion: int
+    format_spec: typing.Optional[JoinedStr]
+
+
+class TypedJoinedStr(typedexpr, JoinedStr):
+    values: typing.List[typedexpr]
 
 
 class TypedDict(typedexpr, Dict):

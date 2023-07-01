@@ -52,7 +52,7 @@ def all_tokens_locked_at_contract_address(
             # enforce a small inlined datum
             assert txo.datum == SomeOutputDatum(
                 b""
-            ), "Does not attach correct datum to script output"
+            ), f"Does not attach correct datum to script output, got {txo.datum} but expected {b''}"
     return res
 
 
@@ -91,11 +91,9 @@ def validator(
         ctx.tx_info.inputs, own_addr, token
     )
     all_minted = ctx.tx_info.mint.get(own_pid, {b"": 0}).get(b"w" + token_name, 0)
-    print("unlocked from contract: " + str(all_unlocked))
-    print("locked at contract: " + str(all_locked))
-    print("minted: " + str(all_minted))
+    print(f"unlocked from contract: {all_unlocked}")
+    print(f"locked at contract: {all_locked}")
+    print(f"minted: {all_minted}")
     assert (
         (all_locked - all_unlocked) * wrapping_factor
-    ) == all_minted, "Wrong amount of tokens minted, difference: " + str(
-        (all_locked - all_unlocked) * wrapping_factor - all_minted
-    )
+    ) == all_minted, f"Wrong amount of tokens minted, difference: {(all_locked - all_unlocked) * wrapping_factor - all_minted}"
