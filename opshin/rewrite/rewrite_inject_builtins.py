@@ -19,7 +19,7 @@ class RewriteInjectBuiltins(CompilingNodeTransformer):
         additional_assigns = []
         for b in PythonBuiltIn:
             typ = PythonBuiltInTypes[b]
-            if isinstance(b.value, int):
+            if not isinstance(b.value, plt.AST):
                 # skip polymorphic functions
                 continue
             additional_assigns.append(
