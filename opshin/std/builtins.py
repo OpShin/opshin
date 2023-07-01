@@ -155,3 +155,23 @@ def equals_data(x: Anything, y: Anything) -> bool:
 @wraps_builtin
 def serialise_data(x: Anything) -> bytes:
     pass
+
+
+@wraps_builtin
+def serialise_data(x: Anything) -> bytes:
+    pass
+
+
+@wraps_builtin
+def bn256_add(x: Anything, y: Anything) -> Anything:
+    pass
+
+
+@wraps_builtin
+def bn256_mul(x: Anything, y: Anything) -> Anything:
+    pass
+
+
+@wraps_builtin
+def bn128_pairing(x: Anything, y: Anything) -> Anything:
+    pass
