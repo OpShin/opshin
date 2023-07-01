@@ -351,6 +351,23 @@ def validator(x: int) -> str:
         ret = uplc_eval(f).value.decode("utf8")
         self.assertEqual(ret, str(x), "str returned wrong value")
 
+    @given(x=st.booleans())
+    def test_str_bool(self, x):
+        # this tests that errors that are caused by assignments are actually triggered at the time of assigning
+        source_code = """
+def validator(x: bool) -> str:
+    return str(x)
+        """
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        for d in [uplc.PlutusInteger(x)]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value.decode("utf8")
+        self.assertEqual(ret, str(x), "str returned wrong value")
+
     @given(xs=st.lists(st.integers()))
     def test_sum(self, xs):
         # this tests that errors that are caused by assignments are actually triggered at the time of assigning
@@ -401,3 +418,23 @@ def validator(x: int) -> bool:
             f = uplc.Apply(f, d)
         ret = bool(uplc_eval(f).value)
         self.assertEqual(ret, bool(x), "reversed returned wrong value")
+
+    @given(x=st.integers(), y=st.booleans(), z=st.none())
+    def test_print_compile(self, x, y, z):
+        # this tests that errors that are caused by assignments are actually triggered at the time of assigning
+        source_code = """
+def validator(x: int, y: bool, z: None) -> None:
+    print(x, y, z)
+        """
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        for d in [
+            uplc.PlutusInteger(x),
+            uplc.PlutusInteger(y),
+            uplc.PlutusConstr(0, []),
+        ]:
+            f = uplc.Apply(f, d)
+        uplc_eval(f)

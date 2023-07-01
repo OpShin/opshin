@@ -1187,12 +1187,10 @@ class IntegerType(AtomicType):
 @dataclass(frozen=True, unsafe_hash=True)
 class StringType(AtomicType):
     def constr_type(self) -> InstanceType:
-        return InstanceType(FunctionType([IntegerInstanceType], InstanceType(self)))
+        return InstanceType(PolymorphicFunctionType(StrImpl()))
 
     def constr(self) -> plt.AST:
-        # constructs a string representation of an integer
-        # TODO make this function parametric and just call the stringify method of the passed type
-        return IntegerInstanceType.stringify(recursive=False)
+        return InstanceType(PolymorphicFunctionType(StrImpl()))
 
     def attribute_type(self, attr) -> Type:
         if attr == "encode":
@@ -1655,6 +1653,21 @@ class PolymorphicFunction:
 
     def impl_from_args(self, args: typing.List[Type]) -> plt.AST:
         raise NotImplementedError()
+
+
+class StrImpl(PolymorphicFunction):
+    def type_from_args(self, args: typing.List[Type]) -> FunctionType:
+        assert (
+            len(args) == 1
+        ), f"'str' takes only one argument, but {len(args)} were given"
+        typ = args[0]
+        assert isinstance(typ, InstanceType), "Can only stringify instances"
+        return FunctionType(args, StringInstanceType)
+
+    def impl_from_args(self, args: typing.List[Type]) -> plt.AST:
+        arg = args[0]
+        assert isinstance(arg, InstanceType), "Can only stringify instances"
+        return arg.typ.stringify()
 
 
 @dataclass(frozen=True, unsafe_hash=True)

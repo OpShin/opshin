@@ -9,6 +9,86 @@ import pluthon as plt
 import uplc.ast as uplc
 
 
+class LenImpl(PolymorphicFunction):
+    def type_from_args(self, args: typing.List[Type]) -> FunctionType:
+        assert (
+            len(args) == 1
+        ), f"'len' takes only one argument, but {len(args)} were given"
+        assert isinstance(
+            args[0], InstanceType
+        ), "Can only determine length of instances"
+        return FunctionType(args, IntegerInstanceType)
+
+    def impl_from_args(self, args: typing.List[Type]) -> plt.AST:
+        arg = args[0]
+        assert isinstance(arg, InstanceType), "Can only determine length of instances"
+        if arg == ByteStringInstanceType:
+            return plt.Lambda(["x", "_"], plt.LengthOfByteString(plt.Var("x")))
+        elif isinstance(arg.typ, ListType):
+            # simple list length function
+            return plt.Lambda(
+                ["x", "_"],
+                plt.FoldList(
+                    plt.Var("x"),
+                    plt.Lambda(
+                        ["a", "_"], plt.AddInteger(plt.Var("a"), plt.Integer(1))
+                    ),
+                    plt.Integer(0),
+                ),
+            )
+        raise NotImplementedError(f"'len' is not implemented for type {arg}")
+
+
+class ReversedImpl(PolymorphicFunction):
+    def type_from_args(self, args: typing.List[Type]) -> FunctionType:
+        assert (
+            len(args) == 1
+        ), f"'reversed' takes only one argument, but {len(args)} were given"
+        typ = args[0]
+        assert isinstance(typ, InstanceType), "Can only reverse instances"
+        assert isinstance(typ.typ, ListType), "Can only reverse instances of lists"
+        # returns list of same type
+        return FunctionType(args, typ)
+
+    def impl_from_args(self, args: typing.List[Type]) -> plt.AST:
+        arg = args[0]
+        assert isinstance(arg, InstanceType), "Can only reverse instances"
+        if isinstance(arg.typ, ListType):
+            empty_l = empty_list(arg.typ.typ)
+            return plt.Lambda(
+                ["xs", "_"],
+                plt.FoldList(
+                    plt.Var("xs"),
+                    plt.Lambda(["a", "x"], plt.MkCons(plt.Var("x"), plt.Var("a"))),
+                    empty_l,
+                ),
+            )
+        raise NotImplementedError(f"'reversed' is not implemented for type {arg}")
+
+
+class PrintImpl(PolymorphicFunction):
+    def type_from_args(self, args: typing.List[Type]) -> FunctionType:
+        assert all(
+            isinstance(typ, InstanceType) for typ in args
+        ), "Can only print instances"
+        return FunctionType(args, NoneInstanceType)
+
+    def impl_from_args(self, args: typing.List[Type]) -> plt.AST:
+        assert all(
+            isinstance(arg, InstanceType) for arg in args
+        ), "Can only stringify instances"
+        stringify_ops = [
+            plt.Apply(arg.typ.stringify(), plt.Var(f"x{i}"), plt.Var("_"))
+            for i, arg in enumerate(args)
+        ]
+        stringify_ops_joined = sum(((x, plt.Text(" ")) for x in stringify_ops), ())[:-1]
+        print = plt.Lambda(
+            [f"x{i}" for i in range(len(args))] + ["_"],
+            plt.Trace(plt.ConcatString(*stringify_ops_joined), plt.NoneData()),
+        )
+        return print
+
+
 def PowImpl(x: plt.AST, y: plt.AST):
     return plt.Apply(
         plt.RecFun(
@@ -291,10 +371,7 @@ class PythonBuiltIn(Enum):
             plt.HeadList(plt.Var("xs")),
         ),
     )
-    print = plt.Lambda(
-        ["x", "_"],
-        plt.Trace(plt.Var("x"), plt.NoneData()),
-    )
+    print = auto()
     # NOTE: only correctly defined for positive y
     pow = plt.Lambda(["x", "y", "_"], PowImpl(plt.Var("x"), plt.Var("y")))
     oct = plt.Lambda(
@@ -380,63 +457,6 @@ class PythonBuiltIn(Enum):
     )
 
 
-class LenImpl(PolymorphicFunction):
-    def type_from_args(self, args: typing.List[Type]) -> FunctionType:
-        assert (
-            len(args) == 1
-        ), f"'len' takes only one argument, but {len(args)} were given"
-        assert isinstance(
-            args[0], InstanceType
-        ), "Can only determine length of instances"
-        return FunctionType(args, IntegerInstanceType)
-
-    def impl_from_args(self, args: typing.List[Type]) -> plt.AST:
-        arg = args[0]
-        assert isinstance(arg, InstanceType), "Can only determine length of instances"
-        if arg == ByteStringInstanceType:
-            return plt.Lambda(["x", "_"], plt.LengthOfByteString(plt.Var("x")))
-        elif isinstance(arg.typ, ListType):
-            # simple list length function
-            return plt.Lambda(
-                ["x", "_"],
-                plt.FoldList(
-                    plt.Var("x"),
-                    plt.Lambda(
-                        ["a", "_"], plt.AddInteger(plt.Var("a"), plt.Integer(1))
-                    ),
-                    plt.Integer(0),
-                ),
-            )
-        raise NotImplementedError(f"'len' is not implemented for type {arg}")
-
-
-class ReversedImpl(PolymorphicFunction):
-    def type_from_args(self, args: typing.List[Type]) -> FunctionType:
-        assert (
-            len(args) == 1
-        ), f"'reversed' takes only one argument, but {len(args)} were given"
-        typ = args[0]
-        assert isinstance(typ, InstanceType), "Can only reverse instances"
-        assert isinstance(typ.typ, ListType), "Can only reverse instances of lists"
-        # returns list of same type
-        return FunctionType(args, typ)
-
-    def impl_from_args(self, args: typing.List[Type]) -> plt.AST:
-        arg = args[0]
-        assert isinstance(arg, InstanceType), "Can only reverse instances"
-        if isinstance(arg.typ, ListType):
-            empty_l = empty_list(arg.typ.typ)
-            return plt.Lambda(
-                ["xs", "_"],
-                plt.FoldList(
-                    plt.Var("xs"),
-                    plt.Lambda(["a", "x"], plt.MkCons(plt.Var("x"), plt.Var("a"))),
-                    empty_l,
-                ),
-            )
-        raise NotImplementedError(f"'reversed' is not implemented for type {arg}")
-
-
 PythonBuiltInTypes = {
     PythonBuiltIn.all: InstanceType(
         FunctionType(
@@ -482,9 +502,7 @@ PythonBuiltInTypes = {
             IntegerInstanceType,
         )
     ),
-    PythonBuiltIn.print: InstanceType(
-        FunctionType([StringInstanceType], NoneInstanceType)
-    ),
+    PythonBuiltIn.print: InstanceType(PolymorphicFunctionType(PrintImpl())),
     PythonBuiltIn.pow: InstanceType(
         FunctionType(
             [IntegerInstanceType, IntegerInstanceType],
