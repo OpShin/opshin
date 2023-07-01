@@ -61,6 +61,15 @@ def plutus_data_from_json(annotation: typing.Type, x: dict):
                     ): plutus_data_from_json(annotation_val, d["v"])
                     for d in x["map"]
                 }
+            if annotation == pycardano.Datum:
+                if "int" in x:
+                    return int(x["int"])
+                if "bytes" in x:
+                    return bytes.fromhex(x["bytes"])
+                if "constructor" in x:
+                    return pycardano.RawCBOR(
+                        uplc.ast.plutus_cbor_dumps(uplc.ast.data_from_json_dict(x))
+                    )
         if issubclass(annotation, pycardano.PlutusData):
             return annotation.from_dict(x)
     except (KeyError, ValueError):
