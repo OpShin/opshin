@@ -1,3 +1,5 @@
+import inspect
+
 import argparse
 import tempfile
 
@@ -169,13 +171,15 @@ def perform_command(args):
         parsed_params = []
     else:
         try:
-            annotations = list(sc.validator.__annotations__.values())
+            argspec = inspect.getfullargspec(sc.validator)
         except AttributeError:
             raise AssertionError(
                 f"Contract has no function called 'validator'. Make sure the compiled contract contains one function called 'validator' or {command.value} using `opshin {command.value} lib {str(input_file)}`."
             )
-        if "return" not in sc.validator.__annotations__:
-            annotations.append(prelude.Anything)
+        annotations = [
+            argspec.annotations.get(x, prelude.Anything) for x in argspec.args
+        ]
+        annotations.append(sc.validator.__annotations__.get("return", prelude.Anything))
         parsed_params = []
         for i, (c, a) in enumerate(zip(annotations, args.args)):
             if a[0] == "{":

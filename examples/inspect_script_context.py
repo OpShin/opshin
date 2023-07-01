@@ -6,4 +6,4 @@ def validator(d, r, context: ScriptContext):
     print(f"datum: {d}")
     print(f"redeemer: {r}")
     print(f"script context: {context}")
-    assert False, "Failing to show script logs"
+    assert False, "Failing in order to show script logs"
