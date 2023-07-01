@@ -558,10 +558,11 @@ def validator(x: int, y: bytes) -> bytes:
         exp = x * y
         for d in [
             uplc.PlutusInteger(int(x)),
+            uplc.PlutusByteString(y),
         ]:
             f = uplc.Apply(f, d)
-        ret = uplc_eval(f).value.decode("utf8")
-        self.assertEqual(ret, exp, "int string formatting returned wrong value")
+        ret = uplc_eval(f).value
+        self.assertEqual(ret, exp, "bytes int multiplication returned wrong value")
 
     @given(x=st.binary(), y=st.integers(min_value=0, max_value=150))
     def test_mul_bytes_int(self, x, y):
@@ -645,9 +646,13 @@ def validator(x: str) -> str:
     @example(b"\x7f")
     def test_fmt_bytes(self, x):
         source_code = """
-        def validator(x: bytes) -> str:
-            return f"{x}"
+def validator(x: bytes) -> str:
+    return f"{x}"
         """
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
         exp = f"{x}"
         for d in [
             uplc.PlutusByteString(x),
@@ -939,7 +944,7 @@ def validator(x: Anything) -> str:
         if "\\'" in ret:
             RawPlutusData = pycardano.RawPlutusData
             self.assertEqual(
-                eval(ret), x, "raw cbor string formatting returned wrong value"
+                eval(ret), x_data, "raw cbor string formatting returned wrong value"
             )
         else:
             self.assertEqual(
