@@ -89,29 +89,62 @@ class PrintImpl(PolymorphicFunction):
         return print
 
 
-def PowImpl(x: plt.AST, y: plt.AST):
-    return plt.Apply(
-        plt.RecFun(
-            plt.Lambda(
-                ["f", "x", "y"],
-                plt.Ite(
-                    plt.LessThanEqualsInteger(plt.Var("y"), plt.Integer(0)),
-                    plt.Integer(1),
-                    plt.MultiplyInteger(
-                        plt.Var("x"),
-                        plt.Apply(
-                            plt.Var("f"),
-                            plt.Var("f"),
-                            plt.Var("x"),
-                            plt.SubtractInteger(plt.Var("y"), plt.Integer(1)),
+def repeated_addition(zero, add):
+    # this is optimized for logarithmic complexity by exponentiation by squaring
+    # it follows the implementation described here: https://en.wikipedia.org/wiki/Exponentiation_by_squaring#With_constant_auxiliary_memory
+    def RepeatedAdd(x: plt.AST, y: plt.AST):
+        return plt.Apply(
+            plt.RecFun(
+                plt.Lambda(
+                    ["f", "y", "x", "n"],
+                    plt.Ite(
+                        plt.LessThanEqualsInteger(plt.Var("n"), plt.Integer(0)),
+                        plt.Var("y"),
+                        plt.Let(
+                            [
+                                (
+                                    "n_half",
+                                    plt.DivideInteger(plt.Var("n"), plt.Integer(2)),
+                                )
+                            ],
+                            plt.Ite(
+                                # tests whether (x//2)*2 == x which is True iff x is even
+                                plt.EqualsInteger(
+                                    plt.AddInteger(
+                                        plt.Var("n_half"), plt.Var("n_half")
+                                    ),
+                                    plt.Var("n"),
+                                ),
+                                plt.Apply(
+                                    plt.Var("f"),
+                                    plt.Var("f"),
+                                    plt.Var("y"),
+                                    add(plt.Var("x"), plt.Var("x")),
+                                    plt.Var("n_half"),
+                                ),
+                                plt.Apply(
+                                    plt.Var("f"),
+                                    plt.Var("f"),
+                                    add(plt.Var("y"), plt.Var("x")),
+                                    add(plt.Var("x"), plt.Var("x")),
+                                    plt.Var("n_half"),
+                                ),
+                            ),
                         ),
                     ),
                 ),
             ),
-        ),
-        x,
-        y,
-    )
+            zero,
+            x,
+            y,
+        )
+
+    return RepeatedAdd
+
+
+PowImpl = repeated_addition(plt.Integer(1), plt.MultiplyInteger)
+ByteStrIntMulImpl = repeated_addition(plt.ByteString(b""), plt.AppendByteString)
+StrIntMulImpl = repeated_addition(plt.Text(""), plt.AppendString)
 
 
 class PythonBuiltIn(Enum):

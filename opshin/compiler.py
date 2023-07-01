@@ -11,6 +11,7 @@ from .rewrite.rewrite_import_dataclasses import RewriteImportDataclasses
 from .rewrite.rewrite_import_hashlib import RewriteImportHashlib
 from .rewrite.rewrite_import_plutusdata import RewriteImportPlutusData
 from .rewrite.rewrite_import_typing import RewriteImportTyping
+from .rewrite.rewrite_import_uplc_builtins import RewriteImportUPLCBuiltins
 from .rewrite.rewrite_inject_builtins import RewriteInjectBuiltins
 from .rewrite.rewrite_inject_builtin_constr import RewriteInjectBuiltinsConstr
 from .rewrite.rewrite_orig_name import RewriteOrigName
@@ -23,7 +24,13 @@ from .optimize.optimize_remove_pass import OptimizeRemovePass
 from .optimize.optimize_remove_deadvars import OptimizeRemoveDeadvars
 from .optimize.optimize_varlen import OptimizeVarlen
 from .type_inference import *
-from .util import CompilingNodeTransformer, PowImpl, NoOp
+from .util import (
+    CompilingNodeTransformer,
+    PowImpl,
+    NoOp,
+    ByteStrIntMulImpl,
+    StrIntMulImpl,
+)
 from .typed_ast import transform_ext_params_map, transform_output_map, RawPlutoExpr
 
 
@@ -52,7 +59,15 @@ BinOpMap = {
     Mult: {
         IntegerInstanceType: {
             IntegerInstanceType: plt.MultiplyInteger,
-        }
+            ByteStringInstanceType: lambda x, y: ByteStrIntMulImpl(y, x),
+            StringInstanceType: lambda x, y: StrIntMulImpl(y, x),
+        },
+        StringInstanceType: {
+            IntegerInstanceType: StrIntMulImpl,
+        },
+        ByteStringInstanceType: {
+            IntegerInstanceType: ByteStrIntMulImpl,
+        },
     },
     FloorDiv: {
         IntegerInstanceType: {
@@ -1009,6 +1024,7 @@ def compile(
         # The type inference needs to be run after complex python operations were rewritten
         AggressiveTypeInferencer(),
         # Rewrites that circumvent the type inference or use its results
+        RewriteImportUPLCBuiltins(),
         RewriteZeroAry(),
         RewriteInjectBuiltinsConstr(),
         RewriteRemoveTypeStuff(),

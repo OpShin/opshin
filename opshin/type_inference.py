@@ -87,6 +87,54 @@ def constant_type(c):
     raise NotImplementedError(f"Type {type(c)} not supported")
 
 
+BinOpTypeMap = {
+    Add: {
+        IntegerInstanceType: {
+            IntegerInstanceType: IntegerInstanceType,
+        },
+        ByteStringInstanceType: {
+            ByteStringInstanceType: ByteStringInstanceType,
+        },
+        StringInstanceType: {
+            StringInstanceType: StringInstanceType,
+        },
+    },
+    Sub: {
+        IntegerInstanceType: {
+            IntegerInstanceType: IntegerInstanceType,
+        }
+    },
+    Mult: {
+        IntegerInstanceType: {
+            IntegerInstanceType: IntegerInstanceType,
+            ByteStringInstanceType: ByteStringInstanceType,
+            StringInstanceType: StringInstanceType,
+        },
+        StringInstanceType: {
+            IntegerInstanceType: StringInstanceType,
+        },
+        ByteStringInstanceType: {
+            IntegerInstanceType: ByteStringInstanceType,
+        },
+    },
+    FloorDiv: {
+        IntegerInstanceType: {
+            IntegerInstanceType: IntegerInstanceType,
+        }
+    },
+    Mod: {
+        IntegerInstanceType: {
+            IntegerInstanceType: IntegerInstanceType,
+        }
+    },
+    Pow: {
+        IntegerInstanceType: {
+            IntegerInstanceType: IntegerInstanceType,
+        }
+    },
+}
+
+
 class AggressiveTypeInferencer(CompilingNodeTransformer):
     step = "Static Type Inference"
 
@@ -381,7 +429,16 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
 
     def visit_FunctionDef(self, node: FunctionDef) -> TypedFunctionDef:
         tfd = copy(node)
-        assert not node.decorator_list, "Functions may not have decorators"
+        wraps_builtin = (
+            all(
+                isinstance(o, Name) and o.id == "wraps_builtin"
+                for o in node.decorator_list
+            )
+            and node.decorator_list
+        )
+        assert (
+            not node.decorator_list or wraps_builtin
+        ), "Functions may not have decorators other than wraps_builtin"
         self.enter_scope()
         tfd.args = self.visit(node.args)
         functyp = FunctionType(
@@ -389,18 +446,23 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             InstanceType(self.type_from_annotation(tfd.returns)),
         )
         tfd.typ = InstanceType(functyp)
-        # We need the function type inside for recursion
-        self.set_variable_type(node.name, tfd.typ)
-        tfd.body = [self.visit(s) for s in node.body]
-        # Check that return type and annotated return type match
-        if not isinstance(node.body[-1], Return):
-            assert (
-                functyp.rettyp >= NoneInstanceType
-            ), f"Function '{node.name}' has no return statement but is supposed to return not-None value"
+        if wraps_builtin:
+            # the body of wrapping builtin functions is fully ignored
+            pass
         else:
-            assert (
-                functyp.rettyp >= tfd.body[-1].typ
-            ), f"Function '{node.name}' annotated return type does not match actual return type"
+            # We need the function type inside for recursion
+            self.set_variable_type(node.name, tfd.typ)
+            tfd.body = [self.visit(s) for s in node.body]
+            # Check that return type and annotated return type match
+            if not isinstance(node.body[-1], Return):
+                assert (
+                    functyp.rettyp >= NoneInstanceType
+                ), f"Function '{node.name}' has no return statement but is supposed to return not-None value"
+            else:
+                assert (
+                    functyp.rettyp >= tfd.body[-1].typ
+                ), f"Function '{node.name}' annotated return type does not match actual return type"
+
         self.exit_scope()
         # We need the function type outside for usage
         self.set_variable_type(node.name, tfd.typ)
@@ -422,11 +484,15 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         tb = copy(node)
         tb.left = self.visit(node.left)
         tb.right = self.visit(node.right)
-        # TODO the outcome of the operation may depend on the input types
+        outcome_typ_map = BinOpTypeMap.get(type(node.op)).get(tb.left.typ)
         assert (
-            tb.left.typ == tb.right.typ
-        ), "Inputs to a binary operation need to have the same type"
-        tb.typ = tb.left.typ
+            outcome_typ_map is not None
+        ), f"Operation {node.op} not defined for {tb.left.typ}"
+        outcome_typ = outcome_typ_map.get(tb.right.typ)
+        assert (
+            outcome_typ is not None
+        ), f"Operation {node.op} not defined for types {tb.left.typ} and {tb.right.typ}"
+        tb.typ = outcome_typ
         return tb
 
     def visit_BoolOp(self, node: BoolOp) -> TypedBoolOp:
@@ -553,11 +619,11 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             functyp = tc.func.typ.typ
             assert len(tc.args) == len(
                 functyp.argtyps
-            ), f"Signature of function does not match number of arguments. Expected {len(functyp.argtyps)} arguments with these types: {functyp.argtyps}"
+            ), f"Signature of function does not match number of arguments. Expected {len(functyp.argtyps)} arguments with these types: {functyp.argtyps} but got {len(tc.args)} arguments."
             # all arguments need to be supertypes of the given type
             assert all(
                 ap >= a.typ for a, ap in zip(tc.args, functyp.argtyps)
-            ), f"Signature of function does not match arguments. Expected {len(functyp.argtyps)} arguments with these types: {functyp.argtyps}"
+            ), f"Signature of function does not match arguments. Expected {len(functyp.argtyps)} arguments with these types: {functyp.argtyps} but got {[a.typ for a in tc.args]}."
             tc.typ = functyp.rettyp
             return tc
         raise TypeInferenceError("Could not infer type of call")
@@ -671,6 +737,10 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         typed_node.values = [self.visit(v) for v in node.values]
         typed_node.typ = StringInstanceType
         return typed_node
+
+    def visit_ImportFrom(self, node: ImportFrom) -> ImportFrom:
+        assert node.module == "opshin.bridge", "Trying to import from invalid location"
+        return node
 
     def generic_visit(self, node: AST) -> TypedAST:
         raise NotImplementedError(

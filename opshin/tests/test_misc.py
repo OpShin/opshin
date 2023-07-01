@@ -1,6 +1,7 @@
 import unittest
 
 import frozendict
+import hypothesis
 from hypothesis import given
 from hypothesis import strategies as st
 from parameterized import parameterized
@@ -1396,3 +1397,20 @@ def validator(c: ScriptContext) -> str:
         ).value.decode("utf8")
         # should not raise
         eval(res)
+
+    @hypothesis.given(st.binary(), st.binary())
+    def test_uplc_builtin(self, x, y):
+        # note this is a runtime error, just like it would be in python!
+        source_code = """
+from opshin.std.builtins import *
+def validator(x: bytes, y: bytes) -> bytes:
+    return append_byte_string(x, y)
+"""
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(
+            uplc.Apply(
+                uplc.Apply(code, uplc.PlutusByteString(x)), uplc.PlutusByteString(y)
+            )
+        ).value
+        self.assertEqual(res, x + y)
