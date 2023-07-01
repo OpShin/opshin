@@ -19,7 +19,7 @@ def to_uplc_builtin(a):
             list([(to_uplc_builtin(k), to_uplc_builtin(v)) for k, v in a])
         )
     if isinstance(a, PlutusData):
-        return uplc.ast.data_from_cbor(a.to_cbor("bytes"))
+        return uplc.ast.data_from_cbor(a.to_cbor())
 
 
 def to_python(a):
