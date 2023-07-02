@@ -136,13 +136,17 @@ def validator(x: int) -> str:
         ret = uplc_eval(f).value.decode("utf8")
         self.assertEqual(ret, hex(x), "hex returned wrong value")
 
-    @unittest.skip("Integer stripping is currently broken")
-    @given(xs=st.one_of(st.builds(lambda x: str(x), st.integers()), st.text()))
+    @given(
+        xs=st.one_of(
+            st.builds(lambda x: str(x), st.integers()),
+            st.from_regex(r"\A(?!\s).*(?<!\s)\Z"),
+        )
+    )
     @example("")
     @example("10_00")
     @example("_")
     @example("_1")
-    @example("0\n")
+    # @example("0\n")  # stripping is broken
     def test_int_string(self, xs: str):
         # this tests that errors that are caused by assignments are actually triggered at the time of assigning
         source_code = """
@@ -163,15 +167,13 @@ def validator(x: str) -> int:
             ret = uplc_eval(f).value
         except:
             ret = None
-        self.assertEqual(ret, exp, "str (integer) returned wrong value")
+        self.assertEqual(ret, exp, "int (str) returned wrong value")
 
-    @parameterized.parameterized.expand(
-        ["10_00", "00", "_", "_1", "-10238", "19293812983721837981", "jakjsdh"]
-    )
-    def test_int_string(self, xs: str):
+    @given(xs=st.booleans())
+    def test_int_bool(self, xs: bool):
         # this tests that errors that are caused by assignments are actually triggered at the time of assigning
         source_code = """
-def validator(x: str) -> int:
+def validator(x: bool) -> int:
     return int(x)
         """
         ast = compiler.parse(source_code)
@@ -183,12 +185,35 @@ def validator(x: str) -> int:
         except ValueError:
             exp = None
         try:
-            for d in [uplc.PlutusByteString(xs.encode("utf8"))]:
+            for d in [uplc.PlutusInteger(int(xs))]:
                 f = uplc.Apply(f, d)
             ret = uplc_eval(f).value
         except:
             ret = None
-        self.assertEqual(ret, exp, "str (integer) returned wrong value")
+        self.assertEqual(ret, exp, "int (bool) returned wrong value")
+
+    @given(xs=st.integers())
+    def test_int_int(self, xs: int):
+        # this tests that errors that are caused by assignments are actually triggered at the time of assigning
+        source_code = """
+def validator(x: int) -> int:
+    return int(x)
+        """
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        try:
+            exp = int(xs)
+        except ValueError:
+            exp = None
+        try:
+            for d in [uplc.PlutusInteger(int(xs))]:
+                f = uplc.Apply(f, d)
+            ret = uplc_eval(f).value
+        except:
+            ret = None
+        self.assertEqual(ret, exp, "int (int) returned wrong value")
 
     @given(i=st.binary())
     def test_len_bytestring(self, i):

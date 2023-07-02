@@ -954,95 +954,7 @@ class InstanceType(Type):
 @dataclass(frozen=True, unsafe_hash=True)
 class IntegerType(AtomicType):
     def constr_type(self) -> InstanceType:
-        return InstanceType(FunctionType([StringInstanceType], InstanceType(self)))
-
-    def constr(self) -> plt.AST:
-        # TODO we need to strip the string implicitely before parsing it
-        return plt.Lambda(
-            ["x", "_"],
-            plt.Let(
-                [
-                    ("e", plt.EncodeUtf8(plt.Var("x"))),
-                    ("first_int", plt.IndexByteString(plt.Var("e"), plt.Integer(0))),
-                    ("len", plt.LengthOfByteString(plt.Var("e"))),
-                    (
-                        "fold_start",
-                        plt.Lambda(
-                            ["start"],
-                            plt.FoldList(
-                                plt.Range(plt.Var("len"), plt.Var("start")),
-                                plt.Lambda(
-                                    ["s", "i"],
-                                    plt.Let(
-                                        [
-                                            (
-                                                "b",
-                                                plt.IndexByteString(
-                                                    plt.Var("e"), plt.Var("i")
-                                                ),
-                                            )
-                                        ],
-                                        plt.Ite(
-                                            plt.EqualsInteger(
-                                                plt.Var("b"), plt.Integer(ord("_"))
-                                            ),
-                                            plt.Var("s"),
-                                            plt.Ite(
-                                                plt.Or(
-                                                    plt.LessThanInteger(
-                                                        plt.Var("b"),
-                                                        plt.Integer(ord("0")),
-                                                    ),
-                                                    plt.LessThanInteger(
-                                                        plt.Integer(ord("9")),
-                                                        plt.Var("b"),
-                                                    ),
-                                                ),
-                                                plt.TraceError(
-                                                    "ValueError: invalid literal for int() with base 10"
-                                                ),
-                                                plt.AddInteger(
-                                                    plt.SubtractInteger(
-                                                        plt.Var("b"),
-                                                        plt.Integer(ord("0")),
-                                                    ),
-                                                    plt.MultiplyInteger(
-                                                        plt.Var("s"), plt.Integer(10)
-                                                    ),
-                                                ),
-                                            ),
-                                        ),
-                                    ),
-                                ),
-                                plt.Integer(0),
-                            ),
-                        ),
-                    ),
-                ],
-                plt.Ite(
-                    plt.Or(
-                        plt.EqualsInteger(plt.Var("len"), plt.Integer(0)),
-                        plt.EqualsInteger(
-                            plt.Var("first_int"),
-                            plt.Integer(ord("_")),
-                        ),
-                    ),
-                    plt.TraceError(
-                        "ValueError: invalid literal for int() with base 10"
-                    ),
-                    plt.Ite(
-                        plt.EqualsInteger(
-                            plt.Var("first_int"),
-                            plt.Integer(ord("-")),
-                        ),
-                        plt.Negate(
-                            plt.Apply(plt.Var("fold_start"), plt.Integer(1)),
-                        ),
-                        plt.Apply(plt.Var("fold_start"), plt.Integer(0)),
-                    ),
-                ),
-            ),
-        )
+        return InstanceType(PolymorphicFunctionType(IntImpl()))
 
     def cmp(self, op: cmpop, o: "Type") -> plt.AST:
         """The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second the comparison."""
@@ -1187,9 +1099,6 @@ class IntegerType(AtomicType):
 @dataclass(frozen=True, unsafe_hash=True)
 class StringType(AtomicType):
     def constr_type(self) -> InstanceType:
-        return InstanceType(PolymorphicFunctionType(StrImpl()))
-
-    def constr(self) -> plt.AST:
         return InstanceType(PolymorphicFunctionType(StrImpl()))
 
     def attribute_type(self, attr) -> Type:
@@ -1668,6 +1577,123 @@ class StrImpl(PolymorphicFunction):
         arg = args[0]
         assert isinstance(arg, InstanceType), "Can only stringify instances"
         return arg.typ.stringify()
+
+
+class IntImpl(PolymorphicFunction):
+    def type_from_args(self, args: typing.List[Type]) -> FunctionType:
+        assert (
+            len(args) == 1
+        ), f"'int' takes only one argument, but {len(args)} were given"
+        typ = args[0]
+        assert isinstance(typ, InstanceType), "Can only create ints from instances"
+        assert any(
+            isinstance(typ.typ, t) for t in (IntegerType, StringType, BoolType)
+        ), "Can only create integers from int, str or bool"
+        return FunctionType(args, IntegerInstanceType)
+
+    def impl_from_args(self, args: typing.List[Type]) -> plt.AST:
+        arg = args[0]
+        assert isinstance(arg, InstanceType), "Can only create ints from instances"
+        if isinstance(arg.typ, IntegerType):
+            return plt.Lambda(["x", "_"], plt.Var("x"))
+        elif isinstance(arg.typ, BoolType):
+            return plt.Lambda(
+                ["x", "_"], plt.IfThenElse(plt.Var("x"), plt.Integer(1), plt.Integer(0))
+            )
+        elif isinstance(arg.typ, StringType):
+            return plt.Lambda(
+                ["x", "_"],
+                plt.Let(
+                    [
+                        ("e", plt.EncodeUtf8(plt.Var("x"))),
+                        (
+                            "first_int",
+                            plt.IndexByteString(plt.Var("e"), plt.Integer(0)),
+                        ),
+                        ("len", plt.LengthOfByteString(plt.Var("e"))),
+                        (
+                            "fold_start",
+                            plt.Lambda(
+                                ["start"],
+                                plt.FoldList(
+                                    plt.Range(plt.Var("len"), plt.Var("start")),
+                                    plt.Lambda(
+                                        ["s", "i"],
+                                        plt.Let(
+                                            [
+                                                (
+                                                    "b",
+                                                    plt.IndexByteString(
+                                                        plt.Var("e"), plt.Var("i")
+                                                    ),
+                                                )
+                                            ],
+                                            plt.Ite(
+                                                plt.EqualsInteger(
+                                                    plt.Var("b"), plt.Integer(ord("_"))
+                                                ),
+                                                plt.Var("s"),
+                                                plt.Ite(
+                                                    plt.Or(
+                                                        plt.LessThanInteger(
+                                                            plt.Var("b"),
+                                                            plt.Integer(ord("0")),
+                                                        ),
+                                                        plt.LessThanInteger(
+                                                            plt.Integer(ord("9")),
+                                                            plt.Var("b"),
+                                                        ),
+                                                    ),
+                                                    plt.TraceError(
+                                                        "ValueError: invalid literal for int() with base 10"
+                                                    ),
+                                                    plt.AddInteger(
+                                                        plt.SubtractInteger(
+                                                            plt.Var("b"),
+                                                            plt.Integer(ord("0")),
+                                                        ),
+                                                        plt.MultiplyInteger(
+                                                            plt.Var("s"),
+                                                            plt.Integer(10),
+                                                        ),
+                                                    ),
+                                                ),
+                                            ),
+                                        ),
+                                    ),
+                                    plt.Integer(0),
+                                ),
+                            ),
+                        ),
+                    ],
+                    plt.Ite(
+                        plt.Or(
+                            plt.EqualsInteger(plt.Var("len"), plt.Integer(0)),
+                            plt.EqualsInteger(
+                                plt.Var("first_int"),
+                                plt.Integer(ord("_")),
+                            ),
+                        ),
+                        plt.TraceError(
+                            "ValueError: invalid literal for int() with base 10"
+                        ),
+                        plt.Ite(
+                            plt.EqualsInteger(
+                                plt.Var("first_int"),
+                                plt.Integer(ord("-")),
+                            ),
+                            plt.Negate(
+                                plt.Apply(plt.Var("fold_start"), plt.Integer(1)),
+                            ),
+                            plt.Apply(plt.Var("fold_start"), plt.Integer(0)),
+                        ),
+                    ),
+                ),
+            )
+        else:
+            raise NotImplementedError(
+                f"Can not derive integer from type {arg.typ.__name__}"
+            )
 
 
 @dataclass(frozen=True, unsafe_hash=True)
