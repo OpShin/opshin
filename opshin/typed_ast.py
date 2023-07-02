@@ -1807,7 +1807,7 @@ class BytesImpl(PolymorphicFunction):
             assert (
                 typ.typ.typ == IntegerInstanceType
             ), "Can only create bytes from integer lists but got a list with another type"
-        return FunctionType(args, ByteStringType)
+        return FunctionType(args, ByteStringInstanceType)
 
     def impl_from_args(self, args: typing.List[Type]) -> plt.AST:
         arg = args[0]
@@ -1816,7 +1816,12 @@ class BytesImpl(PolymorphicFunction):
             return plt.Lambda(["x", "_"], plt.Var("x"))
         elif isinstance(arg.typ, IntegerType):
             return plt.Lambda(
-                ["x", "_"], ByteStrIntMulImpl(plt.ByteString(b"\x00"), plt.Var("x"))
+                ["x", "_"],
+                plt.Ite(
+                    plt.LessThanInteger(plt.Var("x"), plt.Integer(0)),
+                    plt.TraceError("ValueError: negative count"),
+                    ByteStrIntMulImpl(plt.ByteString(b"\x00"), plt.Var("x")),
+                ),
             )
         elif isinstance(arg.typ, ListType):
             return plt.Lambda(
