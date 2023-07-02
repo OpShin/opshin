@@ -1707,9 +1707,18 @@ class IntImpl(PolymorphicFunction):
                     plt.Ite(
                         plt.Or(
                             plt.EqualsInteger(plt.Var("len"), plt.Integer(0)),
-                            plt.EqualsInteger(
-                                plt.Var("first_int"),
-                                plt.Integer(ord("_")),
+                            plt.Or(
+                                plt.EqualsInteger(
+                                    plt.Var("first_int"),
+                                    plt.Integer(ord("_")),
+                                ),
+                                plt.And(
+                                    plt.EqualsInteger(plt.Var("len"), plt.Integer(1)),
+                                    plt.EqualsInteger(
+                                        plt.Var("first_int"),
+                                        plt.Integer(ord("-")),
+                                    ),
+                                ),
                             ),
                         ),
                         plt.TraceError(
