@@ -1132,21 +1132,7 @@ class StringType(AtomicType):
 @dataclass(frozen=True, unsafe_hash=True)
 class ByteStringType(AtomicType):
     def constr_type(self) -> InstanceType:
-        return InstanceType(
-            FunctionType(
-                [InstanceType(ListType(IntegerInstanceType))], InstanceType(self)
-            )
-        )
-
-    def constr(self) -> plt.AST:
-        return plt.Lambda(
-            ["xs", "_"],
-            plt.RFoldList(
-                plt.Var("xs"),
-                plt.Lambda(["a", "x"], plt.ConsByteString(plt.Var("x"), plt.Var("a"))),
-                plt.ByteString(b""),
-            ),
-        )
+        return InstanceType(PolymorphicFunctionType(BytesImpl()))
 
     def attribute_type(self, attr) -> Type:
         if attr == "decode":
@@ -1550,6 +1536,64 @@ class InaccessibleType(ClassType):
     pass
 
 
+def repeated_addition(zero, add):
+    # this is optimized for logarithmic complexity by exponentiation by squaring
+    # it follows the implementation described here: https://en.wikipedia.org/wiki/Exponentiation_by_squaring#With_constant_auxiliary_memory
+    def RepeatedAdd(x: plt.AST, y: plt.AST):
+        return plt.Apply(
+            plt.RecFun(
+                plt.Lambda(
+                    ["f", "y", "x", "n"],
+                    plt.Ite(
+                        plt.LessThanEqualsInteger(plt.Var("n"), plt.Integer(0)),
+                        plt.Var("y"),
+                        plt.Let(
+                            [
+                                (
+                                    "n_half",
+                                    plt.DivideInteger(plt.Var("n"), plt.Integer(2)),
+                                )
+                            ],
+                            plt.Ite(
+                                # tests whether (x//2)*2 == x which is True iff x is even
+                                plt.EqualsInteger(
+                                    plt.AddInteger(
+                                        plt.Var("n_half"), plt.Var("n_half")
+                                    ),
+                                    plt.Var("n"),
+                                ),
+                                plt.Apply(
+                                    plt.Var("f"),
+                                    plt.Var("f"),
+                                    plt.Var("y"),
+                                    add(plt.Var("x"), plt.Var("x")),
+                                    plt.Var("n_half"),
+                                ),
+                                plt.Apply(
+                                    plt.Var("f"),
+                                    plt.Var("f"),
+                                    add(plt.Var("y"), plt.Var("x")),
+                                    add(plt.Var("x"), plt.Var("x")),
+                                    plt.Var("n_half"),
+                                ),
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+            zero,
+            x,
+            y,
+        )
+
+    return RepeatedAdd
+
+
+PowImpl = repeated_addition(plt.Integer(1), plt.MultiplyInteger)
+ByteStrIntMulImpl = repeated_addition(plt.ByteString(b""), plt.AppendByteString)
+StrIntMulImpl = repeated_addition(plt.Text(""), plt.AppendString)
+
+
 class PolymorphicFunction:
     def type_from_args(self, args: typing.List[Type]) -> FunctionType:
         raise NotImplementedError()
@@ -1741,6 +1785,53 @@ class BoolImpl(PolymorphicFunction):
         else:
             raise NotImplementedError(
                 f"Can not derive bool from type {arg.typ.__name__}"
+            )
+
+
+class BytesImpl(PolymorphicFunction):
+    def type_from_args(self, args: typing.List[Type]) -> FunctionType:
+        assert (
+            len(args) == 1
+        ), f"'bytes' takes only one argument, but {len(args)} were given"
+        typ = args[0]
+        assert isinstance(typ, InstanceType), "Can only create bools from instances"
+        assert any(
+            isinstance(typ.typ, t)
+            for t in (
+                IntegerType,
+                ByteStringType,
+                ListType,
+            )
+        ), "Can only create bytes from int, bytes or integer lists"
+        if isinstance(typ.typ, ListType):
+            assert (
+                typ.typ.typ == IntegerInstanceType
+            ), "Can only create bytes from integer lists but got a list with another type"
+        return FunctionType(args, ByteStringType)
+
+    def impl_from_args(self, args: typing.List[Type]) -> plt.AST:
+        arg = args[0]
+        assert isinstance(arg, InstanceType), "Can only create bytes from instances"
+        if isinstance(arg.typ, ByteStringType):
+            return plt.Lambda(["x", "_"], plt.Var("x"))
+        elif isinstance(arg.typ, IntegerType):
+            return plt.Lambda(
+                ["x", "_"], ByteStrIntMulImpl(plt.ByteString(b"\x00"), plt.Var("x"))
+            )
+        elif isinstance(arg.typ, ListType):
+            return plt.Lambda(
+                ["xs", "_"],
+                plt.RFoldList(
+                    plt.Var("xs"),
+                    plt.Lambda(
+                        ["a", "x"], plt.ConsByteString(plt.Var("x"), plt.Var("a"))
+                    ),
+                    plt.ByteString(b""),
+                ),
+            )
+        else:
+            raise NotImplementedError(
+                f"Can not derive bytes from type {arg.typ.__name__}"
             )
 
 
