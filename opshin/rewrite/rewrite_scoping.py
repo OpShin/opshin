@@ -2,7 +2,7 @@ from ast import *
 from copy import copy
 from collections import defaultdict
 
-from ..type_inference import INITIAL_SCOPE
+from ..type_inference import INITIAL_SCOPE, PolymorphicFunctionInstanceType
 from ..util import CompilingNodeTransformer, CompilingNodeVisitor
 
 """
@@ -17,7 +17,9 @@ class ShallowNameDefCollector(CompilingNodeVisitor):
         self.vars = set()
 
     def visit_Name(self, node: Name) -> None:
-        if isinstance(node.ctx, Store):
+        if isinstance(node.ctx, Store) or isinstance(
+            node.typ, PolymorphicFunctionInstanceType
+        ):
             self.vars.add(node.id)
 
     def visit_ClassDef(self, node: ClassDef):

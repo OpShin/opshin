@@ -90,6 +90,52 @@ def validator(x: List[int]) -> bytes:
             ret = None
         self.assertEqual(ret, exp, "bytes (integer list) returned wrong value")
 
+    @given(x=st.integers(min_value=-1000, max_value=1000))
+    def test_bytes_int(self, x):
+        # this tests that errors that are caused by assignments are actually triggered at the time of assigning
+        source_code = """
+def validator(x: int) -> bytes:
+    return bytes(x)
+        """
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        try:
+            exp = bytes(x)
+        except ValueError:
+            exp = None
+        try:
+            for d in [uplc.PlutusInteger(x)]:
+                f = uplc.Apply(f, d)
+            ret = uplc_eval(f).value
+        except:
+            ret = None
+        self.assertEqual(ret, exp, "bytes (integer) returned wrong value")
+
+    @given(x=st.binary())
+    def test_bytes_bytes(self, x):
+        # this tests that errors that are caused by assignments are actually triggered at the time of assigning
+        source_code = """
+def validator(x: bytes) -> bytes:
+    return bytes(x)
+        """
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        try:
+            exp = bytes(x)
+        except ValueError:
+            exp = None
+        try:
+            for d in [uplc.PlutusByteString(x)]:
+                f = uplc.Apply(f, d)
+            ret = uplc_eval(f).value
+        except:
+            ret = None
+        self.assertEqual(ret, exp, "bytes (bytes) returned wrong value")
+
     @given(i=st.integers())
     @example(256)
     @example(0)
@@ -442,7 +488,113 @@ def validator(x: int) -> bool:
         for d in [uplc.PlutusInteger(x)]:
             f = uplc.Apply(f, d)
         ret = bool(uplc_eval(f).value)
-        self.assertEqual(ret, bool(x), "reversed returned wrong value")
+        self.assertEqual(ret, bool(x), "bool (int) returned wrong value")
+
+    @given(x=st.text())
+    def test_bool_constr_str(self, x):
+        # this tests that errors that are caused by assignments are actually triggered at the time of assigning
+        source_code = """
+def validator(x: str) -> bool:
+    return bool(x)
+        """
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        for d in [uplc.PlutusByteString(x.encode("utf8"))]:
+            f = uplc.Apply(f, d)
+        ret = bool(uplc_eval(f).value)
+        self.assertEqual(ret, bool(x), "bool (str) returned wrong value")
+
+    @given(x=st.binary())
+    def test_bool_constr_bytes(self, x):
+        # this tests that errors that are caused by assignments are actually triggered at the time of assigning
+        source_code = """
+def validator(x: bytes) -> bool:
+    return bool(x)
+        """
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        for d in [uplc.PlutusByteString(x)]:
+            f = uplc.Apply(f, d)
+        ret = bool(uplc_eval(f).value)
+        self.assertEqual(ret, bool(x), "bool (bytes) returned wrong value")
+
+    @given(x=st.none())
+    def test_bool_constr_none(self, x):
+        # this tests that errors that are caused by assignments are actually triggered at the time of assigning
+        source_code = """
+def validator(x: None) -> bool:
+    return bool(x)
+        """
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        for d in [uplc.PlutusConstr(0, [])]:
+            f = uplc.Apply(f, d)
+        ret = bool(uplc_eval(f).value)
+        self.assertEqual(ret, bool(x), "bool (none) returned wrong value")
+
+    @given(x=st.booleans())
+    def test_bool_constr_bool(self, x):
+        # this tests that errors that are caused by assignments are actually triggered at the time of assigning
+        source_code = """
+def validator(x: bool) -> bool:
+    return bool(x)
+        """
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        for d in [uplc.PlutusInteger(int(x))]:
+            f = uplc.Apply(f, d)
+        ret = bool(uplc_eval(f).value)
+        self.assertEqual(ret, bool(x), "bool (bool) returned wrong value")
+
+    @given(xs=st.lists(st.integers()))
+    def test_bool_constr_list(self, xs):
+        # this tests that errors that are caused by assignments are actually triggered at the time of assigning
+        source_code = """
+def validator(x: List[int]) -> bool:
+    return bool(x)
+        """
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        for d in [uplc.PlutusList([uplc.PlutusInteger(x) for x in xs])]:
+            f = uplc.Apply(f, d)
+        ret = bool(uplc_eval(f).value)
+        self.assertEqual(ret, bool(xs), "bool (list) returned wrong value")
+
+    @given(xs=st.dictionaries(st.integers(), st.binary()))
+    def test_bool_constr_dict(self, xs):
+        # this tests that errors that are caused by assignments are actually triggered at the time of assigning
+        source_code = """
+def validator(x: Dict[int, str]) -> bool:
+    return bool(x)
+        """
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        for d in [
+            uplc.PlutusMap(
+                {uplc.PlutusInteger(x): uplc.PlutusByteString(y) for x, y in xs.items()}
+            )
+        ]:
+            f = uplc.Apply(f, d)
+        ret = bool(uplc_eval(f).value)
+        self.assertEqual(ret, bool(xs), "bool (list) returned wrong value")
 
     @given(x=st.integers(), y=st.booleans(), z=st.none())
     def test_print_compile(self, x, y, z):
