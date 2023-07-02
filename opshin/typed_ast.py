@@ -1644,11 +1644,23 @@ class IntImpl(PolymorphicFunction):
                 plt.Let(
                     [
                         ("e", plt.EncodeUtf8(plt.Var("x"))),
+                        ("len", plt.LengthOfByteString(plt.Var("e"))),
                         (
                             "first_int",
-                            plt.IndexByteString(plt.Var("e"), plt.Integer(0)),
+                            plt.Ite(
+                                plt.LessThanInteger(plt.Integer(0), plt.Var("len")),
+                                plt.IndexByteString(plt.Var("e"), plt.Integer(0)),
+                                plt.Integer(ord("_")),
+                            ),
                         ),
-                        ("len", plt.LengthOfByteString(plt.Var("e"))),
+                        (
+                            "second_int",
+                            plt.Ite(
+                                plt.LessThanInteger(plt.Integer(1), plt.Var("len")),
+                                plt.IndexByteString(plt.Var("e"), plt.Integer(1)),
+                                plt.Integer(ord("_")),
+                            ),
+                        ),
                         (
                             "fold_start",
                             plt.Lambda(
@@ -1713,10 +1725,19 @@ class IntImpl(PolymorphicFunction):
                                     plt.Integer(ord("_")),
                                 ),
                                 plt.And(
-                                    plt.EqualsInteger(plt.Var("len"), plt.Integer(1)),
+                                    plt.Or(
+                                        plt.EqualsInteger(
+                                            plt.Var("first_int"),
+                                            plt.Integer(ord("-")),
+                                        ),
+                                        plt.EqualsInteger(
+                                            plt.Var("first_int"),
+                                            plt.Integer(ord("+")),
+                                        ),
+                                    ),
                                     plt.EqualsInteger(
-                                        plt.Var("first_int"),
-                                        plt.Integer(ord("-")),
+                                        plt.Var("second_int"),
+                                        plt.Integer(ord("_")),
                                     ),
                                 ),
                             ),
@@ -1732,7 +1753,14 @@ class IntImpl(PolymorphicFunction):
                             plt.Negate(
                                 plt.Apply(plt.Var("fold_start"), plt.Integer(1)),
                             ),
-                            plt.Apply(plt.Var("fold_start"), plt.Integer(0)),
+                            plt.Ite(
+                                plt.EqualsInteger(
+                                    plt.Var("first_int"),
+                                    plt.Integer(ord("+")),
+                                ),
+                                plt.Apply(plt.Var("fold_start"), plt.Integer(1)),
+                                plt.Apply(plt.Var("fold_start"), plt.Integer(0)),
+                            ),
                         ),
                     ),
                 ),

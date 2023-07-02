@@ -193,6 +193,8 @@ def validator(x: int) -> str:
     @example("_")
     @example("_1")
     @example("-")
+    @example("+123")
+    @example("-_")
     # @example("0\n")  # stripping is broken
     def test_int_string(self, xs: str):
         # this tests that errors that are caused by assignments are actually triggered at the time of assigning
@@ -212,7 +214,7 @@ def validator(x: str) -> int:
             for d in [uplc.PlutusByteString(xs.encode("utf8"))]:
                 f = uplc.Apply(f, d)
             ret = uplc_eval(f).value
-        except:
+        except Exception as e:
             ret = None
         self.assertEqual(ret, exp, "int (str) returned wrong value")
 
