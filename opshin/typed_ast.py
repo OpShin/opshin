@@ -1696,6 +1696,60 @@ class IntImpl(PolymorphicFunction):
             )
 
 
+class BoolImpl(PolymorphicFunction):
+    def type_from_args(self, args: typing.List[Type]) -> FunctionType:
+        assert (
+            len(args) == 1
+        ), f"'bool' takes only one argument, but {len(args)} were given"
+        typ = args[0]
+        assert isinstance(typ, InstanceType), "Can only create bools from instances"
+        assert any(
+            isinstance(typ.typ, t)
+            for t in (
+                IntegerType,
+                StringType,
+                BoolType,
+                bytes,
+                UnitType,
+                ListType,
+                DictType,
+            )
+        ), "Can only create integers from int, str or bool"
+        return FunctionType(args, BoolInstanceType)
+
+    def impl_from_args(self, args: typing.List[Type]) -> plt.AST:
+        arg = args[0]
+        assert isinstance(arg, InstanceType), "Can only create bools from instances"
+        if isinstance(arg.typ, BoolType):
+            return plt.Lambda(["x", "_"], plt.Var("x"))
+        elif isinstance(arg.typ, IntegerType):
+            return plt.Lambda(
+                ["x", "_"], plt.NotEqualsInteger(plt.Var("x"), plt.Integer(0))
+            )
+        elif isinstance(arg.typ, StringType):
+            return plt.Lambda(
+                ["x", "_"],
+                plt.NotEqualsInteger(
+                    plt.LengthOfByteString(plt.EncodeUtf8(plt.Var("x"))), plt.Integer(0)
+                ),
+            )
+        elif isinstance(arg.typ, ByteStringType):
+            return plt.Lambda(
+                ["x", "_"],
+                plt.NotEqualsInteger(
+                    plt.LengthOfByteString(plt.Var("x")), plt.Integer(0)
+                ),
+            )
+        elif isinstance(arg.typ, ListType) or isinstance(arg.typ, DictType):
+            return plt.Lambda(["x", "_"], plt.Not(plt.NullList(plt.Var("x"))))
+        elif isinstance(arg.typ, UnitType):
+            return plt.Lambda(["x", "_"], plt.Bool(False))
+        else:
+            raise NotImplementedError(
+                f"Can not derive bool from type {arg.typ.__name__}"
+            )
+
+
 @dataclass(frozen=True, unsafe_hash=True)
 class PolymorphicFunctionType(ClassType):
     """A special type of builtin that may act differently on different parameters"""
