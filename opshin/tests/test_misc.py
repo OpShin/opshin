@@ -520,7 +520,7 @@ def validator(x: int) -> Dict[int, bytes]:
             ret, {1: b"a", 2: b"b"}, "Dict expression incorrectly compiled"
         )
 
-    def test_redefine_constr(self):
+    def test_redefine_poly_constr(self):
         # this tests that classes defined by assignment inherit constructors
         source_code = """
 def validator(x: None) -> bytes:
@@ -538,6 +538,27 @@ def validator(x: None) -> bytes:
             f = uplc.Apply(f, d)
         ret = uplc_eval(f).value
         self.assertEqual(ret, bytes([2, 3]), "Re-assignment of global variable failed")
+
+    @given(st.booleans())
+    def test_redefine_constr(self, x):
+        # this tests that classes defined by assignment inherit constructors
+        source_code = """
+from opshin.prelude import *
+def validator(x: int) -> int:
+    a = StakingPtr
+    return a(x, 2, 3).slot_no
+        """
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
+        f = code.term
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        for d in [
+            uplc.PlutusInteger(int(x)),
+        ]:
+            f = uplc.Apply(f, d)
+        ret = uplc_eval(f).value
+        self.assertEqual(ret, int(x), "Re-assignment of class constr failed")
 
     def test_wrap_into_generic_data(self):
         # this tests that errors that are caused by assignments are actually triggered at the time of assigning
