@@ -1669,3 +1669,34 @@ def validator(x: Union[A, B]) -> bool:
         code = compiler.compile(ast).compile()
         res = uplc_eval(uplc.Apply(code, uplc.data_from_cbor(x.to_cbor()))).value
         self.assertEqual(res, isinstance(x, A))
+
+    @hypothesis.given(a_or_b, st.integers())
+    def test_isinstance_cast_shortcut(self, x, y):
+        source_code = """
+from opshin.prelude import *
+
+@dataclass()
+class A(PlutusData):
+    CONSTR_ID = 0
+    foo: int
+
+@dataclass()
+class B(PlutusData):
+    CONSTR_ID = 1
+    foobar: int
+    bar: int
+
+def validator(x: Union[A, B], y: int) -> bool:
+    return isinstance(x, A) and x.foo == y or isinstance(x, B) and x.bar == y
+"""
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(
+            uplc.Apply(
+                uplc.Apply(code, uplc.data_from_cbor(x.to_cbor())),
+                uplc.PlutusInteger(y),
+            )
+        ).value
+        self.assertEqual(
+            res, isinstance(x, A) and x.foo == y or isinstance(x, B) and x.bar == y
+        )

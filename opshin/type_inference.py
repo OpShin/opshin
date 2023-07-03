@@ -513,7 +513,21 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
 
     def visit_BoolOp(self, node: BoolOp) -> TypedBoolOp:
         tt = copy(node)
-        tt.values = [self.visit(e) for e in node.values]
+        if isinstance(node.op, And):
+            values = []
+            prevtyps = {}
+            for e in node.values:
+                values.append(self.visit(e))
+                typchecks = TypeCheckVisitor().visit(values[-1])
+                # for the time after the shortcut and the variable type to the specialized type
+                for n, t in typchecks.items():
+                    prevtyps[n] = self.variable_type(n)
+                    self.set_variable_type(n, InstanceType(t), force=True)
+            for n, t in prevtyps.items():
+                self.set_variable_type(n, t, force=True)
+            tt.values = values
+        else:
+            tt.values = [self.visit(e) for e in node.values]
         tt.typ = BoolInstanceType
         assert all(
             BoolInstanceType >= e.typ for e in tt.values
