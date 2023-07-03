@@ -3,14 +3,6 @@ from copy import copy
 from ast import *
 
 from ..util import CompilingNodeTransformer
-from ..typed_ast import (
-    TypedFunctionDef,
-    FunctionType,
-    NoneInstanceType,
-    TypedConstant,
-    TypedCall,
-    UnitInstanceType,
-)
 
 """
 Rewrites all occurences of conditions to an implicit cast to bool

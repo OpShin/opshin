@@ -1,26 +1,12 @@
 import logging
-import typing
 from ast import *
 from dataclasses import dataclass
-from frozendict import frozendict
-
-from frozenlist import FrozenList
 
 import pluthon as plt
-import uplc.ast as uplc
+
+from .util import *
 
 _LOGGER = logging.getLogger(__name__)
-
-
-def distinct(xs: list):
-    """Returns true iff the list consists of distinct elements"""
-    return len(xs) == len(set(xs))
-
-
-def FrozenFrozenList(l: list):
-    fl = FrozenList(l)
-    fl.freeze()
-    return fl
 
 
 class Type:
@@ -2135,25 +2121,3 @@ def transform_output_map(p: Type):
         # so pairs will always contain Data
         return lambda x: plt.MapData(x)
     return lambda x: x
-
-
-class TypedNodeTransformer(NodeTransformer):
-    def visit(self, node):
-        """Visit a node."""
-        node_class_name = node.__class__.__name__
-        if node_class_name.startswith("Typed"):
-            node_class_name = node_class_name[len("Typed") :]
-        method = "visit_" + node_class_name
-        visitor = getattr(self, method, self.generic_visit)
-        return visitor(node)
-
-
-class TypedNodeVisitor(NodeVisitor):
-    def visit(self, node):
-        """Visit a node."""
-        node_class_name = node.__class__.__name__
-        if node_class_name.startswith("Typed"):
-            node_class_name = node_class_name[len("Typed") :]
-        method = "visit_" + node_class_name
-        visitor = getattr(self, method, self.generic_visit)
-        return visitor(node)

@@ -1507,3 +1507,49 @@ def validator(x: int) -> None:
         except Exception:
             res = False
         self.assertEqual(res, bool(x))
+
+    def test_isinstance_cast_if(self):
+        source_code = """
+from opshin.prelude import *
+
+@dataclass()
+class A(PlutusData):
+    CONSTR_ID = 0
+    foo: int
+
+@dataclass()
+class B(PlutusData):
+    CONSTR_ID = 1
+    bar: int
+
+def validator(x: Union[A, B]) -> int:
+    if isinstance(x, A):
+        k = x.foo
+    elif isinstance(x, B):
+        k = x.bar
+    return k
+"""
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+
+    def test_complex_isinstance_cast_if(self):
+        source_code = """
+from opshin.prelude import *
+
+@dataclass()
+class A(PlutusData):
+    CONSTR_ID = 0
+    foo: int
+
+@dataclass()
+class B(PlutusData):
+    CONSTR_ID = 1
+    bar: int
+
+def validator(x: Union[A, B], y: Union[A, B]) -> int:
+    if isinstance(x, A) and isinstance(y, B):
+        k = x.foo + y.foo
+    return k
+"""
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)

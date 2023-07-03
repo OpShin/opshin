@@ -1,11 +1,9 @@
-from dataclasses import asdict
-
 from copy import copy
-import ast
 from pycardano import PlutusData
 
 from .typed_ast import *
-from .util import PythonBuiltInTypes, CompilingNodeTransformer
+from .util import CompilingNodeTransformer
+from .fun_impls import PythonBuiltInTypes
 
 # from frozendict import frozendict
 
