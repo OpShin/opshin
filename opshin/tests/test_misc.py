@@ -1574,3 +1574,26 @@ def validator(x: Union[A, B]) -> int:
 """
         ast = compiler.parse(source_code)
         code = compiler.compile(ast)
+
+    @unittest.expectedFailure
+    def test_isinstance_cast_while(self):
+        source_code = """
+from opshin.prelude import *
+
+@dataclass()
+class A(PlutusData):
+    CONSTR_ID = 0
+    foo: int
+
+@dataclass()
+class B(PlutusData):
+    CONSTR_ID = 1
+    bar: int
+
+def validator(x: Union[A, B]) -> int:
+    while isinstance(x, A):
+        k = x.foo
+    return k
+"""
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
