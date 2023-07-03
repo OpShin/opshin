@@ -30,3 +30,13 @@ class RewriteConditions(CompilingNodeTransformer):
         if_cp = copy(node)
         if_cp.test = Call(Name(SPECIAL_BOOL, Load()), [node.test], [])
         return if_cp
+
+    def visit_IfExp(self, node: IfExp) -> IfExp:
+        if_cp = copy(node)
+        if_cp.test = Call(Name(SPECIAL_BOOL, Load()), [node.test], [])
+        return if_cp
+
+    def visit_While(self, node: While) -> While:
+        while_cp = copy(node)
+        while_cp.test = Call(Name(SPECIAL_BOOL, Load()), [node.test], [])
+        return while_cp
