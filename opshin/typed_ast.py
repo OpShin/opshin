@@ -2,6 +2,7 @@ import logging
 import typing
 from ast import *
 from dataclasses import dataclass
+from frozendict import frozendict
 
 from frozenlist import FrozenList
 
@@ -1858,7 +1859,9 @@ class TypedAST(AST):
 
 
 class typedexpr(TypedAST, expr):
-    pass
+    def typechecks(self) -> typing.Dict[str, Type]:
+        """Successful typechecks if this expression evaluates to True"""
+        return {}
 
 
 class typedstmt(TypedAST, stmt):
@@ -1898,7 +1901,7 @@ class TypedReturn(typedstmt, Return):
     value: typedexpr
 
 
-class TypedExpression(typedexpr, Expression):
+class TypedExpression(typedstmt, Expression):
     body: typedexpr
 
 

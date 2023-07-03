@@ -135,6 +135,47 @@ BinOpTypeMap = {
 }
 
 
+class TypeCheckVisitor(TypedNodeVisitor):
+    def generic_visit(self, node: AST) -> typing.Dict[str, Type]:
+        return getattr(node, "typechecks", {})
+
+    def visit_Call(self, node: Call) -> typing.Dict[str, Type]:
+        self = node
+        if not (isinstance(self.func, Name) and self.func.id == "isinstance"):
+            return {}
+        # special case for Union
+        assert isinstance(
+            self.args[0], Name
+        ), "Target 0 of an isinstance cast must be a variable name"
+        assert isinstance(
+            self.args[1], Name
+        ), "Target 1 of an isinstance cast must be a class name"
+        target_class: RecordType = self.args[1].typ
+        target_inst = self.args[0].typ
+        target_inst_class = target_inst.typ
+        assert isinstance(
+            target_inst_class, InstanceType
+        ), "Can only cast instances, not classes"
+        assert isinstance(
+            target_inst_class.typ, UnionType
+        ), "Can only cast instances of Union types of PlutusData"
+        assert isinstance(target_class, RecordType), "Can only cast to PlutusData"
+        assert (
+            target_class in target_inst_class.typ.typs
+        ), f"Trying to cast an instance of Union type to non-instance of union type"
+        return {self.args[0].id: target_class}
+
+    def visit_BoolOp(self, node: BoolOp) -> typing.Dict[str, Type]:
+        self = node
+        # anything that is not an and does not reliably predict a cast
+        if not isinstance(self.op, And):
+            return {}
+        res = {}
+        for v in self.values:
+            res.update(self.visit(v))
+        return res
+
+
 class AggressiveTypeInferencer(CompilingNodeTransformer):
     step = "Static Type Inference"
 
@@ -310,51 +351,19 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
 
     def visit_If(self, node: If) -> TypedIf:
         typed_if = copy(node)
-        if (
-            isinstance(typed_if.test, Call)
-            and (typed_if.test.func, Name)
-            and typed_if.test.func.id == "isinstance"
-        ):
-            tc = typed_if.test
-            # special case for Union
-            assert isinstance(
-                tc.args[0], Name
-            ), "Target 0 of an isinstance cast must be a variable name"
-            assert isinstance(
-                tc.args[1], Name
-            ), "Target 1 of an isinstance cast must be a class name"
-            target_class: RecordType = self.variable_type(tc.args[1].id)
-            target_inst = self.visit(tc.args[0])
-            target_inst_class = target_inst.typ
-            assert isinstance(
-                target_inst_class, InstanceType
-            ), "Can only cast instances, not classes"
-            assert isinstance(
-                target_inst_class.typ, UnionType
-            ), "Can only cast instances of Union types of PlutusData"
-            assert isinstance(target_class, RecordType), "Can only cast to PlutusData"
-            assert (
-                target_class in target_inst_class.typ.typs
-            ), f"Trying to cast an instance of Union type to non-instance of union type"
-            typed_if.test = self.visit(
-                Compare(
-                    left=Attribute(tc.args[0], "CONSTR_ID"),
-                    ops=[Eq()],
-                    comparators=[Constant(target_class.record.constructor)],
-                )
-            )
-            # for the time of this if branch set the variable type to the specialized type
-            self.set_variable_type(
-                tc.args[0].id, InstanceType(target_class), force=True
-            )
-            typed_if.body = [self.visit(s) for s in node.body]
-            self.set_variable_type(tc.args[0].id, target_inst_class, force=True)
-        else:
-            typed_if.test = self.visit(node.test)
-            assert (
-                typed_if.test.typ == BoolInstanceType
-            ), "Branching condition must have boolean type"
-            typed_if.body = [self.visit(s) for s in node.body]
+        typed_if.test = self.visit(node.test)
+        assert (
+            typed_if.test.typ == BoolInstanceType
+        ), "Branching condition must have boolean type"
+        typchecks = TypeCheckVisitor().visit(typed_if.test)
+        prevtyps = {}
+        # for the time of this if branch set the variable type to the specialized type
+        for n, t in typchecks.items():
+            prevtyps[n] = self.variable_type(n)
+            self.set_variable_type(n, InstanceType(t), force=True)
+        typed_if.body = [self.visit(s) for s in node.body]
+        for n, t in prevtyps.items():
+            self.set_variable_type(n, t, force=True)
         typed_if.orelse = [self.visit(s) for s in node.orelse]
         return typed_if
 
@@ -599,8 +608,21 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         assert not node.keywords, "Keyword arguments are not supported yet"
         tc = copy(node)
         tc.args = [self.visit(a) for a in node.args]
+        # might be isinstance
+        if isinstance(tc.func, Name) and tc.func.id == "isinstance":
+            target_class = tc.args[1].typ
+            ntc = self.visit(
+                Compare(
+                    left=Attribute(tc.args[0], "CONSTR_ID"),
+                    ops=[Eq()],
+                    comparators=[Constant(target_class.record.constructor)],
+                )
+            )
+            ntc.typ = BoolInstanceType
+            ntc.typechecks = TypeCheckVisitor().visit(tc)
+            return ntc
         tc.func = self.visit(node.func)
-        # might be a cast
+        # might be a class
         if isinstance(tc.func.typ, ClassType):
             tc.func.typ = tc.func.typ.constr_type()
         # type might only turn out after the initialization (note the constr could be polymorphic)
