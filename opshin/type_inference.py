@@ -140,18 +140,17 @@ class TypeCheckVisitor(TypedNodeVisitor):
         return getattr(node, "typechecks", {})
 
     def visit_Call(self, node: Call) -> typing.Dict[str, Type]:
-        self = node
-        if not (isinstance(self.func, Name) and self.func.id == "isinstance"):
+        if not (isinstance(node.func, Name) and node.func.id == "isinstance"):
             return {}
         # special case for Union
         assert isinstance(
-            self.args[0], Name
+            node.args[0], Name
         ), "Target 0 of an isinstance cast must be a variable name"
         assert isinstance(
-            self.args[1], Name
+            node.args[1], Name
         ), "Target 1 of an isinstance cast must be a class name"
-        target_class: RecordType = self.args[1].typ
-        target_inst = self.args[0].typ
+        target_class: RecordType = node.args[1].typ
+        target_inst = node.args[0]
         target_inst_class = target_inst.typ
         assert isinstance(
             target_inst_class, InstanceType
@@ -163,16 +162,15 @@ class TypeCheckVisitor(TypedNodeVisitor):
         assert (
             target_class in target_inst_class.typ.typs
         ), f"Trying to cast an instance of Union type to non-instance of union type"
-        return {self.args[0].id: target_class}
+        return {node.args[0].id: target_class}
 
     def visit_BoolOp(self, node: BoolOp) -> typing.Dict[str, Type]:
-        self = node
         # anything that is not an and does not reliably predict a cast
-        if not isinstance(self.op, And):
+        if not isinstance(node.op, And):
             return {}
         res = {}
-        for v in self.values:
-            res.update(self.visit(v))
+        for v in node.values:
+            res.update(node.visit(v))
         return res
 
 
