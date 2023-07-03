@@ -29,14 +29,21 @@ class RewriteConditions(CompilingNodeTransformer):
     def visit_If(self, node: If) -> If:
         if_cp = copy(node)
         if_cp.test = Call(Name(SPECIAL_BOOL, Load()), [node.test], [])
-        return if_cp
+        return self.generic_visit(if_cp)
 
     def visit_IfExp(self, node: IfExp) -> IfExp:
         if_cp = copy(node)
         if_cp.test = Call(Name(SPECIAL_BOOL, Load()), [node.test], [])
-        return if_cp
+        return self.generic_visit(if_cp)
 
     def visit_While(self, node: While) -> While:
         while_cp = copy(node)
         while_cp.test = Call(Name(SPECIAL_BOOL, Load()), [node.test], [])
-        return while_cp
+        return self.generic_visit(while_cp)
+
+    def visit_BoolOp(self, node: BoolOp) -> BoolOp:
+        bo_cp = copy(node)
+        bo_cp.values = [
+            Call(Name(SPECIAL_BOOL, Load()), [self.visit(v)], []) for v in bo_cp.values
+        ]
+        return self.generic_visit(bo_cp)

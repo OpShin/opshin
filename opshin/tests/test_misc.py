@@ -1479,3 +1479,15 @@ def validator(x: int) -> bool:
         code = compiler.compile(ast).compile()
         res = uplc_eval(uplc.Apply(code, uplc.PlutusInteger(x))).value
         self.assertEqual(res, bool(x))
+
+    @hypothesis.given(st.integers())
+    def test_cast_bool_boolops(self, x):
+        # note this is a runtime error, just like it would be in python!
+        source_code = """
+def validator(x: int) -> bool:
+    return x and x or (x or x)
+"""
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusInteger(x))).value
+        self.assertEqual(res, bool(x and x or (x or x)))
