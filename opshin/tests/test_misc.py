@@ -1435,3 +1435,19 @@ def validator(x: bytes, y: bytes) -> bytes:
             )
         ).value
         self.assertEqual(res, x + y)
+
+    @hypothesis.given(st.integers())
+    def test_cast_bool_ite(self, x):
+        # note this is a runtime error, just like it would be in python!
+        source_code = """
+def validator(x: int) -> bool:
+    if x:
+        res = True
+    else:
+        res = False
+    return res
+"""
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusInteger(x))).value
+        self.assertEqual(res, bool(x))
