@@ -1700,3 +1700,55 @@ def validator(x: Union[A, B], y: int) -> bool:
         self.assertEqual(
             res, isinstance(x, A) and x.foo == y or isinstance(x, B) and x.bar == y
         )
+
+    @hypothesis.given(a_or_b)
+    def test_isinstance_cast_assert(self, x):
+        source_code = """
+from opshin.prelude import *
+
+@dataclass()
+class A(PlutusData):
+    CONSTR_ID = 0
+    foo: int
+
+@dataclass()
+class B(PlutusData):
+    CONSTR_ID = 1
+    foobar: int
+    bar: int
+
+def validator(x: Union[A, B]) -> int:
+    assert isinstance(x, B), "Wrong type"
+    return x.bar
+"""
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        try:
+            res = uplc_eval(uplc.Apply(code, uplc.data_from_cbor(x.to_cbor()))).value
+        except:
+            res = None
+        self.assertEqual(res, x.bar if isinstance(x, B) else None)
+
+    @unittest.expectedFailure
+    def test_isinstance_cast_assert_if(self):
+        source_code = """
+from opshin.prelude import *
+
+@dataclass()
+class A(PlutusData):
+    CONSTR_ID = 0
+    foo: int
+
+@dataclass()
+class B(PlutusData):
+    CONSTR_ID = 1
+    foobar: int
+    bar: int
+
+def validator(x: Union[A, B]) -> int:
+    if True:
+        assert isinstance(x, B), "Wrong type"
+    return x.bar
+"""
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()

@@ -272,6 +272,23 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             return AnyType()
         raise NotImplementedError(f"Annotation type {ann.__class__} is not supported")
 
+    def visit_sequence(self, node_seq: typing.List[stmt]) -> plt.AST:
+        stmts = []
+        prevtyps = {}
+        for n in node_seq:
+            stmt = self.visit(n)
+            stmts.append(stmt)
+            # if an assert is amng the statements apply the isinstance cast
+            if isinstance(stmt, Assert):
+                typchecks = TypeCheckVisitor().visit(stmt.test)
+                # for the time after this assert, the variable has the specialized type
+                for n, t in typchecks.items():
+                    prevtyps[n] = self.variable_type(n)
+                    self.set_variable_type(n, InstanceType(t), force=True)
+        for n, t in prevtyps.items():
+            self.set_variable_type(n, t, force=True)
+        return stmts
+
     def visit_ClassDef(self, node: ClassDef) -> TypedClassDef:
         class_record = RecordReader.extract(node, self)
         typ = RecordType(class_record)
@@ -360,10 +377,10 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         for n, t in typchecks.items():
             prevtyps[n] = self.variable_type(n)
             self.set_variable_type(n, InstanceType(t), force=True)
-        typed_if.body = [self.visit(s) for s in node.body]
+        typed_if.body = self.visit_sequence(node.body)
         for n, t in prevtyps.items():
             self.set_variable_type(n, t, force=True)
-        typed_if.orelse = [self.visit(s) for s in node.orelse]
+        typed_if.orelse = self.visit_sequence(node.orelse)
         return typed_if
 
     def visit_While(self, node: While) -> TypedWhile:
@@ -378,10 +395,10 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         for n, t in typchecks.items():
             prevtyps[n] = self.variable_type(n)
             self.set_variable_type(n, InstanceType(t), force=True)
-        typed_while.body = [self.visit(s) for s in node.body]
+        typed_while.body = self.visit_sequence(node.body)
         for n, t in prevtyps.items():
             self.set_variable_type(n, t, force=True)
-        typed_while.orelse = [self.visit(s) for s in node.orelse]
+        typed_while.orelse = self.visit_sequence(node.orelse)
         return typed_while
 
     def visit_For(self, node: For) -> TypedFor:
@@ -410,8 +427,8 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             )
         self.set_variable_type(node.target.id, vartyp)
         typed_for.target = self.visit(node.target)
-        typed_for.body = [self.visit(s) for s in node.body]
-        typed_for.orelse = [self.visit(s) for s in node.orelse]
+        typed_for.body = self.visit_sequence(node.body)
+        typed_for.orelse = self.visit_sequence(node.orelse)
         return typed_for
 
     def visit_Name(self, node: Name) -> TypedName:
@@ -468,7 +485,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         else:
             # We need the function type inside for recursion
             self.set_variable_type(node.name, tfd.typ)
-            tfd.body = [self.visit(s) for s in node.body]
+            tfd.body = self.visit_sequence(node.body)
             # Check that return type and annotated return type match
             if not isinstance(node.body[-1], Return):
                 assert (
@@ -487,7 +504,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
     def visit_Module(self, node: Module) -> TypedModule:
         self.enter_scope()
         tm = copy(node)
-        tm.body = [self.visit(n) for n in node.body]
+        tm.body = self.visit_sequence(node.body)
         self.exit_scope()
         return tm
 
