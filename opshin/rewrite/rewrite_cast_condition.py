@@ -47,3 +47,8 @@ class RewriteConditions(CompilingNodeTransformer):
             Call(Name(SPECIAL_BOOL, Load()), [self.visit(v)], []) for v in bo_cp.values
         ]
         return self.generic_visit(bo_cp)
+
+    def visit_Assert(self, node: Assert) -> Assert:
+        assert_cp = copy(node)
+        assert_cp.test = Call(Name(SPECIAL_BOOL, Load()), [node.test], [])
+        return self.generic_visit(assert_cp)
