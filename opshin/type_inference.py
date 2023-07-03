@@ -688,7 +688,14 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         node_cp = copy(node)
         node_cp.test = self.visit(node.test)
         assert node_cp.test.typ == BoolInstanceType, "Comparison must have type boolean"
+        typchecks = TypeCheckVisitor().visit(node_cp.test)
+        prevtyps = {}
+        for n, t in typchecks.items():
+            prevtyps[n] = self.variable_type(n)
+            self.set_variable_type(n, InstanceType(t), force=True)
         node_cp.body = self.visit(node.body)
+        for n, t in prevtyps.items():
+            self.set_variable_type(n, t, force=True)
         node_cp.orelse = self.visit(node.orelse)
         if node_cp.body.typ >= node_cp.orelse.typ:
             node_cp.typ = node_cp.body.typ
