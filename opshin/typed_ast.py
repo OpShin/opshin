@@ -1,8 +1,6 @@
-from ast import *
-
-import pluthon as plt
-
 from .types import *
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class TypedAST(AST):
