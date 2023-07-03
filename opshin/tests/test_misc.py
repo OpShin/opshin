@@ -1435,3 +1435,75 @@ def validator(x: bytes, y: bytes) -> bytes:
             )
         ).value
         self.assertEqual(res, x + y)
+
+    @hypothesis.given(st.integers())
+    def test_cast_bool_ite(self, x):
+        # note this is a runtime error, just like it would be in python!
+        source_code = """
+def validator(x: int) -> bool:
+    if x:
+        res = True
+    else:
+        res = False
+    return res
+"""
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusInteger(x))).value
+        self.assertEqual(res, bool(x))
+
+    @hypothesis.given(st.integers())
+    def test_cast_bool_ite_expr(self, x):
+        # note this is a runtime error, just like it would be in python!
+        source_code = """
+def validator(x: int) -> bool:
+    return True if x else False
+"""
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusInteger(x))).value
+        self.assertEqual(res, bool(x))
+
+    @hypothesis.given(st.integers())
+    def test_cast_bool_while(self, x):
+        # note this is a runtime error, just like it would be in python!
+        source_code = """
+def validator(x: int) -> bool:
+    res = False
+    while x:
+        res = True
+        x = 0
+    return res
+"""
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusInteger(x))).value
+        self.assertEqual(res, bool(x))
+
+    @hypothesis.given(st.integers())
+    def test_cast_bool_boolops(self, x):
+        # note this is a runtime error, just like it would be in python!
+        source_code = """
+def validator(x: int) -> bool:
+    return x and x or (x or x)
+"""
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusInteger(x))).value
+        self.assertEqual(res, bool(x and x or (x or x)))
+
+    @hypothesis.given(st.integers())
+    def test_cast_bool_ite(self, x):
+        # note this is a runtime error, just like it would be in python!
+        source_code = """
+def validator(x: int) -> None:
+    assert x
+"""
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        try:
+            uplc_eval(uplc.Apply(code, uplc.PlutusInteger(x)))
+            res = True
+        except Exception:
+            res = False
+        self.assertEqual(res, bool(x))
