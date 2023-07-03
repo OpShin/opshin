@@ -4,6 +4,7 @@ from pycardano import PlutusData
 from .typed_ast import *
 from .util import CompilingNodeTransformer
 from .fun_impls import PythonBuiltInTypes
+from .rewrite.rewrite_cast_condition import SPECIAL_BOOL
 
 # from frozendict import frozendict
 
@@ -138,6 +139,8 @@ class TypeCheckVisitor(TypedNodeVisitor):
         return getattr(node, "typechecks", {})
 
     def visit_Call(self, node: Call) -> typing.Dict[str, Type]:
+        if isinstance(node.func, Name) and node.func.id == SPECIAL_BOOL:
+            return self.visit(node.args[0])
         if not (isinstance(node.func, Name) and node.func.id == "isinstance"):
             return {}
         # special case for Union
@@ -168,7 +171,7 @@ class TypeCheckVisitor(TypedNodeVisitor):
             return {}
         res = {}
         for v in node.values:
-            res.update(node.visit(v))
+            res.update(self.visit(v))
         return res
 
 

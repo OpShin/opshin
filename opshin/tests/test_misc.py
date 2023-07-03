@@ -1548,7 +1548,7 @@ class B(PlutusData):
 
 def validator(x: Union[A, B], y: Union[A, B]) -> int:
     if isinstance(x, A) and isinstance(y, B):
-        k = x.foo + y.foo
+        k = x.foo + y.bar
     return k
 """
         ast = compiler.parse(source_code)
