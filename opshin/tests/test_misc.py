@@ -23,6 +23,22 @@ def fib(n):
     return a
 
 
+@dataclass()
+class A(PlutusData):
+    CONSTR_ID = 0
+    foo: int
+
+
+@dataclass()
+class B(PlutusData):
+    CONSTR_ID = 1
+    foobar: int
+    bar: int
+
+
+a_or_b = st.sampled_from([A(0), B(1, 2)])
+
+
 class MiscTest(unittest.TestCase):
     def test_assert_sum_contract_succeed(self):
         input_file = "examples/smart_contracts/assert_sum.py"
@@ -1508,7 +1524,8 @@ def validator(x: int) -> None:
             res = False
         self.assertEqual(res, bool(x))
 
-    def test_isinstance_cast_if(self):
+    @hypothesis.given(a_or_b)
+    def test_isinstance_cast_if(self, x):
         source_code = """
 from opshin.prelude import *
 
@@ -1520,6 +1537,7 @@ class A(PlutusData):
 @dataclass()
 class B(PlutusData):
     CONSTR_ID = 1
+    foobar: int
     bar: int
 
 def validator(x: Union[A, B]) -> int:
@@ -1530,9 +1548,12 @@ def validator(x: Union[A, B]) -> int:
     return k
 """
         ast = compiler.parse(source_code)
-        code = compiler.compile(ast)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.data_from_cbor(x.to_cbor()))).value
+        self.assertEqual(res, x.foo if isinstance(x, A) else x.bar)
 
-    def test_complex_isinstance_cast_if(self):
+    @hypothesis.given(a_or_b, a_or_b)
+    def test_complex_isinstance_cast_if(self, x, y):
         source_code = """
 from opshin.prelude import *
 
@@ -1544,17 +1565,36 @@ class A(PlutusData):
 @dataclass()
 class B(PlutusData):
     CONSTR_ID = 1
+    foobar: int
     bar: int
 
 def validator(x: Union[A, B], y: Union[A, B]) -> int:
     if isinstance(x, A) and isinstance(y, B):
         k = x.foo + y.bar
+    elif isinstance(x, A) and isinstance(y, A):
+        k = x.foo + y.foo
+    elif isinstance(x, B) and isinstance(y, A):
+        k = x.bar + y.foo
+    elif isinstance(x, B) and isinstance(y, B):
+        k = x.bar + y.bar
     return k
 """
         ast = compiler.parse(source_code)
-        code = compiler.compile(ast)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(
+            uplc.Apply(
+                uplc.Apply(code, uplc.data_from_cbor(x.to_cbor())),
+                uplc.data_from_cbor(y.to_cbor()),
+            )
+        ).value
+        self.assertEqual(
+            res,
+            (x.foo if isinstance(x, A) else x.bar)
+            + (y.foo if isinstance(y, A) else y.bar),
+        )
 
-    def test_isinstance_cast_ifexpr(self):
+    @hypothesis.given(a_or_b)
+    def test_isinstance_cast_ifexpr(self, x):
         source_code = """
 from opshin.prelude import *
 
@@ -1566,17 +1606,20 @@ class A(PlutusData):
 @dataclass()
 class B(PlutusData):
     CONSTR_ID = 1
+    foobar: int
     bar: int
 
 def validator(x: Union[A, B]) -> int:
-    k = x.foo if isinstance(x, A) else 0
+    k = x.foo if isinstance(x, A) else x.bar if isinstance(x, B) else 0
     return k
 """
         ast = compiler.parse(source_code)
-        code = compiler.compile(ast)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.data_from_cbor(x.to_cbor()))).value
+        self.assertEqual(res, x.foo if isinstance(x, A) else x.bar)
 
-    @unittest.expectedFailure
-    def test_isinstance_cast_while(self):
+    @hypothesis.given(st.sampled_from([A(0)]))
+    def test_isinstance_cast_while(self, x):
         source_code = """
 from opshin.prelude import *
 
@@ -1588,17 +1631,23 @@ class A(PlutusData):
 @dataclass()
 class B(PlutusData):
     CONSTR_ID = 1
+    foobar: int
     bar: int
 
 def validator(x: Union[A, B]) -> int:
-    while isinstance(x, A):
+    foo = 0
+    while isinstance(x, A) and foo != 1:
         k = x.foo
+        foo = 1
     return k
 """
         ast = compiler.parse(source_code)
-        code = compiler.compile(ast)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.data_from_cbor(x.to_cbor()))).value
+        self.assertEqual(res, x.foo)
 
-    def test_isinstance_cast_random(self):
+    @hypothesis.given(a_or_b)
+    def test_isinstance_cast_random(self, x):
         source_code = """
 from opshin.prelude import *
 
@@ -1610,10 +1659,13 @@ class A(PlutusData):
 @dataclass()
 class B(PlutusData):
     CONSTR_ID = 1
+    foobar: int
     bar: int
 
 def validator(x: Union[A, B]) -> bool:
     return isinstance(x, A)
 """
         ast = compiler.parse(source_code)
-        code = compiler.compile(ast)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.data_from_cbor(x.to_cbor()))).value
+        self.assertEqual(res, isinstance(x, A))

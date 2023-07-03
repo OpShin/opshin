@@ -372,7 +372,15 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         assert (
             typed_while.test.typ == BoolInstanceType
         ), "Branching condition must have boolean type"
+        typchecks = TypeCheckVisitor().visit(typed_while.test)
+        prevtyps = {}
+        # for the time of this if branch set the variable type to the specialized type
+        for n, t in typchecks.items():
+            prevtyps[n] = self.variable_type(n)
+            self.set_variable_type(n, InstanceType(t), force=True)
         typed_while.body = [self.visit(s) for s in node.body]
+        for n, t in prevtyps.items():
+            self.set_variable_type(n, t, force=True)
         typed_while.orelse = [self.visit(s) for s in node.orelse]
         return typed_while
 
