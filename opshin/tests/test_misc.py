@@ -1527,7 +1527,9 @@ def validator(x: int) -> None:
     @hypothesis.given(a_or_b)
     def test_isinstance_cast_if(self, x):
         source_code = """
-from opshin.prelude import *
+from dataclasses import dataclass
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
 
 @dataclass()
 class A(PlutusData):
@@ -1555,7 +1557,9 @@ def validator(x: Union[A, B]) -> int:
     @hypothesis.given(a_or_b, a_or_b)
     def test_complex_isinstance_cast_if(self, x, y):
         source_code = """
-from opshin.prelude import *
+from dataclasses import dataclass
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
 
 @dataclass()
 class A(PlutusData):
@@ -1596,7 +1600,9 @@ def validator(x: Union[A, B], y: Union[A, B]) -> int:
     @hypothesis.given(a_or_b)
     def test_isinstance_cast_ifexpr(self, x):
         source_code = """
-from opshin.prelude import *
+from dataclasses import dataclass
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
 
 @dataclass()
 class A(PlutusData):
@@ -1618,10 +1624,12 @@ def validator(x: Union[A, B]) -> int:
         res = uplc_eval(uplc.Apply(code, uplc.data_from_cbor(x.to_cbor()))).value
         self.assertEqual(res, x.foo if isinstance(x, A) else x.bar)
 
-    @hypothesis.given(st.sampled_from([A(0)]))
+    @hypothesis.given(a_or_b)
     def test_isinstance_cast_while(self, x):
         source_code = """
-from opshin.prelude import *
+from dataclasses import dataclass
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
 
 @dataclass()
 class A(PlutusData):
@@ -1636,20 +1644,22 @@ class B(PlutusData):
 
 def validator(x: Union[A, B]) -> int:
     foo = 0
-    while isinstance(x, A) and foo != 1:
-        k = x.foo
+    while isinstance(x, B) and foo != 1:
+        foo = x.bar
         foo = 1
-    return k
+    return foo
 """
         ast = compiler.parse(source_code)
         code = compiler.compile(ast).compile()
         res = uplc_eval(uplc.Apply(code, uplc.data_from_cbor(x.to_cbor()))).value
-        self.assertEqual(res, x.foo)
+        self.assertEqual(res, 1 if isinstance(x, B) else 0)
 
     @hypothesis.given(a_or_b)
     def test_isinstance_cast_random(self, x):
         source_code = """
-from opshin.prelude import *
+from dataclasses import dataclass
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
 
 @dataclass()
 class A(PlutusData):
@@ -1673,7 +1683,9 @@ def validator(x: Union[A, B]) -> bool:
     @hypothesis.given(a_or_b, st.integers())
     def test_isinstance_cast_shortcut(self, x, y):
         source_code = """
-from opshin.prelude import *
+from dataclasses import dataclass
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
 
 @dataclass()
 class A(PlutusData):
@@ -1704,7 +1716,9 @@ def validator(x: Union[A, B], y: int) -> bool:
     @hypothesis.given(a_or_b)
     def test_isinstance_cast_assert(self, x):
         source_code = """
-from opshin.prelude import *
+from dataclasses import dataclass
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
 
 @dataclass()
 class A(PlutusData):
@@ -1732,7 +1746,9 @@ def validator(x: Union[A, B]) -> int:
     @unittest.expectedFailure
     def test_isinstance_cast_assert_if(self):
         source_code = """
-from opshin.prelude import *
+from dataclasses import dataclass
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
 
 @dataclass()
 class A(PlutusData):
