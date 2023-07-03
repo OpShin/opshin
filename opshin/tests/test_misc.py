@@ -1597,3 +1597,23 @@ def validator(x: Union[A, B]) -> int:
 """
         ast = compiler.parse(source_code)
         code = compiler.compile(ast)
+
+    def test_isinstance_cast_random(self):
+        source_code = """
+from opshin.prelude import *
+
+@dataclass()
+class A(PlutusData):
+    CONSTR_ID = 0
+    foo: int
+
+@dataclass()
+class B(PlutusData):
+    CONSTR_ID = 1
+    bar: int
+
+def validator(x: Union[A, B]) -> bool:
+    return isinstance(x, A)
+"""
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
