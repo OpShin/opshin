@@ -271,7 +271,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
     def implement_typechecks(self, typchecks: TypeMap):
         prevtyps = {}
         for n, t in typchecks.items():
-            prevtyps[n] = self.variable_type(n)
+            prevtyps[n] = self.variable_type(n).typ
             self.set_variable_type(n, InstanceType(t), force=True)
         return prevtyps
 
