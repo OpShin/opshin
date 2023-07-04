@@ -561,10 +561,19 @@ def validator(x: None) -> bytes:
     def test_redefine_constr(self, x):
         # this tests that classes defined by assignment inherit constructors
         source_code = """
-from opshin.prelude import *
+from dataclasses import dataclass
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
+
+@dataclass()
+class A(PlutusData):
+    CONSTR_ID = 0
+    foo: int
+    bar: int
+    
 def validator(x: int) -> int:
-    a = StakingPtr
-    return a(x, 2, 3).slot_no
+    a = A
+    return a(x, 1).foo
         """
         ast = compiler.parse(source_code)
         code = compiler.compile(ast)
