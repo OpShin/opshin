@@ -605,6 +605,16 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                 prevtyps.update(self.implement_typechecks(typchecks))
             self.implement_typechecks(prevtyps)
             tt.values = values
+        elif isinstance(node.op, Or):
+            values = []
+            prevtyps = {}
+            for e in node.values:
+                values.append(self.visit(e))
+                _, inv_typechecks = TypeCheckVisitor().visit(values[-1])
+                # for the time after the shortcut or the variable type is *not* the specialized type
+                prevtyps.update(self.implement_typechecks(inv_typechecks))
+            self.implement_typechecks(prevtyps)
+            tt.values = values
         else:
             tt.values = [self.visit(e) for e in node.values]
         tt.typ = BoolInstanceType
