@@ -1869,3 +1869,91 @@ def validator(x: Union[A, B]) -> int:
         code = compiler.compile(ast).compile()
         res = uplc_eval(uplc.Apply(code, uplc.data_from_cbor(x.to_cbor()))).value
         self.assertEqual(res, x.foo if not isinstance(x, B) else 100)
+
+    @hypothesis.given(a_or_b)
+    def test_isinstance_cast_complex_ifelse(self, x):
+        source_code = """
+from dataclasses import dataclass
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
+
+@dataclass()
+class A(PlutusData):
+    CONSTR_ID = 0
+    foo: int
+
+@dataclass()
+class B(PlutusData):
+    CONSTR_ID = 1
+    foobar: int
+    bar: int
+
+def validator(x: Union[A, B]) -> int:
+    if isinstance(x, A):
+        res = x.foo
+    else:
+        res = x.bar
+    return res
+"""
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.data_from_cbor(x.to_cbor()))).value
+        self.assertEqual(res, x.foo if isinstance(x, A) else x.bar)
+
+    @unittest.expectedFailure
+    def test_isinstance_cast_complex_or_else(self):
+        source_code = """
+from dataclasses import dataclass
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
+
+@dataclass()
+class A(PlutusData):
+    CONSTR_ID = 0
+    foo: int
+
+@dataclass()
+class B(PlutusData):
+    CONSTR_ID = 1
+    foobar: int
+    bar: int
+
+def validator(x: Union[A, B]) -> int:
+    foo = 0
+    if isinstance(x, B) or foo == 0:
+        foo = x.bar
+    else:
+        foo = x.foo
+    return foo
+"""
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+
+    @unittest.expectedFailure
+    def test_isinstance_cast_complex_and_else(self):
+        source_code = """
+from dataclasses import dataclass
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
+
+@dataclass()
+class A(PlutusData):
+    CONSTR_ID = 0
+    foo: int
+
+@dataclass()
+class B(PlutusData):
+    CONSTR_ID = 1
+    foobar: int
+    bar: int
+
+def validator(x: Union[A, B]) -> int:
+    foo = 0
+    if isinstance(x, B) and foo == 0:
+        foo = x.bar
+    else:
+        foo = x.foo
+    return foo
+"""
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()

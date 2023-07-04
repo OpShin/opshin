@@ -151,8 +151,9 @@ def union_types(*ts: Type):
 
 def intersection_types(*ts: Type):
     ts = [t if isinstance(t, UnionType) else UnionType([t]) for t in ts]
-    intersection_set = set()
-    for t in ts:
+    assert ts, "Must have at least one type to intersect"
+    intersection_set = set(ts[0].typs)
+    for t in ts[1:]:
         intersection_set.intersection_update(t.typs)
     return UnionType(list(intersection_set))
 
@@ -599,13 +600,10 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             prevtyps = {}
             for e in node.values:
                 values.append(self.visit(e))
-                typchecks, inv_typchecks = TypeCheckVisitor().visit(values[-1])
+                typchecks, _ = TypeCheckVisitor().visit(values[-1])
                 # for the time after the shortcut and the variable type to the specialized type
-                for n, t in typchecks.items():
-                    prevtyps[n] = self.variable_type(n)
-                    self.set_variable_type(n, InstanceType(t), force=True)
-            for n, t in prevtyps.items():
-                self.set_variable_type(n, t, force=True)
+                prevtyps.update(self.implement_typechecks(typchecks))
+            self.implement_typechecks(prevtyps)
             tt.values = values
         else:
             tt.values = [self.visit(e) for e in node.values]
