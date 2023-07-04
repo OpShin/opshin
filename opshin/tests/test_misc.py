@@ -1839,3 +1839,33 @@ def validator(x: Union[A, B]) -> int:
         ast = compiler.parse(source_code)
         code = compiler.compile(ast).compile()
         print("Union of same constructor id was allowed, should be disallowed")
+
+    @hypothesis.given(a_or_b)
+    def test_isinstance_cast_complex_not(self, x):
+        source_code = """
+from dataclasses import dataclass
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
+
+@dataclass()
+class A(PlutusData):
+    CONSTR_ID = 0
+    foo: int
+
+@dataclass()
+class B(PlutusData):
+    CONSTR_ID = 1
+    foobar: int
+    bar: int
+    
+def validator(x: Union[A, B]) -> int:
+    if not isinstance(x, B):
+        res = x.foo
+    else:
+        res = 100
+    return res
+"""
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.data_from_cbor(x.to_cbor()))).value
+        self.assertEqual(res, x.foo if not isinstance(x, B) else 100)

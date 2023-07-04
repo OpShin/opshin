@@ -137,15 +137,42 @@ BinOpTypeMap = {
 }
 
 
-class TypeCheckVisitor(TypedNodeVisitor):
-    def generic_visit(self, node: AST) -> typing.Dict[str, Type]:
-        return getattr(node, "typechecks", {})
+TypeMap = typing.Dict[str, Type]
+TypeMapPair = typing.Tuple[TypeMap, TypeMap]
 
-    def visit_Call(self, node: Call) -> typing.Dict[str, Type]:
+
+def union_types(*ts: Type):
+    ts = [t if isinstance(t, UnionType) else UnionType([t]) for t in ts]
+    union_set = set()
+    for t in ts:
+        union_set.update(t.typs)
+    return UnionType(list(union_set))
+
+
+def intersection_types(*ts: Type):
+    ts = [t if isinstance(t, UnionType) else UnionType([t]) for t in ts]
+    intersection_set = set()
+    for t in ts:
+        intersection_set.intersection_update(t.typs)
+    return UnionType(list(intersection_set))
+
+
+class TypeCheckVisitor(TypedNodeVisitor):
+    """
+    Generates the types to which objects are cast due to a boolean expression
+    It returns a tuple of dictionaries which are a name -> type mapping
+    for variable names that are assured to have a specific type if this expression
+    is True/False respectively
+    """
+
+    def generic_visit(self, node: AST) -> TypeMapPair:
+        return getattr(node, "typechecks", ({}, {}))
+
+    def visit_Call(self, node: Call) -> TypeMapPair:
         if isinstance(node.func, Name) and node.func.id == SPECIAL_BOOL:
             return self.visit(node.args[0])
         if not (isinstance(node.func, Name) and node.func.id == "isinstance"):
-            return {}
+            return ({}, {})
         # special case for Union
         assert isinstance(
             node.args[0], Name
@@ -166,32 +193,48 @@ class TypeCheckVisitor(TypedNodeVisitor):
         assert (
             target_class in target_inst_class.typ.typs
         ), f"Trying to cast an instance of Union type to non-instance of union type"
-        return {node.args[0].id: target_class}
+        varname = node.args[0].id
+        union_without_target_class = union_types(
+            *(x for x in target_inst_class.typ.typs if x != target_class)
+        )
+        return ({varname: target_class}, {varname: union_without_target_class})
 
-    def visit_BoolOp(self, node: BoolOp) -> typing.Dict[str, Type]:
+    def visit_BoolOp(self, node: BoolOp) -> PairType:
         res = {}
+        inv_res = {}
         checks = [self.visit(v) for v in node.values]
         checked_types = defaultdict(list)
-        for c in checks:
+        inv_checked_types = defaultdict(list)
+        for c, inv_c in checks:
             for v, t in c.items():
                 checked_types[v].append(t)
+            for v, t in inv_c.items():
+                inv_checked_types[v].append(t)
         if isinstance(node.op, And):
             # a conjunction is just the intersection
             for v, ts in checked_types.items():
-                # we don't accept more than one typecast
-                if len(ts) != 1:
-                    _LOGGER.warning(
-                        "Casting element more than once via isinstance check"
-                    )
+                res[v] = intersection_types(*ts)
+            # if the conjunction fails, its any of the respective reverses, but only if the type is checked in every conjunction
+            for v, ts in inv_checked_types.items():
+                if len(ts) < len(checks):
                     continue
-                res[v] = ts[0]
+                inv_res[v] = union_types(*ts)
         if isinstance(node.op, Or):
-            # a disjunction is just the union
+            # a disjunction is just the union, but some type must be checked in every disjunction
             for v, ts in checked_types.items():
                 if len(ts) < len(checks):
                     continue
-                res[v] = UnionType(ts)
-        return res
+                res[v] = union_types(*ts)
+            # if the disjunction fails, then it must be in the intersection of the inverses
+            for v, ts in inv_checked_types.items():
+                inv_res[v] = intersection_types(*ts)
+        return (res, inv_res)
+
+    def visit_UnaryOp(self, node: UnaryOp) -> PairType:
+        (res, inv_res) = self.visit(node.operand)
+        if isinstance(node.op, Not):
+            return (inv_res, res)
+        return (res, inv_res)
 
 
 class AggressiveTypeInferencer(CompilingNodeTransformer):
@@ -299,7 +342,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             stmts.append(stmt)
             # if an assert is amng the statements apply the isinstance cast
             if isinstance(stmt, Assert):
-                typchecks = TypeCheckVisitor().visit(stmt.test)
+                typchecks, _ = TypeCheckVisitor().visit(stmt.test)
                 # for the time after this assert, the variable has the specialized type
                 for n, t in typchecks.items():
                     prevtyps[n] = self.variable_type(n)
@@ -390,7 +433,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         assert (
             typed_if.test.typ == BoolInstanceType
         ), "Branching condition must have boolean type"
-        typchecks = TypeCheckVisitor().visit(typed_if.test)
+        typchecks, inv_typchecks = TypeCheckVisitor().visit(typed_if.test)
         prevtyps = {}
         # for the time of this if branch set the variable type to the specialized type
         for n, t in typchecks.items():
@@ -408,7 +451,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         assert (
             typed_while.test.typ == BoolInstanceType
         ), "Branching condition must have boolean type"
-        typchecks = TypeCheckVisitor().visit(typed_while.test)
+        typchecks, inv_typchecks = TypeCheckVisitor().visit(typed_while.test)
         prevtyps = {}
         # for the time of this if branch set the variable type to the specialized type
         for n, t in typchecks.items():
@@ -554,7 +597,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             prevtyps = {}
             for e in node.values:
                 values.append(self.visit(e))
-                typchecks = TypeCheckVisitor().visit(values[-1])
+                typchecks, inv_typchecks = TypeCheckVisitor().visit(values[-1])
                 # for the time after the shortcut and the variable type to the specialized type
                 for n, t in typchecks.items():
                     prevtyps[n] = self.variable_type(n)
@@ -746,7 +789,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         node_cp = copy(node)
         node_cp.test = self.visit(node.test)
         assert node_cp.test.typ == BoolInstanceType, "Comparison must have type boolean"
-        typchecks = TypeCheckVisitor().visit(node_cp.test)
+        typchecks, inv_typchecks = TypeCheckVisitor().visit(node_cp.test)
         prevtyps = {}
         for n, t in typchecks.items():
             prevtyps[n] = self.variable_type(n)
