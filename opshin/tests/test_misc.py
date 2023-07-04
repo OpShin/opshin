@@ -1692,7 +1692,7 @@ def validator(x: Union[A, B]) -> bool:
         self.assertEqual(res, isinstance(x, A))
 
     @hypothesis.given(a_or_b, st.integers())
-    def test_isinstance_cast_shortcut(self, x, y):
+    def test_isinstance_cast_shortcut_and(self, x, y):
         source_code = """
 from dataclasses import dataclass
 from typing import Dict, List, Union
@@ -1966,3 +1966,36 @@ def validator(x: Union[A, B]) -> int:
 """
         ast = compiler.parse(source_code)
         code = compiler.compile(ast).compile()
+
+    @hypothesis.given(a_or_b, st.integers())
+    def test_isinstance_cast_shortcut_or(self, x, y):
+        source_code = """
+from dataclasses import dataclass
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
+
+@dataclass()
+class A(PlutusData):
+    CONSTR_ID = 0
+    foo: int
+
+@dataclass()
+class B(PlutusData):
+    CONSTR_ID = 1
+    foobar: int
+    bar: int
+
+def validator(x: Union[A, B], y: int) -> bool:
+    return (isinstance(x, A) or x.bar == y) and (isinstance(x, B) or x.foo == y)
+"""
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(
+            uplc.Apply(
+                uplc.Apply(code, uplc.data_from_cbor(x.to_cbor())),
+                uplc.PlutusInteger(y),
+            )
+        ).value
+        self.assertEqual(
+            res, (isinstance(x, A) or x.bar == y) and (isinstance(x, B) or x.foo == y)
+        )
