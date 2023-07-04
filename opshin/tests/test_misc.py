@@ -588,7 +588,7 @@ def validator(x: int) -> int:
         self.assertEqual(ret, int(x), "Re-assignment of class constr failed")
 
     def test_wrap_into_generic_data(self):
-        # this tests that errors that are caused by assignments are actually triggered at the time of assigning
+        # this tests data is wrapped into Anything if a function accepts Anything
         source_code = """
 from opshin.prelude import *
 def validator(_: None) -> SomeOutputDatum:
