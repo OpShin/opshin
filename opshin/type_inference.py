@@ -1,14 +1,3 @@
-from copy import copy
-from pycardano import PlutusData
-
-from .typed_ast import *
-from .util import CompilingNodeTransformer
-from .fun_impls import PythonBuiltInTypes
-from .rewrite.rewrite_cast_condition import SPECIAL_BOOL
-
-# from frozendict import frozendict
-
-
 """
 An aggressive type inference based on the work of Aycock [1].
 It only allows a subset of legal python operations which
@@ -22,6 +11,20 @@ security into the Smart Contract by checking type correctness.
 
 [1]: https://legacy.python.org/workshops/2000-01/proceedings/papers/aycock/aycock.html
 """
+from collections import defaultdict
+
+from copy import copy
+from pycardano import PlutusData
+from logging import getLogger
+
+from .typed_ast import *
+from .util import CompilingNodeTransformer
+from .fun_impls import PythonBuiltInTypes
+from .rewrite.rewrite_cast_condition import SPECIAL_BOOL
+
+# from frozendict import frozendict
+
+_LOGGER = logging.getLogger(__name__)
 
 
 INITIAL_SCOPE = dict(
@@ -166,12 +169,28 @@ class TypeCheckVisitor(TypedNodeVisitor):
         return {node.args[0].id: target_class}
 
     def visit_BoolOp(self, node: BoolOp) -> typing.Dict[str, Type]:
-        # anything that is not an and does not reliably predict a cast
-        if not isinstance(node.op, And):
-            return {}
         res = {}
-        for v in node.values:
-            res.update(self.visit(v))
+        checks = [self.visit(v) for v in node.values]
+        checked_types = defaultdict(list)
+        for c in checks:
+            for v, t in c.items():
+                checked_types[v].append(t)
+        if isinstance(node.op, And):
+            # a conjunction is just the intersection
+            for v, ts in checked_types.items():
+                # we don't accept more than one typecast
+                if len(ts) != 1:
+                    _LOGGER.warning(
+                        "Casting element more than once via isinstance check"
+                    )
+                    continue
+                res[v] = ts[0]
+        if isinstance(node.op, Or):
+            # a disjunction is just the union
+            for v, ts in checked_types.items():
+                if len(ts) < len(checks):
+                    continue
+                res[v] = UnionType(ts)
         return res
 
 
