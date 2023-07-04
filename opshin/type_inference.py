@@ -267,6 +267,13 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             )
         self.scopes[-1][name] = typ
 
+    def implement_typechecks(self, typchecks: TypeMap):
+        prevtyps = {}
+        for n, t in typchecks.items():
+            prevtyps[n] = self.variable_type(n)
+            self.set_variable_type(n, InstanceType(t), force=True)
+        return prevtyps
+
     def type_from_annotation(self, ann: expr):
         if isinstance(ann, Constant):
             if ann.value is None:
@@ -344,11 +351,8 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             if isinstance(stmt, Assert):
                 typchecks, _ = TypeCheckVisitor().visit(stmt.test)
                 # for the time after this assert, the variable has the specialized type
-                for n, t in typchecks.items():
-                    prevtyps[n] = self.variable_type(n)
-                    self.set_variable_type(n, InstanceType(t), force=True)
-        for n, t in prevtyps.items():
-            self.set_variable_type(n, t, force=True)
+                prevtyps.update(self.implement_typechecks(typchecks))
+        self.implement_typechecks(prevtyps)
         return stmts
 
     def visit_ClassDef(self, node: ClassDef) -> TypedClassDef:
@@ -434,15 +438,14 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             typed_if.test.typ == BoolInstanceType
         ), "Branching condition must have boolean type"
         typchecks, inv_typchecks = TypeCheckVisitor().visit(typed_if.test)
-        prevtyps = {}
-        # for the time of this if branch set the variable type to the specialized type
-        for n, t in typchecks.items():
-            prevtyps[n] = self.variable_type(n)
-            self.set_variable_type(n, InstanceType(t), force=True)
+        # for the time of the branch, these types are cast
+        prevtyps = self.implement_typechecks(typchecks)
         typed_if.body = self.visit_sequence(node.body)
-        for n, t in prevtyps.items():
-            self.set_variable_type(n, t, force=True)
+        self.implement_typechecks(prevtyps)
+        # for the time of the else branch, the inverse types hold
+        prevtyps = self.implement_typechecks(inv_typchecks)
         typed_if.orelse = self.visit_sequence(node.orelse)
+        self.implement_typechecks(prevtyps)
         return typed_if
 
     def visit_While(self, node: While) -> TypedWhile:
@@ -452,15 +455,14 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             typed_while.test.typ == BoolInstanceType
         ), "Branching condition must have boolean type"
         typchecks, inv_typchecks = TypeCheckVisitor().visit(typed_while.test)
-        prevtyps = {}
-        # for the time of this if branch set the variable type to the specialized type
-        for n, t in typchecks.items():
-            prevtyps[n] = self.variable_type(n)
-            self.set_variable_type(n, InstanceType(t), force=True)
+        # for the time of the branch, these types are cast
+        prevtyps = self.implement_typechecks(typchecks)
         typed_while.body = self.visit_sequence(node.body)
-        for n, t in prevtyps.items():
-            self.set_variable_type(n, t, force=True)
+        self.implement_typechecks(prevtyps)
+        # for the time of the else branch, the inverse types hold
+        prevtyps = self.implement_typechecks(inv_typchecks)
         typed_while.orelse = self.visit_sequence(node.orelse)
+        self.implement_typechecks(prevtyps)
         return typed_while
 
     def visit_For(self, node: For) -> TypedFor:
@@ -790,14 +792,12 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         node_cp.test = self.visit(node.test)
         assert node_cp.test.typ == BoolInstanceType, "Comparison must have type boolean"
         typchecks, inv_typchecks = TypeCheckVisitor().visit(node_cp.test)
-        prevtyps = {}
-        for n, t in typchecks.items():
-            prevtyps[n] = self.variable_type(n)
-            self.set_variable_type(n, InstanceType(t), force=True)
+        prevtyps = self.implement_typechecks(typchecks)
         node_cp.body = self.visit(node.body)
-        for n, t in prevtyps.items():
-            self.set_variable_type(n, t, force=True)
+        self.implement_typechecks(prevtyps)
+        prevtyps = self.implement_typechecks(inv_typchecks)
         node_cp.orelse = self.visit(node.orelse)
+        self.implement_typechecks(prevtyps)
         if node_cp.body.typ >= node_cp.orelse.typ:
             node_cp.typ = node_cp.body.typ
         elif node_cp.orelse.typ >= node_cp.body.typ:
