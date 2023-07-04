@@ -54,13 +54,12 @@ def check_owner_signed(signatories: List[PubKeyHash], owner: PubKeyHash) -> None
 def validator(datum: Listing, redeemer: ListingAction, context: ScriptContext) -> None:
     purpose = context.purpose
     tx_info = context.tx_info
-    if isinstance(purpose, Spending):
-        own_utxo = resolve_spent_utxo(tx_info.inputs, purpose)
-        own_addr = own_utxo.address
-    else:
-        assert False, "Wrong script purpose"
+    assert isinstance(purpose, Spending), f"Wrong script purpose: {purpose}"
+    own_utxo = resolve_spent_utxo(tx_info.inputs, purpose)
+    own_addr = own_utxo.address
 
     check_single_utxo_spent(tx_info.inputs, own_addr)
+    # It is recommended to explicitly check all options with isinstance for user input
     if isinstance(redeemer, Buy):
         check_paid(tx_info.outputs, datum.vendor, datum.price)
     elif isinstance(redeemer, Unlist):

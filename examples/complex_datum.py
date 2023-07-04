@@ -47,10 +47,10 @@ class BatchOrder(PlutusData):
 # If some parameter might be ommited, just Union with Nothing and check for the instance at runtime!
 def validator(d: Union[Nothing, BatchOrder]) -> bytes:
     print(f"got datum {d}")
-    if isinstance(d, BatchOrder):
+    if isinstance(d, Nothing):
+        res = b""
+    else:
+        # The typeinferencer knows that d is of type BatchOrder now
         c = d.sender.payment_credential
         res = c.credential_hash
-    elif isinstance(d, Nothing):
-        res = b""
-    # Throws a NameError if the instances don't match - this is fine, it means that the contract was not invoked correctly!
     return res
