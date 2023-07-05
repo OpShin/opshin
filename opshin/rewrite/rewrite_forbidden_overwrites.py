@@ -7,6 +7,8 @@ Make sure that certain variable names may never be overwritten
 """
 
 FORBIDDEN_NAMES = {
+    # type check
+    "isinstance",
     # Type annotations
     "List",
     "Dict",

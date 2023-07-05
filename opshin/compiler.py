@@ -27,13 +27,16 @@ from .optimize.optimize_varlen import OptimizeVarlen
 from .type_inference import *
 from .util import (
     CompilingNodeTransformer,
-    PowImpl,
     NoOp,
+)
+from .typed_ast import (
+    transform_ext_params_map,
+    transform_output_map,
+    RawPlutoExpr,
+    PowImpl,
     ByteStrIntMulImpl,
     StrIntMulImpl,
 )
-from .typed_ast import transform_ext_params_map, transform_output_map, RawPlutoExpr
-
 
 _LOGGER = logging.getLogger(__name__)
 

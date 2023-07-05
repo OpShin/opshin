@@ -3,14 +3,6 @@ from copy import copy
 from ast import *
 
 from ..util import CompilingNodeTransformer
-from ..typed_ast import (
-    TypedFunctionDef,
-    FunctionType,
-    NoneInstanceType,
-    TypedConstant,
-    TypedCall,
-    UnitInstanceType,
-)
 
 """
 Rewrites all occurences of conditions to an implicit cast to bool
@@ -27,13 +19,6 @@ class RewriteConditions(CompilingNodeTransformer):
         return self.generic_visit(node)
 
     def visit_If(self, node: If) -> If:
-        if (
-            isinstance(node.test, Call)
-            and isinstance(node.test.func, Name)
-            and node.test.func.id == "isinstance"
-        ):
-            # treat isinstance specially
-            return node
         if_cp = copy(node)
         if_cp.test = Call(Name(SPECIAL_BOOL, Load()), [node.test], [])
         return self.generic_visit(if_cp)

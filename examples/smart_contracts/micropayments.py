@@ -140,18 +140,17 @@ def validator(
                     amount <= cont_tx_out.value[pid][tokenname]
                 ), "Value of token in payment channel has decreased"
         cont_datum = cont_tx_out.datum
-        if isinstance(cont_datum, SomeOutputDatum):
-            # Ensure that the state is correctly updated
-            cont_datum_content: PaymentChannel = cont_datum.datum
-            assert cont_datum_content == PaymentChannel(
-                balance_alice,
-                datum.pubkeyhash_alice,
-                balance_bob,
-                datum.pubkeyhash_bob,
-                nonce,
-            )
-        else:
-            assert False, "Must inline attached datum"
+        assert isinstance(cont_datum, SomeOutputDatum), "Must inline attached datum"
+        # We cast the datum to payment channel (it is stored without structure in the ledger)
+        cont_datum_content: PaymentChannel = cont_datum.datum
+        # Ensure that the state is correctly updated
+        assert cont_datum_content == PaymentChannel(
+            balance_alice,
+            datum.pubkeyhash_alice,
+            balance_bob,
+            datum.pubkeyhash_bob,
+            nonce,
+        )
     else:
         # Other redeemers are not allowed!
         assert False, "Wrong redeemer passed!"
