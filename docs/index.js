@@ -2452,12 +2452,12 @@ INDEX=[
 {
 "ref":"opshin.ledger",
 "url":17,
-"doc":""
+"doc":"OpShin provides some helper classes that define concepts introduced in PlutusTx and used by the cardano node to encode data. In particular you find the definition of the entire Script Context for Plutus V2 in the file  api_v2 .   from opshin.ledger.api_v2 import   "
 },
 {
 "ref":"opshin.ledger.api_v2",
 "url":18,
-"doc":"The PlutusV2 ledger API"
+"doc":"The PlutusV2 ledger API. All classes involved in defining the ScriptContext passed by the node."
 },
 {
 "ref":"opshin.ledger.api_v2.TxId",
@@ -3087,7 +3087,7 @@ INDEX=[
 {
 "ref":"opshin.ledger.interval",
 "url":19,
-"doc":""
+"doc":"A library to assist with interval handling"
 },
 {
 "ref":"opshin.ledger.interval.compare",

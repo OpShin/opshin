@@ -1,4 +1,7 @@
-from opshin.prelude import *
+"""
+A library to assist with interval handling
+"""
+from opshin.ledger.api_v2 import *
 
 
 def compare(a: int, b: int) -> int:
