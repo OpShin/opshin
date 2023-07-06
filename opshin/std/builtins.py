@@ -1,7 +1,6 @@
 """
 A special libary that gives direct access to UPLC built-ins
-It is not normally imported during compilation,
-but replaces the mentioned functions by their UPLC implementation.
+It is valid code and parts of it may be copied if not all built-ins are required by the user.
 """
 from opshin.bridge import wraps_builtin
 from pycardano import Datum as Anything, PlutusData

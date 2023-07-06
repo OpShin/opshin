@@ -1,3 +1,7 @@
+"""
+The BitMap library provides tools to interact with a highly efficient datastructure
+that stores boolean values with minimal overhead (1 bit per bool)
+"""
 BitMap = bytes
 
 BYTE_SIZE = 8
