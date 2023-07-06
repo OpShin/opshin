@@ -5720,7 +5720,7 @@ INDEX=[
 {
 "ref":"opshin.std",
 "url":47,
-"doc":""
+"doc":"OpShin provides a few features in its standard libary. You can import modules from there (i.e. the  fractions module) with   from opshin.std.fractions import   "
 },
 {
 "ref":"opshin.std.builtins",
