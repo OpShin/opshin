@@ -68,570 +68,47 @@ fill="currentColor" class="octo-body"></path>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">import ast
+<pre><code class="python">import typing
+
+import ast
 import pycardano
-from enum import Enum, auto
 from frozendict import frozendict
+from frozenlist import FrozenList
 
-from .typed_ast import *
-
-import pluthon as plt
 import uplc.ast as uplc
 
 
-class LenImpl(PolymorphicFunction):
-    def type_from_args(self, args: typing.List[Type]) -&gt; FunctionType:
-        assert (
-            len(args) == 1
-        ), f&#34;&#39;len&#39; takes only one argument, but {len(args)} were given&#34;
-        assert isinstance(
-            args[0], InstanceType
-        ), &#34;Can only determine length of instances&#34;
-        return FunctionType(args, IntegerInstanceType)
-
-    def impl_from_args(self, args: typing.List[Type]) -&gt; plt.AST:
-        arg = args[0]
-        assert isinstance(arg, InstanceType), &#34;Can only determine length of instances&#34;
-        if arg == ByteStringInstanceType:
-            return plt.Lambda([&#34;x&#34;, &#34;_&#34;], plt.LengthOfByteString(plt.Var(&#34;x&#34;)))
-        elif isinstance(arg.typ, ListType):
-            # simple list length function
-            return plt.Lambda(
-                [&#34;x&#34;, &#34;_&#34;],
-                plt.FoldList(
-                    plt.Var(&#34;x&#34;),
-                    plt.Lambda(
-                        [&#34;a&#34;, &#34;_&#34;], plt.AddInteger(plt.Var(&#34;a&#34;), plt.Integer(1))
-                    ),
-                    plt.Integer(0),
-                ),
-            )
-        raise NotImplementedError(f&#34;&#39;len&#39; is not implemented for type {arg}&#34;)
+def distinct(xs: list):
+    &#34;&#34;&#34;Returns true iff the list consists of distinct elements&#34;&#34;&#34;
+    return len(xs) == len(set(xs))
 
 
-class ReversedImpl(PolymorphicFunction):
-    def type_from_args(self, args: typing.List[Type]) -&gt; FunctionType:
-        assert (
-            len(args) == 1
-        ), f&#34;&#39;reversed&#39; takes only one argument, but {len(args)} were given&#34;
-        typ = args[0]
-        assert isinstance(typ, InstanceType), &#34;Can only reverse instances&#34;
-        assert isinstance(typ.typ, ListType), &#34;Can only reverse instances of lists&#34;
-        # returns list of same type
-        return FunctionType(args, typ)
-
-    def impl_from_args(self, args: typing.List[Type]) -&gt; plt.AST:
-        arg = args[0]
-        assert isinstance(arg, InstanceType), &#34;Can only reverse instances&#34;
-        if isinstance(arg.typ, ListType):
-            empty_l = empty_list(arg.typ.typ)
-            return plt.Lambda(
-                [&#34;xs&#34;, &#34;_&#34;],
-                plt.FoldList(
-                    plt.Var(&#34;xs&#34;),
-                    plt.Lambda([&#34;a&#34;, &#34;x&#34;], plt.MkCons(plt.Var(&#34;x&#34;), plt.Var(&#34;a&#34;))),
-                    empty_l,
-                ),
-            )
-        raise NotImplementedError(f&#34;&#39;reversed&#39; is not implemented for type {arg}&#34;)
+def FrozenFrozenList(l: list):
+    fl = FrozenList(l)
+    fl.freeze()
+    return fl
 
 
-class PrintImpl(PolymorphicFunction):
-    def type_from_args(self, args: typing.List[Type]) -&gt; FunctionType:
-        assert all(
-            isinstance(typ, InstanceType) for typ in args
-        ), &#34;Can only print instances&#34;
-        return FunctionType(args, NoneInstanceType)
-
-    def impl_from_args(self, args: typing.List[Type]) -&gt; plt.AST:
-        assert all(
-            isinstance(arg, InstanceType) for arg in args
-        ), &#34;Can only stringify instances&#34;
-        stringify_ops = [
-            plt.Apply(arg.typ.stringify(), plt.Var(f&#34;x{i}&#34;), plt.Var(&#34;_&#34;))
-            for i, arg in enumerate(args)
-        ]
-        stringify_ops_joined = sum(((x, plt.Text(&#34; &#34;)) for x in stringify_ops), ())[:-1]
-        print = plt.Lambda(
-            [f&#34;x{i}&#34; for i in range(len(args))] + [&#34;_&#34;],
-            plt.Trace(plt.ConcatString(*stringify_ops_joined), plt.NoneData()),
-        )
-        return print
+class TypedNodeTransformer(ast.NodeTransformer):
+    def visit(self, node):
+        &#34;&#34;&#34;Visit a node.&#34;&#34;&#34;
+        node_class_name = node.__class__.__name__
+        if node_class_name.startswith(&#34;Typed&#34;):
+            node_class_name = node_class_name[len(&#34;Typed&#34;) :]
+        method = &#34;visit_&#34; + node_class_name
+        visitor = getattr(self, method, self.generic_visit)
+        return visitor(node)
 
 
-def repeated_addition(zero, add):
-    # this is optimized for logarithmic complexity by exponentiation by squaring
-    # it follows the implementation described here: https://en.wikipedia.org/wiki/Exponentiation_by_squaring#With_constant_auxiliary_memory
-    def RepeatedAdd(x: plt.AST, y: plt.AST):
-        return plt.Apply(
-            plt.RecFun(
-                plt.Lambda(
-                    [&#34;f&#34;, &#34;y&#34;, &#34;x&#34;, &#34;n&#34;],
-                    plt.Ite(
-                        plt.LessThanEqualsInteger(plt.Var(&#34;n&#34;), plt.Integer(0)),
-                        plt.Var(&#34;y&#34;),
-                        plt.Let(
-                            [
-                                (
-                                    &#34;n_half&#34;,
-                                    plt.DivideInteger(plt.Var(&#34;n&#34;), plt.Integer(2)),
-                                )
-                            ],
-                            plt.Ite(
-                                # tests whether (x//2)*2 == x which is True iff x is even
-                                plt.EqualsInteger(
-                                    plt.AddInteger(
-                                        plt.Var(&#34;n_half&#34;), plt.Var(&#34;n_half&#34;)
-                                    ),
-                                    plt.Var(&#34;n&#34;),
-                                ),
-                                plt.Apply(
-                                    plt.Var(&#34;f&#34;),
-                                    plt.Var(&#34;f&#34;),
-                                    plt.Var(&#34;y&#34;),
-                                    add(plt.Var(&#34;x&#34;), plt.Var(&#34;x&#34;)),
-                                    plt.Var(&#34;n_half&#34;),
-                                ),
-                                plt.Apply(
-                                    plt.Var(&#34;f&#34;),
-                                    plt.Var(&#34;f&#34;),
-                                    add(plt.Var(&#34;y&#34;), plt.Var(&#34;x&#34;)),
-                                    add(plt.Var(&#34;x&#34;), plt.Var(&#34;x&#34;)),
-                                    plt.Var(&#34;n_half&#34;),
-                                ),
-                            ),
-                        ),
-                    ),
-                ),
-            ),
-            zero,
-            x,
-            y,
-        )
-
-    return RepeatedAdd
-
-
-PowImpl = repeated_addition(plt.Integer(1), plt.MultiplyInteger)
-ByteStrIntMulImpl = repeated_addition(plt.ByteString(b&#34;&#34;), plt.AppendByteString)
-StrIntMulImpl = repeated_addition(plt.Text(&#34;&#34;), plt.AppendString)
-
-
-class PythonBuiltIn(Enum):
-    all = plt.Lambda(
-        [&#34;xs&#34;, &#34;_&#34;],
-        plt.FoldList(
-            plt.Var(&#34;xs&#34;),
-            plt.Lambda([&#34;x&#34;, &#34;a&#34;], plt.And(plt.Var(&#34;x&#34;), plt.Var(&#34;a&#34;))),
-            plt.Bool(True),
-        ),
-    )
-    any = plt.Lambda(
-        [&#34;xs&#34;, &#34;_&#34;],
-        plt.FoldList(
-            plt.Var(&#34;xs&#34;),
-            plt.Lambda([&#34;x&#34;, &#34;a&#34;], plt.Or(plt.Var(&#34;x&#34;), plt.Var(&#34;a&#34;))),
-            plt.Bool(False),
-        ),
-    )
-    abs = plt.Lambda(
-        [&#34;x&#34;, &#34;_&#34;],
-        plt.Ite(
-            plt.LessThanInteger(plt.Var(&#34;x&#34;), plt.Integer(0)),
-            plt.Negate(plt.Var(&#34;x&#34;)),
-            plt.Var(&#34;x&#34;),
-        ),
-    )
-    # maps an integer to a unicode code point and decodes it
-    # reference: https://en.wikipedia.org/wiki/UTF-8#Encoding
-    chr = plt.Lambda(
-        [&#34;x&#34;, &#34;_&#34;],
-        plt.DecodeUtf8(
-            plt.Ite(
-                plt.LessThanInteger(plt.Var(&#34;x&#34;), plt.Integer(0x0)),
-                plt.TraceError(&#34;ValueError: chr() arg not in range(0x110000)&#34;),
-                plt.Ite(
-                    plt.LessThanInteger(plt.Var(&#34;x&#34;), plt.Integer(0x80)),
-                    # encoding of 0x0 - 0x80
-                    plt.ConsByteString(plt.Var(&#34;x&#34;), plt.ByteString(b&#34;&#34;)),
-                    plt.Ite(
-                        plt.LessThanInteger(plt.Var(&#34;x&#34;), plt.Integer(0x800)),
-                        # encoding of 0x80 - 0x800
-                        plt.ConsByteString(
-                            # we do bit manipulation using integer arithmetic here - nice
-                            plt.AddInteger(
-                                plt.Integer(0b110 &lt;&lt; 5),
-                                plt.DivideInteger(plt.Var(&#34;x&#34;), plt.Integer(1 &lt;&lt; 6)),
-                            ),
-                            plt.ConsByteString(
-                                plt.AddInteger(
-                                    plt.Integer(0b10 &lt;&lt; 6),
-                                    plt.ModInteger(plt.Var(&#34;x&#34;), plt.Integer(1 &lt;&lt; 6)),
-                                ),
-                                plt.ByteString(b&#34;&#34;),
-                            ),
-                        ),
-                        plt.Ite(
-                            plt.LessThanInteger(plt.Var(&#34;x&#34;), plt.Integer(0x10000)),
-                            # encoding of 0x800 - 0x10000
-                            plt.ConsByteString(
-                                plt.AddInteger(
-                                    plt.Integer(0b1110 &lt;&lt; 4),
-                                    plt.DivideInteger(
-                                        plt.Var(&#34;x&#34;), plt.Integer(1 &lt;&lt; 12)
-                                    ),
-                                ),
-                                plt.ConsByteString(
-                                    plt.AddInteger(
-                                        plt.Integer(0b10 &lt;&lt; 6),
-                                        plt.DivideInteger(
-                                            plt.ModInteger(
-                                                plt.Var(&#34;x&#34;), plt.Integer(1 &lt;&lt; 12)
-                                            ),
-                                            plt.Integer(1 &lt;&lt; 6),
-                                        ),
-                                    ),
-                                    plt.ConsByteString(
-                                        plt.AddInteger(
-                                            plt.Integer(0b10 &lt;&lt; 6),
-                                            plt.ModInteger(
-                                                plt.Var(&#34;x&#34;), plt.Integer(1 &lt;&lt; 6)
-                                            ),
-                                        ),
-                                        plt.ByteString(b&#34;&#34;),
-                                    ),
-                                ),
-                            ),
-                            plt.Ite(
-                                plt.LessThanInteger(
-                                    plt.Var(&#34;x&#34;), plt.Integer(0x110000)
-                                ),
-                                # encoding of 0x10000 - 0x10FFF
-                                plt.ConsByteString(
-                                    plt.AddInteger(
-                                        plt.Integer(0b11110 &lt;&lt; 3),
-                                        plt.DivideInteger(
-                                            plt.Var(&#34;x&#34;), plt.Integer(1 &lt;&lt; 18)
-                                        ),
-                                    ),
-                                    plt.ConsByteString(
-                                        plt.AddInteger(
-                                            plt.Integer(0b10 &lt;&lt; 6),
-                                            plt.DivideInteger(
-                                                plt.ModInteger(
-                                                    plt.Var(&#34;x&#34;), plt.Integer(1 &lt;&lt; 18)
-                                                ),
-                                                plt.Integer(1 &lt;&lt; 12),
-                                            ),
-                                        ),
-                                        plt.ConsByteString(
-                                            plt.AddInteger(
-                                                plt.Integer(0b10 &lt;&lt; 6),
-                                                plt.DivideInteger(
-                                                    plt.ModInteger(
-                                                        plt.Var(&#34;x&#34;),
-                                                        plt.Integer(1 &lt;&lt; 12),
-                                                    ),
-                                                    plt.Integer(1 &lt;&lt; 6),
-                                                ),
-                                            ),
-                                            plt.ConsByteString(
-                                                plt.AddInteger(
-                                                    plt.Integer(0b10 &lt;&lt; 6),
-                                                    plt.ModInteger(
-                                                        plt.Var(&#34;x&#34;),
-                                                        plt.Integer(1 &lt;&lt; 6),
-                                                    ),
-                                                ),
-                                                plt.ByteString(b&#34;&#34;),
-                                            ),
-                                        ),
-                                    ),
-                                ),
-                                plt.TraceError(
-                                    &#34;ValueError: chr() arg not in range(0x110000)&#34;
-                                ),
-                            ),
-                        ),
-                    ),
-                ),
-            )
-        ),
-    )
-    breakpoint = plt.Lambda([&#34;_&#34;], plt.NoneData())
-    hex = plt.Lambda(
-        [&#34;x&#34;, &#34;_&#34;],
-        plt.DecodeUtf8(
-            plt.Let(
-                [
-                    (
-                        &#34;hexlist&#34;,
-                        plt.RecFun(
-                            plt.Lambda(
-                                [&#34;f&#34;, &#34;i&#34;],
-                                plt.Ite(
-                                    plt.LessThanEqualsInteger(
-                                        plt.Var(&#34;i&#34;), plt.Integer(0)
-                                    ),
-                                    plt.EmptyIntegerList(),
-                                    plt.MkCons(
-                                        plt.Let(
-                                            [
-                                                (
-                                                    &#34;mod&#34;,
-                                                    plt.ModInteger(
-                                                        plt.Var(&#34;i&#34;), plt.Integer(16)
-                                                    ),
-                                                ),
-                                            ],
-                                            plt.AddInteger(
-                                                plt.Var(&#34;mod&#34;),
-                                                plt.IfThenElse(
-                                                    plt.LessThanInteger(
-                                                        plt.Var(&#34;mod&#34;), plt.Integer(10)
-                                                    ),
-                                                    plt.Integer(ord(&#34;0&#34;)),
-                                                    plt.Integer(ord(&#34;a&#34;) - 10),
-                                                ),
-                                            ),
-                                        ),
-                                        plt.Apply(
-                                            plt.Var(&#34;f&#34;),
-                                            plt.Var(&#34;f&#34;),
-                                            plt.DivideInteger(
-                                                plt.Var(&#34;i&#34;), plt.Integer(16)
-                                            ),
-                                        ),
-                                    ),
-                                ),
-                            ),
-                        ),
-                    ),
-                    (
-                        &#34;mkstr&#34;,
-                        plt.Lambda(
-                            [&#34;i&#34;],
-                            plt.FoldList(
-                                plt.Apply(plt.Var(&#34;hexlist&#34;), plt.Var(&#34;i&#34;)),
-                                plt.Lambda(
-                                    [&#34;b&#34;, &#34;i&#34;],
-                                    plt.ConsByteString(plt.Var(&#34;i&#34;), plt.Var(&#34;b&#34;)),
-                                ),
-                                plt.ByteString(b&#34;&#34;),
-                            ),
-                        ),
-                    ),
-                ],
-                plt.Ite(
-                    plt.EqualsInteger(plt.Var(&#34;x&#34;), plt.Integer(0)),
-                    plt.ByteString(b&#34;0x0&#34;),
-                    plt.Ite(
-                        plt.LessThanInteger(plt.Var(&#34;x&#34;), plt.Integer(0)),
-                        plt.ConsByteString(
-                            plt.Integer(ord(&#34;-&#34;)),
-                            plt.AppendByteString(
-                                plt.ByteString(b&#34;0x&#34;),
-                                plt.Apply(plt.Var(&#34;mkstr&#34;), plt.Negate(plt.Var(&#34;x&#34;))),
-                            ),
-                        ),
-                        plt.AppendByteString(
-                            plt.ByteString(b&#34;0x&#34;),
-                            plt.Apply(plt.Var(&#34;mkstr&#34;), plt.Var(&#34;x&#34;)),
-                        ),
-                    ),
-                ),
-            )
-        ),
-    )
-    len = auto()
-    max = plt.Lambda(
-        [&#34;xs&#34;, &#34;_&#34;],
-        plt.FoldList(
-            plt.TailList(plt.Var(&#34;xs&#34;)),
-            plt.Lambda(
-                [&#34;x&#34;, &#34;a&#34;],
-                plt.IfThenElse(
-                    plt.LessThanInteger(plt.Var(&#34;a&#34;), plt.Var(&#34;x&#34;)),
-                    plt.Var(&#34;x&#34;),
-                    plt.Var(&#34;a&#34;),
-                ),
-            ),
-            plt.HeadList(plt.Var(&#34;xs&#34;)),
-        ),
-    )
-    min = plt.Lambda(
-        [&#34;xs&#34;, &#34;_&#34;],
-        plt.FoldList(
-            plt.TailList(plt.Var(&#34;xs&#34;)),
-            plt.Lambda(
-                [&#34;x&#34;, &#34;a&#34;],
-                plt.IfThenElse(
-                    plt.LessThanInteger(plt.Var(&#34;a&#34;), plt.Var(&#34;x&#34;)),
-                    plt.Var(&#34;a&#34;),
-                    plt.Var(&#34;x&#34;),
-                ),
-            ),
-            plt.HeadList(plt.Var(&#34;xs&#34;)),
-        ),
-    )
-    print = auto()
-    # NOTE: only correctly defined for positive y
-    pow = plt.Lambda([&#34;x&#34;, &#34;y&#34;, &#34;_&#34;], PowImpl(plt.Var(&#34;x&#34;), plt.Var(&#34;y&#34;)))
-    oct = plt.Lambda(
-        [&#34;x&#34;, &#34;_&#34;],
-        plt.DecodeUtf8(
-            plt.Let(
-                [
-                    (
-                        &#34;octlist&#34;,
-                        plt.RecFun(
-                            plt.Lambda(
-                                [&#34;f&#34;, &#34;i&#34;],
-                                plt.Ite(
-                                    plt.LessThanEqualsInteger(
-                                        plt.Var(&#34;i&#34;), plt.Integer(0)
-                                    ),
-                                    plt.EmptyIntegerList(),
-                                    plt.MkCons(
-                                        plt.AddInteger(
-                                            plt.ModInteger(
-                                                plt.Var(&#34;i&#34;), plt.Integer(8)
-                                            ),
-                                            plt.Integer(ord(&#34;0&#34;)),
-                                        ),
-                                        plt.Apply(
-                                            plt.Var(&#34;f&#34;),
-                                            plt.Var(&#34;f&#34;),
-                                            plt.DivideInteger(
-                                                plt.Var(&#34;i&#34;), plt.Integer(8)
-                                            ),
-                                        ),
-                                    ),
-                                ),
-                            ),
-                        ),
-                    ),
-                    (
-                        &#34;mkoct&#34;,
-                        plt.Lambda(
-                            [&#34;i&#34;],
-                            plt.FoldList(
-                                plt.Apply(plt.Var(&#34;octlist&#34;), plt.Var(&#34;i&#34;)),
-                                plt.Lambda(
-                                    [&#34;b&#34;, &#34;i&#34;],
-                                    plt.ConsByteString(plt.Var(&#34;i&#34;), plt.Var(&#34;b&#34;)),
-                                ),
-                                plt.ByteString(b&#34;&#34;),
-                            ),
-                        ),
-                    ),
-                ],
-                plt.Ite(
-                    plt.EqualsInteger(plt.Var(&#34;x&#34;), plt.Integer(0)),
-                    plt.ByteString(b&#34;0o0&#34;),
-                    plt.Ite(
-                        plt.LessThanInteger(plt.Var(&#34;x&#34;), plt.Integer(0)),
-                        plt.ConsByteString(
-                            plt.Integer(ord(&#34;-&#34;)),
-                            plt.AppendByteString(
-                                plt.ByteString(b&#34;0o&#34;),
-                                plt.Apply(plt.Var(&#34;mkoct&#34;), plt.Negate(plt.Var(&#34;x&#34;))),
-                            ),
-                        ),
-                        plt.AppendByteString(
-                            plt.ByteString(b&#34;0o&#34;),
-                            plt.Apply(plt.Var(&#34;mkoct&#34;), plt.Var(&#34;x&#34;)),
-                        ),
-                    ),
-                ),
-            )
-        ),
-    )
-    range = plt.Lambda(
-        [&#34;limit&#34;, &#34;_&#34;],
-        plt.Range(plt.Var(&#34;limit&#34;)),
-    )
-    reversed = auto()
-    sum = plt.Lambda(
-        [&#34;xs&#34;, &#34;_&#34;],
-        plt.FoldList(
-            plt.Var(&#34;xs&#34;), plt.BuiltIn(uplc.BuiltInFun.AddInteger), plt.Integer(0)
-        ),
-    )
-
-
-PythonBuiltInTypes = {
-    PythonBuiltIn.all: InstanceType(
-        FunctionType(
-            [InstanceType(ListType(BoolInstanceType))],
-            BoolInstanceType,
-        )
-    ),
-    PythonBuiltIn.any: InstanceType(
-        FunctionType(
-            [InstanceType(ListType(BoolInstanceType))],
-            BoolInstanceType,
-        )
-    ),
-    PythonBuiltIn.abs: InstanceType(
-        FunctionType(
-            [IntegerInstanceType],
-            IntegerInstanceType,
-        )
-    ),
-    PythonBuiltIn.chr: InstanceType(
-        FunctionType(
-            [IntegerInstanceType],
-            StringInstanceType,
-        )
-    ),
-    PythonBuiltIn.breakpoint: InstanceType(FunctionType([], NoneInstanceType)),
-    PythonBuiltIn.len: InstanceType(PolymorphicFunctionType(LenImpl())),
-    PythonBuiltIn.hex: InstanceType(
-        FunctionType(
-            [IntegerInstanceType],
-            StringInstanceType,
-        )
-    ),
-    PythonBuiltIn.max: InstanceType(
-        FunctionType(
-            [InstanceType(ListType(IntegerInstanceType))],
-            IntegerInstanceType,
-        )
-    ),
-    PythonBuiltIn.min: InstanceType(
-        FunctionType(
-            [InstanceType(ListType(IntegerInstanceType))],
-            IntegerInstanceType,
-        )
-    ),
-    PythonBuiltIn.print: InstanceType(PolymorphicFunctionType(PrintImpl())),
-    PythonBuiltIn.pow: InstanceType(
-        FunctionType(
-            [IntegerInstanceType, IntegerInstanceType],
-            IntegerInstanceType,
-        )
-    ),
-    PythonBuiltIn.oct: InstanceType(
-        FunctionType(
-            [IntegerInstanceType],
-            StringInstanceType,
-        )
-    ),
-    PythonBuiltIn.range: InstanceType(
-        FunctionType(
-            [IntegerInstanceType],
-            InstanceType(ListType(IntegerInstanceType)),
-        )
-    ),
-    PythonBuiltIn.reversed: InstanceType(PolymorphicFunctionType(ReversedImpl())),
-    PythonBuiltIn.sum: InstanceType(
-        FunctionType(
-            [InstanceType(ListType(IntegerInstanceType))],
-            IntegerInstanceType,
-        )
-    ),
-}
+class TypedNodeVisitor(ast.NodeVisitor):
+    def visit(self, node):
+        &#34;&#34;&#34;Visit a node.&#34;&#34;&#34;
+        node_class_name = node.__class__.__name__
+        if node_class_name.startswith(&#34;Typed&#34;):
+            node_class_name = node_class_name[len(&#34;Typed&#34;) :]
+        method = &#34;visit_&#34; + node_class_name
+        visitor = getattr(self, method, self.generic_visit)
+        return visitor(node)
 
 
 class CompilerError(Exception):
@@ -706,8 +183,8 @@ def datum_to_json(d: pycardano.Datum) -&gt; str:
 <section>
 <h2 class="section-title" id="header-functions">Functions</h2>
 <dl>
-<dt id="opshin.util.ByteStrIntMulImpl"><code class="name flex">
-<span>def <span class="ident">ByteStrIntMulImpl</span></span>(<span>x: pluthon.pluthon_ast.AST, y: pluthon.pluthon_ast.AST)</span>
+<dt id="opshin.util.FrozenFrozenList"><code class="name flex">
+<span>def <span class="ident">FrozenFrozenList</span></span>(<span>l: list)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -715,166 +192,10 @@ def datum_to_json(d: pycardano.Datum) -&gt; str:
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def RepeatedAdd(x: plt.AST, y: plt.AST):
-    return plt.Apply(
-        plt.RecFun(
-            plt.Lambda(
-                [&#34;f&#34;, &#34;y&#34;, &#34;x&#34;, &#34;n&#34;],
-                plt.Ite(
-                    plt.LessThanEqualsInteger(plt.Var(&#34;n&#34;), plt.Integer(0)),
-                    plt.Var(&#34;y&#34;),
-                    plt.Let(
-                        [
-                            (
-                                &#34;n_half&#34;,
-                                plt.DivideInteger(plt.Var(&#34;n&#34;), plt.Integer(2)),
-                            )
-                        ],
-                        plt.Ite(
-                            # tests whether (x//2)*2 == x which is True iff x is even
-                            plt.EqualsInteger(
-                                plt.AddInteger(
-                                    plt.Var(&#34;n_half&#34;), plt.Var(&#34;n_half&#34;)
-                                ),
-                                plt.Var(&#34;n&#34;),
-                            ),
-                            plt.Apply(
-                                plt.Var(&#34;f&#34;),
-                                plt.Var(&#34;f&#34;),
-                                plt.Var(&#34;y&#34;),
-                                add(plt.Var(&#34;x&#34;), plt.Var(&#34;x&#34;)),
-                                plt.Var(&#34;n_half&#34;),
-                            ),
-                            plt.Apply(
-                                plt.Var(&#34;f&#34;),
-                                plt.Var(&#34;f&#34;),
-                                add(plt.Var(&#34;y&#34;), plt.Var(&#34;x&#34;)),
-                                add(plt.Var(&#34;x&#34;), plt.Var(&#34;x&#34;)),
-                                plt.Var(&#34;n_half&#34;),
-                            ),
-                        ),
-                    ),
-                ),
-            ),
-        ),
-        zero,
-        x,
-        y,
-    )</code></pre>
-</details>
-</dd>
-<dt id="opshin.util.PowImpl"><code class="name flex">
-<span>def <span class="ident">PowImpl</span></span>(<span>x: pluthon.pluthon_ast.AST, y: pluthon.pluthon_ast.AST)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def RepeatedAdd(x: plt.AST, y: plt.AST):
-    return plt.Apply(
-        plt.RecFun(
-            plt.Lambda(
-                [&#34;f&#34;, &#34;y&#34;, &#34;x&#34;, &#34;n&#34;],
-                plt.Ite(
-                    plt.LessThanEqualsInteger(plt.Var(&#34;n&#34;), plt.Integer(0)),
-                    plt.Var(&#34;y&#34;),
-                    plt.Let(
-                        [
-                            (
-                                &#34;n_half&#34;,
-                                plt.DivideInteger(plt.Var(&#34;n&#34;), plt.Integer(2)),
-                            )
-                        ],
-                        plt.Ite(
-                            # tests whether (x//2)*2 == x which is True iff x is even
-                            plt.EqualsInteger(
-                                plt.AddInteger(
-                                    plt.Var(&#34;n_half&#34;), plt.Var(&#34;n_half&#34;)
-                                ),
-                                plt.Var(&#34;n&#34;),
-                            ),
-                            plt.Apply(
-                                plt.Var(&#34;f&#34;),
-                                plt.Var(&#34;f&#34;),
-                                plt.Var(&#34;y&#34;),
-                                add(plt.Var(&#34;x&#34;), plt.Var(&#34;x&#34;)),
-                                plt.Var(&#34;n_half&#34;),
-                            ),
-                            plt.Apply(
-                                plt.Var(&#34;f&#34;),
-                                plt.Var(&#34;f&#34;),
-                                add(plt.Var(&#34;y&#34;), plt.Var(&#34;x&#34;)),
-                                add(plt.Var(&#34;x&#34;), plt.Var(&#34;x&#34;)),
-                                plt.Var(&#34;n_half&#34;),
-                            ),
-                        ),
-                    ),
-                ),
-            ),
-        ),
-        zero,
-        x,
-        y,
-    )</code></pre>
-</details>
-</dd>
-<dt id="opshin.util.StrIntMulImpl"><code class="name flex">
-<span>def <span class="ident">StrIntMulImpl</span></span>(<span>x: pluthon.pluthon_ast.AST, y: pluthon.pluthon_ast.AST)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def RepeatedAdd(x: plt.AST, y: plt.AST):
-    return plt.Apply(
-        plt.RecFun(
-            plt.Lambda(
-                [&#34;f&#34;, &#34;y&#34;, &#34;x&#34;, &#34;n&#34;],
-                plt.Ite(
-                    plt.LessThanEqualsInteger(plt.Var(&#34;n&#34;), plt.Integer(0)),
-                    plt.Var(&#34;y&#34;),
-                    plt.Let(
-                        [
-                            (
-                                &#34;n_half&#34;,
-                                plt.DivideInteger(plt.Var(&#34;n&#34;), plt.Integer(2)),
-                            )
-                        ],
-                        plt.Ite(
-                            # tests whether (x//2)*2 == x which is True iff x is even
-                            plt.EqualsInteger(
-                                plt.AddInteger(
-                                    plt.Var(&#34;n_half&#34;), plt.Var(&#34;n_half&#34;)
-                                ),
-                                plt.Var(&#34;n&#34;),
-                            ),
-                            plt.Apply(
-                                plt.Var(&#34;f&#34;),
-                                plt.Var(&#34;f&#34;),
-                                plt.Var(&#34;y&#34;),
-                                add(plt.Var(&#34;x&#34;), plt.Var(&#34;x&#34;)),
-                                plt.Var(&#34;n_half&#34;),
-                            ),
-                            plt.Apply(
-                                plt.Var(&#34;f&#34;),
-                                plt.Var(&#34;f&#34;),
-                                add(plt.Var(&#34;y&#34;), plt.Var(&#34;x&#34;)),
-                                add(plt.Var(&#34;x&#34;), plt.Var(&#34;x&#34;)),
-                                plt.Var(&#34;n_half&#34;),
-                            ),
-                        ),
-                    ),
-                ),
-            ),
-        ),
-        zero,
-        x,
-        y,
-    )</code></pre>
+<pre><code class="python">def FrozenFrozenList(l: list):
+    fl = FrozenList(l)
+    fl.freeze()
+    return fl</code></pre>
 </details>
 </dd>
 <dt id="opshin.util.data_from_json"><code class="name flex">
@@ -932,66 +253,18 @@ def datum_to_json(d: pycardano.Datum) -&gt; str:
     return pycardano.PlutusData.to_json(d)</code></pre>
 </details>
 </dd>
-<dt id="opshin.util.repeated_addition"><code class="name flex">
-<span>def <span class="ident">repeated_addition</span></span>(<span>zero, add)</span>
+<dt id="opshin.util.distinct"><code class="name flex">
+<span>def <span class="ident">distinct</span></span>(<span>xs: list)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Returns true iff the list consists of distinct elements</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def repeated_addition(zero, add):
-    # this is optimized for logarithmic complexity by exponentiation by squaring
-    # it follows the implementation described here: https://en.wikipedia.org/wiki/Exponentiation_by_squaring#With_constant_auxiliary_memory
-    def RepeatedAdd(x: plt.AST, y: plt.AST):
-        return plt.Apply(
-            plt.RecFun(
-                plt.Lambda(
-                    [&#34;f&#34;, &#34;y&#34;, &#34;x&#34;, &#34;n&#34;],
-                    plt.Ite(
-                        plt.LessThanEqualsInteger(plt.Var(&#34;n&#34;), plt.Integer(0)),
-                        plt.Var(&#34;y&#34;),
-                        plt.Let(
-                            [
-                                (
-                                    &#34;n_half&#34;,
-                                    plt.DivideInteger(plt.Var(&#34;n&#34;), plt.Integer(2)),
-                                )
-                            ],
-                            plt.Ite(
-                                # tests whether (x//2)*2 == x which is True iff x is even
-                                plt.EqualsInteger(
-                                    plt.AddInteger(
-                                        plt.Var(&#34;n_half&#34;), plt.Var(&#34;n_half&#34;)
-                                    ),
-                                    plt.Var(&#34;n&#34;),
-                                ),
-                                plt.Apply(
-                                    plt.Var(&#34;f&#34;),
-                                    plt.Var(&#34;f&#34;),
-                                    plt.Var(&#34;y&#34;),
-                                    add(plt.Var(&#34;x&#34;), plt.Var(&#34;x&#34;)),
-                                    plt.Var(&#34;n_half&#34;),
-                                ),
-                                plt.Apply(
-                                    plt.Var(&#34;f&#34;),
-                                    plt.Var(&#34;f&#34;),
-                                    add(plt.Var(&#34;y&#34;), plt.Var(&#34;x&#34;)),
-                                    add(plt.Var(&#34;x&#34;), plt.Var(&#34;x&#34;)),
-                                    plt.Var(&#34;n_half&#34;),
-                                ),
-                            ),
-                        ),
-                    ),
-                ),
-            ),
-            zero,
-            x,
-            y,
-        )
-
-    return RepeatedAdd</code></pre>
+<pre><code class="python">def distinct(xs: list):
+    &#34;&#34;&#34;Returns true iff the list consists of distinct elements&#34;&#34;&#34;
+    return len(xs) == len(set(xs))</code></pre>
 </details>
 </dd>
 </dl>
@@ -1069,7 +342,7 @@ just a single node.</p>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
-<li><a title="opshin.typed_ast.TypedNodeTransformer" href="typed_ast.html#opshin.typed_ast.TypedNodeTransformer">TypedNodeTransformer</a></li>
+<li><a title="opshin.util.TypedNodeTransformer" href="#opshin.util.TypedNodeTransformer">TypedNodeTransformer</a></li>
 <li>ast.NodeTransformer</li>
 <li>ast.NodeVisitor</li>
 </ul>
@@ -1082,6 +355,7 @@ just a single node.</p>
 <li><a title="opshin.optimize.optimize_remove_pass.OptimizeRemovePass" href="optimize/optimize_remove_pass.html#opshin.optimize.optimize_remove_pass.OptimizeRemovePass">OptimizeRemovePass</a></li>
 <li><a title="opshin.optimize.optimize_varlen.OptimizeVarlen" href="optimize/optimize_varlen.html#opshin.optimize.optimize_varlen.OptimizeVarlen">OptimizeVarlen</a></li>
 <li><a title="opshin.rewrite.rewrite_augassign.RewriteAugAssign" href="rewrite/rewrite_augassign.html#opshin.rewrite.rewrite_augassign.RewriteAugAssign">RewriteAugAssign</a></li>
+<li><a title="opshin.rewrite.rewrite_cast_condition.RewriteConditions" href="rewrite/rewrite_cast_condition.html#opshin.rewrite.rewrite_cast_condition.RewriteConditions">RewriteConditions</a></li>
 <li><a title="opshin.rewrite.rewrite_forbidden_overwrites.RewriteForbiddenOverwrites" href="rewrite/rewrite_forbidden_overwrites.html#opshin.rewrite.rewrite_forbidden_overwrites.RewriteForbiddenOverwrites">RewriteForbiddenOverwrites</a></li>
 <li><a title="opshin.rewrite.rewrite_import.RewriteImport" href="rewrite/rewrite_import.html#opshin.rewrite.rewrite_import.RewriteImport">RewriteImport</a></li>
 <li><a title="opshin.rewrite.rewrite_import.RewriteLocation" href="rewrite/rewrite_import.html#opshin.rewrite.rewrite_import.RewriteLocation">RewriteLocation</a></li>
@@ -1116,7 +390,7 @@ just a single node.</p>
 <dd>
 <p class="inheritance">
 <em>Inherited from:</em>
-<code><a title="opshin.typed_ast.TypedNodeTransformer" href="typed_ast.html#opshin.typed_ast.TypedNodeTransformer">TypedNodeTransformer</a></code>.<code><a title="opshin.typed_ast.TypedNodeTransformer.visit" href="typed_ast.html#opshin.typed_ast.TypedNodeTransformer.visit">visit</a></code>
+<code><a title="opshin.util.TypedNodeTransformer" href="#opshin.util.TypedNodeTransformer">TypedNodeTransformer</a></code>.<code><a title="opshin.util.TypedNodeTransformer.visit" href="#opshin.util.TypedNodeTransformer.visit">visit</a></code>
 </p>
 <div class="desc inherited"><p>Visit a node.</p></div>
 <details class="source">
@@ -1173,7 +447,7 @@ allows modifications.</p></div>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
-<li><a title="opshin.typed_ast.TypedNodeVisitor" href="typed_ast.html#opshin.typed_ast.TypedNodeVisitor">TypedNodeVisitor</a></li>
+<li><a title="opshin.util.TypedNodeVisitor" href="#opshin.util.TypedNodeVisitor">TypedNodeVisitor</a></li>
 <li>ast.NodeVisitor</li>
 </ul>
 <h3>Subclasses</h3>
@@ -1200,7 +474,7 @@ allows modifications.</p></div>
 <dd>
 <p class="inheritance">
 <em>Inherited from:</em>
-<code><a title="opshin.typed_ast.TypedNodeVisitor" href="typed_ast.html#opshin.typed_ast.TypedNodeVisitor">TypedNodeVisitor</a></code>.<code><a title="opshin.typed_ast.TypedNodeVisitor.visit" href="typed_ast.html#opshin.typed_ast.TypedNodeVisitor.visit">visit</a></code>
+<code><a title="opshin.util.TypedNodeVisitor" href="#opshin.util.TypedNodeVisitor">TypedNodeVisitor</a></code>.<code><a title="opshin.util.TypedNodeVisitor.visit" href="#opshin.util.TypedNodeVisitor.visit">visit</a></code>
 </p>
 <div class="desc inherited"><p>Visit a node.</p></div>
 <details class="source">
@@ -1214,100 +488,6 @@ allows modifications.</p></div>
         if isinstance(e, CompilerError):
             raise e
         raise CompilerError(e, node, self.step)</code></pre>
-</details>
-</dd>
-</dl>
-</dd>
-<dt id="opshin.util.LenImpl"><code class="flex name class">
-<span>class <span class="ident">LenImpl</span></span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">class LenImpl(PolymorphicFunction):
-    def type_from_args(self, args: typing.List[Type]) -&gt; FunctionType:
-        assert (
-            len(args) == 1
-        ), f&#34;&#39;len&#39; takes only one argument, but {len(args)} were given&#34;
-        assert isinstance(
-            args[0], InstanceType
-        ), &#34;Can only determine length of instances&#34;
-        return FunctionType(args, IntegerInstanceType)
-
-    def impl_from_args(self, args: typing.List[Type]) -&gt; plt.AST:
-        arg = args[0]
-        assert isinstance(arg, InstanceType), &#34;Can only determine length of instances&#34;
-        if arg == ByteStringInstanceType:
-            return plt.Lambda([&#34;x&#34;, &#34;_&#34;], plt.LengthOfByteString(plt.Var(&#34;x&#34;)))
-        elif isinstance(arg.typ, ListType):
-            # simple list length function
-            return plt.Lambda(
-                [&#34;x&#34;, &#34;_&#34;],
-                plt.FoldList(
-                    plt.Var(&#34;x&#34;),
-                    plt.Lambda(
-                        [&#34;a&#34;, &#34;_&#34;], plt.AddInteger(plt.Var(&#34;a&#34;), plt.Integer(1))
-                    ),
-                    plt.Integer(0),
-                ),
-            )
-        raise NotImplementedError(f&#34;&#39;len&#39; is not implemented for type {arg}&#34;)</code></pre>
-</details>
-<h3>Ancestors</h3>
-<ul class="hlist">
-<li><a title="opshin.typed_ast.PolymorphicFunction" href="typed_ast.html#opshin.typed_ast.PolymorphicFunction">PolymorphicFunction</a></li>
-</ul>
-<h3>Methods</h3>
-<dl>
-<dt id="opshin.util.LenImpl.impl_from_args"><code class="name flex">
-<span>def <span class="ident">impl_from_args</span></span>(<span>self, args: List[<a title="opshin.typed_ast.Type" href="typed_ast.html#opshin.typed_ast.Type">Type</a>]) ‑> pluthon.pluthon_ast.AST</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def impl_from_args(self, args: typing.List[Type]) -&gt; plt.AST:
-    arg = args[0]
-    assert isinstance(arg, InstanceType), &#34;Can only determine length of instances&#34;
-    if arg == ByteStringInstanceType:
-        return plt.Lambda([&#34;x&#34;, &#34;_&#34;], plt.LengthOfByteString(plt.Var(&#34;x&#34;)))
-    elif isinstance(arg.typ, ListType):
-        # simple list length function
-        return plt.Lambda(
-            [&#34;x&#34;, &#34;_&#34;],
-            plt.FoldList(
-                plt.Var(&#34;x&#34;),
-                plt.Lambda(
-                    [&#34;a&#34;, &#34;_&#34;], plt.AddInteger(plt.Var(&#34;a&#34;), plt.Integer(1))
-                ),
-                plt.Integer(0),
-            ),
-        )
-    raise NotImplementedError(f&#34;&#39;len&#39; is not implemented for type {arg}&#34;)</code></pre>
-</details>
-</dd>
-<dt id="opshin.util.LenImpl.type_from_args"><code class="name flex">
-<span>def <span class="ident">type_from_args</span></span>(<span>self, args: List[<a title="opshin.typed_ast.Type" href="typed_ast.html#opshin.typed_ast.Type">Type</a>]) ‑> <a title="opshin.typed_ast.FunctionType" href="typed_ast.html#opshin.typed_ast.FunctionType">FunctionType</a></span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def type_from_args(self, args: typing.List[Type]) -&gt; FunctionType:
-    assert (
-        len(args) == 1
-    ), f&#34;&#39;len&#39; takes only one argument, but {len(args)} were given&#34;
-    assert isinstance(
-        args[0], InstanceType
-    ), &#34;Can only determine length of instances&#34;
-    return FunctionType(args, IntegerInstanceType)</code></pre>
 </details>
 </dd>
 </dl>
@@ -1329,7 +509,7 @@ allows modifications.</p></div>
 <h3>Ancestors</h3>
 <ul class="hlist">
 <li><a title="opshin.util.CompilingNodeTransformer" href="#opshin.util.CompilingNodeTransformer">CompilingNodeTransformer</a></li>
-<li><a title="opshin.typed_ast.TypedNodeTransformer" href="typed_ast.html#opshin.typed_ast.TypedNodeTransformer">TypedNodeTransformer</a></li>
+<li><a title="opshin.util.TypedNodeTransformer" href="#opshin.util.TypedNodeTransformer">TypedNodeTransformer</a></li>
 <li>ast.NodeTransformer</li>
 <li>ast.NodeVisitor</li>
 </ul>
@@ -1347,590 +527,147 @@ allows modifications.</p></div>
 </dd>
 </dl>
 </dd>
-<dt id="opshin.util.PrintImpl"><code class="flex name class">
-<span>class <span class="ident">PrintImpl</span></span>
+<dt id="opshin.util.TypedNodeTransformer"><code class="flex name class">
+<span>class <span class="ident">TypedNodeTransformer</span></span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>A :class:<code>NodeVisitor</code> subclass that walks the abstract syntax tree and
+allows modification of nodes.</p>
+<p>The <code>NodeTransformer</code> will walk the AST and use the return value of the
+visitor methods to replace or remove the old node.
+If the return value of
+the visitor method is <code>None</code>, the node will be removed from its location,
+otherwise it is replaced with the return value.
+The return value may be the
+original node in which case no replacement takes place.</p>
+<p>Here is an example transformer that rewrites all occurrences of name lookups
+(<code>foo</code>) to <code>data['foo']</code>::</p>
+<p>class RewriteName(NodeTransformer):</p>
+<pre><code>   def visit_Name(self, node):
+       return Subscript(
+           value=Name(id='data', ctx=Load()),
+           slice=Index(value=Str(s=node.id)),
+           ctx=node.ctx
+       )
+</code></pre>
+<p>Keep in mind that if the node you're operating on has child nodes you must
+either transform the child nodes yourself or call the :meth:<code>generic_visit</code>
+method for the node first.</p>
+<p>For nodes that were part of a collection of statements (that applies to all
+statement nodes), the visitor may also return a list of nodes rather than
+just a single node.</p>
+<p>Usually you use the transformer like this::</p>
+<p>node = YourTransformer().visit(node)</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">class PrintImpl(PolymorphicFunction):
-    def type_from_args(self, args: typing.List[Type]) -&gt; FunctionType:
-        assert all(
-            isinstance(typ, InstanceType) for typ in args
-        ), &#34;Can only print instances&#34;
-        return FunctionType(args, NoneInstanceType)
-
-    def impl_from_args(self, args: typing.List[Type]) -&gt; plt.AST:
-        assert all(
-            isinstance(arg, InstanceType) for arg in args
-        ), &#34;Can only stringify instances&#34;
-        stringify_ops = [
-            plt.Apply(arg.typ.stringify(), plt.Var(f&#34;x{i}&#34;), plt.Var(&#34;_&#34;))
-            for i, arg in enumerate(args)
-        ]
-        stringify_ops_joined = sum(((x, plt.Text(&#34; &#34;)) for x in stringify_ops), ())[:-1]
-        print = plt.Lambda(
-            [f&#34;x{i}&#34; for i in range(len(args))] + [&#34;_&#34;],
-            plt.Trace(plt.ConcatString(*stringify_ops_joined), plt.NoneData()),
-        )
-        return print</code></pre>
+<pre><code class="python">class TypedNodeTransformer(ast.NodeTransformer):
+    def visit(self, node):
+        &#34;&#34;&#34;Visit a node.&#34;&#34;&#34;
+        node_class_name = node.__class__.__name__
+        if node_class_name.startswith(&#34;Typed&#34;):
+            node_class_name = node_class_name[len(&#34;Typed&#34;) :]
+        method = &#34;visit_&#34; + node_class_name
+        visitor = getattr(self, method, self.generic_visit)
+        return visitor(node)</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
-<li><a title="opshin.typed_ast.PolymorphicFunction" href="typed_ast.html#opshin.typed_ast.PolymorphicFunction">PolymorphicFunction</a></li>
+<li>ast.NodeTransformer</li>
+<li>ast.NodeVisitor</li>
+</ul>
+<h3>Subclasses</h3>
+<ul class="hlist">
+<li><a title="opshin.util.CompilingNodeTransformer" href="#opshin.util.CompilingNodeTransformer">CompilingNodeTransformer</a></li>
 </ul>
 <h3>Methods</h3>
 <dl>
-<dt id="opshin.util.PrintImpl.impl_from_args"><code class="name flex">
-<span>def <span class="ident">impl_from_args</span></span>(<span>self, args: List[<a title="opshin.typed_ast.Type" href="typed_ast.html#opshin.typed_ast.Type">Type</a>]) ‑> pluthon.pluthon_ast.AST</span>
+<dt id="opshin.util.TypedNodeTransformer.visit"><code class="name flex">
+<span>def <span class="ident">visit</span></span>(<span>self, node)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Visit a node.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def impl_from_args(self, args: typing.List[Type]) -&gt; plt.AST:
-    assert all(
-        isinstance(arg, InstanceType) for arg in args
-    ), &#34;Can only stringify instances&#34;
-    stringify_ops = [
-        plt.Apply(arg.typ.stringify(), plt.Var(f&#34;x{i}&#34;), plt.Var(&#34;_&#34;))
-        for i, arg in enumerate(args)
-    ]
-    stringify_ops_joined = sum(((x, plt.Text(&#34; &#34;)) for x in stringify_ops), ())[:-1]
-    print = plt.Lambda(
-        [f&#34;x{i}&#34; for i in range(len(args))] + [&#34;_&#34;],
-        plt.Trace(plt.ConcatString(*stringify_ops_joined), plt.NoneData()),
-    )
-    return print</code></pre>
-</details>
-</dd>
-<dt id="opshin.util.PrintImpl.type_from_args"><code class="name flex">
-<span>def <span class="ident">type_from_args</span></span>(<span>self, args: List[<a title="opshin.typed_ast.Type" href="typed_ast.html#opshin.typed_ast.Type">Type</a>]) ‑> <a title="opshin.typed_ast.FunctionType" href="typed_ast.html#opshin.typed_ast.FunctionType">FunctionType</a></span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def type_from_args(self, args: typing.List[Type]) -&gt; FunctionType:
-    assert all(
-        isinstance(typ, InstanceType) for typ in args
-    ), &#34;Can only print instances&#34;
-    return FunctionType(args, NoneInstanceType)</code></pre>
+<pre><code class="python">def visit(self, node):
+    &#34;&#34;&#34;Visit a node.&#34;&#34;&#34;
+    node_class_name = node.__class__.__name__
+    if node_class_name.startswith(&#34;Typed&#34;):
+        node_class_name = node_class_name[len(&#34;Typed&#34;) :]
+    method = &#34;visit_&#34; + node_class_name
+    visitor = getattr(self, method, self.generic_visit)
+    return visitor(node)</code></pre>
 </details>
 </dd>
 </dl>
 </dd>
-<dt id="opshin.util.PythonBuiltIn"><code class="flex name class">
-<span>class <span class="ident">PythonBuiltIn</span></span>
-<span>(</span><span>value, names=None, *, module=None, qualname=None, type=None, start=1)</span>
+<dt id="opshin.util.TypedNodeVisitor"><code class="flex name class">
+<span>class <span class="ident">TypedNodeVisitor</span></span>
 </code></dt>
 <dd>
-<div class="desc"><p>An enumeration.</p></div>
+<div class="desc"><p>A node visitor base class that walks the abstract syntax tree and calls a
+visitor function for every node found.
+This function may return a value
+which is forwarded by the <code>visit</code> method.</p>
+<p>This class is meant to be subclassed, with the subclass adding visitor
+methods.</p>
+<p>Per default the visitor functions for the nodes are <code>'visit_'</code> +
+class name of the node.
+So a <code>TryFinally</code> node visit function would
+be <code>visit_TryFinally</code>.
+This behavior can be changed by overriding
+the <code>visit</code> method.
+If no visitor function exists for a node
+(return value <code>None</code>) the <code>generic_visit</code> visitor is used instead.</p>
+<p>Don't use the <code>NodeVisitor</code> if you want to apply changes to nodes during
+traversing.
+For this a special visitor exists (<code>NodeTransformer</code>) that
+allows modifications.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">class PythonBuiltIn(Enum):
-    all = plt.Lambda(
-        [&#34;xs&#34;, &#34;_&#34;],
-        plt.FoldList(
-            plt.Var(&#34;xs&#34;),
-            plt.Lambda([&#34;x&#34;, &#34;a&#34;], plt.And(plt.Var(&#34;x&#34;), plt.Var(&#34;a&#34;))),
-            plt.Bool(True),
-        ),
-    )
-    any = plt.Lambda(
-        [&#34;xs&#34;, &#34;_&#34;],
-        plt.FoldList(
-            plt.Var(&#34;xs&#34;),
-            plt.Lambda([&#34;x&#34;, &#34;a&#34;], plt.Or(plt.Var(&#34;x&#34;), plt.Var(&#34;a&#34;))),
-            plt.Bool(False),
-        ),
-    )
-    abs = plt.Lambda(
-        [&#34;x&#34;, &#34;_&#34;],
-        plt.Ite(
-            plt.LessThanInteger(plt.Var(&#34;x&#34;), plt.Integer(0)),
-            plt.Negate(plt.Var(&#34;x&#34;)),
-            plt.Var(&#34;x&#34;),
-        ),
-    )
-    # maps an integer to a unicode code point and decodes it
-    # reference: https://en.wikipedia.org/wiki/UTF-8#Encoding
-    chr = plt.Lambda(
-        [&#34;x&#34;, &#34;_&#34;],
-        plt.DecodeUtf8(
-            plt.Ite(
-                plt.LessThanInteger(plt.Var(&#34;x&#34;), plt.Integer(0x0)),
-                plt.TraceError(&#34;ValueError: chr() arg not in range(0x110000)&#34;),
-                plt.Ite(
-                    plt.LessThanInteger(plt.Var(&#34;x&#34;), plt.Integer(0x80)),
-                    # encoding of 0x0 - 0x80
-                    plt.ConsByteString(plt.Var(&#34;x&#34;), plt.ByteString(b&#34;&#34;)),
-                    plt.Ite(
-                        plt.LessThanInteger(plt.Var(&#34;x&#34;), plt.Integer(0x800)),
-                        # encoding of 0x80 - 0x800
-                        plt.ConsByteString(
-                            # we do bit manipulation using integer arithmetic here - nice
-                            plt.AddInteger(
-                                plt.Integer(0b110 &lt;&lt; 5),
-                                plt.DivideInteger(plt.Var(&#34;x&#34;), plt.Integer(1 &lt;&lt; 6)),
-                            ),
-                            plt.ConsByteString(
-                                plt.AddInteger(
-                                    plt.Integer(0b10 &lt;&lt; 6),
-                                    plt.ModInteger(plt.Var(&#34;x&#34;), plt.Integer(1 &lt;&lt; 6)),
-                                ),
-                                plt.ByteString(b&#34;&#34;),
-                            ),
-                        ),
-                        plt.Ite(
-                            plt.LessThanInteger(plt.Var(&#34;x&#34;), plt.Integer(0x10000)),
-                            # encoding of 0x800 - 0x10000
-                            plt.ConsByteString(
-                                plt.AddInteger(
-                                    plt.Integer(0b1110 &lt;&lt; 4),
-                                    plt.DivideInteger(
-                                        plt.Var(&#34;x&#34;), plt.Integer(1 &lt;&lt; 12)
-                                    ),
-                                ),
-                                plt.ConsByteString(
-                                    plt.AddInteger(
-                                        plt.Integer(0b10 &lt;&lt; 6),
-                                        plt.DivideInteger(
-                                            plt.ModInteger(
-                                                plt.Var(&#34;x&#34;), plt.Integer(1 &lt;&lt; 12)
-                                            ),
-                                            plt.Integer(1 &lt;&lt; 6),
-                                        ),
-                                    ),
-                                    plt.ConsByteString(
-                                        plt.AddInteger(
-                                            plt.Integer(0b10 &lt;&lt; 6),
-                                            plt.ModInteger(
-                                                plt.Var(&#34;x&#34;), plt.Integer(1 &lt;&lt; 6)
-                                            ),
-                                        ),
-                                        plt.ByteString(b&#34;&#34;),
-                                    ),
-                                ),
-                            ),
-                            plt.Ite(
-                                plt.LessThanInteger(
-                                    plt.Var(&#34;x&#34;), plt.Integer(0x110000)
-                                ),
-                                # encoding of 0x10000 - 0x10FFF
-                                plt.ConsByteString(
-                                    plt.AddInteger(
-                                        plt.Integer(0b11110 &lt;&lt; 3),
-                                        plt.DivideInteger(
-                                            plt.Var(&#34;x&#34;), plt.Integer(1 &lt;&lt; 18)
-                                        ),
-                                    ),
-                                    plt.ConsByteString(
-                                        plt.AddInteger(
-                                            plt.Integer(0b10 &lt;&lt; 6),
-                                            plt.DivideInteger(
-                                                plt.ModInteger(
-                                                    plt.Var(&#34;x&#34;), plt.Integer(1 &lt;&lt; 18)
-                                                ),
-                                                plt.Integer(1 &lt;&lt; 12),
-                                            ),
-                                        ),
-                                        plt.ConsByteString(
-                                            plt.AddInteger(
-                                                plt.Integer(0b10 &lt;&lt; 6),
-                                                plt.DivideInteger(
-                                                    plt.ModInteger(
-                                                        plt.Var(&#34;x&#34;),
-                                                        plt.Integer(1 &lt;&lt; 12),
-                                                    ),
-                                                    plt.Integer(1 &lt;&lt; 6),
-                                                ),
-                                            ),
-                                            plt.ConsByteString(
-                                                plt.AddInteger(
-                                                    plt.Integer(0b10 &lt;&lt; 6),
-                                                    plt.ModInteger(
-                                                        plt.Var(&#34;x&#34;),
-                                                        plt.Integer(1 &lt;&lt; 6),
-                                                    ),
-                                                ),
-                                                plt.ByteString(b&#34;&#34;),
-                                            ),
-                                        ),
-                                    ),
-                                ),
-                                plt.TraceError(
-                                    &#34;ValueError: chr() arg not in range(0x110000)&#34;
-                                ),
-                            ),
-                        ),
-                    ),
-                ),
-            )
-        ),
-    )
-    breakpoint = plt.Lambda([&#34;_&#34;], plt.NoneData())
-    hex = plt.Lambda(
-        [&#34;x&#34;, &#34;_&#34;],
-        plt.DecodeUtf8(
-            plt.Let(
-                [
-                    (
-                        &#34;hexlist&#34;,
-                        plt.RecFun(
-                            plt.Lambda(
-                                [&#34;f&#34;, &#34;i&#34;],
-                                plt.Ite(
-                                    plt.LessThanEqualsInteger(
-                                        plt.Var(&#34;i&#34;), plt.Integer(0)
-                                    ),
-                                    plt.EmptyIntegerList(),
-                                    plt.MkCons(
-                                        plt.Let(
-                                            [
-                                                (
-                                                    &#34;mod&#34;,
-                                                    plt.ModInteger(
-                                                        plt.Var(&#34;i&#34;), plt.Integer(16)
-                                                    ),
-                                                ),
-                                            ],
-                                            plt.AddInteger(
-                                                plt.Var(&#34;mod&#34;),
-                                                plt.IfThenElse(
-                                                    plt.LessThanInteger(
-                                                        plt.Var(&#34;mod&#34;), plt.Integer(10)
-                                                    ),
-                                                    plt.Integer(ord(&#34;0&#34;)),
-                                                    plt.Integer(ord(&#34;a&#34;) - 10),
-                                                ),
-                                            ),
-                                        ),
-                                        plt.Apply(
-                                            plt.Var(&#34;f&#34;),
-                                            plt.Var(&#34;f&#34;),
-                                            plt.DivideInteger(
-                                                plt.Var(&#34;i&#34;), plt.Integer(16)
-                                            ),
-                                        ),
-                                    ),
-                                ),
-                            ),
-                        ),
-                    ),
-                    (
-                        &#34;mkstr&#34;,
-                        plt.Lambda(
-                            [&#34;i&#34;],
-                            plt.FoldList(
-                                plt.Apply(plt.Var(&#34;hexlist&#34;), plt.Var(&#34;i&#34;)),
-                                plt.Lambda(
-                                    [&#34;b&#34;, &#34;i&#34;],
-                                    plt.ConsByteString(plt.Var(&#34;i&#34;), plt.Var(&#34;b&#34;)),
-                                ),
-                                plt.ByteString(b&#34;&#34;),
-                            ),
-                        ),
-                    ),
-                ],
-                plt.Ite(
-                    plt.EqualsInteger(plt.Var(&#34;x&#34;), plt.Integer(0)),
-                    plt.ByteString(b&#34;0x0&#34;),
-                    plt.Ite(
-                        plt.LessThanInteger(plt.Var(&#34;x&#34;), plt.Integer(0)),
-                        plt.ConsByteString(
-                            plt.Integer(ord(&#34;-&#34;)),
-                            plt.AppendByteString(
-                                plt.ByteString(b&#34;0x&#34;),
-                                plt.Apply(plt.Var(&#34;mkstr&#34;), plt.Negate(plt.Var(&#34;x&#34;))),
-                            ),
-                        ),
-                        plt.AppendByteString(
-                            plt.ByteString(b&#34;0x&#34;),
-                            plt.Apply(plt.Var(&#34;mkstr&#34;), plt.Var(&#34;x&#34;)),
-                        ),
-                    ),
-                ),
-            )
-        ),
-    )
-    len = auto()
-    max = plt.Lambda(
-        [&#34;xs&#34;, &#34;_&#34;],
-        plt.FoldList(
-            plt.TailList(plt.Var(&#34;xs&#34;)),
-            plt.Lambda(
-                [&#34;x&#34;, &#34;a&#34;],
-                plt.IfThenElse(
-                    plt.LessThanInteger(plt.Var(&#34;a&#34;), plt.Var(&#34;x&#34;)),
-                    plt.Var(&#34;x&#34;),
-                    plt.Var(&#34;a&#34;),
-                ),
-            ),
-            plt.HeadList(plt.Var(&#34;xs&#34;)),
-        ),
-    )
-    min = plt.Lambda(
-        [&#34;xs&#34;, &#34;_&#34;],
-        plt.FoldList(
-            plt.TailList(plt.Var(&#34;xs&#34;)),
-            plt.Lambda(
-                [&#34;x&#34;, &#34;a&#34;],
-                plt.IfThenElse(
-                    plt.LessThanInteger(plt.Var(&#34;a&#34;), plt.Var(&#34;x&#34;)),
-                    plt.Var(&#34;a&#34;),
-                    plt.Var(&#34;x&#34;),
-                ),
-            ),
-            plt.HeadList(plt.Var(&#34;xs&#34;)),
-        ),
-    )
-    print = auto()
-    # NOTE: only correctly defined for positive y
-    pow = plt.Lambda([&#34;x&#34;, &#34;y&#34;, &#34;_&#34;], PowImpl(plt.Var(&#34;x&#34;), plt.Var(&#34;y&#34;)))
-    oct = plt.Lambda(
-        [&#34;x&#34;, &#34;_&#34;],
-        plt.DecodeUtf8(
-            plt.Let(
-                [
-                    (
-                        &#34;octlist&#34;,
-                        plt.RecFun(
-                            plt.Lambda(
-                                [&#34;f&#34;, &#34;i&#34;],
-                                plt.Ite(
-                                    plt.LessThanEqualsInteger(
-                                        plt.Var(&#34;i&#34;), plt.Integer(0)
-                                    ),
-                                    plt.EmptyIntegerList(),
-                                    plt.MkCons(
-                                        plt.AddInteger(
-                                            plt.ModInteger(
-                                                plt.Var(&#34;i&#34;), plt.Integer(8)
-                                            ),
-                                            plt.Integer(ord(&#34;0&#34;)),
-                                        ),
-                                        plt.Apply(
-                                            plt.Var(&#34;f&#34;),
-                                            plt.Var(&#34;f&#34;),
-                                            plt.DivideInteger(
-                                                plt.Var(&#34;i&#34;), plt.Integer(8)
-                                            ),
-                                        ),
-                                    ),
-                                ),
-                            ),
-                        ),
-                    ),
-                    (
-                        &#34;mkoct&#34;,
-                        plt.Lambda(
-                            [&#34;i&#34;],
-                            plt.FoldList(
-                                plt.Apply(plt.Var(&#34;octlist&#34;), plt.Var(&#34;i&#34;)),
-                                plt.Lambda(
-                                    [&#34;b&#34;, &#34;i&#34;],
-                                    plt.ConsByteString(plt.Var(&#34;i&#34;), plt.Var(&#34;b&#34;)),
-                                ),
-                                plt.ByteString(b&#34;&#34;),
-                            ),
-                        ),
-                    ),
-                ],
-                plt.Ite(
-                    plt.EqualsInteger(plt.Var(&#34;x&#34;), plt.Integer(0)),
-                    plt.ByteString(b&#34;0o0&#34;),
-                    plt.Ite(
-                        plt.LessThanInteger(plt.Var(&#34;x&#34;), plt.Integer(0)),
-                        plt.ConsByteString(
-                            plt.Integer(ord(&#34;-&#34;)),
-                            plt.AppendByteString(
-                                plt.ByteString(b&#34;0o&#34;),
-                                plt.Apply(plt.Var(&#34;mkoct&#34;), plt.Negate(plt.Var(&#34;x&#34;))),
-                            ),
-                        ),
-                        plt.AppendByteString(
-                            plt.ByteString(b&#34;0o&#34;),
-                            plt.Apply(plt.Var(&#34;mkoct&#34;), plt.Var(&#34;x&#34;)),
-                        ),
-                    ),
-                ),
-            )
-        ),
-    )
-    range = plt.Lambda(
-        [&#34;limit&#34;, &#34;_&#34;],
-        plt.Range(plt.Var(&#34;limit&#34;)),
-    )
-    reversed = auto()
-    sum = plt.Lambda(
-        [&#34;xs&#34;, &#34;_&#34;],
-        plt.FoldList(
-            plt.Var(&#34;xs&#34;), plt.BuiltIn(uplc.BuiltInFun.AddInteger), plt.Integer(0)
-        ),
-    )</code></pre>
+<pre><code class="python">class TypedNodeVisitor(ast.NodeVisitor):
+    def visit(self, node):
+        &#34;&#34;&#34;Visit a node.&#34;&#34;&#34;
+        node_class_name = node.__class__.__name__
+        if node_class_name.startswith(&#34;Typed&#34;):
+            node_class_name = node_class_name[len(&#34;Typed&#34;) :]
+        method = &#34;visit_&#34; + node_class_name
+        visitor = getattr(self, method, self.generic_visit)
+        return visitor(node)</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
-<li>enum.Enum</li>
+<li>ast.NodeVisitor</li>
 </ul>
-<h3>Class variables</h3>
-<dl>
-<dt id="opshin.util.PythonBuiltIn.abs"><code class="name">var <span class="ident">abs</span></code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-<dt id="opshin.util.PythonBuiltIn.all"><code class="name">var <span class="ident">all</span></code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-<dt id="opshin.util.PythonBuiltIn.any"><code class="name">var <span class="ident">any</span></code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-<dt id="opshin.util.PythonBuiltIn.breakpoint"><code class="name">var <span class="ident">breakpoint</span></code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-<dt id="opshin.util.PythonBuiltIn.chr"><code class="name">var <span class="ident">chr</span></code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-<dt id="opshin.util.PythonBuiltIn.hex"><code class="name">var <span class="ident">hex</span></code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-<dt id="opshin.util.PythonBuiltIn.len"><code class="name">var <span class="ident">len</span></code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-<dt id="opshin.util.PythonBuiltIn.max"><code class="name">var <span class="ident">max</span></code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-<dt id="opshin.util.PythonBuiltIn.min"><code class="name">var <span class="ident">min</span></code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-<dt id="opshin.util.PythonBuiltIn.oct"><code class="name">var <span class="ident">oct</span></code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-<dt id="opshin.util.PythonBuiltIn.pow"><code class="name">var <span class="ident">pow</span></code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-<dt id="opshin.util.PythonBuiltIn.print"><code class="name">var <span class="ident">print</span></code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-<dt id="opshin.util.PythonBuiltIn.range"><code class="name">var <span class="ident">range</span></code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-<dt id="opshin.util.PythonBuiltIn.reversed"><code class="name">var <span class="ident">reversed</span></code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-<dt id="opshin.util.PythonBuiltIn.sum"><code class="name">var <span class="ident">sum</span></code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-</dl>
-</dd>
-<dt id="opshin.util.ReversedImpl"><code class="flex name class">
-<span>class <span class="ident">ReversedImpl</span></span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">class ReversedImpl(PolymorphicFunction):
-    def type_from_args(self, args: typing.List[Type]) -&gt; FunctionType:
-        assert (
-            len(args) == 1
-        ), f&#34;&#39;reversed&#39; takes only one argument, but {len(args)} were given&#34;
-        typ = args[0]
-        assert isinstance(typ, InstanceType), &#34;Can only reverse instances&#34;
-        assert isinstance(typ.typ, ListType), &#34;Can only reverse instances of lists&#34;
-        # returns list of same type
-        return FunctionType(args, typ)
-
-    def impl_from_args(self, args: typing.List[Type]) -&gt; plt.AST:
-        arg = args[0]
-        assert isinstance(arg, InstanceType), &#34;Can only reverse instances&#34;
-        if isinstance(arg.typ, ListType):
-            empty_l = empty_list(arg.typ.typ)
-            return plt.Lambda(
-                [&#34;xs&#34;, &#34;_&#34;],
-                plt.FoldList(
-                    plt.Var(&#34;xs&#34;),
-                    plt.Lambda([&#34;a&#34;, &#34;x&#34;], plt.MkCons(plt.Var(&#34;x&#34;), plt.Var(&#34;a&#34;))),
-                    empty_l,
-                ),
-            )
-        raise NotImplementedError(f&#34;&#39;reversed&#39; is not implemented for type {arg}&#34;)</code></pre>
-</details>
-<h3>Ancestors</h3>
+<h3>Subclasses</h3>
 <ul class="hlist">
-<li><a title="opshin.typed_ast.PolymorphicFunction" href="typed_ast.html#opshin.typed_ast.PolymorphicFunction">PolymorphicFunction</a></li>
+<li><a title="opshin.type_inference.TypeCheckVisitor" href="type_inference.html#opshin.type_inference.TypeCheckVisitor">TypeCheckVisitor</a></li>
+<li><a title="opshin.util.CompilingNodeVisitor" href="#opshin.util.CompilingNodeVisitor">CompilingNodeVisitor</a></li>
 </ul>
 <h3>Methods</h3>
 <dl>
-<dt id="opshin.util.ReversedImpl.impl_from_args"><code class="name flex">
-<span>def <span class="ident">impl_from_args</span></span>(<span>self, args: List[<a title="opshin.typed_ast.Type" href="typed_ast.html#opshin.typed_ast.Type">Type</a>]) ‑> pluthon.pluthon_ast.AST</span>
+<dt id="opshin.util.TypedNodeVisitor.visit"><code class="name flex">
+<span>def <span class="ident">visit</span></span>(<span>self, node)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Visit a node.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def impl_from_args(self, args: typing.List[Type]) -&gt; plt.AST:
-    arg = args[0]
-    assert isinstance(arg, InstanceType), &#34;Can only reverse instances&#34;
-    if isinstance(arg.typ, ListType):
-        empty_l = empty_list(arg.typ.typ)
-        return plt.Lambda(
-            [&#34;xs&#34;, &#34;_&#34;],
-            plt.FoldList(
-                plt.Var(&#34;xs&#34;),
-                plt.Lambda([&#34;a&#34;, &#34;x&#34;], plt.MkCons(plt.Var(&#34;x&#34;), plt.Var(&#34;a&#34;))),
-                empty_l,
-            ),
-        )
-    raise NotImplementedError(f&#34;&#39;reversed&#39; is not implemented for type {arg}&#34;)</code></pre>
-</details>
-</dd>
-<dt id="opshin.util.ReversedImpl.type_from_args"><code class="name flex">
-<span>def <span class="ident">type_from_args</span></span>(<span>self, args: List[<a title="opshin.typed_ast.Type" href="typed_ast.html#opshin.typed_ast.Type">Type</a>]) ‑> <a title="opshin.typed_ast.FunctionType" href="typed_ast.html#opshin.typed_ast.FunctionType">FunctionType</a></span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def type_from_args(self, args: typing.List[Type]) -&gt; FunctionType:
-    assert (
-        len(args) == 1
-    ), f&#34;&#39;reversed&#39; takes only one argument, but {len(args)} were given&#34;
-    typ = args[0]
-    assert isinstance(typ, InstanceType), &#34;Can only reverse instances&#34;
-    assert isinstance(typ.typ, ListType), &#34;Can only reverse instances of lists&#34;
-    # returns list of same type
-    return FunctionType(args, typ)</code></pre>
+<pre><code class="python">def visit(self, node):
+    &#34;&#34;&#34;Visit a node.&#34;&#34;&#34;
+    node_class_name = node.__class__.__name__
+    if node_class_name.startswith(&#34;Typed&#34;):
+        node_class_name = node_class_name[len(&#34;Typed&#34;) :]
+    method = &#34;visit_&#34; + node_class_name
+    visitor = getattr(self, method, self.generic_visit)
+    return visitor(node)</code></pre>
 </details>
 </dd>
 </dl>
@@ -2003,14 +740,12 @@ setTimeout(() => input.focus(), 100);
 </ul>
 </li>
 <li><h3><a href="#header-functions">Functions</a></h3>
-<ul class="two-column">
-<li><code><a title="opshin.util.ByteStrIntMulImpl" href="#opshin.util.ByteStrIntMulImpl">ByteStrIntMulImpl</a></code></li>
-<li><code><a title="opshin.util.PowImpl" href="#opshin.util.PowImpl">PowImpl</a></code></li>
-<li><code><a title="opshin.util.StrIntMulImpl" href="#opshin.util.StrIntMulImpl">StrIntMulImpl</a></code></li>
+<ul class="">
+<li><code><a title="opshin.util.FrozenFrozenList" href="#opshin.util.FrozenFrozenList">FrozenFrozenList</a></code></li>
 <li><code><a title="opshin.util.data_from_json" href="#opshin.util.data_from_json">data_from_json</a></code></li>
 <li><code><a title="opshin.util.datum_to_cbor" href="#opshin.util.datum_to_cbor">datum_to_cbor</a></code></li>
 <li><code><a title="opshin.util.datum_to_json" href="#opshin.util.datum_to_json">datum_to_json</a></code></li>
-<li><code><a title="opshin.util.repeated_addition" href="#opshin.util.repeated_addition">repeated_addition</a></code></li>
+<li><code><a title="opshin.util.distinct" href="#opshin.util.distinct">distinct</a></code></li>
 </ul>
 </li>
 <li><h3><a href="#header-classes">Classes</a></h3>
@@ -2033,50 +768,21 @@ setTimeout(() => input.focus(), 100);
 </ul>
 </li>
 <li>
-<h4><code><a title="opshin.util.LenImpl" href="#opshin.util.LenImpl">LenImpl</a></code></h4>
-<ul class="">
-<li><code><a title="opshin.util.LenImpl.impl_from_args" href="#opshin.util.LenImpl.impl_from_args">impl_from_args</a></code></li>
-<li><code><a title="opshin.util.LenImpl.type_from_args" href="#opshin.util.LenImpl.type_from_args">type_from_args</a></code></li>
-</ul>
-</li>
-<li>
 <h4><code><a title="opshin.util.NoOp" href="#opshin.util.NoOp">NoOp</a></code></h4>
 <ul class="">
 <li><code><a title="opshin.util.NoOp.visit" href="#opshin.util.NoOp.visit">visit</a></code></li>
 </ul>
 </li>
 <li>
-<h4><code><a title="opshin.util.PrintImpl" href="#opshin.util.PrintImpl">PrintImpl</a></code></h4>
+<h4><code><a title="opshin.util.TypedNodeTransformer" href="#opshin.util.TypedNodeTransformer">TypedNodeTransformer</a></code></h4>
 <ul class="">
-<li><code><a title="opshin.util.PrintImpl.impl_from_args" href="#opshin.util.PrintImpl.impl_from_args">impl_from_args</a></code></li>
-<li><code><a title="opshin.util.PrintImpl.type_from_args" href="#opshin.util.PrintImpl.type_from_args">type_from_args</a></code></li>
+<li><code><a title="opshin.util.TypedNodeTransformer.visit" href="#opshin.util.TypedNodeTransformer.visit">visit</a></code></li>
 </ul>
 </li>
 <li>
-<h4><code><a title="opshin.util.PythonBuiltIn" href="#opshin.util.PythonBuiltIn">PythonBuiltIn</a></code></h4>
-<ul class="two-column">
-<li><code><a title="opshin.util.PythonBuiltIn.abs" href="#opshin.util.PythonBuiltIn.abs">abs</a></code></li>
-<li><code><a title="opshin.util.PythonBuiltIn.all" href="#opshin.util.PythonBuiltIn.all">all</a></code></li>
-<li><code><a title="opshin.util.PythonBuiltIn.any" href="#opshin.util.PythonBuiltIn.any">any</a></code></li>
-<li><code><a title="opshin.util.PythonBuiltIn.breakpoint" href="#opshin.util.PythonBuiltIn.breakpoint">breakpoint</a></code></li>
-<li><code><a title="opshin.util.PythonBuiltIn.chr" href="#opshin.util.PythonBuiltIn.chr">chr</a></code></li>
-<li><code><a title="opshin.util.PythonBuiltIn.hex" href="#opshin.util.PythonBuiltIn.hex">hex</a></code></li>
-<li><code><a title="opshin.util.PythonBuiltIn.len" href="#opshin.util.PythonBuiltIn.len">len</a></code></li>
-<li><code><a title="opshin.util.PythonBuiltIn.max" href="#opshin.util.PythonBuiltIn.max">max</a></code></li>
-<li><code><a title="opshin.util.PythonBuiltIn.min" href="#opshin.util.PythonBuiltIn.min">min</a></code></li>
-<li><code><a title="opshin.util.PythonBuiltIn.oct" href="#opshin.util.PythonBuiltIn.oct">oct</a></code></li>
-<li><code><a title="opshin.util.PythonBuiltIn.pow" href="#opshin.util.PythonBuiltIn.pow">pow</a></code></li>
-<li><code><a title="opshin.util.PythonBuiltIn.print" href="#opshin.util.PythonBuiltIn.print">print</a></code></li>
-<li><code><a title="opshin.util.PythonBuiltIn.range" href="#opshin.util.PythonBuiltIn.range">range</a></code></li>
-<li><code><a title="opshin.util.PythonBuiltIn.reversed" href="#opshin.util.PythonBuiltIn.reversed">reversed</a></code></li>
-<li><code><a title="opshin.util.PythonBuiltIn.sum" href="#opshin.util.PythonBuiltIn.sum">sum</a></code></li>
-</ul>
-</li>
-<li>
-<h4><code><a title="opshin.util.ReversedImpl" href="#opshin.util.ReversedImpl">ReversedImpl</a></code></h4>
+<h4><code><a title="opshin.util.TypedNodeVisitor" href="#opshin.util.TypedNodeVisitor">TypedNodeVisitor</a></code></h4>
 <ul class="">
-<li><code><a title="opshin.util.ReversedImpl.impl_from_args" href="#opshin.util.ReversedImpl.impl_from_args">impl_from_args</a></code></li>
-<li><code><a title="opshin.util.ReversedImpl.type_from_args" href="#opshin.util.ReversedImpl.type_from_args">type_from_args</a></code></li>
+<li><code><a title="opshin.util.TypedNodeVisitor.visit" href="#opshin.util.TypedNodeVisitor.visit">visit</a></code></li>
 </ul>
 </li>
 </ul>

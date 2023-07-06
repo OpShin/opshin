@@ -72,7 +72,7 @@ fill="currentColor" class="octo-body"></path>
 from copy import copy
 from collections import defaultdict
 
-from ..type_inference import INITIAL_SCOPE
+from ..type_inference import INITIAL_SCOPE, PolymorphicFunctionInstanceType
 from ..util import CompilingNodeTransformer, CompilingNodeVisitor
 
 &#34;&#34;&#34;
@@ -87,7 +87,9 @@ class ShallowNameDefCollector(CompilingNodeVisitor):
         self.vars = set()
 
     def visit_Name(self, node: Name) -&gt; None:
-        if isinstance(node.ctx, Store):
+        if isinstance(node.ctx, Store) or isinstance(
+            node.typ, PolymorphicFunctionInstanceType
+        ):
             self.vars.add(node.id)
 
     def visit_ClassDef(self, node: ClassDef):
@@ -317,7 +319,7 @@ just a single node.</p>
 <h3>Ancestors</h3>
 <ul class="hlist">
 <li><a title="opshin.util.CompilingNodeTransformer" href="../util.html#opshin.util.CompilingNodeTransformer">CompilingNodeTransformer</a></li>
-<li><a title="opshin.typed_ast.TypedNodeTransformer" href="../typed_ast.html#opshin.typed_ast.TypedNodeTransformer">TypedNodeTransformer</a></li>
+<li><a title="opshin.util.TypedNodeTransformer" href="../util.html#opshin.util.TypedNodeTransformer">TypedNodeTransformer</a></li>
 <li>ast.NodeTransformer</li>
 <li>ast.NodeVisitor</li>
 </ul>
@@ -543,7 +545,9 @@ allows modifications.</p></div>
         self.vars = set()
 
     def visit_Name(self, node: Name) -&gt; None:
-        if isinstance(node.ctx, Store):
+        if isinstance(node.ctx, Store) or isinstance(
+            node.typ, PolymorphicFunctionInstanceType
+        ):
             self.vars.add(node.id)
 
     def visit_ClassDef(self, node: ClassDef):
@@ -557,7 +561,7 @@ allows modifications.</p></div>
 <h3>Ancestors</h3>
 <ul class="hlist">
 <li><a title="opshin.util.CompilingNodeVisitor" href="../util.html#opshin.util.CompilingNodeVisitor">CompilingNodeVisitor</a></li>
-<li><a title="opshin.typed_ast.TypedNodeVisitor" href="../typed_ast.html#opshin.typed_ast.TypedNodeVisitor">TypedNodeVisitor</a></li>
+<li><a title="opshin.util.TypedNodeVisitor" href="../util.html#opshin.util.TypedNodeVisitor">TypedNodeVisitor</a></li>
 <li>ast.NodeVisitor</li>
 </ul>
 <h3>Class variables</h3>
@@ -617,7 +621,9 @@ allows modifications.</p></div>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def visit_Name(self, node: Name) -&gt; None:
-    if isinstance(node.ctx, Store):
+    if isinstance(node.ctx, Store) or isinstance(
+        node.typ, PolymorphicFunctionInstanceType
+    ):
         self.vars.add(node.id)</code></pre>
 </details>
 </dd>

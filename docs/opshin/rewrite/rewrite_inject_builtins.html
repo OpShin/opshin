@@ -72,10 +72,9 @@ fill="currentColor" class="octo-body"></path>
 
 from ..typed_ast import *
 from ..util import (
-    PythonBuiltIn,
-    PythonBuiltInTypes,
     CompilingNodeTransformer,
 )
+from ..fun_impls import PythonBuiltIn, PythonBuiltInTypes
 
 &#34;&#34;&#34;
 Inject initialising the builtin functions
@@ -172,7 +171,7 @@ just a single node.</p>
 <h3>Ancestors</h3>
 <ul class="hlist">
 <li><a title="opshin.util.CompilingNodeTransformer" href="../util.html#opshin.util.CompilingNodeTransformer">CompilingNodeTransformer</a></li>
-<li><a title="opshin.typed_ast.TypedNodeTransformer" href="../typed_ast.html#opshin.typed_ast.TypedNodeTransformer">TypedNodeTransformer</a></li>
+<li><a title="opshin.util.TypedNodeTransformer" href="../util.html#opshin.util.TypedNodeTransformer">TypedNodeTransformer</a></li>
 <li>ast.NodeTransformer</li>
 <li>ast.NodeVisitor</li>
 </ul>

@@ -995,6 +995,7 @@ def validator(x: Dict[str, int]) -&gt; str:
         self.assertEqual(ret, exp, &#34;dict string formatting returned wrong value&#34;)
 
     @given(x=uplc_data)
+    @example(PlutusConstr(0, [PlutusByteString(b&#34;&#39;&#34;)]))
     @hypothesis.settings(deadline=None)
     def test_fmt_any(self, x):
         x_data = pycardano.RawPlutusData(cbor2.loads(uplc.plutus_cbor_dumps(x)))
@@ -1013,6 +1014,7 @@ def validator(x: Anything) -&gt; str:
         ret = uplc_eval(f).value.decode(&#34;utf8&#34;)
         if &#34;\\&#39;&#34; in ret:
             RawPlutusData = pycardano.RawPlutusData
+            CBORTag = cbor2.CBORTag
             self.assertEqual(
                 eval(ret), x_data, &#34;raw cbor string formatting returned wrong value&#34;
             )
@@ -1970,6 +1972,7 @@ def validator(x: Dict[str, int]) -&gt; str:
         self.assertEqual(ret, exp, &#34;dict string formatting returned wrong value&#34;)
 
     @given(x=uplc_data)
+    @example(PlutusConstr(0, [PlutusByteString(b&#34;&#39;&#34;)]))
     @hypothesis.settings(deadline=None)
     def test_fmt_any(self, x):
         x_data = pycardano.RawPlutusData(cbor2.loads(uplc.plutus_cbor_dumps(x)))
@@ -1988,6 +1991,7 @@ def validator(x: Anything) -&gt; str:
         ret = uplc_eval(f).value.decode(&#34;utf8&#34;)
         if &#34;\\&#39;&#34; in ret:
             RawPlutusData = pycardano.RawPlutusData
+            CBORTag = cbor2.CBORTag
             self.assertEqual(
                 eval(ret), x_data, &#34;raw cbor string formatting returned wrong value&#34;
             )
@@ -2250,6 +2254,7 @@ def validator(x: str, y: str) -&gt; bool:
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">    @given(x=uplc_data)
+    @example(PlutusConstr(0, [PlutusByteString(b&#34;&#39;&#34;)]))
     @hypothesis.settings(deadline=None)
     def test_fmt_any(self, x):
         x_data = pycardano.RawPlutusData(cbor2.loads(uplc.plutus_cbor_dumps(x)))
@@ -2268,6 +2273,7 @@ def validator(x: Anything) -&gt; str:
         ret = uplc_eval(f).value.decode(&#34;utf8&#34;)
         if &#34;\\&#39;&#34; in ret:
             RawPlutusData = pycardano.RawPlutusData
+            CBORTag = cbor2.CBORTag
             self.assertEqual(
                 eval(ret), x_data, &#34;raw cbor string formatting returned wrong value&#34;
             )

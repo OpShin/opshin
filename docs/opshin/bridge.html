@@ -90,7 +90,7 @@ def to_uplc_builtin(a):
             list([(to_uplc_builtin(k), to_uplc_builtin(v)) for k, v in a])
         )
     if isinstance(a, PlutusData):
-        return uplc.ast.data_from_cbor(a.to_cbor(&#34;bytes&#34;))
+        return uplc.ast.data_from_cbor(a.to_cbor())
 
 
 def to_python(a):
@@ -177,7 +177,7 @@ def wraps_builtin(func):
             list([(to_uplc_builtin(k), to_uplc_builtin(v)) for k, v in a])
         )
     if isinstance(a, PlutusData):
-        return uplc.ast.data_from_cbor(a.to_cbor(&#34;bytes&#34;))</code></pre>
+        return uplc.ast.data_from_cbor(a.to_cbor())</code></pre>
 </details>
 </dd>
 <dt id="opshin.bridge.wraps_builtin"><code class="name flex">

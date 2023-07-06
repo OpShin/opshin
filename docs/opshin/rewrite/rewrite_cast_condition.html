@@ -6,9 +6,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
 <meta name="generator" content="pdoc 0.10.0" />
 <link rel="icon" href="https://raw.githubusercontent.com/OpShin/opshin/dev/docs/opshin_32.png" sizes="32x32" type="image/png">
-<title>opshin.std.bitmap API documentation</title>
-<meta name="description" content="The BitMap library provides tools to interact with a highly efficient datastructure
-that stores boolean values with minimal overhead (1 bit per bool)" />
+<title>opshin.rewrite.rewrite_cast_condition API documentation</title>
+<meta name="description" content="" />
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/sanitize.min.css" integrity="sha256-PK9q560IAAa6WVRRh76LtCaI8pjTJ2z11v0miyNNjrs=" crossorigin>
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/typography.min.css" integrity="sha256-7l/o7C8jubJiy74VsKTidCy1yBkRtiUGbVkYBylBqUg=" crossorigin>
 <link rel="stylesheet preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/styles/github.min.css" crossorigin>
@@ -62,101 +61,59 @@ fill="currentColor" class="octo-body"></path>
 </a>
 <article id="content">
 <header>
-<h1 class="title">Module <code>opshin.std.bitmap</code></h1>
+<h1 class="title">Module <code>opshin.rewrite.rewrite_cast_condition</code></h1>
 </header>
 <section id="section-intro">
-<p>The BitMap library provides tools to interact with a highly efficient datastructure
-that stores boolean values with minimal overhead (1 bit per bool)</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">&#34;&#34;&#34;
-The BitMap library provides tools to interact with a highly efficient datastructure
-that stores boolean values with minimal overhead (1 bit per bool)
+<pre><code class="python">from copy import copy
+
+from ast import *
+
+from ..util import CompilingNodeTransformer
+
 &#34;&#34;&#34;
-BitMap = bytes
+Rewrites all occurences of conditions to an implicit cast to bool
+&#34;&#34;&#34;
 
-BYTE_SIZE = 8
-POWS = [2**i for i in range(BYTE_SIZE)]
-
-
-def init_bitmap(size: int) -&gt; BitMap:
-    &#34;&#34;&#34;Creates an empty bitmap with size bits&#34;&#34;&#34;
-    return b&#34;\x00&#34; * ((size + BYTE_SIZE - 1) // BYTE_SIZE)
+SPECIAL_BOOL = &#34;~bool&#34;
 
 
-def test_bitmap(bmp: BitMap, i: int) -&gt; bool:
-    &#34;&#34;&#34;Tests if bit at position i has been set to 1&#34;&#34;&#34;
-    byte = bmp[i // BYTE_SIZE]
-    bit = (byte // POWS[(BYTE_SIZE - 1) - (i % BYTE_SIZE)]) % 2
-    return bit == 1
+class RewriteConditions(CompilingNodeTransformer):
+    step = &#34;Rewriting conditions to bools&#34;
 
+    def visit_Module(self, node: Module) -&gt; Module:
+        node.body.insert(0, Assign([Name(SPECIAL_BOOL, Store())], Name(&#34;bool&#34;, Load())))
+        return self.generic_visit(node)
 
-def _set_bitmap(bmp: BitMap, i: int, v: bool) -&gt; BitMap:
-    &#34;&#34;&#34;
-    Sets a bit in the bitmap to the specified value
-    i: index of the value to set
-    v: value of the bit to be set (0 or 1)
-    &#34;&#34;&#34;
-    scaled_i = i // BYTE_SIZE
-    byte = bmp[scaled_i]
-    powi = POWS[(BYTE_SIZE - 1) - (i % BYTE_SIZE)]
-    bit = (byte // powi) % 2
-    if bit == v:
-        new_byte = byte
-    elif not v:
-        # v == 0
-        new_byte = byte - powi
-    else:
-        # v == 1
-        new_byte = byte + powi
-    return bmp[:scaled_i] + bytes([new_byte]) + bmp[scaled_i + 1 :]
+    def visit_If(self, node: If) -&gt; If:
+        if_cp = copy(node)
+        if_cp.test = Call(Name(SPECIAL_BOOL, Load()), [node.test], [])
+        return self.generic_visit(if_cp)
 
+    def visit_IfExp(self, node: IfExp) -&gt; IfExp:
+        if_cp = copy(node)
+        if_cp.test = Call(Name(SPECIAL_BOOL, Load()), [node.test], [])
+        return self.generic_visit(if_cp)
 
-def set_bitmap(bmp: BitMap, i: int) -&gt; BitMap:
-    &#34;&#34;&#34;Sets a bit in the bitmap to 1&#34;&#34;&#34;
-    return _set_bitmap(bmp, i, True)
+    def visit_While(self, node: While) -&gt; While:
+        while_cp = copy(node)
+        while_cp.test = Call(Name(SPECIAL_BOOL, Load()), [node.test], [])
+        return self.generic_visit(while_cp)
 
+    def visit_BoolOp(self, node: BoolOp) -&gt; BoolOp:
+        bo_cp = copy(node)
+        bo_cp.values = [
+            Call(Name(SPECIAL_BOOL, Load()), [self.visit(v)], []) for v in bo_cp.values
+        ]
+        return self.generic_visit(bo_cp)
 
-def reset_bitmap(bmp: BitMap, i: int) -&gt; BitMap:
-    &#34;&#34;&#34;Sets a bit in the bitmap to 0&#34;&#34;&#34;
-    return _set_bitmap(bmp, i, False)
-
-
-def flip_bitmap(bmp: BitMap, i: int) -&gt; BitMap:
-    &#34;&#34;&#34;Flips a bit in the bitmap&#34;&#34;&#34;
-    scaled_i = i // BYTE_SIZE
-    byte = bmp[scaled_i]
-    powi = POWS[(BYTE_SIZE - 1) - (i % BYTE_SIZE)]
-    bit = (byte // powi) % 2
-    if bit == 1:
-        # v == 0
-        new_byte = byte - powi
-    else:
-        # v == 1
-        new_byte = byte + powi
-    return bmp[:scaled_i] + bytes([new_byte]) + bmp[scaled_i + 1 :]
-
-
-def size_bitmap(bmp: BitMap) -&gt; int:
-    &#34;&#34;&#34;Returns the size of the bitmap in bits&#34;&#34;&#34;
-    return len(bmp) * BYTE_SIZE
-
-
-def any_bitmap(b: BitMap) -&gt; bool:
-    &#34;&#34;&#34;Returns whether any bit was set to 1&#34;&#34;&#34;
-    return b != (b&#34;\x00&#34; * len(b))
-
-
-def all_bitmap(b: BitMap) -&gt; bool:
-    &#34;&#34;&#34;Returns whether all bits were set to 1&#34;&#34;&#34;
-    return b == (b&#34;\xFF&#34; * len(b))
-
-
-def none_bitmap(b: BitMap) -&gt; bool:
-    &#34;&#34;&#34;Returns whether no bits were set to 1&#34;&#34;&#34;
-    return b == (b&#34;\x00&#34; * len(b))</code></pre>
+    def visit_Assert(self, node: Assert) -&gt; Assert:
+        assert_cp = copy(node)
+        assert_cp.test = Call(Name(SPECIAL_BOOL, Load()), [node.test], [])
+        return self.generic_visit(assert_cp)</code></pre>
 </details>
 </section>
 <section>
@@ -164,149 +121,199 @@ def none_bitmap(b: BitMap) -&gt; bool:
 <section>
 </section>
 <section>
-<h2 class="section-title" id="header-functions">Functions</h2>
+</section>
+<section>
+<h2 class="section-title" id="header-classes">Classes</h2>
 <dl>
-<dt id="opshin.std.bitmap.all_bitmap"><code class="name flex">
-<span>def <span class="ident">all_bitmap</span></span>(<span>b: bytes) ‑> bool</span>
+<dt id="opshin.rewrite.rewrite_cast_condition.RewriteConditions"><code class="flex name class">
+<span>class <span class="ident">RewriteConditions</span></span>
 </code></dt>
 <dd>
-<div class="desc"><p>Returns whether all bits were set to 1</p></div>
+<div class="desc"><p>A :class:<code>NodeVisitor</code> subclass that walks the abstract syntax tree and
+allows modification of nodes.</p>
+<p>The <code>NodeTransformer</code> will walk the AST and use the return value of the
+visitor methods to replace or remove the old node.
+If the return value of
+the visitor method is <code>None</code>, the node will be removed from its location,
+otherwise it is replaced with the return value.
+The return value may be the
+original node in which case no replacement takes place.</p>
+<p>Here is an example transformer that rewrites all occurrences of name lookups
+(<code>foo</code>) to <code>data['foo']</code>::</p>
+<p>class RewriteName(NodeTransformer):</p>
+<pre><code>   def visit_Name(self, node):
+       return Subscript(
+           value=Name(id='data', ctx=Load()),
+           slice=Index(value=Str(s=node.id)),
+           ctx=node.ctx
+       )
+</code></pre>
+<p>Keep in mind that if the node you're operating on has child nodes you must
+either transform the child nodes yourself or call the :meth:<code>generic_visit</code>
+method for the node first.</p>
+<p>For nodes that were part of a collection of statements (that applies to all
+statement nodes), the visitor may also return a list of nodes rather than
+just a single node.</p>
+<p>Usually you use the transformer like this::</p>
+<p>node = YourTransformer().visit(node)</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def all_bitmap(b: BitMap) -&gt; bool:
-    &#34;&#34;&#34;Returns whether all bits were set to 1&#34;&#34;&#34;
-    return b == (b&#34;\xFF&#34; * len(b))</code></pre>
+<pre><code class="python">class RewriteConditions(CompilingNodeTransformer):
+    step = &#34;Rewriting conditions to bools&#34;
+
+    def visit_Module(self, node: Module) -&gt; Module:
+        node.body.insert(0, Assign([Name(SPECIAL_BOOL, Store())], Name(&#34;bool&#34;, Load())))
+        return self.generic_visit(node)
+
+    def visit_If(self, node: If) -&gt; If:
+        if_cp = copy(node)
+        if_cp.test = Call(Name(SPECIAL_BOOL, Load()), [node.test], [])
+        return self.generic_visit(if_cp)
+
+    def visit_IfExp(self, node: IfExp) -&gt; IfExp:
+        if_cp = copy(node)
+        if_cp.test = Call(Name(SPECIAL_BOOL, Load()), [node.test], [])
+        return self.generic_visit(if_cp)
+
+    def visit_While(self, node: While) -&gt; While:
+        while_cp = copy(node)
+        while_cp.test = Call(Name(SPECIAL_BOOL, Load()), [node.test], [])
+        return self.generic_visit(while_cp)
+
+    def visit_BoolOp(self, node: BoolOp) -&gt; BoolOp:
+        bo_cp = copy(node)
+        bo_cp.values = [
+            Call(Name(SPECIAL_BOOL, Load()), [self.visit(v)], []) for v in bo_cp.values
+        ]
+        return self.generic_visit(bo_cp)
+
+    def visit_Assert(self, node: Assert) -&gt; Assert:
+        assert_cp = copy(node)
+        assert_cp.test = Call(Name(SPECIAL_BOOL, Load()), [node.test], [])
+        return self.generic_visit(assert_cp)</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li><a title="opshin.util.CompilingNodeTransformer" href="../util.html#opshin.util.CompilingNodeTransformer">CompilingNodeTransformer</a></li>
+<li><a title="opshin.util.TypedNodeTransformer" href="../util.html#opshin.util.TypedNodeTransformer">TypedNodeTransformer</a></li>
+<li>ast.NodeTransformer</li>
+<li>ast.NodeVisitor</li>
+</ul>
+<h3>Class variables</h3>
+<dl>
+<dt id="opshin.rewrite.rewrite_cast_condition.RewriteConditions.step"><code class="name">var <span class="ident">step</span></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+</dl>
+<h3>Methods</h3>
+<dl>
+<dt id="opshin.rewrite.rewrite_cast_condition.RewriteConditions.visit"><code class="name flex">
+<span>def <span class="ident">visit</span></span>(<span>self, node)</span>
+</code></dt>
+<dd>
+<p class="inheritance">
+<em>Inherited from:</em>
+<code><a title="opshin.util.CompilingNodeTransformer" href="../util.html#opshin.util.CompilingNodeTransformer">CompilingNodeTransformer</a></code>.<code><a title="opshin.util.CompilingNodeTransformer.visit" href="../util.html#opshin.util.CompilingNodeTransformer.visit">visit</a></code>
+</p>
+<div class="desc inherited"><p>Visit a node.</p></div>
+</dd>
+<dt id="opshin.rewrite.rewrite_cast_condition.RewriteConditions.visit_Assert"><code class="name flex">
+<span>def <span class="ident">visit_Assert</span></span>(<span>self, node: _ast.Assert) ‑> _ast.Assert</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def visit_Assert(self, node: Assert) -&gt; Assert:
+    assert_cp = copy(node)
+    assert_cp.test = Call(Name(SPECIAL_BOOL, Load()), [node.test], [])
+    return self.generic_visit(assert_cp)</code></pre>
 </details>
 </dd>
-<dt id="opshin.std.bitmap.any_bitmap"><code class="name flex">
-<span>def <span class="ident">any_bitmap</span></span>(<span>b: bytes) ‑> bool</span>
+<dt id="opshin.rewrite.rewrite_cast_condition.RewriteConditions.visit_BoolOp"><code class="name flex">
+<span>def <span class="ident">visit_BoolOp</span></span>(<span>self, node: _ast.BoolOp) ‑> _ast.BoolOp</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Returns whether any bit was set to 1</p></div>
+<div class="desc"></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def any_bitmap(b: BitMap) -&gt; bool:
-    &#34;&#34;&#34;Returns whether any bit was set to 1&#34;&#34;&#34;
-    return b != (b&#34;\x00&#34; * len(b))</code></pre>
+<pre><code class="python">def visit_BoolOp(self, node: BoolOp) -&gt; BoolOp:
+    bo_cp = copy(node)
+    bo_cp.values = [
+        Call(Name(SPECIAL_BOOL, Load()), [self.visit(v)], []) for v in bo_cp.values
+    ]
+    return self.generic_visit(bo_cp)</code></pre>
 </details>
 </dd>
-<dt id="opshin.std.bitmap.flip_bitmap"><code class="name flex">
-<span>def <span class="ident">flip_bitmap</span></span>(<span>bmp: bytes, i: int) ‑> bytes</span>
+<dt id="opshin.rewrite.rewrite_cast_condition.RewriteConditions.visit_If"><code class="name flex">
+<span>def <span class="ident">visit_If</span></span>(<span>self, node: _ast.If) ‑> _ast.If</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Flips a bit in the bitmap</p></div>
+<div class="desc"></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def flip_bitmap(bmp: BitMap, i: int) -&gt; BitMap:
-    &#34;&#34;&#34;Flips a bit in the bitmap&#34;&#34;&#34;
-    scaled_i = i // BYTE_SIZE
-    byte = bmp[scaled_i]
-    powi = POWS[(BYTE_SIZE - 1) - (i % BYTE_SIZE)]
-    bit = (byte // powi) % 2
-    if bit == 1:
-        # v == 0
-        new_byte = byte - powi
-    else:
-        # v == 1
-        new_byte = byte + powi
-    return bmp[:scaled_i] + bytes([new_byte]) + bmp[scaled_i + 1 :]</code></pre>
+<pre><code class="python">def visit_If(self, node: If) -&gt; If:
+    if_cp = copy(node)
+    if_cp.test = Call(Name(SPECIAL_BOOL, Load()), [node.test], [])
+    return self.generic_visit(if_cp)</code></pre>
 </details>
 </dd>
-<dt id="opshin.std.bitmap.init_bitmap"><code class="name flex">
-<span>def <span class="ident">init_bitmap</span></span>(<span>size: int) ‑> bytes</span>
+<dt id="opshin.rewrite.rewrite_cast_condition.RewriteConditions.visit_IfExp"><code class="name flex">
+<span>def <span class="ident">visit_IfExp</span></span>(<span>self, node: _ast.IfExp) ‑> _ast.IfExp</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Creates an empty bitmap with size bits</p></div>
+<div class="desc"></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def init_bitmap(size: int) -&gt; BitMap:
-    &#34;&#34;&#34;Creates an empty bitmap with size bits&#34;&#34;&#34;
-    return b&#34;\x00&#34; * ((size + BYTE_SIZE - 1) // BYTE_SIZE)</code></pre>
+<pre><code class="python">def visit_IfExp(self, node: IfExp) -&gt; IfExp:
+    if_cp = copy(node)
+    if_cp.test = Call(Name(SPECIAL_BOOL, Load()), [node.test], [])
+    return self.generic_visit(if_cp)</code></pre>
 </details>
 </dd>
-<dt id="opshin.std.bitmap.none_bitmap"><code class="name flex">
-<span>def <span class="ident">none_bitmap</span></span>(<span>b: bytes) ‑> bool</span>
+<dt id="opshin.rewrite.rewrite_cast_condition.RewriteConditions.visit_Module"><code class="name flex">
+<span>def <span class="ident">visit_Module</span></span>(<span>self, node: _ast.Module) ‑> _ast.Module</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Returns whether no bits were set to 1</p></div>
+<div class="desc"></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def none_bitmap(b: BitMap) -&gt; bool:
-    &#34;&#34;&#34;Returns whether no bits were set to 1&#34;&#34;&#34;
-    return b == (b&#34;\x00&#34; * len(b))</code></pre>
+<pre><code class="python">def visit_Module(self, node: Module) -&gt; Module:
+    node.body.insert(0, Assign([Name(SPECIAL_BOOL, Store())], Name(&#34;bool&#34;, Load())))
+    return self.generic_visit(node)</code></pre>
 </details>
 </dd>
-<dt id="opshin.std.bitmap.reset_bitmap"><code class="name flex">
-<span>def <span class="ident">reset_bitmap</span></span>(<span>bmp: bytes, i: int) ‑> bytes</span>
+<dt id="opshin.rewrite.rewrite_cast_condition.RewriteConditions.visit_While"><code class="name flex">
+<span>def <span class="ident">visit_While</span></span>(<span>self, node: _ast.While) ‑> _ast.While</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Sets a bit in the bitmap to 0</p></div>
+<div class="desc"></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def reset_bitmap(bmp: BitMap, i: int) -&gt; BitMap:
-    &#34;&#34;&#34;Sets a bit in the bitmap to 0&#34;&#34;&#34;
-    return _set_bitmap(bmp, i, False)</code></pre>
-</details>
-</dd>
-<dt id="opshin.std.bitmap.set_bitmap"><code class="name flex">
-<span>def <span class="ident">set_bitmap</span></span>(<span>bmp: bytes, i: int) ‑> bytes</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Sets a bit in the bitmap to 1</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def set_bitmap(bmp: BitMap, i: int) -&gt; BitMap:
-    &#34;&#34;&#34;Sets a bit in the bitmap to 1&#34;&#34;&#34;
-    return _set_bitmap(bmp, i, True)</code></pre>
-</details>
-</dd>
-<dt id="opshin.std.bitmap.size_bitmap"><code class="name flex">
-<span>def <span class="ident">size_bitmap</span></span>(<span>bmp: bytes) ‑> int</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Returns the size of the bitmap in bits</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def size_bitmap(bmp: BitMap) -&gt; int:
-    &#34;&#34;&#34;Returns the size of the bitmap in bits&#34;&#34;&#34;
-    return len(bmp) * BYTE_SIZE</code></pre>
-</details>
-</dd>
-<dt id="opshin.std.bitmap.test_bitmap"><code class="name flex">
-<span>def <span class="ident">test_bitmap</span></span>(<span>bmp: bytes, i: int) ‑> bool</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Tests if bit at position i has been set to 1</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def test_bitmap(bmp: BitMap, i: int) -&gt; bool:
-    &#34;&#34;&#34;Tests if bit at position i has been set to 1&#34;&#34;&#34;
-    byte = bmp[i // BYTE_SIZE]
-    bit = (byte // POWS[(BYTE_SIZE - 1) - (i % BYTE_SIZE)]) % 2
-    return bit == 1</code></pre>
+<pre><code class="python">def visit_While(self, node: While) -&gt; While:
+    while_cp = copy(node)
+    while_cp.test = Call(Name(SPECIAL_BOOL, Load()), [node.test], [])
+    return self.generic_visit(while_cp)</code></pre>
 </details>
 </dd>
 </dl>
-</section>
-<section>
+</dd>
+</dl>
 </section>
 </article>
 <nav id="sidebar">
@@ -370,20 +377,24 @@ setTimeout(() => input.focus(), 100);
 <ul id="index">
 <li><h3>Super-module</h3>
 <ul>
-<li><code><a title="opshin.std" href="index.html">opshin.std</a></code></li>
+<li><code><a title="opshin.rewrite" href="index.html">opshin.rewrite</a></code></li>
 </ul>
 </li>
-<li><h3><a href="#header-functions">Functions</a></h3>
+<li><h3><a href="#header-classes">Classes</a></h3>
+<ul>
+<li>
+<h4><code><a title="opshin.rewrite.rewrite_cast_condition.RewriteConditions" href="#opshin.rewrite.rewrite_cast_condition.RewriteConditions">RewriteConditions</a></code></h4>
 <ul class="two-column">
-<li><code><a title="opshin.std.bitmap.all_bitmap" href="#opshin.std.bitmap.all_bitmap">all_bitmap</a></code></li>
-<li><code><a title="opshin.std.bitmap.any_bitmap" href="#opshin.std.bitmap.any_bitmap">any_bitmap</a></code></li>
-<li><code><a title="opshin.std.bitmap.flip_bitmap" href="#opshin.std.bitmap.flip_bitmap">flip_bitmap</a></code></li>
-<li><code><a title="opshin.std.bitmap.init_bitmap" href="#opshin.std.bitmap.init_bitmap">init_bitmap</a></code></li>
-<li><code><a title="opshin.std.bitmap.none_bitmap" href="#opshin.std.bitmap.none_bitmap">none_bitmap</a></code></li>
-<li><code><a title="opshin.std.bitmap.reset_bitmap" href="#opshin.std.bitmap.reset_bitmap">reset_bitmap</a></code></li>
-<li><code><a title="opshin.std.bitmap.set_bitmap" href="#opshin.std.bitmap.set_bitmap">set_bitmap</a></code></li>
-<li><code><a title="opshin.std.bitmap.size_bitmap" href="#opshin.std.bitmap.size_bitmap">size_bitmap</a></code></li>
-<li><code><a title="opshin.std.bitmap.test_bitmap" href="#opshin.std.bitmap.test_bitmap">test_bitmap</a></code></li>
+<li><code><a title="opshin.rewrite.rewrite_cast_condition.RewriteConditions.step" href="#opshin.rewrite.rewrite_cast_condition.RewriteConditions.step">step</a></code></li>
+<li><code><a title="opshin.rewrite.rewrite_cast_condition.RewriteConditions.visit" href="../util.html#opshin.rewrite.rewrite_cast_condition.RewriteConditions.visit">visit</a></code></li>
+<li><code><a title="opshin.rewrite.rewrite_cast_condition.RewriteConditions.visit_Assert" href="#opshin.rewrite.rewrite_cast_condition.RewriteConditions.visit_Assert">visit_Assert</a></code></li>
+<li><code><a title="opshin.rewrite.rewrite_cast_condition.RewriteConditions.visit_BoolOp" href="#opshin.rewrite.rewrite_cast_condition.RewriteConditions.visit_BoolOp">visit_BoolOp</a></code></li>
+<li><code><a title="opshin.rewrite.rewrite_cast_condition.RewriteConditions.visit_If" href="#opshin.rewrite.rewrite_cast_condition.RewriteConditions.visit_If">visit_If</a></code></li>
+<li><code><a title="opshin.rewrite.rewrite_cast_condition.RewriteConditions.visit_IfExp" href="#opshin.rewrite.rewrite_cast_condition.RewriteConditions.visit_IfExp">visit_IfExp</a></code></li>
+<li><code><a title="opshin.rewrite.rewrite_cast_condition.RewriteConditions.visit_Module" href="#opshin.rewrite.rewrite_cast_condition.RewriteConditions.visit_Module">visit_Module</a></code></li>
+<li><code><a title="opshin.rewrite.rewrite_cast_condition.RewriteConditions.visit_While" href="#opshin.rewrite.rewrite_cast_condition.RewriteConditions.visit_While">visit_While</a></code></li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>

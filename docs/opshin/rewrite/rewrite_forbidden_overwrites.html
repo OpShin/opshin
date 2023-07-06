@@ -77,6 +77,8 @@ Make sure that certain variable names may never be overwritten
 &#34;&#34;&#34;
 
 FORBIDDEN_NAMES = {
+    # type check
+    &#34;isinstance&#34;,
     # Type annotations
     &#34;List&#34;,
     &#34;Dict&#34;,
@@ -181,7 +183,7 @@ just a single node.</p>
 <h3>Ancestors</h3>
 <ul class="hlist">
 <li><a title="opshin.util.CompilingNodeTransformer" href="../util.html#opshin.util.CompilingNodeTransformer">CompilingNodeTransformer</a></li>
-<li><a title="opshin.typed_ast.TypedNodeTransformer" href="../typed_ast.html#opshin.typed_ast.TypedNodeTransformer">TypedNodeTransformer</a></li>
+<li><a title="opshin.util.TypedNodeTransformer" href="../util.html#opshin.util.TypedNodeTransformer">TypedNodeTransformer</a></li>
 <li>ast.NodeTransformer</li>
 <li>ast.NodeVisitor</li>
 </ul>

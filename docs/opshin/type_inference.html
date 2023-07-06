@@ -7,7 +7,9 @@
 <meta name="generator" content="pdoc 0.10.0" />
 <link rel="icon" href="https://raw.githubusercontent.com/OpShin/opshin/dev/docs/opshin_32.png" sizes="32x32" type="image/png">
 <title>opshin.type_inference API documentation</title>
-<meta name="description" content="" />
+<meta name="description" content="An aggressive type inference based on the work of Aycock [1].
+It only allows a subset of legal python operations which
+allow us to infer the type of …" />
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/sanitize.min.css" integrity="sha256-PK9q560IAAa6WVRRh76LtCaI8pjTJ2z11v0miyNNjrs=" crossorigin>
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/typography.min.css" integrity="sha256-7l/o7C8jubJiy74VsKTidCy1yBkRtiUGbVkYBylBqUg=" crossorigin>
 <link rel="stylesheet preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/styles/github.min.css" crossorigin>
@@ -64,23 +66,19 @@ fill="currentColor" class="octo-body"></path>
 <h1 class="title">Module <code>opshin.type_inference</code></h1>
 </header>
 <section id="section-intro">
+<p>An aggressive type inference based on the work of Aycock <a href="https://legacy.python.org/workshops/2000-01/proceedings/papers/aycock/aycock.html">1</a>.
+It only allows a subset of legal python operations which
+allow us to infer the type of all involved variables
+statically.
+Using this we can resolve overloaded functions when translating Python
+into UPLC where there is no dynamic type checking.
+Additionally, this conveniently implements an additional layer of
+security into the Smart Contract by checking type correctness.</p>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">from dataclasses import asdict
-
-from copy import copy
-import ast
-from pycardano import PlutusData
-
-from .typed_ast import *
-from .util import PythonBuiltInTypes, CompilingNodeTransformer
-
-# from frozendict import frozendict
-
-
-&#34;&#34;&#34;
+<pre><code class="python">&#34;&#34;&#34;
 An aggressive type inference based on the work of Aycock [1].
 It only allows a subset of legal python operations which
 allow us to infer the type of all involved variables
@@ -93,6 +91,20 @@ security into the Smart Contract by checking type correctness.
 
 [1]: https://legacy.python.org/workshops/2000-01/proceedings/papers/aycock/aycock.html
 &#34;&#34;&#34;
+from collections import defaultdict
+
+from copy import copy
+from pycardano import PlutusData
+from logging import getLogger
+
+from .typed_ast import *
+from .util import CompilingNodeTransformer
+from .fun_impls import PythonBuiltInTypes
+from .rewrite.rewrite_cast_condition import SPECIAL_BOOL
+
+# from frozendict import frozendict
+
+_LOGGER = logging.getLogger(__name__)
 
 
 INITIAL_SCOPE = dict(
@@ -205,6 +217,107 @@ BinOpTypeMap = {
 }
 
 
+TypeMap = typing.Dict[str, Type]
+TypeMapPair = typing.Tuple[TypeMap, TypeMap]
+
+
+def union_types(*ts: Type):
+    ts = [t if isinstance(t, UnionType) else UnionType([t]) for t in ts]
+    union_set = set()
+    for t in ts:
+        union_set.update(t.typs)
+    return UnionType(list(union_set))
+
+
+def intersection_types(*ts: Type):
+    ts = [t if isinstance(t, UnionType) else UnionType([t]) for t in ts]
+    assert ts, &#34;Must have at least one type to intersect&#34;
+    intersection_set = set(ts[0].typs)
+    for t in ts[1:]:
+        intersection_set.intersection_update(t.typs)
+    return UnionType(list(intersection_set))
+
+
+class TypeCheckVisitor(TypedNodeVisitor):
+    &#34;&#34;&#34;
+    Generates the types to which objects are cast due to a boolean expression
+    It returns a tuple of dictionaries which are a name -&gt; type mapping
+    for variable names that are assured to have a specific type if this expression
+    is True/False respectively
+    &#34;&#34;&#34;
+
+    def generic_visit(self, node: AST) -&gt; TypeMapPair:
+        return getattr(node, &#34;typechecks&#34;, ({}, {}))
+
+    def visit_Call(self, node: Call) -&gt; TypeMapPair:
+        if isinstance(node.func, Name) and node.func.id == SPECIAL_BOOL:
+            return self.visit(node.args[0])
+        if not (isinstance(node.func, Name) and node.func.id == &#34;isinstance&#34;):
+            return ({}, {})
+        # special case for Union
+        assert isinstance(
+            node.args[0], Name
+        ), &#34;Target 0 of an isinstance cast must be a variable name&#34;
+        assert isinstance(
+            node.args[1], Name
+        ), &#34;Target 1 of an isinstance cast must be a class name&#34;
+        target_class: RecordType = node.args[1].typ
+        target_inst = node.args[0]
+        target_inst_class = target_inst.typ
+        assert isinstance(
+            target_inst_class, InstanceType
+        ), &#34;Can only cast instances, not classes&#34;
+        assert isinstance(
+            target_inst_class.typ, UnionType
+        ), &#34;Can only cast instances of Union types of PlutusData&#34;
+        assert isinstance(target_class, RecordType), &#34;Can only cast to PlutusData&#34;
+        assert (
+            target_class in target_inst_class.typ.typs
+        ), f&#34;Trying to cast an instance of Union type to non-instance of union type&#34;
+        varname = node.args[0].id
+        union_without_target_class = union_types(
+            *(x for x in target_inst_class.typ.typs if x != target_class)
+        )
+        return ({varname: target_class}, {varname: union_without_target_class})
+
+    def visit_BoolOp(self, node: BoolOp) -&gt; PairType:
+        res = {}
+        inv_res = {}
+        checks = [self.visit(v) for v in node.values]
+        checked_types = defaultdict(list)
+        inv_checked_types = defaultdict(list)
+        for c, inv_c in checks:
+            for v, t in c.items():
+                checked_types[v].append(t)
+            for v, t in inv_c.items():
+                inv_checked_types[v].append(t)
+        if isinstance(node.op, And):
+            # a conjunction is just the intersection
+            for v, ts in checked_types.items():
+                res[v] = intersection_types(*ts)
+            # if the conjunction fails, its any of the respective reverses, but only if the type is checked in every conjunction
+            for v, ts in inv_checked_types.items():
+                if len(ts) &lt; len(checks):
+                    continue
+                inv_res[v] = union_types(*ts)
+        if isinstance(node.op, Or):
+            # a disjunction is just the union, but some type must be checked in every disjunction
+            for v, ts in checked_types.items():
+                if len(ts) &lt; len(checks):
+                    continue
+                res[v] = union_types(*ts)
+            # if the disjunction fails, then it must be in the intersection of the inverses
+            for v, ts in inv_checked_types.items():
+                inv_res[v] = intersection_types(*ts)
+        return (res, inv_res)
+
+    def visit_UnaryOp(self, node: UnaryOp) -&gt; PairType:
+        (res, inv_res) = self.visit(node.operand)
+        if isinstance(node.op, Not):
+            return (inv_res, res)
+        return (res, inv_res)
+
+
 class AggressiveTypeInferencer(CompilingNodeTransformer):
     step = &#34;Static Type Inference&#34;
 
@@ -234,6 +347,13 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                 f&#34;Type {self.scopes[-1][name]} of variable {name} in local scope does not match inferred type {typ}&#34;
             )
         self.scopes[-1][name] = typ
+
+    def implement_typechecks(self, typchecks: TypeMap):
+        prevtyps = {}
+        for n, t in typchecks.items():
+            prevtyps[n] = self.variable_type(n).typ
+            self.set_variable_type(n, InstanceType(t), force=True)
+        return prevtyps
 
     def type_from_annotation(self, ann: expr):
         if isinstance(ann, Constant):
@@ -301,6 +421,20 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         if ann is None:
             return AnyType()
         raise NotImplementedError(f&#34;Annotation type {ann.__class__} is not supported&#34;)
+
+    def visit_sequence(self, node_seq: typing.List[stmt]) -&gt; plt.AST:
+        stmts = []
+        prevtyps = {}
+        for n in node_seq:
+            stmt = self.visit(n)
+            stmts.append(stmt)
+            # if an assert is amng the statements apply the isinstance cast
+            if isinstance(stmt, Assert):
+                typchecks, _ = TypeCheckVisitor().visit(stmt.test)
+                # for the time after this assert, the variable has the specialized type
+                prevtyps.update(self.implement_typechecks(typchecks))
+        self.implement_typechecks(prevtyps)
+        return stmts
 
     def visit_ClassDef(self, node: ClassDef) -&gt; TypedClassDef:
         class_record = RecordReader.extract(node, self)
@@ -380,52 +514,19 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
 
     def visit_If(self, node: If) -&gt; TypedIf:
         typed_if = copy(node)
-        if (
-            isinstance(typed_if.test, Call)
-            and (typed_if.test.func, Name)
-            and typed_if.test.func.id == &#34;isinstance&#34;
-        ):
-            tc = typed_if.test
-            # special case for Union
-            assert isinstance(
-                tc.args[0], Name
-            ), &#34;Target 0 of an isinstance cast must be a variable name&#34;
-            assert isinstance(
-                tc.args[1], Name
-            ), &#34;Target 1 of an isinstance cast must be a class name&#34;
-            target_class: RecordType = self.variable_type(tc.args[1].id)
-            target_inst = self.visit(tc.args[0])
-            target_inst_class = target_inst.typ
-            assert isinstance(
-                target_inst_class, InstanceType
-            ), &#34;Can only cast instances, not classes&#34;
-            assert isinstance(
-                target_inst_class.typ, UnionType
-            ), &#34;Can only cast instances of Union types of PlutusData&#34;
-            assert isinstance(target_class, RecordType), &#34;Can only cast to PlutusData&#34;
-            assert (
-                target_class in target_inst_class.typ.typs
-            ), f&#34;Trying to cast an instance of Union type to non-instance of union type&#34;
-            typed_if.test = self.visit(
-                Compare(
-                    left=Attribute(tc.args[0], &#34;CONSTR_ID&#34;),
-                    ops=[Eq()],
-                    comparators=[Constant(target_class.record.constructor)],
-                )
-            )
-            # for the time of this if branch set the variable type to the specialized type
-            self.set_variable_type(
-                tc.args[0].id, InstanceType(target_class), force=True
-            )
-            typed_if.body = [self.visit(s) for s in node.body]
-            self.set_variable_type(tc.args[0].id, target_inst_class, force=True)
-        else:
-            typed_if.test = self.visit(node.test)
-            assert (
-                typed_if.test.typ == BoolInstanceType
-            ), &#34;Branching condition must have boolean type&#34;
-            typed_if.body = [self.visit(s) for s in node.body]
-        typed_if.orelse = [self.visit(s) for s in node.orelse]
+        typed_if.test = self.visit(node.test)
+        assert (
+            typed_if.test.typ == BoolInstanceType
+        ), &#34;Branching condition must have boolean type&#34;
+        typchecks, inv_typchecks = TypeCheckVisitor().visit(typed_if.test)
+        # for the time of the branch, these types are cast
+        prevtyps = self.implement_typechecks(typchecks)
+        typed_if.body = self.visit_sequence(node.body)
+        self.implement_typechecks(prevtyps)
+        # for the time of the else branch, the inverse types hold
+        prevtyps = self.implement_typechecks(inv_typchecks)
+        typed_if.orelse = self.visit_sequence(node.orelse)
+        self.implement_typechecks(prevtyps)
         return typed_if
 
     def visit_While(self, node: While) -&gt; TypedWhile:
@@ -434,8 +535,15 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         assert (
             typed_while.test.typ == BoolInstanceType
         ), &#34;Branching condition must have boolean type&#34;
-        typed_while.body = [self.visit(s) for s in node.body]
-        typed_while.orelse = [self.visit(s) for s in node.orelse]
+        typchecks, inv_typchecks = TypeCheckVisitor().visit(typed_while.test)
+        # for the time of the branch, these types are cast
+        prevtyps = self.implement_typechecks(typchecks)
+        typed_while.body = self.visit_sequence(node.body)
+        self.implement_typechecks(prevtyps)
+        # for the time of the else branch, the inverse types hold
+        prevtyps = self.implement_typechecks(inv_typchecks)
+        typed_while.orelse = self.visit_sequence(node.orelse)
+        self.implement_typechecks(prevtyps)
         return typed_while
 
     def visit_For(self, node: For) -&gt; TypedFor:
@@ -464,8 +572,8 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             )
         self.set_variable_type(node.target.id, vartyp)
         typed_for.target = self.visit(node.target)
-        typed_for.body = [self.visit(s) for s in node.body]
-        typed_for.orelse = [self.visit(s) for s in node.orelse]
+        typed_for.body = self.visit_sequence(node.body)
+        typed_for.orelse = self.visit_sequence(node.orelse)
         return typed_for
 
     def visit_Name(self, node: Name) -&gt; TypedName:
@@ -522,7 +630,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         else:
             # We need the function type inside for recursion
             self.set_variable_type(node.name, tfd.typ)
-            tfd.body = [self.visit(s) for s in node.body]
+            tfd.body = self.visit_sequence(node.body)
             # Check that return type and annotated return type match
             if not isinstance(node.body[-1], Return):
                 assert (
@@ -541,7 +649,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
     def visit_Module(self, node: Module) -&gt; TypedModule:
         self.enter_scope()
         tm = copy(node)
-        tm.body = [self.visit(n) for n in node.body]
+        tm.body = self.visit_sequence(node.body)
         self.exit_scope()
         return tm
 
@@ -567,7 +675,28 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
 
     def visit_BoolOp(self, node: BoolOp) -&gt; TypedBoolOp:
         tt = copy(node)
-        tt.values = [self.visit(e) for e in node.values]
+        if isinstance(node.op, And):
+            values = []
+            prevtyps = {}
+            for e in node.values:
+                values.append(self.visit(e))
+                typchecks, _ = TypeCheckVisitor().visit(values[-1])
+                # for the time after the shortcut and the variable type to the specialized type
+                prevtyps.update(self.implement_typechecks(typchecks))
+            self.implement_typechecks(prevtyps)
+            tt.values = values
+        elif isinstance(node.op, Or):
+            values = []
+            prevtyps = {}
+            for e in node.values:
+                values.append(self.visit(e))
+                _, inv_typechecks = TypeCheckVisitor().visit(values[-1])
+                # for the time after the shortcut or the variable type is *not* the specialized type
+                prevtyps.update(self.implement_typechecks(inv_typechecks))
+            self.implement_typechecks(prevtyps)
+            tt.values = values
+        else:
+            tt.values = [self.visit(e) for e in node.values]
         tt.typ = BoolInstanceType
         assert all(
             BoolInstanceType &gt;= e.typ for e in tt.values
@@ -669,8 +798,21 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         assert not node.keywords, &#34;Keyword arguments are not supported yet&#34;
         tc = copy(node)
         tc.args = [self.visit(a) for a in node.args]
+        # might be isinstance
+        if isinstance(tc.func, Name) and tc.func.id == &#34;isinstance&#34;:
+            target_class = tc.args[1].typ
+            ntc = self.visit(
+                Compare(
+                    left=Attribute(tc.args[0], &#34;CONSTR_ID&#34;),
+                    ops=[Eq()],
+                    comparators=[Constant(target_class.record.constructor)],
+                )
+            )
+            ntc.typ = BoolInstanceType
+            ntc.typechecks = TypeCheckVisitor().visit(tc)
+            return ntc
         tc.func = self.visit(node.func)
-        # might be a cast
+        # might be a class
         if isinstance(tc.func.typ, ClassType):
             tc.func.typ = tc.func.typ.constr_type()
         # type might only turn out after the initialization (note the constr could be polymorphic)
@@ -737,8 +879,13 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         node_cp = copy(node)
         node_cp.test = self.visit(node.test)
         assert node_cp.test.typ == BoolInstanceType, &#34;Comparison must have type boolean&#34;
+        typchecks, inv_typchecks = TypeCheckVisitor().visit(node_cp.test)
+        prevtyps = self.implement_typechecks(typchecks)
         node_cp.body = self.visit(node.body)
+        self.implement_typechecks(prevtyps)
+        prevtyps = self.implement_typechecks(inv_typchecks)
         node_cp.orelse = self.visit(node.orelse)
+        self.implement_typechecks(prevtyps)
         if node_cp.body.typ &gt;= node_cp.orelse.typ:
             node_cp.typ = node_cp.body.typ
         elif node_cp.orelse.typ &gt;= node_cp.body.typ:
@@ -950,6 +1097,24 @@ def typed_ast(ast: AST):
     raise NotImplementedError(f&#34;Type {type(c)} not supported&#34;)</code></pre>
 </details>
 </dd>
+<dt id="opshin.type_inference.intersection_types"><code class="name flex">
+<span>def <span class="ident">intersection_types</span></span>(<span>*ts: <a title="opshin.types.Type" href="types.html#opshin.types.Type">Type</a>)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def intersection_types(*ts: Type):
+    ts = [t if isinstance(t, UnionType) else UnionType([t]) for t in ts]
+    assert ts, &#34;Must have at least one type to intersect&#34;
+    intersection_set = set(ts[0].typs)
+    for t in ts[1:]:
+        intersection_set.intersection_update(t.typs)
+    return UnionType(list(intersection_set))</code></pre>
+</details>
+</dd>
 <dt id="opshin.type_inference.record_from_plutusdata"><code class="name flex">
 <span>def <span class="ident">record_from_plutusdata</span></span>(<span>c: pycardano.plutus.PlutusData)</span>
 </code></dt>
@@ -978,6 +1143,23 @@ def typed_ast(ast: AST):
 </summary>
 <pre><code class="python">def typed_ast(ast: AST):
     return AggressiveTypeInferencer().visit(ast)</code></pre>
+</details>
+</dd>
+<dt id="opshin.type_inference.union_types"><code class="name flex">
+<span>def <span class="ident">union_types</span></span>(<span>*ts: <a title="opshin.types.Type" href="types.html#opshin.types.Type">Type</a>)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def union_types(*ts: Type):
+    ts = [t if isinstance(t, UnionType) else UnionType([t]) for t in ts]
+    union_set = set()
+    for t in ts:
+        union_set.update(t.typs)
+    return UnionType(list(union_set))</code></pre>
 </details>
 </dd>
 </dl>
@@ -1050,6 +1232,13 @@ just a single node.</p>
             )
         self.scopes[-1][name] = typ
 
+    def implement_typechecks(self, typchecks: TypeMap):
+        prevtyps = {}
+        for n, t in typchecks.items():
+            prevtyps[n] = self.variable_type(n).typ
+            self.set_variable_type(n, InstanceType(t), force=True)
+        return prevtyps
+
     def type_from_annotation(self, ann: expr):
         if isinstance(ann, Constant):
             if ann.value is None:
@@ -1116,6 +1305,20 @@ just a single node.</p>
         if ann is None:
             return AnyType()
         raise NotImplementedError(f&#34;Annotation type {ann.__class__} is not supported&#34;)
+
+    def visit_sequence(self, node_seq: typing.List[stmt]) -&gt; plt.AST:
+        stmts = []
+        prevtyps = {}
+        for n in node_seq:
+            stmt = self.visit(n)
+            stmts.append(stmt)
+            # if an assert is amng the statements apply the isinstance cast
+            if isinstance(stmt, Assert):
+                typchecks, _ = TypeCheckVisitor().visit(stmt.test)
+                # for the time after this assert, the variable has the specialized type
+                prevtyps.update(self.implement_typechecks(typchecks))
+        self.implement_typechecks(prevtyps)
+        return stmts
 
     def visit_ClassDef(self, node: ClassDef) -&gt; TypedClassDef:
         class_record = RecordReader.extract(node, self)
@@ -1195,52 +1398,19 @@ just a single node.</p>
 
     def visit_If(self, node: If) -&gt; TypedIf:
         typed_if = copy(node)
-        if (
-            isinstance(typed_if.test, Call)
-            and (typed_if.test.func, Name)
-            and typed_if.test.func.id == &#34;isinstance&#34;
-        ):
-            tc = typed_if.test
-            # special case for Union
-            assert isinstance(
-                tc.args[0], Name
-            ), &#34;Target 0 of an isinstance cast must be a variable name&#34;
-            assert isinstance(
-                tc.args[1], Name
-            ), &#34;Target 1 of an isinstance cast must be a class name&#34;
-            target_class: RecordType = self.variable_type(tc.args[1].id)
-            target_inst = self.visit(tc.args[0])
-            target_inst_class = target_inst.typ
-            assert isinstance(
-                target_inst_class, InstanceType
-            ), &#34;Can only cast instances, not classes&#34;
-            assert isinstance(
-                target_inst_class.typ, UnionType
-            ), &#34;Can only cast instances of Union types of PlutusData&#34;
-            assert isinstance(target_class, RecordType), &#34;Can only cast to PlutusData&#34;
-            assert (
-                target_class in target_inst_class.typ.typs
-            ), f&#34;Trying to cast an instance of Union type to non-instance of union type&#34;
-            typed_if.test = self.visit(
-                Compare(
-                    left=Attribute(tc.args[0], &#34;CONSTR_ID&#34;),
-                    ops=[Eq()],
-                    comparators=[Constant(target_class.record.constructor)],
-                )
-            )
-            # for the time of this if branch set the variable type to the specialized type
-            self.set_variable_type(
-                tc.args[0].id, InstanceType(target_class), force=True
-            )
-            typed_if.body = [self.visit(s) for s in node.body]
-            self.set_variable_type(tc.args[0].id, target_inst_class, force=True)
-        else:
-            typed_if.test = self.visit(node.test)
-            assert (
-                typed_if.test.typ == BoolInstanceType
-            ), &#34;Branching condition must have boolean type&#34;
-            typed_if.body = [self.visit(s) for s in node.body]
-        typed_if.orelse = [self.visit(s) for s in node.orelse]
+        typed_if.test = self.visit(node.test)
+        assert (
+            typed_if.test.typ == BoolInstanceType
+        ), &#34;Branching condition must have boolean type&#34;
+        typchecks, inv_typchecks = TypeCheckVisitor().visit(typed_if.test)
+        # for the time of the branch, these types are cast
+        prevtyps = self.implement_typechecks(typchecks)
+        typed_if.body = self.visit_sequence(node.body)
+        self.implement_typechecks(prevtyps)
+        # for the time of the else branch, the inverse types hold
+        prevtyps = self.implement_typechecks(inv_typchecks)
+        typed_if.orelse = self.visit_sequence(node.orelse)
+        self.implement_typechecks(prevtyps)
         return typed_if
 
     def visit_While(self, node: While) -&gt; TypedWhile:
@@ -1249,8 +1419,15 @@ just a single node.</p>
         assert (
             typed_while.test.typ == BoolInstanceType
         ), &#34;Branching condition must have boolean type&#34;
-        typed_while.body = [self.visit(s) for s in node.body]
-        typed_while.orelse = [self.visit(s) for s in node.orelse]
+        typchecks, inv_typchecks = TypeCheckVisitor().visit(typed_while.test)
+        # for the time of the branch, these types are cast
+        prevtyps = self.implement_typechecks(typchecks)
+        typed_while.body = self.visit_sequence(node.body)
+        self.implement_typechecks(prevtyps)
+        # for the time of the else branch, the inverse types hold
+        prevtyps = self.implement_typechecks(inv_typchecks)
+        typed_while.orelse = self.visit_sequence(node.orelse)
+        self.implement_typechecks(prevtyps)
         return typed_while
 
     def visit_For(self, node: For) -&gt; TypedFor:
@@ -1279,8 +1456,8 @@ just a single node.</p>
             )
         self.set_variable_type(node.target.id, vartyp)
         typed_for.target = self.visit(node.target)
-        typed_for.body = [self.visit(s) for s in node.body]
-        typed_for.orelse = [self.visit(s) for s in node.orelse]
+        typed_for.body = self.visit_sequence(node.body)
+        typed_for.orelse = self.visit_sequence(node.orelse)
         return typed_for
 
     def visit_Name(self, node: Name) -&gt; TypedName:
@@ -1337,7 +1514,7 @@ just a single node.</p>
         else:
             # We need the function type inside for recursion
             self.set_variable_type(node.name, tfd.typ)
-            tfd.body = [self.visit(s) for s in node.body]
+            tfd.body = self.visit_sequence(node.body)
             # Check that return type and annotated return type match
             if not isinstance(node.body[-1], Return):
                 assert (
@@ -1356,7 +1533,7 @@ just a single node.</p>
     def visit_Module(self, node: Module) -&gt; TypedModule:
         self.enter_scope()
         tm = copy(node)
-        tm.body = [self.visit(n) for n in node.body]
+        tm.body = self.visit_sequence(node.body)
         self.exit_scope()
         return tm
 
@@ -1382,7 +1559,28 @@ just a single node.</p>
 
     def visit_BoolOp(self, node: BoolOp) -&gt; TypedBoolOp:
         tt = copy(node)
-        tt.values = [self.visit(e) for e in node.values]
+        if isinstance(node.op, And):
+            values = []
+            prevtyps = {}
+            for e in node.values:
+                values.append(self.visit(e))
+                typchecks, _ = TypeCheckVisitor().visit(values[-1])
+                # for the time after the shortcut and the variable type to the specialized type
+                prevtyps.update(self.implement_typechecks(typchecks))
+            self.implement_typechecks(prevtyps)
+            tt.values = values
+        elif isinstance(node.op, Or):
+            values = []
+            prevtyps = {}
+            for e in node.values:
+                values.append(self.visit(e))
+                _, inv_typechecks = TypeCheckVisitor().visit(values[-1])
+                # for the time after the shortcut or the variable type is *not* the specialized type
+                prevtyps.update(self.implement_typechecks(inv_typechecks))
+            self.implement_typechecks(prevtyps)
+            tt.values = values
+        else:
+            tt.values = [self.visit(e) for e in node.values]
         tt.typ = BoolInstanceType
         assert all(
             BoolInstanceType &gt;= e.typ for e in tt.values
@@ -1484,8 +1682,21 @@ just a single node.</p>
         assert not node.keywords, &#34;Keyword arguments are not supported yet&#34;
         tc = copy(node)
         tc.args = [self.visit(a) for a in node.args]
+        # might be isinstance
+        if isinstance(tc.func, Name) and tc.func.id == &#34;isinstance&#34;:
+            target_class = tc.args[1].typ
+            ntc = self.visit(
+                Compare(
+                    left=Attribute(tc.args[0], &#34;CONSTR_ID&#34;),
+                    ops=[Eq()],
+                    comparators=[Constant(target_class.record.constructor)],
+                )
+            )
+            ntc.typ = BoolInstanceType
+            ntc.typechecks = TypeCheckVisitor().visit(tc)
+            return ntc
         tc.func = self.visit(node.func)
-        # might be a cast
+        # might be a class
         if isinstance(tc.func.typ, ClassType):
             tc.func.typ = tc.func.typ.constr_type()
         # type might only turn out after the initialization (note the constr could be polymorphic)
@@ -1552,8 +1763,13 @@ just a single node.</p>
         node_cp = copy(node)
         node_cp.test = self.visit(node.test)
         assert node_cp.test.typ == BoolInstanceType, &#34;Comparison must have type boolean&#34;
+        typchecks, inv_typchecks = TypeCheckVisitor().visit(node_cp.test)
+        prevtyps = self.implement_typechecks(typchecks)
         node_cp.body = self.visit(node.body)
+        self.implement_typechecks(prevtyps)
+        prevtyps = self.implement_typechecks(inv_typchecks)
         node_cp.orelse = self.visit(node.orelse)
+        self.implement_typechecks(prevtyps)
         if node_cp.body.typ &gt;= node_cp.orelse.typ:
             node_cp.typ = node_cp.body.typ
         elif node_cp.orelse.typ &gt;= node_cp.body.typ:
@@ -1635,7 +1851,7 @@ just a single node.</p>
 <h3>Ancestors</h3>
 <ul class="hlist">
 <li><a title="opshin.util.CompilingNodeTransformer" href="util.html#opshin.util.CompilingNodeTransformer">CompilingNodeTransformer</a></li>
-<li><a title="opshin.typed_ast.TypedNodeTransformer" href="typed_ast.html#opshin.typed_ast.TypedNodeTransformer">TypedNodeTransformer</a></li>
+<li><a title="opshin.util.TypedNodeTransformer" href="util.html#opshin.util.TypedNodeTransformer">TypedNodeTransformer</a></li>
 <li>ast.NodeTransformer</li>
 <li>ast.NodeVisitor</li>
 </ul>
@@ -1693,8 +1909,25 @@ just a single node.</p>
     )</code></pre>
 </details>
 </dd>
+<dt id="opshin.type_inference.AggressiveTypeInferencer.implement_typechecks"><code class="name flex">
+<span>def <span class="ident">implement_typechecks</span></span>(<span>self, typchecks: Dict[str, <a title="opshin.types.Type" href="types.html#opshin.types.Type">Type</a>])</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def implement_typechecks(self, typchecks: TypeMap):
+    prevtyps = {}
+    for n, t in typchecks.items():
+        prevtyps[n] = self.variable_type(n).typ
+        self.set_variable_type(n, InstanceType(t), force=True)
+    return prevtyps</code></pre>
+</details>
+</dd>
 <dt id="opshin.type_inference.AggressiveTypeInferencer.set_variable_type"><code class="name flex">
-<span>def <span class="ident">set_variable_type</span></span>(<span>self, name: str, typ: <a title="opshin.typed_ast.Type" href="typed_ast.html#opshin.typed_ast.Type">Type</a>, force=False)</span>
+<span>def <span class="ident">set_variable_type</span></span>(<span>self, name: str, typ: <a title="opshin.types.Type" href="types.html#opshin.types.Type">Type</a>, force=False)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -1791,7 +2024,7 @@ just a single node.</p>
 </details>
 </dd>
 <dt id="opshin.type_inference.AggressiveTypeInferencer.variable_type"><code class="name flex">
-<span>def <span class="ident">variable_type</span></span>(<span>self, name: str) ‑> <a title="opshin.typed_ast.Type" href="typed_ast.html#opshin.typed_ast.Type">Type</a></span>
+<span>def <span class="ident">variable_type</span></span>(<span>self, name: str) ‑> <a title="opshin.types.Type" href="types.html#opshin.types.Type">Type</a></span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -1943,7 +2176,28 @@ just a single node.</p>
 </summary>
 <pre><code class="python">def visit_BoolOp(self, node: BoolOp) -&gt; TypedBoolOp:
     tt = copy(node)
-    tt.values = [self.visit(e) for e in node.values]
+    if isinstance(node.op, And):
+        values = []
+        prevtyps = {}
+        for e in node.values:
+            values.append(self.visit(e))
+            typchecks, _ = TypeCheckVisitor().visit(values[-1])
+            # for the time after the shortcut and the variable type to the specialized type
+            prevtyps.update(self.implement_typechecks(typchecks))
+        self.implement_typechecks(prevtyps)
+        tt.values = values
+    elif isinstance(node.op, Or):
+        values = []
+        prevtyps = {}
+        for e in node.values:
+            values.append(self.visit(e))
+            _, inv_typechecks = TypeCheckVisitor().visit(values[-1])
+            # for the time after the shortcut or the variable type is *not* the specialized type
+            prevtyps.update(self.implement_typechecks(inv_typechecks))
+        self.implement_typechecks(prevtyps)
+        tt.values = values
+    else:
+        tt.values = [self.visit(e) for e in node.values]
     tt.typ = BoolInstanceType
     assert all(
         BoolInstanceType &gt;= e.typ for e in tt.values
@@ -1964,8 +2218,21 @@ just a single node.</p>
     assert not node.keywords, &#34;Keyword arguments are not supported yet&#34;
     tc = copy(node)
     tc.args = [self.visit(a) for a in node.args]
+    # might be isinstance
+    if isinstance(tc.func, Name) and tc.func.id == &#34;isinstance&#34;:
+        target_class = tc.args[1].typ
+        ntc = self.visit(
+            Compare(
+                left=Attribute(tc.args[0], &#34;CONSTR_ID&#34;),
+                ops=[Eq()],
+                comparators=[Constant(target_class.record.constructor)],
+            )
+        )
+        ntc.typ = BoolInstanceType
+        ntc.typechecks = TypeCheckVisitor().visit(tc)
+        return ntc
     tc.func = self.visit(node.func)
-    # might be a cast
+    # might be a class
     if isinstance(tc.func.typ, ClassType):
         tc.func.typ = tc.func.typ.constr_type()
     # type might only turn out after the initialization (note the constr could be polymorphic)
@@ -2123,8 +2390,8 @@ just a single node.</p>
         )
     self.set_variable_type(node.target.id, vartyp)
     typed_for.target = self.visit(node.target)
-    typed_for.body = [self.visit(s) for s in node.body]
-    typed_for.orelse = [self.visit(s) for s in node.orelse]
+    typed_for.body = self.visit_sequence(node.body)
+    typed_for.orelse = self.visit_sequence(node.orelse)
     return typed_for</code></pre>
 </details>
 </dd>
@@ -2185,7 +2452,7 @@ just a single node.</p>
     else:
         # We need the function type inside for recursion
         self.set_variable_type(node.name, tfd.typ)
-        tfd.body = [self.visit(s) for s in node.body]
+        tfd.body = self.visit_sequence(node.body)
         # Check that return type and annotated return type match
         if not isinstance(node.body[-1], Return):
             assert (
@@ -2213,52 +2480,19 @@ just a single node.</p>
 </summary>
 <pre><code class="python">def visit_If(self, node: If) -&gt; TypedIf:
     typed_if = copy(node)
-    if (
-        isinstance(typed_if.test, Call)
-        and (typed_if.test.func, Name)
-        and typed_if.test.func.id == &#34;isinstance&#34;
-    ):
-        tc = typed_if.test
-        # special case for Union
-        assert isinstance(
-            tc.args[0], Name
-        ), &#34;Target 0 of an isinstance cast must be a variable name&#34;
-        assert isinstance(
-            tc.args[1], Name
-        ), &#34;Target 1 of an isinstance cast must be a class name&#34;
-        target_class: RecordType = self.variable_type(tc.args[1].id)
-        target_inst = self.visit(tc.args[0])
-        target_inst_class = target_inst.typ
-        assert isinstance(
-            target_inst_class, InstanceType
-        ), &#34;Can only cast instances, not classes&#34;
-        assert isinstance(
-            target_inst_class.typ, UnionType
-        ), &#34;Can only cast instances of Union types of PlutusData&#34;
-        assert isinstance(target_class, RecordType), &#34;Can only cast to PlutusData&#34;
-        assert (
-            target_class in target_inst_class.typ.typs
-        ), f&#34;Trying to cast an instance of Union type to non-instance of union type&#34;
-        typed_if.test = self.visit(
-            Compare(
-                left=Attribute(tc.args[0], &#34;CONSTR_ID&#34;),
-                ops=[Eq()],
-                comparators=[Constant(target_class.record.constructor)],
-            )
-        )
-        # for the time of this if branch set the variable type to the specialized type
-        self.set_variable_type(
-            tc.args[0].id, InstanceType(target_class), force=True
-        )
-        typed_if.body = [self.visit(s) for s in node.body]
-        self.set_variable_type(tc.args[0].id, target_inst_class, force=True)
-    else:
-        typed_if.test = self.visit(node.test)
-        assert (
-            typed_if.test.typ == BoolInstanceType
-        ), &#34;Branching condition must have boolean type&#34;
-        typed_if.body = [self.visit(s) for s in node.body]
-    typed_if.orelse = [self.visit(s) for s in node.orelse]
+    typed_if.test = self.visit(node.test)
+    assert (
+        typed_if.test.typ == BoolInstanceType
+    ), &#34;Branching condition must have boolean type&#34;
+    typchecks, inv_typchecks = TypeCheckVisitor().visit(typed_if.test)
+    # for the time of the branch, these types are cast
+    prevtyps = self.implement_typechecks(typchecks)
+    typed_if.body = self.visit_sequence(node.body)
+    self.implement_typechecks(prevtyps)
+    # for the time of the else branch, the inverse types hold
+    prevtyps = self.implement_typechecks(inv_typchecks)
+    typed_if.orelse = self.visit_sequence(node.orelse)
+    self.implement_typechecks(prevtyps)
     return typed_if</code></pre>
 </details>
 </dd>
@@ -2275,8 +2509,13 @@ just a single node.</p>
     node_cp = copy(node)
     node_cp.test = self.visit(node.test)
     assert node_cp.test.typ == BoolInstanceType, &#34;Comparison must have type boolean&#34;
+    typchecks, inv_typchecks = TypeCheckVisitor().visit(node_cp.test)
+    prevtyps = self.implement_typechecks(typchecks)
     node_cp.body = self.visit(node.body)
+    self.implement_typechecks(prevtyps)
+    prevtyps = self.implement_typechecks(inv_typchecks)
     node_cp.orelse = self.visit(node.orelse)
+    self.implement_typechecks(prevtyps)
     if node_cp.body.typ &gt;= node_cp.orelse.typ:
         node_cp.typ = node_cp.body.typ
     elif node_cp.orelse.typ &gt;= node_cp.body.typ:
@@ -2372,7 +2611,7 @@ just a single node.</p>
 <pre><code class="python">def visit_Module(self, node: Module) -&gt; TypedModule:
     self.enter_scope()
     tm = copy(node)
-    tm.body = [self.visit(n) for n in node.body]
+    tm.body = self.visit_sequence(node.body)
     self.exit_scope()
     return tm</code></pre>
 </details>
@@ -2579,8 +2818,15 @@ just a single node.</p>
     assert (
         typed_while.test.typ == BoolInstanceType
     ), &#34;Branching condition must have boolean type&#34;
-    typed_while.body = [self.visit(s) for s in node.body]
-    typed_while.orelse = [self.visit(s) for s in node.orelse]
+    typchecks, inv_typchecks = TypeCheckVisitor().visit(typed_while.test)
+    # for the time of the branch, these types are cast
+    prevtyps = self.implement_typechecks(typchecks)
+    typed_while.body = self.visit_sequence(node.body)
+    self.implement_typechecks(prevtyps)
+    # for the time of the else branch, the inverse types hold
+    prevtyps = self.implement_typechecks(inv_typchecks)
+    typed_while.orelse = self.visit_sequence(node.orelse)
+    self.implement_typechecks(prevtyps)
     return typed_while</code></pre>
 </details>
 </dd>
@@ -2655,6 +2901,30 @@ just a single node.</p>
     new_g.target = self.visit(g.target)
     new_g.ifs = [self.visit(i) for i in g.ifs]
     return new_g</code></pre>
+</details>
+</dd>
+<dt id="opshin.type_inference.AggressiveTypeInferencer.visit_sequence"><code class="name flex">
+<span>def <span class="ident">visit_sequence</span></span>(<span>self, node_seq: List[_ast.stmt]) ‑> pluthon.pluthon_ast.AST</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def visit_sequence(self, node_seq: typing.List[stmt]) -&gt; plt.AST:
+    stmts = []
+    prevtyps = {}
+    for n in node_seq:
+        stmt = self.visit(n)
+        stmts.append(stmt)
+        # if an assert is amng the statements apply the isinstance cast
+        if isinstance(stmt, Assert):
+            typchecks, _ = TypeCheckVisitor().visit(stmt.test)
+            # for the time after this assert, the variable has the specialized type
+            prevtyps.update(self.implement_typechecks(typchecks))
+    self.implement_typechecks(prevtyps)
+    return stmts</code></pre>
 </details>
 </dd>
 </dl>
@@ -2769,7 +3039,7 @@ allows modifications.</p></div>
 </ul>
 <h3>Class variables</h3>
 <dl>
-<dt id="opshin.type_inference.RecordReader.attributes"><code class="name">var <span class="ident">attributes</span> : List[Tuple[str, <a title="opshin.typed_ast.Type" href="typed_ast.html#opshin.typed_ast.Type">Type</a>]]</code></dt>
+<dt id="opshin.type_inference.RecordReader.attributes"><code class="name">var <span class="ident">attributes</span> : List[Tuple[str, <a title="opshin.types.Type" href="types.html#opshin.types.Type">Type</a>]]</code></dt>
 <dd>
 <div class="desc"></div>
 </dd>
@@ -2785,7 +3055,7 @@ allows modifications.</p></div>
 <h3>Static methods</h3>
 <dl>
 <dt id="opshin.type_inference.RecordReader.extract"><code class="name flex">
-<span>def <span class="ident">extract</span></span>(<span>c: _ast.ClassDef, type_inferencer: <a title="opshin.type_inference.AggressiveTypeInferencer" href="#opshin.type_inference.AggressiveTypeInferencer">AggressiveTypeInferencer</a>) ‑> <a title="opshin.typed_ast.Record" href="typed_ast.html#opshin.typed_ast.Record">Record</a></span>
+<span>def <span class="ident">extract</span></span>(<span>c: _ast.ClassDef, type_inferencer: <a title="opshin.type_inference.AggressiveTypeInferencer" href="#opshin.type_inference.AggressiveTypeInferencer">AggressiveTypeInferencer</a>) ‑> <a title="opshin.types.Record" href="types.html#opshin.types.Record">Record</a></span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -2925,6 +3195,227 @@ def extract(cls, c: ClassDef, type_inferencer: AggressiveTypeInferencer) -&gt; R
 </dd>
 </dl>
 </dd>
+<dt id="opshin.type_inference.TypeCheckVisitor"><code class="flex name class">
+<span>class <span class="ident">TypeCheckVisitor</span></span>
+</code></dt>
+<dd>
+<div class="desc"><p>Generates the types to which objects are cast due to a boolean expression
+It returns a tuple of dictionaries which are a name -&gt; type mapping
+for variable names that are assured to have a specific type if this expression
+is True/False respectively</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class TypeCheckVisitor(TypedNodeVisitor):
+    &#34;&#34;&#34;
+    Generates the types to which objects are cast due to a boolean expression
+    It returns a tuple of dictionaries which are a name -&gt; type mapping
+    for variable names that are assured to have a specific type if this expression
+    is True/False respectively
+    &#34;&#34;&#34;
+
+    def generic_visit(self, node: AST) -&gt; TypeMapPair:
+        return getattr(node, &#34;typechecks&#34;, ({}, {}))
+
+    def visit_Call(self, node: Call) -&gt; TypeMapPair:
+        if isinstance(node.func, Name) and node.func.id == SPECIAL_BOOL:
+            return self.visit(node.args[0])
+        if not (isinstance(node.func, Name) and node.func.id == &#34;isinstance&#34;):
+            return ({}, {})
+        # special case for Union
+        assert isinstance(
+            node.args[0], Name
+        ), &#34;Target 0 of an isinstance cast must be a variable name&#34;
+        assert isinstance(
+            node.args[1], Name
+        ), &#34;Target 1 of an isinstance cast must be a class name&#34;
+        target_class: RecordType = node.args[1].typ
+        target_inst = node.args[0]
+        target_inst_class = target_inst.typ
+        assert isinstance(
+            target_inst_class, InstanceType
+        ), &#34;Can only cast instances, not classes&#34;
+        assert isinstance(
+            target_inst_class.typ, UnionType
+        ), &#34;Can only cast instances of Union types of PlutusData&#34;
+        assert isinstance(target_class, RecordType), &#34;Can only cast to PlutusData&#34;
+        assert (
+            target_class in target_inst_class.typ.typs
+        ), f&#34;Trying to cast an instance of Union type to non-instance of union type&#34;
+        varname = node.args[0].id
+        union_without_target_class = union_types(
+            *(x for x in target_inst_class.typ.typs if x != target_class)
+        )
+        return ({varname: target_class}, {varname: union_without_target_class})
+
+    def visit_BoolOp(self, node: BoolOp) -&gt; PairType:
+        res = {}
+        inv_res = {}
+        checks = [self.visit(v) for v in node.values]
+        checked_types = defaultdict(list)
+        inv_checked_types = defaultdict(list)
+        for c, inv_c in checks:
+            for v, t in c.items():
+                checked_types[v].append(t)
+            for v, t in inv_c.items():
+                inv_checked_types[v].append(t)
+        if isinstance(node.op, And):
+            # a conjunction is just the intersection
+            for v, ts in checked_types.items():
+                res[v] = intersection_types(*ts)
+            # if the conjunction fails, its any of the respective reverses, but only if the type is checked in every conjunction
+            for v, ts in inv_checked_types.items():
+                if len(ts) &lt; len(checks):
+                    continue
+                inv_res[v] = union_types(*ts)
+        if isinstance(node.op, Or):
+            # a disjunction is just the union, but some type must be checked in every disjunction
+            for v, ts in checked_types.items():
+                if len(ts) &lt; len(checks):
+                    continue
+                res[v] = union_types(*ts)
+            # if the disjunction fails, then it must be in the intersection of the inverses
+            for v, ts in inv_checked_types.items():
+                inv_res[v] = intersection_types(*ts)
+        return (res, inv_res)
+
+    def visit_UnaryOp(self, node: UnaryOp) -&gt; PairType:
+        (res, inv_res) = self.visit(node.operand)
+        if isinstance(node.op, Not):
+            return (inv_res, res)
+        return (res, inv_res)</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li><a title="opshin.util.TypedNodeVisitor" href="util.html#opshin.util.TypedNodeVisitor">TypedNodeVisitor</a></li>
+<li>ast.NodeVisitor</li>
+</ul>
+<h3>Methods</h3>
+<dl>
+<dt id="opshin.type_inference.TypeCheckVisitor.generic_visit"><code class="name flex">
+<span>def <span class="ident">generic_visit</span></span>(<span>self, node: _ast.AST) ‑> Tuple[Dict[str, <a title="opshin.types.Type" href="types.html#opshin.types.Type">Type</a>], Dict[str, <a title="opshin.types.Type" href="types.html#opshin.types.Type">Type</a>]]</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Called if no explicit visitor function exists for a node.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def generic_visit(self, node: AST) -&gt; TypeMapPair:
+    return getattr(node, &#34;typechecks&#34;, ({}, {}))</code></pre>
+</details>
+</dd>
+<dt id="opshin.type_inference.TypeCheckVisitor.visit"><code class="name flex">
+<span>def <span class="ident">visit</span></span>(<span>self, node)</span>
+</code></dt>
+<dd>
+<p class="inheritance">
+<em>Inherited from:</em>
+<code><a title="opshin.util.TypedNodeVisitor" href="util.html#opshin.util.TypedNodeVisitor">TypedNodeVisitor</a></code>.<code><a title="opshin.util.TypedNodeVisitor.visit" href="util.html#opshin.util.TypedNodeVisitor.visit">visit</a></code>
+</p>
+<div class="desc inherited"><p>Visit a node.</p></div>
+</dd>
+<dt id="opshin.type_inference.TypeCheckVisitor.visit_BoolOp"><code class="name flex">
+<span>def <span class="ident">visit_BoolOp</span></span>(<span>self, node: _ast.BoolOp) ‑> <a title="opshin.types.PairType" href="types.html#opshin.types.PairType">PairType</a></span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def visit_BoolOp(self, node: BoolOp) -&gt; PairType:
+    res = {}
+    inv_res = {}
+    checks = [self.visit(v) for v in node.values]
+    checked_types = defaultdict(list)
+    inv_checked_types = defaultdict(list)
+    for c, inv_c in checks:
+        for v, t in c.items():
+            checked_types[v].append(t)
+        for v, t in inv_c.items():
+            inv_checked_types[v].append(t)
+    if isinstance(node.op, And):
+        # a conjunction is just the intersection
+        for v, ts in checked_types.items():
+            res[v] = intersection_types(*ts)
+        # if the conjunction fails, its any of the respective reverses, but only if the type is checked in every conjunction
+        for v, ts in inv_checked_types.items():
+            if len(ts) &lt; len(checks):
+                continue
+            inv_res[v] = union_types(*ts)
+    if isinstance(node.op, Or):
+        # a disjunction is just the union, but some type must be checked in every disjunction
+        for v, ts in checked_types.items():
+            if len(ts) &lt; len(checks):
+                continue
+            res[v] = union_types(*ts)
+        # if the disjunction fails, then it must be in the intersection of the inverses
+        for v, ts in inv_checked_types.items():
+            inv_res[v] = intersection_types(*ts)
+    return (res, inv_res)</code></pre>
+</details>
+</dd>
+<dt id="opshin.type_inference.TypeCheckVisitor.visit_Call"><code class="name flex">
+<span>def <span class="ident">visit_Call</span></span>(<span>self, node: _ast.Call) ‑> Tuple[Dict[str, <a title="opshin.types.Type" href="types.html#opshin.types.Type">Type</a>], Dict[str, <a title="opshin.types.Type" href="types.html#opshin.types.Type">Type</a>]]</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def visit_Call(self, node: Call) -&gt; TypeMapPair:
+    if isinstance(node.func, Name) and node.func.id == SPECIAL_BOOL:
+        return self.visit(node.args[0])
+    if not (isinstance(node.func, Name) and node.func.id == &#34;isinstance&#34;):
+        return ({}, {})
+    # special case for Union
+    assert isinstance(
+        node.args[0], Name
+    ), &#34;Target 0 of an isinstance cast must be a variable name&#34;
+    assert isinstance(
+        node.args[1], Name
+    ), &#34;Target 1 of an isinstance cast must be a class name&#34;
+    target_class: RecordType = node.args[1].typ
+    target_inst = node.args[0]
+    target_inst_class = target_inst.typ
+    assert isinstance(
+        target_inst_class, InstanceType
+    ), &#34;Can only cast instances, not classes&#34;
+    assert isinstance(
+        target_inst_class.typ, UnionType
+    ), &#34;Can only cast instances of Union types of PlutusData&#34;
+    assert isinstance(target_class, RecordType), &#34;Can only cast to PlutusData&#34;
+    assert (
+        target_class in target_inst_class.typ.typs
+    ), f&#34;Trying to cast an instance of Union type to non-instance of union type&#34;
+    varname = node.args[0].id
+    union_without_target_class = union_types(
+        *(x for x in target_inst_class.typ.typs if x != target_class)
+    )
+    return ({varname: target_class}, {varname: union_without_target_class})</code></pre>
+</details>
+</dd>
+<dt id="opshin.type_inference.TypeCheckVisitor.visit_UnaryOp"><code class="name flex">
+<span>def <span class="ident">visit_UnaryOp</span></span>(<span>self, node: _ast.UnaryOp) ‑> <a title="opshin.types.PairType" href="types.html#opshin.types.PairType">PairType</a></span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def visit_UnaryOp(self, node: UnaryOp) -&gt; PairType:
+    (res, inv_res) = self.visit(node.operand)
+    if isinstance(node.op, Not):
+        return (inv_res, res)
+    return (res, inv_res)</code></pre>
+</details>
+</dd>
+</dl>
+</dd>
 </dl>
 </section>
 </article>
@@ -2995,8 +3486,10 @@ setTimeout(() => input.focus(), 100);
 <li><h3><a href="#header-functions">Functions</a></h3>
 <ul class="">
 <li><code><a title="opshin.type_inference.constant_type" href="#opshin.type_inference.constant_type">constant_type</a></code></li>
+<li><code><a title="opshin.type_inference.intersection_types" href="#opshin.type_inference.intersection_types">intersection_types</a></code></li>
 <li><code><a title="opshin.type_inference.record_from_plutusdata" href="#opshin.type_inference.record_from_plutusdata">record_from_plutusdata</a></code></li>
 <li><code><a title="opshin.type_inference.typed_ast" href="#opshin.type_inference.typed_ast">typed_ast</a></code></li>
+<li><code><a title="opshin.type_inference.union_types" href="#opshin.type_inference.union_types">union_types</a></code></li>
 </ul>
 </li>
 <li><h3><a href="#header-classes">Classes</a></h3>
@@ -3007,6 +3500,7 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="opshin.type_inference.AggressiveTypeInferencer.enter_scope" href="#opshin.type_inference.AggressiveTypeInferencer.enter_scope">enter_scope</a></code></li>
 <li><code><a title="opshin.type_inference.AggressiveTypeInferencer.exit_scope" href="#opshin.type_inference.AggressiveTypeInferencer.exit_scope">exit_scope</a></code></li>
 <li><code><a title="opshin.type_inference.AggressiveTypeInferencer.generic_visit" href="#opshin.type_inference.AggressiveTypeInferencer.generic_visit">generic_visit</a></code></li>
+<li><code><a title="opshin.type_inference.AggressiveTypeInferencer.implement_typechecks" href="#opshin.type_inference.AggressiveTypeInferencer.implement_typechecks">implement_typechecks</a></code></li>
 <li><code><a title="opshin.type_inference.AggressiveTypeInferencer.scopes" href="#opshin.type_inference.AggressiveTypeInferencer.scopes">scopes</a></code></li>
 <li><code><a title="opshin.type_inference.AggressiveTypeInferencer.set_variable_type" href="#opshin.type_inference.AggressiveTypeInferencer.set_variable_type">set_variable_type</a></code></li>
 <li><code><a title="opshin.type_inference.AggressiveTypeInferencer.step" href="#opshin.type_inference.AggressiveTypeInferencer.step">step</a></code></li>
@@ -3046,6 +3540,7 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="opshin.type_inference.AggressiveTypeInferencer.visit_arg" href="#opshin.type_inference.AggressiveTypeInferencer.visit_arg">visit_arg</a></code></li>
 <li><code><a title="opshin.type_inference.AggressiveTypeInferencer.visit_arguments" href="#opshin.type_inference.AggressiveTypeInferencer.visit_arguments">visit_arguments</a></code></li>
 <li><code><a title="opshin.type_inference.AggressiveTypeInferencer.visit_comprehension" href="#opshin.type_inference.AggressiveTypeInferencer.visit_comprehension">visit_comprehension</a></code></li>
+<li><code><a title="opshin.type_inference.AggressiveTypeInferencer.visit_sequence" href="#opshin.type_inference.AggressiveTypeInferencer.visit_sequence">visit_sequence</a></code></li>
 </ul>
 </li>
 <li>
@@ -3061,6 +3556,16 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="opshin.type_inference.RecordReader.visit_ClassDef" href="#opshin.type_inference.RecordReader.visit_ClassDef">visit_ClassDef</a></code></li>
 <li><code><a title="opshin.type_inference.RecordReader.visit_Expr" href="#opshin.type_inference.RecordReader.visit_Expr">visit_Expr</a></code></li>
 <li><code><a title="opshin.type_inference.RecordReader.visit_Pass" href="#opshin.type_inference.RecordReader.visit_Pass">visit_Pass</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="opshin.type_inference.TypeCheckVisitor" href="#opshin.type_inference.TypeCheckVisitor">TypeCheckVisitor</a></code></h4>
+<ul class="">
+<li><code><a title="opshin.type_inference.TypeCheckVisitor.generic_visit" href="#opshin.type_inference.TypeCheckVisitor.generic_visit">generic_visit</a></code></li>
+<li><code><a title="opshin.type_inference.TypeCheckVisitor.visit" href="util.html#opshin.type_inference.TypeCheckVisitor.visit">visit</a></code></li>
+<li><code><a title="opshin.type_inference.TypeCheckVisitor.visit_BoolOp" href="#opshin.type_inference.TypeCheckVisitor.visit_BoolOp">visit_BoolOp</a></code></li>
+<li><code><a title="opshin.type_inference.TypeCheckVisitor.visit_Call" href="#opshin.type_inference.TypeCheckVisitor.visit_Call">visit_Call</a></code></li>
+<li><code><a title="opshin.type_inference.TypeCheckVisitor.visit_UnaryOp" href="#opshin.type_inference.TypeCheckVisitor.visit_UnaryOp">visit_UnaryOp</a></code></li>
 </ul>
 </li>
 </ul>
