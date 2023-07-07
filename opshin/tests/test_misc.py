@@ -691,6 +691,78 @@ def validator(x: Union[A, B]) -> Union[SomeOutputDatumHash, SomeOutputDatum]:
         )
         self.assertEqual(res, uplc.data_from_cbor(x.foo.to_cbor()))
 
+    @hypothesis.given(some_output, st.sampled_from([1, 2, 3]))
+    def test_union_type_attr_access_all_records_diff_pos(self, x, y):
+        source_code = """
+from opshin.prelude import *
+
+@dataclass()
+class A(PlutusData):
+    CONSTR_ID = 0
+    foo: SomeOutputDatumHash
+
+@dataclass()
+class B(PlutusData):
+    CONSTR_ID = 1
+    foo: SomeOutputDatum
+    
+@dataclass()
+class C(PlutusData):
+    CONSTR_ID = 2
+    bar: int
+    foo: SomeOutputDatum
+    
+@dataclass()
+class D(PlutusData):
+    CONSTR_ID = 3
+    foobar: int
+    bar: int
+    foo: SomeOutputDatum
+
+def validator(x: Union[A, B, C, D]) -> Union[SomeOutputDatumHash, SomeOutputDatum]:
+    return x.foo
+"""
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+
+        @dataclass()
+        class A(PlutusData):
+            CONSTR_ID = 0
+            foo: SomeOutputDatumHash
+
+        @dataclass()
+        class B(PlutusData):
+            CONSTR_ID = 1
+            foo: SomeOutputDatum
+
+        @dataclass()
+        class C(PlutusData):
+            CONSTR_ID = 2
+            bar: int
+            foo: SomeOutputDatum
+
+        @dataclass()
+        class D(PlutusData):
+            CONSTR_ID = 3
+            foobar: int
+            bar: int
+            foo: SomeOutputDatum
+
+        x = (
+            A(x)
+            if isinstance(x, SomeOutputDatumHash)
+            else B(x)
+            if y == 1
+            else C(0, x)
+            if y == 2
+            else D(0, 0, x)
+        )
+
+        res = uplc_eval(
+            uplc.Apply(code, uplc.data_from_cbor(x.to_cbor())),
+        )
+        self.assertEqual(res, uplc.data_from_cbor(x.foo.to_cbor()))
+
     @unittest.expectedFailure
     def test_union_type_all_records_same_constr(self):
         source_code = """
