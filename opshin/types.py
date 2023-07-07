@@ -461,10 +461,8 @@ class UnionType(ClassType):
         if attr == "CONSTR_ID":
             return IntegerInstanceType
         # need to have a common field with the same name
-        if all(attr in (f[0] for f in x.record.fields) for x in self.typs):
-            attr_types = (
-                f[1] for x in self.typs for f in x.record.fields if f[0] == attr
-            )
+        if all(attr in (n for n, t in x.record.fields) for x in self.typs):
+            attr_types = (t for x in self.typs for n, t in x.record.fields if n == attr)
             for at in attr_types:
                 # return the maximum element if there is one
                 if all(at >= at2 for at2 in attr_types):
@@ -497,20 +495,28 @@ class UnionType(ClassType):
         # iterate through all names/types of the unioned records by position
         if any(attr in (n for n, t in r.record.fields) for r in self.typs):
             attr_typ = self.attribute_type(attr)
-            pos = next(
-                i
-                for i, (ns, _) in enumerate(
-                    map(lambda x: zip(*x), zip(*(t.record.fields for t in self.typs)))
-                )
-                if all(n == attr for n in ns)
-            )
+            pos_constrs = [
+                (i, x.record.constructor)
+                for x in self.typs
+                for i, (n, t) in x.record.fields
+                if n == attr
+            ]
             # access to normal fields
+            pos_decisor = plt.Error()
+            for pos, constr in pos_constrs:
+                pos_decisor = plt.Ite(
+                    plt.EqualsInteger(plt.Var("constr"), plt.Integer(constr)),
+                    plt.Integer(pos),
+                    pos_decisor,
+                )
             return plt.Lambda(
                 ["self"],
                 transform_ext_params_map(attr_typ)(
                     plt.NthField(
                         plt.Var("self"),
-                        plt.Integer(pos),
+                        plt.Let(
+                            [("constr", plt.Constructor(plt.Var("self")))], pos_decisor
+                        ),
                     ),
                 ),
             )
