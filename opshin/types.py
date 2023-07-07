@@ -460,13 +460,11 @@ class UnionType(ClassType):
     def attribute_type(self, attr) -> "Type":
         if attr == "CONSTR_ID":
             return IntegerInstanceType
-        # iterate through all names/types of the unioned records by position
-        for attr_names, attr_types in map(
-            lambda x: zip(*x), zip(*(t.record.fields for t in self.typs))
-        ):
-            # need to have a common field with the same name, in the same position!
-            if any(attr_name != attr for attr_name in attr_names):
-                continue
+        # need to have a common field with the same name
+        if all(attr in (f[0] for f in x.record.fields) for x in self.typs):
+            attr_types = (
+                f[1] for x in self.typs for f in x.record.fields if f[0] == attr
+            )
             for at in attr_types:
                 # return the maximum element if there is one
                 if all(at >= at2 for at2 in attr_types):
