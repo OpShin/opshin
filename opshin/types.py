@@ -1,6 +1,7 @@
 import logging
 from ast import *
 from dataclasses import dataclass
+import itertools
 
 import pluthon as plt
 
@@ -501,11 +502,31 @@ class UnionType(ClassType):
                 for i, (n, t) in enumerate(x.record.fields)
                 if n == attr
             ]
+            pos_constrs = sorted(pos_constrs, key=lambda x: x[0])
+            pos_constrs = [
+                (pos, [c[1] for c in constrs])
+                for (pos, constrs) in itertools.groupby(pos_constrs, key=lambda x: x[0])
+            ]
+            # largest group last so we save the comparisons for that
+            pos_constrs = sorted(pos_constrs, key=lambda x: len(x[1]))
             # access to normal fields
-            pos_decisor = plt.TraceError("Invalid constructor")
-            for pos, constr in pos_constrs:
+            if not pos_constrs:
+                pos_decisor = plt.TraceError("Invalid constructor")
+            else:
+                pos_decisor = plt.Integer(pos_constrs[-1][0])
+                pos_constrs = pos_constrs[:-1]
+            for pos, constrs in pos_constrs:
+                assert constrs, "Found empty constructors for a position"
+                constr_check = plt.EqualsInteger(
+                    plt.Var("constr"), plt.Integer(constrs[0])
+                )
+                for constr in constrs:
+                    constr_check = plt.Or(
+                        plt.EqualsInteger(plt.Var("constr"), plt.Integer(constr)),
+                        constr_check,
+                    )
                 pos_decisor = plt.Ite(
-                    plt.EqualsInteger(plt.Var("constr"), plt.Integer(constr)),
+                    constr_check,
                     plt.Integer(pos),
                     pos_decisor,
                 )
