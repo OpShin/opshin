@@ -462,7 +462,7 @@ class UnionType(ClassType):
             return IntegerInstanceType
         # need to have a common field with the same name
         if all(attr in (n for n, t in x.record.fields) for x in self.typs):
-            attr_types = (t for x in self.typs for n, t in x.record.fields if n == attr)
+            attr_types = [t for x in self.typs for n, t in x.record.fields if n == attr]
             for at in attr_types:
                 # return the maximum element if there is one
                 if all(at >= at2 for at2 in attr_types):
@@ -498,11 +498,11 @@ class UnionType(ClassType):
             pos_constrs = [
                 (i, x.record.constructor)
                 for x in self.typs
-                for i, (n, t) in x.record.fields
+                for i, (n, t) in enumerate(x.record.fields)
                 if n == attr
             ]
             # access to normal fields
-            pos_decisor = plt.Error()
+            pos_decisor = plt.TraceError("Invalid constructor")
             for pos, constr in pos_constrs:
                 pos_decisor = plt.Ite(
                     plt.EqualsInteger(plt.Var("constr"), plt.Integer(constr)),

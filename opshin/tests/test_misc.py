@@ -688,7 +688,7 @@ def validator(x: Union[A, B]) -> Union[SomeOutputDatumHash, SomeOutputDatum]:
 
         res = uplc_eval(
             uplc.Apply(code, uplc.data_from_cbor(x.to_cbor())),
-        ).value
+        )
         self.assertEqual(res, uplc.data_from_cbor(x.foo.to_cbor()))
 
     @unittest.expectedFailure
