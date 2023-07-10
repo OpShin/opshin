@@ -11,6 +11,7 @@ security into the Smart Contract by checking type correctness.
 
 [1]: https://legacy.python.org/workshops/2000-01/proceedings/papers/aycock/aycock.html
 """
+import typing
 from collections import defaultdict
 
 from copy import copy
@@ -246,6 +247,24 @@ class TypeCheckVisitor(TypedNodeVisitor):
         return (res, inv_res)
 
 
+def merge_scope(s1: typing.Dict[str, Type], s2: typing.Dict[str, Type]):
+    keys = set(s1.keys()).union(s2.keys())
+    merged = {}
+    for k in keys:
+        if k not in s1.keys():
+            merged[k] = s2[k]
+        elif k not in s2.keys():
+            merged[k] = s1[k]
+        else:
+            try:
+                merged[k] = union_types(s1[k], s2[k])
+            except AssertionError as e:
+                raise AssertionError(
+                    f"Can not merge scopes after branching, conflicting types for {k}: {e}"
+                )
+    return merged
+
+
 class AggressiveTypeInferencer(CompilingNodeTransformer):
     step = "Static Type Inference"
 
@@ -441,11 +460,16 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         # for the time of the branch, these types are cast
         prevtyps = self.implement_typechecks(typchecks)
         typed_if.body = self.visit_sequence(node.body)
+        # save resulting types
+        final_scope_body = self.scopes[-1]
+        # reverse typechecks
         self.implement_typechecks(prevtyps)
         # for the time of the else branch, the inverse types hold
-        prevtyps = self.implement_typechecks(inv_typchecks)
+        self.implement_typechecks(inv_typchecks)
         typed_if.orelse = self.visit_sequence(node.orelse)
-        self.implement_typechecks(prevtyps)
+        final_scope_else = self.scopes[-1]
+        # unify the resulting branch scopes
+        self.scopes[-1] = merge_scope(final_scope_body, final_scope_else)
         return typed_if
 
     def visit_While(self, node: While) -> TypedWhile:
@@ -458,11 +482,13 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         # for the time of the branch, these types are cast
         prevtyps = self.implement_typechecks(typchecks)
         typed_while.body = self.visit_sequence(node.body)
+        final_scope_body = self.scopes[-1]
         self.implement_typechecks(prevtyps)
         # for the time of the else branch, the inverse types hold
-        prevtyps = self.implement_typechecks(inv_typchecks)
+        self.implement_typechecks(inv_typchecks)
         typed_while.orelse = self.visit_sequence(node.orelse)
-        self.implement_typechecks(prevtyps)
+        final_scope_else = self.scopes[-1]
+        self.scopes[-1] = merge_scope(final_scope_body, final_scope_else)
         return typed_while
 
     def visit_For(self, node: For) -> TypedFor:
