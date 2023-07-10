@@ -152,12 +152,12 @@ def union_types(*ts: Type):
         isinstance(e, UnionType) and all(isinstance(e2, RecordType) for e2 in e.typs)
         for e in ts
     ), "Union must combine multiple PlutusData classes"
-    assert distinct(
-        [e2.record.constructor for e in ts for e2 in e.typs]
-    ), "Union must combine PlutusData classes with unique constructors"
     union_set = set()
     for t in ts:
         union_set.update(t.typs)
+    assert distinct(
+        [e.record.constructor for e in union_set]
+    ), "Union must combine PlutusData classes with unique constructors"
     return UnionType(frozenlist(union_set))
 
 
@@ -475,12 +475,13 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         ), "Branching condition must have boolean type"
         typchecks, inv_typchecks = TypeCheckVisitor().visit(typed_if.test)
         # for the time of the branch, these types are cast
-        prevtyps = self.implement_typechecks(typchecks)
+        initial_scope = copy(self.scopes[-1])
+        self.implement_typechecks(typchecks)
         typed_if.body = self.visit_sequence(node.body)
         # save resulting types
         final_scope_body = copy(self.scopes[-1])
-        # reverse typechecks
-        self.implement_typechecks(prevtyps)
+        # reverse typechecks and remove typing of one branch
+        self.scopes[-1] = initial_scope
         # for the time of the else branch, the inverse types hold
         self.implement_typechecks(inv_typchecks)
         typed_if.orelse = self.visit_sequence(node.orelse)
@@ -497,10 +498,12 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         ), "Branching condition must have boolean type"
         typchecks, inv_typchecks = TypeCheckVisitor().visit(typed_while.test)
         # for the time of the branch, these types are cast
-        prevtyps = self.implement_typechecks(typchecks)
+        initial_scope = copy(self.scopes[-1])
+        self.implement_typechecks(typchecks)
         typed_while.body = self.visit_sequence(node.body)
         final_scope_body = copy(self.scopes[-1])
-        self.implement_typechecks(prevtyps)
+        # revert changes
+        self.scopes[-1] = initial_scope
         # for the time of the else branch, the inverse types hold
         self.implement_typechecks(inv_typchecks)
         typed_while.orelse = self.visit_sequence(node.orelse)

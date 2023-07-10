@@ -2220,3 +2220,55 @@ def validator(x: Union[A, B]) -> int:
         code = compiler.compile(ast).compile()
         res = uplc_eval(uplc.Apply(code, uplc.data_from_cbor(x.to_cbor())))
         self.assertEqual(res.value, x.foo if isinstance(x, A) else x.foobar)
+
+    @unittest.expectedFailure
+    def test_retype_if_branch_correct(self):
+        source_code = """
+from dataclasses import dataclass
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
+
+@dataclass()
+class A(PlutusData):
+    CONSTR_ID = 0
+    foo: int
+
+@dataclass()
+class B(PlutusData):
+    CONSTR_ID = 1
+    foobar: int
+    bar: int
+
+def validator(x: Union[A, B]) -> int:
+    if False:
+        x = B(0, 1)
+    return x.foobar
+"""
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+
+    @unittest.expectedFailure
+    def test_retype_while_branch_correct(self):
+        source_code = """
+from dataclasses import dataclass
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
+
+@dataclass()
+class A(PlutusData):
+    CONSTR_ID = 0
+    foo: int
+
+@dataclass()
+class B(PlutusData):
+    CONSTR_ID = 1
+    foobar: int
+    bar: int
+
+def validator(x: Union[A, B]) -> int:
+    while False:
+        x = B(0, 1)
+    return x.foobar
+"""
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
