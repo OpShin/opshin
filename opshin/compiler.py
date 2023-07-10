@@ -1026,11 +1026,11 @@ def compile(
         RewriteImportDataclasses(),
         RewriteInjectBuiltins(),
         RewriteConditions(),
+        RewriteZeroAry(),
         # The type inference needs to be run after complex python operations were rewritten
         AggressiveTypeInferencer(),
         # Rewrites that circumvent the type inference or use its results
         RewriteImportUPLCBuiltins(),
-        RewriteZeroAry(),
         RewriteInjectBuiltinsConstr(),
         RewriteRemoveTypeStuff(),
     ]

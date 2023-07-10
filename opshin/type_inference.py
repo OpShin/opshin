@@ -52,7 +52,7 @@ def record_from_plutusdata(c: PlutusData):
     return Record(
         name=c.__class__.__name__,
         constructor=c.CONSTR_ID,
-        fields=FrozenFrozenList([(k, constant_type(v)) for k, v in c.__dict__.items()]),
+        fields=frozenlist([(k, constant_type(v)) for k, v in c.__dict__.items()]),
     )
 
 
@@ -147,9 +147,7 @@ def union_types(*ts: Type):
     if len(ts) == 1:
         return ts[0]
     assert ts, "Union must combine multiple classes"
-    ts = [
-        t if isinstance(t, UnionType) else UnionType(FrozenFrozenList([t])) for t in ts
-    ]
+    ts = [t if isinstance(t, UnionType) else UnionType(frozenlist([t])) for t in ts]
     assert all(
         isinstance(e, UnionType) and all(isinstance(e2, RecordType) for e2 in e.typs)
         for e in ts
@@ -160,21 +158,19 @@ def union_types(*ts: Type):
     union_set = set()
     for t in ts:
         union_set.update(t.typs)
-    return UnionType(FrozenFrozenList(union_set))
+    return UnionType(frozenlist(union_set))
 
 
 def intersection_types(*ts: Type):
     ts = list(set(ts))
     if len(ts) == 1:
         return ts[0]
-    ts = [
-        t if isinstance(t, UnionType) else UnionType(FrozenFrozenList([t])) for t in ts
-    ]
+    ts = [t if isinstance(t, UnionType) else UnionType(frozenlist([t])) for t in ts]
     assert ts, "Must have at least one type to intersect"
     intersection_set = set(ts[0].typs)
     for t in ts[1:]:
         intersection_set.intersection_update(t.typs)
-    return UnionType(FrozenFrozenList(intersection_set))
+    return UnionType(frozenlist(intersection_set))
 
 
 class TypeCheckVisitor(TypedNodeVisitor):
@@ -362,7 +358,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                 assert all(
                     isinstance(e, ClassType) for e in ann_types
                 ), "Tuple must combine classes"
-                return TupleType(FrozenFrozenList([InstanceType(a) for a in ann_types]))
+                return TupleType(frozenlist([InstanceType(a) for a in ann_types]))
             raise NotImplementedError(
                 "Only Union, Dict and List are allowed as Generic types"
             )
@@ -576,7 +572,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         self.enter_scope()
         tfd.args = self.visit(node.args)
         functyp = FunctionType(
-            FrozenFrozenList([t.typ for t in tfd.args.args]),
+            frozenlist([t.typ for t in tfd.args.args]),
             InstanceType(self.type_from_annotation(tfd.returns)),
         )
         tfd.typ = InstanceType(functyp)
@@ -936,7 +932,7 @@ class RecordReader(NodeVisitor):
     def extract(cls, c: ClassDef, type_inferencer: AggressiveTypeInferencer) -> Record:
         f = cls(type_inferencer)
         f.visit(c)
-        return Record(f.name, f.constructor, FrozenFrozenList(f.attributes))
+        return Record(f.name, f.constructor, frozenlist(f.attributes))
 
     def visit_AnnAssign(self, node: AnnAssign) -> None:
         assert isinstance(

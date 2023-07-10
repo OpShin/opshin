@@ -15,7 +15,7 @@ class HashType(ClassType):
 
     def attribute_type(self, attr) -> "Type":
         if attr == "digest":
-            return InstanceType(FunctionType([], ByteStringInstanceType))
+            return InstanceType(FunctionType(frozenlist([]), ByteStringInstanceType))
         raise NotImplementedError("HashType only has attribute 'digest'")
 
     def attribute(self, attr) -> plt.AST:
@@ -39,19 +39,19 @@ class PythonHashlib(Enum):
 PythonHashlibTypes = {
     PythonHashlib.sha256: InstanceType(
         FunctionType(
-            [ByteStringInstanceType],
+            frozenlist([ByteStringInstanceType]),
             HashInstanceType,
         )
     ),
     PythonHashlib.sha3_256: InstanceType(
         FunctionType(
-            [ByteStringInstanceType],
+            frozenlist([ByteStringInstanceType]),
             HashInstanceType,
         )
     ),
     PythonHashlib.blake2b: InstanceType(
         FunctionType(
-            [ByteStringInstanceType],
+            frozenlist([ByteStringInstanceType]),
             HashInstanceType,
         )
     ),

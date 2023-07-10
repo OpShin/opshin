@@ -54,7 +54,7 @@ class Type:
 class Record:
     name: str
     constructor: int
-    fields: typing.Union[typing.List[typing.Tuple[str, Type]], FrozenList]
+    fields: typing.Union[typing.List[typing.Tuple[str, Type]], frozenlist]
 
     def __ge__(self, other):
         if not isinstance(other, Record):
@@ -305,7 +305,9 @@ class RecordType(ClassType):
 
     def constr_type(self) -> "InstanceType":
         return InstanceType(
-            FunctionType([f[1] for f in self.record.fields], InstanceType(self))
+            FunctionType(
+                frozenlist([f[1] for f in self.record.fields]), InstanceType(self)
+            )
         )
 
     def constr(self) -> plt.AST:
@@ -329,9 +331,7 @@ class RecordType(ClassType):
             if n == attr:
                 return t
         if attr == "to_cbor":
-            return InstanceType(
-                FunctionType(FrozenFrozenList([]), ByteStringInstanceType)
-            )
+            return InstanceType(FunctionType(frozenlist([]), ByteStringInstanceType))
         raise TypeInferenceError(
             f"Type {self.record.name} does not have attribute {attr}"
         )
@@ -476,14 +476,12 @@ class UnionType(ClassType):
                 for at in attr_types
             ) and distinct([at.typ.record.constructor for at in attr_types]):
                 return InstanceType(
-                    UnionType(FrozenFrozenList([at.typ for at in attr_types]))
+                    UnionType(frozenlist([at.typ for at in attr_types]))
                 )
             # return Anytype
             return InstanceType(AnyType())
         if attr == "to_cbor":
-            return InstanceType(
-                FunctionType(FrozenFrozenList([]), ByteStringInstanceType)
-            )
+            return InstanceType(FunctionType(frozenlist([]), ByteStringInstanceType))
         raise TypeInferenceError(
             f"Can not access attribute {attr} of Union type. Cast to desired type with an 'if isinstance(_, _):' branch."
         )
@@ -771,18 +769,20 @@ class DictType(ClassType):
     def attribute_type(self, attr) -> "Type":
         if attr == "get":
             return InstanceType(
-                FunctionType([self.key_typ, self.value_typ], self.value_typ)
+                FunctionType(frozenlist([self.key_typ, self.value_typ]), self.value_typ)
             )
         if attr == "keys":
-            return InstanceType(FunctionType([], InstanceType(ListType(self.key_typ))))
+            return InstanceType(
+                FunctionType(frozenlist([]), InstanceType(ListType(self.key_typ)))
+            )
         if attr == "values":
             return InstanceType(
-                FunctionType([], InstanceType(ListType(self.value_typ)))
+                FunctionType(frozenlist([]), InstanceType(ListType(self.value_typ)))
             )
         if attr == "items":
             return InstanceType(
                 FunctionType(
-                    [],
+                    frozenlist([]),
                     InstanceType(
                         ListType(InstanceType(PairType(self.key_typ, self.value_typ)))
                     ),
@@ -1121,7 +1121,7 @@ class StringType(AtomicType):
 
     def attribute_type(self, attr) -> Type:
         if attr == "encode":
-            return InstanceType(FunctionType([], ByteStringInstanceType))
+            return InstanceType(FunctionType(frozenlist([]), ByteStringInstanceType))
         return super().attribute_type(attr)
 
     def attribute(self, attr) -> plt.AST:
@@ -1154,9 +1154,9 @@ class ByteStringType(AtomicType):
 
     def attribute_type(self, attr) -> Type:
         if attr == "decode":
-            return InstanceType(FunctionType([], StringInstanceType))
+            return InstanceType(FunctionType(frozenlist([]), StringInstanceType))
         if attr == "hex":
-            return InstanceType(FunctionType([], StringInstanceType))
+            return InstanceType(FunctionType(frozenlist([]), StringInstanceType))
         return super().attribute_type(attr)
 
     def attribute(self, attr) -> plt.AST:

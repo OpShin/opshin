@@ -3,7 +3,7 @@ import typing
 import ast
 import pycardano
 from frozendict import frozendict
-from frozenlist import FrozenList
+from frozenlist2 import frozenlist
 
 import uplc.ast as uplc
 
@@ -11,12 +11,6 @@ import uplc.ast as uplc
 def distinct(xs: list):
     """Returns true iff the list consists of distinct elements"""
     return len(xs) == len(set(xs))
-
-
-def FrozenFrozenList(l: list):
-    fl = FrozenList(l)
-    fl.freeze()
-    return fl
 
 
 class TypedNodeTransformer(ast.NodeTransformer):
@@ -84,7 +78,7 @@ def data_from_json(j: typing.Dict[str, typing.Any]) -> uplc.PlutusData:
     if "int" in j:
         return uplc.PlutusInteger(int(j["int"]))
     if "list" in j:
-        return uplc.PlutusList(FrozenFrozenList(list(map(data_from_json, j["list"]))))
+        return uplc.PlutusList(frozenlist(list(map(data_from_json, j["list"]))))
     if "map" in j:
         return uplc.PlutusMap(
             frozendict(
@@ -93,7 +87,7 @@ def data_from_json(j: typing.Dict[str, typing.Any]) -> uplc.PlutusData:
         )
     if "constructor" in j and "fields" in j:
         return uplc.PlutusConstr(
-            j["constructor"], FrozenFrozenList(list(map(data_from_json, j["fields"])))
+            j["constructor"], frozenlist(list(map(data_from_json, j["fields"])))
         )
     raise NotImplementedError(f"Unknown datum representation {j}")
 
