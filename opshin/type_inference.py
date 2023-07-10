@@ -326,7 +326,9 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                 ann.value, Name
             ), "Only Union, Dict and List are allowed as Generic types"
             if ann.value.id == "Union":
-                ann_types = [self.type_from_annotation(e) for e in ann.slice.elts]
+                ann_types = frozenlist(
+                    [self.type_from_annotation(e) for e in ann.slice.elts]
+                )
                 return union_types(*ann_types)
             if ann.value.id == "List":
                 ann_type = self.type_from_annotation(ann.slice)
@@ -401,7 +403,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
     def visit_Tuple(self, node: Tuple) -> TypedTuple:
         tt = copy(node)
         tt.elts = [self.visit(e) for e in node.elts]
-        tt.typ = InstanceType(TupleType([e.typ for e in tt.elts]))
+        tt.typ = InstanceType(TupleType(frozenlist([e.typ for e in tt.elts])))
         return tt
 
     def visit_List(self, node: List) -> TypedList:
