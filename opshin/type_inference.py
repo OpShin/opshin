@@ -202,17 +202,20 @@ class TypeCheckVisitor(TypedNodeVisitor):
         assert isinstance(
             target_inst_class, InstanceType
         ), "Can only cast instances, not classes"
-        assert isinstance(
-            target_inst_class.typ, UnionType
-        ), "Can only cast instances of Union types of PlutusData"
         assert isinstance(target_class, RecordType), "Can only cast to PlutusData"
-        assert (
-            target_class in target_inst_class.typ.typs
-        ), f"Trying to cast an instance of Union type to non-instance of union type"
+        if isinstance(target_inst_class.typ, UnionType):
+            assert (
+                target_class in target_inst_class.typ.typs
+            ), f"Trying to cast an instance of Union type to non-instance of union type"
+            union_without_target_class = union_types(
+                *(x for x in target_inst_class.typ.typs if x != target_class)
+            )
+        else:
+            assert (
+                target_inst_class.typ == target_class
+            ), "Can only cast instances of Union types of PlutusData or cast the same class"
+            union_without_target_class = target_class
         varname = node.args[0].id
-        union_without_target_class = union_types(
-            *(x for x in target_inst_class.typ.typs if x != target_class)
-        )
         return ({varname: target_class}, {varname: union_without_target_class})
 
     def visit_BoolOp(self, node: BoolOp) -> PairType:
