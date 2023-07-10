@@ -429,7 +429,8 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             assert isinstance(
                 t, Name
             ), "Can only assign to variable names, no type deconstruction"
-            self.set_variable_type(t.id, typed_ass.value.typ)
+            # Overwrite previous type -> this will only affect following statements
+            self.set_variable_type(t.id, typed_ass.value.typ, force=True)
         typed_ass.targets = [self.visit(t) for t in node.targets]
         return typed_ass
 
