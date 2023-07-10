@@ -143,8 +143,13 @@ TypeMapPair = typing.Tuple[TypeMap, TypeMap]
 
 
 def union_types(*ts: Type):
+    ts = list(set(ts))
+    if len(ts) == 1:
+        return ts[0]
     assert ts, "Union must combine multiple classes"
-    ts = [t if isinstance(t, UnionType) else UnionType([t]) for t in ts]
+    ts = [
+        t if isinstance(t, UnionType) else UnionType(FrozenFrozenList([t])) for t in ts
+    ]
     assert all(
         isinstance(e, UnionType) and all(isinstance(e2, RecordType) for e2 in e.typs)
         for e in ts
@@ -159,12 +164,17 @@ def union_types(*ts: Type):
 
 
 def intersection_types(*ts: Type):
-    ts = [t if isinstance(t, UnionType) else UnionType([t]) for t in ts]
+    ts = list(set(ts))
+    if len(ts) == 1:
+        return ts[0]
+    ts = [
+        t if isinstance(t, UnionType) else UnionType(FrozenFrozenList([t])) for t in ts
+    ]
     assert ts, "Must have at least one type to intersect"
     intersection_set = set(ts[0].typs)
     for t in ts[1:]:
         intersection_set.intersection_update(t.typs)
-    return UnionType(list(intersection_set))
+    return UnionType(FrozenFrozenList(intersection_set))
 
 
 class TypeCheckVisitor(TypedNodeVisitor):
@@ -321,7 +331,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             ), "Only Union, Dict and List are allowed as Generic types"
             if ann.value.id == "Union":
                 ann_types = [self.type_from_annotation(e) for e in ann.slice.elts]
-                return union_types(ann_types)
+                return union_types(*ann_types)
             if ann.value.id == "List":
                 ann_type = self.type_from_annotation(ann.slice)
                 assert isinstance(
@@ -566,7 +576,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         self.enter_scope()
         tfd.args = self.visit(node.args)
         functyp = FunctionType(
-            [t.typ for t in tfd.args.args],
+            FrozenFrozenList([t.typ for t in tfd.args.args]),
             InstanceType(self.type_from_annotation(tfd.returns)),
         )
         tfd.typ = InstanceType(functyp)
