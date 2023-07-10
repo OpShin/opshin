@@ -925,14 +925,16 @@ def validator(x: int) -> int:
 def a() -> None:
     assert False, "Executed a"
 
-def validator(x: None) -> None:
+def validator(x: None) -> int:
     b = a
     if False:
         b()
+    return 2
 """
         ast = compiler.parse(source_code)
         code = compiler.compile(ast).compile()
         res = uplc_eval(uplc.Apply(code, uplc.PlutusInteger(0)))
+        self.assertEqual(res.value, 2, "Invalid return value")
 
     @unittest.expectedFailure
     def test_zero_ary_exec(self):
