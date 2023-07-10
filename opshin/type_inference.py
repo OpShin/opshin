@@ -142,11 +142,19 @@ TypeMapPair = typing.Tuple[TypeMap, TypeMap]
 
 
 def union_types(*ts: Type):
+    assert ts, "Union must combine multiple classes"
     ts = [t if isinstance(t, UnionType) else UnionType([t]) for t in ts]
+    assert all(
+        isinstance(e, UnionType) and all(isinstance(e2, RecordType) for e2 in e.typs)
+        for e in ts
+    ), "Union must combine multiple PlutusData classes"
+    assert distinct(
+        [e2.record.constructor for e in ts for e2 in e.typs]
+    ), "Union must combine PlutusData classes with unique constructors"
     union_set = set()
     for t in ts:
         union_set.update(t.typs)
-    return UnionType(list(union_set))
+    return UnionType(FrozenFrozenList(union_set))
 
 
 def intersection_types(*ts: Type):
@@ -293,17 +301,8 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                 ann.value, Name
             ), "Only Union, Dict and List are allowed as Generic types"
             if ann.value.id == "Union":
-                assert isinstance(
-                    ann.slice, Tuple
-                ), "Union must combine multiple classes"
                 ann_types = [self.type_from_annotation(e) for e in ann.slice.elts]
-                assert all(
-                    isinstance(e, RecordType) for e in ann_types
-                ), "Union must combine multiple PlutusData classes"
-                assert distinct(
-                    [e.record.constructor for e in ann_types]
-                ), "Union must combine PlutusData classes with unique constructors"
-                return UnionType(FrozenFrozenList(ann_types))
+                return union_types(ann_types)
             if ann.value.id == "List":
                 ann_type = self.type_from_annotation(ann.slice)
                 assert isinstance(
