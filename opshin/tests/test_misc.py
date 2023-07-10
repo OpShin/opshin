@@ -974,6 +974,17 @@ def validator(x: None) -> None:
         code = compiler.compile(ast).compile()
         res = uplc_eval(uplc.Apply(code, uplc.PlutusInteger(0)))
 
+    def test_zero_ary_method_exec_suc(self):
+        source_code = """
+def validator(x: None) -> str:
+    b = b"\\x32".decode
+    return b()
+"""
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusInteger(0)))
+        self.assertEqual(res.value, b"\x32")
+
     def test_return_anything(self):
         source_code = """
 from opshin.prelude import *
