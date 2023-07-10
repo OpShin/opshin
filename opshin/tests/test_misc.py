@@ -2104,3 +2104,119 @@ def validator(x: Union[A, B], y: int) -> bool:
         self.assertEqual(
             res, (isinstance(x, A) or x.bar == y) and (isinstance(x, B) or x.foo == y)
         )
+
+    @hypothesis.given(a_or_b)
+    def test_retype_if(self, x):
+        source_code = """
+from dataclasses import dataclass
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
+
+@dataclass()
+class A(PlutusData):
+    CONSTR_ID = 0
+    foo: int
+
+@dataclass()
+class B(PlutusData):
+    CONSTR_ID = 1
+    foobar: int
+    bar: int
+
+def validator(x: Union[A, B]) -> Union[A, B]:
+    if isinstance(x, A):
+        k = B(x.foo, 1)
+    else:
+        k = A(x.bar)
+    return k
+"""
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc.plutus_cbor_dumps(
+            uplc_eval(uplc.Apply(code, uplc.data_from_cbor(x.to_cbor())))
+        )
+        self.assertEqual(res, (B(x.foo, 1) if isinstance(x, A) else A(x.bar)).to_cbor())
+
+    @unittest.expectedFailure
+    def test_if_no_retype_no_plutusdata(self):
+        source_code = """
+from dataclasses import dataclass
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
+
+@dataclass()
+class A(PlutusData):
+    CONSTR_ID = 0
+    foo: int
+
+@dataclass()
+class B(PlutusData):
+    CONSTR_ID = 1
+    foobar: int
+    bar: int
+
+def validator(x: Union[A, B]):
+    if isinstance(x, A):
+        k = B(x.foo, 1)
+    else:
+        k = "hello"
+    return k
+"""
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+
+    @unittest.expectedFailure
+    def test_while_no_retype_no_plutusdata(self):
+        source_code = """
+from dataclasses import dataclass
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
+
+@dataclass()
+class A(PlutusData):
+    CONSTR_ID = 0
+    foo: int
+
+@dataclass()
+class B(PlutusData):
+    CONSTR_ID = 1
+    foobar: int
+    bar: int
+
+def validator(x: Union[A, B]):
+    while isinstance(x, A):
+        k = B(x.foo, 1)
+    else:
+        k = "hello"
+    return k
+"""
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+
+    @hypothesis.given(a_or_b)
+    def test_retype_while(self, x):
+        source_code = """
+from dataclasses import dataclass
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
+
+@dataclass()
+class A(PlutusData):
+    CONSTR_ID = 0
+    foo: int
+
+@dataclass()
+class B(PlutusData):
+    CONSTR_ID = 1
+    foobar: int
+    bar: int
+
+def validator(x: Union[A, B]) -> int:
+    while isinstance(x, A):
+        x = B(x.foo, 1)
+    return x.foobar
+"""
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.data_from_cbor(x.to_cbor())))
+        self.assertEqual(res.value, x.foo if isinstance(x, A) else x.foobar)

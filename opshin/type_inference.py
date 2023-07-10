@@ -266,7 +266,12 @@ def merge_scope(s1: typing.Dict[str, Type], s2: typing.Dict[str, Type]):
             merged[k] = s1[k]
         else:
             try:
-                merged[k] = union_types(s1[k], s2[k])
+                assert (
+                    isinstance(s1[k], InstanceType) and isinstance(s2[k], InstanceType)
+                ) or s1[k] == s2[
+                    k
+                ], "Can only merge instance types or same types into one"
+                merged[k] = InstanceType(union_types(s1[k].typ, s2[k].typ))
             except AssertionError as e:
                 raise AssertionError(
                     f"Can not merge scopes after branching, conflicting types for {k}: {e}"
@@ -473,7 +478,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         prevtyps = self.implement_typechecks(typchecks)
         typed_if.body = self.visit_sequence(node.body)
         # save resulting types
-        final_scope_body = self.scopes[-1]
+        final_scope_body = copy(self.scopes[-1])
         # reverse typechecks
         self.implement_typechecks(prevtyps)
         # for the time of the else branch, the inverse types hold
@@ -494,7 +499,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         # for the time of the branch, these types are cast
         prevtyps = self.implement_typechecks(typchecks)
         typed_while.body = self.visit_sequence(node.body)
-        final_scope_body = self.scopes[-1]
+        final_scope_body = copy(self.scopes[-1])
         self.implement_typechecks(prevtyps)
         # for the time of the else branch, the inverse types hold
         self.implement_typechecks(inv_typchecks)
