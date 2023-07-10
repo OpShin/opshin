@@ -2283,3 +2283,17 @@ def validator(x: int) -> str:
         code = compiler.compile(ast).compile()
         res = uplc_eval(uplc.Apply(code, uplc.PlutusInteger(1)))
         self.assertEqual(res.value, b"hello")
+
+    def test_retype_if_primitives(self):
+        source_code = """
+def validator(x: int) -> str:
+    if True:
+        x = "hello"
+    else:
+        x = "hi"
+    return x
+"""
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusInteger(1)))
+        self.assertEqual(res.value, b"hello")
