@@ -1,6 +1,7 @@
 import logging
 from ast import *
 from dataclasses import dataclass
+import itertools
 
 import pluthon as plt
 
@@ -460,13 +461,11 @@ class UnionType(ClassType):
     def attribute_type(self, attr) -> "Type":
         if attr == "CONSTR_ID":
             return IntegerInstanceType
-        # iterate through all names/types of the unioned records by position
-        for attr_names, attr_types in map(
-            lambda x: zip(*x), zip(*(t.record.fields for t in self.typs))
-        ):
-            # need to have a common field with the same name, in the same position!
-            if any(attr_name != attr for attr_name in attr_names):
-                continue
+        # need to have a common field with the same name
+        if all(attr in (n for n, t in x.record.fields) for x in self.typs):
+            attr_types = set(
+                t for x in self.typs for n, t in x.record.fields if n == attr
+            )
             for at in attr_types:
                 # return the maximum element if there is one
                 if all(at >= at2 for at2 in attr_types):
@@ -499,20 +498,48 @@ class UnionType(ClassType):
         # iterate through all names/types of the unioned records by position
         if any(attr in (n for n, t in r.record.fields) for r in self.typs):
             attr_typ = self.attribute_type(attr)
-            pos = next(
-                i
-                for i, (ns, _) in enumerate(
-                    map(lambda x: zip(*x), zip(*(t.record.fields for t in self.typs)))
-                )
-                if all(n == attr for n in ns)
-            )
+            pos_constrs = [
+                (i, x.record.constructor)
+                for x in self.typs
+                for i, (n, t) in enumerate(x.record.fields)
+                if n == attr
+            ]
+            pos_constrs = sorted(pos_constrs, key=lambda x: x[0])
+            pos_constrs = [
+                (pos, [c[1] for c in constrs])
+                for (pos, constrs) in itertools.groupby(pos_constrs, key=lambda x: x[0])
+            ]
+            # largest group last so we save the comparisons for that
+            pos_constrs = sorted(pos_constrs, key=lambda x: len(x[1]))
             # access to normal fields
+            if not pos_constrs:
+                pos_decisor = plt.TraceError("Invalid constructor")
+            else:
+                pos_decisor = plt.Integer(pos_constrs[-1][0])
+                pos_constrs = pos_constrs[:-1]
+            for pos, constrs in pos_constrs:
+                assert constrs, "Found empty constructors for a position"
+                constr_check = plt.EqualsInteger(
+                    plt.Var("constr"), plt.Integer(constrs[0])
+                )
+                for constr in constrs[1:]:
+                    constr_check = plt.Or(
+                        plt.EqualsInteger(plt.Var("constr"), plt.Integer(constr)),
+                        constr_check,
+                    )
+                pos_decisor = plt.Ite(
+                    constr_check,
+                    plt.Integer(pos),
+                    pos_decisor,
+                )
             return plt.Lambda(
                 ["self"],
                 transform_ext_params_map(attr_typ)(
                     plt.NthField(
                         plt.Var("self"),
-                        plt.Integer(pos),
+                        plt.Let(
+                            [("constr", plt.Constructor(plt.Var("self")))], pos_decisor
+                        ),
                     ),
                 ),
             )
