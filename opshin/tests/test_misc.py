@@ -2272,3 +2272,14 @@ def validator(x: Union[A, B]) -> int:
 """
         ast = compiler.parse(source_code)
         code = compiler.compile(ast).compile()
+
+    def test_retype(self):
+        source_code = """
+def validator(x: int) -> str:
+    x = "hello"
+    return x
+"""
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusInteger(1)))
+        self.assertEqual(res.value, b"hello")
