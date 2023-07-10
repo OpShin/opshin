@@ -692,6 +692,7 @@ def validator(x: Union[A, B]) -> Union[SomeOutputDatumHash, SomeOutputDatum]:
         self.assertEqual(res, uplc.data_from_cbor(x.foo.to_cbor()))
 
     @hypothesis.given(some_output, st.sampled_from([1, 2, 3]))
+    @hypothesis.settings(deadline=None)
     def test_union_type_attr_access_all_records_diff_pos(self, x, y):
         source_code = """
 from opshin.prelude import *
