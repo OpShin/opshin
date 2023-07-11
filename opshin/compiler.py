@@ -20,7 +20,6 @@ from .rewrite.rewrite_remove_type_stuff import RewriteRemoveTypeStuff
 from .rewrite.rewrite_scoping import RewriteScoping
 from .rewrite.rewrite_subscript38 import RewriteSubscript38
 from .rewrite.rewrite_tuple_assign import RewriteTupleAssign
-from .rewrite.rewrite_zero_ary import RewriteZeroAry
 from .optimize.optimize_remove_pass import OptimizeRemovePass
 from .optimize.optimize_remove_deadvars import OptimizeRemoveDeadvars
 from .optimize.optimize_varlen import OptimizeVarlen
@@ -336,7 +335,7 @@ class UPLCCompiler(CompilingNodeTransformer):
                     )
 
             validator = plt.Lambda(
-                [f"p{i}" for i, _ in enumerate(main_fun_typ.argtyps)],
+                [f"p{i}" for i, _ in enumerate(main_fun_typ.argtyps)] or ["_"],
                 transform_output_map(main_fun_typ.rettyp)(
                     plt.Let(
                         [
@@ -512,11 +511,15 @@ class UPLCCompiler(CompilingNodeTransformer):
             tr.typ = NoneInstanceType
             body.append(tr)
         compiled_body = self.visit_sequence(body[:-1])
-        args_state = extend_statemonad(
-            # the function can see its argument under the argument names
-            [a.arg for a in node.args.args],
-            [plt.Var(f"p{i}") for i in range(len(node.args.args))],
-            plt.Var(STATEMONAD),
+        args_state = (
+            extend_statemonad(
+                # the function can see its argument under the argument names
+                [a.arg for a in node.args.args],
+                [plt.Var(f"p{i}") for i in range(len(node.args.args))],
+                plt.Var(STATEMONAD),
+            )
+            if node.args.args
+            else plt.Var(STATEMONAD)
         )
         compiled_return = plt.Apply(
             self.visit(body[-1].value),
@@ -1030,7 +1033,6 @@ def compile(
         AggressiveTypeInferencer(),
         # Rewrites that circumvent the type inference or use its results
         RewriteImportUPLCBuiltins(),
-        RewriteZeroAry(),
         RewriteInjectBuiltinsConstr(),
         RewriteRemoveTypeStuff(),
     ]

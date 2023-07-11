@@ -925,14 +925,16 @@ def validator(x: int) -> int:
 def a() -> None:
     assert False, "Executed a"
 
-def validator(x: None) -> None:
+def validator(x: None) -> int:
     b = a
     if False:
         b()
+    return 2
 """
         ast = compiler.parse(source_code)
         code = compiler.compile(ast).compile()
         res = uplc_eval(uplc.Apply(code, uplc.PlutusInteger(0)))
+        self.assertEqual(res.value, 2, "Invalid return value")
 
     @unittest.expectedFailure
     def test_zero_ary_exec(self):
@@ -971,6 +973,17 @@ def validator(x: None) -> None:
         ast = compiler.parse(source_code)
         code = compiler.compile(ast).compile()
         res = uplc_eval(uplc.Apply(code, uplc.PlutusInteger(0)))
+
+    def test_zero_ary_method_exec_suc(self):
+        source_code = """
+def validator(x: None) -> str:
+    b = b"\\x32".decode
+    return b()
+"""
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusInteger(0)))
+        self.assertEqual(res.value, b"\x32")
 
     def test_return_anything(self):
         source_code = """
@@ -2091,3 +2104,196 @@ def validator(x: Union[A, B], y: int) -> bool:
         self.assertEqual(
             res, (isinstance(x, A) or x.bar == y) and (isinstance(x, B) or x.foo == y)
         )
+
+    @hypothesis.given(a_or_b)
+    def test_retype_if(self, x):
+        source_code = """
+from dataclasses import dataclass
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
+
+@dataclass()
+class A(PlutusData):
+    CONSTR_ID = 0
+    foo: int
+
+@dataclass()
+class B(PlutusData):
+    CONSTR_ID = 1
+    foobar: int
+    bar: int
+
+def validator(x: Union[A, B]) -> Union[A, B]:
+    if isinstance(x, A):
+        k = B(x.foo, 1)
+    else:
+        k = A(x.bar)
+    return k
+"""
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc.plutus_cbor_dumps(
+            uplc_eval(uplc.Apply(code, uplc.data_from_cbor(x.to_cbor())))
+        )
+        self.assertEqual(res, (B(x.foo, 1) if isinstance(x, A) else A(x.bar)).to_cbor())
+
+    @unittest.expectedFailure
+    def test_if_no_retype_no_plutusdata(self):
+        source_code = """
+from dataclasses import dataclass
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
+
+@dataclass()
+class A(PlutusData):
+    CONSTR_ID = 0
+    foo: int
+
+@dataclass()
+class B(PlutusData):
+    CONSTR_ID = 1
+    foobar: int
+    bar: int
+
+def validator(x: Union[A, B]):
+    if isinstance(x, A):
+        k = B(x.foo, 1)
+    else:
+        k = "hello"
+    return k
+"""
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+
+    @unittest.expectedFailure
+    def test_while_no_retype_no_plutusdata(self):
+        source_code = """
+from dataclasses import dataclass
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
+
+@dataclass()
+class A(PlutusData):
+    CONSTR_ID = 0
+    foo: int
+
+@dataclass()
+class B(PlutusData):
+    CONSTR_ID = 1
+    foobar: int
+    bar: int
+
+def validator(x: Union[A, B]):
+    while isinstance(x, A):
+        k = B(x.foo, 1)
+    else:
+        k = "hello"
+    return k
+"""
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+
+    @hypothesis.given(a_or_b)
+    def test_retype_while(self, x):
+        source_code = """
+from dataclasses import dataclass
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
+
+@dataclass()
+class A(PlutusData):
+    CONSTR_ID = 0
+    foo: int
+
+@dataclass()
+class B(PlutusData):
+    CONSTR_ID = 1
+    foobar: int
+    bar: int
+
+def validator(x: Union[A, B]) -> int:
+    while isinstance(x, A):
+        x = B(x.foo, 1)
+    return x.foobar
+"""
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.data_from_cbor(x.to_cbor())))
+        self.assertEqual(res.value, x.foo if isinstance(x, A) else x.foobar)
+
+    @unittest.expectedFailure
+    def test_retype_if_branch_correct(self):
+        source_code = """
+from dataclasses import dataclass
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
+
+@dataclass()
+class A(PlutusData):
+    CONSTR_ID = 0
+    foo: int
+
+@dataclass()
+class B(PlutusData):
+    CONSTR_ID = 1
+    foobar: int
+    bar: int
+
+def validator(x: Union[A, B]) -> int:
+    if False:
+        x = B(0, 1)
+    return x.foobar
+"""
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+
+    @unittest.expectedFailure
+    def test_retype_while_branch_correct(self):
+        source_code = """
+from dataclasses import dataclass
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
+
+@dataclass()
+class A(PlutusData):
+    CONSTR_ID = 0
+    foo: int
+
+@dataclass()
+class B(PlutusData):
+    CONSTR_ID = 1
+    foobar: int
+    bar: int
+
+def validator(x: Union[A, B]) -> int:
+    while False:
+        x = B(0, 1)
+    return x.foobar
+"""
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+
+    def test_retype(self):
+        source_code = """
+def validator(x: int) -> str:
+    x = "hello"
+    return x
+"""
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusInteger(1)))
+        self.assertEqual(res.value, b"hello")
+
+    def test_retype_if_primitives(self):
+        source_code = """
+def validator(x: int) -> str:
+    if True:
+        x = "hello"
+    else:
+        x = "hi"
+    return x
+"""
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusInteger(1)))
+        self.assertEqual(res.value, b"hello")
