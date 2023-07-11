@@ -59,6 +59,8 @@ Check out the community [here](https://github.com/OpShin/opshin/discussions)
 You can also chat with other developers [in the welcoming discord
 community](https://discord.gg/umR3A2g4uw) of OpShin
 
+> Help us improve OpShin by [participating in this survey!](https://forms.gle/KdzYYeeiWCwMTHsX9)
+
 #### Installation
 
 Install Python 3.8, 3.9, 3.10 or 3.11. Then run
