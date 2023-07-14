@@ -6,7 +6,10 @@ from hypothesis import strategies as st
 from uplc import ast as uplc, eval as uplc_eval
 from pycardano import PlutusData
 
+from . import PLUTUS_VM_PROFILE
 from .. import compiler
+
+settings.load_profile(PLUTUS_VM_PROFILE)
 
 
 class StdlibTest(unittest.TestCase):
@@ -307,7 +310,6 @@ def validator(x: None) -> bool:
         self.assertEqual(ret, x, "literal bool returned wrong value")
 
     @given(st.integers(), st.binary())
-    @settings(deadline=None)
     def test_plutusdata_to_cbor(self, x: int, y: bytes):
         source_code = f"""
 from opshin.prelude import *
@@ -337,7 +339,6 @@ def validator(x: int, y: bytes) -> bytes:
         self.assertEqual(ret, Test(x, y).to_cbor(), "to_cbor returned wrong value")
 
     @given(st.integers())
-    @settings(deadline=None)
     def test_union_to_cbor(self, x: int):
         source_code = f"""
 from opshin.prelude import *

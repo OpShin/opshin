@@ -1,3 +1,4 @@
+import hypothesis
 import unittest
 
 import parameterized
@@ -5,7 +6,10 @@ from hypothesis import example, given
 from hypothesis import strategies as st
 from uplc import ast as uplc, eval as uplc_eval
 
+from . import PLUTUS_VM_PROFILE
 from .. import compiler
+
+hypothesis.settings.load_profile(PLUTUS_VM_PROFILE)
 
 
 class BuiltinTest(unittest.TestCase):

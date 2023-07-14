@@ -16,7 +16,10 @@ from uplc.ast import (
     PlutusByteString,
 )
 
+from . import PLUTUS_VM_PROFILE
 from .. import compiler
+
+hypothesis.settings.load_profile(PLUTUS_VM_PROFILE)
 
 from opshin.ledger.api_v2 import (
     FinitePOSIXTime,
@@ -696,7 +699,6 @@ def validator(x: None) -> str:
             st.one_of(st.builds(TrueData), st.builds(FalseData)),
         )
     )
-    @hypothesis.settings(deadline=None)
     @example(UpperBoundPOSIXTime(PosInfPOSIXTime(), TrueData()))
     def test_fmt_dataclass(self, x: UpperBoundPOSIXTime):
         source_code = """
@@ -744,7 +746,6 @@ def validator(x: int, y: int) -> str:
         )
 
     @given(x=st.lists(st.integers()))
-    @hypothesis.settings(deadline=None)
     @example([])
     @example([0])
     def test_fmt_tuple_int(self, x):
@@ -769,7 +770,6 @@ def validator({",".join(p + ": int" for p in params)}) -> str:
         )
 
     @given(x=st.lists(formattable_text))
-    @hypothesis.settings(deadline=None)
     def test_fmt_tuple_str(self, x):
         # TODO strings are not properly escaped here
         params = [f"a{i}" for i in range(len(x))]
@@ -793,7 +793,6 @@ def validator({",".join(p + ": str" for p in params)}) -> str:
         self.assertEqual(ret, exp, "tuple string formatting returned wrong value")
 
     @given(x=st.integers(), y=st.integers())
-    @hypothesis.settings(deadline=None)
     def test_fmt_pair_int(self, x, y):
         source_code = f"""
 def validator(x: int, y: int) -> str:
@@ -819,7 +818,6 @@ def validator(x: int, y: int) -> str:
         )
 
     @given(x=formattable_text, y=formattable_text)
-    @hypothesis.settings(deadline=None)
     def test_fmt_pair_str(self, x, y):
         # TODO strings are not properly escaped here
         source_code = f"""
@@ -846,7 +844,6 @@ def validator(x: str, y: str) -> str:
         )
 
     @given(xs=st.lists(formattable_text))
-    @hypothesis.settings(deadline=None)
     @example([])
     @example(["x"])
     def test_fmt_list_str(self, xs):
@@ -871,7 +868,6 @@ def validator(x: List[str]) -> str:
         self.assertEqual(ret, exp, "string list string formatting returned wrong value")
 
     @given(xs=st.lists(st.integers()))
-    @hypothesis.settings(deadline=None)
     @example([])
     @example([0])
     def test_fmt_list_int(self, xs):
@@ -895,7 +891,6 @@ def validator(x: List[int]) -> str:
         )
 
     @given(xs=st.dictionaries(formattable_text, st.integers()))
-    @hypothesis.settings(deadline=None)
     @example(dict())
     @example({"": 0})
     def test_fmt_dict_int(self, xs):
@@ -926,7 +921,6 @@ def validator(x: Dict[str, int]) -> str:
 
     @given(x=uplc_data)
     @example(PlutusConstr(0, [PlutusByteString(b"'")]))
-    @hypothesis.settings(deadline=None)
     def test_fmt_any(self, x):
         x_data = pycardano.RawPlutusData(cbor2.loads(uplc.plutus_cbor_dumps(x)))
         source_code = """

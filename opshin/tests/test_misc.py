@@ -7,10 +7,12 @@ import hypothesis
 from hypothesis import given
 from hypothesis import strategies as st
 from parameterized import parameterized
-
 from uplc import ast as uplc, eval as uplc_eval
 
+from . import PLUTUS_VM_PROFILE
 from .. import compiler, prelude
+
+hypothesis.settings.load_profile(PLUTUS_VM_PROFILE)
 
 # these imports are required to eval the result of script context dumps
 from ..ledger.api_v2 import *
@@ -692,7 +694,6 @@ def validator(x: Union[A, B]) -> Union[SomeOutputDatumHash, SomeOutputDatum]:
         self.assertEqual(res, uplc.data_from_cbor(x.foo.to_cbor()))
 
     @hypothesis.given(some_output, st.sampled_from([1, 2, 3]))
-    @hypothesis.settings(deadline=None)
     def test_union_type_attr_access_all_records_diff_pos(self, x, y):
         source_code = """
 from opshin.prelude import *
