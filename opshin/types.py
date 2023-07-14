@@ -1672,11 +1672,10 @@ class IntImpl(PolymorphicFunction):
                             ),
                         ),
                         (
-                            "second_int",
-                            plt.Ite(
-                                plt.LessThanInteger(plt.Integer(1), plt.Var("len")),
-                                plt.IndexByteString(plt.Var("e"), plt.Integer(1)),
-                                plt.Integer(ord("_")),
+                            "last_int",
+                            plt.IndexByteString(
+                                plt.Var("e"),
+                                plt.SubtractInteger(plt.Var("len"), plt.Integer(1)),
                             ),
                         ),
                         (
@@ -1736,26 +1735,26 @@ class IntImpl(PolymorphicFunction):
                     ],
                     plt.Ite(
                         plt.Or(
-                            plt.EqualsInteger(plt.Var("len"), plt.Integer(0)),
                             plt.Or(
                                 plt.EqualsInteger(
                                     plt.Var("first_int"),
                                     plt.Integer(ord("_")),
                                 ),
-                                plt.And(
-                                    plt.Or(
-                                        plt.EqualsInteger(
-                                            plt.Var("first_int"),
-                                            plt.Integer(ord("-")),
-                                        ),
-                                        plt.EqualsInteger(
-                                            plt.Var("first_int"),
-                                            plt.Integer(ord("+")),
-                                        ),
+                                plt.EqualsInteger(
+                                    plt.Var("last_int"),
+                                    plt.Integer(ord("_")),
+                                ),
+                            ),
+                            plt.And(
+                                plt.EqualsInteger(plt.Var("len"), plt.Integer(1)),
+                                plt.Or(
+                                    plt.EqualsInteger(
+                                        plt.Var("first_int"),
+                                        plt.Integer(ord("-")),
                                     ),
                                     plt.EqualsInteger(
-                                        plt.Var("second_int"),
-                                        plt.Integer(ord("_")),
+                                        plt.Var("first_int"),
+                                        plt.Integer(ord("+")),
                                     ),
                                 ),
                             ),

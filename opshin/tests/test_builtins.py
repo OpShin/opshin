@@ -195,6 +195,7 @@ def validator(x: int) -> str:
     @example("-")
     @example("+123")
     @example("-_")
+    @example("0_")
     # @example("0\n")  # stripping is broken
     def test_int_string(self, xs: str):
         # this tests that errors that are caused by assignments are actually triggered at the time of assigning
