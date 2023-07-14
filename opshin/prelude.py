@@ -57,9 +57,9 @@ def all_tokens_locked_at_address(
     )
 
 
-def resolve_spent_utxo(txins: List[TxInInfo], p: Spending) -> TxOut:
+def resolve_spent_utxo(inputs: List[TxInInfo], purpose: Spending) -> TxOut:
     """Returns the UTxO whose spending should be validated"""
-    return [txi.resolved for txi in txins if txi.out_ref == p.tx_out_ref][0]
+    return [txi.resolved for txi in inputs if txi.out_ref == purpose.tx_out_ref][0]
 
 
 def resolve_datum_unsafe(txout: TxOut, tx_info: TxInfo) -> BuiltinData:
@@ -106,7 +106,9 @@ def own_spent_utxo(txins: List[TxInInfo], p: Spending) -> TxOut:
 
 
 def own_policy_id(own_spent_utxo: TxOut) -> PolicyId:
-    # obtain the policy id for which this contract can validate minting/burning
+    """
+    obtain the policy id for which this contract can validate minting/burning
+    """
     cred = own_spent_utxo.address.payment_credential
     if isinstance(cred, ScriptCredential):
         policy_id = cred.credential_hash
@@ -115,4 +117,19 @@ def own_policy_id(own_spent_utxo: TxOut) -> PolicyId:
 
 
 def own_address(own_policy_id: PolicyId) -> Address:
+    """
+    Computes the spending script address corresponding to the given policy ID
+    """
     return Address(ScriptCredential(own_policy_id), NoStakingCredential())
+
+
+def token_present_in_inputs(token: Token, inputs: List[TxInInfo]):
+    """
+    Returns whether the given token is spent in one of the inputs of the transaction
+    """
+    return any(
+        [
+            x.resolved.value.get(token.policy_id, {b"": 0}).get(token.token_name, 0) > 0
+            for x in inputs
+        ]
+    )
