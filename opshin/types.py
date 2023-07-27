@@ -1928,8 +1928,8 @@ def empty_list(p: Type):
             uplc.BuiltinList(
                 [],
                 uplc.BuiltinPair(
-                    uplc.PlutusConstr(0, FrozenList([])),
-                    uplc.PlutusConstr(0, FrozenList([])),
+                    uplc.PlutusConstr(0, frozenlist([])),
+                    uplc.PlutusConstr(0, frozenlist([])),
                 ),
             )
         )
