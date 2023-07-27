@@ -2298,3 +2298,19 @@ def validator(x: int) -> str:
         code = compiler.compile(ast).compile()
         res = uplc_eval(uplc.Apply(code, uplc.PlutusInteger(1)))
         self.assertEqual(res.value, b"hello")
+
+    @unittest.expectedFailure
+    def test_in_list(self):
+        source_code = """
+from opshin.prelude import *
+
+def validator(
+    d: Nothing,
+    r: Nothing,
+    context: ScriptContext,
+):
+    assert context.purpose in context.tx_info.signatories
+"""
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast)
+        code = code.compile()
