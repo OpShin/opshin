@@ -579,7 +579,7 @@ class UnionType(ClassType):
         if (
             isinstance(o, ListType)
             and isinstance(o.typ, InstanceType)
-            and (o.typ.typ >= t or t >= o.typ.typ for t in self.typs)
+            and any(o.typ.typ >= t or t >= o.typ.typ for t in self.typs)
         ):
             if isinstance(op, In):
                 return plt.Lambda(
