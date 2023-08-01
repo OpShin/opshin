@@ -1,4 +1,6 @@
 """ Bridging tools between uplc and opshin """
+from functools import wraps
+
 import re
 
 import uplc.ast
@@ -43,7 +45,12 @@ def wraps_builtin(func):
         p.capitalize() for p in re.split(r"_(?!\d)", snake_case_fun_name)
     )
 
+    @wraps(func)
     def wrapped(*args):
+        """
+        A UPLC builtin that was wrapped to be available in OpShin/Python.
+        The type annotation of the original function is preserved.
+        """
         uplc_fun = uplc.ast.BuiltInFun.__dict__[CamelCaseFunName]
         return to_python(
             uplc.ast.BuiltInFunEvalMap[uplc_fun](*(map(to_uplc_builtin, args)))

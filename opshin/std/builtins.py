@@ -8,6 +8,7 @@ from pycardano import Datum as Anything, PlutusData
 
 @wraps_builtin
 def add_integer(x: int, y: int) -> int:
+    """Adds two integers and returns the result."""
     pass
 
 
