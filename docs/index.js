@@ -5768,175 +5768,181 @@ INDEX=[
 {
 "ref":"opshin.std.builtins.subtract_integer",
 "url":47,
-"doc":"",
+"doc":"Subtract fist integer by second and return the result.",
 "func":1
 },
 {
 "ref":"opshin.std.builtins.multiply_integer",
 "url":47,
-"doc":"",
+"doc":"Multiply 2 integers and return the result.",
 "func":1
 },
 {
 "ref":"opshin.std.builtins.divide_integer",
 "url":47,
-"doc":"",
+"doc":"Divide first integer by second and return the result.",
 "func":1
 },
 {
 "ref":"opshin.std.builtins.quotient_integer",
 "url":47,
-"doc":"",
+"doc":"Quotient of first integer by second and return the result.",
 "func":1
 },
 {
 "ref":"opshin.std.builtins.remainder_integer",
 "url":47,
-"doc":"",
+"doc":"Remainder of first integer by second and return the result.",
 "func":1
 },
 {
 "ref":"opshin.std.builtins.mod_integer",
 "url":47,
-"doc":"",
+"doc":"Modulus of first integer by second and return the result.",
 "func":1
 },
 {
 "ref":"opshin.std.builtins.equals_integer",
 "url":47,
-"doc":"",
+"doc":"Equality between two integers.",
 "func":1
 },
 {
 "ref":"opshin.std.builtins.less_than_integer",
 "url":47,
-"doc":"",
+"doc":"Returns x < y",
 "func":1
 },
 {
 "ref":"opshin.std.builtins.less_than_equals_integer",
 "url":47,
-"doc":"",
+"doc":"Returns x <= y.",
 "func":1
 },
 {
 "ref":"opshin.std.builtins.append_byte_string",
 "url":47,
-"doc":"",
+"doc":"Concatenate two bytestrings.",
 "func":1
 },
 {
 "ref":"opshin.std.builtins.cons_byte_string",
 "url":47,
-"doc":"",
+"doc":"Prepend a byte, represented by a natural number (Integer), to a bytestring.",
 "func":1
 },
 {
 "ref":"opshin.std.builtins.slice_byte_string",
 "url":47,
-"doc":"",
+"doc":"Slice a bytestring using given indices (inclusive on both ends). The resulting bytestring is z[x:x+y].",
 "func":1
 },
 {
 "ref":"opshin.std.builtins.length_of_byte_string",
 "url":47,
-"doc":"",
+"doc":"Get the length of a bytestring.",
 "func":1
 },
 {
 "ref":"opshin.std.builtins.index_byte_string",
 "url":47,
-"doc":"",
+"doc":"Get the byte at given index from a bytestring.",
 "func":1
 },
 {
 "ref":"opshin.std.builtins.equals_byte_string",
 "url":47,
-"doc":"",
+"doc":"Returns x  y.",
 "func":1
 },
 {
 "ref":"opshin.std.builtins.less_than_byte_string",
 "url":47,
-"doc":"",
+"doc":"Returns x < y.",
 "func":1
 },
 {
 "ref":"opshin.std.builtins.less_than_equals_byte_string",
 "url":47,
-"doc":"",
+"doc":"Returns x <= y.",
 "func":1
 },
 {
 "ref":"opshin.std.builtins.sha2_256",
 "url":47,
-"doc":"",
+"doc":"Hash a bytestring using SHA-256.",
 "func":1
 },
 {
 "ref":"opshin.std.builtins.sha3_256",
 "url":47,
-"doc":"",
+"doc":"Hash a bytestring using SHA3-256.",
 "func":1
 },
 {
 "ref":"opshin.std.builtins.blake2b_256",
 "url":47,
-"doc":"",
+"doc":"Hash a bytestring using Blake2B-256.",
 "func":1
 },
 {
 "ref":"opshin.std.builtins.verify_ed25519_signature",
 "url":47,
-"doc":"",
+"doc":"Given PubKey, Message, and Signature, verify the Ed25519 signature.",
 "func":1
 },
 {
 "ref":"opshin.std.builtins.verify_ecdsa_secp256k1_signature",
 "url":47,
-"doc":"",
+"doc":"Given PubKey, Message, and Signature, verify the ECDSA signature.",
 "func":1
 },
 {
 "ref":"opshin.std.builtins.verify_schnorr_secp256k1_signature",
 "url":47,
-"doc":"",
+"doc":"Given PubKey, Message, and Signature, verify the Schnorr signature.",
 "func":1
 },
 {
 "ref":"opshin.std.builtins.append_string",
 "url":47,
-"doc":"",
+"doc":"Concatenate two strings/texts.",
 "func":1
 },
 {
 "ref":"opshin.std.builtins.equals_string",
 "url":47,
-"doc":"",
+"doc":"Returns x  y.",
 "func":1
 },
 {
 "ref":"opshin.std.builtins.encode_utf8",
 "url":47,
-"doc":"",
+"doc":"Encode a string/text using UTF-8.",
 "func":1
 },
 {
 "ref":"opshin.std.builtins.decode_utf8",
 "url":47,
-"doc":"",
+"doc":"Decode a string/text using UTF-8.",
+"func":1
+},
+{
+"ref":"opshin.std.builtins.constr_data",
+"url":47,
+"doc":"Create a datum with constructor id x and fields y.",
 "func":1
 },
 {
 "ref":"opshin.std.builtins.equals_data",
 "url":47,
-"doc":"",
+"doc":"Equality between two complex classes.",
 "func":1
 },
 {
 "ref":"opshin.std.builtins.serialise_data",
 "url":47,
-"doc":"",
+"doc":"Serialize a datum into its CBOR representation.",
 "func":1
 },
 {

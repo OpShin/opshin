@@ -77,6 +77,8 @@ It is valid code and parts of it may be copied if not all built-ins are required
 &#34;&#34;&#34;
 from opshin.bridge import wraps_builtin
 from pycardano import Datum as Anything, PlutusData
+from typing import Dict, List, Union
+
 
 @wraps_builtin
 def add_integer(x: int, y: int) -&gt; int:
@@ -86,146 +88,182 @@ def add_integer(x: int, y: int) -&gt; int:
 
 @wraps_builtin
 def subtract_integer(x: int, y: int) -&gt; int:
+    &#34;&#34;&#34;Subtract fist integer by second and return the result.&#34;&#34;&#34;
     pass
 
 
 @wraps_builtin
 def multiply_integer(x: int, y: int) -&gt; int:
+    &#34;&#34;&#34;Multiply 2 integers and return the result.&#34;&#34;&#34;
     pass
 
 
 @wraps_builtin
 def divide_integer(x: int, y: int) -&gt; int:
+    &#34;&#34;&#34;Divide first integer by second and return the result.&#34;&#34;&#34;
     pass
 
 
 @wraps_builtin
 def quotient_integer(x: int, y: int) -&gt; int:
+    &#34;&#34;&#34; Quotient of first integer by second and return the result.&#34;&#34;&#34;
     pass
 
 
 @wraps_builtin
 def remainder_integer(x: int, y: int) -&gt; int:
+    &#34;&#34;&#34;Remainder of first integer by second and return the result.&#34;&#34;&#34;
     pass
 
 
 @wraps_builtin
 def mod_integer(x: int, y: int) -&gt; int:
+    &#34;&#34;&#34;Modulus of first integer by second and return the result.&#34;&#34;&#34;
     pass
 
 
 @wraps_builtin
 def equals_integer(x: int, y: int) -&gt; bool:
+    &#34;&#34;&#34;Equality between two integers.&#34;&#34;&#34;
     pass
 
 
 @wraps_builtin
 def less_than_integer(x: int, y: int) -&gt; bool:
+    &#34;&#34;&#34;Returns x &lt; y&#34;&#34;&#34;
     pass
 
 
 @wraps_builtin
 def less_than_equals_integer(x: int, y: int) -&gt; bool:
+    &#34;&#34;&#34;Returns x &lt;= y.&#34;&#34;&#34;
     pass
 
 
 @wraps_builtin
 def append_byte_string(x: bytes, y: bytes) -&gt; bytes:
+    &#34;&#34;&#34;Concatenate two bytestrings.&#34;&#34;&#34;
     pass
 
 
 @wraps_builtin
 def cons_byte_string(x: int, y: bytes) -&gt; bytes:
+    &#34;&#34;&#34;Prepend a byte, represented by a natural number (Integer), to a bytestring.&#34;&#34;&#34;
     pass
 
 
 @wraps_builtin
 def slice_byte_string(x: int, y: int, z: bytes) -&gt; bytes:
+    &#34;&#34;&#34;
+    Slice a bytestring using given indices (inclusive on both ends).
+    The resulting bytestring is z[x:x+y].
+    &#34;&#34;&#34;
     pass
 
 
 @wraps_builtin
 def length_of_byte_string(x: bytes) -&gt; int:
+    &#34;&#34;&#34;Get the length of a bytestring.&#34;&#34;&#34;
     pass
 
 
 @wraps_builtin
 def index_byte_string(x: bytes, y: int) -&gt; int:
+    &#34;&#34;&#34;Get the byte at given index from a bytestring.&#34;&#34;&#34;
     pass
 
 
 @wraps_builtin
 def equals_byte_string(x: bytes, y: bytes) -&gt; bool:
+    &#34;&#34;&#34;Returns x == y.&#34;&#34;&#34;
     pass
 
 
 @wraps_builtin
 def less_than_byte_string(x: bytes, y: bytes) -&gt; bool:
+    &#34;&#34;&#34;Returns x &lt; y.&#34;&#34;&#34;
     pass
 
 
 @wraps_builtin
 def less_than_equals_byte_string(x: bytes, y: bytes) -&gt; bool:
+    &#34;&#34;&#34;Returns x &lt;= y.&#34;&#34;&#34;
     pass
 
 
 @wraps_builtin
 def sha2_256(x: bytes) -&gt; bytes:
+    &#34;&#34;&#34;Hash a bytestring using SHA-256.&#34;&#34;&#34;
     pass
 
 
 @wraps_builtin
 def sha3_256(x: bytes) -&gt; bytes:
+    &#34;&#34;&#34;Hash a bytestring using SHA3-256.&#34;&#34;&#34;
     pass
 
 
 @wraps_builtin
 def blake2b_256(x: bytes) -&gt; bytes:
+    &#34;&#34;&#34;Hash a bytestring using Blake2B-256.&#34;&#34;&#34;
     pass
 
 
 @wraps_builtin
 def verify_ed25519_signature(pk: bytes, m: bytes, s: bytes) -&gt; bool:
+    &#34;&#34;&#34;Given PubKey, Message, and Signature, verify the Ed25519 signature.&#34;&#34;&#34;
     pass
 
 
 @wraps_builtin
 def verify_ecdsa_secp256k1_signature(pk: bytes, m: bytes, s: bytes) -&gt; bool:
+    &#34;&#34;&#34;Given PubKey, Message, and Signature, verify the ECDSA signature.&#34;&#34;&#34;
     pass
 
 
 @wraps_builtin
 def verify_schnorr_secp256k1_signature(pk: bytes, m: bytes, s: bytes) -&gt; bool:
+    &#34;&#34;&#34;Given PubKey, Message, and Signature, verify the Schnorr signature.&#34;&#34;&#34;
     pass
 
 
 @wraps_builtin
 def append_string(x: str, y: str) -&gt; str:
+    &#34;&#34;&#34;Concatenate two strings/texts.&#34;&#34;&#34;
     pass
 
 
 @wraps_builtin
 def equals_string(x: str, y: str) -&gt; str:
+    &#34;&#34;&#34;Returns x == y.&#34;&#34;&#34;
     pass
 
 
 @wraps_builtin
 def encode_utf8(x: str) -&gt; bytes:
+    &#34;&#34;&#34;Encode a string/text using UTF-8.&#34;&#34;&#34;
     pass
 
 
 @wraps_builtin
 def decode_utf8(x: bytes) -&gt; str:
+    &#34;&#34;&#34;Decode a string/text using UTF-8.&#34;&#34;&#34;
     pass
 
+@wraps_builtin
+def constr_data(x: int, y: List[Anything]) -&gt; Anything:
+    &#34;&#34;&#34;Create a datum with constructor id x and fields y.&#34;&#34;&#34;
+    pass
 
 @wraps_builtin
 def equals_data(x: Anything, y: Anything) -&gt; bool:
+    &#34;&#34;&#34;Equality between two complex classes.&#34;&#34;&#34;
     pass
 
 
 @wraps_builtin
 def serialise_data(x: Anything) -&gt; bytes:
+    &#34;&#34;&#34;Serialize a datum into its CBOR representation.&#34;&#34;&#34;
     pass</code></pre>
 </details>
 </section>
@@ -255,13 +293,14 @@ def add_integer(x: int, y: int) -&gt; int:
 <span>def <span class="ident">append_byte_string</span></span>(<span>x: bytes, y: bytes) ‑> bytes</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Concatenate two bytestrings.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">@wraps_builtin
 def append_byte_string(x: bytes, y: bytes) -&gt; bytes:
+    &#34;&#34;&#34;Concatenate two bytestrings.&#34;&#34;&#34;
     pass</code></pre>
 </details>
 </dd>
@@ -269,13 +308,14 @@ def append_byte_string(x: bytes, y: bytes) -&gt; bytes:
 <span>def <span class="ident">append_string</span></span>(<span>x: str, y: str) ‑> str</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Concatenate two strings/texts.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">@wraps_builtin
 def append_string(x: str, y: str) -&gt; str:
+    &#34;&#34;&#34;Concatenate two strings/texts.&#34;&#34;&#34;
     pass</code></pre>
 </details>
 </dd>
@@ -283,13 +323,14 @@ def append_string(x: str, y: str) -&gt; str:
 <span>def <span class="ident">blake2b_256</span></span>(<span>x: bytes) ‑> bytes</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Hash a bytestring using Blake2B-256.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">@wraps_builtin
 def blake2b_256(x: bytes) -&gt; bytes:
+    &#34;&#34;&#34;Hash a bytestring using Blake2B-256.&#34;&#34;&#34;
     pass</code></pre>
 </details>
 </dd>
@@ -297,13 +338,29 @@ def blake2b_256(x: bytes) -&gt; bytes:
 <span>def <span class="ident">cons_byte_string</span></span>(<span>x: int, y: bytes) ‑> bytes</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Prepend a byte, represented by a natural number (Integer), to a bytestring.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">@wraps_builtin
 def cons_byte_string(x: int, y: bytes) -&gt; bytes:
+    &#34;&#34;&#34;Prepend a byte, represented by a natural number (Integer), to a bytestring.&#34;&#34;&#34;
+    pass</code></pre>
+</details>
+</dd>
+<dt id="opshin.std.builtins.constr_data"><code class="name flex">
+<span>def <span class="ident">constr_data</span></span>(<span>x: int, y: List[Union[pycardano.plutus.PlutusData, dict, int, bytes, pycardano.serialization.IndefiniteList, pycardano.serialization.RawCBOR, pycardano.plutus.RawPlutusData]]) ‑> Union[pycardano.plutus.PlutusData, dict, int, bytes, pycardano.serialization.IndefiniteList, pycardano.serialization.RawCBOR, pycardano.plutus.RawPlutusData]</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Create a datum with constructor id x and fields y.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@wraps_builtin
+def constr_data(x: int, y: List[Anything]) -&gt; Anything:
+    &#34;&#34;&#34;Create a datum with constructor id x and fields y.&#34;&#34;&#34;
     pass</code></pre>
 </details>
 </dd>
@@ -311,13 +368,14 @@ def cons_byte_string(x: int, y: bytes) -&gt; bytes:
 <span>def <span class="ident">decode_utf8</span></span>(<span>x: bytes) ‑> str</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Decode a string/text using UTF-8.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">@wraps_builtin
 def decode_utf8(x: bytes) -&gt; str:
+    &#34;&#34;&#34;Decode a string/text using UTF-8.&#34;&#34;&#34;
     pass</code></pre>
 </details>
 </dd>
@@ -325,13 +383,14 @@ def decode_utf8(x: bytes) -&gt; str:
 <span>def <span class="ident">divide_integer</span></span>(<span>x: int, y: int) ‑> int</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Divide first integer by second and return the result.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">@wraps_builtin
 def divide_integer(x: int, y: int) -&gt; int:
+    &#34;&#34;&#34;Divide first integer by second and return the result.&#34;&#34;&#34;
     pass</code></pre>
 </details>
 </dd>
@@ -339,13 +398,14 @@ def divide_integer(x: int, y: int) -&gt; int:
 <span>def <span class="ident">encode_utf8</span></span>(<span>x: str) ‑> bytes</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Encode a string/text using UTF-8.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">@wraps_builtin
 def encode_utf8(x: str) -&gt; bytes:
+    &#34;&#34;&#34;Encode a string/text using UTF-8.&#34;&#34;&#34;
     pass</code></pre>
 </details>
 </dd>
@@ -353,13 +413,14 @@ def encode_utf8(x: str) -&gt; bytes:
 <span>def <span class="ident">equals_byte_string</span></span>(<span>x: bytes, y: bytes) ‑> bool</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Returns x == y.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">@wraps_builtin
 def equals_byte_string(x: bytes, y: bytes) -&gt; bool:
+    &#34;&#34;&#34;Returns x == y.&#34;&#34;&#34;
     pass</code></pre>
 </details>
 </dd>
@@ -367,13 +428,14 @@ def equals_byte_string(x: bytes, y: bytes) -&gt; bool:
 <span>def <span class="ident">equals_data</span></span>(<span>x: Union[pycardano.plutus.PlutusData, dict, int, bytes, pycardano.serialization.IndefiniteList, pycardano.serialization.RawCBOR, pycardano.plutus.RawPlutusData], y: Union[pycardano.plutus.PlutusData, dict, int, bytes, pycardano.serialization.IndefiniteList, pycardano.serialization.RawCBOR, pycardano.plutus.RawPlutusData]) ‑> bool</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Equality between two complex classes.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">@wraps_builtin
 def equals_data(x: Anything, y: Anything) -&gt; bool:
+    &#34;&#34;&#34;Equality between two complex classes.&#34;&#34;&#34;
     pass</code></pre>
 </details>
 </dd>
@@ -381,13 +443,14 @@ def equals_data(x: Anything, y: Anything) -&gt; bool:
 <span>def <span class="ident">equals_integer</span></span>(<span>x: int, y: int) ‑> bool</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Equality between two integers.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">@wraps_builtin
 def equals_integer(x: int, y: int) -&gt; bool:
+    &#34;&#34;&#34;Equality between two integers.&#34;&#34;&#34;
     pass</code></pre>
 </details>
 </dd>
@@ -395,13 +458,14 @@ def equals_integer(x: int, y: int) -&gt; bool:
 <span>def <span class="ident">equals_string</span></span>(<span>x: str, y: str) ‑> str</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Returns x == y.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">@wraps_builtin
 def equals_string(x: str, y: str) -&gt; str:
+    &#34;&#34;&#34;Returns x == y.&#34;&#34;&#34;
     pass</code></pre>
 </details>
 </dd>
@@ -409,13 +473,14 @@ def equals_string(x: str, y: str) -&gt; str:
 <span>def <span class="ident">index_byte_string</span></span>(<span>x: bytes, y: int) ‑> int</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Get the byte at given index from a bytestring.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">@wraps_builtin
 def index_byte_string(x: bytes, y: int) -&gt; int:
+    &#34;&#34;&#34;Get the byte at given index from a bytestring.&#34;&#34;&#34;
     pass</code></pre>
 </details>
 </dd>
@@ -423,13 +488,14 @@ def index_byte_string(x: bytes, y: int) -&gt; int:
 <span>def <span class="ident">length_of_byte_string</span></span>(<span>x: bytes) ‑> int</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Get the length of a bytestring.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">@wraps_builtin
 def length_of_byte_string(x: bytes) -&gt; int:
+    &#34;&#34;&#34;Get the length of a bytestring.&#34;&#34;&#34;
     pass</code></pre>
 </details>
 </dd>
@@ -437,13 +503,14 @@ def length_of_byte_string(x: bytes) -&gt; int:
 <span>def <span class="ident">less_than_byte_string</span></span>(<span>x: bytes, y: bytes) ‑> bool</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Returns x &lt; y.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">@wraps_builtin
 def less_than_byte_string(x: bytes, y: bytes) -&gt; bool:
+    &#34;&#34;&#34;Returns x &lt; y.&#34;&#34;&#34;
     pass</code></pre>
 </details>
 </dd>
@@ -451,13 +518,14 @@ def less_than_byte_string(x: bytes, y: bytes) -&gt; bool:
 <span>def <span class="ident">less_than_equals_byte_string</span></span>(<span>x: bytes, y: bytes) ‑> bool</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Returns x &lt;= y.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">@wraps_builtin
 def less_than_equals_byte_string(x: bytes, y: bytes) -&gt; bool:
+    &#34;&#34;&#34;Returns x &lt;= y.&#34;&#34;&#34;
     pass</code></pre>
 </details>
 </dd>
@@ -465,13 +533,14 @@ def less_than_equals_byte_string(x: bytes, y: bytes) -&gt; bool:
 <span>def <span class="ident">less_than_equals_integer</span></span>(<span>x: int, y: int) ‑> bool</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Returns x &lt;= y.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">@wraps_builtin
 def less_than_equals_integer(x: int, y: int) -&gt; bool:
+    &#34;&#34;&#34;Returns x &lt;= y.&#34;&#34;&#34;
     pass</code></pre>
 </details>
 </dd>
@@ -479,13 +548,14 @@ def less_than_equals_integer(x: int, y: int) -&gt; bool:
 <span>def <span class="ident">less_than_integer</span></span>(<span>x: int, y: int) ‑> bool</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Returns x &lt; y</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">@wraps_builtin
 def less_than_integer(x: int, y: int) -&gt; bool:
+    &#34;&#34;&#34;Returns x &lt; y&#34;&#34;&#34;
     pass</code></pre>
 </details>
 </dd>
@@ -493,13 +563,14 @@ def less_than_integer(x: int, y: int) -&gt; bool:
 <span>def <span class="ident">mod_integer</span></span>(<span>x: int, y: int) ‑> int</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Modulus of first integer by second and return the result.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">@wraps_builtin
 def mod_integer(x: int, y: int) -&gt; int:
+    &#34;&#34;&#34;Modulus of first integer by second and return the result.&#34;&#34;&#34;
     pass</code></pre>
 </details>
 </dd>
@@ -507,13 +578,14 @@ def mod_integer(x: int, y: int) -&gt; int:
 <span>def <span class="ident">multiply_integer</span></span>(<span>x: int, y: int) ‑> int</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Multiply 2 integers and return the result.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">@wraps_builtin
 def multiply_integer(x: int, y: int) -&gt; int:
+    &#34;&#34;&#34;Multiply 2 integers and return the result.&#34;&#34;&#34;
     pass</code></pre>
 </details>
 </dd>
@@ -521,13 +593,14 @@ def multiply_integer(x: int, y: int) -&gt; int:
 <span>def <span class="ident">quotient_integer</span></span>(<span>x: int, y: int) ‑> int</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Quotient of first integer by second and return the result.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">@wraps_builtin
 def quotient_integer(x: int, y: int) -&gt; int:
+    &#34;&#34;&#34; Quotient of first integer by second and return the result.&#34;&#34;&#34;
     pass</code></pre>
 </details>
 </dd>
@@ -535,13 +608,14 @@ def quotient_integer(x: int, y: int) -&gt; int:
 <span>def <span class="ident">remainder_integer</span></span>(<span>x: int, y: int) ‑> int</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Remainder of first integer by second and return the result.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">@wraps_builtin
 def remainder_integer(x: int, y: int) -&gt; int:
+    &#34;&#34;&#34;Remainder of first integer by second and return the result.&#34;&#34;&#34;
     pass</code></pre>
 </details>
 </dd>
@@ -549,13 +623,14 @@ def remainder_integer(x: int, y: int) -&gt; int:
 <span>def <span class="ident">serialise_data</span></span>(<span>x: Union[pycardano.plutus.PlutusData, dict, int, bytes, pycardano.serialization.IndefiniteList, pycardano.serialization.RawCBOR, pycardano.plutus.RawPlutusData]) ‑> bytes</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Serialize a datum into its CBOR representation.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">@wraps_builtin
 def serialise_data(x: Anything) -&gt; bytes:
+    &#34;&#34;&#34;Serialize a datum into its CBOR representation.&#34;&#34;&#34;
     pass</code></pre>
 </details>
 </dd>
@@ -563,13 +638,14 @@ def serialise_data(x: Anything) -&gt; bytes:
 <span>def <span class="ident">sha2_256</span></span>(<span>x: bytes) ‑> bytes</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Hash a bytestring using SHA-256.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">@wraps_builtin
 def sha2_256(x: bytes) -&gt; bytes:
+    &#34;&#34;&#34;Hash a bytestring using SHA-256.&#34;&#34;&#34;
     pass</code></pre>
 </details>
 </dd>
@@ -577,13 +653,14 @@ def sha2_256(x: bytes) -&gt; bytes:
 <span>def <span class="ident">sha3_256</span></span>(<span>x: bytes) ‑> bytes</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Hash a bytestring using SHA3-256.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">@wraps_builtin
 def sha3_256(x: bytes) -&gt; bytes:
+    &#34;&#34;&#34;Hash a bytestring using SHA3-256.&#34;&#34;&#34;
     pass</code></pre>
 </details>
 </dd>
@@ -591,13 +668,18 @@ def sha3_256(x: bytes) -&gt; bytes:
 <span>def <span class="ident">slice_byte_string</span></span>(<span>x: int, y: int, z: bytes) ‑> bytes</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Slice a bytestring using given indices (inclusive on both ends).
+The resulting bytestring is z[x:x+y].</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">@wraps_builtin
 def slice_byte_string(x: int, y: int, z: bytes) -&gt; bytes:
+    &#34;&#34;&#34;
+    Slice a bytestring using given indices (inclusive on both ends).
+    The resulting bytestring is z[x:x+y].
+    &#34;&#34;&#34;
     pass</code></pre>
 </details>
 </dd>
@@ -605,13 +687,14 @@ def slice_byte_string(x: int, y: int, z: bytes) -&gt; bytes:
 <span>def <span class="ident">subtract_integer</span></span>(<span>x: int, y: int) ‑> int</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Subtract fist integer by second and return the result.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">@wraps_builtin
 def subtract_integer(x: int, y: int) -&gt; int:
+    &#34;&#34;&#34;Subtract fist integer by second and return the result.&#34;&#34;&#34;
     pass</code></pre>
 </details>
 </dd>
@@ -619,13 +702,14 @@ def subtract_integer(x: int, y: int) -&gt; int:
 <span>def <span class="ident">verify_ecdsa_secp256k1_signature</span></span>(<span>pk: bytes, m: bytes, s: bytes) ‑> bool</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Given PubKey, Message, and Signature, verify the ECDSA signature.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">@wraps_builtin
 def verify_ecdsa_secp256k1_signature(pk: bytes, m: bytes, s: bytes) -&gt; bool:
+    &#34;&#34;&#34;Given PubKey, Message, and Signature, verify the ECDSA signature.&#34;&#34;&#34;
     pass</code></pre>
 </details>
 </dd>
@@ -633,13 +717,14 @@ def verify_ecdsa_secp256k1_signature(pk: bytes, m: bytes, s: bytes) -&gt; bool:
 <span>def <span class="ident">verify_ed25519_signature</span></span>(<span>pk: bytes, m: bytes, s: bytes) ‑> bool</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Given PubKey, Message, and Signature, verify the Ed25519 signature.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">@wraps_builtin
 def verify_ed25519_signature(pk: bytes, m: bytes, s: bytes) -&gt; bool:
+    &#34;&#34;&#34;Given PubKey, Message, and Signature, verify the Ed25519 signature.&#34;&#34;&#34;
     pass</code></pre>
 </details>
 </dd>
@@ -647,13 +732,14 @@ def verify_ed25519_signature(pk: bytes, m: bytes, s: bytes) -&gt; bool:
 <span>def <span class="ident">verify_schnorr_secp256k1_signature</span></span>(<span>pk: bytes, m: bytes, s: bytes) ‑> bool</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Given PubKey, Message, and Signature, verify the Schnorr signature.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">@wraps_builtin
 def verify_schnorr_secp256k1_signature(pk: bytes, m: bytes, s: bytes) -&gt; bool:
+    &#34;&#34;&#34;Given PubKey, Message, and Signature, verify the Schnorr signature.&#34;&#34;&#34;
     pass</code></pre>
 </details>
 </dd>
@@ -733,6 +819,7 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="opshin.std.builtins.append_string" href="#opshin.std.builtins.append_string">append_string</a></code></li>
 <li><code><a title="opshin.std.builtins.blake2b_256" href="#opshin.std.builtins.blake2b_256">blake2b_256</a></code></li>
 <li><code><a title="opshin.std.builtins.cons_byte_string" href="#opshin.std.builtins.cons_byte_string">cons_byte_string</a></code></li>
+<li><code><a title="opshin.std.builtins.constr_data" href="#opshin.std.builtins.constr_data">constr_data</a></code></li>
 <li><code><a title="opshin.std.builtins.decode_utf8" href="#opshin.std.builtins.decode_utf8">decode_utf8</a></code></li>
 <li><code><a title="opshin.std.builtins.divide_integer" href="#opshin.std.builtins.divide_integer">divide_integer</a></code></li>
 <li><code><a title="opshin.std.builtins.encode_utf8" href="#opshin.std.builtins.encode_utf8">encode_utf8</a></code></li>
