@@ -68,14 +68,18 @@ fill="currentColor" class="octo-body"></path>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">import unittest
+<pre><code class="python">import hypothesis
+import unittest
 
 import parameterized
 from hypothesis import example, given
 from hypothesis import strategies as st
 from uplc import ast as uplc, eval as uplc_eval
 
+from . import PLUTUS_VM_PROFILE
 from .. import compiler
+
+hypothesis.settings.load_profile(PLUTUS_VM_PROFILE)
 
 
 class BuiltinTest(unittest.TestCase):
@@ -265,6 +269,7 @@ def validator(x: int) -&gt; str:
     @example(&#34;-&#34;)
     @example(&#34;+123&#34;)
     @example(&#34;-_&#34;)
+    @example(&#34;0_&#34;)
     # @example(&#34;0\n&#34;)  # stripping is broken
     def test_int_string(self, xs: str):
         # this tests that errors that are caused by assignments are actually triggered at the time of assigning
@@ -923,6 +928,7 @@ def validator(x: int) -&gt; str:
     @example(&#34;-&#34;)
     @example(&#34;+123&#34;)
     @example(&#34;-_&#34;)
+    @example(&#34;0_&#34;)
     # @example(&#34;0\n&#34;)  # stripping is broken
     def test_int_string(self, xs: str):
         # this tests that errors that are caused by assignments are actually triggered at the time of assigning
@@ -1887,6 +1893,7 @@ def validator(x: int) -&gt; int:
     @example(&#34;-&#34;)
     @example(&#34;+123&#34;)
     @example(&#34;-_&#34;)
+    @example(&#34;0_&#34;)
     # @example(&#34;0\n&#34;)  # stripping is broken
     def test_int_string(self, xs: str):
         # this tests that errors that are caused by assignments are actually triggered at the time of assigning

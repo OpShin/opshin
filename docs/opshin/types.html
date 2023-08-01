@@ -71,6 +71,7 @@ fill="currentColor" class="octo-body"></path>
 <pre><code class="python">import logging
 from ast import *
 from dataclasses import dataclass
+import itertools
 
 import pluthon as plt
 
@@ -123,7 +124,7 @@ class Type:
 class Record:
     name: str
     constructor: int
-    fields: typing.Union[typing.List[typing.Tuple[str, Type]], FrozenList]
+    fields: typing.Union[typing.List[typing.Tuple[str, Type]], frozenlist]
 
     def __ge__(self, other):
         if not isinstance(other, Record):
@@ -374,7 +375,9 @@ class RecordType(ClassType):
 
     def constr_type(self) -&gt; &#34;InstanceType&#34;:
         return InstanceType(
-            FunctionType([f[1] for f in self.record.fields], InstanceType(self))
+            FunctionType(
+                frozenlist([f[1] for f in self.record.fields]), InstanceType(self)
+            )
         )
 
     def constr(self) -&gt; plt.AST:
@@ -398,9 +401,7 @@ class RecordType(ClassType):
             if n == attr:
                 return t
         if attr == &#34;to_cbor&#34;:
-            return InstanceType(
-                FunctionType(FrozenFrozenList([]), ByteStringInstanceType)
-            )
+            return InstanceType(FunctionType(frozenlist([]), ByteStringInstanceType))
         raise TypeInferenceError(
             f&#34;Type {self.record.name} does not have attribute {attr}&#34;
         )
@@ -530,13 +531,11 @@ class UnionType(ClassType):
     def attribute_type(self, attr) -&gt; &#34;Type&#34;:
         if attr == &#34;CONSTR_ID&#34;:
             return IntegerInstanceType
-        # iterate through all names/types of the unioned records by position
-        for attr_names, attr_types in map(
-            lambda x: zip(*x), zip(*(t.record.fields for t in self.typs))
-        ):
-            # need to have a common field with the same name, in the same position!
-            if any(attr_name != attr for attr_name in attr_names):
-                continue
+        # need to have a common field with the same name
+        if all(attr in (n for n, t in x.record.fields) for x in self.typs):
+            attr_types = set(
+                t for x in self.typs for n, t in x.record.fields if n == attr
+            )
             for at in attr_types:
                 # return the maximum element if there is one
                 if all(at &gt;= at2 for at2 in attr_types):
@@ -547,14 +546,12 @@ class UnionType(ClassType):
                 for at in attr_types
             ) and distinct([at.typ.record.constructor for at in attr_types]):
                 return InstanceType(
-                    UnionType(FrozenFrozenList([at.typ for at in attr_types]))
+                    UnionType(frozenlist([at.typ for at in attr_types]))
                 )
             # return Anytype
             return InstanceType(AnyType())
         if attr == &#34;to_cbor&#34;:
-            return InstanceType(
-                FunctionType(FrozenFrozenList([]), ByteStringInstanceType)
-            )
+            return InstanceType(FunctionType(frozenlist([]), ByteStringInstanceType))
         raise TypeInferenceError(
             f&#34;Can not access attribute {attr} of Union type. Cast to desired type with an &#39;if isinstance(_, _):&#39; branch.&#34;
         )
@@ -569,20 +566,48 @@ class UnionType(ClassType):
         # iterate through all names/types of the unioned records by position
         if any(attr in (n for n, t in r.record.fields) for r in self.typs):
             attr_typ = self.attribute_type(attr)
-            pos = next(
-                i
-                for i, (ns, _) in enumerate(
-                    map(lambda x: zip(*x), zip(*(t.record.fields for t in self.typs)))
-                )
-                if all(n == attr for n in ns)
-            )
+            pos_constrs = [
+                (i, x.record.constructor)
+                for x in self.typs
+                for i, (n, t) in enumerate(x.record.fields)
+                if n == attr
+            ]
+            pos_constrs = sorted(pos_constrs, key=lambda x: x[0])
+            pos_constrs = [
+                (pos, [c[1] for c in constrs])
+                for (pos, constrs) in itertools.groupby(pos_constrs, key=lambda x: x[0])
+            ]
+            # largest group last so we save the comparisons for that
+            pos_constrs = sorted(pos_constrs, key=lambda x: len(x[1]))
             # access to normal fields
+            if not pos_constrs:
+                pos_decisor = plt.TraceError(&#34;Invalid constructor&#34;)
+            else:
+                pos_decisor = plt.Integer(pos_constrs[-1][0])
+                pos_constrs = pos_constrs[:-1]
+            for pos, constrs in pos_constrs:
+                assert constrs, &#34;Found empty constructors for a position&#34;
+                constr_check = plt.EqualsInteger(
+                    plt.Var(&#34;constr&#34;), plt.Integer(constrs[0])
+                )
+                for constr in constrs[1:]:
+                    constr_check = plt.Or(
+                        plt.EqualsInteger(plt.Var(&#34;constr&#34;), plt.Integer(constr)),
+                        constr_check,
+                    )
+                pos_decisor = plt.Ite(
+                    constr_check,
+                    plt.Integer(pos),
+                    pos_decisor,
+                )
             return plt.Lambda(
                 [&#34;self&#34;],
                 transform_ext_params_map(attr_typ)(
                     plt.NthField(
                         plt.Var(&#34;self&#34;),
-                        plt.Integer(pos),
+                        plt.Let(
+                            [(&#34;constr&#34;, plt.Constructor(plt.Var(&#34;self&#34;)))], pos_decisor
+                        ),
                     ),
                 ),
             )
@@ -624,7 +649,7 @@ class UnionType(ClassType):
         if (
             isinstance(o, ListType)
             and isinstance(o.typ, InstanceType)
-            and (o.typ.typ &gt;= t or t &gt;= o.typ.typ for t in self.typs)
+            and any(o.typ.typ &gt;= t or t &gt;= o.typ.typ for t in self.typs)
         ):
             if isinstance(op, In):
                 return plt.Lambda(
@@ -814,18 +839,20 @@ class DictType(ClassType):
     def attribute_type(self, attr) -&gt; &#34;Type&#34;:
         if attr == &#34;get&#34;:
             return InstanceType(
-                FunctionType([self.key_typ, self.value_typ], self.value_typ)
+                FunctionType(frozenlist([self.key_typ, self.value_typ]), self.value_typ)
             )
         if attr == &#34;keys&#34;:
-            return InstanceType(FunctionType([], InstanceType(ListType(self.key_typ))))
+            return InstanceType(
+                FunctionType(frozenlist([]), InstanceType(ListType(self.key_typ)))
+            )
         if attr == &#34;values&#34;:
             return InstanceType(
-                FunctionType([], InstanceType(ListType(self.value_typ)))
+                FunctionType(frozenlist([]), InstanceType(ListType(self.value_typ)))
             )
         if attr == &#34;items&#34;:
             return InstanceType(
                 FunctionType(
-                    [],
+                    frozenlist([]),
                     InstanceType(
                         ListType(InstanceType(PairType(self.key_typ, self.value_typ)))
                     ),
@@ -1164,7 +1191,7 @@ class StringType(AtomicType):
 
     def attribute_type(self, attr) -&gt; Type:
         if attr == &#34;encode&#34;:
-            return InstanceType(FunctionType([], ByteStringInstanceType))
+            return InstanceType(FunctionType(frozenlist([]), ByteStringInstanceType))
         return super().attribute_type(attr)
 
     def attribute(self, attr) -&gt; plt.AST:
@@ -1197,9 +1224,9 @@ class ByteStringType(AtomicType):
 
     def attribute_type(self, attr) -&gt; Type:
         if attr == &#34;decode&#34;:
-            return InstanceType(FunctionType([], StringInstanceType))
+            return InstanceType(FunctionType(frozenlist([]), StringInstanceType))
         if attr == &#34;hex&#34;:
-            return InstanceType(FunctionType([], StringInstanceType))
+            return InstanceType(FunctionType(frozenlist([]), StringInstanceType))
         return super().attribute_type(attr)
 
     def attribute(self, attr) -&gt; plt.AST:
@@ -1715,11 +1742,10 @@ class IntImpl(PolymorphicFunction):
                             ),
                         ),
                         (
-                            &#34;second_int&#34;,
-                            plt.Ite(
-                                plt.LessThanInteger(plt.Integer(1), plt.Var(&#34;len&#34;)),
-                                plt.IndexByteString(plt.Var(&#34;e&#34;), plt.Integer(1)),
-                                plt.Integer(ord(&#34;_&#34;)),
+                            &#34;last_int&#34;,
+                            plt.IndexByteString(
+                                plt.Var(&#34;e&#34;),
+                                plt.SubtractInteger(plt.Var(&#34;len&#34;), plt.Integer(1)),
                             ),
                         ),
                         (
@@ -1779,26 +1805,26 @@ class IntImpl(PolymorphicFunction):
                     ],
                     plt.Ite(
                         plt.Or(
-                            plt.EqualsInteger(plt.Var(&#34;len&#34;), plt.Integer(0)),
                             plt.Or(
                                 plt.EqualsInteger(
                                     plt.Var(&#34;first_int&#34;),
                                     plt.Integer(ord(&#34;_&#34;)),
                                 ),
-                                plt.And(
-                                    plt.Or(
-                                        plt.EqualsInteger(
-                                            plt.Var(&#34;first_int&#34;),
-                                            plt.Integer(ord(&#34;-&#34;)),
-                                        ),
-                                        plt.EqualsInteger(
-                                            plt.Var(&#34;first_int&#34;),
-                                            plt.Integer(ord(&#34;+&#34;)),
-                                        ),
+                                plt.EqualsInteger(
+                                    plt.Var(&#34;last_int&#34;),
+                                    plt.Integer(ord(&#34;_&#34;)),
+                                ),
+                            ),
+                            plt.And(
+                                plt.EqualsInteger(plt.Var(&#34;len&#34;), plt.Integer(1)),
+                                plt.Or(
+                                    plt.EqualsInteger(
+                                        plt.Var(&#34;first_int&#34;),
+                                        plt.Integer(ord(&#34;-&#34;)),
                                     ),
                                     plt.EqualsInteger(
-                                        plt.Var(&#34;second_int&#34;),
-                                        plt.Integer(ord(&#34;_&#34;)),
+                                        plt.Var(&#34;first_int&#34;),
+                                        plt.Integer(ord(&#34;+&#34;)),
                                     ),
                                 ),
                             ),
@@ -1972,8 +1998,8 @@ def empty_list(p: Type):
             uplc.BuiltinList(
                 [],
                 uplc.BuiltinPair(
-                    uplc.PlutusConstr(0, FrozenList([])),
-                    uplc.PlutusConstr(0, FrozenList([])),
+                    uplc.PlutusConstr(0, frozenlist([])),
+                    uplc.PlutusConstr(0, frozenlist([])),
                 ),
             )
         )
@@ -2252,8 +2278,8 @@ def transform_output_map(p: Type):
             uplc.BuiltinList(
                 [],
                 uplc.BuiltinPair(
-                    uplc.PlutusConstr(0, FrozenList([])),
-                    uplc.PlutusConstr(0, FrozenList([])),
+                    uplc.PlutusConstr(0, frozenlist([])),
+                    uplc.PlutusConstr(0, frozenlist([])),
                 ),
             )
         )
@@ -3308,9 +3334,9 @@ def transform_output_map(p: Type):
 
     def attribute_type(self, attr) -&gt; Type:
         if attr == &#34;decode&#34;:
-            return InstanceType(FunctionType([], StringInstanceType))
+            return InstanceType(FunctionType(frozenlist([]), StringInstanceType))
         if attr == &#34;hex&#34;:
-            return InstanceType(FunctionType([], StringInstanceType))
+            return InstanceType(FunctionType(frozenlist([]), StringInstanceType))
         return super().attribute_type(attr)
 
     def attribute(self, attr) -&gt; plt.AST:
@@ -3766,9 +3792,9 @@ def transform_output_map(p: Type):
 </summary>
 <pre><code class="python">def attribute_type(self, attr) -&gt; Type:
     if attr == &#34;decode&#34;:
-        return InstanceType(FunctionType([], StringInstanceType))
+        return InstanceType(FunctionType(frozenlist([]), StringInstanceType))
     if attr == &#34;hex&#34;:
-        return InstanceType(FunctionType([], StringInstanceType))
+        return InstanceType(FunctionType(frozenlist([]), StringInstanceType))
     return super().attribute_type(attr)</code></pre>
 </details>
 </dd>
@@ -4306,18 +4332,20 @@ def transform_output_map(p: Type):
     def attribute_type(self, attr) -&gt; &#34;Type&#34;:
         if attr == &#34;get&#34;:
             return InstanceType(
-                FunctionType([self.key_typ, self.value_typ], self.value_typ)
+                FunctionType(frozenlist([self.key_typ, self.value_typ]), self.value_typ)
             )
         if attr == &#34;keys&#34;:
-            return InstanceType(FunctionType([], InstanceType(ListType(self.key_typ))))
+            return InstanceType(
+                FunctionType(frozenlist([]), InstanceType(ListType(self.key_typ)))
+            )
         if attr == &#34;values&#34;:
             return InstanceType(
-                FunctionType([], InstanceType(ListType(self.value_typ)))
+                FunctionType(frozenlist([]), InstanceType(ListType(self.value_typ)))
             )
         if attr == &#34;items&#34;:
             return InstanceType(
                 FunctionType(
-                    [],
+                    frozenlist([]),
                     InstanceType(
                         ListType(InstanceType(PairType(self.key_typ, self.value_typ)))
                     ),
@@ -4567,18 +4595,20 @@ def transform_output_map(p: Type):
 <pre><code class="python">def attribute_type(self, attr) -&gt; &#34;Type&#34;:
     if attr == &#34;get&#34;:
         return InstanceType(
-            FunctionType([self.key_typ, self.value_typ], self.value_typ)
+            FunctionType(frozenlist([self.key_typ, self.value_typ]), self.value_typ)
         )
     if attr == &#34;keys&#34;:
-        return InstanceType(FunctionType([], InstanceType(ListType(self.key_typ))))
+        return InstanceType(
+            FunctionType(frozenlist([]), InstanceType(ListType(self.key_typ)))
+        )
     if attr == &#34;values&#34;:
         return InstanceType(
-            FunctionType([], InstanceType(ListType(self.value_typ)))
+            FunctionType(frozenlist([]), InstanceType(ListType(self.value_typ)))
         )
     if attr == &#34;items&#34;:
         return InstanceType(
             FunctionType(
-                [],
+                frozenlist([]),
                 InstanceType(
                     ListType(InstanceType(PairType(self.key_typ, self.value_typ)))
                 ),
@@ -5099,11 +5129,10 @@ def transform_output_map(p: Type):
                             ),
                         ),
                         (
-                            &#34;second_int&#34;,
-                            plt.Ite(
-                                plt.LessThanInteger(plt.Integer(1), plt.Var(&#34;len&#34;)),
-                                plt.IndexByteString(plt.Var(&#34;e&#34;), plt.Integer(1)),
-                                plt.Integer(ord(&#34;_&#34;)),
+                            &#34;last_int&#34;,
+                            plt.IndexByteString(
+                                plt.Var(&#34;e&#34;),
+                                plt.SubtractInteger(plt.Var(&#34;len&#34;), plt.Integer(1)),
                             ),
                         ),
                         (
@@ -5163,26 +5192,26 @@ def transform_output_map(p: Type):
                     ],
                     plt.Ite(
                         plt.Or(
-                            plt.EqualsInteger(plt.Var(&#34;len&#34;), plt.Integer(0)),
                             plt.Or(
                                 plt.EqualsInteger(
                                     plt.Var(&#34;first_int&#34;),
                                     plt.Integer(ord(&#34;_&#34;)),
                                 ),
-                                plt.And(
-                                    plt.Or(
-                                        plt.EqualsInteger(
-                                            plt.Var(&#34;first_int&#34;),
-                                            plt.Integer(ord(&#34;-&#34;)),
-                                        ),
-                                        plt.EqualsInteger(
-                                            plt.Var(&#34;first_int&#34;),
-                                            plt.Integer(ord(&#34;+&#34;)),
-                                        ),
+                                plt.EqualsInteger(
+                                    plt.Var(&#34;last_int&#34;),
+                                    plt.Integer(ord(&#34;_&#34;)),
+                                ),
+                            ),
+                            plt.And(
+                                plt.EqualsInteger(plt.Var(&#34;len&#34;), plt.Integer(1)),
+                                plt.Or(
+                                    plt.EqualsInteger(
+                                        plt.Var(&#34;first_int&#34;),
+                                        plt.Integer(ord(&#34;-&#34;)),
                                     ),
                                     plt.EqualsInteger(
-                                        plt.Var(&#34;second_int&#34;),
-                                        plt.Integer(ord(&#34;_&#34;)),
+                                        plt.Var(&#34;first_int&#34;),
+                                        plt.Integer(ord(&#34;+&#34;)),
                                     ),
                                 ),
                             ),
@@ -5255,11 +5284,10 @@ def transform_output_map(p: Type):
                         ),
                     ),
                     (
-                        &#34;second_int&#34;,
-                        plt.Ite(
-                            plt.LessThanInteger(plt.Integer(1), plt.Var(&#34;len&#34;)),
-                            plt.IndexByteString(plt.Var(&#34;e&#34;), plt.Integer(1)),
-                            plt.Integer(ord(&#34;_&#34;)),
+                        &#34;last_int&#34;,
+                        plt.IndexByteString(
+                            plt.Var(&#34;e&#34;),
+                            plt.SubtractInteger(plt.Var(&#34;len&#34;), plt.Integer(1)),
                         ),
                     ),
                     (
@@ -5319,26 +5347,26 @@ def transform_output_map(p: Type):
                 ],
                 plt.Ite(
                     plt.Or(
-                        plt.EqualsInteger(plt.Var(&#34;len&#34;), plt.Integer(0)),
                         plt.Or(
                             plt.EqualsInteger(
                                 plt.Var(&#34;first_int&#34;),
                                 plt.Integer(ord(&#34;_&#34;)),
                             ),
-                            plt.And(
-                                plt.Or(
-                                    plt.EqualsInteger(
-                                        plt.Var(&#34;first_int&#34;),
-                                        plt.Integer(ord(&#34;-&#34;)),
-                                    ),
-                                    plt.EqualsInteger(
-                                        plt.Var(&#34;first_int&#34;),
-                                        plt.Integer(ord(&#34;+&#34;)),
-                                    ),
+                            plt.EqualsInteger(
+                                plt.Var(&#34;last_int&#34;),
+                                plt.Integer(ord(&#34;_&#34;)),
+                            ),
+                        ),
+                        plt.And(
+                            plt.EqualsInteger(plt.Var(&#34;len&#34;), plt.Integer(1)),
+                            plt.Or(
+                                plt.EqualsInteger(
+                                    plt.Var(&#34;first_int&#34;),
+                                    plt.Integer(ord(&#34;-&#34;)),
                                 ),
                                 plt.EqualsInteger(
-                                    plt.Var(&#34;second_int&#34;),
-                                    plt.Integer(ord(&#34;_&#34;)),
+                                    plt.Var(&#34;first_int&#34;),
+                                    plt.Integer(ord(&#34;+&#34;)),
                                 ),
                             ),
                         ),
@@ -6354,10 +6382,10 @@ def transform_output_map(p: Type):
 </dd>
 <dt id="opshin.types.Record"><code class="flex name class">
 <span>class <span class="ident">Record</span></span>
-<span>(</span><span>name: str, constructor: int, fields: Union[List[Tuple[str, <a title="opshin.types.Type" href="#opshin.types.Type">Type</a>]], frozenlist._frozenlist.FrozenList])</span>
+<span>(</span><span>name: str, constructor: int, fields: Union[List[Tuple[str, <a title="opshin.types.Type" href="#opshin.types.Type">Type</a>]], frozenlist2.frozenlist])</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Record(name: str, constructor: int, fields: Union[List[Tuple[str, opshin.types.Type]], frozenlist._frozenlist.FrozenList])</p></div>
+<div class="desc"><p>Record(name: str, constructor: int, fields: Union[List[Tuple[str, opshin.types.Type]], frozenlist2.frozenlist])</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -6365,7 +6393,7 @@ def transform_output_map(p: Type):
 <pre><code class="python">class Record:
     name: str
     constructor: int
-    fields: typing.Union[typing.List[typing.Tuple[str, Type]], FrozenList]
+    fields: typing.Union[typing.List[typing.Tuple[str, Type]], frozenlist]
 
     def __ge__(self, other):
         if not isinstance(other, Record):
@@ -6382,7 +6410,7 @@ def transform_output_map(p: Type):
 <dd>
 <div class="desc"></div>
 </dd>
-<dt id="opshin.types.Record.fields"><code class="name">var <span class="ident">fields</span> : Union[List[Tuple[str, <a title="opshin.types.Type" href="#opshin.types.Type">Type</a>]], frozenlist._frozenlist.FrozenList]</code></dt>
+<dt id="opshin.types.Record.fields"><code class="name">var <span class="ident">fields</span> : Union[List[Tuple[str, <a title="opshin.types.Type" href="#opshin.types.Type">Type</a>]], frozenlist2.frozenlist]</code></dt>
 <dd>
 <div class="desc"></div>
 </dd>
@@ -6407,7 +6435,9 @@ def transform_output_map(p: Type):
 
     def constr_type(self) -&gt; &#34;InstanceType&#34;:
         return InstanceType(
-            FunctionType([f[1] for f in self.record.fields], InstanceType(self))
+            FunctionType(
+                frozenlist([f[1] for f in self.record.fields]), InstanceType(self)
+            )
         )
 
     def constr(self) -&gt; plt.AST:
@@ -6431,9 +6461,7 @@ def transform_output_map(p: Type):
             if n == attr:
                 return t
         if attr == &#34;to_cbor&#34;:
-            return InstanceType(
-                FunctionType(FrozenFrozenList([]), ByteStringInstanceType)
-            )
+            return InstanceType(FunctionType(frozenlist([]), ByteStringInstanceType))
         raise TypeInferenceError(
             f&#34;Type {self.record.name} does not have attribute {attr}&#34;
         )
@@ -6630,9 +6658,7 @@ def transform_output_map(p: Type):
         if n == attr:
             return t
     if attr == &#34;to_cbor&#34;:
-        return InstanceType(
-            FunctionType(FrozenFrozenList([]), ByteStringInstanceType)
-        )
+        return InstanceType(FunctionType(frozenlist([]), ByteStringInstanceType))
     raise TypeInferenceError(
         f&#34;Type {self.record.name} does not have attribute {attr}&#34;
     )</code></pre>
@@ -6741,7 +6767,9 @@ def transform_output_map(p: Type):
 </summary>
 <pre><code class="python">def constr_type(self) -&gt; &#34;InstanceType&#34;:
     return InstanceType(
-        FunctionType([f[1] for f in self.record.fields], InstanceType(self))
+        FunctionType(
+            frozenlist([f[1] for f in self.record.fields]), InstanceType(self)
+        )
     )</code></pre>
 </details>
 </dd>
@@ -6871,7 +6899,7 @@ def transform_output_map(p: Type):
 
     def attribute_type(self, attr) -&gt; Type:
         if attr == &#34;encode&#34;:
-            return InstanceType(FunctionType([], ByteStringInstanceType))
+            return InstanceType(FunctionType(frozenlist([]), ByteStringInstanceType))
         return super().attribute_type(attr)
 
     def attribute(self, attr) -&gt; plt.AST:
@@ -6939,7 +6967,7 @@ def transform_output_map(p: Type):
 </summary>
 <pre><code class="python">def attribute_type(self, attr) -&gt; Type:
     if attr == &#34;encode&#34;:
-        return InstanceType(FunctionType([], ByteStringInstanceType))
+        return InstanceType(FunctionType(frozenlist([]), ByteStringInstanceType))
     return super().attribute_type(attr)</code></pre>
 </details>
 </dd>
@@ -7374,13 +7402,11 @@ def transform_output_map(p: Type):
     def attribute_type(self, attr) -&gt; &#34;Type&#34;:
         if attr == &#34;CONSTR_ID&#34;:
             return IntegerInstanceType
-        # iterate through all names/types of the unioned records by position
-        for attr_names, attr_types in map(
-            lambda x: zip(*x), zip(*(t.record.fields for t in self.typs))
-        ):
-            # need to have a common field with the same name, in the same position!
-            if any(attr_name != attr for attr_name in attr_names):
-                continue
+        # need to have a common field with the same name
+        if all(attr in (n for n, t in x.record.fields) for x in self.typs):
+            attr_types = set(
+                t for x in self.typs for n, t in x.record.fields if n == attr
+            )
             for at in attr_types:
                 # return the maximum element if there is one
                 if all(at &gt;= at2 for at2 in attr_types):
@@ -7391,14 +7417,12 @@ def transform_output_map(p: Type):
                 for at in attr_types
             ) and distinct([at.typ.record.constructor for at in attr_types]):
                 return InstanceType(
-                    UnionType(FrozenFrozenList([at.typ for at in attr_types]))
+                    UnionType(frozenlist([at.typ for at in attr_types]))
                 )
             # return Anytype
             return InstanceType(AnyType())
         if attr == &#34;to_cbor&#34;:
-            return InstanceType(
-                FunctionType(FrozenFrozenList([]), ByteStringInstanceType)
-            )
+            return InstanceType(FunctionType(frozenlist([]), ByteStringInstanceType))
         raise TypeInferenceError(
             f&#34;Can not access attribute {attr} of Union type. Cast to desired type with an &#39;if isinstance(_, _):&#39; branch.&#34;
         )
@@ -7413,20 +7437,48 @@ def transform_output_map(p: Type):
         # iterate through all names/types of the unioned records by position
         if any(attr in (n for n, t in r.record.fields) for r in self.typs):
             attr_typ = self.attribute_type(attr)
-            pos = next(
-                i
-                for i, (ns, _) in enumerate(
-                    map(lambda x: zip(*x), zip(*(t.record.fields for t in self.typs)))
-                )
-                if all(n == attr for n in ns)
-            )
+            pos_constrs = [
+                (i, x.record.constructor)
+                for x in self.typs
+                for i, (n, t) in enumerate(x.record.fields)
+                if n == attr
+            ]
+            pos_constrs = sorted(pos_constrs, key=lambda x: x[0])
+            pos_constrs = [
+                (pos, [c[1] for c in constrs])
+                for (pos, constrs) in itertools.groupby(pos_constrs, key=lambda x: x[0])
+            ]
+            # largest group last so we save the comparisons for that
+            pos_constrs = sorted(pos_constrs, key=lambda x: len(x[1]))
             # access to normal fields
+            if not pos_constrs:
+                pos_decisor = plt.TraceError(&#34;Invalid constructor&#34;)
+            else:
+                pos_decisor = plt.Integer(pos_constrs[-1][0])
+                pos_constrs = pos_constrs[:-1]
+            for pos, constrs in pos_constrs:
+                assert constrs, &#34;Found empty constructors for a position&#34;
+                constr_check = plt.EqualsInteger(
+                    plt.Var(&#34;constr&#34;), plt.Integer(constrs[0])
+                )
+                for constr in constrs[1:]:
+                    constr_check = plt.Or(
+                        plt.EqualsInteger(plt.Var(&#34;constr&#34;), plt.Integer(constr)),
+                        constr_check,
+                    )
+                pos_decisor = plt.Ite(
+                    constr_check,
+                    plt.Integer(pos),
+                    pos_decisor,
+                )
             return plt.Lambda(
                 [&#34;self&#34;],
                 transform_ext_params_map(attr_typ)(
                     plt.NthField(
                         plt.Var(&#34;self&#34;),
-                        plt.Integer(pos),
+                        plt.Let(
+                            [(&#34;constr&#34;, plt.Constructor(plt.Var(&#34;self&#34;)))], pos_decisor
+                        ),
                     ),
                 ),
             )
@@ -7468,7 +7520,7 @@ def transform_output_map(p: Type):
         if (
             isinstance(o, ListType)
             and isinstance(o.typ, InstanceType)
-            and (o.typ.typ &gt;= t or t &gt;= o.typ.typ for t in self.typs)
+            and any(o.typ.typ &gt;= t or t &gt;= o.typ.typ for t in self.typs)
         ):
             if isinstance(op, In):
                 return plt.Lambda(
@@ -7547,20 +7599,48 @@ def transform_output_map(p: Type):
     # iterate through all names/types of the unioned records by position
     if any(attr in (n for n, t in r.record.fields) for r in self.typs):
         attr_typ = self.attribute_type(attr)
-        pos = next(
-            i
-            for i, (ns, _) in enumerate(
-                map(lambda x: zip(*x), zip(*(t.record.fields for t in self.typs)))
-            )
-            if all(n == attr for n in ns)
-        )
+        pos_constrs = [
+            (i, x.record.constructor)
+            for x in self.typs
+            for i, (n, t) in enumerate(x.record.fields)
+            if n == attr
+        ]
+        pos_constrs = sorted(pos_constrs, key=lambda x: x[0])
+        pos_constrs = [
+            (pos, [c[1] for c in constrs])
+            for (pos, constrs) in itertools.groupby(pos_constrs, key=lambda x: x[0])
+        ]
+        # largest group last so we save the comparisons for that
+        pos_constrs = sorted(pos_constrs, key=lambda x: len(x[1]))
         # access to normal fields
+        if not pos_constrs:
+            pos_decisor = plt.TraceError(&#34;Invalid constructor&#34;)
+        else:
+            pos_decisor = plt.Integer(pos_constrs[-1][0])
+            pos_constrs = pos_constrs[:-1]
+        for pos, constrs in pos_constrs:
+            assert constrs, &#34;Found empty constructors for a position&#34;
+            constr_check = plt.EqualsInteger(
+                plt.Var(&#34;constr&#34;), plt.Integer(constrs[0])
+            )
+            for constr in constrs[1:]:
+                constr_check = plt.Or(
+                    plt.EqualsInteger(plt.Var(&#34;constr&#34;), plt.Integer(constr)),
+                    constr_check,
+                )
+            pos_decisor = plt.Ite(
+                constr_check,
+                plt.Integer(pos),
+                pos_decisor,
+            )
         return plt.Lambda(
             [&#34;self&#34;],
             transform_ext_params_map(attr_typ)(
                 plt.NthField(
                     plt.Var(&#34;self&#34;),
-                    plt.Integer(pos),
+                    plt.Let(
+                        [(&#34;constr&#34;, plt.Constructor(plt.Var(&#34;self&#34;)))], pos_decisor
+                    ),
                 ),
             ),
         )
@@ -7590,13 +7670,11 @@ def transform_output_map(p: Type):
 <pre><code class="python">def attribute_type(self, attr) -&gt; &#34;Type&#34;:
     if attr == &#34;CONSTR_ID&#34;:
         return IntegerInstanceType
-    # iterate through all names/types of the unioned records by position
-    for attr_names, attr_types in map(
-        lambda x: zip(*x), zip(*(t.record.fields for t in self.typs))
-    ):
-        # need to have a common field with the same name, in the same position!
-        if any(attr_name != attr for attr_name in attr_names):
-            continue
+    # need to have a common field with the same name
+    if all(attr in (n for n, t in x.record.fields) for x in self.typs):
+        attr_types = set(
+            t for x in self.typs for n, t in x.record.fields if n == attr
+        )
         for at in attr_types:
             # return the maximum element if there is one
             if all(at &gt;= at2 for at2 in attr_types):
@@ -7607,14 +7685,12 @@ def transform_output_map(p: Type):
             for at in attr_types
         ) and distinct([at.typ.record.constructor for at in attr_types]):
             return InstanceType(
-                UnionType(FrozenFrozenList([at.typ for at in attr_types]))
+                UnionType(frozenlist([at.typ for at in attr_types]))
             )
         # return Anytype
         return InstanceType(AnyType())
     if attr == &#34;to_cbor&#34;:
-        return InstanceType(
-            FunctionType(FrozenFrozenList([]), ByteStringInstanceType)
-        )
+        return InstanceType(FunctionType(frozenlist([]), ByteStringInstanceType))
     raise TypeInferenceError(
         f&#34;Can not access attribute {attr} of Union type. Cast to desired type with an &#39;if isinstance(_, _):&#39; branch.&#34;
     )</code></pre>
@@ -7657,7 +7733,7 @@ def transform_output_map(p: Type):
     if (
         isinstance(o, ListType)
         and isinstance(o.typ, InstanceType)
-        and (o.typ.typ &gt;= t or t &gt;= o.typ.typ for t in self.typs)
+        and any(o.typ.typ &gt;= t or t &gt;= o.typ.typ for t in self.typs)
     ):
         if isinstance(op, In):
             return plt.Lambda(

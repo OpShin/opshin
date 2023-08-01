@@ -85,7 +85,7 @@ class HashType(ClassType):
 
     def attribute_type(self, attr) -&gt; &#34;Type&#34;:
         if attr == &#34;digest&#34;:
-            return InstanceType(FunctionType([], ByteStringInstanceType))
+            return InstanceType(FunctionType(frozenlist([]), ByteStringInstanceType))
         raise NotImplementedError(&#34;HashType only has attribute &#39;digest&#39;&#34;)
 
     def attribute(self, attr) -&gt; plt.AST:
@@ -109,19 +109,19 @@ class PythonHashlib(Enum):
 PythonHashlibTypes = {
     PythonHashlib.sha256: InstanceType(
         FunctionType(
-            [ByteStringInstanceType],
+            frozenlist([ByteStringInstanceType]),
             HashInstanceType,
         )
     ),
     PythonHashlib.sha3_256: InstanceType(
         FunctionType(
-            [ByteStringInstanceType],
+            frozenlist([ByteStringInstanceType]),
             HashInstanceType,
         )
     ),
     PythonHashlib.blake2b: InstanceType(
         FunctionType(
-            [ByteStringInstanceType],
+            frozenlist([ByteStringInstanceType]),
             HashInstanceType,
         )
     ),
@@ -181,7 +181,7 @@ class RewriteImportHashlib(CompilingNodeTransformer):
 
     def attribute_type(self, attr) -&gt; &#34;Type&#34;:
         if attr == &#34;digest&#34;:
-            return InstanceType(FunctionType([], ByteStringInstanceType))
+            return InstanceType(FunctionType(frozenlist([]), ByteStringInstanceType))
         raise NotImplementedError(&#34;HashType only has attribute &#39;digest&#39;&#34;)
 
     def attribute(self, attr) -&gt; plt.AST:
@@ -233,7 +233,7 @@ class RewriteImportHashlib(CompilingNodeTransformer):
 </summary>
 <pre><code class="python">def attribute_type(self, attr) -&gt; &#34;Type&#34;:
     if attr == &#34;digest&#34;:
-        return InstanceType(FunctionType([], ByteStringInstanceType))
+        return InstanceType(FunctionType(frozenlist([]), ByteStringInstanceType))
     raise NotImplementedError(&#34;HashType only has attribute &#39;digest&#39;&#34;)</code></pre>
 </details>
 </dd>

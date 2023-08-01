@@ -91,6 +91,7 @@ security into the Smart Contract by checking type correctness.
 
 [1]: https://legacy.python.org/workshops/2000-01/proceedings/papers/aycock/aycock.html
 &#34;&#34;&#34;
+import typing
 from collections import defaultdict
 
 from copy import copy
@@ -131,7 +132,7 @@ def record_from_plutusdata(c: PlutusData):
     return Record(
         name=c.__class__.__name__,
         constructor=c.CONSTR_ID,
-        fields=FrozenFrozenList([(k, constant_type(v)) for k, v in c.__dict__.items()]),
+        fields=frozenlist([(k, constant_type(v)) for k, v in c.__dict__.items()]),
     )
 
 
@@ -222,20 +223,34 @@ TypeMapPair = typing.Tuple[TypeMap, TypeMap]
 
 
 def union_types(*ts: Type):
-    ts = [t if isinstance(t, UnionType) else UnionType([t]) for t in ts]
+    ts = list(set(ts))
+    if len(ts) == 1:
+        return ts[0]
+    assert ts, &#34;Union must combine multiple classes&#34;
+    ts = [t if isinstance(t, UnionType) else UnionType(frozenlist([t])) for t in ts]
+    assert all(
+        isinstance(e, UnionType) and all(isinstance(e2, RecordType) for e2 in e.typs)
+        for e in ts
+    ), &#34;Union must combine multiple PlutusData classes&#34;
     union_set = set()
     for t in ts:
         union_set.update(t.typs)
-    return UnionType(list(union_set))
+    assert distinct(
+        [e.record.constructor for e in union_set]
+    ), &#34;Union must combine PlutusData classes with unique constructors&#34;
+    return UnionType(frozenlist(union_set))
 
 
 def intersection_types(*ts: Type):
-    ts = [t if isinstance(t, UnionType) else UnionType([t]) for t in ts]
+    ts = list(set(ts))
+    if len(ts) == 1:
+        return ts[0]
+    ts = [t if isinstance(t, UnionType) else UnionType(frozenlist([t])) for t in ts]
     assert ts, &#34;Must have at least one type to intersect&#34;
     intersection_set = set(ts[0].typs)
     for t in ts[1:]:
         intersection_set.intersection_update(t.typs)
-    return UnionType(list(intersection_set))
+    return UnionType(frozenlist(intersection_set))
 
 
 class TypeCheckVisitor(TypedNodeVisitor):
@@ -267,17 +282,20 @@ class TypeCheckVisitor(TypedNodeVisitor):
         assert isinstance(
             target_inst_class, InstanceType
         ), &#34;Can only cast instances, not classes&#34;
-        assert isinstance(
-            target_inst_class.typ, UnionType
-        ), &#34;Can only cast instances of Union types of PlutusData&#34;
         assert isinstance(target_class, RecordType), &#34;Can only cast to PlutusData&#34;
-        assert (
-            target_class in target_inst_class.typ.typs
-        ), f&#34;Trying to cast an instance of Union type to non-instance of union type&#34;
+        if isinstance(target_inst_class.typ, UnionType):
+            assert (
+                target_class in target_inst_class.typ.typs
+            ), f&#34;Trying to cast an instance of Union type to non-instance of union type&#34;
+            union_without_target_class = union_types(
+                *(x for x in target_inst_class.typ.typs if x != target_class)
+            )
+        else:
+            assert (
+                target_inst_class.typ == target_class
+            ), &#34;Can only cast instances of Union types of PlutusData or cast the same class&#34;
+            union_without_target_class = target_class
         varname = node.args[0].id
-        union_without_target_class = union_types(
-            *(x for x in target_inst_class.typ.typs if x != target_class)
-        )
         return ({varname: target_class}, {varname: union_without_target_class})
 
     def visit_BoolOp(self, node: BoolOp) -&gt; PairType:
@@ -316,6 +334,29 @@ class TypeCheckVisitor(TypedNodeVisitor):
         if isinstance(node.op, Not):
             return (inv_res, res)
         return (res, inv_res)
+
+
+def merge_scope(s1: typing.Dict[str, Type], s2: typing.Dict[str, Type]):
+    keys = set(s1.keys()).union(s2.keys())
+    merged = {}
+    for k in keys:
+        if k not in s1.keys():
+            merged[k] = s2[k]
+        elif k not in s2.keys():
+            merged[k] = s1[k]
+        else:
+            try:
+                assert (
+                    isinstance(s1[k], InstanceType) and isinstance(s2[k], InstanceType)
+                ) or s1[k] == s2[
+                    k
+                ], &#34;Can only merge instance types or same types into one&#34;
+                merged[k] = InstanceType(union_types(s1[k].typ, s2[k].typ))
+            except AssertionError as e:
+                raise AssertionError(
+                    f&#34;Can not merge scopes after branching, conflicting types for {k}: {e}&#34;
+                )
+    return merged
 
 
 class AggressiveTypeInferencer(CompilingNodeTransformer):
@@ -373,17 +414,10 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                 ann.value, Name
             ), &#34;Only Union, Dict and List are allowed as Generic types&#34;
             if ann.value.id == &#34;Union&#34;:
-                assert isinstance(
-                    ann.slice, Tuple
-                ), &#34;Union must combine multiple classes&#34;
-                ann_types = [self.type_from_annotation(e) for e in ann.slice.elts]
-                assert all(
-                    isinstance(e, RecordType) for e in ann_types
-                ), &#34;Union must combine multiple PlutusData classes&#34;
-                assert distinct(
-                    [e.record.constructor for e in ann_types]
-                ), &#34;Union must combine PlutusData classes with unique constructors&#34;
-                return UnionType(FrozenFrozenList(ann_types))
+                ann_types = frozenlist(
+                    [self.type_from_annotation(e) for e in ann.slice.elts]
+                )
+                return union_types(*ann_types)
             if ann.value.id == &#34;List&#34;:
                 ann_type = self.type_from_annotation(ann.slice)
                 assert isinstance(
@@ -414,7 +448,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                 assert all(
                     isinstance(e, ClassType) for e in ann_types
                 ), &#34;Tuple must combine classes&#34;
-                return TupleType(FrozenFrozenList([InstanceType(a) for a in ann_types]))
+                return TupleType(frozenlist([InstanceType(a) for a in ann_types]))
             raise NotImplementedError(
                 &#34;Only Union, Dict and List are allowed as Generic types&#34;
             )
@@ -457,7 +491,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
     def visit_Tuple(self, node: Tuple) -&gt; TypedTuple:
         tt = copy(node)
         tt.elts = [self.visit(e) for e in node.elts]
-        tt.typ = InstanceType(TupleType([e.typ for e in tt.elts]))
+        tt.typ = InstanceType(TupleType(frozenlist([e.typ for e in tt.elts])))
         return tt
 
     def visit_List(self, node: List) -&gt; TypedList:
@@ -491,7 +525,8 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             assert isinstance(
                 t, Name
             ), &#34;Can only assign to variable names, no type deconstruction&#34;
-            self.set_variable_type(t.id, typed_ass.value.typ)
+            # Overwrite previous type -&gt; this will only affect following statements
+            self.set_variable_type(t.id, typed_ass.value.typ, force=True)
         typed_ass.targets = [self.visit(t) for t in node.targets]
         return typed_ass
 
@@ -520,13 +555,19 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         ), &#34;Branching condition must have boolean type&#34;
         typchecks, inv_typchecks = TypeCheckVisitor().visit(typed_if.test)
         # for the time of the branch, these types are cast
-        prevtyps = self.implement_typechecks(typchecks)
+        initial_scope = copy(self.scopes[-1])
+        self.implement_typechecks(typchecks)
         typed_if.body = self.visit_sequence(node.body)
-        self.implement_typechecks(prevtyps)
+        # save resulting types
+        final_scope_body = copy(self.scopes[-1])
+        # reverse typechecks and remove typing of one branch
+        self.scopes[-1] = initial_scope
         # for the time of the else branch, the inverse types hold
-        prevtyps = self.implement_typechecks(inv_typchecks)
+        self.implement_typechecks(inv_typchecks)
         typed_if.orelse = self.visit_sequence(node.orelse)
-        self.implement_typechecks(prevtyps)
+        final_scope_else = self.scopes[-1]
+        # unify the resulting branch scopes
+        self.scopes[-1] = merge_scope(final_scope_body, final_scope_else)
         return typed_if
 
     def visit_While(self, node: While) -&gt; TypedWhile:
@@ -537,13 +578,17 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         ), &#34;Branching condition must have boolean type&#34;
         typchecks, inv_typchecks = TypeCheckVisitor().visit(typed_while.test)
         # for the time of the branch, these types are cast
-        prevtyps = self.implement_typechecks(typchecks)
+        initial_scope = copy(self.scopes[-1])
+        self.implement_typechecks(typchecks)
         typed_while.body = self.visit_sequence(node.body)
-        self.implement_typechecks(prevtyps)
+        final_scope_body = copy(self.scopes[-1])
+        # revert changes
+        self.scopes[-1] = initial_scope
         # for the time of the else branch, the inverse types hold
-        prevtyps = self.implement_typechecks(inv_typchecks)
+        self.implement_typechecks(inv_typchecks)
         typed_while.orelse = self.visit_sequence(node.orelse)
-        self.implement_typechecks(prevtyps)
+        final_scope_else = self.scopes[-1]
+        self.scopes[-1] = merge_scope(final_scope_body, final_scope_else)
         return typed_while
 
     def visit_For(self, node: For) -&gt; TypedFor:
@@ -620,7 +665,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         self.enter_scope()
         tfd.args = self.visit(node.args)
         functyp = FunctionType(
-            [t.typ for t in tfd.args.args],
+            frozenlist([t.typ for t in tfd.args.args]),
             InstanceType(self.type_from_annotation(tfd.returns)),
         )
         tfd.typ = InstanceType(functyp)
@@ -980,7 +1025,7 @@ class RecordReader(NodeVisitor):
     def extract(cls, c: ClassDef, type_inferencer: AggressiveTypeInferencer) -&gt; Record:
         f = cls(type_inferencer)
         f.visit(c)
-        return Record(f.name, f.constructor, FrozenFrozenList(f.attributes))
+        return Record(f.name, f.constructor, frozenlist(f.attributes))
 
     def visit_AnnAssign(self, node: AnnAssign) -&gt; None:
         assert isinstance(
@@ -1107,12 +1152,47 @@ def typed_ast(ast: AST):
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def intersection_types(*ts: Type):
-    ts = [t if isinstance(t, UnionType) else UnionType([t]) for t in ts]
+    ts = list(set(ts))
+    if len(ts) == 1:
+        return ts[0]
+    ts = [t if isinstance(t, UnionType) else UnionType(frozenlist([t])) for t in ts]
     assert ts, &#34;Must have at least one type to intersect&#34;
     intersection_set = set(ts[0].typs)
     for t in ts[1:]:
         intersection_set.intersection_update(t.typs)
-    return UnionType(list(intersection_set))</code></pre>
+    return UnionType(frozenlist(intersection_set))</code></pre>
+</details>
+</dd>
+<dt id="opshin.type_inference.merge_scope"><code class="name flex">
+<span>def <span class="ident">merge_scope</span></span>(<span>s1: Dict[str, <a title="opshin.types.Type" href="types.html#opshin.types.Type">Type</a>], s2: Dict[str, <a title="opshin.types.Type" href="types.html#opshin.types.Type">Type</a>])</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def merge_scope(s1: typing.Dict[str, Type], s2: typing.Dict[str, Type]):
+    keys = set(s1.keys()).union(s2.keys())
+    merged = {}
+    for k in keys:
+        if k not in s1.keys():
+            merged[k] = s2[k]
+        elif k not in s2.keys():
+            merged[k] = s1[k]
+        else:
+            try:
+                assert (
+                    isinstance(s1[k], InstanceType) and isinstance(s2[k], InstanceType)
+                ) or s1[k] == s2[
+                    k
+                ], &#34;Can only merge instance types or same types into one&#34;
+                merged[k] = InstanceType(union_types(s1[k].typ, s2[k].typ))
+            except AssertionError as e:
+                raise AssertionError(
+                    f&#34;Can not merge scopes after branching, conflicting types for {k}: {e}&#34;
+                )
+    return merged</code></pre>
 </details>
 </dd>
 <dt id="opshin.type_inference.record_from_plutusdata"><code class="name flex">
@@ -1128,7 +1208,7 @@ def typed_ast(ast: AST):
     return Record(
         name=c.__class__.__name__,
         constructor=c.CONSTR_ID,
-        fields=FrozenFrozenList([(k, constant_type(v)) for k, v in c.__dict__.items()]),
+        fields=frozenlist([(k, constant_type(v)) for k, v in c.__dict__.items()]),
     )</code></pre>
 </details>
 </dd>
@@ -1155,11 +1235,22 @@ def typed_ast(ast: AST):
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def union_types(*ts: Type):
-    ts = [t if isinstance(t, UnionType) else UnionType([t]) for t in ts]
+    ts = list(set(ts))
+    if len(ts) == 1:
+        return ts[0]
+    assert ts, &#34;Union must combine multiple classes&#34;
+    ts = [t if isinstance(t, UnionType) else UnionType(frozenlist([t])) for t in ts]
+    assert all(
+        isinstance(e, UnionType) and all(isinstance(e2, RecordType) for e2 in e.typs)
+        for e in ts
+    ), &#34;Union must combine multiple PlutusData classes&#34;
     union_set = set()
     for t in ts:
         union_set.update(t.typs)
-    return UnionType(list(union_set))</code></pre>
+    assert distinct(
+        [e.record.constructor for e in union_set]
+    ), &#34;Union must combine PlutusData classes with unique constructors&#34;
+    return UnionType(frozenlist(union_set))</code></pre>
 </details>
 </dd>
 </dl>
@@ -1257,17 +1348,10 @@ just a single node.</p>
                 ann.value, Name
             ), &#34;Only Union, Dict and List are allowed as Generic types&#34;
             if ann.value.id == &#34;Union&#34;:
-                assert isinstance(
-                    ann.slice, Tuple
-                ), &#34;Union must combine multiple classes&#34;
-                ann_types = [self.type_from_annotation(e) for e in ann.slice.elts]
-                assert all(
-                    isinstance(e, RecordType) for e in ann_types
-                ), &#34;Union must combine multiple PlutusData classes&#34;
-                assert distinct(
-                    [e.record.constructor for e in ann_types]
-                ), &#34;Union must combine PlutusData classes with unique constructors&#34;
-                return UnionType(FrozenFrozenList(ann_types))
+                ann_types = frozenlist(
+                    [self.type_from_annotation(e) for e in ann.slice.elts]
+                )
+                return union_types(*ann_types)
             if ann.value.id == &#34;List&#34;:
                 ann_type = self.type_from_annotation(ann.slice)
                 assert isinstance(
@@ -1298,7 +1382,7 @@ just a single node.</p>
                 assert all(
                     isinstance(e, ClassType) for e in ann_types
                 ), &#34;Tuple must combine classes&#34;
-                return TupleType(FrozenFrozenList([InstanceType(a) for a in ann_types]))
+                return TupleType(frozenlist([InstanceType(a) for a in ann_types]))
             raise NotImplementedError(
                 &#34;Only Union, Dict and List are allowed as Generic types&#34;
             )
@@ -1341,7 +1425,7 @@ just a single node.</p>
     def visit_Tuple(self, node: Tuple) -&gt; TypedTuple:
         tt = copy(node)
         tt.elts = [self.visit(e) for e in node.elts]
-        tt.typ = InstanceType(TupleType([e.typ for e in tt.elts]))
+        tt.typ = InstanceType(TupleType(frozenlist([e.typ for e in tt.elts])))
         return tt
 
     def visit_List(self, node: List) -&gt; TypedList:
@@ -1375,7 +1459,8 @@ just a single node.</p>
             assert isinstance(
                 t, Name
             ), &#34;Can only assign to variable names, no type deconstruction&#34;
-            self.set_variable_type(t.id, typed_ass.value.typ)
+            # Overwrite previous type -&gt; this will only affect following statements
+            self.set_variable_type(t.id, typed_ass.value.typ, force=True)
         typed_ass.targets = [self.visit(t) for t in node.targets]
         return typed_ass
 
@@ -1404,13 +1489,19 @@ just a single node.</p>
         ), &#34;Branching condition must have boolean type&#34;
         typchecks, inv_typchecks = TypeCheckVisitor().visit(typed_if.test)
         # for the time of the branch, these types are cast
-        prevtyps = self.implement_typechecks(typchecks)
+        initial_scope = copy(self.scopes[-1])
+        self.implement_typechecks(typchecks)
         typed_if.body = self.visit_sequence(node.body)
-        self.implement_typechecks(prevtyps)
+        # save resulting types
+        final_scope_body = copy(self.scopes[-1])
+        # reverse typechecks and remove typing of one branch
+        self.scopes[-1] = initial_scope
         # for the time of the else branch, the inverse types hold
-        prevtyps = self.implement_typechecks(inv_typchecks)
+        self.implement_typechecks(inv_typchecks)
         typed_if.orelse = self.visit_sequence(node.orelse)
-        self.implement_typechecks(prevtyps)
+        final_scope_else = self.scopes[-1]
+        # unify the resulting branch scopes
+        self.scopes[-1] = merge_scope(final_scope_body, final_scope_else)
         return typed_if
 
     def visit_While(self, node: While) -&gt; TypedWhile:
@@ -1421,13 +1512,17 @@ just a single node.</p>
         ), &#34;Branching condition must have boolean type&#34;
         typchecks, inv_typchecks = TypeCheckVisitor().visit(typed_while.test)
         # for the time of the branch, these types are cast
-        prevtyps = self.implement_typechecks(typchecks)
+        initial_scope = copy(self.scopes[-1])
+        self.implement_typechecks(typchecks)
         typed_while.body = self.visit_sequence(node.body)
-        self.implement_typechecks(prevtyps)
+        final_scope_body = copy(self.scopes[-1])
+        # revert changes
+        self.scopes[-1] = initial_scope
         # for the time of the else branch, the inverse types hold
-        prevtyps = self.implement_typechecks(inv_typchecks)
+        self.implement_typechecks(inv_typchecks)
         typed_while.orelse = self.visit_sequence(node.orelse)
-        self.implement_typechecks(prevtyps)
+        final_scope_else = self.scopes[-1]
+        self.scopes[-1] = merge_scope(final_scope_body, final_scope_else)
         return typed_while
 
     def visit_For(self, node: For) -&gt; TypedFor:
@@ -1504,7 +1599,7 @@ just a single node.</p>
         self.enter_scope()
         tfd.args = self.visit(node.args)
         functyp = FunctionType(
-            [t.typ for t in tfd.args.args],
+            frozenlist([t.typ for t in tfd.args.args]),
             InstanceType(self.type_from_annotation(tfd.returns)),
         )
         tfd.typ = InstanceType(functyp)
@@ -1973,17 +2068,10 @@ just a single node.</p>
             ann.value, Name
         ), &#34;Only Union, Dict and List are allowed as Generic types&#34;
         if ann.value.id == &#34;Union&#34;:
-            assert isinstance(
-                ann.slice, Tuple
-            ), &#34;Union must combine multiple classes&#34;
-            ann_types = [self.type_from_annotation(e) for e in ann.slice.elts]
-            assert all(
-                isinstance(e, RecordType) for e in ann_types
-            ), &#34;Union must combine multiple PlutusData classes&#34;
-            assert distinct(
-                [e.record.constructor for e in ann_types]
-            ), &#34;Union must combine PlutusData classes with unique constructors&#34;
-            return UnionType(FrozenFrozenList(ann_types))
+            ann_types = frozenlist(
+                [self.type_from_annotation(e) for e in ann.slice.elts]
+            )
+            return union_types(*ann_types)
         if ann.value.id == &#34;List&#34;:
             ann_type = self.type_from_annotation(ann.slice)
             assert isinstance(
@@ -2014,7 +2102,7 @@ just a single node.</p>
             assert all(
                 isinstance(e, ClassType) for e in ann_types
             ), &#34;Tuple must combine classes&#34;
-            return TupleType(FrozenFrozenList([InstanceType(a) for a in ann_types]))
+            return TupleType(frozenlist([InstanceType(a) for a in ann_types]))
         raise NotImplementedError(
             &#34;Only Union, Dict and List are allowed as Generic types&#34;
         )
@@ -2117,7 +2205,8 @@ just a single node.</p>
         assert isinstance(
             t, Name
         ), &#34;Can only assign to variable names, no type deconstruction&#34;
-        self.set_variable_type(t.id, typed_ass.value.typ)
+        # Overwrite previous type -&gt; this will only affect following statements
+        self.set_variable_type(t.id, typed_ass.value.typ, force=True)
     typed_ass.targets = [self.visit(t) for t in node.targets]
     return typed_ass</code></pre>
 </details>
@@ -2442,7 +2531,7 @@ just a single node.</p>
     self.enter_scope()
     tfd.args = self.visit(node.args)
     functyp = FunctionType(
-        [t.typ for t in tfd.args.args],
+        frozenlist([t.typ for t in tfd.args.args]),
         InstanceType(self.type_from_annotation(tfd.returns)),
     )
     tfd.typ = InstanceType(functyp)
@@ -2486,13 +2575,19 @@ just a single node.</p>
     ), &#34;Branching condition must have boolean type&#34;
     typchecks, inv_typchecks = TypeCheckVisitor().visit(typed_if.test)
     # for the time of the branch, these types are cast
-    prevtyps = self.implement_typechecks(typchecks)
+    initial_scope = copy(self.scopes[-1])
+    self.implement_typechecks(typchecks)
     typed_if.body = self.visit_sequence(node.body)
-    self.implement_typechecks(prevtyps)
+    # save resulting types
+    final_scope_body = copy(self.scopes[-1])
+    # reverse typechecks and remove typing of one branch
+    self.scopes[-1] = initial_scope
     # for the time of the else branch, the inverse types hold
-    prevtyps = self.implement_typechecks(inv_typchecks)
+    self.implement_typechecks(inv_typchecks)
     typed_if.orelse = self.visit_sequence(node.orelse)
-    self.implement_typechecks(prevtyps)
+    final_scope_else = self.scopes[-1]
+    # unify the resulting branch scopes
+    self.scopes[-1] = merge_scope(final_scope_body, final_scope_else)
     return typed_if</code></pre>
 </details>
 </dd>
@@ -2783,7 +2878,7 @@ just a single node.</p>
 <pre><code class="python">def visit_Tuple(self, node: Tuple) -&gt; TypedTuple:
     tt = copy(node)
     tt.elts = [self.visit(e) for e in node.elts]
-    tt.typ = InstanceType(TupleType([e.typ for e in tt.elts]))
+    tt.typ = InstanceType(TupleType(frozenlist([e.typ for e in tt.elts])))
     return tt</code></pre>
 </details>
 </dd>
@@ -2820,13 +2915,17 @@ just a single node.</p>
     ), &#34;Branching condition must have boolean type&#34;
     typchecks, inv_typchecks = TypeCheckVisitor().visit(typed_while.test)
     # for the time of the branch, these types are cast
-    prevtyps = self.implement_typechecks(typchecks)
+    initial_scope = copy(self.scopes[-1])
+    self.implement_typechecks(typchecks)
     typed_while.body = self.visit_sequence(node.body)
-    self.implement_typechecks(prevtyps)
+    final_scope_body = copy(self.scopes[-1])
+    # revert changes
+    self.scopes[-1] = initial_scope
     # for the time of the else branch, the inverse types hold
-    prevtyps = self.implement_typechecks(inv_typchecks)
+    self.implement_typechecks(inv_typchecks)
     typed_while.orelse = self.visit_sequence(node.orelse)
-    self.implement_typechecks(prevtyps)
+    final_scope_else = self.scopes[-1]
+    self.scopes[-1] = merge_scope(final_scope_body, final_scope_else)
     return typed_while</code></pre>
 </details>
 </dd>
@@ -2971,7 +3070,7 @@ allows modifications.</p></div>
     def extract(cls, c: ClassDef, type_inferencer: AggressiveTypeInferencer) -&gt; Record:
         f = cls(type_inferencer)
         f.visit(c)
-        return Record(f.name, f.constructor, FrozenFrozenList(f.attributes))
+        return Record(f.name, f.constructor, frozenlist(f.attributes))
 
     def visit_AnnAssign(self, node: AnnAssign) -&gt; None:
         assert isinstance(
@@ -3067,7 +3166,7 @@ allows modifications.</p></div>
 def extract(cls, c: ClassDef, type_inferencer: AggressiveTypeInferencer) -&gt; Record:
     f = cls(type_inferencer)
     f.visit(c)
-    return Record(f.name, f.constructor, FrozenFrozenList(f.attributes))</code></pre>
+    return Record(f.name, f.constructor, frozenlist(f.attributes))</code></pre>
 </details>
 </dd>
 </dl>
@@ -3236,17 +3335,20 @@ is True/False respectively</p></div>
         assert isinstance(
             target_inst_class, InstanceType
         ), &#34;Can only cast instances, not classes&#34;
-        assert isinstance(
-            target_inst_class.typ, UnionType
-        ), &#34;Can only cast instances of Union types of PlutusData&#34;
         assert isinstance(target_class, RecordType), &#34;Can only cast to PlutusData&#34;
-        assert (
-            target_class in target_inst_class.typ.typs
-        ), f&#34;Trying to cast an instance of Union type to non-instance of union type&#34;
+        if isinstance(target_inst_class.typ, UnionType):
+            assert (
+                target_class in target_inst_class.typ.typs
+            ), f&#34;Trying to cast an instance of Union type to non-instance of union type&#34;
+            union_without_target_class = union_types(
+                *(x for x in target_inst_class.typ.typs if x != target_class)
+            )
+        else:
+            assert (
+                target_inst_class.typ == target_class
+            ), &#34;Can only cast instances of Union types of PlutusData or cast the same class&#34;
+            union_without_target_class = target_class
         varname = node.args[0].id
-        union_without_target_class = union_types(
-            *(x for x in target_inst_class.typ.typs if x != target_class)
-        )
         return ({varname: target_class}, {varname: union_without_target_class})
 
     def visit_BoolOp(self, node: BoolOp) -&gt; PairType:
@@ -3384,17 +3486,20 @@ is True/False respectively</p></div>
     assert isinstance(
         target_inst_class, InstanceType
     ), &#34;Can only cast instances, not classes&#34;
-    assert isinstance(
-        target_inst_class.typ, UnionType
-    ), &#34;Can only cast instances of Union types of PlutusData&#34;
     assert isinstance(target_class, RecordType), &#34;Can only cast to PlutusData&#34;
-    assert (
-        target_class in target_inst_class.typ.typs
-    ), f&#34;Trying to cast an instance of Union type to non-instance of union type&#34;
+    if isinstance(target_inst_class.typ, UnionType):
+        assert (
+            target_class in target_inst_class.typ.typs
+        ), f&#34;Trying to cast an instance of Union type to non-instance of union type&#34;
+        union_without_target_class = union_types(
+            *(x for x in target_inst_class.typ.typs if x != target_class)
+        )
+    else:
+        assert (
+            target_inst_class.typ == target_class
+        ), &#34;Can only cast instances of Union types of PlutusData or cast the same class&#34;
+        union_without_target_class = target_class
     varname = node.args[0].id
-    union_without_target_class = union_types(
-        *(x for x in target_inst_class.typ.typs if x != target_class)
-    )
     return ({varname: target_class}, {varname: union_without_target_class})</code></pre>
 </details>
 </dd>
@@ -3487,6 +3592,7 @@ setTimeout(() => input.focus(), 100);
 <ul class="">
 <li><code><a title="opshin.type_inference.constant_type" href="#opshin.type_inference.constant_type">constant_type</a></code></li>
 <li><code><a title="opshin.type_inference.intersection_types" href="#opshin.type_inference.intersection_types">intersection_types</a></code></li>
+<li><code><a title="opshin.type_inference.merge_scope" href="#opshin.type_inference.merge_scope">merge_scope</a></code></li>
 <li><code><a title="opshin.type_inference.record_from_plutusdata" href="#opshin.type_inference.record_from_plutusdata">record_from_plutusdata</a></code></li>
 <li><code><a title="opshin.type_inference.typed_ast" href="#opshin.type_inference.typed_ast">typed_ast</a></code></li>
 <li><code><a title="opshin.type_inference.union_types" href="#opshin.type_inference.union_types">union_types</a></code></li>

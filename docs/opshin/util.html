@@ -73,7 +73,7 @@ fill="currentColor" class="octo-body"></path>
 import ast
 import pycardano
 from frozendict import frozendict
-from frozenlist import FrozenList
+from frozenlist2 import frozenlist
 
 import uplc.ast as uplc
 
@@ -81,12 +81,6 @@ import uplc.ast as uplc
 def distinct(xs: list):
     &#34;&#34;&#34;Returns true iff the list consists of distinct elements&#34;&#34;&#34;
     return len(xs) == len(set(xs))
-
-
-def FrozenFrozenList(l: list):
-    fl = FrozenList(l)
-    fl.freeze()
-    return fl
 
 
 class TypedNodeTransformer(ast.NodeTransformer):
@@ -154,7 +148,7 @@ def data_from_json(j: typing.Dict[str, typing.Any]) -&gt; uplc.PlutusData:
     if &#34;int&#34; in j:
         return uplc.PlutusInteger(int(j[&#34;int&#34;]))
     if &#34;list&#34; in j:
-        return uplc.PlutusList(FrozenFrozenList(list(map(data_from_json, j[&#34;list&#34;]))))
+        return uplc.PlutusList(frozenlist(list(map(data_from_json, j[&#34;list&#34;]))))
     if &#34;map&#34; in j:
         return uplc.PlutusMap(
             frozendict(
@@ -163,7 +157,7 @@ def data_from_json(j: typing.Dict[str, typing.Any]) -&gt; uplc.PlutusData:
         )
     if &#34;constructor&#34; in j and &#34;fields&#34; in j:
         return uplc.PlutusConstr(
-            j[&#34;constructor&#34;], FrozenFrozenList(list(map(data_from_json, j[&#34;fields&#34;])))
+            j[&#34;constructor&#34;], frozenlist(list(map(data_from_json, j[&#34;fields&#34;])))
         )
     raise NotImplementedError(f&#34;Unknown datum representation {j}&#34;)
 
@@ -183,21 +177,6 @@ def datum_to_json(d: pycardano.Datum) -&gt; str:
 <section>
 <h2 class="section-title" id="header-functions">Functions</h2>
 <dl>
-<dt id="opshin.util.FrozenFrozenList"><code class="name flex">
-<span>def <span class="ident">FrozenFrozenList</span></span>(<span>l: list)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def FrozenFrozenList(l: list):
-    fl = FrozenList(l)
-    fl.freeze()
-    return fl</code></pre>
-</details>
-</dd>
 <dt id="opshin.util.data_from_json"><code class="name flex">
 <span>def <span class="ident">data_from_json</span></span>(<span>j: Dict[str, Any]) ‑> uplc.ast.PlutusData</span>
 </code></dt>
@@ -213,7 +192,7 @@ def datum_to_json(d: pycardano.Datum) -&gt; str:
     if &#34;int&#34; in j:
         return uplc.PlutusInteger(int(j[&#34;int&#34;]))
     if &#34;list&#34; in j:
-        return uplc.PlutusList(FrozenFrozenList(list(map(data_from_json, j[&#34;list&#34;]))))
+        return uplc.PlutusList(frozenlist(list(map(data_from_json, j[&#34;list&#34;]))))
     if &#34;map&#34; in j:
         return uplc.PlutusMap(
             frozendict(
@@ -222,7 +201,7 @@ def datum_to_json(d: pycardano.Datum) -&gt; str:
         )
     if &#34;constructor&#34; in j and &#34;fields&#34; in j:
         return uplc.PlutusConstr(
-            j[&#34;constructor&#34;], FrozenFrozenList(list(map(data_from_json, j[&#34;fields&#34;])))
+            j[&#34;constructor&#34;], frozenlist(list(map(data_from_json, j[&#34;fields&#34;])))
         )
     raise NotImplementedError(f&#34;Unknown datum representation {j}&#34;)</code></pre>
 </details>
@@ -371,7 +350,6 @@ just a single node.</p>
 <li><a title="opshin.rewrite.rewrite_scoping.RewriteScoping" href="rewrite/rewrite_scoping.html#opshin.rewrite.rewrite_scoping.RewriteScoping">RewriteScoping</a></li>
 <li><a title="opshin.rewrite.rewrite_subscript38.RewriteSubscript38" href="rewrite/rewrite_subscript38.html#opshin.rewrite.rewrite_subscript38.RewriteSubscript38">RewriteSubscript38</a></li>
 <li><a title="opshin.rewrite.rewrite_tuple_assign.RewriteTupleAssign" href="rewrite/rewrite_tuple_assign.html#opshin.rewrite.rewrite_tuple_assign.RewriteTupleAssign">RewriteTupleAssign</a></li>
-<li><a title="opshin.rewrite.rewrite_zero_ary.RewriteZeroAry" href="rewrite/rewrite_zero_ary.html#opshin.rewrite.rewrite_zero_ary.RewriteZeroAry">RewriteZeroAry</a></li>
 <li><a title="opshin.type_inference.AggressiveTypeInferencer" href="type_inference.html#opshin.type_inference.AggressiveTypeInferencer">AggressiveTypeInferencer</a></li>
 <li><a title="opshin.util.NoOp" href="#opshin.util.NoOp">NoOp</a></li>
 </ul>
@@ -741,7 +719,6 @@ setTimeout(() => input.focus(), 100);
 </li>
 <li><h3><a href="#header-functions">Functions</a></h3>
 <ul class="">
-<li><code><a title="opshin.util.FrozenFrozenList" href="#opshin.util.FrozenFrozenList">FrozenFrozenList</a></code></li>
 <li><code><a title="opshin.util.data_from_json" href="#opshin.util.data_from_json">data_from_json</a></code></li>
 <li><code><a title="opshin.util.datum_to_cbor" href="#opshin.util.datum_to_cbor">datum_to_cbor</a></code></li>
 <li><code><a title="opshin.util.datum_to_json" href="#opshin.util.datum_to_json">datum_to_json</a></code></li>
