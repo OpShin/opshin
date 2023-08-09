@@ -911,13 +911,12 @@ lxml = ["lxml"]
 
 [[package]]
 name = "hypothesis"
-version = "6.81.1"
+version = "6.82.3"
 description = "A library for property-based testing"
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "hypothesis-6.81.1-py3-none-any.whl", hash = "sha256:f370dc76c2c036298e345dc207ec80f2ce695f95166a5d358988464b34a53e0f"},
-    {file = "hypothesis-6.81.1.tar.gz", hash = "sha256:89c1afad5000a1cc89409fff4187e6118816a6cac80195c8c719efda14a8ce52"},
+    {file = "hypothesis-6.82.3-py3-none-any.whl", hash = "sha256:7ff0f6a12d3cd9372e30f84d300e2468c3923e813198a93b9e479dda91858460"},
 ]
 
 [package.dependencies]
