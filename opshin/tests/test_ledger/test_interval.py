@@ -225,3 +225,37 @@ def test_make_from_in_make_range(
     assert contains(
         make_from(lower_bound=lower_bound_1), make_range(lower_bound_2, upper_bound)
     ) == (lower_bound_1 <= lower_bound_2)
+
+
+@given(
+    lower_bound1=st.integers(),
+    upper_bound1=st.integers(),
+    lower_bound2=st.integers(),
+    upper_bound2=st.integers(),
+)
+def test_entirely_after_time(
+    lower_bound1: int,
+    upper_bound1: int,
+    lower_bound2: int,
+    upper_bound2: int,
+) -> None:
+    assert entirely_after(
+        make_range(lower_bound1, upper_bound1), make_range(lower_bound2, upper_bound2)
+    ) == (lower_bound1 > upper_bound2)
+
+
+@given(
+    lower_bound1=st.integers(),
+    upper_bound1=st.integers(),
+    lower_bound2=st.integers(),
+    upper_bound2=st.integers(),
+)
+def test_entirely_before_time(
+    lower_bound1: int,
+    upper_bound1: int,
+    lower_bound2: int,
+    upper_bound2: int,
+) -> None:
+    assert entirely_before(
+        make_range(lower_bound1, upper_bound1), make_range(lower_bound2, upper_bound2)
+    ) == (upper_bound1 < lower_bound2)
