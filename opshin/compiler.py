@@ -1035,13 +1035,6 @@ def compile(
         RewriteImportUPLCBuiltins(),
         RewriteInjectBuiltinsConstr(),
         RewriteRemoveTypeStuff(),
-    ]
-    for s in rewrite_steps:
-        prog = s.visit(prog)
-        prog = fix_missing_locations(prog)
-
-    # from here on raw uplc may occur, so we dont attempt to fix locations
-    compile_pipeline = [
         # Save the original names of variables
         RewriteOrigName(),
         RewriteScoping(),
@@ -1050,13 +1043,16 @@ def compile(
         OptimizeVarlen(),
         OptimizeRemoveDeadconstants(),
         OptimizeRemovePass(),
-        # the compiler runs last
-        UPLCCompiler(
-            force_three_params=force_three_params,
-            validator_function_name=validator_function_name,
-        ),
     ]
-    for s in compile_pipeline:
+    for s in rewrite_steps:
         prog = s.visit(prog)
+        prog = fix_missing_locations(prog)
+
+    # the compiler runs last
+    s = UPLCCompiler(
+        force_three_params=force_three_params,
+        validator_function_name=validator_function_name,
+    )
+    prog = s.visit(prog)
 
     return prog

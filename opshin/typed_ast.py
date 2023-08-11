@@ -178,3 +178,6 @@ class TypedAssert(typedstmt, Assert):
 class RawPlutoExpr(typedexpr):
     typ: Type
     expr: plt.AST
+
+    _attributes = ["lineno", "col_offset", "end_lineno", "end_col_offset"]
+    _fields = []
