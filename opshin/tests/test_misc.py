@@ -2314,3 +2314,18 @@ def validator(
         ast = compiler.parse(source_code)
         code = compiler.compile(ast)
         code = code.compile()
+
+    @hypothesis.given(st.lists(st.integers(), max_size=10, min_size=2))
+    def test_comparison_chaining(self, xs):
+        param_string = ",".join(f"i{k}: int" for k, _ in enumerate(xs))
+        comp_string = " < ".join(f"i{k}" for k, _ in enumerate(xs))
+        source_code = f"""
+def validator({param_string}) -> bool:
+    return {comp_string}
+"""
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        for x in xs:
+            code = uplc.Apply(code, uplc.PlutusInteger(x))
+        res = uplc_eval(code)
+        self.assertEqual(bool(res.value), eval(" < ".join(str(x) for x in xs)))
