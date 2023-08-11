@@ -6,6 +6,7 @@ from .optimize.optimize_const_folding import OptimizeConstantFolding
 from .optimize.optimize_remove_comments import OptimizeRemoveDeadconstants
 from .rewrite.rewrite_augassign import RewriteAugAssign
 from .rewrite.rewrite_cast_condition import RewriteConditions
+from .rewrite.rewrite_comparison_chaining import RewriteComparisonChaining
 from .rewrite.rewrite_forbidden_overwrites import RewriteForbiddenOverwrites
 from .rewrite.rewrite_import import RewriteImport
 from .rewrite.rewrite_import_dataclasses import RewriteImportDataclasses
@@ -1021,6 +1022,7 @@ def compile(
         OptimizeConstantFolding() if constant_folding else NoOp(),
         RewriteSubscript38(),
         RewriteAugAssign(),
+        RewriteComparisonChaining(),
         RewriteTupleAssign(),
         RewriteImportPlutusData(),
         RewriteImportHashlib(),
