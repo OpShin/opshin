@@ -1043,7 +1043,7 @@ def compile(
     constant_folding=False,
     validator_function_name="validator",
 ):
-    rewrite_steps = [
+    compile_pipeline = [
         # Important to call this one first - it imports all further files
         RewriteImport(filename=filename),
         # Rewrites that simplify the python code
@@ -1073,7 +1073,7 @@ def compile(
         OptimizeRemoveDeadconstants(),
         OptimizeRemovePass(),
     ]
-    for s in rewrite_steps:
+    for s in compile_pipeline:
         prog = s.visit(prog)
         prog = custom_fix_missing_locations(prog)
 
