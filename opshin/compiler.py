@@ -174,8 +174,13 @@ def wrap_validator_double_function(x: plt.AST, pass_through: int = 0):
                     plt.Bool(False),
                     plt.Bool(False),
                 ),
-                # call the validator with a0, a1, and plug in Unit for data
-                plt.Apply(plt.Var("p"), plt.Unit(), plt.Var("a0"), plt.Var("a1")),
+                # call the validator with a0, a1, and plug in "Nothing" for data
+                plt.Apply(
+                    plt.Var("p"),
+                    plt.UPLCConstant(uplc.PlutusConstr(6, [])),
+                    plt.Var("a0"),
+                    plt.Var("a1"),
+                ),
                 # else call the validator with a0, a1 and return (now partially bound)
                 plt.Apply(plt.Var("p"), plt.Var("a0"), plt.Var("a1")),
             ),
