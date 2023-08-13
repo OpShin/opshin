@@ -3,6 +3,18 @@ from hashlib import sha256, sha3_256, blake2b
 
 
 @dataclass(unsafe_hash=True)
+class Nothing(PlutusData):
+    """
+    Nothing, can be used to signify non-importance of a parameter to a function
+
+    Example value: Nothing()
+    """
+
+    # The maximimum constructor ID for simple cbor types, chosen to minimize probability of collision while keeping the corresponding cbor small
+    CONSTR_ID = 6
+
+
+@dataclass(unsafe_hash=True)
 class Token(PlutusData):
     """
     A token, represented by policy id and token name
