@@ -775,6 +775,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             )
             ntc.typ = BoolInstanceType
             ntc.typechecks = TypeCheckVisitor().visit(tc)
+            custom_fix_missing_locations(ntc, node)
             return ntc
         tc.func = self.visit(node.func)
         # might be a class
