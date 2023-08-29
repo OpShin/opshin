@@ -1012,35 +1012,6 @@ class UPLCCompiler(CompilingNodeTransformer):
         raise NotImplementedError(f"Can not compile {node}")
 
 
-def custom_fix_missing_locations(node):
-    """
-    Works like ast.fix_missing_location but forces it onto everything
-    """
-
-    def _fix(node, lineno, col_offset, end_lineno, end_col_offset):
-        if not hasattr(node, "lineno"):
-            node.lineno = lineno
-        else:
-            lineno = node.lineno
-        if getattr(node, "end_lineno", None) is None:
-            node.end_lineno = end_lineno
-        else:
-            end_lineno = node.end_lineno
-        if not hasattr(node, "col_offset"):
-            node.col_offset = col_offset
-        else:
-            col_offset = node.col_offset
-        if getattr(node, "end_col_offset", None) is None:
-            node.end_col_offset = end_col_offset
-        else:
-            end_col_offset = node.end_col_offset
-        for child in iter_child_nodes(node):
-            _fix(child, lineno, col_offset, end_lineno, end_col_offset)
-
-    _fix(node, 1, 0, 1, 0)
-    return node
-
-
 def compile(
     prog: AST,
     filename=None,
@@ -1048,6 +1019,7 @@ def compile(
     remove_dead_code=True,
     constant_folding=False,
     validator_function_name="validator",
+    allow_isinstance_anything=False,
 ):
     compile_pipeline = [
         # Important to call this one first - it imports all further files
@@ -1066,7 +1038,7 @@ def compile(
         RewriteInjectBuiltins(),
         RewriteConditions(),
         # The type inference needs to be run after complex python operations were rewritten
-        AggressiveTypeInferencer(),
+        AggressiveTypeInferencer(allow_isinstance_anything),
         # Rewrites that circumvent the type inference or use its results
         RewriteImportUPLCBuiltins(),
         RewriteInjectBuiltinsConstr(),
