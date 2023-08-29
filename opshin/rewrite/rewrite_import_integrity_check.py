@@ -53,5 +53,7 @@ class RewriteImportIntegrityCheck(CompilingNodeTransformer):
                 n.name == FunctionName
             ), "Imports something other from the integrity check than the integrity check builtin"
             renamed = n.asname if n.asname is not None else n.name
-            INITIAL_SCOPE[renamed] = IntegrityCheckImpl()
+            INITIAL_SCOPE[renamed] = InstanceType(
+                PolymorphicFunctionType(IntegrityCheckImpl())
+            )
         return None

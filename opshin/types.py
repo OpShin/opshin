@@ -464,7 +464,10 @@ class RecordType(ClassType):
         copied_attributes = plt.EmptyDataList()
         for attr_name, attr_type in reversed(self.record.fields):
             copied_attributes = plt.Let(
-                [("f", plt.HeadList("fs")), ("fs", plt.TailList("fs"))],
+                [
+                    ("f", plt.HeadList(plt.Var("fs"))),
+                    ("fs", plt.TailList(plt.Var("fs"))),
+                ],
                 plt.MkCons(
                     plt.Apply(attr_type.copy_only_attributes(), plt.Var("f")),
                     copied_attributes,

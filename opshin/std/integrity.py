@@ -4,7 +4,7 @@ A special libary that gives access to a function that checks the integrity of Pl
 from pycardano import PlutusData
 
 
-def integrity_check(x: PlutusData) -> None:
+def check_integrity(x: PlutusData) -> None:
     """
     Checks the integrity of a PlutusDatum object.
     In particular, it takes an object of any type and checks that
