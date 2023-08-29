@@ -11,6 +11,7 @@ from .rewrite.rewrite_forbidden_overwrites import RewriteForbiddenOverwrites
 from .rewrite.rewrite_import import RewriteImport
 from .rewrite.rewrite_import_dataclasses import RewriteImportDataclasses
 from .rewrite.rewrite_import_hashlib import RewriteImportHashlib
+from .rewrite.rewrite_import_integrity_check import RewriteImportIntegrityCheck
 from .rewrite.rewrite_import_plutusdata import RewriteImportPlutusData
 from .rewrite.rewrite_import_typing import RewriteImportTyping
 from .rewrite.rewrite_import_uplc_builtins import RewriteImportUPLCBuiltins
@@ -1058,6 +1059,7 @@ def compile(
         RewriteAugAssign(),
         RewriteComparisonChaining(),
         RewriteTupleAssign(),
+        RewriteImportIntegrityCheck(),
         RewriteImportPlutusData(),
         RewriteImportHashlib(),
         RewriteImportTyping(),
