@@ -280,6 +280,9 @@ def merge_scope(s1: typing.Dict[str, Type], s2: typing.Dict[str, Type]):
 
 
 class AggressiveTypeInferencer(CompilingNodeTransformer):
+    def __init__(self, allow_isinstance_anything=False):
+        self.allow_isinstance_anything = allow_isinstance_anything
+
     step = "Static Type Inference"
 
     # A stack of dictionaries for storing scoped knowledge of variable types
@@ -766,16 +769,24 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         # might be isinstance
         if isinstance(tc.func, Name) and tc.func.id == "isinstance":
             target_class = tc.args[1].typ
-            ntc = self.visit(
-                Compare(
-                    left=Attribute(tc.args[0], "CONSTR_ID"),
-                    ops=[Eq()],
-                    comparators=[Constant(target_class.record.constructor)],
+            if (
+                isinstance(tc.args[0].typ, InstanceType)
+                and isinstance(tc.args[0].typ.typ, AnyType)
+                and not self.allow_isinstance_anything
+            ):
+                raise AssertionError(
+                    "OpShin does not permit checking the instance of raw Anything/Datum objects as this only checks the equality of the constructor id and nothing more. "
+                    "If you are certain of what you are doing, please use the flag '--allow-isinstance-anything'."
                 )
+            ntc = Compare(
+                left=Attribute(tc.args[0], "CONSTR_ID"),
+                ops=[Eq()],
+                comparators=[Constant(target_class.record.constructor)],
             )
+            custom_fix_missing_locations(ntc, node)
+            ntc = self.visit(ntc)
             ntc.typ = BoolInstanceType
             ntc.typechecks = TypeCheckVisitor().visit(tc)
-            custom_fix_missing_locations(ntc, node)
             return ntc
         tc.func = self.visit(node.func)
         # might be a class

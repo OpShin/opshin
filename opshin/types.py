@@ -23,12 +23,14 @@ class Type:
 
     def constr(self) -> plt.AST:
         """The constructor for this class"""
-        raise NotImplementedError(f"Constructor of {self.__class__} not implemented")
+        raise NotImplementedError(
+            f"Constructor of {type(self).__name__} not implemented"
+        )
 
     def attribute_type(self, attr) -> "Type":
         """The types of the named attributes of this class"""
         raise TypeInferenceError(
-            f"Object of type {self.__class__} does not have attribute {attr}"
+            f"Object of type {type(self).__name__} does not have attribute {attr}"
         )
 
     def attribute(self, attr) -> plt.AST:

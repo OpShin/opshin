@@ -254,6 +254,7 @@ def perform_command(args):
             constant_folding=constant_folding,
             # do not remove dead code when compiling a library - none of the code will be used
             remove_dead_code=purpose != Purpose.lib,
+            allow_isinstance_anything=args.allow_isinstance_anything,
         )
     except CompilerError as c:
         # Generate nice error message from compiler error
@@ -387,6 +388,11 @@ def parse_args():
         "--cf",
         action="store_true",
         help="Enables experimental constant folding, including propagation and code execution.",
+    )
+    a.add_argument(
+        "--allow-isinstance-anything",
+        action="store_true",
+        help="Enables the use of isinstance(x, D) in the contract where x is of type Anything. This is not recommended as it only checks the constructor id and not the actual type of the data.",
     )
     a.add_argument(
         "args",

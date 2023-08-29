@@ -1019,6 +1019,7 @@ def compile(
     remove_dead_code=True,
     constant_folding=False,
     validator_function_name="validator",
+    allow_isinstance_anything=False,
 ):
     compile_pipeline = [
         # Important to call this one first - it imports all further files
@@ -1037,7 +1038,7 @@ def compile(
         RewriteInjectBuiltins(),
         RewriteConditions(),
         # The type inference needs to be run after complex python operations were rewritten
-        AggressiveTypeInferencer(),
+        AggressiveTypeInferencer(allow_isinstance_anything),
         # Rewrites that circumvent the type inference or use its results
         RewriteImportUPLCBuiltins(),
         RewriteInjectBuiltinsConstr(),
