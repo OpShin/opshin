@@ -158,9 +158,10 @@ def validator(x: B) -> None:
 
 @parameterized.expand(
     [
-        [[0, 1], [1, 1, 1]],
-        [[b"hello"], [1, 1]],
-        [[1], [1, b"hello"]],
+        [[0, 1, 2], [1, 1, 1]],
+        [[b"hello", 1], [1, 1]],
+        [[1, 2], [1, b"hello"]],
+        [[0, 1, 1, 1], [0, 0, 0, 0]],
     ]
 )
 def test_integrity_check_dict(keys, values):
@@ -204,4 +205,6 @@ def validator(x: B) -> None:
         res = False
     else:
         res = True
-    assert res == (all(isinstance(x, int) for x in keys + values))
+    assert res == (
+        all(isinstance(x, int) for x in keys + values) and len(set(keys)) == len(keys)
+    )

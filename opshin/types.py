@@ -1019,6 +1019,34 @@ class DictType(ClassType):
             ),
         )
 
+    def copy_only_attributes(self) -> plt.AST:
+        mapped_attrs = plt.MapList(
+            plt.Var("self"),
+            plt.Lambda(
+                ["v"],
+                plt.MkPairData(
+                    transform_output_map(self.key_typ)(
+                        plt.Apply(
+                            self.key_typ.copy_only_attributes(),
+                            transform_ext_params_map(self.key_typ)(
+                                plt.FstPair(plt.Var("v"))
+                            ),
+                        )
+                    ),
+                    transform_output_map(self.value_typ)(
+                        plt.Apply(
+                            self.value_typ.copy_only_attributes(),
+                            transform_ext_params_map(self.value_typ)(
+                                plt.SndPair(plt.Var("v"))
+                            ),
+                        )
+                    ),
+                ),
+            ),
+            plt.EmptyDataPairList(),
+        )
+        return plt.Lambda(["self"], mapped_attrs)
+
 
 @dataclass(frozen=True, unsafe_hash=True)
 class FunctionType(ClassType):
