@@ -142,3 +142,54 @@ def validator(x: B) -> None:
     assert res == (
         all(isinstance(x, int) for x in foobar) and all(c == 1 for c in bar_constrs)
     )
+
+
+@parameterized.expand(
+    [
+        [[0, 1], [1, 1, 1]],
+        [[b"hello"], [1, 1]],
+        [[1], [1, b"hello"]],
+    ]
+)
+def test_integrity_check_dict(keys, values):
+    source_code = """
+from dataclasses import dataclass
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
+from opshin.std.integrity import check_integrity
+
+@dataclass()
+class B(PlutusData):
+    CONSTR_ID = 1
+    foobar: Dict[int, int]
+
+def validator(x: B) -> None:
+    check_integrity(x)
+"""
+    ast = compiler.parse(source_code)
+    code = compiler.compile(ast).compile()
+    code = uplc.Apply(
+        code,
+        uplc.PlutusConstr(
+            1,
+            [
+                uplc.PlutusMap(
+                    {
+                        uplc.PlutusInteger(x)
+                        if isinstance(x, int)
+                        else uplc.PlutusByteString(x): uplc.PlutusInteger(y)
+                        if isinstance(y, int)
+                        else uplc.PlutusByteString(y)
+                        for x, y in zip(keys, values)
+                    },
+                ),
+            ],
+        ),
+    )
+    try:
+        uplc_eval(code)
+    except:
+        res = False
+    else:
+        res = True
+    assert res == (all(isinstance(x, int) for x in keys + values))
