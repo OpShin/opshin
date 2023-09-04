@@ -52,11 +52,7 @@ class Type:
         raise NotImplementedError(f"{type(self).__name__} can not be stringified")
 
     def copy_only_attributes(self) -> plt.AST:
-        """
-        Returns a copy of this type with only the declared attributes (mapped to builtin values, thus checking atomic types too).
-        For anything but record types and union types, this is the identity function.
-        """
-        return plt.Lambda(["self"], plt.Var("self"))
+        raise NotImplementedError(f"{type(self).__name__} can not be copied")
 
 
 @dataclass(frozen=True, unsafe_hash=True)
@@ -79,6 +75,13 @@ class Record:
 class ClassType(Type):
     def __ge__(self, other):
         raise NotImplementedError("Comparison between raw classtypes impossible")
+
+    def copy_only_attributes(self) -> plt.AST:
+        """
+        Returns a copy of this type with only the declared attributes (mapped to builtin values, thus checking atomic types too).
+        For anything but record types and union types, this is the identity function.
+        """
+        return plt.Lambda(["self"], plt.Var("self"))
 
 
 @dataclass(frozen=True, unsafe_hash=True)
@@ -487,7 +490,14 @@ class RecordType(ClassType):
                     ("fs", plt.TailList(plt.Var("fs"))),
                 ],
                 plt.MkCons(
-                    plt.Apply(attr_type.copy_only_attributes(), plt.Var("f")),
+                    transform_output_map(attr_type)(
+                        plt.Apply(
+                            attr_type.copy_only_attributes(),
+                            transform_ext_params_map(attr_type)(
+                                plt.Var("f"),
+                            ),
+                        )
+                    ),
                     copied_attributes,
                 ),
             )
@@ -1040,6 +1050,9 @@ class InstanceType(Type):
 
     def stringify(self, recursive: bool = False) -> plt.AST:
         return self.typ.stringify(recursive=recursive)
+
+    def copy_only_attributes(self) -> plt.AST:
+        return self.typ.copy_only_attributes()
 
 
 @dataclass(frozen=True, unsafe_hash=True)
