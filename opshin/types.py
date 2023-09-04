@@ -4,6 +4,7 @@ from dataclasses import dataclass
 import itertools
 
 import pluthon as plt
+import uplc.ast
 
 from .util import *
 
@@ -1044,6 +1045,53 @@ class DictType(ClassType):
                 ),
             ),
             plt.EmptyDataPairList(),
+        )
+        copy_only_unique_keys = plt.Let(
+            [
+                "keys",
+                plt.MapList(
+                    plt.Var("self"),
+                    plt.Lambda(["x"], plt.SerialiseData(plt.FstPair(plt.Var("x")))),
+                    plt.EmptyByteStringList(),
+                ),
+            ],
+            plt.Apply(
+                plt.RecFun(
+                    plt.Lambda(
+                        ["f", "l"],
+                        plt.IteNullList(
+                            plt.Var("l"),
+                            plt.Bool(True),
+                            plt.Let(
+                                [
+                                    ("h", plt.HeadList(plt.Var("l"))),
+                                    ("t", plt.TailList(plt.Var("l"))),
+                                    (
+                                        "found_elem",
+                                        plt.FindList(
+                                            plt.Var("t"),
+                                            plt.Lambda(
+                                                ["e"],
+                                                plt.EqualsByteString(
+                                                    plt.Var("h"), plt.Var("e")
+                                                ),
+                                            ),
+                                            plt.ByteString(b""),
+                                        ),
+                                    ),
+                                ],
+                                plt.And(
+                                    plt.EqualsByteString(
+                                        plt.Var("found_elem"), plt.ByteString(b"")
+                                    ),
+                                    plt.Apply(plt.Var("f"), plt.Var("f"), plt.Var("t")),
+                                ),
+                            ),
+                        ),
+                    )
+                ),
+                plt.Var("keys"),
+            ),
         )
         return plt.Lambda(["self"], mapped_attrs)
 
