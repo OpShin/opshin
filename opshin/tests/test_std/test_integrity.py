@@ -41,6 +41,54 @@ def validator(x: B) -> None:
 
 @parameterized.expand(
     [
+        [0],
+        [1],
+        [2],
+    ]
+)
+def test_integrity_check_list(bar_constr):
+    source_code = """
+from dataclasses import dataclass
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
+from opshin.std.integrity import check_integrity
+
+@dataclass()
+class A(PlutusData):
+    CONSTR_ID = 1
+    
+@dataclass()
+class C(PlutusData):
+    CONSTR_ID = 0
+
+@dataclass()
+class B(PlutusData):
+    CONSTR_ID = 1
+    bar: Union[A, C]
+
+def validator(x: B) -> None:
+    check_integrity(x)
+"""
+    ast = compiler.parse(source_code)
+    code = compiler.compile(ast).compile()
+    code = uplc.Apply(
+        code,
+        uplc.PlutusConstr(
+            1,
+            [uplc.PlutusConstr(bar_constr, [])],
+        ),
+    )
+    try:
+        uplc_eval(code)
+    except:
+        res = False
+    else:
+        res = True
+    assert res == (bar_constr in (0, 1))
+
+
+@parameterized.expand(
+    [
         [[0, 1], [1, 1, 1]],
         [[b"hello"], [1, 1]],
         [[0, 1, 2], [1, 0]],
