@@ -67,6 +67,7 @@ class RewriteImport(CompilingNodeTransformer):
             "dataclasses",
             "hashlib",
             "opshin.bridge",
+            "opshin.std.integrity",
         ]:
             return node
         assert (

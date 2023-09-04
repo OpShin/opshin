@@ -51,6 +51,13 @@ class Type:
         """
         raise NotImplementedError(f"{type(self).__name__} can not be stringified")
 
+    def copy_only_attributes(self) -> plt.AST:
+        """
+        Returns a copy of this type with only the declarde attributes.
+        For anything but record types and union types, this is the identity function.
+        """
+        return plt.Lambda(["self"], plt.Var("self"))
+
 
 @dataclass(frozen=True, unsafe_hash=True)
 class Record:
@@ -471,6 +478,31 @@ class RecordType(ClassType):
             plt.AppendString(plt.Text(f"{self.record.name}("), map_fields),
         )
 
+    def copy_only_attributes(self) -> plt.AST:
+        copied_attributes = plt.EmptyDataList()
+        for attr_name, attr_type in reversed(self.record.fields):
+            copied_attributes = plt.Let(
+                [
+                    ("f", plt.HeadList(plt.Var("fs"))),
+                    ("fs", plt.TailList(plt.Var("fs"))),
+                ],
+                plt.MkCons(
+                    plt.Apply(attr_type.copy_only_attributes(), plt.Var("f")),
+                    copied_attributes,
+                ),
+            )
+        copied_attributes = plt.Let(
+            [("fs", plt.Fields(plt.Var("self")))],
+            copied_attributes,
+        )
+        return plt.Lambda(
+            ["self"],
+            plt.ConstrData(
+                plt.Integer(self.record.constructor),
+                copied_attributes,
+            ),
+        )
+
 
 @dataclass(frozen=True, unsafe_hash=True)
 class UnionType(ClassType):
@@ -636,6 +668,26 @@ class UnionType(ClassType):
             plt.Let(
                 [("c", plt.Constructor(plt.Var("self")))],
                 plt.Apply(decide_string_func, plt.Var("self"), plt.Var("_")),
+            ),
+        )
+
+    def copy_only_attributes(self) -> plt.AST:
+        copied_attributes = plt.TraceError(
+            f"Invalid CONSTR_ID for instance of Union[{', '.join(type(typ).__name__ for typ in self.typs)}]"
+        )
+        for typ in self.typs:
+            copied_attributes = plt.Ite(
+                plt.EqualsInteger(
+                    plt.Var("constr"), plt.Integer(typ.record.constructor)
+                ),
+                plt.Apply(typ.copy_only_attributes(), plt.Var("self")),
+                copied_attributes,
+            )
+        return plt.Lambda(
+            ["self"],
+            plt.Let(
+                [("constr", plt.Constructor(plt.Var("self")))],
+                copied_attributes,
             ),
         )
 
