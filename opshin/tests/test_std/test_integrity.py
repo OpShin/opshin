@@ -9,7 +9,7 @@ from ... import compiler
         [[0, 1]],
         [[0]],
         [[0, 1, 2]],
-        [[b"hello"]],
+        [[b"hello", 0]],
     ]
 )
 def test_integrity_check(xs):
