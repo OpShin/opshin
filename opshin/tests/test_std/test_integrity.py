@@ -9,6 +9,7 @@ from ... import compiler
         [[0, 1]],
         [[0]],
         [[0, 1, 2]],
+        [[b"hello"]],
     ]
 )
 def test_integrity_check(xs):
@@ -29,14 +30,25 @@ def validator(x: B) -> None:
 """
     ast = compiler.parse(source_code)
     code = compiler.compile(ast).compile()
-    code = uplc.Apply(code, uplc.PlutusConstr(1, [uplc.PlutusInteger(x) for x in xs]))
+    code = uplc.Apply(
+        code,
+        uplc.PlutusConstr(
+            1,
+            [
+                uplc.PlutusInteger(x)
+                if isinstance(x, int)
+                else uplc.PlutusByteString(x)
+                for x in xs
+            ],
+        ),
+    )
     try:
         uplc_eval(code)
     except:
         res = False
     else:
         res = True
-    assert res == (len(xs) == 2)
+    assert res == (len(xs) == 2 and all(isinstance(x, int) for x in xs))
 
 
 @parameterized.expand(

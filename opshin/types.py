@@ -53,7 +53,7 @@ class Type:
 
     def copy_only_attributes(self) -> plt.AST:
         """
-        Returns a copy of this type with only the declarde attributes.
+        Returns a copy of this type with only the declared attributes (mapped to builtin values, thus checking atomic types too).
         For anything but record types and union types, this is the identity function.
         """
         return plt.Lambda(["self"], plt.Var("self"))
@@ -829,6 +829,9 @@ class ListType(ClassType):
                 ),
             ),
         )
+
+    def copy_only_attributes(self) -> plt.AST:
+        return plt.Lambda(["self"], plt.Var("self"))
 
 
 @dataclass(frozen=True, unsafe_hash=True)
