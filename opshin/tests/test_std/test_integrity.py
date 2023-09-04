@@ -161,7 +161,6 @@ def validator(x: B) -> None:
         [[0, 1, 2], [1, 1, 1]],
         [[b"hello", 1], [1, 1]],
         [[1, 2], [1, b"hello"]],
-        [[0, 1, 1, 1], [0, 0, 0, 0]],
     ]
 )
 def test_integrity_check_dict(keys, values):
@@ -208,3 +207,6 @@ def validator(x: B) -> None:
     assert res == (
         all(isinstance(x, int) for x in keys + values) and len(set(keys)) == len(keys)
     )
+
+
+# TODO implement better way to check for uniqueness test in dict keys

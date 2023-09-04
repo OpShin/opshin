@@ -1021,8 +1021,98 @@ class DictType(ClassType):
         )
 
     def copy_only_attributes(self) -> plt.AST:
-        mapped_attrs = plt.MapList(
+        def CustomMapFilterList(
+            l: plt.AST,
+            filter_op: plt.AST,
+            map_op: plt.AST,
+            empty_list=plt.EmptyDataList(),
+        ):
+            from pluthon import (
+                Apply,
+                Lambda as PLambda,
+                RecFun,
+                IteNullList,
+                Var as PVar,
+                HeadList,
+                Ite,
+                TailList,
+                PrependList,
+                Let as PLet,
+            )
+
+            """
+            Apply a filter and a map function on each element in a list (throws out all that evaluate to false)
+            Performs only a single pass and is hence much more efficient than filter + map
+            """
+            return Apply(
+                PLambda(
+                    ["filter", "map"],
+                    RecFun(
+                        PLambda(
+                            ["filtermap", "xs"],
+                            IteNullList(
+                                PVar("xs"),
+                                empty_list,
+                                PLet(
+                                    [
+                                        ("head", HeadList(PVar("xs"))),
+                                        ("tail", TailList(PVar("xs"))),
+                                    ],
+                                    Ite(
+                                        Apply(
+                                            PVar("filter"), PVar("head"), PVar("tail")
+                                        ),
+                                        PrependList(
+                                            Apply(PVar("map"), PVar("head")),
+                                            Apply(
+                                                PVar("filtermap"),
+                                                PVar("filtermap"),
+                                                PVar("tail"),
+                                            ),
+                                        ),
+                                        Apply(
+                                            PVar("filtermap"),
+                                            PVar("filtermap"),
+                                            PVar("tail"),
+                                        ),
+                                    ),
+                                ),
+                            ),
+                        ),
+                    ),
+                ),
+                filter_op,
+                map_op,
+                l,
+            )
+
+        mapped_attrs = CustomMapFilterList(
             plt.Var("self"),
+            plt.Lambda(
+                ["h", "t"],
+                plt.Let(
+                    [
+                        ("hfst", plt.FstPair(plt.Var("h"))),
+                        (
+                            "found_elem",
+                            plt.FindList(
+                                plt.Var("t"),
+                                plt.Lambda(
+                                    ["e"],
+                                    plt.EqualsData(
+                                        plt.Var("hfst"), plt.FstPair(plt.Var("e"))
+                                    ),
+                                ),
+                                plt.UPLCConstant(uplc.PlutusConstr(-1, [])),
+                            ),
+                        ),
+                    ],
+                    plt.EqualsData(
+                        plt.Var("found_elem"),
+                        plt.UPLCConstant(uplc.PlutusConstr(-1, [])),
+                    ),
+                ),
+            ),
             plt.Lambda(
                 ["v"],
                 plt.MkPairData(
@@ -1045,53 +1135,6 @@ class DictType(ClassType):
                 ),
             ),
             plt.EmptyDataPairList(),
-        )
-        copy_only_unique_keys = plt.Let(
-            [
-                "keys",
-                plt.MapList(
-                    plt.Var("self"),
-                    plt.Lambda(["x"], plt.SerialiseData(plt.FstPair(plt.Var("x")))),
-                    plt.EmptyByteStringList(),
-                ),
-            ],
-            plt.Apply(
-                plt.RecFun(
-                    plt.Lambda(
-                        ["f", "l"],
-                        plt.IteNullList(
-                            plt.Var("l"),
-                            plt.Bool(True),
-                            plt.Let(
-                                [
-                                    ("h", plt.HeadList(plt.Var("l"))),
-                                    ("t", plt.TailList(plt.Var("l"))),
-                                    (
-                                        "found_elem",
-                                        plt.FindList(
-                                            plt.Var("t"),
-                                            plt.Lambda(
-                                                ["e"],
-                                                plt.EqualsByteString(
-                                                    plt.Var("h"), plt.Var("e")
-                                                ),
-                                            ),
-                                            plt.ByteString(b""),
-                                        ),
-                                    ),
-                                ],
-                                plt.And(
-                                    plt.EqualsByteString(
-                                        plt.Var("found_elem"), plt.ByteString(b"")
-                                    ),
-                                    plt.Apply(plt.Var("f"), plt.Var("f"), plt.Var("t")),
-                                ),
-                            ),
-                        ),
-                    )
-                ),
-                plt.Var("keys"),
-            ),
         )
         return plt.Lambda(["self"], mapped_attrs)
 
