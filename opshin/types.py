@@ -841,7 +841,20 @@ class ListType(ClassType):
         )
 
     def copy_only_attributes(self) -> plt.AST:
-        return plt.Lambda(["self"], plt.Var("self"))
+        mapped_attrs = plt.MapList(
+            plt.Var("self"),
+            plt.Lambda(
+                ["v"],
+                transform_output_map(self.typ)(
+                    plt.Apply(
+                        self.typ.copy_only_attributes(),
+                        transform_ext_params_map(self.typ)(plt.Var("v")),
+                    )
+                ),
+            ),
+            plt.EmptyDataList(),
+        )
+        return plt.Lambda(["self"], mapped_attrs)
 
 
 @dataclass(frozen=True, unsafe_hash=True)
