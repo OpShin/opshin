@@ -1,5 +1,9 @@
 import dataclasses
 import json
+from pathlib import Path
+from typing import Union
+
+from pycardano import PlutusV2Script
 
 from . import __version__, compiler
 
@@ -82,3 +86,52 @@ def generate_artifacts(contract: pycardano.PlutusV2Script):
         addr_testnet,
         policy_id,
     )
+
+
+def load_contract(contract_path: Union[Path, str]) -> ScriptArtifacts:
+    """
+    Load a contract from a file or directory and generate the artifacts
+    """
+    if isinstance(contract_path, str):
+        contract_path = Path(contract_path)
+    if contract_path.is_dir():
+        contract_candidates = list(contract_path.iterdir())
+    elif contract_path.is_file():
+        contract_candidates = [contract_path]
+    else:
+        raise ValueError(
+            f"Invalid contract path, is neither file nor directory: {contract_path}"
+        )
+    contract_cbor = None
+    for contract_file in contract_candidates:
+        with contract_file.open("r") as f:
+            contract_content = f.read()
+        # could be a singly wrapped cbor hex
+        try:
+            # try to unwrap to see if it is cbor
+            contract_cbor_unwrapped = cbor2.loads(bytes.fromhex(contract_content))
+            contract_cbor = bytes.fromhex(contract_content)
+            # if we can unwrap again, its doubly wrapped
+            try:
+                cbor2.loads(contract_cbor_unwrapped)
+                contract_cbor = contract_cbor_unwrapped
+            except ValueError:
+                pass
+            break
+        except ValueError:
+            pass
+        # could be a plutus json
+        try:
+            contract = json.loads(contract_content)
+            contract_cbor = cbor2.loads(bytes.fromhex(contract["cborHex"]))
+        except (ValueError, KeyError):
+            pass
+        # could be uplc
+        try:
+            contract_ast = uplc.parse(contract_content)
+            contract_cbor = uplc.flatten(contract_ast)
+        except:
+            pass
+    if contract_cbor is None:
+        raise ValueError(f"Could not load contract from file {contract_path}")
+    return generate_artifacts(PlutusV2Script(contract_cbor))
