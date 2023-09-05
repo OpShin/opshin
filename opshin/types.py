@@ -4,6 +4,7 @@ from dataclasses import dataclass
 import itertools
 
 import pluthon as plt
+import uplc.ast
 
 from .util import *
 
@@ -52,11 +53,7 @@ class Type:
         raise NotImplementedError(f"{type(self).__name__} can not be stringified")
 
     def copy_only_attributes(self) -> plt.AST:
-        """
-        Returns a copy of this type with only the declarde attributes.
-        For anything but record types and union types, this is the identity function.
-        """
-        return plt.Lambda(["self"], plt.Var("self"))
+        raise NotImplementedError(f"{type(self).__name__} can not be copied")
 
 
 @dataclass(frozen=True, unsafe_hash=True)
@@ -79,6 +76,13 @@ class Record:
 class ClassType(Type):
     def __ge__(self, other):
         raise NotImplementedError("Comparison between raw classtypes impossible")
+
+    def copy_only_attributes(self) -> plt.AST:
+        """
+        Returns a copy of this type with only the declared attributes (mapped to builtin values, thus checking atomic types too).
+        For anything but record types and union types, this is the identity function.
+        """
+        return plt.Lambda(["self"], plt.Var("self"))
 
 
 @dataclass(frozen=True, unsafe_hash=True)
@@ -487,7 +491,14 @@ class RecordType(ClassType):
                     ("fs", plt.TailList(plt.Var("fs"))),
                 ],
                 plt.MkCons(
-                    plt.Apply(attr_type.copy_only_attributes(), plt.Var("f")),
+                    transform_output_map(attr_type)(
+                        plt.Apply(
+                            attr_type.copy_only_attributes(),
+                            transform_ext_params_map(attr_type)(
+                                plt.Var("f"),
+                            ),
+                        )
+                    ),
                     copied_attributes,
                 ),
             )
@@ -830,6 +841,22 @@ class ListType(ClassType):
             ),
         )
 
+    def copy_only_attributes(self) -> plt.AST:
+        mapped_attrs = plt.MapList(
+            plt.Var("self"),
+            plt.Lambda(
+                ["v"],
+                transform_output_map(self.typ)(
+                    plt.Apply(
+                        self.typ.copy_only_attributes(),
+                        transform_ext_params_map(self.typ)(plt.Var("v")),
+                    )
+                ),
+            ),
+            plt.EmptyDataList(),
+        )
+        return plt.Lambda(["self"], mapped_attrs)
+
 
 @dataclass(frozen=True, unsafe_hash=True)
 class DictType(ClassType):
@@ -993,6 +1020,124 @@ class DictType(ClassType):
             ),
         )
 
+    def copy_only_attributes(self) -> plt.AST:
+        def CustomMapFilterList(
+            l: plt.AST,
+            filter_op: plt.AST,
+            map_op: plt.AST,
+            empty_list=plt.EmptyDataList(),
+        ):
+            from pluthon import (
+                Apply,
+                Lambda as PLambda,
+                RecFun,
+                IteNullList,
+                Var as PVar,
+                HeadList,
+                Ite,
+                TailList,
+                PrependList,
+                Let as PLet,
+            )
+
+            """
+            Apply a filter and a map function on each element in a list (throws out all that evaluate to false)
+            Performs only a single pass and is hence much more efficient than filter + map
+            """
+            return Apply(
+                PLambda(
+                    ["filter", "map"],
+                    RecFun(
+                        PLambda(
+                            ["filtermap", "xs"],
+                            IteNullList(
+                                PVar("xs"),
+                                empty_list,
+                                PLet(
+                                    [
+                                        ("head", HeadList(PVar("xs"))),
+                                        ("tail", TailList(PVar("xs"))),
+                                    ],
+                                    Ite(
+                                        Apply(
+                                            PVar("filter"), PVar("head"), PVar("tail")
+                                        ),
+                                        PrependList(
+                                            Apply(PVar("map"), PVar("head")),
+                                            Apply(
+                                                PVar("filtermap"),
+                                                PVar("filtermap"),
+                                                PVar("tail"),
+                                            ),
+                                        ),
+                                        Apply(
+                                            PVar("filtermap"),
+                                            PVar("filtermap"),
+                                            PVar("tail"),
+                                        ),
+                                    ),
+                                ),
+                            ),
+                        ),
+                    ),
+                ),
+                filter_op,
+                map_op,
+                l,
+            )
+
+        mapped_attrs = CustomMapFilterList(
+            plt.Var("self"),
+            plt.Lambda(
+                ["h", "t"],
+                plt.Let(
+                    [
+                        ("hfst", plt.FstPair(plt.Var("h"))),
+                        (
+                            "found_elem",
+                            plt.FindList(
+                                plt.Var("t"),
+                                plt.Lambda(
+                                    ["e"],
+                                    plt.EqualsData(
+                                        plt.Var("hfst"), plt.FstPair(plt.Var("e"))
+                                    ),
+                                ),
+                                plt.UPLCConstant(uplc.PlutusConstr(-1, [])),
+                            ),
+                        ),
+                    ],
+                    plt.EqualsData(
+                        plt.Var("found_elem"),
+                        plt.UPLCConstant(uplc.PlutusConstr(-1, [])),
+                    ),
+                ),
+            ),
+            plt.Lambda(
+                ["v"],
+                plt.MkPairData(
+                    transform_output_map(self.key_typ)(
+                        plt.Apply(
+                            self.key_typ.copy_only_attributes(),
+                            transform_ext_params_map(self.key_typ)(
+                                plt.FstPair(plt.Var("v"))
+                            ),
+                        )
+                    ),
+                    transform_output_map(self.value_typ)(
+                        plt.Apply(
+                            self.value_typ.copy_only_attributes(),
+                            transform_ext_params_map(self.value_typ)(
+                                plt.SndPair(plt.Var("v"))
+                            ),
+                        )
+                    ),
+                ),
+            ),
+            plt.EmptyDataPairList(),
+        )
+        return plt.Lambda(["self"], mapped_attrs)
+
 
 @dataclass(frozen=True, unsafe_hash=True)
 class FunctionType(ClassType):
@@ -1037,6 +1182,9 @@ class InstanceType(Type):
 
     def stringify(self, recursive: bool = False) -> plt.AST:
         return self.typ.stringify(recursive=recursive)
+
+    def copy_only_attributes(self) -> plt.AST:
+        return self.typ.copy_only_attributes()
 
 
 @dataclass(frozen=True, unsafe_hash=True)
