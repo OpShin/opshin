@@ -1,6 +1,8 @@
 import dataclasses
 import json
 
+from pycardano import PlutusV2Script
+
 from . import __version__, compiler
 
 import uplc.ast
@@ -38,13 +40,7 @@ def build(
     )
     code = code.compile()
 
-    # apply parameters from the command line to the contract (instantiates parameterized contract!)
-    code = code.term
-    # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
-    for d in args:
-        code = uplc.ast.Apply(code, uplc.ast.data_from_cbor(datum_to_cbor(d)))
-    code = uplc.ast.Program((1, 0, 0), code)
-    return _build(code)
+    return _apply_parameters(code, *args)
 
 
 def _build(contract: uplc.ast.Program):
@@ -82,3 +78,23 @@ def generate_artifacts(contract: pycardano.PlutusV2Script):
         addr_testnet,
         policy_id,
     )
+
+
+def apply_parameters(script: PlutusV2Script, *args: pycardano.Datum):
+    """
+    Expects a plutus script (compiled) and returns the build artifacts from applying parameters to it
+    """
+    return generate_artifacts(_apply_parameters(uplc.unflatten(script), *args))
+
+
+def _apply_parameters(script: uplc.ast.Program, *args: pycardano.Datum):
+    """
+    Expects a UPLC program and returns the build artifacts from applying parameters to it
+    """
+    # apply parameters from the command line to the contract (instantiates parameterized contract!)
+    code = script.term
+    # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+    for d in args:
+        code = uplc.ast.Apply(code, uplc.ast.data_from_cbor(datum_to_cbor(d)))
+    code = uplc.ast.Program((1, 0, 0), code)
+    return _build(code)
