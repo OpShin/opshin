@@ -10,8 +10,15 @@ updates:
     schedule:
       interval: "daily"
     target-branch: "dev"
+    ignore:
+      - dependency-name: "*"
+        update-types: [ "version-update:semver-patch" ]
   - package-ecosystem: "github-actions" # See documentation for possible values
     directory: "/" # Location of package manifests
     schedule:
       interval: "weekly"
     target-branch: "dev"
+    ignore:
+      - dependency-name: "*"
+        update-types: [ "version-update:semver-patch" ]
+
