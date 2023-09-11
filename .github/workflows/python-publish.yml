@@ -7,7 +7,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       # If there isn't a release for this version, create a new one.
       - uses: ncipollo/release-action@v1
         with:
