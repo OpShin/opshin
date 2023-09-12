@@ -2383,7 +2383,34 @@ def validator(
 &#34;&#34;&#34;
         ast = compiler.parse(source_code)
         code = compiler.compile(ast)
-        code = code.compile()</code></pre>
+        code = code.compile()
+
+    @hypothesis.given(
+        st.lists(
+            st.tuples(
+                st.integers(), st.sampled_from([&#34;&lt;&#34;, &#34;&lt;=&#34;, &#34;==&#34;, &#34;&gt;=&#34;, &#34;&gt;&#34;, &#34;!=&#34;])
+            ),
+            max_size=10,
+            min_size=2,
+        )
+    )
+    def test_comparison_chaining(self, xs):
+        param_string = &#34;,&#34;.join(f&#34;i{k}: int&#34; for k, _ in enumerate(xs))
+        comp_string = &#34;i0&#34;
+        eval_string = f&#34;{xs[0][0]}&#34;
+        for k, (x, c) in enumerate(xs[1:], start=1):
+            comp_string += f&#34; {c} i{k}&#34;
+            eval_string += f&#34; {c} {x}&#34;
+        source_code = f&#34;&#34;&#34;
+def validator({param_string}) -&gt; bool:
+    return {comp_string}
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        for x, _ in xs:
+            code = uplc.Apply(code, uplc.PlutusInteger(x))
+        res = uplc_eval(code)
+        self.assertEqual(bool(res.value), eval(eval_string))</code></pre>
 </details>
 </section>
 <section>
@@ -2424,7 +2451,8 @@ def validator(
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">class A(PlutusData):
+<pre><code class="python">@dataclass()
+class A(PlutusData):
     CONSTR_ID = 0
     foo: int</code></pre>
 </details>
@@ -2456,7 +2484,8 @@ def validator(
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">class B(PlutusData):
+<pre><code class="python">@dataclass()
+class B(PlutusData):
     CONSTR_ID = 1
     foobar: int
     bar: int</code></pre>
@@ -4789,7 +4818,34 @@ def validator(
 &#34;&#34;&#34;
         ast = compiler.parse(source_code)
         code = compiler.compile(ast)
-        code = code.compile()</code></pre>
+        code = code.compile()
+
+    @hypothesis.given(
+        st.lists(
+            st.tuples(
+                st.integers(), st.sampled_from([&#34;&lt;&#34;, &#34;&lt;=&#34;, &#34;==&#34;, &#34;&gt;=&#34;, &#34;&gt;&#34;, &#34;!=&#34;])
+            ),
+            max_size=10,
+            min_size=2,
+        )
+    )
+    def test_comparison_chaining(self, xs):
+        param_string = &#34;,&#34;.join(f&#34;i{k}: int&#34; for k, _ in enumerate(xs))
+        comp_string = &#34;i0&#34;
+        eval_string = f&#34;{xs[0][0]}&#34;
+        for k, (x, c) in enumerate(xs[1:], start=1):
+            comp_string += f&#34; {c} i{k}&#34;
+            eval_string += f&#34; {c} {x}&#34;
+        source_code = f&#34;&#34;&#34;
+def validator({param_string}) -&gt; bool:
+    return {comp_string}
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        for x, _ in xs:
+            code = uplc.Apply(code, uplc.PlutusInteger(x))
+        res = uplc_eval(code)
+        self.assertEqual(bool(res.value), eval(eval_string))</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -4998,6 +5054,43 @@ def validator(x: int) -&gt; bool:
         code = compiler.compile(ast).compile()
         res = uplc_eval(uplc.Apply(code, uplc.PlutusInteger(x))).value
         self.assertEqual(res, bool(x))</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_comparison_chaining"><code class="name flex">
+<span>def <span class="ident">test_comparison_chaining</span></span>(<span>self) ‑> None</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    @hypothesis.given(
+        st.lists(
+            st.tuples(
+                st.integers(), st.sampled_from([&#34;&lt;&#34;, &#34;&lt;=&#34;, &#34;==&#34;, &#34;&gt;=&#34;, &#34;&gt;&#34;, &#34;!=&#34;])
+            ),
+            max_size=10,
+            min_size=2,
+        )
+    )
+    def test_comparison_chaining(self, xs):
+        param_string = &#34;,&#34;.join(f&#34;i{k}: int&#34; for k, _ in enumerate(xs))
+        comp_string = &#34;i0&#34;
+        eval_string = f&#34;{xs[0][0]}&#34;
+        for k, (x, c) in enumerate(xs[1:], start=1):
+            comp_string += f&#34; {c} i{k}&#34;
+            eval_string += f&#34; {c} {x}&#34;
+        source_code = f&#34;&#34;&#34;
+def validator({param_string}) -&gt; bool:
+    return {comp_string}
+&#34;&#34;&#34;
+        ast = compiler.parse(source_code)
+        code = compiler.compile(ast).compile()
+        for x, _ in xs:
+            code = uplc.Apply(code, uplc.PlutusInteger(x))
+        res = uplc_eval(code)
+        self.assertEqual(bool(res.value), eval(eval_string))</code></pre>
 </details>
 </dd>
 <dt id="opshin.tests.test_misc.MiscTest.test_complex_datum_correct_vals"><code class="name flex">
@@ -8233,6 +8326,7 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_cast_bool_ite" href="#opshin.tests.test_misc.MiscTest.test_cast_bool_ite">test_cast_bool_ite</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_cast_bool_ite_expr" href="#opshin.tests.test_misc.MiscTest.test_cast_bool_ite_expr">test_cast_bool_ite_expr</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_cast_bool_while" href="#opshin.tests.test_misc.MiscTest.test_cast_bool_while">test_cast_bool_while</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_comparison_chaining" href="#opshin.tests.test_misc.MiscTest.test_comparison_chaining">test_comparison_chaining</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_complex_datum_correct_vals" href="#opshin.tests.test_misc.MiscTest.test_complex_datum_correct_vals">test_complex_datum_correct_vals</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_complex_isinstance_cast_if" href="#opshin.tests.test_misc.MiscTest.test_complex_isinstance_cast_if">test_complex_isinstance_cast_if</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_constant_folding" href="#opshin.tests.test_misc.MiscTest.test_constant_folding">test_constant_folding</a></code></li>

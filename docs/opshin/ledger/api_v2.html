@@ -94,18 +94,6 @@ class TxId(PlutusData):
 
 
 @dataclass(unsafe_hash=True)
-class Nothing(PlutusData):
-    &#34;&#34;&#34;
-    Nothing, can be used to signify non-importance of a parameter to a function
-
-    Example value: Nothing()
-    &#34;&#34;&#34;
-
-    # The maximimum constructor ID for simple cbor types, chosen to minimize probability of collision while keeping the corresponding cbor small
-    CONSTR_ID = 6
-
-
-@dataclass(unsafe_hash=True)
 class TrueData(PlutusData):
     &#34;&#34;&#34;
     A Datum that represents True in Haskell implementations.
@@ -570,7 +558,8 @@ class ScriptContext(PlutusData):
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">class Address(PlutusData):
+<pre><code class="python">@dataclass(unsafe_hash=True)
+class Address(PlutusData):
     &#34;&#34;&#34;
     A Shelley address, consisting of a payment and staking credential
     &#34;&#34;&#34;
@@ -606,7 +595,8 @@ class ScriptContext(PlutusData):
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">class Certifying(PlutusData):
+<pre><code class="python">@dataclass(unsafe_hash=True)
+class Certifying(PlutusData):
     CONSTR_ID = 3
     d_cert: DCert</code></pre>
 </details>
@@ -638,7 +628,8 @@ class ScriptContext(PlutusData):
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">class DCertDelegDeRegKey(PlutusData):
+<pre><code class="python">@dataclass(unsafe_hash=True)
+class DCertDelegDeRegKey(PlutusData):
     CONSTR_ID = 1
     value: StakingCredential</code></pre>
 </details>
@@ -670,7 +661,8 @@ class ScriptContext(PlutusData):
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">class DCertDelegDelegate(PlutusData):
+<pre><code class="python">@dataclass(unsafe_hash=True)
+class DCertDelegDelegate(PlutusData):
     CONSTR_ID = 2
     delegator: StakingCredential
     delegatee: PubKeyHash</code></pre>
@@ -707,7 +699,8 @@ class ScriptContext(PlutusData):
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">class DCertDelegRegKey(PlutusData):
+<pre><code class="python">@dataclass(unsafe_hash=True)
+class DCertDelegRegKey(PlutusData):
     CONSTR_ID = 0
     value: StakingCredential</code></pre>
 </details>
@@ -738,7 +731,8 @@ class ScriptContext(PlutusData):
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">class DCertGenesis(PlutusData):
+<pre><code class="python">@dataclass(unsafe_hash=True)
+class DCertGenesis(PlutusData):
     CONSTR_ID = 5</code></pre>
 </details>
 <h3>Ancestors</h3>
@@ -764,7 +758,8 @@ class ScriptContext(PlutusData):
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">class DCertMir(PlutusData):
+<pre><code class="python">@dataclass(unsafe_hash=True)
+class DCertMir(PlutusData):
     CONSTR_ID = 6</code></pre>
 </details>
 <h3>Ancestors</h3>
@@ -791,7 +786,8 @@ class ScriptContext(PlutusData):
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">class DCertPoolRegister(PlutusData):
+<pre><code class="python">@dataclass(unsafe_hash=True)
+class DCertPoolRegister(PlutusData):
     CONSTR_ID = 3
     pool_id: PubKeyHash
     pool_vfr: PubKeyHash</code></pre>
@@ -828,7 +824,8 @@ class ScriptContext(PlutusData):
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">class DCertPoolRetire(PlutusData):
+<pre><code class="python">@dataclass(unsafe_hash=True)
+class DCertPoolRetire(PlutusData):
     CONSTR_ID = 4
     retirement_certificate: PubKeyHash
     epoch: int</code></pre>
@@ -866,7 +863,8 @@ It is thus used as an encoding for False in the ScriptContext.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">class FalseData(PlutusData):
+<pre><code class="python">@dataclass(unsafe_hash=True)
+class FalseData(PlutusData):
     &#34;&#34;&#34;
     A Datum that represents False in Haskell implementations.
     It is thus used as an encoding for False in the ScriptContext.
@@ -900,7 +898,8 @@ It is thus used as an encoding for False in the ScriptContext.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">class FinitePOSIXTime(PlutusData):
+<pre><code class="python">@dataclass(unsafe_hash=True)
+class FinitePOSIXTime(PlutusData):
     &#34;&#34;&#34;
     Finite POSIX time, used to indicate that there is a lower or upper bound for the execution of this transaction
     &#34;&#34;&#34;
@@ -936,7 +935,8 @@ It is thus used as an encoding for False in the ScriptContext.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">class LowerBoundPOSIXTime(PlutusData):
+<pre><code class="python">@dataclass(unsafe_hash=True)
+class LowerBoundPOSIXTime(PlutusData):
     &#34;&#34;&#34;
     Lower bound for the execution of this transaction
     &#34;&#34;&#34;
@@ -977,7 +977,8 @@ It is thus used as an encoding for False in the ScriptContext.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">class Minting(PlutusData):
+<pre><code class="python">@dataclass(unsafe_hash=True)
+class Minting(PlutusData):
     &#34;&#34;&#34;
     Script purpose indicating that the given policy id is being minted or burned
     &#34;&#34;&#34;
@@ -1012,7 +1013,8 @@ It is thus used as an encoding for False in the ScriptContext.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">class NegInfPOSIXTime(PlutusData):
+<pre><code class="python">@dataclass(unsafe_hash=True)
+class NegInfPOSIXTime(PlutusData):
     &#34;&#34;&#34;
     Negative infinite POSIX time, used to indicate that there is no lower bound for the execution of this transaction
     &#34;&#34;&#34;
@@ -1042,7 +1044,8 @@ It is thus used as an encoding for False in the ScriptContext.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">class NoOutputDatum(PlutusData):
+<pre><code class="python">@dataclass(unsafe_hash=True)
+class NoOutputDatum(PlutusData):
     &#34;&#34;&#34;
     Indicates that there is no datum associated with an output
     &#34;&#34;&#34;
@@ -1072,7 +1075,8 @@ It is thus used as an encoding for False in the ScriptContext.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">class NoScriptHash(PlutusData):
+<pre><code class="python">@dataclass(unsafe_hash=True)
+class NoScriptHash(PlutusData):
     &#34;&#34;&#34;
     Indicates that there is no script associated with an output
     &#34;&#34;&#34;
@@ -1103,7 +1107,8 @@ Its funds can not be delegated.</p></div>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">class NoStakingCredential(PlutusData):
+<pre><code class="python">@dataclass(unsafe_hash=True)
+class NoStakingCredential(PlutusData):
     &#34;&#34;&#34;
     Indicates that this address has no staking credentials.
     Its funds can not be delegated.
@@ -1125,40 +1130,6 @@ Its funds can not be delegated.</p></div>
 </dd>
 </dl>
 </dd>
-<dt id="opshin.ledger.api_v2.Nothing"><code class="flex name class">
-<span>class <span class="ident">Nothing</span></span>
-</code></dt>
-<dd>
-<div class="desc"><p>Nothing, can be used to signify non-importance of a parameter to a function</p>
-<p>Example value: Nothing()</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">class Nothing(PlutusData):
-    &#34;&#34;&#34;
-    Nothing, can be used to signify non-importance of a parameter to a function
-
-    Example value: Nothing()
-    &#34;&#34;&#34;
-
-    # The maximimum constructor ID for simple cbor types, chosen to minimize probability of collision while keeping the corresponding cbor small
-    CONSTR_ID = 6</code></pre>
-</details>
-<h3>Ancestors</h3>
-<ul class="hlist">
-<li>pycardano.plutus.PlutusData</li>
-<li>pycardano.serialization.ArrayCBORSerializable</li>
-<li>pycardano.serialization.CBORSerializable</li>
-</ul>
-<h3>Class variables</h3>
-<dl>
-<dt id="opshin.ledger.api_v2.Nothing.CONSTR_ID"><code class="name">var <span class="ident">CONSTR_ID</span> : ClassVar[int]</code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-</dl>
-</dd>
 <dt id="opshin.ledger.api_v2.POSIXTimeRange"><code class="flex name class">
 <span>class <span class="ident">POSIXTimeRange</span></span>
 <span>(</span><span>lower_bound: <a title="opshin.ledger.api_v2.LowerBoundPOSIXTime" href="#opshin.ledger.api_v2.LowerBoundPOSIXTime">LowerBoundPOSIXTime</a>, upper_bound: <a title="opshin.ledger.api_v2.UpperBoundPOSIXTime" href="#opshin.ledger.api_v2.UpperBoundPOSIXTime">UpperBoundPOSIXTime</a>)</span>
@@ -1169,7 +1140,8 @@ Its funds can not be delegated.</p></div>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">class POSIXTimeRange(PlutusData):
+<pre><code class="python">@dataclass(unsafe_hash=True)
+class POSIXTimeRange(PlutusData):
     &#34;&#34;&#34;
     Time range in which this transaction can be executed
     &#34;&#34;&#34;
@@ -1204,7 +1176,8 @@ Its funds can not be delegated.</p></div>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">class PosInfPOSIXTime(PlutusData):
+<pre><code class="python">@dataclass(unsafe_hash=True)
+class PosInfPOSIXTime(PlutusData):
     &#34;&#34;&#34;
     Infinite POSIX time, used to indicate that there is no upper bound for the execution of this transaction
     &#34;&#34;&#34;
@@ -1236,7 +1209,8 @@ Its funds can not be delegated.</p></div>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">class PubKeyCredential(PlutusData):
+<pre><code class="python">@dataclass(unsafe_hash=True)
+class PubKeyCredential(PlutusData):
     &#34;&#34;&#34;
     Part of an address that is authenticated by a public key hash
 
@@ -1274,7 +1248,8 @@ Its funds can not be delegated.</p></div>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">class Rewarding(PlutusData):
+<pre><code class="python">@dataclass(unsafe_hash=True)
+class Rewarding(PlutusData):
     CONSTR_ID = 2
     staking_credential: StakingCredential</code></pre>
 </details>
@@ -1306,7 +1281,8 @@ Its funds can not be delegated.</p></div>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">class ScriptContext(PlutusData):
+<pre><code class="python">@dataclass(unsafe_hash=True)
+class ScriptContext(PlutusData):
     &#34;&#34;&#34;
     Auxiliary information about the transaction and reason for invocation of the called script.
     &#34;&#34;&#34;
@@ -1343,7 +1319,8 @@ Its funds can not be delegated.</p></div>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">class ScriptCredential(PlutusData):
+<pre><code class="python">@dataclass(unsafe_hash=True)
+class ScriptCredential(PlutusData):
     &#34;&#34;&#34;
     Part of an address that is authenticated by a smart cotnract
 
@@ -1381,7 +1358,8 @@ Its funds can not be delegated.</p></div>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">class SomeDatumHash(PlutusData):
+<pre><code class="python">@dataclass(unsafe_hash=True)
+class SomeDatumHash(PlutusData):
     &#34;&#34;&#34;
     Indicates that there is a datum associated with this output, which has the given hash.
     &#34;&#34;&#34;
@@ -1417,7 +1395,8 @@ Its funds can not be delegated.</p></div>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">class SomeOutputDatum(PlutusData):
+<pre><code class="python">@dataclass(unsafe_hash=True)
+class SomeOutputDatum(PlutusData):
     &#34;&#34;&#34;
     Indicates that there is an datum associated with an output, which is inlined and equal to the attached datum
     &#34;&#34;&#34;
@@ -1453,7 +1432,8 @@ Its funds can not be delegated.</p></div>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">class SomeOutputDatumHash(PlutusData):
+<pre><code class="python">@dataclass(unsafe_hash=True)
+class SomeOutputDatumHash(PlutusData):
     &#34;&#34;&#34;
     Indicates that there is an datum associated with an output, which has the attached hash
     &#34;&#34;&#34;
@@ -1489,7 +1469,8 @@ Its funds can not be delegated.</p></div>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">class SomeScriptHash(PlutusData):
+<pre><code class="python">@dataclass(unsafe_hash=True)
+class SomeScriptHash(PlutusData):
     &#34;&#34;&#34;
     Indicates that there is a script associated with this output, which has the given hash.
     &#34;&#34;&#34;
@@ -1526,7 +1507,8 @@ Its funds can be delegated by the credentialed user.</p></div>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">class SomeStakingCredential(PlutusData):
+<pre><code class="python">@dataclass(unsafe_hash=True)
+class SomeStakingCredential(PlutusData):
     &#34;&#34;&#34;
     Indicates that this address has staking credentials.
     Its funds can be delegated by the credentialed user.
@@ -1564,7 +1546,8 @@ owned by the invoked contract</p></div>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">class Spending(PlutusData):
+<pre><code class="python">@dataclass(unsafe_hash=True)
+class Spending(PlutusData):
     &#34;&#34;&#34;
     Script purpose indicating that the given transaction output is being spent, which is
     owned by the invoked contract
@@ -1601,7 +1584,8 @@ owned by the invoked contract</p></div>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">class StakingHash(PlutusData):
+<pre><code class="python">@dataclass(unsafe_hash=True)
+class StakingHash(PlutusData):
     &#34;&#34;&#34;
     Indicates that the stake of this address is controlled by the associated credential
     &#34;&#34;&#34;
@@ -1639,7 +1623,8 @@ A point is identified by the 3 coordinates in this object.</p></div>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">class StakingPtr(PlutusData):
+<pre><code class="python">@dataclass(unsafe_hash=True)
+class StakingPtr(PlutusData):
     &#34;&#34;&#34;
     Indicates that the stake of this address is controlled by the associated pointer.
 
@@ -1692,7 +1677,8 @@ It is thus used as an encoding for True in the ScriptContext.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">class TrueData(PlutusData):
+<pre><code class="python">@dataclass(unsafe_hash=True)
+class TrueData(PlutusData):
     &#34;&#34;&#34;
     A Datum that represents True in Haskell implementations.
     It is thus used as an encoding for True in the ScriptContext.
@@ -1727,7 +1713,8 @@ It is thus used as an encoding for True in the ScriptContext.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">class TxId(PlutusData):
+<pre><code class="python">@dataclass(unsafe_hash=True)
+class TxId(PlutusData):
     &#34;&#34;&#34;
     A transaction id, a 64 bytes long hash of the transaction body (also called transaction hash).
 
@@ -1760,7 +1747,8 @@ It is thus used as an encoding for True in the ScriptContext.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">class TxInInfo(PlutusData):
+<pre><code class="python">@dataclass(unsafe_hash=True)
+class TxInInfo(PlutusData):
     &#34;&#34;&#34;
     The plutus representation of an transaction output, that is consumed by the transaction.
     &#34;&#34;&#34;
@@ -1797,7 +1785,8 @@ that invoked the script</p></div>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">class TxInfo(PlutusData):
+<pre><code class="python">@dataclass(unsafe_hash=True)
+class TxInfo(PlutusData):
     &#34;&#34;&#34;
     A complex agglomeration of everything that could be of interest to the executed script, regarding the transaction
     that invoked the script
@@ -1888,7 +1877,8 @@ that invoked the script</p></div>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">class TxOut(PlutusData):
+<pre><code class="python">@dataclass(unsafe_hash=True)
+class TxOut(PlutusData):
     &#34;&#34;&#34;
     The plutus representation of an transaction output, consisting of
     - address: address owning this output
@@ -1938,7 +1928,8 @@ that invoked the script</p></div>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">class TxOutRef(PlutusData):
+<pre><code class="python">@dataclass(unsafe_hash=True)
+class TxOutRef(PlutusData):
     &#34;&#34;&#34;
     A reference to a transaction output (hash/id + index)
     &#34;&#34;&#34;
@@ -1974,7 +1965,8 @@ that invoked the script</p></div>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">class UpperBoundPOSIXTime(PlutusData):
+<pre><code class="python">@dataclass(unsafe_hash=True)
+class UpperBoundPOSIXTime(PlutusData):
     &#34;&#34;&#34;
     Upper bound for the execution of this transaction
     &#34;&#34;&#34;
@@ -2188,12 +2180,6 @@ setTimeout(() => input.focus(), 100);
 <h4><code><a title="opshin.ledger.api_v2.NoStakingCredential" href="#opshin.ledger.api_v2.NoStakingCredential">NoStakingCredential</a></code></h4>
 <ul class="">
 <li><code><a title="opshin.ledger.api_v2.NoStakingCredential.CONSTR_ID" href="#opshin.ledger.api_v2.NoStakingCredential.CONSTR_ID">CONSTR_ID</a></code></li>
-</ul>
-</li>
-<li>
-<h4><code><a title="opshin.ledger.api_v2.Nothing" href="#opshin.ledger.api_v2.Nothing">Nothing</a></code></h4>
-<ul class="">
-<li><code><a title="opshin.ledger.api_v2.Nothing.CONSTR_ID" href="#opshin.ledger.api_v2.Nothing.CONSTR_ID">CONSTR_ID</a></code></li>
 </ul>
 </li>
 <li>

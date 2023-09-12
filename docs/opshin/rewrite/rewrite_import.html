@@ -137,6 +137,7 @@ class RewriteImport(CompilingNodeTransformer):
             &#34;dataclasses&#34;,
             &#34;hashlib&#34;,
             &#34;opshin.bridge&#34;,
+            &#34;opshin.std.integrity&#34;,
         ]:
             return node
         assert (
@@ -240,7 +241,7 @@ original node in which case no replacement takes place.</p>
 <pre><code>   def visit_Name(self, node):
        return Subscript(
            value=Name(id='data', ctx=Load()),
-           slice=Index(value=Str(s=node.id)),
+           slice=Constant(value=node.id),
            ctx=node.ctx
        )
 </code></pre>
@@ -272,6 +273,7 @@ just a single node.</p>
             &#34;dataclasses&#34;,
             &#34;hashlib&#34;,
             &#34;opshin.bridge&#34;,
+            &#34;opshin.std.integrity&#34;,
         ]:
             return node
         assert (
@@ -332,7 +334,7 @@ just a single node.</p>
 <div class="desc inherited"><p>Visit a node.</p></div>
 </dd>
 <dt id="opshin.rewrite.rewrite_import.RewriteImport.visit_ImportFrom"><code class="name flex">
-<span>def <span class="ident">visit_ImportFrom</span></span>(<span>self, node: _ast.ImportFrom) ‑> Union[_ast.ImportFrom, List[_ast.AST]]</span>
+<span>def <span class="ident">visit_ImportFrom</span></span>(<span>self, node: ast.ImportFrom) ‑> Union[ast.ImportFrom, List[ast.AST]]</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -349,6 +351,7 @@ just a single node.</p>
         &#34;dataclasses&#34;,
         &#34;hashlib&#34;,
         &#34;opshin.bridge&#34;,
+        &#34;opshin.std.integrity&#34;,
     ]:
         return node
     assert (
@@ -405,7 +408,7 @@ original node in which case no replacement takes place.</p>
 <pre><code>   def visit_Name(self, node):
        return Subscript(
            value=Name(id='data', ctx=Load()),
-           slice=Index(value=Str(s=node.id)),
+           slice=Constant(value=node.id),
            ctx=node.ctx
        )
 </code></pre>

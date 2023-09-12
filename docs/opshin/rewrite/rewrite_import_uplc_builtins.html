@@ -155,7 +155,7 @@ original node in which case no replacement takes place.</p>
 <pre><code>   def visit_Name(self, node):
        return Subscript(
            value=Name(id='data', ctx=Load()),
-           slice=Index(value=Str(s=node.id)),
+           slice=Constant(value=node.id),
            ctx=node.ctx
        )
 </code></pre>
@@ -245,7 +245,7 @@ just a single node.</p>
 <div class="desc inherited"><p>Visit a node.</p></div>
 </dd>
 <dt id="opshin.rewrite.rewrite_import_uplc_builtins.RewriteImportUPLCBuiltins.visit_FunctionDef"><code class="name flex">
-<span>def <span class="ident">visit_FunctionDef</span></span>(<span>self, node: <a title="opshin.typed_ast.TypedFunctionDef" href="../typed_ast.html#opshin.typed_ast.TypedFunctionDef">TypedFunctionDef</a>) ‑> _ast.AST</span>
+<span>def <span class="ident">visit_FunctionDef</span></span>(<span>self, node: <a title="opshin.typed_ast.TypedFunctionDef" href="../typed_ast.html#opshin.typed_ast.TypedFunctionDef">TypedFunctionDef</a>) ‑> ast.AST</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -282,7 +282,7 @@ just a single node.</p>
 </details>
 </dd>
 <dt id="opshin.rewrite.rewrite_import_uplc_builtins.RewriteImportUPLCBuiltins.visit_ImportFrom"><code class="name flex">
-<span>def <span class="ident">visit_ImportFrom</span></span>(<span>self, node: _ast.ImportFrom) ‑> Optional[_ast.AST]</span>
+<span>def <span class="ident">visit_ImportFrom</span></span>(<span>self, node: ast.ImportFrom) ‑> Optional[ast.AST]</span>
 </code></dt>
 <dd>
 <div class="desc"></div>

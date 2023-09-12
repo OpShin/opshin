@@ -527,7 +527,7 @@ allows modifications.</p></div>
 <div class="desc inherited"><p>Visit a node.</p></div>
 </dd>
 <dt id="opshin.optimize.optimize_const_folding.DefinedTimesVisitor.visit_ClassDef"><code class="name flex">
-<span>def <span class="ident">visit_ClassDef</span></span>(<span>self, node: _ast.ClassDef)</span>
+<span>def <span class="ident">visit_ClassDef</span></span>(<span>self, node: ast.ClassDef)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -541,7 +541,7 @@ allows modifications.</p></div>
 </details>
 </dd>
 <dt id="opshin.optimize.optimize_const_folding.DefinedTimesVisitor.visit_For"><code class="name flex">
-<span>def <span class="ident">visit_For</span></span>(<span>self, node: _ast.For) ‑> None</span>
+<span>def <span class="ident">visit_For</span></span>(<span>self, node: ast.For) ‑> None</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -562,7 +562,7 @@ allows modifications.</p></div>
 </details>
 </dd>
 <dt id="opshin.optimize.optimize_const_folding.DefinedTimesVisitor.visit_FunctionDef"><code class="name flex">
-<span>def <span class="ident">visit_FunctionDef</span></span>(<span>self, node: _ast.FunctionDef)</span>
+<span>def <span class="ident">visit_FunctionDef</span></span>(<span>self, node: ast.FunctionDef)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -579,7 +579,7 @@ allows modifications.</p></div>
 </details>
 </dd>
 <dt id="opshin.optimize.optimize_const_folding.DefinedTimesVisitor.visit_If"><code class="name flex">
-<span>def <span class="ident">visit_If</span></span>(<span>self, node: _ast.If) ‑> None</span>
+<span>def <span class="ident">visit_If</span></span>(<span>self, node: ast.If) ‑> None</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -595,7 +595,7 @@ allows modifications.</p></div>
 </details>
 </dd>
 <dt id="opshin.optimize.optimize_const_folding.DefinedTimesVisitor.visit_Import"><code class="name flex">
-<span>def <span class="ident">visit_Import</span></span>(<span>self, node: _ast.Import)</span>
+<span>def <span class="ident">visit_Import</span></span>(<span>self, node: ast.Import)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -609,7 +609,7 @@ allows modifications.</p></div>
 </details>
 </dd>
 <dt id="opshin.optimize.optimize_const_folding.DefinedTimesVisitor.visit_ImportFrom"><code class="name flex">
-<span>def <span class="ident">visit_ImportFrom</span></span>(<span>self, node: _ast.ImportFrom)</span>
+<span>def <span class="ident">visit_ImportFrom</span></span>(<span>self, node: ast.ImportFrom)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -623,7 +623,7 @@ allows modifications.</p></div>
 </details>
 </dd>
 <dt id="opshin.optimize.optimize_const_folding.DefinedTimesVisitor.visit_Name"><code class="name flex">
-<span>def <span class="ident">visit_Name</span></span>(<span>self, node: _ast.Name) ‑> None</span>
+<span>def <span class="ident">visit_Name</span></span>(<span>self, node: ast.Name) ‑> None</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -637,7 +637,7 @@ allows modifications.</p></div>
 </details>
 </dd>
 <dt id="opshin.optimize.optimize_const_folding.DefinedTimesVisitor.visit_While"><code class="name flex">
-<span>def <span class="ident">visit_While</span></span>(<span>self, node: _ast.While) ‑> None</span>
+<span>def <span class="ident">visit_While</span></span>(<span>self, node: ast.While) ‑> None</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -674,7 +674,7 @@ original node in which case no replacement takes place.</p>
 <pre><code>   def visit_Name(self, node):
        return Subscript(
            value=Name(id='data', ctx=Load()),
-           slice=Index(value=Str(s=node.id)),
+           slice=Constant(value=node.id),
            ctx=node.ctx
        )
 </code></pre>
@@ -949,7 +949,7 @@ just a single node.</p>
 </details>
 </dd>
 <dt id="opshin.optimize.optimize_const_folding.OptimizeConstantFolding.generic_visit"><code class="name flex">
-<span>def <span class="ident">generic_visit</span></span>(<span>self, node: _ast.AST)</span>
+<span>def <span class="ident">generic_visit</span></span>(<span>self, node: ast.AST)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Called if no explicit visitor function exists for a node.</p></div>
@@ -1038,7 +1038,7 @@ just a single node.</p>
 <div class="desc inherited"><p>Visit a node.</p></div>
 </dd>
 <dt id="opshin.optimize.optimize_const_folding.OptimizeConstantFolding.visit_AnnAssign"><code class="name flex">
-<span>def <span class="ident">visit_AnnAssign</span></span>(<span>self, node: _ast.AnnAssign)</span>
+<span>def <span class="ident">visit_AnnAssign</span></span>(<span>self, node: ast.AnnAssign)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -1058,7 +1058,7 @@ just a single node.</p>
 </details>
 </dd>
 <dt id="opshin.optimize.optimize_const_folding.OptimizeConstantFolding.visit_Assign"><code class="name flex">
-<span>def <span class="ident">visit_Assign</span></span>(<span>self, node: _ast.Assign)</span>
+<span>def <span class="ident">visit_Assign</span></span>(<span>self, node: ast.Assign)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -1080,7 +1080,7 @@ just a single node.</p>
 </details>
 </dd>
 <dt id="opshin.optimize.optimize_const_folding.OptimizeConstantFolding.visit_ClassDef"><code class="name flex">
-<span>def <span class="ident">visit_ClassDef</span></span>(<span>self, node: _ast.ClassDef)</span>
+<span>def <span class="ident">visit_ClassDef</span></span>(<span>self, node: ast.ClassDef)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -1095,7 +1095,7 @@ just a single node.</p>
 </details>
 </dd>
 <dt id="opshin.optimize.optimize_const_folding.OptimizeConstantFolding.visit_FunctionDef"><code class="name flex">
-<span>def <span class="ident">visit_FunctionDef</span></span>(<span>self, node: _ast.FunctionDef) ‑> _ast.FunctionDef</span>
+<span>def <span class="ident">visit_FunctionDef</span></span>(<span>self, node: ast.FunctionDef) ‑> ast.FunctionDef</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -1132,7 +1132,7 @@ just a single node.</p>
 </details>
 </dd>
 <dt id="opshin.optimize.optimize_const_folding.OptimizeConstantFolding.visit_Import"><code class="name flex">
-<span>def <span class="ident">visit_Import</span></span>(<span>self, node: _ast.Import)</span>
+<span>def <span class="ident">visit_Import</span></span>(<span>self, node: ast.Import)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -1147,7 +1147,7 @@ just a single node.</p>
 </details>
 </dd>
 <dt id="opshin.optimize.optimize_const_folding.OptimizeConstantFolding.visit_ImportFrom"><code class="name flex">
-<span>def <span class="ident">visit_ImportFrom</span></span>(<span>self, node: _ast.ImportFrom)</span>
+<span>def <span class="ident">visit_ImportFrom</span></span>(<span>self, node: ast.ImportFrom)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -1162,7 +1162,7 @@ just a single node.</p>
 </details>
 </dd>
 <dt id="opshin.optimize.optimize_const_folding.OptimizeConstantFolding.visit_Module"><code class="name flex">
-<span>def <span class="ident">visit_Module</span></span>(<span>self, node: _ast.Module) ‑> _ast.Module</span>
+<span>def <span class="ident">visit_Module</span></span>(<span>self, node: ast.Module) ‑> ast.Module</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -1260,7 +1260,7 @@ allows modifications.</p></div>
 <div class="desc inherited"><p>Visit a node.</p></div>
 </dd>
 <dt id="opshin.optimize.optimize_const_folding.ShallowNameDefCollector.visit_ClassDef"><code class="name flex">
-<span>def <span class="ident">visit_ClassDef</span></span>(<span>self, node: _ast.ClassDef)</span>
+<span>def <span class="ident">visit_ClassDef</span></span>(<span>self, node: ast.ClassDef)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -1274,7 +1274,7 @@ allows modifications.</p></div>
 </details>
 </dd>
 <dt id="opshin.optimize.optimize_const_folding.ShallowNameDefCollector.visit_FunctionDef"><code class="name flex">
-<span>def <span class="ident">visit_FunctionDef</span></span>(<span>self, node: _ast.FunctionDef)</span>
+<span>def <span class="ident">visit_FunctionDef</span></span>(<span>self, node: ast.FunctionDef)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -1288,7 +1288,7 @@ allows modifications.</p></div>
 </details>
 </dd>
 <dt id="opshin.optimize.optimize_const_folding.ShallowNameDefCollector.visit_Name"><code class="name flex">
-<span>def <span class="ident">visit_Name</span></span>(<span>self, node: _ast.Name) ‑> None</span>
+<span>def <span class="ident">visit_Name</span></span>(<span>self, node: ast.Name) ‑> None</span>
 </code></dt>
 <dd>
 <div class="desc"></div>

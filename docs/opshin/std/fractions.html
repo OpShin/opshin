@@ -406,7 +406,8 @@ def ceil_fraction(a: Fraction) -&gt; int:
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">class Fraction(PlutusData):
+<pre><code class="python">@dataclass(unsafe_hash=True)
+class Fraction(PlutusData):
     CONSTR_ID = 1
     numerator: int
     denominator: int</code></pre>

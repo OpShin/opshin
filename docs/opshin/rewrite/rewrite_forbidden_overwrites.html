@@ -154,7 +154,7 @@ original node in which case no replacement takes place.</p>
 <pre><code>   def visit_Name(self, node):
        return Subscript(
            value=Name(id='data', ctx=Load()),
-           slice=Index(value=Str(s=node.id)),
+           slice=Constant(value=node.id),
            ctx=node.ctx
        )
 </code></pre>
@@ -207,7 +207,7 @@ just a single node.</p>
 <div class="desc inherited"><p>Visit a node.</p></div>
 </dd>
 <dt id="opshin.rewrite.rewrite_forbidden_overwrites.RewriteForbiddenOverwrites.visit_Name"><code class="name flex">
-<span>def <span class="ident">visit_Name</span></span>(<span>self, node: _ast.Name) ‑> _ast.Name</span>
+<span>def <span class="ident">visit_Name</span></span>(<span>self, node: ast.Name) ‑> ast.Name</span>
 </code></dt>
 <dd>
 <div class="desc"></div>

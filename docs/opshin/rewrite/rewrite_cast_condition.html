@@ -144,7 +144,7 @@ original node in which case no replacement takes place.</p>
 <pre><code>   def visit_Name(self, node):
        return Subscript(
            value=Name(id='data', ctx=Load()),
-           slice=Index(value=Str(s=node.id)),
+           slice=Constant(value=node.id),
            ctx=node.ctx
        )
 </code></pre>
@@ -221,7 +221,7 @@ just a single node.</p>
 <div class="desc inherited"><p>Visit a node.</p></div>
 </dd>
 <dt id="opshin.rewrite.rewrite_cast_condition.RewriteConditions.visit_Assert"><code class="name flex">
-<span>def <span class="ident">visit_Assert</span></span>(<span>self, node: _ast.Assert) ‑> _ast.Assert</span>
+<span>def <span class="ident">visit_Assert</span></span>(<span>self, node: ast.Assert) ‑> ast.Assert</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -236,7 +236,7 @@ just a single node.</p>
 </details>
 </dd>
 <dt id="opshin.rewrite.rewrite_cast_condition.RewriteConditions.visit_BoolOp"><code class="name flex">
-<span>def <span class="ident">visit_BoolOp</span></span>(<span>self, node: _ast.BoolOp) ‑> _ast.BoolOp</span>
+<span>def <span class="ident">visit_BoolOp</span></span>(<span>self, node: ast.BoolOp) ‑> ast.BoolOp</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -253,7 +253,7 @@ just a single node.</p>
 </details>
 </dd>
 <dt id="opshin.rewrite.rewrite_cast_condition.RewriteConditions.visit_If"><code class="name flex">
-<span>def <span class="ident">visit_If</span></span>(<span>self, node: _ast.If) ‑> _ast.If</span>
+<span>def <span class="ident">visit_If</span></span>(<span>self, node: ast.If) ‑> ast.If</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -268,7 +268,7 @@ just a single node.</p>
 </details>
 </dd>
 <dt id="opshin.rewrite.rewrite_cast_condition.RewriteConditions.visit_IfExp"><code class="name flex">
-<span>def <span class="ident">visit_IfExp</span></span>(<span>self, node: _ast.IfExp) ‑> _ast.IfExp</span>
+<span>def <span class="ident">visit_IfExp</span></span>(<span>self, node: ast.IfExp) ‑> ast.IfExp</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -283,7 +283,7 @@ just a single node.</p>
 </details>
 </dd>
 <dt id="opshin.rewrite.rewrite_cast_condition.RewriteConditions.visit_Module"><code class="name flex">
-<span>def <span class="ident">visit_Module</span></span>(<span>self, node: _ast.Module) ‑> _ast.Module</span>
+<span>def <span class="ident">visit_Module</span></span>(<span>self, node: ast.Module) ‑> ast.Module</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -297,7 +297,7 @@ just a single node.</p>
 </details>
 </dd>
 <dt id="opshin.rewrite.rewrite_cast_condition.RewriteConditions.visit_While"><code class="name flex">
-<span>def <span class="ident">visit_While</span></span>(<span>self, node: _ast.While) ‑> _ast.While</span>
+<span>def <span class="ident">visit_While</span></span>(<span>self, node: ast.While) ‑> ast.While</span>
 </code></dt>
 <dd>
 <div class="desc"></div>

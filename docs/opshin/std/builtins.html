@@ -106,7 +106,7 @@ def divide_integer(x: int, y: int) -&gt; int:
 
 @wraps_builtin
 def quotient_integer(x: int, y: int) -&gt; int:
-    &#34;&#34;&#34; Quotient of first integer by second and return the result.&#34;&#34;&#34;
+    &#34;&#34;&#34;Quotient of first integer by second and return the result.&#34;&#34;&#34;
     pass
 
 
@@ -250,10 +250,12 @@ def decode_utf8(x: bytes) -&gt; str:
     &#34;&#34;&#34;Decode a string/text using UTF-8.&#34;&#34;&#34;
     pass
 
+
 @wraps_builtin
 def constr_data(x: int, y: List[Anything]) -&gt; Anything:
     &#34;&#34;&#34;Create a datum with constructor id x and fields y.&#34;&#34;&#34;
     pass
+
 
 @wraps_builtin
 def equals_data(x: Anything, y: Anything) -&gt; bool:
@@ -600,7 +602,7 @@ def multiply_integer(x: int, y: int) -&gt; int:
 </summary>
 <pre><code class="python">@wraps_builtin
 def quotient_integer(x: int, y: int) -&gt; int:
-    &#34;&#34;&#34; Quotient of first integer by second and return the result.&#34;&#34;&#34;
+    &#34;&#34;&#34;Quotient of first integer by second and return the result.&#34;&#34;&#34;
     pass</code></pre>
 </details>
 </dd>
