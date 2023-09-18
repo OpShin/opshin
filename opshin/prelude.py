@@ -1,5 +1,4 @@
 from opshin.ledger.api_v2 import *
-from hashlib import sha256, sha3_256, blake2b
 
 
 @dataclass(unsafe_hash=True)
@@ -20,6 +19,7 @@ class Token(PlutusData):
     A token, represented by policy id and token name
     """
 
+    CONSTR_ID = 0
     policy_id: PolicyId
     token_name: TokenName
 

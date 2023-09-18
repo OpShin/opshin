@@ -17,6 +17,8 @@ class TxId(PlutusData):
     Example value: TxId(bytes.fromhex("842a4d37b036da6ab3c04331240e67d81746beb44f23ad79703e026705361956"))
     """
 
+    CONSTR_ID = 0
+
     tx_id: bytes
 
 
@@ -56,6 +58,8 @@ class TxOutRef(PlutusData):
     """
     A reference to a transaction output (hash/id + index)
     """
+
+    CONSTR_ID = 0
 
     id: TxId
     idx: int
@@ -155,6 +159,8 @@ class Address(PlutusData):
     """
     A Shelley address, consisting of a payment and staking credential
     """
+
+    CONSTR_ID = 0
 
     payment_credential: Credential
     staking_credential: Union[NoStakingCredential, SomeStakingCredential]
@@ -262,6 +268,8 @@ class TxOut(PlutusData):
     - reference_script: reference script associated with this output
     """
 
+    CONSTR_ID = 0
+
     address: Address
     value: Value
     datum: OutputDatum
@@ -273,6 +281,8 @@ class TxInInfo(PlutusData):
     """
     The plutus representation of an transaction output, that is consumed by the transaction.
     """
+
+    CONSTR_ID = 0
 
     out_ref: TxOutRef
     resolved: TxOut
@@ -394,6 +404,8 @@ class POSIXTimeRange(PlutusData):
     Time range in which this transaction can be executed
     """
 
+    CONSTR_ID = 0
+
     lower_bound: LowerBoundPOSIXTime
     upper_bound: UpperBoundPOSIXTime
 
@@ -442,6 +454,7 @@ class TxInfo(PlutusData):
     that invoked the script
     """
 
+    CONSTR_ID = 0
     inputs: List[TxInInfo]
     reference_inputs: List[TxInInfo]
     outputs: List[TxOut]
@@ -462,5 +475,6 @@ class ScriptContext(PlutusData):
     Auxiliary information about the transaction and reason for invocation of the called script.
     """
 
+    CONSTR_ID = 0
     tx_info: TxInfo
     purpose: ScriptPurpose
