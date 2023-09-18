@@ -1,12 +1,15 @@
 import dataclasses
 import json
+from ast import Module
+from typing import Optional, Any
 
 from . import __version__, compiler
 
 import uplc.ast
-from uplc import flatten
+from uplc import flatten, ast as uplc_ast
 import cbor2
 import pycardano
+from pluthon import compile as plt_compile
 
 from .util import datum_to_cbor
 
@@ -20,11 +23,29 @@ class ScriptArtifacts:
     policy_id: str
 
 
+def compile(
+    program: Module,
+    contract_filename: Optional[str] = None,
+    force_three_params=False,
+    validator_function_name="validator",
+    **pluto_kwargs: Any,
+) -> uplc_ast.Program:
+    code = compiler.compile(
+        program,
+        filename=contract_filename,
+        force_three_params=force_three_params,
+        validator_function_name=validator_function_name,
+    )
+    plt_code = plt_compile(code, **pluto_kwargs)
+    return plt_code
+
+
 def build(
     contract_file: str,
     *args: pycardano.Datum,
     force_three_params=False,
     validator_function_name="validator",
+    optimize_patterns=True,
 ):
     """
     Expects a python module and returns the build artifacts from compiling it
@@ -33,10 +54,13 @@ def build(
         source_code = f.read()
 
     source_ast = compiler.parse(source_code, filename=contract_file)
-    code = compiler.compile(
-        source_ast, filename=contract_file, force_three_params=force_three_params
+    code = compile(
+        source_ast,
+        contract_filename=contract_file,
+        force_three_params=force_three_params,
+        validator_function_name=validator_function_name,
+        optimize_patterns=optimize_patterns,
     )
-    code = code.compile()
 
     # apply parameters from the command line to the contract (instantiates parameterized contract!)
     code = code.term

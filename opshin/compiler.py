@@ -211,7 +211,7 @@ def extend_statemonad(
 INITIAL_STATE = plt.FunctionalMap()
 
 
-class UPLCCompiler(CompilingNodeTransformer):
+class PlutoCompiler(CompilingNodeTransformer):
     """
     Expects a TypedAST and returns UPLC/Pluto like code
     """
@@ -1021,7 +1021,7 @@ def compile(
     constant_folding=False,
     validator_function_name="validator",
     allow_isinstance_anything=False,
-):
+) -> plt.Program:
     compile_pipeline = [
         # Important to call this one first - it imports all further files
         RewriteImport(filename=filename),
@@ -1059,7 +1059,7 @@ def compile(
         prog = custom_fix_missing_locations(prog)
 
     # the compiler runs last
-    s = UPLCCompiler(
+    s = PlutoCompiler(
         force_three_params=force_three_params,
         validator_function_name=validator_function_name,
     )

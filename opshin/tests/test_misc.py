@@ -1798,6 +1798,7 @@ def validator(x: Union[A, B]) -> bool:
         self.assertEqual(res, isinstance(x, A))
 
     @hypothesis.given(a_or_b, st.integers())
+    @hypothesis.example(A(0), 0)
     def test_isinstance_cast_shortcut_and(self, x, y):
         source_code = """
 from dataclasses import dataclass
