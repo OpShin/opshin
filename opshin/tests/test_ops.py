@@ -7,6 +7,7 @@ from frozendict import frozendict
 import frozenlist as fl
 from hypothesis import example, given
 from hypothesis import strategies as st
+
 from uplc import ast as uplc, eval as uplc_eval
 from uplc.ast import (
     PlutusMap,
@@ -570,18 +571,15 @@ def validator(x: Dict[str, int]) -> str:
     @example(PlutusByteString(b""))
     @example(PlutusConstr(0, [PlutusByteString(b"'")]))
     def test_fmt_any(self, x):
-        x_data = pycardano.RawPlutusData(cbor2.loads(uplc.plutus_cbor_dumps(x)))
+        x_cbor = uplc.plutus_cbor_dumps(x)
+        x_data = pycardano.RawPlutusData(cbor2.loads(x_cbor))
         source_code = """
 def validator(x: Anything) -> str:
     return f"{x}"
             """
         # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
         exp = f"{x_data}"
-        ast = compiler.parse(source_code)
-        code = compiler.compile(ast)
-        code = code.compile()
-        f = code.term
-        ret = uplc_eval(uplc.Apply(f, x)).value.decode("utf8")
+        ret = eval_uplc_value(source_code, pycardano.RawCBOR(x_cbor)).decode("utf8")
         if "\\'" in ret:
             RawPlutusData = pycardano.RawPlutusData
             CBORTag = cbor2.CBORTag
