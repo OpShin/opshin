@@ -444,7 +444,7 @@ def validator(_: None) -> int:
 
     @unittest.expectedFailure
     def test_overopt_removedeadvar(self):
-        # this tests that errors that are caused by assignments are actually triggered at the time of assigning
+
         source_code = """
 from opshin.prelude import *
 def validator(x: Token) -> bool:
@@ -464,7 +464,7 @@ def validator(x: Token) -> bool:
 
     @unittest.expectedFailure
     def test_opt_shared_var(self):
-        # this tests that errors that are caused by assignments are actually triggered at the time of assigning
+
         source_code = """
 from opshin.prelude import *
 def validator(x: Token) -> bool:

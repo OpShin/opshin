@@ -15,7 +15,7 @@ settings.load_profile(PLUTUS_VM_PROFILE)
 class StdlibTest(unittest.TestCase):
     @given(st.data())
     def test_dict_get(self, data):
-        # this tests that errors that are caused by assignments are actually triggered at the time of assigning
+
         source_code = """
 def validator(x: Dict[int, bytes], y: int, z: bytes) -> bytes:
     return x.get(y, z)
@@ -42,7 +42,7 @@ def validator(x: Dict[int, bytes], y: int, z: bytes) -> bytes:
 
     @given(st.data())
     def test_dict_subscript(self, data):
-        # this tests that errors that are caused by assignments are actually triggered at the time of assigning
+
         source_code = """
 def validator(x: Dict[int, bytes], y: int) -> bytes:
     return x[y]
@@ -74,7 +74,7 @@ def validator(x: Dict[int, bytes], y: int) -> bytes:
 
     @given(xs=st.dictionaries(st.integers(), st.binary()))
     def test_dict_keys(self, xs):
-        # this tests that errors that are caused by assignments are actually triggered at the time of assigning
+
         source_code = """
 def validator(x: Dict[int, bytes]) -> List[int]:
     return x.keys()
@@ -95,7 +95,7 @@ def validator(x: Dict[int, bytes]) -> List[int]:
 
     @given(xs=st.dictionaries(st.integers(), st.binary()))
     def test_dict_values(self, xs):
-        # this tests that errors that are caused by assignments are actually triggered at the time of assigning
+
         source_code = """
 def validator(x: Dict[int, bytes]) -> List[bytes]:
     return x.values()
@@ -116,7 +116,7 @@ def validator(x: Dict[int, bytes]) -> List[bytes]:
 
     @given(xs=st.dictionaries(st.integers(), st.binary()))
     def test_dict_items_keys_sum(self, xs):
-        # this tests that errors that are caused by assignments are actually triggered at the time of assigning
+
         source_code = """
 def validator(xs: Dict[int, bytes]) -> int:
     sum_keys = 0
@@ -140,7 +140,7 @@ def validator(xs: Dict[int, bytes]) -> int:
 
     @given(xs=st.dictionaries(st.integers(), st.binary()))
     def test_dict_items_values_sum(self, xs):
-        # this tests that errors that are caused by assignments are actually triggered at the time of assigning
+
         source_code = """
 def validator(xs: Dict[int, bytes]) -> bytes:
     sum_values = b""
@@ -164,7 +164,7 @@ def validator(xs: Dict[int, bytes]) -> bytes:
 
     @given(xs=st.text())
     def test_str_encode(self, xs):
-        # this tests that errors that are caused by assignments are actually triggered at the time of assigning
+
         source_code = """
 def validator(x: str) -> bytes:
     return x.encode()
@@ -181,7 +181,7 @@ def validator(x: str) -> bytes:
 
     @given(xs=st.binary())
     def test_bytes_decode(self, xs):
-        # this tests that errors that are caused by assignments are actually triggered at the time of assigning
+
         source_code = """
 def validator(x: bytes) -> str:
     return x.decode()
@@ -205,7 +205,7 @@ def validator(x: bytes) -> str:
 
     @given(xs=st.binary())
     def test_bytes_hex(self, xs):
-        # this tests that errors that are caused by assignments are actually triggered at the time of assigning
+
         source_code = """
 def validator(x: bytes) -> str:
     return x.hex()
