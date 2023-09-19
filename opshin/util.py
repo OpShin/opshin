@@ -10,6 +10,7 @@ from frozenlist2 import frozenlist
 
 import uplc.ast as uplc
 import pluthon as plt
+from hashlib import sha256
 
 
 def distinct(xs: list):
@@ -142,23 +143,28 @@ def custom_fix_missing_locations(node, parent=None):
 _patterns_cached = {}
 
 
-def make_pattern(structure: plt.Lambda) -> plt.Pattern:
+def make_pattern(structure: plt.AST) -> plt.Pattern:
     """Creates a shared pattern from the given lambda, cached so that it is re-used in subsequent calls"""
     structure_serialized = structure.dumps()
     if _patterns_cached.get(structure_serialized) is None:
-        params = structure.vars
         # @dataclass
         # class AdHocPattern(plt.Pattern):
 
         #     def compose(self):
         #         return structure
-        pattern_class = type(
-            "AdHocPattern", (plt.Pattern,), {"compose": lambda self: structure.term}
+        AdHocPattern = type(
+            f"AdHocPattern_{sha256(structure_serialized.encode()).digest().hex()}",
+            (plt.Pattern,),
+            {"compose": lambda self: structure},
         )
-        pattern_class.__annotations__ = {param: plt.AST for param in params}
-        pattern_class = dataclass(pattern_class)
+        AdHocPattern = dataclass(AdHocPattern)
 
-        _patterns_cached[structure_serialized] = plt.Lambda(
-            params, pattern_class(*(plt.Var(param) for param in params))
-        )
+        _patterns_cached[structure_serialized] = AdHocPattern()
     return _patterns_cached[structure_serialized]
+
+
+def patternize(method):
+    def wrapped(*args, **kwargs):
+        return make_pattern(method(*args, **kwargs))
+
+    return wrapped

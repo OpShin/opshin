@@ -17,6 +17,7 @@ from uplc.ast import (
 )
 
 from . import PLUTUS_VM_PROFILE
+from .utils import eval_uplc, eval_uplc_value
 from .. import compiler
 
 hypothesis.settings.load_profile(PLUTUS_VM_PROFILE)
@@ -927,15 +928,9 @@ def validator(x: Dict[str, int]) -> str:
 def validator(x: Anything) -> str:
     return f"{x}"
             """
-        ast = compiler.parse(source_code)
-        code = compiler.compile(ast)
-        code = code.compile()
-        f = code.term
         # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
         exp = f"{x_data}"
-        for d in [x]:
-            f = uplc.Apply(f, d)
-        ret = uplc_eval(f).value.decode("utf8")
+        ret = eval_uplc_value(source_code, x_data).decode("utf8")
         if "\\'" in ret:
             RawPlutusData = pycardano.RawPlutusData
             CBORTag = cbor2.CBORTag

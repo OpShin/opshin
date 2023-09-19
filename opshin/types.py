@@ -18,6 +18,16 @@ class TypeInferenceError(AssertionError):
 
 
 class Type:
+    def __new__(meta, *args, **kwargs):
+        klass = super().__new__(meta)
+
+        for key in ["constr", "attribute", "cmp", "stringify", "copy_only_attributes"]:
+            value = getattr(klass, key)
+            wrapped = patternize(value)
+            object.__setattr__(klass, key, wrapped)
+
+        return klass
+
     def constr_type(self) -> "InstanceType":
         """The type of the constructor for this class"""
         raise TypeInferenceError(
@@ -118,219 +128,209 @@ class AnyType(ClassType):
         _LOGGER.warning(
             "Serializing AnyType will result in RawPlutusData (CBOR representation) to be printed without additional type information. Annotate types where possible to avoid this warning."
         )
-        return make_pattern(
-            plt.Lambda(
-                ["self", "_"],
-                plt.Let(
-                    [
-                        (
-                            "joinMapList",
-                            plt.Lambda(
-                                ["m", "l", "start", "end"],
-                                plt.Let(
-                                    [
-                                        (
-                                            "g",
-                                            plt.RecFun(
-                                                plt.Lambda(
-                                                    ["f", "l"],
-                                                    plt.AppendString(
-                                                        plt.Apply(
-                                                            plt.Var("m"),
-                                                            plt.HeadList(plt.Var("l")),
-                                                        ),
-                                                        plt.Let(
-                                                            [
-                                                                (
-                                                                    "t",
-                                                                    plt.TailList(
-                                                                        plt.Var("l")
-                                                                    ),
-                                                                )
-                                                            ],
-                                                            plt.IteNullList(
-                                                                plt.Var("t"),
-                                                                plt.Var("end"),
-                                                                plt.AppendString(
-                                                                    plt.Text(", "),
-                                                                    plt.Apply(
-                                                                        plt.Var("f"),
-                                                                        plt.Var("f"),
-                                                                        plt.Var("t"),
-                                                                    ),
+        return plt.Lambda(
+            ["self", "_"],
+            plt.Let(
+                [
+                    (
+                        "joinMapList",
+                        plt.Lambda(
+                            ["m", "l", "start", "end"],
+                            plt.Let(
+                                [
+                                    (
+                                        "g",
+                                        plt.RecFun(
+                                            plt.Lambda(
+                                                ["f", "l"],
+                                                plt.AppendString(
+                                                    plt.Apply(
+                                                        plt.Var("m"),
+                                                        plt.HeadList(plt.Var("l")),
+                                                    ),
+                                                    plt.Let(
+                                                        [
+                                                            (
+                                                                "t",
+                                                                plt.TailList(
+                                                                    plt.Var("l")
+                                                                ),
+                                                            )
+                                                        ],
+                                                        plt.IteNullList(
+                                                            plt.Var("t"),
+                                                            plt.Var("end"),
+                                                            plt.AppendString(
+                                                                plt.Text(", "),
+                                                                plt.Apply(
+                                                                    plt.Var("f"),
+                                                                    plt.Var("f"),
+                                                                    plt.Var("t"),
                                                                 ),
                                                             ),
                                                         ),
                                                     ),
-                                                )
-                                            ),
-                                        )
-                                    ],
-                                    plt.AppendString(
-                                        plt.Var("start"),
-                                        plt.IteNullList(
+                                                ),
+                                            )
+                                        ),
+                                    )
+                                ],
+                                plt.AppendString(
+                                    plt.Var("start"),
+                                    plt.IteNullList(
+                                        plt.Var("l"),
+                                        plt.Var("end"),
+                                        plt.Apply(
+                                            plt.Var("g"),
                                             plt.Var("l"),
-                                            plt.Var("end"),
-                                            plt.Apply(
-                                                plt.Var("g"),
-                                                plt.Var("l"),
-                                            ),
                                         ),
                                     ),
                                 ),
                             ),
                         ),
-                        (
-                            "stringifyPlutusData",
-                            plt.RecFun(
-                                plt.Lambda(
-                                    ["f", "d"],
-                                    plt.DelayedChooseData(
-                                        plt.Var("d"),
-                                        plt.Let(
-                                            [
-                                                (
-                                                    "constructor",
-                                                    plt.FstPair(
-                                                        plt.UnConstrData(plt.Var("d"))
-                                                    ),
-                                                )
-                                            ],
-                                            plt.Ite(
-                                                plt.LessThanInteger(
-                                                    plt.Var("constructor"),
-                                                    plt.Integer(128),
+                    ),
+                    (
+                        "stringifyPlutusData",
+                        plt.RecFun(
+                            plt.Lambda(
+                                ["f", "d"],
+                                plt.DelayedChooseData(
+                                    plt.Var("d"),
+                                    plt.Let(
+                                        [
+                                            (
+                                                "constructor",
+                                                plt.FstPair(
+                                                    plt.UnConstrData(plt.Var("d"))
                                                 ),
-                                                plt.ConcatString(
-                                                    plt.Text("CBORTag("),
-                                                    plt.Apply(
-                                                        plt.Var("f"),
-                                                        plt.Var("f"),
-                                                        plt.IData(
-                                                            plt.AddInteger(
-                                                                plt.Var("constructor"),
-                                                                plt.Ite(
-                                                                    plt.LessThanInteger(
-                                                                        plt.Var(
-                                                                            "constructor"
-                                                                        ),
-                                                                        plt.Integer(7),
-                                                                    ),
-                                                                    plt.Integer(121),
-                                                                    plt.Integer(
-                                                                        1280 - 7
-                                                                    ),
-                                                                ),
-                                                            )
-                                                        ),
-                                                    ),
-                                                    plt.Text(", "),
-                                                    plt.Apply(
-                                                        plt.Var("f"),
-                                                        plt.Var("f"),
-                                                        plt.ListData(
-                                                            plt.SndPair(
-                                                                plt.UnConstrData(
-                                                                    plt.Var("d")
-                                                                )
-                                                            )
-                                                        ),
-                                                    ),
-                                                    plt.Text(")"),
-                                                ),
-                                                plt.ConcatString(
-                                                    plt.Text("CBORTag(102, "),
-                                                    plt.Apply(
-                                                        plt.Var("f"),
-                                                        plt.Var("f"),
-                                                        plt.ListData(
-                                                            plt.MkCons(
-                                                                plt.IData(
-                                                                    plt.Var(
-                                                                        "constructor"
-                                                                    )
-                                                                ),
-                                                                plt.MkCons(
-                                                                    plt.ListData(
-                                                                        plt.SndPair(
-                                                                            plt.UnConstrData(
-                                                                                plt.Var(
-                                                                                    "d"
-                                                                                )
-                                                                            )
-                                                                        )
-                                                                    ),
-                                                                    plt.EmptyDataList(),
-                                                                ),
-                                                            )
-                                                        ),
-                                                    ),
-                                                    plt.Text(")"),
-                                                ),
+                                            )
+                                        ],
+                                        plt.Ite(
+                                            plt.LessThanInteger(
+                                                plt.Var("constructor"),
+                                                plt.Integer(128),
                                             ),
-                                        ),
-                                        plt.Apply(
-                                            plt.Var("joinMapList"),
-                                            plt.Lambda(
-                                                ["x"],
-                                                plt.ConcatString(
-                                                    plt.Apply(
-                                                        plt.Var("f"),
-                                                        plt.Var("f"),
-                                                        plt.FstPair(plt.Var("x")),
-                                                    ),
-                                                    plt.Text(": "),
-                                                    plt.Apply(
-                                                        plt.Var("f"),
-                                                        plt.Var("f"),
-                                                        plt.SndPair(plt.Var("x")),
-                                                    ),
-                                                ),
-                                            ),
-                                            plt.UnMapData(plt.Var("d")),
-                                            plt.Text("{"),
-                                            plt.Text("}"),
-                                        ),
-                                        plt.Apply(
-                                            plt.Var("joinMapList"),
-                                            plt.Lambda(
-                                                ["x"],
+                                            plt.ConcatString(
+                                                plt.Text("CBORTag("),
                                                 plt.Apply(
                                                     plt.Var("f"),
                                                     plt.Var("f"),
-                                                    plt.Var("x"),
+                                                    plt.IData(
+                                                        plt.AddInteger(
+                                                            plt.Var("constructor"),
+                                                            plt.Ite(
+                                                                plt.LessThanInteger(
+                                                                    plt.Var(
+                                                                        "constructor"
+                                                                    ),
+                                                                    plt.Integer(7),
+                                                                ),
+                                                                plt.Integer(121),
+                                                                plt.Integer(1280 - 7),
+                                                            ),
+                                                        )
+                                                    ),
                                                 ),
+                                                plt.Text(", "),
+                                                plt.Apply(
+                                                    plt.Var("f"),
+                                                    plt.Var("f"),
+                                                    plt.ListData(
+                                                        plt.SndPair(
+                                                            plt.UnConstrData(
+                                                                plt.Var("d")
+                                                            )
+                                                        )
+                                                    ),
+                                                ),
+                                                plt.Text(")"),
                                             ),
-                                            plt.UnListData(plt.Var("d")),
-                                            plt.Text("["),
-                                            plt.Text("]"),
-                                        ),
-                                        plt.Apply(
-                                            IntegerInstanceType.stringify(
-                                                recursive=True
+                                            plt.ConcatString(
+                                                plt.Text("CBORTag(102, "),
+                                                plt.Apply(
+                                                    plt.Var("f"),
+                                                    plt.Var("f"),
+                                                    plt.ListData(
+                                                        plt.MkCons(
+                                                            plt.IData(
+                                                                plt.Var("constructor")
+                                                            ),
+                                                            plt.MkCons(
+                                                                plt.ListData(
+                                                                    plt.SndPair(
+                                                                        plt.UnConstrData(
+                                                                            plt.Var("d")
+                                                                        )
+                                                                    )
+                                                                ),
+                                                                plt.EmptyDataList(),
+                                                            ),
+                                                        )
+                                                    ),
+                                                ),
+                                                plt.Text(")"),
                                             ),
-                                            plt.UnIData(plt.Var("d")),
-                                            plt.Var("_"),
-                                        ),
-                                        plt.Apply(
-                                            ByteStringInstanceType.stringify(
-                                                recursive=True
-                                            ),
-                                            plt.UnBData(plt.Var("d")),
-                                            plt.Var("_"),
                                         ),
                                     ),
-                                )
-                            ),
+                                    plt.Apply(
+                                        plt.Var("joinMapList"),
+                                        plt.Lambda(
+                                            ["x"],
+                                            plt.ConcatString(
+                                                plt.Apply(
+                                                    plt.Var("f"),
+                                                    plt.Var("f"),
+                                                    plt.FstPair(plt.Var("x")),
+                                                ),
+                                                plt.Text(": "),
+                                                plt.Apply(
+                                                    plt.Var("f"),
+                                                    plt.Var("f"),
+                                                    plt.SndPair(plt.Var("x")),
+                                                ),
+                                            ),
+                                        ),
+                                        plt.UnMapData(plt.Var("d")),
+                                        plt.Text("{"),
+                                        plt.Text("}"),
+                                    ),
+                                    plt.Apply(
+                                        plt.Var("joinMapList"),
+                                        plt.Lambda(
+                                            ["x"],
+                                            plt.Apply(
+                                                plt.Var("f"),
+                                                plt.Var("f"),
+                                                plt.Var("x"),
+                                            ),
+                                        ),
+                                        plt.UnListData(plt.Var("d")),
+                                        plt.Text("["),
+                                        plt.Text("]"),
+                                    ),
+                                    plt.Apply(
+                                        IntegerInstanceType.stringify(recursive=True),
+                                        plt.UnIData(plt.Var("d")),
+                                        plt.Var("_"),
+                                    ),
+                                    plt.Apply(
+                                        ByteStringInstanceType.stringify(
+                                            recursive=True
+                                        ),
+                                        plt.UnBData(plt.Var("d")),
+                                        plt.Var("_"),
+                                    ),
+                                ),
+                            )
                         ),
-                    ],
-                    plt.ConcatString(
-                        plt.Text("RawPlutusData(data="),
-                        plt.Apply(plt.Var("stringifyPlutusData"), plt.Var("self")),
-                        plt.Text(")"),
                     ),
+                ],
+                plt.ConcatString(
+                    plt.Text("RawPlutusData(data="),
+                    plt.Apply(plt.Var("stringifyPlutusData"), plt.Var("self")),
+                    plt.Text(")"),
                 ),
-            )
+            ),
         )
 
 
@@ -662,15 +662,17 @@ class UnionType(ClassType):
             if isinstance(op, Eq):
                 return plt.BuiltIn(uplc.BuiltInFun.EqualsData)
             if isinstance(op, NotEq):
-                return plt.Lambda(
-                    ["x", "y"],
-                    plt.Not(
-                        plt.Apply(
-                            plt.BuiltIn(uplc.BuiltInFun.EqualsData),
-                            plt.Var("x"),
-                            plt.Var("y"),
-                        )
-                    ),
+                return make_pattern(
+                    plt.Lambda(
+                        ["x", "y"],
+                        plt.Not(
+                            plt.Apply(
+                                plt.BuiltIn(uplc.BuiltInFun.EqualsData),
+                                plt.Var("x"),
+                                plt.Var("y"),
+                            )
+                        ),
+                    )
                 )
         if (
             isinstance(o, ListType)
@@ -678,24 +680,27 @@ class UnionType(ClassType):
             and any(o.typ.typ >= t or t >= o.typ.typ for t in self.typs)
         ):
             if isinstance(op, In):
-                return plt.Lambda(
-                    ["x", "y"],
-                    plt.EqualsData(
-                        plt.Var("x"),
-                        plt.FindList(
-                            plt.Var("y"),
-                            plt.Apply(
-                                plt.BuiltIn(uplc.BuiltInFun.EqualsData), plt.Var("x")
-                            ),
-                            # this simply ensures the default is always unequal to the searched value
-                            plt.ConstrData(
-                                plt.AddInteger(
-                                    plt.Constructor(plt.Var("x")), plt.Integer(1)
+                return make_pattern(
+                    plt.Lambda(
+                        ["x", "y"],
+                        plt.EqualsData(
+                            plt.Var("x"),
+                            plt.FindList(
+                                plt.Var("y"),
+                                plt.Apply(
+                                    plt.BuiltIn(uplc.BuiltInFun.EqualsData),
+                                    plt.Var("x"),
                                 ),
-                                plt.MkNilData(plt.Unit()),
+                                # this simply ensures the default is always unequal to the searched value
+                                plt.ConstrData(
+                                    plt.AddInteger(
+                                        plt.Constructor(plt.Var("x")), plt.Integer(1)
+                                    ),
+                                    plt.MkNilData(plt.Unit()),
+                                ),
                             ),
                         ),
-                    ),
+                    )
                 )
         raise NotImplementedError(
             f"Can not compare {o} and {self} with operation {op.__class__}. Note that comparisons that always return false are also rejected."
@@ -709,12 +714,14 @@ class UnionType(ClassType):
                 t.stringify(recursive=True),
                 decide_string_func,
             )
-        return plt.Lambda(
-            ["self", "_"],
-            plt.Let(
-                [("c", plt.Constructor(plt.Var("self")))],
-                plt.Apply(decide_string_func, plt.Var("self"), plt.Var("_")),
-            ),
+        return make_pattern(
+            plt.Lambda(
+                ["self", "_"],
+                plt.Let(
+                    [("c", plt.Constructor(plt.Var("self")))],
+                    plt.Apply(decide_string_func, plt.Var("self"), plt.Var("_")),
+                ),
+            )
         )
 
     def copy_only_attributes(self) -> plt.AST:
@@ -729,12 +736,14 @@ class UnionType(ClassType):
                 plt.Apply(typ.copy_only_attributes(), plt.Var("self")),
                 copied_attributes,
             )
-        return plt.Lambda(
-            ["self"],
-            plt.Let(
-                [("constr", plt.Constructor(plt.Var("self")))],
-                copied_attributes,
-            ),
+        return make_pattern(
+            plt.Lambda(
+                ["self"],
+                plt.Let(
+                    [("constr", plt.Constructor(plt.Var("self")))],
+                    copied_attributes,
+                ),
+            )
         )
 
 
@@ -780,9 +789,11 @@ class TupleType(ClassType):
                         plt.Var("_"),
                     ),
                 )
-        return plt.Lambda(
-            ["self", "_"],
-            plt.ConcatString(plt.Text("("), tuple_content, plt.Text(")")),
+        return make_pattern(
+            plt.Lambda(
+                ["self", "_"],
+                plt.ConcatString(plt.Text("("), tuple_content, plt.Text(")")),
+            )
         )
 
 
@@ -813,9 +824,11 @@ class PairType(ClassType):
                 plt.Var("_"),
             ),
         )
-        return plt.Lambda(
-            ["self", "_"],
-            plt.ConcatString(plt.Text("("), tuple_content, plt.Text(")")),
+        return make_pattern(
+            plt.Lambda(
+                ["self", "_"],
+                plt.ConcatString(plt.Text("("), tuple_content, plt.Text(")")),
+            )
         )
 
 
@@ -827,53 +840,55 @@ class ListType(ClassType):
         return isinstance(other, ListType) and self.typ >= other.typ
 
     def stringify(self, recursive: bool = False) -> plt.AST:
-        return plt.Lambda(
-            ["self", "_"],
-            plt.Let(
-                [
-                    (
-                        "g",
-                        plt.RecFun(
-                            plt.Lambda(
-                                ["f", "l"],
-                                plt.AppendString(
-                                    plt.Apply(
-                                        self.typ.stringify(recursive=True),
-                                        plt.HeadList(plt.Var("l")),
-                                        plt.Var("_"),
-                                    ),
-                                    plt.Let(
-                                        [("t", plt.TailList(plt.Var("l")))],
-                                        plt.IteNullList(
-                                            plt.Var("t"),
-                                            plt.Text("]"),
-                                            plt.AppendString(
-                                                plt.Text(", "),
-                                                plt.Apply(
-                                                    plt.Var("f"),
-                                                    plt.Var("f"),
-                                                    plt.Var("t"),
+        return make_pattern(
+            plt.Lambda(
+                ["self", "_"],
+                plt.Let(
+                    [
+                        (
+                            "g",
+                            plt.RecFun(
+                                plt.Lambda(
+                                    ["f", "l"],
+                                    plt.AppendString(
+                                        plt.Apply(
+                                            self.typ.stringify(recursive=True),
+                                            plt.HeadList(plt.Var("l")),
+                                            plt.Var("_"),
+                                        ),
+                                        plt.Let(
+                                            [("t", plt.TailList(plt.Var("l")))],
+                                            plt.IteNullList(
+                                                plt.Var("t"),
+                                                plt.Text("]"),
+                                                plt.AppendString(
+                                                    plt.Text(", "),
+                                                    plt.Apply(
+                                                        plt.Var("f"),
+                                                        plt.Var("f"),
+                                                        plt.Var("t"),
+                                                    ),
                                                 ),
                                             ),
                                         ),
                                     ),
-                                ),
-                            )
-                        ),
-                    )
-                ],
-                plt.AppendString(
-                    plt.Text("["),
-                    plt.IteNullList(
-                        plt.Var("self"),
-                        plt.Text("]"),
-                        plt.Apply(
-                            plt.Var("g"),
+                                )
+                            ),
+                        )
+                    ],
+                    plt.AppendString(
+                        plt.Text("["),
+                        plt.IteNullList(
                             plt.Var("self"),
+                            plt.Text("]"),
+                            plt.Apply(
+                                plt.Var("g"),
+                                plt.Var("self"),
+                            ),
                         ),
                     ),
                 ),
-            ),
+            )
         )
 
     def copy_only_attributes(self) -> plt.AST:
@@ -890,7 +905,7 @@ class ListType(ClassType):
             ),
             plt.EmptyDataList(),
         )
-        return plt.Lambda(["self"], mapped_attrs)
+        return make_pattern(plt.Lambda(["self"], mapped_attrs))
 
 
 @dataclass(frozen=True, unsafe_hash=True)
@@ -926,43 +941,49 @@ class DictType(ClassType):
 
     def attribute(self, attr) -> plt.AST:
         if attr == "get":
-            return plt.Lambda(
-                ["self", "key", "default", "_"],
-                transform_ext_params_map(self.value_typ)(
-                    plt.SndPair(
-                        plt.FindList(
-                            plt.Var("self"),
-                            plt.Lambda(
-                                ["x"],
-                                plt.EqualsData(
-                                    transform_output_map(self.key_typ)(plt.Var("key")),
-                                    plt.FstPair(plt.Var("x")),
+            return make_pattern(
+                plt.Lambda(
+                    ["self", "key", "default", "_"],
+                    transform_ext_params_map(self.value_typ)(
+                        plt.SndPair(
+                            plt.FindList(
+                                plt.Var("self"),
+                                plt.Lambda(
+                                    ["x"],
+                                    plt.EqualsData(
+                                        transform_output_map(self.key_typ)(
+                                            plt.Var("key")
+                                        ),
+                                        plt.FstPair(plt.Var("x")),
+                                    ),
                                 ),
-                            ),
-                            # this is a bit ugly... we wrap - only to later unwrap again
-                            plt.MkPairData(
-                                transform_output_map(self.key_typ)(plt.Var("key")),
-                                transform_output_map(self.value_typ)(
-                                    plt.Var("default")
+                                # this is a bit ugly... we wrap - only to later unwrap again
+                                plt.MkPairData(
+                                    transform_output_map(self.key_typ)(plt.Var("key")),
+                                    transform_output_map(self.value_typ)(
+                                        plt.Var("default")
+                                    ),
                                 ),
                             ),
                         ),
                     ),
-                ),
+                )
             )
         if attr == "keys":
-            return plt.Lambda(
-                ["self", "_"],
-                plt.MapList(
-                    plt.Var("self"),
-                    plt.Lambda(
-                        ["x"],
-                        transform_ext_params_map(self.key_typ)(
-                            plt.FstPair(plt.Var("x"))
+            return make_pattern(
+                plt.Lambda(
+                    ["self", "_"],
+                    plt.MapList(
+                        plt.Var("self"),
+                        plt.Lambda(
+                            ["x"],
+                            transform_ext_params_map(self.key_typ)(
+                                plt.FstPair(plt.Var("x"))
+                            ),
                         ),
+                        empty_list(self.key_typ),
                     ),
-                    empty_list(self.key_typ),
-                ),
+                )
             )
         if attr == "values":
             return plt.Lambda(
