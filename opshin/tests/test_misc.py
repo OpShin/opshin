@@ -444,7 +444,6 @@ def validator(_: None) -> int:
 
     @unittest.expectedFailure
     def test_overopt_removedeadvar(self):
-
         source_code = """
 from opshin.prelude import *
 def validator(x: Token) -> bool:
@@ -464,7 +463,6 @@ def validator(x: Token) -> bool:
 
     @unittest.expectedFailure
     def test_opt_shared_var(self):
-
         source_code = """
 from opshin.prelude import *
 def validator(x: Token) -> bool:

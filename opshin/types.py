@@ -360,13 +360,9 @@ class RecordType(ClassType):
                 transform_output_map(t)(plt.Var(n)), build_constr_params
             )
         # then build a constr type with this PlutusData
-        return make_pattern(
-            plt.Lambda(
-                [n for n, _ in self.record.fields] + ["_"],
-                plt.ConstrData(
-                    plt.Integer(self.record.constructor), build_constr_params
-                ),
-            )
+        return plt.Lambda(
+            [n for n, _ in self.record.fields] + ["_"],
+            plt.ConstrData(plt.Integer(self.record.constructor), build_constr_params),
         )
 
     def attribute_type(self, attr: str) -> Type:
@@ -394,25 +390,21 @@ class RecordType(ClassType):
             attr_typ = self.attribute_type(attr)
             pos = next(i for i, (n, _) in enumerate(self.record.fields) if n == attr)
             # access to normal fields
-            return make_pattern(
-                plt.Lambda(
-                    ["self"],
-                    transform_ext_params_map(attr_typ)(
-                        plt.NthField(
-                            plt.Var("self"),
-                            plt.Integer(pos),
-                        ),
+            return plt.Lambda(
+                ["self"],
+                transform_ext_params_map(attr_typ)(
+                    plt.NthField(
+                        plt.Var("self"),
+                        plt.Integer(pos),
                     ),
-                )
+                ),
             )
         if attr == "to_cbor":
-            return make_pattern(
-                plt.Lambda(
-                    ["self", "_"],
-                    plt.SerialiseData(
-                        plt.Var("self"),
-                    ),
-                )
+            return plt.Lambda(
+                ["self", "_"],
+                plt.SerialiseData(
+                    plt.Var("self"),
+                ),
             )
         raise NotImplementedError(f"Attribute {attr} not implemented for type {self}")
 
@@ -426,17 +418,15 @@ class RecordType(ClassType):
             if isinstance(op, Eq):
                 return plt.BuiltIn(uplc.BuiltInFun.EqualsData)
             if isinstance(op, NotEq):
-                return make_pattern(
-                    plt.Lambda(
-                        ["x", "y"],
-                        plt.Not(
-                            plt.Apply(
-                                plt.BuiltIn(uplc.BuiltInFun.EqualsData),
-                                plt.Var("x"),
-                                plt.Var("y"),
-                            )
-                        ),
-                    )
+                return plt.Lambda(
+                    ["x", "y"],
+                    plt.Not(
+                        plt.Apply(
+                            plt.BuiltIn(uplc.BuiltInFun.EqualsData),
+                            plt.Var("x"),
+                            plt.Var("y"),
+                        )
+                    ),
                 )
         if (
             isinstance(o, ListType)
@@ -444,27 +434,25 @@ class RecordType(ClassType):
             and (o.typ.typ >= self or self >= o.typ.typ)
         ):
             if isinstance(op, In):
-                return make_pattern(
-                    plt.Lambda(
-                        ["x", "y"],
-                        plt.EqualsData(
-                            plt.Var("x"),
-                            plt.FindList(
-                                plt.Var("y"),
-                                plt.Apply(
-                                    plt.BuiltIn(uplc.BuiltInFun.EqualsData),
-                                    plt.Var("x"),
+                return plt.Lambda(
+                    ["x", "y"],
+                    plt.EqualsData(
+                        plt.Var("x"),
+                        plt.FindList(
+                            plt.Var("y"),
+                            plt.Apply(
+                                plt.BuiltIn(uplc.BuiltInFun.EqualsData),
+                                plt.Var("x"),
+                            ),
+                            # this simply ensures the default is always unequal to the searched value
+                            plt.ConstrData(
+                                plt.AddInteger(
+                                    plt.Constructor(plt.Var("x")), plt.Integer(1)
                                 ),
-                                # this simply ensures the default is always unequal to the searched value
-                                plt.ConstrData(
-                                    plt.AddInteger(
-                                        plt.Constructor(plt.Var("x")), plt.Integer(1)
-                                    ),
-                                    plt.MkNilData(plt.Unit()),
-                                ),
+                                plt.MkNilData(plt.Unit()),
                             ),
                         ),
-                    )
+                    ),
                 )
         return super().cmp(op, o)
 
@@ -503,11 +491,9 @@ class RecordType(ClassType):
                 ),
                 map_fields,
             )
-        return make_pattern(
-            plt.Lambda(
-                ["self", "_"],
-                plt.AppendString(plt.Text(f"{self.record.name}("), map_fields),
-            )
+        return plt.Lambda(
+            ["self", "_"],
+            plt.AppendString(plt.Text(f"{self.record.name}("), map_fields),
         )
 
     def copy_only_attributes(self) -> plt.AST:
@@ -534,14 +520,12 @@ class RecordType(ClassType):
             [("fs", plt.Fields(plt.Var("self")))],
             copied_attributes,
         )
-        return make_pattern(
-            plt.Lambda(
-                ["self"],
-                plt.ConstrData(
-                    plt.Integer(self.record.constructor),
-                    copied_attributes,
-                ),
-            )
+        return plt.Lambda(
+            ["self"],
+            plt.ConstrData(
+                plt.Integer(self.record.constructor),
+                copied_attributes,
+            ),
         )
 
 
@@ -621,28 +605,24 @@ class UnionType(ClassType):
                     plt.Integer(pos),
                     pos_decisor,
                 )
-            return make_pattern(
-                plt.Lambda(
-                    ["self"],
-                    transform_ext_params_map(attr_typ)(
-                        plt.NthField(
-                            plt.Var("self"),
-                            plt.Let(
-                                [("constr", plt.Constructor(plt.Var("self")))],
-                                pos_decisor,
-                            ),
+            return plt.Lambda(
+                ["self"],
+                transform_ext_params_map(attr_typ)(
+                    plt.NthField(
+                        plt.Var("self"),
+                        plt.Let(
+                            [("constr", plt.Constructor(plt.Var("self")))],
+                            pos_decisor,
                         ),
                     ),
-                )
+                ),
             )
         if attr == "to_cbor":
-            return make_pattern(
-                plt.Lambda(
-                    ["self", "_"],
-                    plt.SerialiseData(
-                        plt.Var("self"),
-                    ),
-                )
+            return plt.Lambda(
+                ["self", "_"],
+                plt.SerialiseData(
+                    plt.Var("self"),
+                ),
             )
         raise NotImplementedError(f"Attribute {attr} not implemented for type {self}")
 
@@ -662,17 +642,15 @@ class UnionType(ClassType):
             if isinstance(op, Eq):
                 return plt.BuiltIn(uplc.BuiltInFun.EqualsData)
             if isinstance(op, NotEq):
-                return make_pattern(
-                    plt.Lambda(
-                        ["x", "y"],
-                        plt.Not(
-                            plt.Apply(
-                                plt.BuiltIn(uplc.BuiltInFun.EqualsData),
-                                plt.Var("x"),
-                                plt.Var("y"),
-                            )
-                        ),
-                    )
+                return plt.Lambda(
+                    ["x", "y"],
+                    plt.Not(
+                        plt.Apply(
+                            plt.BuiltIn(uplc.BuiltInFun.EqualsData),
+                            plt.Var("x"),
+                            plt.Var("y"),
+                        )
+                    ),
                 )
         if (
             isinstance(o, ListType)
@@ -680,27 +658,25 @@ class UnionType(ClassType):
             and any(o.typ.typ >= t or t >= o.typ.typ for t in self.typs)
         ):
             if isinstance(op, In):
-                return make_pattern(
-                    plt.Lambda(
-                        ["x", "y"],
-                        plt.EqualsData(
-                            plt.Var("x"),
-                            plt.FindList(
-                                plt.Var("y"),
-                                plt.Apply(
-                                    plt.BuiltIn(uplc.BuiltInFun.EqualsData),
-                                    plt.Var("x"),
+                return plt.Lambda(
+                    ["x", "y"],
+                    plt.EqualsData(
+                        plt.Var("x"),
+                        plt.FindList(
+                            plt.Var("y"),
+                            plt.Apply(
+                                plt.BuiltIn(uplc.BuiltInFun.EqualsData),
+                                plt.Var("x"),
+                            ),
+                            # this simply ensures the default is always unequal to the searched value
+                            plt.ConstrData(
+                                plt.AddInteger(
+                                    plt.Constructor(plt.Var("x")), plt.Integer(1)
                                 ),
-                                # this simply ensures the default is always unequal to the searched value
-                                plt.ConstrData(
-                                    plt.AddInteger(
-                                        plt.Constructor(plt.Var("x")), plt.Integer(1)
-                                    ),
-                                    plt.MkNilData(plt.Unit()),
-                                ),
+                                plt.MkNilData(plt.Unit()),
                             ),
                         ),
-                    )
+                    ),
                 )
         raise NotImplementedError(
             f"Can not compare {o} and {self} with operation {op.__class__}. Note that comparisons that always return false are also rejected."
@@ -714,14 +690,12 @@ class UnionType(ClassType):
                 t.stringify(recursive=True),
                 decide_string_func,
             )
-        return make_pattern(
-            plt.Lambda(
-                ["self", "_"],
-                plt.Let(
-                    [("c", plt.Constructor(plt.Var("self")))],
-                    plt.Apply(decide_string_func, plt.Var("self"), plt.Var("_")),
-                ),
-            )
+        return plt.Lambda(
+            ["self", "_"],
+            plt.Let(
+                [("c", plt.Constructor(plt.Var("self")))],
+                plt.Apply(decide_string_func, plt.Var("self"), plt.Var("_")),
+            ),
         )
 
     def copy_only_attributes(self) -> plt.AST:
@@ -736,14 +710,12 @@ class UnionType(ClassType):
                 plt.Apply(typ.copy_only_attributes(), plt.Var("self")),
                 copied_attributes,
             )
-        return make_pattern(
-            plt.Lambda(
-                ["self"],
-                plt.Let(
-                    [("constr", plt.Constructor(plt.Var("self")))],
-                    copied_attributes,
-                ),
-            )
+        return plt.Lambda(
+            ["self"],
+            plt.Let(
+                [("constr", plt.Constructor(plt.Var("self")))],
+                copied_attributes,
+            ),
         )
 
 
@@ -789,11 +761,9 @@ class TupleType(ClassType):
                         plt.Var("_"),
                     ),
                 )
-        return make_pattern(
-            plt.Lambda(
-                ["self", "_"],
-                plt.ConcatString(plt.Text("("), tuple_content, plt.Text(")")),
-            )
+        return plt.Lambda(
+            ["self", "_"],
+            plt.ConcatString(plt.Text("("), tuple_content, plt.Text(")")),
         )
 
 
@@ -824,11 +794,9 @@ class PairType(ClassType):
                 plt.Var("_"),
             ),
         )
-        return make_pattern(
-            plt.Lambda(
-                ["self", "_"],
-                plt.ConcatString(plt.Text("("), tuple_content, plt.Text(")")),
-            )
+        return plt.Lambda(
+            ["self", "_"],
+            plt.ConcatString(plt.Text("("), tuple_content, plt.Text(")")),
         )
 
 
@@ -840,55 +808,53 @@ class ListType(ClassType):
         return isinstance(other, ListType) and self.typ >= other.typ
 
     def stringify(self, recursive: bool = False) -> plt.AST:
-        return make_pattern(
-            plt.Lambda(
-                ["self", "_"],
-                plt.Let(
-                    [
-                        (
-                            "g",
-                            plt.RecFun(
-                                plt.Lambda(
-                                    ["f", "l"],
-                                    plt.AppendString(
-                                        plt.Apply(
-                                            self.typ.stringify(recursive=True),
-                                            plt.HeadList(plt.Var("l")),
-                                            plt.Var("_"),
-                                        ),
-                                        plt.Let(
-                                            [("t", plt.TailList(plt.Var("l")))],
-                                            plt.IteNullList(
-                                                plt.Var("t"),
-                                                plt.Text("]"),
-                                                plt.AppendString(
-                                                    plt.Text(", "),
-                                                    plt.Apply(
-                                                        plt.Var("f"),
-                                                        plt.Var("f"),
-                                                        plt.Var("t"),
-                                                    ),
+        return plt.Lambda(
+            ["self", "_"],
+            plt.Let(
+                [
+                    (
+                        "g",
+                        plt.RecFun(
+                            plt.Lambda(
+                                ["f", "l"],
+                                plt.AppendString(
+                                    plt.Apply(
+                                        self.typ.stringify(recursive=True),
+                                        plt.HeadList(plt.Var("l")),
+                                        plt.Var("_"),
+                                    ),
+                                    plt.Let(
+                                        [("t", plt.TailList(plt.Var("l")))],
+                                        plt.IteNullList(
+                                            plt.Var("t"),
+                                            plt.Text("]"),
+                                            plt.AppendString(
+                                                plt.Text(", "),
+                                                plt.Apply(
+                                                    plt.Var("f"),
+                                                    plt.Var("f"),
+                                                    plt.Var("t"),
                                                 ),
                                             ),
                                         ),
                                     ),
-                                )
-                            ),
-                        )
-                    ],
-                    plt.AppendString(
-                        plt.Text("["),
-                        plt.IteNullList(
+                                ),
+                            )
+                        ),
+                    )
+                ],
+                plt.AppendString(
+                    plt.Text("["),
+                    plt.IteNullList(
+                        plt.Var("self"),
+                        plt.Text("]"),
+                        plt.Apply(
+                            plt.Var("g"),
                             plt.Var("self"),
-                            plt.Text("]"),
-                            plt.Apply(
-                                plt.Var("g"),
-                                plt.Var("self"),
-                            ),
                         ),
                     ),
                 ),
-            )
+            ),
         )
 
     def copy_only_attributes(self) -> plt.AST:
@@ -905,7 +871,7 @@ class ListType(ClassType):
             ),
             plt.EmptyDataList(),
         )
-        return make_pattern(plt.Lambda(["self"], mapped_attrs))
+        return plt.Lambda(["self"], mapped_attrs)
 
 
 @dataclass(frozen=True, unsafe_hash=True)
@@ -941,49 +907,43 @@ class DictType(ClassType):
 
     def attribute(self, attr) -> plt.AST:
         if attr == "get":
-            return make_pattern(
-                plt.Lambda(
-                    ["self", "key", "default", "_"],
-                    transform_ext_params_map(self.value_typ)(
-                        plt.SndPair(
-                            plt.FindList(
-                                plt.Var("self"),
-                                plt.Lambda(
-                                    ["x"],
-                                    plt.EqualsData(
-                                        transform_output_map(self.key_typ)(
-                                            plt.Var("key")
-                                        ),
-                                        plt.FstPair(plt.Var("x")),
-                                    ),
-                                ),
-                                # this is a bit ugly... we wrap - only to later unwrap again
-                                plt.MkPairData(
+            return plt.Lambda(
+                ["self", "key", "default", "_"],
+                transform_ext_params_map(self.value_typ)(
+                    plt.SndPair(
+                        plt.FindList(
+                            plt.Var("self"),
+                            plt.Lambda(
+                                ["x"],
+                                plt.EqualsData(
                                     transform_output_map(self.key_typ)(plt.Var("key")),
-                                    transform_output_map(self.value_typ)(
-                                        plt.Var("default")
-                                    ),
+                                    plt.FstPair(plt.Var("x")),
+                                ),
+                            ),
+                            # this is a bit ugly... we wrap - only to later unwrap again
+                            plt.MkPairData(
+                                transform_output_map(self.key_typ)(plt.Var("key")),
+                                transform_output_map(self.value_typ)(
+                                    plt.Var("default")
                                 ),
                             ),
                         ),
                     ),
-                )
+                ),
             )
         if attr == "keys":
-            return make_pattern(
-                plt.Lambda(
-                    ["self", "_"],
-                    plt.MapList(
-                        plt.Var("self"),
-                        plt.Lambda(
-                            ["x"],
-                            transform_ext_params_map(self.key_typ)(
-                                plt.FstPair(plt.Var("x"))
-                            ),
+            return plt.Lambda(
+                ["self", "_"],
+                plt.MapList(
+                    plt.Var("self"),
+                    plt.Lambda(
+                        ["x"],
+                        transform_ext_params_map(self.key_typ)(
+                            plt.FstPair(plt.Var("x"))
                         ),
-                        empty_list(self.key_typ),
                     ),
-                )
+                    empty_list(self.key_typ),
+                ),
             )
         if attr == "values":
             return plt.Lambda(

@@ -18,7 +18,6 @@ hypothesis.settings.load_profile(PLUTUS_VM_PROFILE)
 class BuiltinTest(unittest.TestCase):
     @given(xs=st.lists(st.booleans()))
     def test_all(self, xs):
-
         source_code = """
 def validator(x: List[bool]) -> bool:
     return all(x)
@@ -28,7 +27,6 @@ def validator(x: List[bool]) -> bool:
 
     @given(xs=st.lists(st.booleans()))
     def test_any(self, xs):
-
         source_code = """
 def validator(x: List[bool]) -> bool:
     return any(x)
@@ -38,7 +36,6 @@ def validator(x: List[bool]) -> bool:
 
     @given(i=st.integers())
     def test_abs(self, i):
-
         source_code = """
 def validator(x: int) -> int:
     return abs(x)
@@ -52,7 +49,6 @@ def validator(x: int) -> int:
         )
     )
     def test_bytes_int_list(self, xs):
-
         source_code = """
 def validator(x: List[int]) -> bytes:
     return bytes(x)
@@ -69,7 +65,6 @@ def validator(x: List[int]) -> bytes:
 
     @given(x=st.integers(min_value=-1000, max_value=1000))
     def test_bytes_int(self, x):
-
         source_code = """
 def validator(x: int) -> bytes:
     return bytes(x)
@@ -86,7 +81,6 @@ def validator(x: int) -> bytes:
 
     @given(x=st.binary())
     def test_bytes_bytes(self, x):
-
         source_code = """
 def validator(x: bytes) -> bytes:
     return bytes(x)
@@ -105,7 +99,6 @@ def validator(x: bytes) -> bytes:
     @example(256)
     @example(0)
     def test_chr(self, i):
-
         source_code = """
 def validator(x: int) -> str:
     return chr(x)
@@ -126,7 +119,6 @@ def validator(x: int) -> str:
     @example(-1)
     @example(100)
     def test_hex(self, x):
-
         source_code = """
 def validator(x: int) -> str:
     return hex(x)
@@ -150,7 +142,6 @@ def validator(x: int) -> str:
     @example("0_")
     # @example("0\n")  # stripping is broken
     def test_int_string(self, xs: str):
-
         source_code = """
 def validator(x: str) -> int:
     return int(x)
@@ -167,7 +158,6 @@ def validator(x: str) -> int:
 
     @given(xs=st.booleans())
     def test_int_bool(self, xs: bool):
-
         source_code = """
 def validator(x: bool) -> int:
     return int(x)
@@ -184,7 +174,6 @@ def validator(x: bool) -> int:
 
     @given(xs=st.integers())
     def test_int_int(self, xs: int):
-
         source_code = """
 def validator(x: int) -> int:
     return int(x)
@@ -201,7 +190,6 @@ def validator(x: int) -> int:
 
     @given(i=st.binary())
     def test_len_bytestring(self, i):
-
         source_code = """
 def validator(x: bytes) -> int:
     return len(x)
@@ -212,7 +200,6 @@ def validator(x: bytes) -> int:
 
     @given(xs=st.lists(st.integers()))
     def test_len_lists(self, xs):
-
         source_code = """
 def validator(x: List[int]) -> int:
     return len(x)
@@ -222,7 +209,6 @@ def validator(x: List[int]) -> int:
 
     @given(xs=st.lists(st.integers()))
     def test_max(self, xs):
-
         source_code = """
 def validator(x: List[int]) -> int:
     return max(x)
@@ -239,7 +225,6 @@ def validator(x: List[int]) -> int:
 
     @given(xs=st.lists(st.integers()))
     def test_min(self, xs):
-
         source_code = """
 def validator(x: List[int]) -> int:
     return min(x)
@@ -275,7 +260,6 @@ def validator(x: int, y: int) -> int:
     @example(-1)
     @example(100)
     def test_oct(self, x):
-
         source_code = """
 def validator(x: int) -> str:
     return oct(x)
@@ -285,7 +269,6 @@ def validator(x: int) -> str:
 
     @given(i=st.integers(max_value=100))
     def test_range(self, i):
-
         source_code = """
 def validator(x: int) -> List[int]:
     return range(x)
@@ -300,7 +283,6 @@ def validator(x: int) -> List[int]:
     @example(-1)
     @example(100)
     def test_str_int(self, x):
-
         source_code = """
 def validator(x: int) -> str:
     return str(x)
@@ -310,7 +292,6 @@ def validator(x: int) -> str:
 
     @given(x=st.booleans())
     def test_str_bool(self, x):
-
         source_code = """
 def validator(x: bool) -> str:
     return str(x)
@@ -320,7 +301,6 @@ def validator(x: bool) -> str:
 
     @given(xs=st.lists(st.integers()))
     def test_sum(self, xs):
-
         source_code = """
 def validator(x: List[int]) -> int:
     return sum(x)
@@ -330,7 +310,6 @@ def validator(x: List[int]) -> int:
 
     @given(xs=st.lists(st.integers()))
     def test_reversed(self, xs):
-
         source_code = """
 def validator(x: List[int]) -> List[int]:
     return reversed(x)
@@ -342,7 +321,6 @@ def validator(x: List[int]) -> List[int]:
 
     @given(x=st.integers())
     def test_bool_constr_int(self, x):
-
         source_code = """
 def validator(x: int) -> bool:
     return bool(x)
@@ -352,7 +330,6 @@ def validator(x: int) -> bool:
 
     @given(x=st.text())
     def test_bool_constr_str(self, x):
-
         source_code = """
 def validator(x: str) -> bool:
     return bool(x)
@@ -362,7 +339,6 @@ def validator(x: str) -> bool:
 
     @given(x=st.binary())
     def test_bool_constr_bytes(self, x):
-
         source_code = """
 def validator(x: bytes) -> bool:
     return bool(x)
@@ -372,7 +348,6 @@ def validator(x: bytes) -> bool:
 
     @given(x=st.none())
     def test_bool_constr_none(self, x):
-
         source_code = """
 def validator(x: None) -> bool:
     return bool(x)
@@ -382,7 +357,6 @@ def validator(x: None) -> bool:
 
     @given(x=st.booleans())
     def test_bool_constr_bool(self, x):
-
         source_code = """
 def validator(x: bool) -> bool:
     return bool(x)
@@ -392,7 +366,6 @@ def validator(x: bool) -> bool:
 
     @given(xs=st.lists(st.integers()))
     def test_bool_constr_list(self, xs):
-
         source_code = """
 def validator(x: List[int]) -> bool:
     return bool(x)
@@ -402,7 +375,6 @@ def validator(x: List[int]) -> bool:
 
     @given(xs=st.dictionaries(st.integers(), st.binary()))
     def test_bool_constr_dict(self, xs):
-
         source_code = """
 def validator(x: Dict[int, str]) -> bool:
     return bool(x)
@@ -412,7 +384,6 @@ def validator(x: Dict[int, str]) -> bool:
 
     @given(x=st.integers(), y=st.booleans(), z=st.none())
     def test_print_compile(self, x, y, z):
-
         source_code = """
 def validator(x: int, y: bool, z: None) -> None:
     print(x, y, z)
