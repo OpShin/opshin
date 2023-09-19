@@ -18,7 +18,7 @@ from uplc.ast import (
 )
 
 from . import PLUTUS_VM_PROFILE
-from .utils import eval_uplc, eval_uplc_value
+from .utils import eval_uplc, eval_uplc_value, Unit
 from .. import compiler
 
 hypothesis.settings.load_profile(PLUTUS_VM_PROFILE)
@@ -325,7 +325,7 @@ def validator(x: int, y: str) -> str:
     return x * y
             """
         ret = eval_uplc_value(source_code, x, y.encode("utf8"))
-        self.assertEqual(ret, x * y, "* returned wrong value")
+        self.assertEqual(ret.decode("utf8"), x * y, "* returned wrong value")
 
     @given(x=st.text(), y=st.integers(min_value=0, max_value=150))
     def test_mul_str_int(self, x, y):
@@ -334,7 +334,7 @@ def validator(x: str, y: int) -> str:
     return x * y
             """
         ret = eval_uplc_value(source_code, x.encode("utf8"), y)
-        self.assertEqual(ret, x * y, "* returned wrong value")
+        self.assertEqual(ret.decode("utf8"), x * y, "* returned wrong value")
 
     @given(x=st.integers(min_value=0, max_value=150), y=st.binary())
     def test_mul_int_bytes(self, x, y):
@@ -418,7 +418,7 @@ def validator(x: bytes) -> str:
 def validator(x: None) -> str:
     return f"{x}"
             """
-        ret = eval_uplc_value(source_code, x).decode("utf8")
+        ret = eval_uplc_value(source_code, Unit()).decode("utf8")
         self.assertEqual(ret, f"{x}", "none string formatting returned wrong value")
 
     @given(
