@@ -1,11 +1,15 @@
 import typing
 
 import ast
+from functools import lru_cache
+from dataclasses import dataclass
+
 import pycardano
 from frozendict import frozendict
 from frozenlist2 import frozenlist
 
 import uplc.ast as uplc
+import pluthon as plt
 
 
 def distinct(xs: list):
@@ -133,3 +137,28 @@ def custom_fix_missing_locations(node, parent=None):
     )
     _fix(node, lineno, col_offset, end_lineno, end_col_offset)
     return node
+
+
+_patterns_cached = {}
+
+
+def make_pattern(structure: plt.Lambda) -> plt.Pattern:
+    """Creates a shared pattern from the given lambda, cached so that it is re-used in subsequent calls"""
+    structure_serialized = structure.dumps()
+    if _patterns_cached.get(structure_serialized) is None:
+        params = structure.vars
+        # @dataclass
+        # class AdHocPattern(plt.Pattern):
+
+        #     def compose(self):
+        #         return structure
+        pattern_class = type(
+            "AdHocPattern", (plt.Pattern,), {"compose": lambda self: structure.term}
+        )
+        pattern_class.__annotations__ = {param: plt.AST for param in params}
+        pattern_class = dataclass(pattern_class)
+
+        _patterns_cached[structure_serialized] = plt.Lambda(
+            params, pattern_class(*(plt.Var(param) for param in params))
+        )
+    return _patterns_cached[structure_serialized]
