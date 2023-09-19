@@ -1887,6 +1887,16 @@ StrIntMulImpl = repeated_addition(plt.Text(""), plt.AppendString)
 
 
 class PolymorphicFunction:
+    def __new__(meta, *args, **kwargs):
+        klass = super().__new__(meta)
+
+        for key in ["impl_from_args"]:
+            value = getattr(klass, key)
+            wrapped = patternize(value)
+            object.__setattr__(klass, key, wrapped)
+
+        return klass
+
     def type_from_args(self, args: typing.List[Type]) -> FunctionType:
         raise NotImplementedError()
 
