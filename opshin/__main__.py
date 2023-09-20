@@ -125,8 +125,13 @@ def check_params(
     assert (
         ret_type is None or ret_type == prelude.Anything
     ), f"Expected contract to return None, but returns {ret_type}"
+
+    num_onchain_params = 3 if purpose == Purpose.spending or force_three_params else 2
+    onchain_params = validator_args[-1 - num_onchain_params : -1]
+    param_types = validator_args[: -1 - num_onchain_params]
+    required_onchain_parameters = 3 if purpose == Purpose.spending else 2
     if force_three_params:
-        datum_type = validator_args[0]
+        datum_type = onchain_params[0]
         assert (
             (
                 typing.get_origin(datum_type) == typing.Union
@@ -135,11 +140,6 @@ def check_params(
             or datum_type == prelude.Anything
             or datum_type == prelude.Nothing
         ), f"Expected contract to accept Nothing or Anything as datum since it forces three parameters, but got {datum_type}"
-
-    num_onchain_params = 3 if purpose == Purpose.spending or force_three_params else 2
-    onchain_params = validator_args[-1 - num_onchain_params : -1]
-    param_types = validator_args[: -1 - num_onchain_params]
-    required_onchain_parameters = 3 if purpose == Purpose.spending else 2
     assert (
         len(onchain_params) == required_onchain_parameters
     ), f"""\
