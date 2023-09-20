@@ -1,5 +1,6 @@
 import dataclasses
 import json
+import typing
 from ast import Module
 from typing import Optional, Any
 
@@ -42,7 +43,7 @@ def compile(
 
 def _compile(
     source_code: str,
-    *args: pycardano.Datum | uplc_ast.Constant,
+    *args: typing.Union[pycardano.Datum, uplc_ast.Constant],
     contract_file: str = "<unknown>",
     force_three_params=False,
     validator_function_name="validator",
@@ -77,7 +78,7 @@ def _compile(
 
 def build(
     contract_file: str,
-    *args: pycardano.Datum,
+    *args: typing.Union[pycardano.Datum, uplc_ast.Constant],
     force_three_params=False,
     validator_function_name="validator",
     optimize_patterns=True,
