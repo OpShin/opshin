@@ -42,7 +42,7 @@ def compile(
 
 def _compile(
     source_code: str,
-    *args: pycardano.Datum,
+    *args: pycardano.Datum | uplc_ast.Constant,
     contract_file: str = "<unknown>",
     force_three_params=False,
     validator_function_name="validator",
@@ -65,7 +65,12 @@ def _compile(
     code = code.term
     # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
     for d in args:
-        code = uplc.ast.Apply(code, uplc.ast.data_from_cbor(datum_to_cbor(d)))
+        code = uplc.ast.Apply(
+            code,
+            uplc.ast.data_from_cbor(datum_to_cbor(d))
+            if not isinstance(d, uplc_ast.Constant)
+            else d,
+        )
     code = uplc.ast.Program((1, 0, 0), code)
     return code
 

@@ -1,6 +1,7 @@
 import dataclasses
 
 import pycardano
+import uplc.ast as uplc_ast
 from pycardano import PlutusData
 from uplc import eval as uplc_eval
 
@@ -14,7 +15,7 @@ class Unit(PlutusData):
 
 def eval_uplc(
     source_code: str,
-    *args: pycardano.Datum,
+    *args: pycardano.Datum | uplc_ast.Constant,
     contract_file: str = "<unknown>",
     force_three_params=False,
     validator_function_name="validator",
@@ -33,7 +34,7 @@ def eval_uplc(
 
 def eval_uplc_value(
     source_code: str,
-    *args: pycardano.Datum,
+    *args: pycardano.Datum | uplc_ast.Constant,
     contract_file: str = "<unknown>",
     force_three_params=False,
     validator_function_name="validator",

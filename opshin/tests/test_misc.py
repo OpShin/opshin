@@ -7,10 +7,13 @@ import hypothesis
 from hypothesis import given
 from hypothesis import strategies as st
 from parameterized import parameterized
+
+import pluthon
 from uplc import ast as uplc, eval as uplc_eval
 
 from . import PLUTUS_VM_PROFILE
 from .. import compiler, prelude
+from .utils import eval_uplc_value, Unit, eval_uplc
 
 hypothesis.settings.load_profile(PLUTUS_VM_PROFILE)
 
@@ -49,14 +52,7 @@ class MiscTest(unittest.TestCase):
         input_file = "examples/smart_contracts/assert_sum.py"
         with open(input_file) as fp:
             source_code = fp.read()
-        ast = compiler.parse(source_code)
-        code = compiler.compile(ast)
-        code = code.compile()
-        f = code.term
-        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
-        for d in [uplc.PlutusInteger(20), uplc.PlutusInteger(22), uplc.BuiltinUnit()]:
-            f = uplc.Apply(f, d)
-        ret = uplc_eval(f)
+        ret = eval_uplc(source_code, 20, 22, Unit())
         self.assertEqual(ret, uplc.PlutusConstr(0, []))
 
     @unittest.expectedFailure
@@ -64,18 +60,7 @@ class MiscTest(unittest.TestCase):
         input_file = "examples/smart_contracts/assert_sum.py"
         with open(input_file) as fp:
             source_code = fp.read()
-        ast = compiler.parse(source_code)
-        code = compiler.compile(ast)
-        code = code.compile()
-        f = code.term
-        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
-        for d in [
-            uplc.PlutusInteger(0),
-            uplc.PlutusInteger(23),
-            uplc.BuiltinUnit(),
-        ]:
-            f = uplc.Apply(f, d)
-        ret = uplc_eval(f)
+        ret = eval_uplc(source_code, 0, 22, Unit())
 
     @given(
         a=st.integers(min_value=-10, max_value=10),
@@ -85,15 +70,8 @@ class MiscTest(unittest.TestCase):
         input_file = "examples/mult_for.py"
         with open(input_file) as fp:
             source_code = fp.read()
-        ast = compiler.parse(source_code)
-        code = compiler.compile(ast)
-        code = code.compile()
-        f = code.term
-        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
-        for d in [uplc.PlutusInteger(a), uplc.PlutusInteger(b)]:
-            f = uplc.Apply(f, d)
-        ret = uplc_eval(f)
-        self.assertEqual(ret, uplc.PlutusInteger(a * b))
+        ret = eval_uplc_value(source_code, a, b)
+        self.assertEqual(ret, a * b)
 
     @given(
         a=st.integers(min_value=-10, max_value=10),
@@ -103,15 +81,8 @@ class MiscTest(unittest.TestCase):
         input_file = "examples/mult_while.py"
         with open(input_file) as fp:
             source_code = fp.read()
-        ast = compiler.parse(source_code)
-        code = compiler.compile(ast)
-        code = code.compile()
-        f = code.term
-        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
-        for d in [uplc.PlutusInteger(a), uplc.PlutusInteger(b)]:
-            f = uplc.Apply(f, d)
-        ret = uplc_eval(f)
-        self.assertEqual(ret, uplc.PlutusInteger(a * b))
+        ret = eval_uplc_value(source_code, a, b)
+        self.assertEqual(ret, a * b)
 
     @given(
         a=st.integers(),
@@ -121,15 +92,8 @@ class MiscTest(unittest.TestCase):
         input_file = "examples/sum.py"
         with open(input_file) as fp:
             source_code = fp.read()
-        ast = compiler.parse(source_code)
-        code = compiler.compile(ast)
-        code = code.compile()
-        f = code.term
-        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
-        for d in [uplc.PlutusInteger(a), uplc.PlutusInteger(b)]:
-            f = uplc.Apply(f, d)
-        ret = uplc_eval(f)
-        self.assertEqual(ret, uplc.PlutusInteger(a + b))
+        ret = eval_uplc_value(source_code, a, b)
+        self.assertEqual(ret, a + b)
 
     def test_complex_datum_correct_vals(self):
         input_file = "examples/complex_datum.py"
@@ -137,7 +101,7 @@ class MiscTest(unittest.TestCase):
             source_code = fp.read()
         ast = compiler.parse(source_code)
         code = compiler.compile(ast)
-        code = code.compile()
+        code = pluthon.compile(code)
         f = code.term
         # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
         for d in [
@@ -162,29 +126,17 @@ class MiscTest(unittest.TestCase):
         input_file = "examples/hello_world.py"
         with open(input_file) as fp:
             source_code = fp.read()
-        ast = compiler.parse(source_code)
-        code = compiler.compile(ast)
-        code = code.compile()
-        f = code.term
-        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
-        for d in [uplc.PlutusConstr(0, [])]:
-            f = uplc.Apply(f, d)
-        ret = uplc_eval(f)
+        ret = eval_uplc(source_code, Unit())
 
     def test_list_datum_correct_vals(self):
         input_file = "examples/list_datum.py"
         with open(input_file) as fp:
             source_code = fp.read()
-        ast = compiler.parse(source_code)
-        code = compiler.compile(ast)
-        code = code.compile()
-        f = code.term
-        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
-        for d in [uplc.data_from_cbor(bytes.fromhex("d8799f9f41014102ffff"))]:
-            f = uplc.Apply(f, d)
-        ret = uplc_eval(f)
+        ret = eval_uplc_value(
+            source_code, uplc.data_from_cbor(bytes.fromhex("d8799f9f41014102ffff"))
+        )
         self.assertEqual(
-            uplc.PlutusInteger(1),
+            1,
             ret,
         )
 
@@ -192,16 +144,9 @@ class MiscTest(unittest.TestCase):
         input_file = "examples/showcase.py"
         with open(input_file) as fp:
             source_code = fp.read()
-        ast = compiler.parse(source_code)
-        code = compiler.compile(ast)
-        code = code.compile()
-        f = code.term
-        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
-        for d in [uplc.PlutusInteger(1)]:
-            f = uplc.Apply(f, d)
-        ret = uplc_eval(f)
+        ret = eval_uplc_value(source_code, 1)
         self.assertEqual(
-            uplc.PlutusInteger(42),
+            42,
             ret,
         )
 
@@ -210,16 +155,9 @@ class MiscTest(unittest.TestCase):
         input_file = "examples/fib_iter.py"
         with open(input_file) as fp:
             source_code = fp.read()
-        ast = compiler.parse(source_code)
-        code = compiler.compile(ast)
-        code = code.compile()
-        f = code.term
-        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
-        for d in [uplc.PlutusInteger(n)]:
-            f = uplc.Apply(f, d)
-        ret = uplc_eval(f)
+        ret = eval_uplc_value(source_code, n)
         self.assertEqual(
-            uplc.PlutusInteger(fib(n)),
+            fib(n),
             ret,
         )
 
@@ -228,16 +166,9 @@ class MiscTest(unittest.TestCase):
         input_file = "examples/fib_rec.py"
         with open(input_file) as fp:
             source_code = fp.read()
-        ast = compiler.parse(source_code)
-        code = compiler.compile(ast)
-        code = code.compile()
-        f = code.term
-        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
-        for d in [uplc.PlutusInteger(n)]:
-            f = uplc.Apply(f, d)
-        ret = uplc_eval(f)
+        ret = eval_uplc_value(source_code, n)
         self.assertEqual(
-            uplc.PlutusInteger(fib(n)),
+            fib(n),
             ret,
         )
 
@@ -245,12 +176,8 @@ class MiscTest(unittest.TestCase):
         input_file = "examples/smart_contracts/gift.py"
         with open(input_file) as fp:
             source_code = fp.read()
-        ast = compiler.parse(source_code)
-        code = compiler.compile(ast)
-        code = code.compile()
-        f = code.term
-        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
-        for d in [
+        ret = eval_uplc(
+            source_code,
             uplc.PlutusConstr(
                 0,
                 [
@@ -269,9 +196,7 @@ class MiscTest(unittest.TestCase):
                     )
                 )
             ),
-        ]:
-            f = uplc.Apply(f, d)
-        ret = uplc_eval(f)
+        )
         self.assertEqual(ret, uplc.PlutusConstr(0, []))
 
     @unittest.expectedFailure
@@ -279,13 +204,9 @@ class MiscTest(unittest.TestCase):
         input_file = "examples/smart_contracts/gift.py"
         with open(input_file) as fp:
             source_code = fp.read()
-        ast = compiler.parse(source_code)
-        code = compiler.compile(ast)
-        code = code.compile()
-        f = code.term
-        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
         # required sig missing int this script context
-        for d in [
+        ret = eval_uplc(
+            source_code,
             uplc.PlutusConstr(
                 0,
                 [
@@ -304,9 +225,7 @@ class MiscTest(unittest.TestCase):
                     )
                 )
             ),
-        ]:
-            f = uplc.Apply(f, d)
-        ret = uplc_eval(f)
+        )
 
     def test_recursion(self):
         source_code = """
@@ -322,43 +241,25 @@ def validator(_: None) -> int:
       return 100
     return b(1)
         """
-        ast = compiler.parse(source_code)
-        code = compiler.compile(ast)
-        code = code.compile()
-        f = code.term
-        for d in [
-            uplc.PlutusConstr(0, []),
-        ]:
-            f = uplc.Apply(f, d)
-        ret = uplc_eval(f)
-        self.assertEqual(uplc.PlutusInteger(100), ret)
+        ret = eval_uplc_value(source_code, Unit())
+        self.assertEqual(100, ret)
 
     def test_datum_cast(self):
         input_file = "examples/datum_cast.py"
         with open(input_file) as fp:
             source_code = fp.read()
-        ast = compiler.parse(source_code)
-        code = compiler.compile(ast)
-        code = code.compile()
-        f = code.term
-        # Note that this passes even though we pass in a "wrong" datum - the cast only changes the type, it does not do any checks for correctness
-        for d in [
+        ret = eval_uplc_value(
+            source_code,
             uplc.data_from_cbor(
                 bytes.fromhex(
                     "d8799fd8799fd8799f581c81aab0790f33d26bad68a6a13ae98562aa1366da48cdce20dec21acfffd8799fd8799fd8799f581c145db8343296bd214dde862a64d700c29ed8a71d58bcf865659f5463ffffffffd8799fd8799f581c81aab0790f33d26bad68a6a13ae98562aa1366da48cdce20dec21acfffd8799fd8799fd8799f581c145db8343296bd214dde862a64d700c29ed8a71d58bcf865659f5463ffffffffd87a80d8799f1a38220b0bff1a001e84801a001e8480582051176daeee7f2ce62963c50a16f641951e21b8522da262980d4dd361a9bf331b4e4d7565736c69537761705f414d4dff"
                 )
             ),
             uplc.PlutusByteString(b"test"),
-        ]:
-            f = uplc.Apply(f, d)
-        ret = uplc_eval(f)
+        )
         self.assertEqual(
-            uplc.PlutusByteString(
-                bytes.fromhex(
-                    "81aab0790f33d26bad68a6a13ae98562aa1366da48cdce20dec21acf"
-                )
-                + b"test"
-            ),
+            bytes.fromhex("81aab0790f33d26bad68a6a13ae98562aa1366da48cdce20dec21acf")
+            + b"test",
             ret,
         )
 
