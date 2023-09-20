@@ -69,7 +69,7 @@ def validator(
         assert (
             datum.pubkeyhash_alice in context.tx_info.signatories
             or datum.pubkeyhash_bob in context.tx_info.signatories
-        ), "Neither Alice nor Bob signed the transaction"
+        ), f"Neither Alice nor Bob signed the transaction, signatory list: {context.tx_info.signatories}"
         # Ensure that all participants receive their amounts
         amount_alice = 0
         amount_bob = 0
@@ -80,18 +80,12 @@ def validator(
                 amount_alice += o.value.get(b"", {b"": 0}).get(b"", 0)
             elif pkh == datum.pubkeyhash_bob:
                 amount_bob += o.value.get(b"", {b"": 0}).get(b"", 0)
-        assert amount_alice >= datum.balance_alice, (
-            "Alice does not receive enough, expecting "
-            + str(datum.balance_alice)
-            + ", receiving "
-            + str(amount_alice)
-        )
-        assert amount_bob >= datum.balance_bob, (
-            "Bob does not receive enough, expecting "
-            + str(datum.balance_bob)
-            + ", receiving "
-            + str(amount_bob)
-        )
+        assert (
+            amount_alice >= datum.balance_alice
+        ), f"Alice does not receive enough, expecting {datum.balance_alice}, receiving {amount_alice}"
+        assert (
+            amount_bob >= datum.balance_bob
+        ), f"Bob does not receive enough, expecting {datum.balance_bob}, receiving {amount_bob}"
         # That's it!
     elif isinstance(redeemer, Micropayments):
         # Squash apply the micropayments
@@ -100,8 +94,12 @@ def validator(
         nonce = datum.nonce
         # Ensure that the payments are all valid and accumulate state
         for payment in redeemer.payments:
-            assert payment.nonce > nonce, "Invalid nonce, replay attack detected"
-            assert payment.amount > 0, "Invalid amount transfer, must be positive"
+            assert (
+                payment.nonce > nonce
+            ), f"Invalid nonce, replay attack detected ({payment.nonce} <= {nonce})"
+            assert (
+                payment.amount > 0
+            ), f"Invalid amount transfer {payment.amount}, must be positive"
             nonce = payment.nonce
             if isinstance(payment, MicropaymentAlice):
                 assert verify_ed25519_signature(
@@ -138,9 +136,11 @@ def validator(
             for tokenname, amount in tn_dict.items():
                 assert (
                     amount <= cont_tx_out.value[pid][tokenname]
-                ), "Value of token in payment channel has decreased"
+                ), f"Value of token in payment channel has decreased from {amount} to {cont_tx_out.value[pid][tokenname]}"
         cont_datum = cont_tx_out.datum
-        assert isinstance(cont_datum, SomeOutputDatum), "Must inline attached datum"
+        assert isinstance(
+            cont_datum, SomeOutputDatum
+        ), f"Must inline attached datum, got {cont_datum}"
         # We cast the datum to payment channel (it is stored without structure in the ledger)
         cont_datum_content: PaymentChannel = cont_datum.datum
         # Ensure that the state is correctly updated
