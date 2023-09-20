@@ -884,6 +884,17 @@ files = [
 ]
 
 [[package]]
+name = "graphlib-backport"
+version = "1.0.3"
+description = "Backport of the Python 3.9 graphlib module for Python 3.6+"
+optional = false
+python-versions = ">=3.6,<4.0"
+files = [
+    {file = "graphlib_backport-1.0.3-py3-none-any.whl", hash = "sha256:24246967b9e7e6a91550bc770e6169585d35aa32790258579a8a3899a8c18fde"},
+    {file = "graphlib_backport-1.0.3.tar.gz", hash = "sha256:7bb8fc7757b8ae4e6d8000a26cd49e9232aaa9a3aa57edb478474b8424bfaae2"},
+]
+
+[[package]]
 name = "hypothesis"
 version = "6.84.1"
 description = "A library for property-based testing"
@@ -1317,16 +1328,17 @@ testing = ["pytest", "pytest-benchmark"]
 
 [[package]]
 name = "pluthon"
-version = "0.3.9"
+version = "0.4.0"
 description = "Pluto-like programming language for Cardano Smart Contracts in Python"
 optional = false
 python-versions = ">=3"
 files = [
-    {file = "pluthon-0.3.9-py3-none-any.whl", hash = "sha256:73a3cda587cb4cbbd58a15006701c01cf1cb9c533b12b08e664391c00645df35"},
-    {file = "pluthon-0.3.9.tar.gz", hash = "sha256:6dffe144abc5fe7f8bc771fb3e8375a265f6105ab5c8fcf759ed1e4563ded36b"},
+    {file = "pluthon-0.4.0-py3-none-any.whl", hash = "sha256:b8a2cc43a977483e058477b6a8f1f1046e985fa9bbc4a7e1e168820671daf805"},
+    {file = "pluthon-0.4.0.tar.gz", hash = "sha256:40eb1b88e811702c01f2f839ae0247ec9f6704c7d857540488bda450490dd8e6"},
 ]
 
 [package.dependencies]
+graphlib-backport = {version = ">=1.0.0", markers = "python_version < \"3.9\""}
 uplc = ">=0.6.2,<0.7.0"
 
 [[package]]
@@ -2181,4 +2193,4 @@ testing = ["big-O", "jaraco.functools", "jaraco.itertools", "more-itertools", "p
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.8, <3.11"
-content-hash = "03a3c6a6c8062a5009f44af5c2001986ab1786c8ca3b8d3a6db32cd4cc3c2876"
+content-hash = "3907d738632e6c73c76408633ceab6102bb470de6b7c7b23549f8b7b22ace4dc"
