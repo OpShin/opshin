@@ -1,6 +1,8 @@
 import logging
 from ast import *
 from dataclasses import dataclass
+from functools import lru_cache
+
 import itertools
 
 import pluthon as plt
@@ -16,6 +18,16 @@ class TypeInferenceError(AssertionError):
 
 
 class Type:
+    def __new__(meta, *args, **kwargs):
+        klass = super().__new__(meta)
+
+        for key in ["constr", "attribute", "cmp", "stringify", "copy_only_attributes"]:
+            value = getattr(klass, key)
+            wrapped = patternize(value)
+            object.__setattr__(klass, key, wrapped)
+
+        return klass
+
     def constr_type(self) -> "InstanceType":
         """The type of the constructor for this class"""
         raise TypeInferenceError(
@@ -195,7 +207,8 @@ class AnyType(ClassType):
                                         ],
                                         plt.Ite(
                                             plt.LessThanInteger(
-                                                plt.Var("constructor"), plt.Integer(128)
+                                                plt.Var("constructor"),
+                                                plt.Integer(128),
                                             ),
                                             plt.ConcatString(
                                                 plt.Text("CBORTag("),
@@ -428,7 +441,8 @@ class RecordType(ClassType):
                         plt.FindList(
                             plt.Var("y"),
                             plt.Apply(
-                                plt.BuiltIn(uplc.BuiltInFun.EqualsData), plt.Var("x")
+                                plt.BuiltIn(uplc.BuiltInFun.EqualsData),
+                                plt.Var("x"),
                             ),
                             # this simply ensures the default is always unequal to the searched value
                             plt.ConstrData(
@@ -597,7 +611,8 @@ class UnionType(ClassType):
                     plt.NthField(
                         plt.Var("self"),
                         plt.Let(
-                            [("constr", plt.Constructor(plt.Var("self")))], pos_decisor
+                            [("constr", plt.Constructor(plt.Var("self")))],
+                            pos_decisor,
                         ),
                     ),
                 ),
@@ -650,7 +665,8 @@ class UnionType(ClassType):
                         plt.FindList(
                             plt.Var("y"),
                             plt.Apply(
-                                plt.BuiltIn(uplc.BuiltInFun.EqualsData), plt.Var("x")
+                                plt.BuiltIn(uplc.BuiltInFun.EqualsData),
+                                plt.Var("x"),
                             ),
                             # this simply ensures the default is always unequal to the searched value
                             plt.ConstrData(
@@ -1831,6 +1847,16 @@ StrIntMulImpl = repeated_addition(plt.Text(""), plt.AppendString)
 
 
 class PolymorphicFunction:
+    def __new__(meta, *args, **kwargs):
+        klass = super().__new__(meta)
+
+        for key in ["impl_from_args"]:
+            value = getattr(klass, key)
+            wrapped = patternize(value)
+            object.__setattr__(klass, key, wrapped)
+
+        return klass
+
     def type_from_args(self, args: typing.List[Type]) -> FunctionType:
         raise NotImplementedError()
 

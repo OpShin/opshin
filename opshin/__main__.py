@@ -15,6 +15,7 @@ import ast
 import pycardano
 from pycardano import PlutusData
 
+import pluthon
 import uplc
 import uplc.ast
 
@@ -291,7 +292,7 @@ Note that opshin errors may be overly restrictive as they aim to prevent code wi
     if command == Command.compile_pluto:
         print(code.dumps())
         return
-    code = code.compile()
+    code = pluthon.compile(code)
 
     # apply parameters from the command line to the contract (instantiates parameterized contract!)
     code = code.term
