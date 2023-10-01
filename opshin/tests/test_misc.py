@@ -273,7 +273,7 @@ def validator(_: None) -> int:
         input_file = "examples/smart_contracts/marketplace.py"
         with open(input_file) as fp:
             source_code = fp.read()
-        builder._compile(source_code, force_three_params=True)
+        builder._compile(source_code)
 
     @unittest.expectedFailure
     def test_marketplace_compile_fail(self):
