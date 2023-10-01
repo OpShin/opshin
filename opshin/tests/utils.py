@@ -21,6 +21,9 @@ def eval_uplc(
     force_three_params=False,
     validator_function_name="validator",
     optimize_patterns=True,
+    remove_dead_code=True,
+    constant_folding=False,
+    allow_isinstance_anything=False,
 ):
     code = _compile(
         source_code,
@@ -29,6 +32,9 @@ def eval_uplc(
         force_three_params=force_three_params,
         validator_function_name=validator_function_name,
         optimize_patterns=optimize_patterns,
+        remove_dead_code=remove_dead_code,
+        constant_folding=constant_folding,
+        allow_isinstance_anything=allow_isinstance_anything,
     )
     return uplc_eval(code)
 
@@ -40,6 +46,9 @@ def eval_uplc_value(
     force_three_params=False,
     validator_function_name="validator",
     optimize_patterns=True,
+    remove_dead_code=True,
+    constant_folding=False,
+    allow_isinstance_anything=False,
 ):
     return eval_uplc(
         source_code,
@@ -48,4 +57,7 @@ def eval_uplc_value(
         force_three_params=force_three_params,
         validator_function_name=validator_function_name,
         optimize_patterns=optimize_patterns,
+        remove_dead_code=remove_dead_code,
+        constant_folding=constant_folding,
+        allow_isinstance_anything=allow_isinstance_anything,
     ).value

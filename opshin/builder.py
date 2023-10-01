@@ -29,6 +29,9 @@ def compile(
     contract_filename: Optional[str] = None,
     force_three_params=False,
     validator_function_name="validator",
+    remove_dead_code=True,
+    constant_folding=False,
+    allow_isinstance_anything=False,
     **pluto_kwargs: Any,
 ) -> uplc_ast.Program:
     code = compiler.compile(
@@ -36,6 +39,9 @@ def compile(
         filename=contract_filename,
         force_three_params=force_three_params,
         validator_function_name=validator_function_name,
+        remove_dead_code=remove_dead_code,
+        constant_folding=constant_folding,
+        allow_isinstance_anything=allow_isinstance_anything,
     )
     plt_code = plt_compile(code, **pluto_kwargs)
     return plt_code
@@ -48,6 +54,9 @@ def _compile(
     force_three_params=False,
     validator_function_name="validator",
     optimize_patterns=True,
+    remove_dead_code=True,
+    constant_folding=False,
+    allow_isinstance_anything=False,
 ):
     """
     Expects a python module and returns the build artifacts from compiling it
@@ -60,6 +69,9 @@ def _compile(
         force_three_params=force_three_params,
         validator_function_name=validator_function_name,
         optimize_patterns=optimize_patterns,
+        remove_dead_code=remove_dead_code,
+        constant_folding=constant_folding,
+        allow_isinstance_anything=allow_isinstance_anything,
     )
 
     # apply parameters from the command line to the contract (instantiates parameterized contract!)

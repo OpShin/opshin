@@ -13,7 +13,7 @@ import pluthon
 from uplc import ast as uplc, eval as uplc_eval
 
 from . import PLUTUS_VM_PROFILE
-from .. import compiler, prelude, plt_compile
+from .. import compiler, prelude, builder
 from .utils import eval_uplc_value, Unit, eval_uplc
 
 hypothesis.settings.load_profile(PLUTUS_VM_PROFILE)
@@ -259,54 +259,35 @@ def validator(_: None) -> int:
         input_file = "examples/smart_contracts/wrapped_token.py"
         with open(input_file) as fp:
             source_code = fp.read()
-        ast = compiler.parse(source_code)
-        code = compiler.compile(ast, force_three_params=True)
-        code = plt_compile(code)
-        f = code.term
+        builder._compile(source_code, force_three_params=True)
 
     def test_dual_use_compile(self):
         # TODO devise tests for this
         input_file = "examples/smart_contracts/dual_use.py"
         with open(input_file) as fp:
             source_code = fp.read()
-        ast = compiler.parse(source_code)
-        code = compiler.compile(ast, force_three_params=True)
-        code = plt_compile(code)
-        f = code.term
+        builder._compile(source_code, force_three_params=True)
 
     def test_marketplace_compile(self):
         # TODO devise tests for this
         input_file = "examples/smart_contracts/marketplace.py"
         with open(input_file) as fp:
             source_code = fp.read()
-        ast = compiler.parse(source_code)
-        code = compiler.compile(ast)
-        code = plt_compile(code)
-        f = code.term
+        builder._compile(source_code, force_three_params=True)
 
+    @unittest.expectedFailure
     def test_marketplace_compile_fail(self):
-        # TODO devise tests for this
         input_file = "examples/smart_contracts/marketplace.py"
         with open(input_file) as fp:
             source_code = fp.read()
-        ast = compiler.parse(source_code)
-        try:
-            code = compiler.compile(ast, force_three_params=True)
-            self.fail(
-                "Allowed to compile an incompatible contract with three parameters"
-            )
-        except Exception:
-            pass
+        builder._compile(source_code, force_three_params=True)
 
     def test_parameterized_compile(self):
         # TODO devise tests for this
         input_file = "examples/smart_contracts/parameterized.py"
         with open(input_file) as fp:
             source_code = fp.read()
-        ast = compiler.parse(source_code)
-        code = compiler.compile(ast)
-        code = plt_compile(code)
-        f = code.term
+        builder._compile(source_code, force_three_params=True)
 
     def test_dict_datum(self):
         input_file = "examples/dict_datum.py"
@@ -718,7 +699,7 @@ def validator(x: int) -> str:
     b: str = x
     return b
 """
-        ret = eval_uplc(source_code, 0)
+        builder._compile(source_code)
 
     def test_typecast_int_int(self):
         source_code = """
@@ -763,9 +744,7 @@ def validator(x: None) -> None:
     if False:
         b()
 """
-        ast = compiler.parse(source_code)
-        code = compiler.compile(ast).compile()
-        res = uplc_eval(uplc.Apply(code, uplc.PlutusInteger(0)))
+        eval_uplc(source_code, 0)
 
     @unittest.expectedFailure
     def test_zero_ary_method_exec(self):
@@ -775,9 +754,7 @@ def validator(x: None) -> None:
     if True:
         b()
 """
-        ast = compiler.parse(source_code)
-        code = compiler.compile(ast).compile()
-        res = uplc_eval(uplc.Apply(code, uplc.PlutusInteger(0)))
+        eval_uplc(source_code, 0)
 
     def test_zero_ary_method_exec_suc(self):
         source_code = """
@@ -785,10 +762,8 @@ def validator(x: None) -> str:
     b = b"\\x32".decode
     return b()
 """
-        ast = compiler.parse(source_code)
-        code = compiler.compile(ast).compile()
-        res = uplc_eval(uplc.Apply(code, uplc.PlutusInteger(0)))
-        self.assertEqual(res.value, b"\x32")
+        res = eval_uplc_value(source_code, 0)
+        self.assertEqual(res, b"\x32")
 
     def test_return_anything(self):
         source_code = """
@@ -797,9 +772,7 @@ from opshin.prelude import *
 def validator() -> Anything:
     return b""
 """
-        ast = compiler.parse(source_code)
-        code = compiler.compile(ast).compile()
-        res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
+        res = eval_uplc(source_code, 0)
         self.assertEqual(res, uplc.PlutusByteString(b""))
 
     def test_no_return_annotation(self):
@@ -809,9 +782,7 @@ from opshin.prelude import *
 def validator():
     return b""
 """
-        ast = compiler.parse(source_code)
-        code = compiler.compile(ast).compile()
-        res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
+        res = eval_uplc(source_code, 0)
         self.assertEqual(res, uplc.PlutusByteString(b""))
 
     def test_no_parameter_annotation(self):
@@ -822,9 +793,7 @@ def validator(a) -> bytes:
     b: bytes = a
     return b
 """
-        ast = compiler.parse(source_code)
-        code = compiler.compile(ast).compile()
-        res = uplc_eval(uplc.Apply(code, uplc.PlutusByteString(b"")))
+        res = eval_uplc(source_code, b"")
         self.assertEqual(res, uplc.PlutusByteString(b""))
 
     @given(xs=st.dictionaries(st.integers(), st.binary()))
@@ -837,18 +806,7 @@ def validator(xs: Dict[int, bytes]) -> bytes:
         sum_values += x
     return sum_values
 """
-        ast = compiler.parse(source_code)
-        code = compiler.compile(ast)
-        code = code.compile()
-        f = code.term
-        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
-        for d in [
-            uplc.PlutusMap(
-                {uplc.PlutusInteger(k): uplc.PlutusByteString(v) for k, v in xs.items()}
-            )
-        ]:
-            f = uplc.Apply(f, d)
-        ret = uplc_eval(f).value
+        ret = eval_uplc_value(source_code, xs)
         self.assertEqual(
             ret,
             b"".join(xs.values()),
@@ -861,13 +819,7 @@ def validator(xs) -> int:
     a, ((b, c), d) = (1, ((2, 3), 4))
     return a + b + c + d
 """
-        ast = compiler.parse(source_code)
-        code = compiler.compile(ast)
-        code = code.compile()
-        f = code.term
-        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
-        f = uplc.Apply(f, uplc.PlutusConstr(0, []))
-        ret = uplc_eval(f).value
+        ret = eval_uplc_value(source_code, Unit())
         self.assertEqual(
             ret,
             1 + 2 + 3 + 4,
@@ -891,26 +843,7 @@ def validator(xs: Dict[bytes, Dict[bytes, int]]) -> int:
             sum_values += tk_amount
     return sum_values
 """
-        ast = compiler.parse(source_code)
-        code = compiler.compile(ast)
-        code = code.compile()
-        f = code.term
-        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
-        for d in [
-            uplc.PlutusMap(
-                {
-                    uplc.PlutusByteString(k): uplc.PlutusMap(
-                        {
-                            uplc.PlutusByteString(k2): uplc.PlutusInteger(v2)
-                            for k2, v2 in v.items()
-                        }
-                    )
-                    for k, v in xs.items()
-                }
-            )
-        ]:
-            f = uplc.Apply(f, d)
-        ret = uplc_eval(f).value
+        ret = eval_uplc_value(source_code, xs)
         self.assertEqual(
             ret,
             sum(v for pid, d in xs.items() for nam, v in d.items()),
@@ -924,11 +857,10 @@ from opshin.prelude import *
 def validator(a):
     pass
 """
-        ast = compiler.parse(source_code)
-        code = compiler.compile(ast).compile()
-        res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
+        res = eval_uplc(source_code, 0)
         self.assertEqual(res, uplc.PlutusConstr(0, []))
 
+    @unittest.expectedFailure
     def test_opt_unsafe_cast(self):
         # test that unsafe casts are not optimized away
         source_code = """
@@ -938,21 +870,7 @@ def validator(x: Token) -> bool:
     a: int = b
     return True
         """
-        ast = compiler.parse(source_code)
-        code = compiler.compile(ast)
-        code = code.compile()
-        f = code.term
-        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
-        try:
-            for d in [
-                uplc.PlutusConstr(0, []),
-            ]:
-                f = uplc.Apply(f, d)
-            ret = uplc_eval(f)
-            failed = False
-        except Exception as e:
-            failed = True
-        self.assertTrue(failed, "Machine did validate the content")
+        ret = eval_uplc(source_code, Unit())
 
     def test_constant_folding(self):
         source_code = """
@@ -961,10 +879,8 @@ from opshin.prelude import *
 def validator(_: None) -> bytes:
     return bytes.fromhex("0011")
 """
-        ast = compiler.parse(source_code)
-        code = compiler.compile(ast, constant_folding=True).compile()
-        res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
-        self.assertEqual(res, uplc.PlutusByteString(bytes.fromhex("0011")))
+        res = eval_uplc_value(source_code, Unit(), constant_folding=True)
+        self.assertEqual(res, bytes.fromhex("0011"))
 
     @unittest.expectedFailure
     def test_constant_folding_disabled(self):
@@ -974,8 +890,7 @@ from opshin.prelude import *
 def validator(_: None) -> bytes:
     return bytes.fromhex("0011")
 """
-        ast = compiler.parse(source_code)
-        code = compiler.compile(ast, constant_folding=False).compile()
+        eval_uplc(source_code, Unit(), constant_folding=False)
 
     def test_constant_folding_list(self):
         source_code = """
@@ -984,10 +899,9 @@ from opshin.prelude import *
 def validator(_: None) -> List[int]:
     return list(range(0, 10, 2))
 """
-        ast = compiler.parse(source_code)
-        code = compiler.compile(ast, constant_folding=True).compile()
+        code = builder._compile(source_code, Unit(), constant_folding=True)
         self.assertIn("(con list<integer> [0, 2, 4, 6, 8])", code.dumps())
-        res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
+        res = builder.uplc_eval(code)
         self.assertEqual(
             res, uplc.PlutusList([uplc.PlutusInteger(i) for i in range(0, 10, 2)])
         )
@@ -999,12 +913,11 @@ from opshin.prelude import *
 def validator(_: None) -> Dict[str, bool]:
     return {"s": True, "m": False}
 """
-        ast = compiler.parse(source_code)
-        code = compiler.compile(ast, constant_folding=True).compile()
+        code = builder._compile(source_code, Unit(), constant_folding=True)
         self.assertIn(
             "(con list<pair<data, data>> [[#4173, #01], [#416d, #00]]))", code.dumps()
         )
-        res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
+        res = uplc_eval(code)
         self.assertEqual(
             res,
             uplc.PlutusMap(
@@ -1022,9 +935,7 @@ from opshin.prelude import *
 def validator(_: None) -> Dict[str, List[Dict[bytes, int]]]:
     return {"s": [{b"": 0}, {b"0": 1}]}
 """
-        ast = compiler.parse(source_code)
-        code = compiler.compile(ast, constant_folding=True).compile()
-        res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
+        res = eval_uplc(source_code, Unit(), constant_folding=True)
         self.assertEqual(
             res,
             uplc.PlutusMap(
@@ -1050,10 +961,9 @@ from opshin.prelude import *
 def validator(_: None) -> PubKeyCredential:
     return PubKeyCredential(bytes.fromhex("0011"))
 """
-        ast = compiler.parse(source_code)
-        code = compiler.compile(ast, constant_folding=True).compile()
+        code = builder._compile(source_code, Unit(), constant_folding=True)
         self.assertIn("(con data #d8799f420011ff)", code.dumps())
-        res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
+        res = uplc_eval(code)
         self.assertEqual(
             res,
             uplc.PlutusConstr(
@@ -1069,10 +979,9 @@ def fib(i: int) -> int:
 def validator(_: None) -> int:
     return fib(10)
 """
-        ast = compiler.parse(source_code)
-        code = compiler.compile(ast, constant_folding=True).compile()
+        code = builder._compile(source_code, Unit(), constant_folding=True)
         self.assertIn("(con integer 55)", code.dumps())
-        res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
+        res = uplc_eval(code)
         self.assertEqual(
             res.value,
             55,
@@ -1086,9 +995,7 @@ def validator(_: None) -> int:
         a = 10
     return a
 """
-        ast = compiler.parse(source_code)
-        code = compiler.compile(ast, constant_folding=True).compile()
-        res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
+        eval_uplc(source_code, Unit(), constant_folding=True)
 
     @unittest.expectedFailure
     def test_constant_folding_for(self):
@@ -1098,9 +1005,7 @@ def validator(x: List[int]) -> int:
         a = 10
     return a
 """
-        ast = compiler.parse(source_code)
-        code = compiler.compile(ast, constant_folding=True).compile()
-        res = uplc_eval(uplc.Apply(code, uplc.PlutusList([])))
+        eval_uplc(source_code, [], constant_folding=True)
 
     @unittest.expectedFailure
     def test_constant_folding_for_target(self):
@@ -1110,9 +1015,7 @@ def validator(x: List[int]) -> int:
         a = 10
     return i
 """
-        ast = compiler.parse(source_code)
-        code = compiler.compile(ast, constant_folding=True).compile()
-        res = uplc_eval(uplc.Apply(code, uplc.PlutusList([])))
+        eval_uplc(source_code, [], constant_folding=True)
 
     @unittest.expectedFailure
     def test_constant_folding_while(self):
@@ -1122,9 +1025,7 @@ def validator(_: None) -> int:
         a = 10
     return a
 """
-        ast = compiler.parse(source_code)
-        code = compiler.compile(ast, constant_folding=True).compile()
-        res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
+        eval_uplc(source_code, Unit(), constant_folding=True)
 
     @unittest.skip("Fine from a guarantee perspective, but needs better inspection")
     def test_constant_folding_guaranteed_branch(self):
@@ -1137,9 +1038,7 @@ def validator(_: None) -> int:
         b = 2
     return b
 """
-        ast = compiler.parse(source_code)
-        code = compiler.compile(ast, constant_folding=True).compile()
-        res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
+        code = builder._compile(source_code, Unit(), constant_folding=True)
         self.assertIn("(con integer 40)", code.dumps())
 
     @unittest.skip("Fine from a guarantee perspective, but needs better inspection")
@@ -1151,9 +1050,7 @@ def validator(_: None) -> int:
     b = 5 * a
     return b
 """
-        ast = compiler.parse(source_code)
-        code = compiler.compile(ast, constant_folding=True).compile()
-        res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
+        code = builder._compile(source_code, Unit(), constant_folding=True)
         self.assertIn("(con integer 10)", code.dumps())
 
     @unittest.skip("Fine from a guarantee perspective, but needs better inspection")
@@ -1165,9 +1062,7 @@ def validator(_: None) -> int:
     b = 5 * a
     return b
 """
-        ast = compiler.parse(source_code)
-        code = compiler.compile(ast, constant_folding=True).compile()
-        res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
+        code = builder._compile(source_code, Unit(), constant_folding=True)
         self.assertIn("(con integer 10)", code.dumps())
 
     def test_constant_folding_repeated_assign(self):
@@ -1178,8 +1073,7 @@ def validator(i: int) -> int:
         a = 2
     return a
 """
-        ast = compiler.parse(source_code)
-        code = compiler.compile(ast, constant_folding=True).compile()
+        code = builder._compile(source_code, constant_folding=True)
         res = uplc_eval(uplc.Apply(code, uplc.PlutusInteger(0)))
         self.assertEqual(res.value, 4)
         res = uplc_eval(uplc.Apply(code, uplc.PlutusInteger(1)))
@@ -1192,8 +1086,7 @@ from opshin.prelude import *
 def validator(_: None) -> int:
     return 2 ** 10
 """
-        ast = compiler.parse(source_code)
-        code = compiler.compile(ast, constant_folding=True).compile()
+        code = builder._compile(source_code, constant_folding=True)
         code_src = code.dumps()
         self.assertIn(f"(con integer {2**10})", code_src)
 
@@ -1206,10 +1099,8 @@ def validator(_: None) -> int:
         return 2
     return int(5)
 """
-        ast = compiler.parse(source_code)
-        code = compiler.compile(ast, constant_folding=True).compile()
-        res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
-        self.assertEqual(res, uplc.PlutusInteger(2))
+        res = eval_uplc_value(source_code, Unit(), constant_folding=True)
+        self.assertEqual(res, 2)
 
     def test_constant_folding_no_print_eval(self):
         source_code = """
@@ -1218,8 +1109,7 @@ from opshin.prelude import *
 def validator(_: None) -> None:
     return print("hello")
 """
-        ast = compiler.parse(source_code)
-        code = compiler.compile(ast, constant_folding=True).compile()
+        code = builder._compile(source_code, constant_folding=True)
         code_src = code.dumps()
         self.assertIn(f'(con string "hello")', code_src)
 
@@ -1233,10 +1123,8 @@ def validator(_: None) -> int:
     a = 3
     return b()
         """
-        ast = compiler.parse(source_code)
-        code = compiler.compile(ast).compile()
-        res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
-        self.assertEqual(res, uplc.PlutusInteger(2))
+        res = eval_uplc_value(source_code, Unit())
+        self.assertEqual(res, 2)
 
     def test_inner_outer_state_functions_nonglobal(self):
         source_code = """
@@ -1250,10 +1138,8 @@ def validator(_: None) -> int:
         return b()
     return c()
 """
-        ast = compiler.parse(source_code)
-        code = compiler.compile(ast).compile()
-        res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
-        self.assertEqual(res, uplc.PlutusInteger(2))
+        res = eval_uplc_value(source_code, Unit())
+        self.assertEqual(res, 2)
 
     def test_outer_state_change_functions(self):
         source_code = """
@@ -1265,10 +1151,8 @@ a = 3
 def validator(_: None) -> int:
     return b()
 """
-        ast = compiler.parse(source_code)
-        code = compiler.compile(ast).compile()
-        res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
-        self.assertEqual(res, uplc.PlutusInteger(3))
+        res = eval_uplc_value(source_code, Unit())
+        self.assertEqual(res, 3)
 
     @unittest.expectedFailure
     def test_failing_annotated_type(self):
@@ -1283,8 +1167,7 @@ def validator(_: None):
     a = 3
     return c()
 """
-        ast = compiler.parse(source_code)
-        code = compiler.compile(ast).compile()
+        eval_uplc(source_code, Unit())
 
     @unittest.expectedFailure
     def test_access_enclosing_variable_before_def(self):
@@ -1297,9 +1180,7 @@ def validator(_: None) -> None:
    print(d())
    a = "2"
 """
-        ast = compiler.parse(source_code)
-        code = compiler.compile(ast).compile()
-        res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
+        eval_uplc(source_code, Unit())
 
     @unittest.expectedFailure
     def test_access_local_variable_before_assignment(self):
@@ -1310,20 +1191,15 @@ def validator(_: None) -> None:
    print(a)
    a = "2"
 """
-        ast = compiler.parse(source_code)
-        code = compiler.compile(ast).compile()
-        res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
+        eval_uplc(source_code, Unit())
 
     def test_warn_bytestring(self):
-        # note this is a runtime error, just like it would be in python!
         source_code = """
 b = b"0011ff"
 def validator(_: None) -> None:
     pass
 """
-        ast = compiler.parse(source_code)
-        code = compiler.compile(ast).compile()
-        res = uplc_eval(uplc.Apply(code, uplc.PlutusConstr(0, [])))
+        eval_uplc(source_code, Unit())
 
     @parameterized.expand(
         [
@@ -1340,42 +1216,28 @@ def validator(_: None) -> None:
     )
     def test_script_context_str_format(self, p: str):
         context = ScriptContext.from_cbor(bytes.fromhex(p))
-        expected = f"{context}"
-
         source_code = """
 from opshin.prelude import *
 
 def validator(c: ScriptContext) -> str:
     return f"{c}"
         """
-        ast = compiler.parse(source_code)
-        code = compiler.compile(ast).compile()
-        res = uplc_eval(
-            uplc.Apply(code, uplc.data_from_cbor(context.to_cbor()))
-        ).value.decode("utf8")
+        res = eval_uplc_value(source_code, context)
         # should not raise
         eval(res)
 
     @hypothesis.given(st.binary(), st.binary())
     def test_uplc_builtin(self, x, y):
-        # note this is a runtime error, just like it would be in python!
         source_code = """
 from opshin.std.builtins import *
 def validator(x: bytes, y: bytes) -> bytes:
     return append_byte_string(x, y)
 """
-        ast = compiler.parse(source_code)
-        code = compiler.compile(ast).compile()
-        res = uplc_eval(
-            uplc.Apply(
-                uplc.Apply(code, uplc.PlutusByteString(x)), uplc.PlutusByteString(y)
-            )
-        ).value
+        res = eval_uplc_value(source_code, x, y)
         self.assertEqual(res, x + y)
 
     @hypothesis.given(st.integers())
     def test_cast_bool_ite(self, x):
-        # note this is a runtime error, just like it would be in python!
         source_code = """
 def validator(x: int) -> bool:
     if x:
@@ -1384,26 +1246,20 @@ def validator(x: int) -> bool:
         res = False
     return res
 """
-        ast = compiler.parse(source_code)
-        code = compiler.compile(ast).compile()
-        res = uplc_eval(uplc.Apply(code, uplc.PlutusInteger(x))).value
+        res = eval_uplc_value(source_code, x)
         self.assertEqual(res, bool(x))
 
     @hypothesis.given(st.integers())
     def test_cast_bool_ite_expr(self, x):
-        # note this is a runtime error, just like it would be in python!
         source_code = """
 def validator(x: int) -> bool:
     return True if x else False
 """
-        ast = compiler.parse(source_code)
-        code = compiler.compile(ast).compile()
-        res = uplc_eval(uplc.Apply(code, uplc.PlutusInteger(x))).value
-        self.assertEqual(res, bool(x))
+        res = eval_uplc_value(source_code, x)
+        self.assertEqual(bool(res), bool(x))
 
     @hypothesis.given(st.integers())
     def test_cast_bool_while(self, x):
-        # note this is a runtime error, just like it would be in python!
         source_code = """
 def validator(x: int) -> bool:
     res = False
@@ -1412,34 +1268,26 @@ def validator(x: int) -> bool:
         x = 0
     return res
 """
-        ast = compiler.parse(source_code)
-        code = compiler.compile(ast).compile()
-        res = uplc_eval(uplc.Apply(code, uplc.PlutusInteger(x))).value
-        self.assertEqual(res, bool(x))
+        res = eval_uplc_value(source_code, x)
+        self.assertEqual(bool(res), bool(x))
 
     @hypothesis.given(st.integers())
     def test_cast_bool_boolops(self, x):
-        # note this is a runtime error, just like it would be in python!
         source_code = """
 def validator(x: int) -> bool:
     return x and x or (x or x)
 """
-        ast = compiler.parse(source_code)
-        code = compiler.compile(ast).compile()
-        res = uplc_eval(uplc.Apply(code, uplc.PlutusInteger(x))).value
-        self.assertEqual(res, bool(x and x or (x or x)))
+        res = eval_uplc_value(source_code, x)
+        self.assertEqual(bool(res), bool(x and x or (x or x)))
 
     @hypothesis.given(st.integers())
     def test_cast_bool_ite(self, x):
-        # note this is a runtime error, just like it would be in python!
         source_code = """
 def validator(x: int) -> None:
     assert x
 """
-        ast = compiler.parse(source_code)
-        code = compiler.compile(ast).compile()
         try:
-            uplc_eval(uplc.Apply(code, uplc.PlutusInteger(x)))
+            eval_uplc(source_code, x)
             res = True
         except Exception:
             res = False
@@ -1470,9 +1318,7 @@ def validator(x: Union[A, B]) -> int:
         k = x.bar
     return k
 """
-        ast = compiler.parse(source_code)
-        code = compiler.compile(ast).compile()
-        res = uplc_eval(uplc.Apply(code, uplc.data_from_cbor(x.to_cbor()))).value
+        res = eval_uplc_value(source_code, x)
         self.assertEqual(res, x.foo if isinstance(x, A) else x.bar)
 
     @hypothesis.given(a_or_b, a_or_b)
@@ -1504,14 +1350,7 @@ def validator(x: Union[A, B], y: Union[A, B]) -> int:
         k = x.bar + y.bar
     return k
 """
-        ast = compiler.parse(source_code)
-        code = compiler.compile(ast).compile()
-        res = uplc_eval(
-            uplc.Apply(
-                uplc.Apply(code, uplc.data_from_cbor(x.to_cbor())),
-                uplc.data_from_cbor(y.to_cbor()),
-            )
-        ).value
+        res = eval_uplc_value(source_code, x, y)
         self.assertEqual(
             res,
             (x.foo if isinstance(x, A) else x.bar)
@@ -1540,9 +1379,7 @@ def validator(x: Union[A, B]) -> int:
     k = x.foo if isinstance(x, A) else x.bar if isinstance(x, B) else 0
     return k
 """
-        ast = compiler.parse(source_code)
-        code = compiler.compile(ast).compile()
-        res = uplc_eval(uplc.Apply(code, uplc.data_from_cbor(x.to_cbor()))).value
+        res = eval_uplc_value(source_code, x)
         self.assertEqual(res, x.foo if isinstance(x, A) else x.bar)
 
     @hypothesis.given(a_or_b)
@@ -1570,9 +1407,7 @@ def validator(x: Union[A, B]) -> int:
         foo = 1
     return foo
 """
-        ast = compiler.parse(source_code)
-        code = compiler.compile(ast).compile()
-        res = uplc_eval(uplc.Apply(code, uplc.data_from_cbor(x.to_cbor()))).value
+        res = eval_uplc_value(source_code, x)
         self.assertEqual(res, 1 if isinstance(x, B) else 0)
 
     @hypothesis.given(a_or_b)
@@ -1596,9 +1431,7 @@ class B(PlutusData):
 def validator(x: Union[A, B]) -> bool:
     return isinstance(x, A)
 """
-        ast = compiler.parse(source_code)
-        code = compiler.compile(ast).compile()
-        res = uplc_eval(uplc.Apply(code, uplc.data_from_cbor(x.to_cbor()))).value
+        res = eval_uplc_value(source_code, x)
         self.assertEqual(res, isinstance(x, A))
 
     @hypothesis.given(a_or_b, st.integers())
@@ -1623,14 +1456,7 @@ class B(PlutusData):
 def validator(x: Union[A, B], y: int) -> bool:
     return isinstance(x, A) and x.foo == y or isinstance(x, B) and x.bar == y
 """
-        ast = compiler.parse(source_code)
-        code = compiler.compile(ast).compile()
-        res = uplc_eval(
-            uplc.Apply(
-                uplc.Apply(code, uplc.data_from_cbor(x.to_cbor())),
-                uplc.PlutusInteger(y),
-            )
-        ).value
+        res = eval_uplc_value(source_code, x, y)
         self.assertEqual(
             res, isinstance(x, A) and x.foo == y or isinstance(x, B) and x.bar == y
         )
@@ -1657,10 +1483,8 @@ def validator(x: Union[A, B]) -> int:
     assert isinstance(x, B), "Wrong type"
     return x.bar
 """
-        ast = compiler.parse(source_code)
-        code = compiler.compile(ast).compile()
         try:
-            res = uplc_eval(uplc.Apply(code, uplc.data_from_cbor(x.to_cbor()))).value
+            res = eval_uplc_value(source_code, x)
         except:
             res = None
         self.assertEqual(res, x.bar if isinstance(x, B) else None)
@@ -1688,8 +1512,7 @@ def validator(x: Union[A, B]) -> int:
         assert isinstance(x, B), "Wrong type"
     return x.bar
 """
-        ast = compiler.parse(source_code)
-        code = compiler.compile(ast).compile()
+        builder._compile(source_code)
 
     @hypothesis.given(a_or_b)
     def test_isinstance_cast_complex_or(self, x):
@@ -1721,9 +1544,7 @@ def validator(x: Union[A, B, C]) -> int:
         res = 100
     return res
 """
-        ast = compiler.parse(source_code)
-        code = compiler.compile(ast).compile()
-        res = uplc_eval(uplc.Apply(code, uplc.data_from_cbor(x.to_cbor()))).value
+        res = eval_uplc_value(source_code, x)
         self.assertEqual(res, x.foo if isinstance(x, A) else 100)
 
     @unittest.expectedFailure
@@ -1756,8 +1577,7 @@ def validator(x: Union[A, B]) -> int:
         res = 100
     return res
 """
-        ast = compiler.parse(source_code)
-        code = compiler.compile(ast).compile()
+        builder._compile(source_code)
         print("Union of same constructor id was allowed, should be disallowed")
 
     @hypothesis.given(a_or_b)
@@ -1785,9 +1605,7 @@ def validator(x: Union[A, B]) -> int:
         res = 100
     return res
 """
-        ast = compiler.parse(source_code)
-        code = compiler.compile(ast).compile()
-        res = uplc_eval(uplc.Apply(code, uplc.data_from_cbor(x.to_cbor()))).value
+        res = eval_uplc_value(source_code, x)
         self.assertEqual(res, x.foo if not isinstance(x, B) else 100)
 
     @hypothesis.given(a_or_b)
@@ -1815,9 +1633,7 @@ def validator(x: Union[A, B]) -> int:
         res = x.bar
     return res
 """
-        ast = compiler.parse(source_code)
-        code = compiler.compile(ast).compile()
-        res = uplc_eval(uplc.Apply(code, uplc.data_from_cbor(x.to_cbor()))).value
+        res = eval_uplc_value(source_code, x)
         self.assertEqual(res, x.foo if isinstance(x, A) else x.bar)
 
     @unittest.expectedFailure
@@ -1846,8 +1662,7 @@ def validator(x: Union[A, B]) -> int:
         foo = x.foo
     return foo
 """
-        ast = compiler.parse(source_code)
-        code = compiler.compile(ast).compile()
+        builder._compile(source_code)
 
     @unittest.expectedFailure
     def test_isinstance_cast_complex_and_else(self):
@@ -1875,8 +1690,32 @@ def validator(x: Union[A, B]) -> int:
         foo = x.foo
     return foo
 """
-        ast = compiler.parse(source_code)
-        code = compiler.compile(ast).compile()
+        builder._compile(source_code)
+
+    def test_isinstance_cast_complex_and(self):
+        source_code = """
+from dataclasses import dataclass
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
+
+@dataclass()
+class A(PlutusData):
+    CONSTR_ID = 0
+    foo: int
+
+@dataclass()
+class B(PlutusData):
+    CONSTR_ID = 1
+    foobar: int
+    bar: int
+
+def validator(x: Union[A, B]) -> int:
+    foo = 0
+    if isinstance(x, B) and foo == 0:
+        foo = x.bar
+    return foo
+"""
+        builder._compile(source_code)
 
     @hypothesis.given(a_or_b, st.integers())
     def test_isinstance_cast_shortcut_or(self, x, y):
@@ -1899,14 +1738,7 @@ class B(PlutusData):
 def validator(x: Union[A, B], y: int) -> bool:
     return (isinstance(x, A) or x.bar == y) and (isinstance(x, B) or x.foo == y)
 """
-        ast = compiler.parse(source_code)
-        code = compiler.compile(ast).compile()
-        res = uplc_eval(
-            uplc.Apply(
-                uplc.Apply(code, uplc.data_from_cbor(x.to_cbor())),
-                uplc.PlutusInteger(y),
-            )
-        ).value
+        res = eval_uplc_value(source_code, x, y)
         self.assertEqual(
             res, (isinstance(x, A) or x.bar == y) and (isinstance(x, B) or x.foo == y)
         )
@@ -1936,11 +1768,7 @@ def validator(x: Union[A, B]) -> Union[A, B]:
         k = A(x.bar)
     return k
 """
-        ast = compiler.parse(source_code)
-        code = compiler.compile(ast).compile()
-        res = uplc.plutus_cbor_dumps(
-            uplc_eval(uplc.Apply(code, uplc.data_from_cbor(x.to_cbor())))
-        )
+        res = uplc.plutus_cbor_dumps(eval_uplc(source_code, x))
         self.assertEqual(res, (B(x.foo, 1) if isinstance(x, A) else A(x.bar)).to_cbor())
 
     @unittest.expectedFailure
@@ -1968,8 +1796,7 @@ def validator(x: Union[A, B]):
         k = "hello"
     return k
 """
-        ast = compiler.parse(source_code)
-        code = compiler.compile(ast).compile()
+        builder._compile(source_code)
 
     @unittest.expectedFailure
     def test_while_no_retype_no_plutusdata(self):
@@ -1996,8 +1823,7 @@ def validator(x: Union[A, B]):
         k = "hello"
     return k
 """
-        ast = compiler.parse(source_code)
-        code = compiler.compile(ast).compile()
+        builder._compile(source_code)
 
     @hypothesis.given(a_or_b)
     def test_retype_while(self, x):
@@ -2022,10 +1848,8 @@ def validator(x: Union[A, B]) -> int:
         x = B(x.foo, 1)
     return x.foobar
 """
-        ast = compiler.parse(source_code)
-        code = compiler.compile(ast).compile()
-        res = uplc_eval(uplc.Apply(code, uplc.data_from_cbor(x.to_cbor())))
-        self.assertEqual(res.value, x.foo if isinstance(x, A) else x.foobar)
+        res = eval_uplc_value(source_code, x)
+        self.assertEqual(res, x.foo if isinstance(x, A) else x.foobar)
 
     @unittest.expectedFailure
     def test_retype_if_branch_correct(self):
@@ -2050,8 +1874,7 @@ def validator(x: Union[A, B]) -> int:
         x = B(0, 1)
     return x.foobar
 """
-        ast = compiler.parse(source_code)
-        code = compiler.compile(ast).compile()
+        builder._compile(source_code)
 
     @unittest.expectedFailure
     def test_retype_while_branch_correct(self):
@@ -2076,8 +1899,7 @@ def validator(x: Union[A, B]) -> int:
         x = B(0, 1)
     return x.foobar
 """
-        ast = compiler.parse(source_code)
-        code = compiler.compile(ast).compile()
+        builder._compile(source_code)
 
     def test_retype(self):
         source_code = """
@@ -2085,10 +1907,8 @@ def validator(x: int) -> str:
     x = "hello"
     return x
 """
-        ast = compiler.parse(source_code)
-        code = compiler.compile(ast).compile()
-        res = uplc_eval(uplc.Apply(code, uplc.PlutusInteger(1)))
-        self.assertEqual(res.value, b"hello")
+        res = eval_uplc_value(source_code, 1)
+        self.assertEqual(res, b"hello")
 
     def test_retype_if_primitives(self):
         source_code = """
@@ -2099,10 +1919,8 @@ def validator(x: int) -> str:
         x = "hi"
     return x
 """
-        ast = compiler.parse(source_code)
-        code = compiler.compile(ast).compile()
-        res = uplc_eval(uplc.Apply(code, uplc.PlutusInteger(1)))
-        self.assertEqual(res.value, b"hello")
+        res = eval_uplc_value(source_code, 1)
+        self.assertEqual(res, b"hello")
 
     @unittest.expectedFailure
     def test_in_list(self):
@@ -2116,9 +1934,7 @@ def validator(
 ):
     assert context.purpose in context.tx_info.signatories
 """
-        ast = compiler.parse(source_code)
-        code = compiler.compile(ast)
-        code = code.compile()
+        builder._compile(source_code)
 
     @hypothesis.given(
         st.lists(
@@ -2140,9 +1956,5 @@ def validator(
 def validator({param_string}) -> bool:
     return {comp_string}
 """
-        ast = compiler.parse(source_code)
-        code = compiler.compile(ast).compile()
-        for x, _ in xs:
-            code = uplc.Apply(code, uplc.PlutusInteger(x))
-        res = uplc_eval(code)
-        self.assertEqual(bool(res.value), eval(eval_string))
+        res = eval_uplc_value(source_code, *[x[0] for x in xs])
+        self.assertEqual(bool(res), eval(eval_string))
