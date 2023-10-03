@@ -1958,3 +1958,84 @@ def validator({param_string}) -> bool:
 """
         res = eval_uplc_value(source_code, *[x[0] for x in xs])
         self.assertEqual(bool(res), eval(eval_string))
+
+    def test_double_import_offset(self):
+        source_code = """
+from opshin.ledger.api_v2 import *
+from opshin.prelude import *
+
+def validator(
+    d: Nothing,
+    r: Nothing,
+    context: ScriptContext,
+):
+    house_address = Address(
+        payment_credential=PubKeyCredential(
+            credential_hash=b""
+        ),
+        staking_credential=SomeStakingCredential(
+            staking_credential=StakingHash(
+                value=PubKeyCredential(
+                    credential_hash=b""
+                )
+            )
+        ),
+    )
+"""
+        # would fail because Address is assigned multiple times and then not constant folded
+        # TODO find a better way
+        builder._compile(source_code, constant_folding=True)
+
+    def test_double_import_direct(self):
+        source_code = """
+from opshin.prelude import *
+from opshin.prelude import *
+
+def validator(
+    d: Nothing,
+    r: Nothing,
+    context: ScriptContext,
+):
+    house_address = Address(
+        payment_credential=PubKeyCredential(
+            credential_hash=b""
+        ),
+        staking_credential=SomeStakingCredential(
+            staking_credential=StakingHash(
+                value=PubKeyCredential(
+                    credential_hash=b""
+                )
+            )
+        ),
+    )
+"""
+        # would fail because Address is assigned multiple times and then not constant folded
+        # TODO find a better way
+        builder._compile(source_code, constant_folding=True)
+
+    def test_double_import_deep(self):
+        source_code = """
+from opshin.ledger.interval import *
+from opshin.prelude import *
+
+def validator(
+    d: Nothing,
+    r: Nothing,
+    context: ScriptContext,
+):
+    house_address = Address(
+        payment_credential=PubKeyCredential(
+            credential_hash=b""
+        ),
+        staking_credential=SomeStakingCredential(
+            staking_credential=StakingHash(
+                value=PubKeyCredential(
+                    credential_hash=b""
+                )
+            )
+        ),
+    )
+"""
+        # would fail because Address is assigned multiple times and then not constant folded
+        # TODO find a better way
+        builder._compile(source_code, constant_folding=True)
