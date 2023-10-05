@@ -207,6 +207,24 @@ def validator(x: List[int]) -> int:
         ret = eval_uplc_value(source_code, xs)
         self.assertEqual(ret, len(xs), "len returned wrong value")
 
+    @given(xs=st.dictionaries(st.integers(), st.integers()))
+    def test_len_dicts(self, xs):
+        source_code = """
+def validator(x: Dict[int, int]) -> int:
+    return len(x)
+        """
+        ret = eval_uplc_value(source_code, xs)
+        self.assertEqual(ret, len(xs), "len returned wrong value")
+
+    @given(xs=st.lists(st.integers()))
+    def test_len_tuples(self, xs):
+        source_code = f"""
+def validator(x: None) -> int:
+    return len(({", ".join(map(str, xs))}{"," if len(xs) == 1 else ""}))
+        """
+        ret = eval_uplc_value(source_code, xs)
+        self.assertEqual(ret, len(xs), "len returned wrong value")
+
     @given(xs=st.lists(st.integers()))
     def test_max(self, xs):
         source_code = """

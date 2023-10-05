@@ -23,7 +23,7 @@ class LenImpl(PolymorphicFunction):
         assert isinstance(arg, InstanceType), "Can only determine length of instances"
         if arg == ByteStringInstanceType:
             return plt.Lambda(["x", "_"], plt.LengthOfByteString(plt.Var("x")))
-        elif isinstance(arg.typ, ListType):
+        elif isinstance(arg.typ, ListType) or isinstance(arg.typ, DictType):
             # simple list length function
             return plt.Lambda(
                 ["x", "_"],
@@ -34,6 +34,11 @@ class LenImpl(PolymorphicFunction):
                     ),
                     plt.Integer(0),
                 ),
+            )
+        elif isinstance(arg.typ, TupleType):
+            return plt.Lambda(
+                ["x", "_"],
+                plt.Integer(len(arg.typ.typs)),
             )
         raise NotImplementedError(f"'len' is not implemented for type {arg}")
 
