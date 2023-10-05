@@ -961,12 +961,12 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
 
 class RecordReader(NodeVisitor):
     name: str
-    constructor: int
+    constructor: typing.Optional[int]
     attributes: typing.List[typing.Tuple[str, Type]]
     _type_inferencer: AggressiveTypeInferencer
 
     def __init__(self, type_inferencer: AggressiveTypeInferencer):
-        self.constructor = 0
+        self.constructor = None
         self.attributes = []
         self._type_inferencer = type_inferencer
 
@@ -974,6 +974,14 @@ class RecordReader(NodeVisitor):
     def extract(cls, c: ClassDef, type_inferencer: AggressiveTypeInferencer) -> Record:
         f = cls(type_inferencer)
         f.visit(c)
+        if f.constructor is None:
+            det_string = (
+                cls.__name__
+                + "*"
+                + "*".join([f"{name}~{type}" for name, type in f.attributes])
+            )
+            det_hash = sha256(det_string.encode("utf8")).hexdigest()
+            f.constructor = int(det_hash, 16) % 2**32
         return Record(f.name, f.constructor, frozenlist(f.attributes))
 
     def visit_AnnAssign(self, node: AnnAssign) -> None:
