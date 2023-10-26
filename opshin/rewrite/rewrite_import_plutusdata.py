@@ -19,7 +19,7 @@ class RewriteImportPlutusData(CompilingNodeTransformer):
         if node.module != "pycardano":
             return node
         assert (
-            len(node.names) <= 2
+            len(node.names) <= 3
         ), "The program must contain one 'from pycardano import Datum as Anything, PlutusData' or a subset."
         for imported in node.names:
             if imported.name == "Datum":
