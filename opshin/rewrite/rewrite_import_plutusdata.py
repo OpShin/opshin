@@ -13,6 +13,7 @@ class RewriteImportPlutusData(CompilingNodeTransformer):
 
     imports_plutus_data = False
     imports_anything = False
+    imports_bytestring = False
 
     def visit_ImportFrom(self, node: ImportFrom) -> Optional[ImportFrom]:
         if node.module != "pycardano":
@@ -31,6 +32,11 @@ class RewriteImportPlutusData(CompilingNodeTransformer):
                     imported.asname == None
                 ), "The program must contain one 'from pycardano import Datum as Anything, PlutusData' or a subset"
                 self.imports_plutus_data = True
+            elif imported.name == "ByteString":
+                assert (
+                    imported.asname == None
+                ), "The program must contain one 'from pycardano import Datum as Anything, PlutusData, ByteString' or a subset"
+                self.imports_bytestring = True
         return None
 
     def visit_ClassDef(self, node: ClassDef) -> ClassDef:

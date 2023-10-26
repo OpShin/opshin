@@ -574,6 +574,8 @@ def validator(x: Dict[str, int]) -> str:
         x_cbor = uplc.plutus_cbor_dumps(x)
         x_data = pycardano.RawPlutusData(cbor2.loads(x_cbor))
         source_code = """
+from pycardano import Datum as Anything
+
 def validator(x: Anything) -> str:
     return f"{x}"
             """

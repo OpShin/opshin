@@ -654,6 +654,8 @@ def validator(x: Union[A, B]) -> Anything:
 
     def test_typecast_anything_int(self):
         source_code = """
+from pycardano import Datum as Anything
+
 def validator(x: Anything) -> int:
     b: int = x
     return b
@@ -664,6 +666,8 @@ def validator(x: Anything) -> int:
     def test_typecast_int_anything(self):
         # this should compile, it happens implicitly anyways when calling a function with Any parameters
         source_code = """
+from pycardano import Datum as Anything
+
 def validator(x: int) -> Anything:
     b: Anything = x
     return b
@@ -673,6 +677,8 @@ def validator(x: int) -> Anything:
 
     def test_typecast_int_anything_int(self):
         source_code = """
+from pycardano import Datum as Anything
+
 def validator(x: int) -> Anything:
     b: Anything = x
     c: int = b
@@ -683,6 +689,8 @@ def validator(x: int) -> Anything:
 
     def test_typecast_anything_int_anything(self):
         source_code = """
+from pycardano import Datum as Anything
+
 def validator(x: Anything) -> Anything:
     b: int = x
     c: Anything = b + 1
