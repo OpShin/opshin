@@ -61,5 +61,9 @@ class RewriteImportPlutusData(CompilingNodeTransformer):
         if node.id == "Anything":
             assert (
                 self.imports_anything
-            ), "Datum must be imported as Anything to use it. Add one `from pycardano import Datum as Anything, PlutusData` to the beginning of the file."
+            ), "Datum must be imported as Anything to use it. Add one `from pycardano import Datum as Anything` to the beginning of the file."
+        if node.id == "ByteString":
+            assert (
+                self.imports_bytestring
+            ), "ByteString must be imported in order to use it. Add one `from pycardano import ByteString` to the beginning of the file."
         return node
