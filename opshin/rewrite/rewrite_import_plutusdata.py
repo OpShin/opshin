@@ -12,26 +12,25 @@ class RewriteImportPlutusData(CompilingNodeTransformer):
     step = "Resolving imports and usage of PlutusData and Datum"
 
     imports_plutus_data = False
+    imports_anything = False
 
     def visit_ImportFrom(self, node: ImportFrom) -> Optional[ImportFrom]:
         if node.module != "pycardano":
             return node
         assert (
-            len(node.names) == 2
-        ), "The program must contain one 'from pycardano import Datum as Anything, PlutusData'"
-        assert (
-            node.names[0].name == "Datum"
-        ), "The program must contain one 'from pycardano import Datum as Anything, PlutusData'"
-        assert (
-            node.names[0].asname == "Anything"
-        ), "The program must contain one 'from pycardano import Datum as Anything, PlutusData'"
-        assert (
-            node.names[1].name == "PlutusData"
-        ), "The program must contain one 'from pycardano import Datum as Anything, PlutusData'"
-        assert (
-            node.names[1].asname == None
-        ), "The program must contain one 'from pycardano import Datum as Anything, PlutusData'"
-        self.imports_plutus_data = True
+            len(node.names) <= 2
+        ), "The program must contain one 'from pycardano import Datum as Anything, PlutusData' or a subset."
+        for imported in node.names:
+            if imported.name == "Datum":
+                assert (
+                    imported.asname == "Anything"
+                ), "The program must contain one 'from pycardano import Datum as Anything, PlutusData' or a subset"
+                self.imports_anything = True
+            elif imported.name == "PlutusData":
+                assert (
+                    imported.asname == None
+                ), "The program must contain one 'from pycardano import Datum as Anything, PlutusData' or a subset"
+                self.imports_plutus_data = True
         return None
 
     def visit_ClassDef(self, node: ClassDef) -> ClassDef:
@@ -49,4 +48,11 @@ class RewriteImportPlutusData(CompilingNodeTransformer):
         assert (
             self.imports_plutus_data
         ), "PlutusData must be imported in order to use datum classes"
+        return node
+
+    def visit_Name(self, node: Name) -> Name:
+        if node.id == "Anything":
+            assert (
+                self.imports_anything
+            ), "Datum must be imported as Anything to use it. Add one `from pycardano import Datum as Anything, PlutusData` to the beginning of the file."
         return node

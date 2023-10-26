@@ -2039,3 +2039,13 @@ def validator(
         # would fail because Address is assigned multiple times and then not constant folded
         # TODO find a better way
         builder._compile(source_code, constant_folding=True)
+
+    @unittest.expectedFailure
+    def test_missing_import_anything(self):
+        source_code = """
+def validator(
+    d: Anything,
+) -> None:
+    pass
+"""
+        builder._compile(source_code, constant_folding=True)
