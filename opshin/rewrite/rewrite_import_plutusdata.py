@@ -18,9 +18,6 @@ class RewriteImportPlutusData(CompilingNodeTransformer):
     def visit_ImportFrom(self, node: ImportFrom) -> Optional[ImportFrom]:
         if node.module != "pycardano":
             return node
-        assert (
-            len(node.names) <= 3
-        ), "The program must contain one 'from pycardano import Datum as Anything, PlutusData' or a subset."
         for imported in node.names:
             if imported.name == "Datum":
                 assert (
@@ -37,6 +34,10 @@ class RewriteImportPlutusData(CompilingNodeTransformer):
                     imported.asname == None
                 ), "The program must contain one 'from pycardano import Datum as Anything, PlutusData, ByteString' or a subset"
                 self.imports_bytestring = True
+            else:
+                raise AssertionError(
+                    f"The program must contain one 'from pycardano import Datum as Anything, PlutusData, ByteString' or a subset. Found an unexpected import of {imported.name}."
+                )
         return None
 
     def visit_ClassDef(self, node: ClassDef) -> ClassDef:
