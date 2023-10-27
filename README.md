@@ -172,7 +172,13 @@ contract = build("path/to/contract.py")
 # You can apply parameters to the contract during compilation
 contract = build("path/to/contract.py", arg1, arg2, arg3)
 
-# Or after loading a contract
+# Store the compilation artifacts in a folder
+dump(contract, "path/to/store")
+
+# You can also load a compiled contract from a path
+contract = load("path/to/store")
+
+# And apply parameters after loading a contract
 contract = apply_parameters(contract, arg1, arg2, arg3)
 
 # The artifacts contain the compiled script, the policy ID and the addresses

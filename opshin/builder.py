@@ -166,7 +166,7 @@ def _apply_parameters(script: uplc.ast.Program, *args: pycardano.Datum):
     return _build(code)
 
 
-def load_contract(contract_path: Union[Path, str]) -> PlutusV2Script:
+def load(contract_path: Union[Path, str]) -> PlutusV2Script:
     """
     Load a contract from a file or directory and generate the artifacts
     """
@@ -213,3 +213,24 @@ def load_contract(contract_path: Union[Path, str]) -> PlutusV2Script:
     if contract_cbor is None:
         raise ValueError(f"Could not load contract from file {contract_path}")
     return PlutusV2Script(contract_cbor)
+
+
+def dump(
+    contract: Union[PlutusV2Script, ScriptArtifacts], target_dir: Union[str, Path]
+):
+    target_dir = Path(target_dir)
+    target_dir.mkdir(exist_ok=True, parents=True)
+    if isinstance(contract, PlutusV2Script):
+        artifacts = generate_artifacts(contract)
+    else:
+        artifacts = contract
+    with (target_dir / "script.cbor").open("w") as fp:
+        fp.write(artifacts.cbor_hex)
+    with (target_dir / "script.plutus").open("w") as fp:
+        fp.write(artifacts.plutus_json)
+    with (target_dir / "script.policy_id").open("w") as fp:
+        fp.write(artifacts.policy_id)
+    with (target_dir / "mainnet.addr").open("w") as fp:
+        fp.write(artifacts.mainnet_addr)
+    with (target_dir / "testnet.addr").open("w") as fp:
+        fp.write(artifacts.testnet_addr)

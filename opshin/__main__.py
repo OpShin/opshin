@@ -318,18 +318,7 @@ Note that opshin errors may be overly restrictive as they aim to prevent code wi
             target_dir = pathlib.Path("build") / pathlib.Path(input_file).stem
         else:
             target_dir = pathlib.Path(args.output_directory)
-        target_dir.mkdir(exist_ok=True, parents=True)
-        artifacts = builder.generate_artifacts(builder._build(code))
-        with (target_dir / "script.cbor").open("w") as fp:
-            fp.write(artifacts.cbor_hex)
-        with (target_dir / "script.plutus").open("w") as fp:
-            fp.write(artifacts.plutus_json)
-        with (target_dir / "script.policy_id").open("w") as fp:
-            fp.write(artifacts.policy_id)
-        with (target_dir / "mainnet.addr").open("w") as fp:
-            fp.write(artifacts.mainnet_addr)
-        with (target_dir / "testnet.addr").open("w") as fp:
-            fp.write(artifacts.testnet_addr)
+        builder.dump(builder._build(code), target_dir)
 
         print(f"Wrote script artifacts to {target_dir}/")
         return
