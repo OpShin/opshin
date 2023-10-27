@@ -110,17 +110,21 @@ def check_params(
     validator_params,
     force_three_params=False,
 ):
+    num_onchain_params = (
+        3
+        if purpose == Purpose.spending or force_three_params or purpose == Purpose.any
+        else 2
+    )
+    onchain_params = validator_args[-num_onchain_params:]
+    param_types = validator_args[:-num_onchain_params]
     if purpose == Purpose.any:
         # The any purpose does not do any checks. Use only if you know what you are doing
-        return
+        return onchain_params, param_types
     # expect the validator to return None
     assert (
         return_type is None or return_type == prelude.Anything
     ), f"Expected contract to return None, but returns {return_type}"
 
-    num_onchain_params = 3 if purpose == Purpose.spending or force_three_params else 2
-    onchain_params = validator_args[-num_onchain_params:]
-    param_types = validator_args[:-num_onchain_params]
     required_onchain_parameters = 3 if purpose == Purpose.spending else 2
     if force_three_params:
         datum_type = onchain_params[0][1]
