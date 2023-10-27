@@ -1,3 +1,4 @@
+import json
 import xml.etree.ElementTree
 
 import unittest
@@ -13,7 +14,7 @@ import pluthon
 from uplc import ast as uplc, eval as uplc_eval
 
 from . import PLUTUS_VM_PROFILE
-from .. import compiler, prelude, builder
+from .. import compiler, prelude, builder, Purpose
 from .utils import eval_uplc_value, Unit, eval_uplc
 
 hypothesis.settings.load_profile(PLUTUS_VM_PROFILE)
@@ -2092,3 +2093,34 @@ def validator({param_string}) -> bool:
 """
         res = eval_uplc_value(source_code, *[x[0] for x in xs])
         self.assertEqual(bool(res), eval(eval_string))
+
+    def test_wrapping_contract_apply(self):
+        # TODO devise tests for this
+        input_file = "examples/smart_contracts/wrapped_token.py"
+        contract = builder.build(input_file, force_three_params=True)
+        artifacts = builder.generate_artifacts(
+            contract,
+            datum_type=("datum", prelude.Nothing),
+            redeemer_type=("redeemer", prelude.Nothing),
+            parameter_types=[
+                ("token_policy_id", bytes),
+                ("token_name", bytes),
+                ("wrapping_factor", int),
+            ],
+            purpose=[Purpose.spending, Purpose.minting],
+        )
+        applied = builder.apply_blueprint_parameters(
+            artifacts.blueprint["validators"][0], b"", b""
+        )
+        assert len(applied["parameters"]) == 1
+        assert applied["parameters"][0]["title"] == "wrapping_factor"
+        assert len(applied["redeemer"]["purpose"]["oneOf"]) == 2
+        assert "spend" in applied["redeemer"]["purpose"]["oneOf"]
+        assert "mint" in applied["redeemer"]["purpose"]["oneOf"]
+        assert "spend" == applied["datum"]["purpose"]
+        assert applied["datum"]["schema"] == {
+            "dataType": "constructor",
+            "index": 6,
+            "fields": [],
+            "title": "Nothing",
+        }

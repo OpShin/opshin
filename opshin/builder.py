@@ -199,7 +199,7 @@ def generate_artifacts(
     datum_type: Optional[typing.Tuple[str, typing.Type[Datum]]] = None,
     redeemer_type: Optional[typing.Tuple[str, typing.Type[Datum]]] = None,
     parameter_types: typing.Iterable[typing.Tuple[str, typing.Type[Datum]]] = (),
-    purpose: Purpose = Purpose.any,
+    purpose: typing.Iterable[Purpose] = (Purpose.any,),
     version: str = "1.0.0",
     title: str = "validator",
     description: str = f"opshin {__version__} Smart Contract",
@@ -260,9 +260,11 @@ def generate_artifacts(
                 ),
                 "redeemer": {
                     "title": redeemer_type[0],
-                    "purpose": PURPOSE_MAP[purpose],
+                    "purpose": {"oneOf": [PURPOSE_MAP[p] for p in purpose]},
                     "schema": to_plutus_schema(redeemer_type[1]),
-                },
+                }
+                if redeemer_type is not None
+                else {},
                 **(
                     {
                         "parameters": [
@@ -314,7 +316,7 @@ def apply_blueprint_parameters(validatorBlueprint: dict, *args: pycardano.Datum)
     # update the parameters in the blueprint (remove applied parameters)
     assert len(new_bp["parameters"]) >= len(
         args
-    ), f"Applying too many parameters to contract, allowed amount: {v['parameters']}, but got {len(args)}"
+    ), f"Applying too many parameters to contract, allowed amount: {new_bp['parameters']}, but got {len(args)}"
     for _ in args:
         new_bp["parameters"].pop(0)
     return new_bp

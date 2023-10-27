@@ -183,6 +183,9 @@ contract = apply_parameters(contract, arg1, arg2, arg3)
 
 # The artifacts contain the compiled script, the policy ID and the addresses
 contract_artifacts = generate_artifacts(contract)
+
+# The artifacts contain the Plutus Blueprint of the validator as well, and you can apply parameters to this blueprint
+validator_blueprint = apply_blueprint_parameters(contract_artifacts.blueprint["validators"][0], arg1, arg2, arg3)
 ```
 
 ### The small print

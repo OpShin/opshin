@@ -322,7 +322,7 @@ Note that opshin errors may be overly restrictive as they aim to prevent code wi
                 if len(onchain_params) == 3
                 else onchain_params[0],
                 parameter_types=param_types,
-                purpose=purpose,
+                purpose=(purpose,),
             )
         builder.dump(script_arts, target_dir)
 
