@@ -106,24 +106,24 @@ def check_params(
     command: Command,
     purpose: Purpose,
     validator_args,
+    return_type,
     validator_params,
     force_three_params=False,
 ):
     if purpose == Purpose.any:
         # The any purpose does not do any checks. Use only if you know what you are doing
         return
-    ret_type = validator_args[-1]
     # expect the validator to return None
     assert (
-        ret_type is None or ret_type == prelude.Anything
-    ), f"Expected contract to return None, but returns {ret_type}"
+        return_type is None or return_type == prelude.Anything
+    ), f"Expected contract to return None, but returns {return_type}"
 
     num_onchain_params = 3 if purpose == Purpose.spending or force_three_params else 2
-    onchain_params = validator_args[-1 - num_onchain_params : -1]
-    param_types = validator_args[: -1 - num_onchain_params]
+    onchain_params = validator_args[-num_onchain_params:]
+    param_types = validator_args[:-num_onchain_params]
     required_onchain_parameters = 3 if purpose == Purpose.spending else 2
     if force_three_params:
-        datum_type = onchain_params[0]
+        datum_type = onchain_params[0][1]
         assert (
             (
                 typing.get_origin(datum_type) == typing.Union
@@ -132,6 +132,7 @@ def check_params(
             or datum_type == prelude.Anything
             or datum_type == prelude.Nothing
         ), f"Expected contract to accept Nothing or Anything as datum since it forces three parameters, but got {datum_type}"
+
     assert (
         len(onchain_params) == required_onchain_parameters
     ), f"""\
@@ -142,13 +143,10 @@ Make sure the validator expects parameters {'datum, ' if purpose == Purpose.spen
         assert len(validator_params) == len(param_types) + len(
             onchain_params
         ), f"{purpose.value.capitalize()} validator expects {len(param_types) + len(onchain_params)} parameters for evaluation, but only got {len(validator_params)}."
-    else:
-        assert len(validator_params) == len(
-            param_types
-        ), f"{purpose.value.capitalize()} validator expects {len(onchain_params)} parameters at evaluation (on-chain) and {len(param_types)} parameters at compilation time, but got {len(validator_params)} during compilation."
     assert (
-        onchain_params[-1] == ScriptContext
-    ), f"Last parameter of the validator is always ScriptContext, but is {onchain_params[-1].__name__} here."
+        onchain_params[-1][1] == ScriptContext
+    ), f"Last parameter of the validator is always ScriptContext, but is {onchain_params[-1][1].__name__} here."
+    return onchain_params, param_types
 
 
 def perform_command(args):
@@ -173,15 +171,16 @@ def perform_command(args):
         parsed_params = []
     else:
         try:
-            argspec = inspect.getfullargspec(sc.validator)
+            argspec = inspect.signature(sc.validator)
         except AttributeError:
             raise AssertionError(
                 f"Contract has no function called 'validator'. Make sure the compiled contract contains one function called 'validator' or {command.value} using `opshin {command.value} lib {str(input_file)}`."
             )
         annotations = [
-            argspec.annotations.get(x, prelude.Anything) for x in argspec.args
+            (x.name, x.annotation or prelude.Anything)
+            for x in argspec.parameters.values()
         ]
-        annotations.append(sc.validator.__annotations__.get("return", prelude.Anything))
+        return_annotation = argspec.return_annotation or prelude.Anything
         parsed_params = []
         for i, (c, a) in enumerate(zip(annotations, args.args)):
             if a[0] == "{":
@@ -192,7 +191,7 @@ def perform_command(args):
                         f'Invalid parameter for contract passed at position {i}, expected json value, got "{a}". Did you correctly encode the value as json and wrap it in quotes?'
                     ) from e
                 try:
-                    param = plutus_data_from_json(c, param_json)
+                    param = plutus_data_from_json(c[1], param_json)
                 except Exception as e:
                     raise ValueError(
                         f"Invalid parameter for contract passed at position {i}, expected type {c.__name__}."
@@ -205,16 +204,17 @@ def perform_command(args):
                         "Expected hexadecimal CBOR representation of plutus datum but could not transform hex string to bytes."
                     ) from e
                 try:
-                    param = plutus_data_from_cbor(c, param_bytes)
+                    param = plutus_data_from_cbor(c[1], param_bytes)
                 except Exception as e:
                     raise ValueError(
                         f"Invalid parameter for contract passed at position {i}, expected type {c.__name__}."
                     ) from e
             parsed_params.append(param)
-        check_params(
+        onchain_params, param_types = check_params(
             command,
             purpose,
             annotations,
+            return_annotation,
             parsed_params,
             force_three_params,
         )
@@ -309,7 +309,22 @@ Note that opshin errors may be overly restrictive as they aim to prevent code wi
             target_dir = pathlib.Path("build") / pathlib.Path(input_file).stem
         else:
             target_dir = pathlib.Path(args.output_directory)
-        builder.dump(builder._build(code), target_dir)
+        built_code = builder._build(code)
+        if purpose == Purpose.lib:
+            script_arts = builder.generate_artifacts(
+                built_code,
+            )
+        else:
+            script_arts = builder.generate_artifacts(
+                built_code,
+                datum_type=onchain_params[0] if len(onchain_params) == 3 else None,
+                redeemer_type=onchain_params[1]
+                if len(onchain_params) == 3
+                else onchain_params[0],
+                parameter_types=param_types,
+                purpose=purpose,
+            )
+        builder.dump(script_arts, target_dir)
 
         print(f"Wrote script artifacts to {target_dir}/")
         return

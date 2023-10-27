@@ -181,6 +181,7 @@ def to_plutus_schema(cls: typing.Type[Datum]) -> dict:
             "dataType": "constructor",
             "index": cls.CONSTR_ID,
             "fields": fields,
+            "title": cls.__name__,
         }
     elif issubclass(cls, bytes):
         return {"dataType": "bytes"}
@@ -194,9 +195,9 @@ def to_plutus_schema(cls: typing.Type[Datum]) -> dict:
 
 def generate_artifacts(
     contract: pycardano.PlutusV2Script,
-    datum_type=None,
-    redeemer_type=None,
-    parameter_types=(),
+    datum_type: Optional[typing.Tuple[str, Datum]] = None,
+    redeemer_type: Optional[typing.Tuple[str, Datum]] = None,
+    parameter_types: typing.Iterable[typing.Tuple[str, Datum]] = (),
     purpose: Purpose = Purpose.any,
     version: str = "1.0.0",
     title: str = "validator",
@@ -248,28 +249,28 @@ def generate_artifacts(
                 **(
                     {
                         "datum": {
-                            "title": "Datum",
+                            "title": datum_type[0],
                             "purpose": PURPOSE_MAP[Purpose.spending],
-                            "schema": to_plutus_schema(datum_type),
+                            "schema": to_plutus_schema(datum_type[1]),
                         }
                     }
                     if datum_type is not None
                     else {}
                 ),
                 "redeemer": {
-                    "title": "Redeemer",
+                    "title": redeemer_type[0],
                     "purpose": PURPOSE_MAP[purpose],
-                    "schema": to_plutus_schema(redeemer_type),
+                    "schema": to_plutus_schema(redeemer_type[1]),
                 },
                 **(
                     {
                         "parameters": [
                             {
-                                "title": f"Parameter {i}",
+                                "title": t[0],
                                 "purpose": PURPOSE_MAP[Purpose.spending],
-                                "schema": to_plutus_schema(t),
+                                "schema": to_plutus_schema(t[1]),
                             }
-                            for i, t in enumerate(parameter_types)
+                            for t in parameter_types
                         ]
                     }
                     if parameter_types
@@ -384,3 +385,5 @@ def dump(
         fp.write(artifacts.mainnet_addr)
     with (target_dir / "testnet.addr").open("w") as fp:
         fp.write(artifacts.testnet_addr)
+    with (target_dir / "blueprint.json").open("w") as fp:
+        json.dump(artifacts.blueprint, fp, indent=2)
