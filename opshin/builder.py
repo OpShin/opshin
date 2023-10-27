@@ -384,9 +384,49 @@ def load(contract_path: Union[Path, str]) -> PlutusV2Script:
             contract_cbor = uplc.flatten(contract_ast)
         except:
             pass
+        # could be a plutus blueprint
+        try:
+            contract = json.loads(contract_content)
+            if "validators" in contract:
+                contract_cbor = bytes.fromhex(contract["validators"][0]["compiledCode"])
+        except (ValueError, KeyError):
+            pass
     if contract_cbor is None:
         raise ValueError(f"Could not load contract from file {contract_path}")
     return PlutusV2Script(contract_cbor)
+
+
+def load_blueprint(contract_path: Union[Path, str]) -> ScriptArtifacts:
+    """
+    Load a contract from a file or directory containing a plutus blueprint
+    """
+    if isinstance(contract_path, str):
+        contract_path = Path(contract_path)
+    if contract_path.is_dir():
+        contract_candidates = list(contract_path.iterdir())
+    elif contract_path.is_file():
+        contract_candidates = [contract_path]
+    else:
+        raise ValueError(
+            f"Invalid contract path, is neither file nor directory: {contract_path}"
+        )
+    contract_cbor = None
+    for contract_file in contract_candidates:
+        with contract_file.open("r") as f:
+            contract_content = f.read()
+        try:
+            contract_blueprint = json.loads(contract_content)
+            contract_cbor = bytes.fromhex(
+                contract_blueprint["validators"][0]["compiledCode"]
+            )
+        except (ValueError, KeyError):
+            pass
+    if contract_cbor is None:
+        raise ValueError(f"Could not load contract from file {contract_path}")
+    contract = PlutusV2Script(contract_cbor)
+    arts = generate_artifacts(contract)
+    arts.blueprint = contract_blueprint
+    return arts
 
 
 def dump(

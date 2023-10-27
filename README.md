@@ -186,6 +186,9 @@ contract_artifacts = generate_artifacts(contract)
 
 # The artifacts contain the Plutus Blueprint of the validator as well, and you can apply parameters to this blueprint
 validator_blueprint = apply_blueprint_parameters(contract_artifacts.blueprint["validators"][0], arg1, arg2, arg3)
+
+# If you know that a blueprint is present, you can also load the blueprint directly
+contract_artifacts = load_blueprint("path/to/store")
 ```
 
 ### The small print
