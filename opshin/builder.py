@@ -145,7 +145,7 @@ def apply_parameters(script: PlutusV2Script, *args: pycardano.Datum):
     """
     Expects a plutus script (compiled) and returns the build artifacts from applying parameters to it
     """
-    return generate_artifacts(_apply_parameters(uplc.unflatten(script), *args))
+    return generate_artifacts(_build(_apply_parameters(uplc.unflatten(script), *args)))
 
 
 def _apply_parameters(script: uplc.ast.Program, *args: pycardano.Datum):
@@ -163,7 +163,7 @@ def _apply_parameters(script: uplc.ast.Program, *args: pycardano.Datum):
             else d,
         )
     code = uplc.ast.Program((1, 0, 0), code)
-    return _build(code)
+    return code
 
 
 def load(contract_path: Union[Path, str]) -> PlutusV2Script:

@@ -1,11 +1,8 @@
 import logging
 from ast import *
-from dataclasses import dataclass
-from functools import lru_cache
 
 import itertools
 
-import pluthon as plt
 import uplc.ast
 
 from .util import *

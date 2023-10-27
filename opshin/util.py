@@ -1,7 +1,6 @@
 import typing
 
 import ast
-from functools import lru_cache
 from dataclasses import dataclass
 
 import pycardano
