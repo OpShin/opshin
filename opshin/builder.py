@@ -2,7 +2,8 @@ import dataclasses
 import json
 import typing
 from ast import Module
-from typing import Optional, Any
+from typing import Optional, Any, Union
+from pathlib import Path
 
 from pycardano import PlutusV2Script
 
@@ -163,3 +164,52 @@ def _apply_parameters(script: uplc.ast.Program, *args: pycardano.Datum):
         )
     code = uplc.ast.Program((1, 0, 0), code)
     return _build(code)
+
+
+def load_contract(contract_path: Union[Path, str]) -> PlutusV2Script:
+    """
+    Load a contract from a file or directory and generate the artifacts
+    """
+    if isinstance(contract_path, str):
+        contract_path = Path(contract_path)
+    if contract_path.is_dir():
+        contract_candidates = list(contract_path.iterdir())
+    elif contract_path.is_file():
+        contract_candidates = [contract_path]
+    else:
+        raise ValueError(
+            f"Invalid contract path, is neither file nor directory: {contract_path}"
+        )
+    contract_cbor = None
+    for contract_file in contract_candidates:
+        with contract_file.open("r") as f:
+            contract_content = f.read()
+        # could be a singly wrapped cbor hex
+        try:
+            # try to unwrap to see if it is cbor
+            contract_cbor_unwrapped = cbor2.loads(bytes.fromhex(contract_content))
+            contract_cbor = bytes.fromhex(contract_content)
+            # if we can unwrap again, its doubly wrapped
+            try:
+                cbor2.loads(contract_cbor_unwrapped)
+                contract_cbor = contract_cbor_unwrapped
+            except ValueError:
+                pass
+            break
+        except ValueError:
+            pass
+        # could be a plutus json
+        try:
+            contract = json.loads(contract_content)
+            contract_cbor = cbor2.loads(bytes.fromhex(contract["cborHex"]))
+        except (ValueError, KeyError):
+            pass
+        # could be uplc
+        try:
+            contract_ast = uplc.parse(contract_content)
+            contract_cbor = uplc.flatten(contract_ast)
+        except:
+            pass
+    if contract_cbor is None:
+        raise ValueError(f"Could not load contract from file {contract_path}")
+    return PlutusV2Script(contract_cbor)
