@@ -176,7 +176,8 @@ class RewriteImportHashlib(CompilingNodeTransformer):
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">class HashType(ClassType):
+<pre><code class="python">@dataclass(frozen=True, unsafe_hash=True)
+class HashType(ClassType):
     &#34;&#34;&#34;A pseudo class that is the result of python hash functions that need a &#39;digest&#39; call&#34;&#34;&#34;
 
     def attribute_type(self, attr) -&gt; &#34;Type&#34;:
@@ -238,7 +239,7 @@ class RewriteImportHashlib(CompilingNodeTransformer):
 </details>
 </dd>
 <dt id="opshin.rewrite.rewrite_import_hashlib.HashType.cmp"><code class="name flex">
-<span>def <span class="ident">cmp</span></span>(<span>self, op: _ast.cmpop, o: <a title="opshin.types.Type" href="../types.html#opshin.types.Type">Type</a>) ‑> pluthon.pluthon_ast.AST</span>
+<span>def <span class="ident">cmp</span></span>(<span>self, op: ast.cmpop, o: <a title="opshin.types.Type" href="../types.html#opshin.types.Type">Type</a>) ‑> pluthon.pluthon_ast.AST</span>
 </code></dt>
 <dd>
 <p class="inheritance">
@@ -266,6 +267,17 @@ class RewriteImportHashlib(CompilingNodeTransformer):
 <code><a title="opshin.types.ClassType" href="../types.html#opshin.types.ClassType">ClassType</a></code>.<code><a title="opshin.types.ClassType.constr_type" href="../types.html#opshin.types.ClassType.constr_type">constr_type</a></code>
 </p>
 <div class="desc inherited"><p>The type of the constructor for this class</p></div>
+</dd>
+<dt id="opshin.rewrite.rewrite_import_hashlib.HashType.copy_only_attributes"><code class="name flex">
+<span>def <span class="ident">copy_only_attributes</span></span>(<span>self) ‑> pluthon.pluthon_ast.AST</span>
+</code></dt>
+<dd>
+<p class="inheritance">
+<em>Inherited from:</em>
+<code><a title="opshin.types.ClassType" href="../types.html#opshin.types.ClassType">ClassType</a></code>.<code><a title="opshin.types.ClassType.copy_only_attributes" href="../types.html#opshin.types.ClassType.copy_only_attributes">copy_only_attributes</a></code>
+</p>
+<div class="desc inherited"><p>Returns a copy of this type with only the declared attributes (mapped to builtin values, thus checking atomic types too).
+For anything but record …</p></div>
 </dd>
 <dt id="opshin.rewrite.rewrite_import_hashlib.HashType.stringify"><code class="name flex">
 <span>def <span class="ident">stringify</span></span>(<span>self, recursive: bool = False) ‑> pluthon.pluthon_ast.AST</span>
@@ -333,7 +345,7 @@ original node in which case no replacement takes place.</p>
 <pre><code>   def visit_Name(self, node):
        return Subscript(
            value=Name(id='data', ctx=Load()),
-           slice=Index(value=Str(s=node.id)),
+           slice=Constant(value=node.id),
            ctx=node.ctx
        )
 </code></pre>
@@ -409,7 +421,7 @@ just a single node.</p>
 <div class="desc inherited"><p>Visit a node.</p></div>
 </dd>
 <dt id="opshin.rewrite.rewrite_import_hashlib.RewriteImportHashlib.visit_ImportFrom"><code class="name flex">
-<span>def <span class="ident">visit_ImportFrom</span></span>(<span>self, node: _ast.ImportFrom) ‑> List[_ast.AST]</span>
+<span>def <span class="ident">visit_ImportFrom</span></span>(<span>self, node: ast.ImportFrom) ‑> List[ast.AST]</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -515,12 +527,13 @@ setTimeout(() => input.focus(), 100);
 <ul>
 <li>
 <h4><code><a title="opshin.rewrite.rewrite_import_hashlib.HashType" href="#opshin.rewrite.rewrite_import_hashlib.HashType">HashType</a></code></h4>
-<ul class="two-column">
+<ul class="">
 <li><code><a title="opshin.rewrite.rewrite_import_hashlib.HashType.attribute" href="#opshin.rewrite.rewrite_import_hashlib.HashType.attribute">attribute</a></code></li>
 <li><code><a title="opshin.rewrite.rewrite_import_hashlib.HashType.attribute_type" href="#opshin.rewrite.rewrite_import_hashlib.HashType.attribute_type">attribute_type</a></code></li>
 <li><code><a title="opshin.rewrite.rewrite_import_hashlib.HashType.cmp" href="../types.html#opshin.rewrite.rewrite_import_hashlib.HashType.cmp">cmp</a></code></li>
 <li><code><a title="opshin.rewrite.rewrite_import_hashlib.HashType.constr" href="../types.html#opshin.rewrite.rewrite_import_hashlib.HashType.constr">constr</a></code></li>
 <li><code><a title="opshin.rewrite.rewrite_import_hashlib.HashType.constr_type" href="../types.html#opshin.rewrite.rewrite_import_hashlib.HashType.constr_type">constr_type</a></code></li>
+<li><code><a title="opshin.rewrite.rewrite_import_hashlib.HashType.copy_only_attributes" href="../types.html#opshin.rewrite.rewrite_import_hashlib.HashType.copy_only_attributes">copy_only_attributes</a></code></li>
 <li><code><a title="opshin.rewrite.rewrite_import_hashlib.HashType.stringify" href="../types.html#opshin.rewrite.rewrite_import_hashlib.HashType.stringify">stringify</a></code></li>
 </ul>
 </li>

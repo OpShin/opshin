@@ -76,10 +76,12 @@ from .optimize.optimize_const_folding import OptimizeConstantFolding
 from .optimize.optimize_remove_comments import OptimizeRemoveDeadconstants
 from .rewrite.rewrite_augassign import RewriteAugAssign
 from .rewrite.rewrite_cast_condition import RewriteConditions
+from .rewrite.rewrite_comparison_chaining import RewriteComparisonChaining
 from .rewrite.rewrite_forbidden_overwrites import RewriteForbiddenOverwrites
 from .rewrite.rewrite_import import RewriteImport
 from .rewrite.rewrite_import_dataclasses import RewriteImportDataclasses
 from .rewrite.rewrite_import_hashlib import RewriteImportHashlib
+from .rewrite.rewrite_import_integrity_check import RewriteImportIntegrityCheck
 from .rewrite.rewrite_import_plutusdata import RewriteImportPlutusData
 from .rewrite.rewrite_import_typing import RewriteImportTyping
 from .rewrite.rewrite_import_uplc_builtins import RewriteImportUPLCBuiltins
@@ -243,8 +245,13 @@ def wrap_validator_double_function(x: plt.AST, pass_through: int = 0):
                     plt.Bool(False),
                     plt.Bool(False),
                 ),
-                # call the validator with a0, a1, and plug in Unit for data
-                plt.Apply(plt.Var(&#34;p&#34;), plt.Unit(), plt.Var(&#34;a0&#34;), plt.Var(&#34;a1&#34;)),
+                # call the validator with a0, a1, and plug in &#34;Nothing&#34; for data
+                plt.Apply(
+                    plt.Var(&#34;p&#34;),
+                    plt.UPLCConstant(uplc.PlutusConstr(6, [])),
+                    plt.Var(&#34;a0&#34;),
+                    plt.Var(&#34;a1&#34;),
+                ),
                 # else call the validator with a0, a1 and return (now partially bound)
                 plt.Apply(plt.Var(&#34;p&#34;), plt.Var(&#34;a0&#34;), plt.Var(&#34;a1&#34;)),
             ),
@@ -1083,15 +1090,18 @@ def compile(
     remove_dead_code=True,
     constant_folding=False,
     validator_function_name=&#34;validator&#34;,
+    allow_isinstance_anything=False,
 ):
-    rewrite_steps = [
+    compile_pipeline = [
         # Important to call this one first - it imports all further files
         RewriteImport(filename=filename),
         # Rewrites that simplify the python code
         OptimizeConstantFolding() if constant_folding else NoOp(),
         RewriteSubscript38(),
         RewriteAugAssign(),
+        RewriteComparisonChaining(),
         RewriteTupleAssign(),
+        RewriteImportIntegrityCheck(),
         RewriteImportPlutusData(),
         RewriteImportHashlib(),
         RewriteImportTyping(),
@@ -1100,18 +1110,11 @@ def compile(
         RewriteInjectBuiltins(),
         RewriteConditions(),
         # The type inference needs to be run after complex python operations were rewritten
-        AggressiveTypeInferencer(),
+        AggressiveTypeInferencer(allow_isinstance_anything),
         # Rewrites that circumvent the type inference or use its results
         RewriteImportUPLCBuiltins(),
         RewriteInjectBuiltinsConstr(),
         RewriteRemoveTypeStuff(),
-    ]
-    for s in rewrite_steps:
-        prog = s.visit(prog)
-        prog = fix_missing_locations(prog)
-
-    # from here on raw uplc may occur, so we dont attempt to fix locations
-    compile_pipeline = [
         # Save the original names of variables
         RewriteOrigName(),
         RewriteScoping(),
@@ -1120,14 +1123,17 @@ def compile(
         OptimizeVarlen(),
         OptimizeRemoveDeadconstants(),
         OptimizeRemovePass(),
-        # the compiler runs last
-        UPLCCompiler(
-            force_three_params=force_three_params,
-            validator_function_name=validator_function_name,
-        ),
     ]
     for s in compile_pipeline:
         prog = s.visit(prog)
+        prog = custom_fix_missing_locations(prog)
+
+    # the compiler runs last
+    s = UPLCCompiler(
+        force_three_params=force_three_params,
+        validator_function_name=validator_function_name,
+    )
+    prog = s.visit(prog)
 
     return prog</code></pre>
 </details>
@@ -1140,7 +1146,7 @@ def compile(
 <h2 class="section-title" id="header-functions">Functions</h2>
 <dl>
 <dt id="opshin.compiler.compile"><code class="name flex">
-<span>def <span class="ident">compile</span></span>(<span>prog: _ast.AST, filename=None, force_three_params=False, remove_dead_code=True, constant_folding=False, validator_function_name='validator')</span>
+<span>def <span class="ident">compile</span></span>(<span>prog: ast.AST, filename=None, force_three_params=False, remove_dead_code=True, constant_folding=False, validator_function_name='validator', allow_isinstance_anything=False)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -1155,15 +1161,18 @@ def compile(
     remove_dead_code=True,
     constant_folding=False,
     validator_function_name=&#34;validator&#34;,
+    allow_isinstance_anything=False,
 ):
-    rewrite_steps = [
+    compile_pipeline = [
         # Important to call this one first - it imports all further files
         RewriteImport(filename=filename),
         # Rewrites that simplify the python code
         OptimizeConstantFolding() if constant_folding else NoOp(),
         RewriteSubscript38(),
         RewriteAugAssign(),
+        RewriteComparisonChaining(),
         RewriteTupleAssign(),
+        RewriteImportIntegrityCheck(),
         RewriteImportPlutusData(),
         RewriteImportHashlib(),
         RewriteImportTyping(),
@@ -1172,18 +1181,11 @@ def compile(
         RewriteInjectBuiltins(),
         RewriteConditions(),
         # The type inference needs to be run after complex python operations were rewritten
-        AggressiveTypeInferencer(),
+        AggressiveTypeInferencer(allow_isinstance_anything),
         # Rewrites that circumvent the type inference or use its results
         RewriteImportUPLCBuiltins(),
         RewriteInjectBuiltinsConstr(),
         RewriteRemoveTypeStuff(),
-    ]
-    for s in rewrite_steps:
-        prog = s.visit(prog)
-        prog = fix_missing_locations(prog)
-
-    # from here on raw uplc may occur, so we dont attempt to fix locations
-    compile_pipeline = [
         # Save the original names of variables
         RewriteOrigName(),
         RewriteScoping(),
@@ -1192,14 +1194,17 @@ def compile(
         OptimizeVarlen(),
         OptimizeRemoveDeadconstants(),
         OptimizeRemovePass(),
-        # the compiler runs last
-        UPLCCompiler(
-            force_three_params=force_three_params,
-            validator_function_name=validator_function_name,
-        ),
     ]
     for s in compile_pipeline:
         prog = s.visit(prog)
+        prog = custom_fix_missing_locations(prog)
+
+    # the compiler runs last
+    s = UPLCCompiler(
+        force_three_params=force_three_params,
+        validator_function_name=validator_function_name,
+    )
+    prog = s.visit(prog)
 
     return prog</code></pre>
 </details>
@@ -1333,8 +1338,13 @@ def compile(
                     plt.Bool(False),
                     plt.Bool(False),
                 ),
-                # call the validator with a0, a1, and plug in Unit for data
-                plt.Apply(plt.Var(&#34;p&#34;), plt.Unit(), plt.Var(&#34;a0&#34;), plt.Var(&#34;a1&#34;)),
+                # call the validator with a0, a1, and plug in &#34;Nothing&#34; for data
+                plt.Apply(
+                    plt.Var(&#34;p&#34;),
+                    plt.UPLCConstant(uplc.PlutusConstr(6, [])),
+                    plt.Var(&#34;a0&#34;),
+                    plt.Var(&#34;a1&#34;),
+                ),
                 # else call the validator with a0, a1 and return (now partially bound)
                 plt.Apply(plt.Var(&#34;p&#34;), plt.Var(&#34;a0&#34;), plt.Var(&#34;a1&#34;)),
             ),
@@ -2175,7 +2185,7 @@ def compile(
 <h3>Methods</h3>
 <dl>
 <dt id="opshin.compiler.UPLCCompiler.generic_visit"><code class="name flex">
-<span>def <span class="ident">generic_visit</span></span>(<span>self, node: _ast.AST) ‑> pluthon.pluthon_ast.AST</span>
+<span>def <span class="ident">generic_visit</span></span>(<span>self, node: ast.AST) ‑> pluthon.pluthon_ast.AST</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Called if no explicit visitor function exists for a node.</p></div>
@@ -2198,7 +2208,7 @@ def compile(
 <div class="desc inherited"><p>Visit a node.</p></div>
 </dd>
 <dt id="opshin.compiler.UPLCCompiler.visit_AnnAssign"><code class="name flex">
-<span>def <span class="ident">visit_AnnAssign</span></span>(<span>self, node: _ast.AnnAssign) ‑> pluthon.pluthon_ast.AST</span>
+<span>def <span class="ident">visit_AnnAssign</span></span>(<span>self, node: ast.AnnAssign) ‑> pluthon.pluthon_ast.AST</span>
 </code></dt>
 <dd>
 <div class="desc"></div>

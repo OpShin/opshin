@@ -252,7 +252,8 @@ def generate_artifacts(contract: pycardano.PlutusV2Script):
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">class ScriptArtifacts:
+<pre><code class="python">@dataclasses.dataclass
+class ScriptArtifacts:
     cbor_hex: str
     plutus_json: str
     mainnet_addr: str

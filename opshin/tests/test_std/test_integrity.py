@@ -1,6 +1,7 @@
 from parameterized import parameterized
 
 from uplc import ast as uplc, eval as uplc_eval
+from ..utils import eval_uplc
 from ... import compiler
 
 
@@ -28,22 +29,15 @@ class B(PlutusData):
 def validator(x: B) -> None:
     check_integrity(x)
 """
-    ast = compiler.parse(source_code)
-    code = compiler.compile(ast).compile()
-    code = uplc.Apply(
-        code,
-        uplc.PlutusConstr(
-            1,
-            [
-                uplc.PlutusInteger(x)
-                if isinstance(x, int)
-                else uplc.PlutusByteString(x)
-                for x in xs
-            ],
-        ),
+    obj = uplc.PlutusConstr(
+        1,
+        [
+            uplc.PlutusInteger(x) if isinstance(x, int) else uplc.PlutusByteString(x)
+            for x in xs
+        ],
     )
     try:
-        uplc_eval(code)
+        eval_uplc(source_code, obj)
     except:
         res = False
     else:
@@ -81,17 +75,12 @@ class B(PlutusData):
 def validator(x: B) -> None:
     check_integrity(x)
 """
-    ast = compiler.parse(source_code)
-    code = compiler.compile(ast).compile()
-    code = uplc.Apply(
-        code,
-        uplc.PlutusConstr(
-            1,
-            [uplc.PlutusConstr(bar_constr, [])],
-        ),
+    obj = uplc.PlutusConstr(
+        1,
+        [uplc.PlutusConstr(bar_constr, [])],
     )
     try:
-        uplc_eval(code)
+        eval_uplc(source_code, obj)
     except:
         res = False
     else:
@@ -126,27 +115,22 @@ class B(PlutusData):
 def validator(x: B) -> None:
     check_integrity(x)
 """
-    ast = compiler.parse(source_code)
-    code = compiler.compile(ast).compile()
-    code = uplc.Apply(
-        code,
-        uplc.PlutusConstr(
-            1,
-            [
-                uplc.PlutusList(
-                    [
-                        uplc.PlutusInteger(x)
-                        if isinstance(x, int)
-                        else uplc.PlutusByteString(x)
-                        for x in foobar
-                    ]
-                ),
-                uplc.PlutusList([uplc.PlutusConstr(c, []) for c in bar_constrs]),
-            ],
-        ),
+    obj = uplc.PlutusConstr(
+        1,
+        [
+            uplc.PlutusList(
+                [
+                    uplc.PlutusInteger(x)
+                    if isinstance(x, int)
+                    else uplc.PlutusByteString(x)
+                    for x in foobar
+                ]
+            ),
+            uplc.PlutusList([uplc.PlutusConstr(c, []) for c in bar_constrs]),
+        ],
     )
     try:
-        uplc_eval(code)
+        eval_uplc(source_code, obj)
     except:
         res = False
     else:
@@ -178,28 +162,23 @@ class B(PlutusData):
 def validator(x: B) -> None:
     check_integrity(x)
 """
-    ast = compiler.parse(source_code)
-    code = compiler.compile(ast).compile()
-    code = uplc.Apply(
-        code,
-        uplc.PlutusConstr(
-            1,
-            [
-                uplc.PlutusMap(
-                    {
-                        uplc.PlutusInteger(x)
-                        if isinstance(x, int)
-                        else uplc.PlutusByteString(x): uplc.PlutusInteger(y)
-                        if isinstance(y, int)
-                        else uplc.PlutusByteString(y)
-                        for x, y in zip(keys, values)
-                    },
-                ),
-            ],
-        ),
+    obj = uplc.PlutusConstr(
+        1,
+        [
+            uplc.PlutusMap(
+                {
+                    uplc.PlutusInteger(x)
+                    if isinstance(x, int)
+                    else uplc.PlutusByteString(x): uplc.PlutusInteger(y)
+                    if isinstance(y, int)
+                    else uplc.PlutusByteString(y)
+                    for x, y in zip(keys, values)
+                },
+            ),
+        ],
     )
     try:
-        uplc_eval(code)
+        eval_uplc(source_code, obj)
     except:
         res = False
     else:

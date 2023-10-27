@@ -54,13 +54,14 @@ class RewriteLocation(CompilingNodeTransformer):
 class RewriteImport(CompilingNodeTransformer):
     step = "Resolving imports"
 
-    def __init__(self, filename=None, package=None):
+    def __init__(self, filename=None, package=None, resolved_imports=None):
         self.filename = filename
         self.package = package
+        self.resolved_imports = resolved_imports or set()
 
     def visit_ImportFrom(
         self, node: ImportFrom
-    ) -> typing.Union[ImportFrom, typing.List[AST]]:
+    ) -> typing.Union[ImportFrom, typing.List[AST], None]:
         if node.module in [
             "pycardano",
             "typing",
@@ -86,6 +87,10 @@ class RewriteImport(CompilingNodeTransformer):
         if self.filename:
             sys.path.pop()
         module_file = pathlib.Path(module.__file__)
+        if module_file in self.resolved_imports:
+            # Import was already resolved and its names are visible
+            return None
+        self.resolved_imports.add(module_file)
         assert (
             module_file.suffix == ".py"
         ), "The import must import a single python file."
@@ -96,7 +101,11 @@ class RewriteImport(CompilingNodeTransformer):
         # annotate this to point to the original line number!
         RewriteLocation(node).visit(resolved)
         # recursively import all statements there
-        recursively_resolved: Module = RewriteImport(
-            filename=str(module_file), package=module.__package__
-        ).visit(resolved)
+        recursive_resolver = RewriteImport(
+            filename=str(module_file),
+            package=module.__package__,
+            resolved_imports=self.resolved_imports,
+        )
+        recursively_resolved: Module = recursive_resolver.visit(resolved)
+        self.resolved_imports.update(recursive_resolver.resolved_imports)
         return recursively_resolved.body
