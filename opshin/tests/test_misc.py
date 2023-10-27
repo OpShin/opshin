@@ -1945,6 +1945,20 @@ def validator(
             min_size=2,
         )
     )
+    @hypothesis.example(
+        [
+            (0, "<"),
+            (0, "<"),
+            (0, "<"),
+            (0, "<"),
+            (0, "<"),
+            (0, "<"),
+            (0, "<"),
+            (0, "<"),
+            (0, "<"),
+            (0, "<"),
+        ],
+    )
     def test_comparison_chaining(self, xs):
         param_string = ",".join(f"i{k}: int" for k, _ in enumerate(xs))
         comp_string = "i0"
@@ -2057,3 +2071,24 @@ def validator(
     return d
 """
         eval_uplc(source_code, bytearray(b"hello"))
+
+    @hypothesis.given(
+        st.lists(
+            st.tuples(st.booleans(), st.sampled_from(["and", "or"])),
+            max_size=10,
+            min_size=2,
+        )
+    )
+    def test_boolop_chaining(self, xs):
+        param_string = ",".join(f"i{k}: bool" for k, _ in enumerate(xs))
+        comp_string = "i0"
+        eval_string = f"{xs[0][0]}"
+        for k, (x, c) in enumerate(xs[1:], start=1):
+            comp_string += f" {c} i{k}"
+            eval_string += f" {c} {x}"
+        source_code = f"""
+def validator({param_string}) -> bool:
+    return {comp_string}
+"""
+        res = eval_uplc_value(source_code, *[x[0] for x in xs])
+        self.assertEqual(bool(res), eval(eval_string))

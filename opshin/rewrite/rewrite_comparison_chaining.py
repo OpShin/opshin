@@ -14,21 +14,16 @@ class RewriteComparisonChaining(CompilingNodeTransformer):
     def visit_Compare(self, node: Compare) -> Compare:
         if len(node.ops) <= 1:
             return self.generic_visit(node)
+        all_comparators = [node.left] + node.comparators
+        compare_values = []
+        for comparator_left, comparator_right, op in zip(
+            all_comparators[:-1], all_comparators[1:], node.ops
+        ):
+            compare_values.append(
+                Compare(left=comparator_left, ops=[op], comparators=[comparator_right])
+            )
         new_node = BoolOp(
             op=And(),
-            values=[
-                Compare(
-                    left=node.left,
-                    ops=node.ops[:1],
-                    comparators=node.comparators[:1],
-                ),
-                self.visit(
-                    Compare(
-                        left=node.comparators[0],
-                        ops=node.ops[1:],
-                        comparators=node.comparators[1:],
-                    )
-                ),
-            ],
+            values=compare_values,
         )
         return self.generic_visit(new_node)
