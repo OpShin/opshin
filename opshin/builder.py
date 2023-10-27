@@ -30,13 +30,152 @@ class Purpose(enum.Enum):
 
 
 @dataclasses.dataclass
-class ScriptArtifacts:
-    cbor_hex: str
-    plutus_json: str
-    mainnet_addr: str
-    testnet_addr: str
-    policy_id: str
-    blueprint: Optional[dict] = None
+class OpShinContract:
+    contract: PlutusV2Script
+    datum_type: Optional[typing.Tuple[str, typing.Type[Datum]]] = None
+    redeemer_type: Optional[typing.Tuple[str, typing.Type[Datum]]] = None
+    parameter_types: typing.List[
+        typing.Tuple[str, typing.Type[Datum]]
+    ] = dataclasses.field(default_factory=list)
+    purpose: typing.Iterable[Purpose] = (Purpose.any,)
+    version: str = "1.0.0"
+    title: str = "validator"
+    description: str = f"opshin {__version__} Smart Contract"
+
+    @property
+    def cbor(self) -> bytes:
+        return self.contract
+
+    @property
+    def cbor_hex(self) -> str:
+        return self.contract.hex()
+
+    @property
+    def script_hash(self):
+        return pycardano.plutus_script_hash(self.contract)
+
+    @property
+    def policy_id(self):
+        return self.script_hash.to_primitive().hex()
+
+    @property
+    def mainnet_addr(self):
+        return pycardano.Address(self.script_hash, network=pycardano.Network.MAINNET)
+
+    @property
+    def testnet_addr(self):
+        return pycardano.Address(self.script_hash, network=pycardano.Network.TESTNET)
+
+    @property
+    def plutus_json(self):
+        return json.dumps(
+            {
+                "type": "PlutusScriptV2",
+                "description": self.description,
+                "cborHex": self.cbor_hex,
+            },
+            indent=2,
+        )
+
+    @property
+    def blueprint(self):
+        return {
+            "$schema": "https://cips.cardano.org/cips/cip57/schemas/plutus-blueprint.json",
+            "$id": "https://github.com/aiken-lang/aiken/blob/main/examples/hello_world/plutus.json",
+            "$vocabulary": {
+                "https://json-schema.org/draft/2020-12/vocab/core": True,
+                "https://json-schema.org/draft/2020-12/vocab/applicator": True,
+                "https://json-schema.org/draft/2020-12/vocab/validation": True,
+                "https://cips.cardano.org/cips/cip57": True,
+            },
+            "preamble": {
+                "version": self.version,
+                "plutusVersion": "v2",
+                "description": self.description,
+                "title": self.title,
+                **({"license": license} if license is not None else {}),
+            },
+            "validators": [
+                {
+                    "title": self.title,
+                    **(
+                        {
+                            "datum": {
+                                "title": self.datum_type[0],
+                                "purpose": PURPOSE_MAP[Purpose.spending],
+                                "schema": to_plutus_schema(self.datum_type[1]),
+                            }
+                        }
+                        if self.datum_type is not None
+                        else {}
+                    ),
+                    "redeemer": {
+                        "title": self.redeemer_type[0],
+                        "purpose": {"oneOf": [PURPOSE_MAP[p] for p in self.purpose]},
+                        "schema": to_plutus_schema(self.redeemer_type[1]),
+                    }
+                    if self.redeemer_type is not None
+                    else {},
+                    **(
+                        {
+                            "parameters": [
+                                {
+                                    "title": t[0],
+                                    "purpose": PURPOSE_MAP[Purpose.spending],
+                                    "schema": to_plutus_schema(t[1]),
+                                }
+                                for t in self.parameter_types
+                            ]
+                        }
+                        if self.parameter_types
+                        else {}
+                    ),
+                    "compiledCode": self.cbor_hex,
+                    "hash": self.policy_id,
+                },
+            ],
+        }
+
+    def apply_parameter(self, *args: pycardano.Datum):
+        """
+        Returns a new OpShin Contract with the applied parameters
+        """
+        # update the parameters in the blueprint (remove applied parameters)
+        assert len(self.parameter_types) >= len(
+            args
+        ), f"Applying too many parameters to contract, allowed amount: {self.parameter_types}, but got {len(args)}"
+        new_parameter_types = copy.copy(self.parameter_types)
+        for _ in args:
+            # TODO validate that the applied parameters are of the correct type
+            new_parameter_types.pop(0)
+        new_contract_contract = apply_parameters(self.contract, *args)
+        new_contract = OpShinContract(
+            new_contract_contract,
+            self.datum_type,
+            self.redeemer_type,
+            new_parameter_types,
+            self.purpose,
+            self.version,
+            self.title,
+            self.description,
+        )
+        return new_contract
+
+    def dump(self, target_dir: Union[str, Path]):
+        target_dir = Path(target_dir)
+        target_dir.mkdir(exist_ok=True, parents=True)
+        with (target_dir / "script.cbor").open("w") as fp:
+            fp.write(self.cbor_hex)
+        with (target_dir / "script.plutus").open("w") as fp:
+            fp.write(self.plutus_json)
+        with (target_dir / "script.policy_id").open("w") as fp:
+            fp.write(self.policy_id)
+        with (target_dir / "mainnet.addr").open("w") as fp:
+            fp.write(self.mainnet_addr.encode())
+        with (target_dir / "testnet.addr").open("w") as fp:
+            fp.write(self.testnet_addr.encode())
+        with (target_dir / "blueprint.json").open("w") as fp:
+            json.dump(self.blueprint, fp, indent=2)
 
 
 def compile(
@@ -194,132 +333,11 @@ def to_plutus_schema(cls: typing.Type[Datum]) -> dict:
         return {}
 
 
-def generate_artifacts(
-    contract: pycardano.PlutusV2Script,
-    datum_type: Optional[typing.Tuple[str, typing.Type[Datum]]] = None,
-    redeemer_type: Optional[typing.Tuple[str, typing.Type[Datum]]] = None,
-    parameter_types: typing.Iterable[typing.Tuple[str, typing.Type[Datum]]] = (),
-    purpose: typing.Iterable[Purpose] = (Purpose.any,),
-    version: str = "1.0.0",
-    title: str = "validator",
-    description: str = f"opshin {__version__} Smart Contract",
-    license: Optional[str] = None,
-) -> ScriptArtifacts:
-    cbor_hex = contract.hex()
-    # double wrap
-    cbor_wrapped = cbor2.dumps(contract)
-    cbor_wrapped_hex = cbor_wrapped.hex()
-    # create plutus file
-    d = {
-        "type": "PlutusScriptV2",
-        "description": f"opshin {__version__} Smart Contract",
-        "cborHex": cbor_wrapped_hex,
-    }
-    plutus_json = json.dumps(d, indent=2)
-    script_hash = pycardano.plutus_script_hash(pycardano.PlutusV2Script(contract))
-    policy_id = script_hash.to_primitive().hex()
-    # generate policy ids
-    addr_mainnet = pycardano.Address(
-        script_hash, network=pycardano.Network.MAINNET
-    ).encode()
-    # generate addresses
-    addr_testnet = pycardano.Address(
-        script_hash, network=pycardano.Network.TESTNET
-    ).encode()
-
-    # generate plutus blueprint
-    blueprint = {
-        "$schema": "https://cips.cardano.org/cips/cip57/schemas/plutus-blueprint.json",
-        "$id": "https://github.com/aiken-lang/aiken/blob/main/examples/hello_world/plutus.json",
-        "$vocabulary": {
-            "https://json-schema.org/draft/2020-12/vocab/core": True,
-            "https://json-schema.org/draft/2020-12/vocab/applicator": True,
-            "https://json-schema.org/draft/2020-12/vocab/validation": True,
-            "https://cips.cardano.org/cips/cip57": True,
-        },
-        "preamble": {
-            "version": version,
-            "plutusVersion": "v2",
-            "description": description,
-            "title": title,
-            **({"license": license} if license is not None else {}),
-        },
-        "validators": [
-            {
-                "title": title,
-                **(
-                    {
-                        "datum": {
-                            "title": datum_type[0],
-                            "purpose": PURPOSE_MAP[Purpose.spending],
-                            "schema": to_plutus_schema(datum_type[1]),
-                        }
-                    }
-                    if datum_type is not None
-                    else {}
-                ),
-                "redeemer": {
-                    "title": redeemer_type[0],
-                    "purpose": {"oneOf": [PURPOSE_MAP[p] for p in purpose]},
-                    "schema": to_plutus_schema(redeemer_type[1]),
-                }
-                if redeemer_type is not None
-                else {},
-                **(
-                    {
-                        "parameters": [
-                            {
-                                "title": t[0],
-                                "purpose": PURPOSE_MAP[Purpose.spending],
-                                "schema": to_plutus_schema(t[1]),
-                            }
-                            for t in parameter_types
-                        ]
-                    }
-                    if parameter_types
-                    else {}
-                ),
-                "compiledCode": cbor_hex,
-                "hash": policy_id,
-            },
-        ],
-    }
-
-    return ScriptArtifacts(
-        cbor_hex,
-        plutus_json,
-        addr_mainnet,
-        addr_testnet,
-        policy_id,
-        blueprint,
-    )
-
-
 def apply_parameters(script: PlutusV2Script, *args: pycardano.Datum):
     """
-    Expects a plutus script (compiled) and returns the build artifacts from applying parameters to it
+    Expects a plutus script (compiled) and returns the compiled script from applying parameters to it
     """
-    return generate_artifacts(_build(_apply_parameters(uplc.unflatten(script), *args)))
-
-
-def apply_blueprint_parameters(validatorBlueprint: dict, *args: pycardano.Datum):
-    """
-    Expects a plutus validator blueprint (one of the elements in the list `validator`) and returns the new validator blueprint from applying parameters to it
-    """
-    script = PlutusV2Script(bytes.fromhex(validatorBlueprint["compiledCode"]))
-    new_bp = copy.deepcopy(validatorBlueprint)
-    new_arts = generate_artifacts(
-        _build(_apply_parameters(uplc.unflatten(script), *args))
-    )
-    new_bp["compiledCode"] = new_arts.cbor_hex
-    new_bp["hash"] = new_arts.policy_id
-    # update the parameters in the blueprint (remove applied parameters)
-    assert len(new_bp["parameters"]) >= len(
-        args
-    ), f"Applying too many parameters to contract, allowed amount: {new_bp['parameters']}, but got {len(args)}"
-    for _ in args:
-        new_bp["parameters"].pop(0)
-    return new_bp
+    return _build(_apply_parameters(uplc.unflatten(script), *args))
 
 
 def _apply_parameters(script: uplc.ast.Program, *args: pycardano.Datum):
@@ -427,26 +445,3 @@ def load_blueprint(contract_path: Union[Path, str]) -> ScriptArtifacts:
     arts = generate_artifacts(contract)
     arts.blueprint = contract_blueprint
     return arts
-
-
-def dump(
-    contract: Union[PlutusV2Script, ScriptArtifacts], target_dir: Union[str, Path]
-):
-    target_dir = Path(target_dir)
-    target_dir.mkdir(exist_ok=True, parents=True)
-    if isinstance(contract, PlutusV2Script):
-        artifacts = generate_artifacts(contract)
-    else:
-        artifacts = contract
-    with (target_dir / "script.cbor").open("w") as fp:
-        fp.write(artifacts.cbor_hex)
-    with (target_dir / "script.plutus").open("w") as fp:
-        fp.write(artifacts.plutus_json)
-    with (target_dir / "script.policy_id").open("w") as fp:
-        fp.write(artifacts.policy_id)
-    with (target_dir / "mainnet.addr").open("w") as fp:
-        fp.write(artifacts.mainnet_addr)
-    with (target_dir / "testnet.addr").open("w") as fp:
-        fp.write(artifacts.testnet_addr)
-    with (target_dir / "blueprint.json").open("w") as fp:
-        json.dump(artifacts.blueprint, fp, indent=2)
