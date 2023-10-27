@@ -159,6 +159,26 @@ opshin build spending examples/smart_contracts/assert_sum.py
 
 See the [tutorial by `pycardano`](https://pycardano.readthedocs.io/en/latest/guides/plutus.html) for explanations how to build transactions with `opshin` contracts.
 
+### API for Smart Contracts
+
+The python interface offers a simple API to compile, load, apply parameters and evaluate smart contracts.
+
+```python3
+from opshin.builder import *
+
+# Build a validator script from a python file that contains a validator function
+contract = build("path/to/contract.py")
+
+# You can apply parameters to the contract during compilation
+contract = build("path/to/contract.py", arg1, arg2, arg3)
+
+# Or after loading a contract
+contract = apply_parameters(contract, arg1, arg2, arg3)
+
+# The artifacts contain the compiled script, the policy ID and the addresses
+contract_artifacts = generate_artifacts(contract)
+```
+
 ### The small print
 
 _Not every valid python program is a valid smart contract_.
