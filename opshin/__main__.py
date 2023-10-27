@@ -19,7 +19,7 @@ import pluthon
 import uplc
 import uplc.ast
 
-from . import compiler, builder, prelude, __version__, __copyright__
+from . import compiler, builder, prelude, __version__, __copyright__, Purpose
 from .util import CompilerError, data_from_json
 from .prelude import ScriptContext
 
@@ -32,15 +32,6 @@ class Command(enum.Enum):
     eval_uplc = "eval_uplc"
     build = "build"
     lint = "lint"
-
-
-class Purpose(enum.Enum):
-    spending = "spending"
-    minting = "minting"
-    rewarding = "rewarding"
-    certifying = "certifying"
-    any = "any"
-    lib = "lib"
 
 
 def plutus_data_from_json(annotation: typing.Type, x: dict):

@@ -1,11 +1,12 @@
 import dataclasses
+import enum
 import json
 import typing
 from ast import Module
 from typing import Optional, Any, Union
 from pathlib import Path
 
-from pycardano import PlutusV2Script
+from pycardano import PlutusV2Script, IndefiniteList, PlutusData, Datum
 
 from . import __version__, compiler
 
@@ -18,6 +19,15 @@ from pluthon import compile as plt_compile
 from .util import datum_to_cbor
 
 
+class Purpose(enum.Enum):
+    spending = "spending"
+    minting = "minting"
+    rewarding = "rewarding"
+    certifying = "certifying"
+    any = "any"
+    lib = "lib"
+
+
 @dataclasses.dataclass
 class ScriptArtifacts:
     cbor_hex: str
@@ -25,6 +35,7 @@ class ScriptArtifacts:
     mainnet_addr: str
     testnet_addr: str
     policy_id: str
+    blueprint: Optional[dict] = None
 
 
 def compile(
@@ -110,7 +121,88 @@ def _build(contract: uplc.ast.Program):
     return pycardano.PlutusV2Script(cbor)
 
 
-def generate_artifacts(contract: pycardano.PlutusV2Script):
+PURPOSE_MAP = {
+    Purpose.any: {"oneOf": ["spend", "mint", "withdraw", "publish"]},
+    Purpose.spending: "spend",
+    Purpose.minting: "mint",
+    Purpose.rewarding: "withdraw",
+    Purpose.certifying: "publish",
+}
+
+
+def to_plutus_schema(cls: typing.Type[Datum]) -> dict:
+    """
+    Convert to a dictionary representing a json schema according to CIP 57 Plutus Blueprint
+    Reference of the core structure:
+    https://cips.cardano.org/cips/cip57/#corevocabulary
+
+    Args:
+        **kwargs: Extra key word arguments to be passed to `json.dumps()`
+
+    Returns:
+        dict: a dict representing the schema of this class.
+    """
+    if hasattr(cls, "__origin__") and cls.__origin__ is list:
+        return {
+            "dataType": "list",
+            **(
+                {"items": to_plutus_schema(cls.__args__[0])}
+                if hasattr(cls, "__args__")
+                else {}
+            ),
+        }
+    elif hasattr(cls, "__origin__") and cls.__origin__ is dict:
+        return {
+            "dataType": "map",
+            **(
+                {
+                    "keys": to_plutus_schema(cls.__args__[0]),
+                    "values": to_plutus_schema(cls.__args__[1]),
+                }
+                if hasattr(cls, "__args__")
+                else {}
+            ),
+        }
+    elif hasattr(cls, "__origin__") and cls.__origin__ is Union:
+        return {
+            "anyOf": [to_plutus_schema(t) for t in cls.__args__]
+            if hasattr(cls, "__args__")
+            else []
+        }
+    elif issubclass(cls, PlutusData):
+        fields = []
+        for field_value in cls.__dataclass_fields__.values():
+            if field_value.name == "CONSTR_ID":
+                continue
+            field_schema = to_plutus_schema(field_value.type)
+            field_schema["title"] = field_value.name
+            fields.append(field_schema)
+        return {
+            "dataType": "constructor",
+            "index": cls.CONSTR_ID,
+            "fields": fields,
+        }
+    elif issubclass(cls, bytes):
+        return {"dataType": "bytes"}
+    elif issubclass(cls, int):
+        return {"dataType": "integer"}
+    elif issubclass(cls, IndefiniteList) or issubclass(cls, list):
+        return {"dataType": "list"}
+    else:
+        return {}
+
+
+def generate_artifacts(
+    contract: pycardano.PlutusV2Script,
+    datum_type=None,
+    redeemer_type=None,
+    parameter_types=(),
+    purpose: Purpose = Purpose.any,
+    version: str = "1.0.0",
+    title: str = "validator",
+    description: str = f"opshin {__version__} Smart Contract",
+    license: Optional[str] = None,
+) -> ScriptArtifacts:
     cbor_hex = contract.hex()
     # double wrap
     cbor_wrapped = cbor2.dumps(contract)
@@ -132,12 +224,70 @@ def generate_artifacts(contract: pycardano.PlutusV2Script):
     addr_testnet = pycardano.Address(
         script_hash, network=pycardano.Network.TESTNET
     ).encode()
+
+    # generate plutus blueprint
+    blueprint = {
+        "$schema": "https://cips.cardano.org/cips/cip57/schemas/plutus-blueprint.json",
+        "$id": "https://github.com/aiken-lang/aiken/blob/main/examples/hello_world/plutus.json",
+        "$vocabulary": {
+            "https://json-schema.org/draft/2020-12/vocab/core": True,
+            "https://json-schema.org/draft/2020-12/vocab/applicator": True,
+            "https://json-schema.org/draft/2020-12/vocab/validation": True,
+            "https://cips.cardano.org/cips/cip57": True,
+        },
+        "preamble": {
+            "version": version,
+            "plutusVersion": "v2",
+            "description": description,
+            "title": title,
+            **({"license": license} if license is not None else {}),
+        },
+        "validators": [
+            {
+                "title": title,
+                **(
+                    {
+                        "datum": {
+                            "title": "Datum",
+                            "purpose": PURPOSE_MAP[Purpose.spending],
+                            "schema": to_plutus_schema(datum_type),
+                        }
+                    }
+                    if datum_type is not None
+                    else {}
+                ),
+                "redeemer": {
+                    "title": "Redeemer",
+                    "purpose": PURPOSE_MAP[purpose],
+                    "schema": to_plutus_schema(redeemer_type),
+                },
+                **(
+                    {
+                        "parameters": [
+                            {
+                                "title": f"Parameter {i}",
+                                "purpose": PURPOSE_MAP[Purpose.spending],
+                                "schema": to_plutus_schema(t),
+                            }
+                            for i, t in enumerate(parameter_types)
+                        ]
+                    }
+                    if parameter_types
+                    else {}
+                ),
+                "compiledCode": cbor_hex,
+                "hash": policy_id,
+            },
+        ],
+    }
+
     return ScriptArtifacts(
         cbor_hex,
         plutus_json,
         addr_mainnet,
         addr_testnet,
         policy_id,
+        blueprint,
     )
 
 
