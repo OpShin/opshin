@@ -1,3 +1,4 @@
+import copy
 import dataclasses
 import enum
 import json
@@ -195,9 +196,9 @@ def to_plutus_schema(cls: typing.Type[Datum]) -> dict:
 
 def generate_artifacts(
     contract: pycardano.PlutusV2Script,
-    datum_type: Optional[typing.Tuple[str, Datum]] = None,
-    redeemer_type: Optional[typing.Tuple[str, Datum]] = None,
-    parameter_types: typing.Iterable[typing.Tuple[str, Datum]] = (),
+    datum_type: Optional[typing.Tuple[str, typing.Type[Datum]]] = None,
+    redeemer_type: Optional[typing.Tuple[str, typing.Type[Datum]]] = None,
+    parameter_types: typing.Iterable[typing.Tuple[str, typing.Type[Datum]]] = (),
     purpose: Purpose = Purpose.any,
     version: str = "1.0.0",
     title: str = "validator",
@@ -297,6 +298,26 @@ def apply_parameters(script: PlutusV2Script, *args: pycardano.Datum):
     Expects a plutus script (compiled) and returns the build artifacts from applying parameters to it
     """
     return generate_artifacts(_build(_apply_parameters(uplc.unflatten(script), *args)))
+
+
+def apply_blueprint_parameters(validatorBlueprint: dict, *args: pycardano.Datum):
+    """
+    Expects a plutus validator blueprint (one of the elements in the list `validator`) and returns the new validator blueprint from applying parameters to it
+    """
+    script = PlutusV2Script(bytes.fromhex(validatorBlueprint["compiledCode"]))
+    new_bp = copy.deepcopy(validatorBlueprint)
+    new_arts = generate_artifacts(
+        _build(_apply_parameters(uplc.unflatten(script), *args))
+    )
+    new_bp["compiledCode"] = new_arts.cbor_hex
+    new_bp["hash"] = new_arts.policy_id
+    # update the parameters in the blueprint (remove applied parameters)
+    assert len(new_bp["parameters"]) >= len(
+        args
+    ), f"Applying too many parameters to contract, allowed amount: {v['parameters']}, but got {len(args)}"
+    for _ in args:
+        new_bp["parameters"].pop(0)
+    return new_bp
 
 
 def _apply_parameters(script: uplc.ast.Program, *args: pycardano.Datum):
