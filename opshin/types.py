@@ -1774,6 +1774,8 @@ ATOMIC_TYPES = {
     int.__name__: IntegerType(),
     str.__name__: StringType(),
     bytes.__name__: ByteStringType(),
+    "ByteString": ByteStringType(),
+    bytearray.__name__: ByteStringType(),
     type(None).__name__: UnitType(),
     bool.__name__: BoolType(),
 }

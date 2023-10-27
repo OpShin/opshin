@@ -2039,3 +2039,21 @@ def validator(
         # would fail because Address is assigned multiple times and then not constant folded
         # TODO find a better way
         builder._compile(source_code, constant_folding=True)
+
+    def test_bytearray_alternative(self):
+        source_code = """
+def validator(
+    d: bytearray,
+) -> bytes:
+    return d
+"""
+        eval_uplc(source_code, bytearray(b"hello"))
+
+    def test_ByteString_alternative(self):
+        source_code = """
+def validator(
+    d: ByteString,
+) -> bytes:
+    return d
+"""
+        eval_uplc(source_code, bytearray(b"hello"))
