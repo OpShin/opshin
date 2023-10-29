@@ -2160,3 +2160,14 @@ def validator({param_string}) -> bool:
             return x + y
 
         assert append_byte_string(b"hello", b"world") == b"helloworld"
+
+    @unittest.expectedFailure
+    def test_forbidden_overwrite(self):
+        source_code = """
+def validator(
+    d: int
+):
+    PlutusData = d
+    return d
+"""
+        builder._compile(source_code)
