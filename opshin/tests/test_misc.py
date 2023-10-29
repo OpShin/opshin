@@ -17,6 +17,7 @@ from uplc import ast as uplc, eval as uplc_eval
 from . import PLUTUS_VM_PROFILE
 from .. import compiler, prelude, builder, Purpose, PlutusContract
 from .utils import eval_uplc_value, Unit, eval_uplc
+from ..bridge import wraps_builtin
 
 hypothesis.settings.load_profile(PLUTUS_VM_PROFILE)
 
@@ -2146,3 +2147,16 @@ def validator({param_string}) -> bool:
         assert loaded.license == artifacts.license
         assert loaded.title == artifacts.title
         assert loaded.version == artifacts.version
+
+    def test_bridge(self):
+        @wraps_builtin
+        def add_integer(x: int, y: int) -> int:
+            return x + y
+
+        assert add_integer(1, 2) == 3
+
+        @wraps_builtin
+        def append_byte_string(x: bytes, y: bytes) -> bytes:
+            return x + y
+
+        assert append_byte_string(b"hello", b"world") == b"helloworld"
