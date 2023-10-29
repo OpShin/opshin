@@ -346,34 +346,38 @@ def from_plutus_schema(schema: dict) -> typing.Type[pycardano.Datum]:
         for s in schema["anyOf"][1:]:
             union_t = typing.Union[union_t, from_plutus_schema(s)]
         return union_t
-    typ = schema["dataType"]
-    if typ == "bytes":
-        return bytes
-    elif typ == "integer":
-        return int
-    elif typ == "list":
-        if "items" in schema:
-            return typing.List[from_plutus_schema(schema["items"])]
-        else:
-            return typing.List[pycardano.Datum]
-    elif typ == "map":
-        key_t = (
-            from_plutus_schema(schema["keys"]) if "keys" in schema else pycardano.Datum
-        )
-        value_t = (
-            from_plutus_schema(schema["values"])
-            if "values" in schema
-            else pycardano.Datum
-        )
-        return typing.Dict[key_t, value_t]
-    elif typ == "constructor":
-        fields = {}
-        for field in schema["fields"]:
-            fields[field["title"]] = from_plutus_schema(field)
-        fields["CONSTR_ID"] = schema["index"]
-        return dataclasses.dataclass(
-            types.new_class(schema["title"], (pycardano.PlutusData,), fields)
-        )
+    if "dataType" in schema:
+        typ = schema["dataType"]
+        if typ == "bytes":
+            return bytes
+        elif typ == "integer":
+            return int
+        elif typ == "list":
+            if "items" in schema:
+                return typing.List[from_plutus_schema(schema["items"])]
+            else:
+                return typing.List[pycardano.Datum]
+        elif typ == "map":
+            key_t = (
+                from_plutus_schema(schema["keys"])
+                if "keys" in schema
+                else pycardano.Datum
+            )
+            value_t = (
+                from_plutus_schema(schema["values"])
+                if "values" in schema
+                else pycardano.Datum
+            )
+            return typing.Dict[key_t, value_t]
+        elif typ == "constructor":
+            fields = {}
+            for field in schema["fields"]:
+                fields[field["title"]] = from_plutus_schema(field)
+            fields["CONSTR_ID"] = schema["index"]
+            return dataclasses.dataclass(
+                types.new_class(schema["title"], (pycardano.PlutusData,), fields)
+            )
+    raise ValueError(f"Cannot read schema (not supported yet) {schema}")
 
 
 def apply_parameters(script: PlutusV2Script, *args: pycardano.Datum):
@@ -423,9 +427,51 @@ def load(contract_path: Union[Path, str]) -> PlutusContract:
         try:
             contract = json.loads(contract_content)
             if "validators" in contract:
-                contract_cbor = bytes.fromhex(contract["validators"][0]["compiledCode"])
-                # TODO parse the blueprint and extract the types
-                return PlutusContract(PlutusV2Script(contract_cbor))
+                assert len(contract["validators"]) == 1, "Only one validator supported"
+                validator = contract["validators"][0]
+                contract_cbor = PlutusV2Script(bytes.fromhex(validator["compiledCode"]))
+                datum_type = (
+                    validator["datum"]["title"],
+                    from_plutus_schema(validator["datum"]["schema"]),
+                )
+                redeemer_type = (
+                    validator["redeemer"]["title"],
+                    from_plutus_schema(validator["redeemer"]["schema"]),
+                )
+                parameter_types = [
+                    (p["title"], from_plutus_schema(p["schema"]))
+                    for p in validator["parameters"]
+                ]
+                if "oneOf" in validator["redeemer"]["purpose"]:
+                    purpose = [
+                        k
+                        for k, v in PURPOSE_MAP.items()
+                        if v in validator["redeemer"]["purpose"]["oneOf"]
+                    ]
+                else:
+                    purpose = [
+                        k
+                        for k, v in PURPOSE_MAP.items()
+                        if v == validator["redeemer"]["purpose"]
+                    ]
+                version = contract["preamble"].get("version")
+                title = contract["preamble"].get("title")
+                description = contract["preamble"].get("description")
+                license = contract["preamble"].get("license")
+                assert (
+                    contract["preamble"].get("plutusVersion") == "v2"
+                ), "Only Plutus V2 supported"
+                return PlutusContract(
+                    contract_cbor,
+                    datum_type,
+                    redeemer_type,
+                    parameter_types,
+                    purpose,
+                    version,
+                    title,
+                    description,
+                    license,
+                )
         except (ValueError, KeyError):
             pass
         # could be a singly wrapped cbor hex
