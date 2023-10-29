@@ -29,7 +29,7 @@ class RewriteForbiddenOverwrites(CompilingNodeTransformer):
     step = "Checking for forbidden name overwrites"
 
     def visit_Name(self, node: Name) -> Name:
-        if node.ctx == Store() and node.id in FORBIDDEN_NAMES:
+        if isinstance(node.ctx, Store) and node.id in FORBIDDEN_NAMES:
             raise ForbiddenOverwriteError(
                 f"It is not allowed to overwrite name {node.id}"
             )
