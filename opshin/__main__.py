@@ -26,7 +26,7 @@ from . import (
     __version__,
     __copyright__,
     Purpose,
-    OpShinContract,
+    PlutusContract,
 )
 from .util import CompilerError, data_from_json
 from .prelude import ScriptContext
@@ -319,11 +319,11 @@ Note that opshin errors may be overly restrictive as they aim to prevent code wi
             target_dir = pathlib.Path(args.output_directory)
         built_code = builder._build(code)
         if purpose == Purpose.lib:
-            script_arts = OpShinContract(
+            script_arts = PlutusContract(
                 built_code,
             )
         else:
-            script_arts = OpShinContract(
+            script_arts = PlutusContract(
                 built_code,
                 datum_type=onchain_params[0] if len(onchain_params) == 3 else None,
                 redeemer_type=onchain_params[1]

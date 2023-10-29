@@ -30,7 +30,7 @@ class Purpose(enum.Enum):
 
 
 @dataclasses.dataclass
-class OpShinContract:
+class PlutusContract:
     contract: PlutusV2Script
     datum_type: Optional[typing.Tuple[str, typing.Type[Datum]]] = None
     redeemer_type: Optional[typing.Tuple[str, typing.Type[Datum]]] = None
@@ -149,7 +149,7 @@ class OpShinContract:
             # TODO validate that the applied parameters are of the correct type
             new_parameter_types.pop(0)
         new_contract_contract = apply_parameters(self.contract, *args)
-        new_contract = OpShinContract(
+        new_contract = PlutusContract(
             new_contract_contract,
             self.datum_type,
             self.redeemer_type,
@@ -358,7 +358,7 @@ def _apply_parameters(script: uplc.ast.Program, *args: pycardano.Datum):
     return code
 
 
-def load(contract_path: Union[Path, str]) -> OpShinContract:
+def load(contract_path: Union[Path, str]) -> PlutusContract:
     """
     Load a contract from a file or directory and generate the artifacts
     """
@@ -382,7 +382,7 @@ def load(contract_path: Union[Path, str]) -> OpShinContract:
             if "validators" in contract:
                 contract_cbor = bytes.fromhex(contract["validators"][0]["compiledCode"])
                 # TODO parse the blueprint and extract the types
-                return OpShinContract(PlutusV2Script(contract_cbor))
+                return PlutusContract(PlutusV2Script(contract_cbor))
         except (ValueError, KeyError):
             pass
         # could be a singly wrapped cbor hex
@@ -413,4 +413,4 @@ def load(contract_path: Union[Path, str]) -> OpShinContract:
             pass
     if contract_cbor is None:
         raise ValueError(f"Could not load contract from file {contract_path}")
-    return OpShinContract(PlutusV2Script(contract_cbor))
+    return PlutusContract(PlutusV2Script(contract_cbor))
