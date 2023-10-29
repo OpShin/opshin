@@ -41,6 +41,7 @@ class PlutusContract:
     version: str = "1.0.0"
     title: str = "validator"
     description: str = f"opshin {__version__} Smart Contract"
+    license: Optional[str] = None
 
     @property
     def cbor(self) -> bytes:
@@ -93,7 +94,7 @@ class PlutusContract:
                 "plutusVersion": "v2",
                 "description": self.description,
                 "title": self.title,
-                **({"license": license} if license is not None else {}),
+                **({"license": self.license} if self.license is not None else {}),
             },
             "validators": [
                 {
