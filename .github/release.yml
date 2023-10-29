@@ -6,6 +6,8 @@ changelog:
       exclude:
         labels:
           - dependencies
+          - bugfix
+          - breaking
     - title: 👒 Dependencies
       labels:
         - dependencies

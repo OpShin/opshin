@@ -6,10 +6,12 @@ from .optimize.optimize_const_folding import OptimizeConstantFolding
 from .optimize.optimize_remove_comments import OptimizeRemoveDeadconstants
 from .rewrite.rewrite_augassign import RewriteAugAssign
 from .rewrite.rewrite_cast_condition import RewriteConditions
+from .rewrite.rewrite_comparison_chaining import RewriteComparisonChaining
 from .rewrite.rewrite_forbidden_overwrites import RewriteForbiddenOverwrites
 from .rewrite.rewrite_import import RewriteImport
 from .rewrite.rewrite_import_dataclasses import RewriteImportDataclasses
 from .rewrite.rewrite_import_hashlib import RewriteImportHashlib
+from .rewrite.rewrite_import_integrity_check import RewriteImportIntegrityCheck
 from .rewrite.rewrite_import_plutusdata import RewriteImportPlutusData
 from .rewrite.rewrite_import_typing import RewriteImportTyping
 from .rewrite.rewrite_import_uplc_builtins import RewriteImportUPLCBuiltins
@@ -173,8 +175,13 @@ def wrap_validator_double_function(x: plt.AST, pass_through: int = 0):
                     plt.Bool(False),
                     plt.Bool(False),
                 ),
-                # call the validator with a0, a1, and plug in Unit for data
-                plt.Apply(plt.Var("p"), plt.Unit(), plt.Var("a0"), plt.Var("a1")),
+                # call the validator with a0, a1, and plug in "Nothing" for data
+                plt.Apply(
+                    plt.Var("p"),
+                    plt.UPLCConstant(uplc.PlutusConstr(6, [])),
+                    plt.Var("a0"),
+                    plt.Var("a1"),
+                ),
                 # else call the validator with a0, a1 and return (now partially bound)
                 plt.Apply(plt.Var("p"), plt.Var("a0"), plt.Var("a1")),
             ),
@@ -204,7 +211,7 @@ def extend_statemonad(
 INITIAL_STATE = plt.FunctionalMap()
 
 
-class UPLCCompiler(CompilingNodeTransformer):
+class PlutoCompiler(CompilingNodeTransformer):
     """
     Expects a TypedAST and returns UPLC/Pluto like code
     """
@@ -1013,15 +1020,18 @@ def compile(
     remove_dead_code=True,
     constant_folding=False,
     validator_function_name="validator",
-):
-    rewrite_steps = [
+    allow_isinstance_anything=False,
+) -> plt.Program:
+    compile_pipeline = [
         # Important to call this one first - it imports all further files
         RewriteImport(filename=filename),
         # Rewrites that simplify the python code
         OptimizeConstantFolding() if constant_folding else NoOp(),
         RewriteSubscript38(),
         RewriteAugAssign(),
+        RewriteComparisonChaining(),
         RewriteTupleAssign(),
+        RewriteImportIntegrityCheck(),
         RewriteImportPlutusData(),
         RewriteImportHashlib(),
         RewriteImportTyping(),
@@ -1030,18 +1040,11 @@ def compile(
         RewriteInjectBuiltins(),
         RewriteConditions(),
         # The type inference needs to be run after complex python operations were rewritten
-        AggressiveTypeInferencer(),
+        AggressiveTypeInferencer(allow_isinstance_anything),
         # Rewrites that circumvent the type inference or use its results
         RewriteImportUPLCBuiltins(),
         RewriteInjectBuiltinsConstr(),
         RewriteRemoveTypeStuff(),
-    ]
-    for s in rewrite_steps:
-        prog = s.visit(prog)
-        prog = fix_missing_locations(prog)
-
-    # from here on raw uplc may occur, so we dont attempt to fix locations
-    compile_pipeline = [
         # Save the original names of variables
         RewriteOrigName(),
         RewriteScoping(),
@@ -1050,13 +1053,16 @@ def compile(
         OptimizeVarlen(),
         OptimizeRemoveDeadconstants(),
         OptimizeRemovePass(),
-        # the compiler runs last
-        UPLCCompiler(
-            force_three_params=force_three_params,
-            validator_function_name=validator_function_name,
-        ),
     ]
     for s in compile_pipeline:
         prog = s.visit(prog)
+        prog = custom_fix_missing_locations(prog)
+
+    # the compiler runs last
+    s = PlutoCompiler(
+        force_three_params=force_three_params,
+        validator_function_name=validator_function_name,
+    )
+    prog = s.visit(prog)
 
     return prog

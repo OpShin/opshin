@@ -181,6 +181,9 @@ class TypeCheckVisitor(TypedNodeVisitor):
     is True/False respectively
     """
 
+    def __init__(self, allow_isinstance_anything=False):
+        self.allow_isinstance_anything = allow_isinstance_anything
+
     def generic_visit(self, node: AST) -> TypeMapPair:
         return getattr(node, "typechecks", ({}, {}))
 
@@ -197,23 +200,25 @@ class TypeCheckVisitor(TypedNodeVisitor):
             node.args[1], Name
         ), "Target 1 of an isinstance cast must be a class name"
         target_class: RecordType = node.args[1].typ
-        target_inst = node.args[0]
-        target_inst_class = target_inst.typ
+        inst = node.args[0]
+        inst_class = inst.typ
         assert isinstance(
-            target_inst_class, InstanceType
+            inst_class, InstanceType
         ), "Can only cast instances, not classes"
         assert isinstance(target_class, RecordType), "Can only cast to PlutusData"
-        if isinstance(target_inst_class.typ, UnionType):
+        if isinstance(inst_class.typ, UnionType):
             assert (
-                target_class in target_inst_class.typ.typs
+                target_class in inst_class.typ.typs
             ), f"Trying to cast an instance of Union type to non-instance of union type"
             union_without_target_class = union_types(
-                *(x for x in target_inst_class.typ.typs if x != target_class)
+                *(x for x in inst_class.typ.typs if x != target_class)
             )
+        elif isinstance(inst_class.typ, AnyType) and self.allow_isinstance_anything:
+            union_without_target_class = AnyType()
         else:
             assert (
-                target_inst_class.typ == target_class
-            ), "Can only cast instances of Union types of PlutusData or cast the same class"
+                inst_class.typ == target_class
+            ), "Can only cast instances of Union types of PlutusData or cast the same class. If you know what you are doing, enable the flag '--allow-isinstance-anything'"
             union_without_target_class = target_class
         varname = node.args[0].id
         return ({varname: target_class}, {varname: union_without_target_class})
@@ -280,6 +285,9 @@ def merge_scope(s1: typing.Dict[str, Type], s2: typing.Dict[str, Type]):
 
 
 class AggressiveTypeInferencer(CompilingNodeTransformer):
+    def __init__(self, allow_isinstance_anything=False):
+        self.allow_isinstance_anything = allow_isinstance_anything
+
     step = "Static Type Inference"
 
     # A stack of dictionaries for storing scoped knowledge of variable types
@@ -384,7 +392,9 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             stmts.append(stmt)
             # if an assert is amng the statements apply the isinstance cast
             if isinstance(stmt, Assert):
-                typchecks, _ = TypeCheckVisitor().visit(stmt.test)
+                typchecks, _ = TypeCheckVisitor(self.allow_isinstance_anything).visit(
+                    stmt.test
+                )
                 # for the time after this assert, the variable has the specialized type
                 prevtyps.update(self.implement_typechecks(typchecks))
         self.implement_typechecks(prevtyps)
@@ -473,7 +483,9 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         assert (
             typed_if.test.typ == BoolInstanceType
         ), "Branching condition must have boolean type"
-        typchecks, inv_typchecks = TypeCheckVisitor().visit(typed_if.test)
+        typchecks, inv_typchecks = TypeCheckVisitor(
+            self.allow_isinstance_anything
+        ).visit(typed_if.test)
         # for the time of the branch, these types are cast
         initial_scope = copy(self.scopes[-1])
         self.implement_typechecks(typchecks)
@@ -496,7 +508,9 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         assert (
             typed_while.test.typ == BoolInstanceType
         ), "Branching condition must have boolean type"
-        typchecks, inv_typchecks = TypeCheckVisitor().visit(typed_while.test)
+        typchecks, inv_typchecks = TypeCheckVisitor(
+            self.allow_isinstance_anything
+        ).visit(typed_while.test)
         # for the time of the branch, these types are cast
         initial_scope = copy(self.scopes[-1])
         self.implement_typechecks(typchecks)
@@ -645,7 +659,9 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             prevtyps = {}
             for e in node.values:
                 values.append(self.visit(e))
-                typchecks, _ = TypeCheckVisitor().visit(values[-1])
+                typchecks, _ = TypeCheckVisitor(self.allow_isinstance_anything).visit(
+                    values[-1]
+                )
                 # for the time after the shortcut and the variable type to the specialized type
                 prevtyps.update(self.implement_typechecks(typchecks))
             self.implement_typechecks(prevtyps)
@@ -655,7 +671,9 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             prevtyps = {}
             for e in node.values:
                 values.append(self.visit(e))
-                _, inv_typechecks = TypeCheckVisitor().visit(values[-1])
+                _, inv_typechecks = TypeCheckVisitor(
+                    self.allow_isinstance_anything
+                ).visit(values[-1])
                 # for the time after the shortcut or the variable type is *not* the specialized type
                 prevtyps.update(self.implement_typechecks(inv_typechecks))
             self.implement_typechecks(prevtyps)
@@ -766,15 +784,24 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         # might be isinstance
         if isinstance(tc.func, Name) and tc.func.id == "isinstance":
             target_class = tc.args[1].typ
-            ntc = self.visit(
-                Compare(
-                    left=Attribute(tc.args[0], "CONSTR_ID"),
-                    ops=[Eq()],
-                    comparators=[Constant(target_class.record.constructor)],
+            if (
+                isinstance(tc.args[0].typ, InstanceType)
+                and isinstance(tc.args[0].typ.typ, AnyType)
+                and not self.allow_isinstance_anything
+            ):
+                raise AssertionError(
+                    "OpShin does not permit checking the instance of raw Anything/Datum objects as this only checks the equality of the constructor id and nothing more. "
+                    "If you are certain of what you are doing, please use the flag '--allow-isinstance-anything'."
                 )
+            ntc = Compare(
+                left=Attribute(tc.args[0], "CONSTR_ID"),
+                ops=[Eq()],
+                comparators=[Constant(target_class.record.constructor)],
             )
+            custom_fix_missing_locations(ntc, node)
+            ntc = self.visit(ntc)
             ntc.typ = BoolInstanceType
-            ntc.typechecks = TypeCheckVisitor().visit(tc)
+            ntc.typechecks = TypeCheckVisitor(self.allow_isinstance_anything).visit(tc)
             return ntc
         tc.func = self.visit(node.func)
         # might be a class
@@ -844,7 +871,9 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         node_cp = copy(node)
         node_cp.test = self.visit(node.test)
         assert node_cp.test.typ == BoolInstanceType, "Comparison must have type boolean"
-        typchecks, inv_typchecks = TypeCheckVisitor().visit(node_cp.test)
+        typchecks, inv_typchecks = TypeCheckVisitor(
+            self.allow_isinstance_anything
+        ).visit(node_cp.test)
         prevtyps = self.implement_typechecks(typchecks)
         node_cp.body = self.visit(node.body)
         self.implement_typechecks(prevtyps)

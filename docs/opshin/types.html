@@ -71,8 +71,10 @@ fill="currentColor" class="octo-body"></path>
 <pre><code class="python">import logging
 from ast import *
 from dataclasses import dataclass
+import itertools
 
 import pluthon as plt
+import uplc.ast
 
 from .util import *
 
@@ -92,12 +94,14 @@ class Type:
 
     def constr(self) -&gt; plt.AST:
         &#34;&#34;&#34;The constructor for this class&#34;&#34;&#34;
-        raise NotImplementedError(f&#34;Constructor of {self.__class__} not implemented&#34;)
+        raise NotImplementedError(
+            f&#34;Constructor of {type(self).__name__} not implemented&#34;
+        )
 
     def attribute_type(self, attr) -&gt; &#34;Type&#34;:
         &#34;&#34;&#34;The types of the named attributes of this class&#34;&#34;&#34;
         raise TypeInferenceError(
-            f&#34;Object of type {self.__class__} does not have attribute {attr}&#34;
+            f&#34;Object of type {type(self).__name__} does not have attribute {attr}&#34;
         )
 
     def attribute(self, attr) -&gt; plt.AST:
@@ -118,12 +122,15 @@ class Type:
         &#34;&#34;&#34;
         raise NotImplementedError(f&#34;{type(self).__name__} can not be stringified&#34;)
 
+    def copy_only_attributes(self) -&gt; plt.AST:
+        raise NotImplementedError(f&#34;{type(self).__name__} can not be copied&#34;)
+
 
 @dataclass(frozen=True, unsafe_hash=True)
 class Record:
     name: str
     constructor: int
-    fields: typing.Union[typing.List[typing.Tuple[str, Type]], FrozenList]
+    fields: typing.Union[typing.List[typing.Tuple[str, Type]], frozenlist]
 
     def __ge__(self, other):
         if not isinstance(other, Record):
@@ -140,10 +147,33 @@ class ClassType(Type):
     def __ge__(self, other):
         raise NotImplementedError(&#34;Comparison between raw classtypes impossible&#34;)
 
+    def copy_only_attributes(self) -&gt; plt.AST:
+        &#34;&#34;&#34;
+        Returns a copy of this type with only the declared attributes (mapped to builtin values, thus checking atomic types too).
+        For anything but record types and union types, this is the identity function.
+        &#34;&#34;&#34;
+        return plt.Lambda([&#34;self&#34;], plt.Var(&#34;self&#34;))
+
 
 @dataclass(frozen=True, unsafe_hash=True)
 class AnyType(ClassType):
     &#34;&#34;&#34;The top element in the partial order on types (excluding FunctionTypes, which do not compare to anything)&#34;&#34;&#34;
+
+    def attribute_type(self, attr: str) -&gt; Type:
+        &#34;&#34;&#34;The types of the named attributes of this class&#34;&#34;&#34;
+        if attr == &#34;CONSTR_ID&#34;:
+            return IntegerInstanceType
+        return super().attribute_type(attr)
+
+    def attribute(self, attr: str) -&gt; plt.AST:
+        &#34;&#34;&#34;The attributes of this class. Need to be a lambda that expects as first argument the object itself&#34;&#34;&#34;
+        if attr == &#34;CONSTR_ID&#34;:
+            # access to constructor
+            return plt.Lambda(
+                [&#34;self&#34;],
+                plt.Constructor(plt.Var(&#34;self&#34;)),
+            )
+        return super().attribute(attr)
 
     def __ge__(self, other):
         return (
@@ -374,7 +404,9 @@ class RecordType(ClassType):
 
     def constr_type(self) -&gt; &#34;InstanceType&#34;:
         return InstanceType(
-            FunctionType([f[1] for f in self.record.fields], InstanceType(self))
+            FunctionType(
+                frozenlist([f[1] for f in self.record.fields]), InstanceType(self)
+            )
         )
 
     def constr(self) -&gt; plt.AST:
@@ -398,9 +430,7 @@ class RecordType(ClassType):
             if n == attr:
                 return t
         if attr == &#34;to_cbor&#34;:
-            return InstanceType(
-                FunctionType(FrozenFrozenList([]), ByteStringInstanceType)
-            )
+            return InstanceType(FunctionType(frozenlist([]), ByteStringInstanceType))
         raise TypeInferenceError(
             f&#34;Type {self.record.name} does not have attribute {attr}&#34;
         )
@@ -522,6 +552,38 @@ class RecordType(ClassType):
             plt.AppendString(plt.Text(f&#34;{self.record.name}(&#34;), map_fields),
         )
 
+    def copy_only_attributes(self) -&gt; plt.AST:
+        copied_attributes = plt.EmptyDataList()
+        for attr_name, attr_type in reversed(self.record.fields):
+            copied_attributes = plt.Let(
+                [
+                    (&#34;f&#34;, plt.HeadList(plt.Var(&#34;fs&#34;))),
+                    (&#34;fs&#34;, plt.TailList(plt.Var(&#34;fs&#34;))),
+                ],
+                plt.MkCons(
+                    transform_output_map(attr_type)(
+                        plt.Apply(
+                            attr_type.copy_only_attributes(),
+                            transform_ext_params_map(attr_type)(
+                                plt.Var(&#34;f&#34;),
+                            ),
+                        )
+                    ),
+                    copied_attributes,
+                ),
+            )
+        copied_attributes = plt.Let(
+            [(&#34;fs&#34;, plt.Fields(plt.Var(&#34;self&#34;)))],
+            copied_attributes,
+        )
+        return plt.Lambda(
+            [&#34;self&#34;],
+            plt.ConstrData(
+                plt.Integer(self.record.constructor),
+                copied_attributes,
+            ),
+        )
+
 
 @dataclass(frozen=True, unsafe_hash=True)
 class UnionType(ClassType):
@@ -530,13 +592,11 @@ class UnionType(ClassType):
     def attribute_type(self, attr) -&gt; &#34;Type&#34;:
         if attr == &#34;CONSTR_ID&#34;:
             return IntegerInstanceType
-        # iterate through all names/types of the unioned records by position
-        for attr_names, attr_types in map(
-            lambda x: zip(*x), zip(*(t.record.fields for t in self.typs))
-        ):
-            # need to have a common field with the same name, in the same position!
-            if any(attr_name != attr for attr_name in attr_names):
-                continue
+        # need to have a common field with the same name
+        if all(attr in (n for n, t in x.record.fields) for x in self.typs):
+            attr_types = set(
+                t for x in self.typs for n, t in x.record.fields if n == attr
+            )
             for at in attr_types:
                 # return the maximum element if there is one
                 if all(at &gt;= at2 for at2 in attr_types):
@@ -547,14 +607,12 @@ class UnionType(ClassType):
                 for at in attr_types
             ) and distinct([at.typ.record.constructor for at in attr_types]):
                 return InstanceType(
-                    UnionType(FrozenFrozenList([at.typ for at in attr_types]))
+                    UnionType(frozenlist([at.typ for at in attr_types]))
                 )
             # return Anytype
             return InstanceType(AnyType())
         if attr == &#34;to_cbor&#34;:
-            return InstanceType(
-                FunctionType(FrozenFrozenList([]), ByteStringInstanceType)
-            )
+            return InstanceType(FunctionType(frozenlist([]), ByteStringInstanceType))
         raise TypeInferenceError(
             f&#34;Can not access attribute {attr} of Union type. Cast to desired type with an &#39;if isinstance(_, _):&#39; branch.&#34;
         )
@@ -569,20 +627,48 @@ class UnionType(ClassType):
         # iterate through all names/types of the unioned records by position
         if any(attr in (n for n, t in r.record.fields) for r in self.typs):
             attr_typ = self.attribute_type(attr)
-            pos = next(
-                i
-                for i, (ns, _) in enumerate(
-                    map(lambda x: zip(*x), zip(*(t.record.fields for t in self.typs)))
-                )
-                if all(n == attr for n in ns)
-            )
+            pos_constrs = [
+                (i, x.record.constructor)
+                for x in self.typs
+                for i, (n, t) in enumerate(x.record.fields)
+                if n == attr
+            ]
+            pos_constrs = sorted(pos_constrs, key=lambda x: x[0])
+            pos_constrs = [
+                (pos, [c[1] for c in constrs])
+                for (pos, constrs) in itertools.groupby(pos_constrs, key=lambda x: x[0])
+            ]
+            # largest group last so we save the comparisons for that
+            pos_constrs = sorted(pos_constrs, key=lambda x: len(x[1]))
             # access to normal fields
+            if not pos_constrs:
+                pos_decisor = plt.TraceError(&#34;Invalid constructor&#34;)
+            else:
+                pos_decisor = plt.Integer(pos_constrs[-1][0])
+                pos_constrs = pos_constrs[:-1]
+            for pos, constrs in pos_constrs:
+                assert constrs, &#34;Found empty constructors for a position&#34;
+                constr_check = plt.EqualsInteger(
+                    plt.Var(&#34;constr&#34;), plt.Integer(constrs[0])
+                )
+                for constr in constrs[1:]:
+                    constr_check = plt.Or(
+                        plt.EqualsInteger(plt.Var(&#34;constr&#34;), plt.Integer(constr)),
+                        constr_check,
+                    )
+                pos_decisor = plt.Ite(
+                    constr_check,
+                    plt.Integer(pos),
+                    pos_decisor,
+                )
             return plt.Lambda(
                 [&#34;self&#34;],
                 transform_ext_params_map(attr_typ)(
                     plt.NthField(
                         plt.Var(&#34;self&#34;),
-                        plt.Integer(pos),
+                        plt.Let(
+                            [(&#34;constr&#34;, plt.Constructor(plt.Var(&#34;self&#34;)))], pos_decisor
+                        ),
                     ),
                 ),
             )
@@ -624,7 +710,7 @@ class UnionType(ClassType):
         if (
             isinstance(o, ListType)
             and isinstance(o.typ, InstanceType)
-            and (o.typ.typ &gt;= t or t &gt;= o.typ.typ for t in self.typs)
+            and any(o.typ.typ &gt;= t or t &gt;= o.typ.typ for t in self.typs)
         ):
             if isinstance(op, In):
                 return plt.Lambda(
@@ -663,6 +749,26 @@ class UnionType(ClassType):
             plt.Let(
                 [(&#34;c&#34;, plt.Constructor(plt.Var(&#34;self&#34;)))],
                 plt.Apply(decide_string_func, plt.Var(&#34;self&#34;), plt.Var(&#34;_&#34;)),
+            ),
+        )
+
+    def copy_only_attributes(self) -&gt; plt.AST:
+        copied_attributes = plt.TraceError(
+            f&#34;Invalid CONSTR_ID for instance of Union[{&#39;, &#39;.join(type(typ).__name__ for typ in self.typs)}]&#34;
+        )
+        for typ in self.typs:
+            copied_attributes = plt.Ite(
+                plt.EqualsInteger(
+                    plt.Var(&#34;constr&#34;), plt.Integer(typ.record.constructor)
+                ),
+                plt.Apply(typ.copy_only_attributes(), plt.Var(&#34;self&#34;)),
+                copied_attributes,
+            )
+        return plt.Lambda(
+            [&#34;self&#34;],
+            plt.Let(
+                [(&#34;constr&#34;, plt.Constructor(plt.Var(&#34;self&#34;)))],
+                copied_attributes,
             ),
         )
 
@@ -805,6 +911,22 @@ class ListType(ClassType):
             ),
         )
 
+    def copy_only_attributes(self) -&gt; plt.AST:
+        mapped_attrs = plt.MapList(
+            plt.Var(&#34;self&#34;),
+            plt.Lambda(
+                [&#34;v&#34;],
+                transform_output_map(self.typ)(
+                    plt.Apply(
+                        self.typ.copy_only_attributes(),
+                        transform_ext_params_map(self.typ)(plt.Var(&#34;v&#34;)),
+                    )
+                ),
+            ),
+            plt.EmptyDataList(),
+        )
+        return plt.Lambda([&#34;self&#34;], mapped_attrs)
+
 
 @dataclass(frozen=True, unsafe_hash=True)
 class DictType(ClassType):
@@ -814,18 +936,20 @@ class DictType(ClassType):
     def attribute_type(self, attr) -&gt; &#34;Type&#34;:
         if attr == &#34;get&#34;:
             return InstanceType(
-                FunctionType([self.key_typ, self.value_typ], self.value_typ)
+                FunctionType(frozenlist([self.key_typ, self.value_typ]), self.value_typ)
             )
         if attr == &#34;keys&#34;:
-            return InstanceType(FunctionType([], InstanceType(ListType(self.key_typ))))
+            return InstanceType(
+                FunctionType(frozenlist([]), InstanceType(ListType(self.key_typ)))
+            )
         if attr == &#34;values&#34;:
             return InstanceType(
-                FunctionType([], InstanceType(ListType(self.value_typ)))
+                FunctionType(frozenlist([]), InstanceType(ListType(self.value_typ)))
             )
         if attr == &#34;items&#34;:
             return InstanceType(
                 FunctionType(
-                    [],
+                    frozenlist([]),
                     InstanceType(
                         ListType(InstanceType(PairType(self.key_typ, self.value_typ)))
                     ),
@@ -966,6 +1090,124 @@ class DictType(ClassType):
             ),
         )
 
+    def copy_only_attributes(self) -&gt; plt.AST:
+        def CustomMapFilterList(
+            l: plt.AST,
+            filter_op: plt.AST,
+            map_op: plt.AST,
+            empty_list=plt.EmptyDataList(),
+        ):
+            from pluthon import (
+                Apply,
+                Lambda as PLambda,
+                RecFun,
+                IteNullList,
+                Var as PVar,
+                HeadList,
+                Ite,
+                TailList,
+                PrependList,
+                Let as PLet,
+            )
+
+            &#34;&#34;&#34;
+            Apply a filter and a map function on each element in a list (throws out all that evaluate to false)
+            Performs only a single pass and is hence much more efficient than filter + map
+            &#34;&#34;&#34;
+            return Apply(
+                PLambda(
+                    [&#34;filter&#34;, &#34;map&#34;],
+                    RecFun(
+                        PLambda(
+                            [&#34;filtermap&#34;, &#34;xs&#34;],
+                            IteNullList(
+                                PVar(&#34;xs&#34;),
+                                empty_list,
+                                PLet(
+                                    [
+                                        (&#34;head&#34;, HeadList(PVar(&#34;xs&#34;))),
+                                        (&#34;tail&#34;, TailList(PVar(&#34;xs&#34;))),
+                                    ],
+                                    Ite(
+                                        Apply(
+                                            PVar(&#34;filter&#34;), PVar(&#34;head&#34;), PVar(&#34;tail&#34;)
+                                        ),
+                                        PrependList(
+                                            Apply(PVar(&#34;map&#34;), PVar(&#34;head&#34;)),
+                                            Apply(
+                                                PVar(&#34;filtermap&#34;),
+                                                PVar(&#34;filtermap&#34;),
+                                                PVar(&#34;tail&#34;),
+                                            ),
+                                        ),
+                                        Apply(
+                                            PVar(&#34;filtermap&#34;),
+                                            PVar(&#34;filtermap&#34;),
+                                            PVar(&#34;tail&#34;),
+                                        ),
+                                    ),
+                                ),
+                            ),
+                        ),
+                    ),
+                ),
+                filter_op,
+                map_op,
+                l,
+            )
+
+        mapped_attrs = CustomMapFilterList(
+            plt.Var(&#34;self&#34;),
+            plt.Lambda(
+                [&#34;h&#34;, &#34;t&#34;],
+                plt.Let(
+                    [
+                        (&#34;hfst&#34;, plt.FstPair(plt.Var(&#34;h&#34;))),
+                        (
+                            &#34;found_elem&#34;,
+                            plt.FindList(
+                                plt.Var(&#34;t&#34;),
+                                plt.Lambda(
+                                    [&#34;e&#34;],
+                                    plt.EqualsData(
+                                        plt.Var(&#34;hfst&#34;), plt.FstPair(plt.Var(&#34;e&#34;))
+                                    ),
+                                ),
+                                plt.UPLCConstant(uplc.PlutusConstr(-1, [])),
+                            ),
+                        ),
+                    ],
+                    plt.EqualsData(
+                        plt.Var(&#34;found_elem&#34;),
+                        plt.UPLCConstant(uplc.PlutusConstr(-1, [])),
+                    ),
+                ),
+            ),
+            plt.Lambda(
+                [&#34;v&#34;],
+                plt.MkPairData(
+                    transform_output_map(self.key_typ)(
+                        plt.Apply(
+                            self.key_typ.copy_only_attributes(),
+                            transform_ext_params_map(self.key_typ)(
+                                plt.FstPair(plt.Var(&#34;v&#34;))
+                            ),
+                        )
+                    ),
+                    transform_output_map(self.value_typ)(
+                        plt.Apply(
+                            self.value_typ.copy_only_attributes(),
+                            transform_ext_params_map(self.value_typ)(
+                                plt.SndPair(plt.Var(&#34;v&#34;))
+                            ),
+                        )
+                    ),
+                ),
+            ),
+            plt.EmptyDataPairList(),
+        )
+        return plt.Lambda([&#34;self&#34;], mapped_attrs)
+
 
 @dataclass(frozen=True, unsafe_hash=True)
 class FunctionType(ClassType):
@@ -1010,6 +1252,9 @@ class InstanceType(Type):
 
     def stringify(self, recursive: bool = False) -&gt; plt.AST:
         return self.typ.stringify(recursive=recursive)
+
+    def copy_only_attributes(self) -&gt; plt.AST:
+        return self.typ.copy_only_attributes()
 
 
 @dataclass(frozen=True, unsafe_hash=True)
@@ -1164,7 +1409,7 @@ class StringType(AtomicType):
 
     def attribute_type(self, attr) -&gt; Type:
         if attr == &#34;encode&#34;:
-            return InstanceType(FunctionType([], ByteStringInstanceType))
+            return InstanceType(FunctionType(frozenlist([]), ByteStringInstanceType))
         return super().attribute_type(attr)
 
     def attribute(self, attr) -&gt; plt.AST:
@@ -1197,9 +1442,9 @@ class ByteStringType(AtomicType):
 
     def attribute_type(self, attr) -&gt; Type:
         if attr == &#34;decode&#34;:
-            return InstanceType(FunctionType([], StringInstanceType))
+            return InstanceType(FunctionType(frozenlist([]), StringInstanceType))
         if attr == &#34;hex&#34;:
-            return InstanceType(FunctionType([], StringInstanceType))
+            return InstanceType(FunctionType(frozenlist([]), StringInstanceType))
         return super().attribute_type(attr)
 
     def attribute(self, attr) -&gt; plt.AST:
@@ -1715,11 +1960,10 @@ class IntImpl(PolymorphicFunction):
                             ),
                         ),
                         (
-                            &#34;second_int&#34;,
-                            plt.Ite(
-                                plt.LessThanInteger(plt.Integer(1), plt.Var(&#34;len&#34;)),
-                                plt.IndexByteString(plt.Var(&#34;e&#34;), plt.Integer(1)),
-                                plt.Integer(ord(&#34;_&#34;)),
+                            &#34;last_int&#34;,
+                            plt.IndexByteString(
+                                plt.Var(&#34;e&#34;),
+                                plt.SubtractInteger(plt.Var(&#34;len&#34;), plt.Integer(1)),
                             ),
                         ),
                         (
@@ -1779,26 +2023,26 @@ class IntImpl(PolymorphicFunction):
                     ],
                     plt.Ite(
                         plt.Or(
-                            plt.EqualsInteger(plt.Var(&#34;len&#34;), plt.Integer(0)),
                             plt.Or(
                                 plt.EqualsInteger(
                                     plt.Var(&#34;first_int&#34;),
                                     plt.Integer(ord(&#34;_&#34;)),
                                 ),
-                                plt.And(
-                                    plt.Or(
-                                        plt.EqualsInteger(
-                                            plt.Var(&#34;first_int&#34;),
-                                            plt.Integer(ord(&#34;-&#34;)),
-                                        ),
-                                        plt.EqualsInteger(
-                                            plt.Var(&#34;first_int&#34;),
-                                            plt.Integer(ord(&#34;+&#34;)),
-                                        ),
+                                plt.EqualsInteger(
+                                    plt.Var(&#34;last_int&#34;),
+                                    plt.Integer(ord(&#34;_&#34;)),
+                                ),
+                            ),
+                            plt.And(
+                                plt.EqualsInteger(plt.Var(&#34;len&#34;), plt.Integer(1)),
+                                plt.Or(
+                                    plt.EqualsInteger(
+                                        plt.Var(&#34;first_int&#34;),
+                                        plt.Integer(ord(&#34;-&#34;)),
                                     ),
                                     plt.EqualsInteger(
-                                        plt.Var(&#34;second_int&#34;),
-                                        plt.Integer(ord(&#34;_&#34;)),
+                                        plt.Var(&#34;first_int&#34;),
+                                        plt.Integer(ord(&#34;+&#34;)),
                                     ),
                                 ),
                             ),
@@ -1972,8 +2216,8 @@ def empty_list(p: Type):
             uplc.BuiltinList(
                 [],
                 uplc.BuiltinPair(
-                    uplc.PlutusConstr(0, FrozenList([])),
-                    uplc.PlutusConstr(0, FrozenList([])),
+                    uplc.PlutusConstr(0, frozenlist([])),
+                    uplc.PlutusConstr(0, frozenlist([])),
                 ),
             )
         )
@@ -2252,8 +2496,8 @@ def transform_output_map(p: Type):
             uplc.BuiltinList(
                 [],
                 uplc.BuiltinPair(
-                    uplc.PlutusConstr(0, FrozenList([])),
-                    uplc.PlutusConstr(0, FrozenList([])),
+                    uplc.PlutusConstr(0, frozenlist([])),
+                    uplc.PlutusConstr(0, frozenlist([])),
                 ),
             )
         )
@@ -2405,8 +2649,25 @@ def transform_output_map(p: Type):
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">class AnyType(ClassType):
+<pre><code class="python">@dataclass(frozen=True, unsafe_hash=True)
+class AnyType(ClassType):
     &#34;&#34;&#34;The top element in the partial order on types (excluding FunctionTypes, which do not compare to anything)&#34;&#34;&#34;
+
+    def attribute_type(self, attr: str) -&gt; Type:
+        &#34;&#34;&#34;The types of the named attributes of this class&#34;&#34;&#34;
+        if attr == &#34;CONSTR_ID&#34;:
+            return IntegerInstanceType
+        return super().attribute_type(attr)
+
+    def attribute(self, attr: str) -&gt; plt.AST:
+        &#34;&#34;&#34;The attributes of this class. Need to be a lambda that expects as first argument the object itself&#34;&#34;&#34;
+        if attr == &#34;CONSTR_ID&#34;:
+            # access to constructor
+            return plt.Lambda(
+                [&#34;self&#34;],
+                plt.Constructor(plt.Var(&#34;self&#34;)),
+            )
+        return super().attribute(attr)
 
     def __ge__(self, other):
         return (
@@ -2631,17 +2892,27 @@ def transform_output_map(p: Type):
 <h3>Methods</h3>
 <dl>
 <dt id="opshin.types.AnyType.attribute"><code class="name flex">
-<span>def <span class="ident">attribute</span></span>(<span>self, attr) ‑> pluthon.pluthon_ast.AST</span>
+<span>def <span class="ident">attribute</span></span>(<span>self, attr: str) ‑> pluthon.pluthon_ast.AST</span>
 </code></dt>
 <dd>
-<p class="inheritance">
-<em>Inherited from:</em>
-<code><a title="opshin.types.ClassType" href="#opshin.types.ClassType">ClassType</a></code>.<code><a title="opshin.types.ClassType.attribute" href="#opshin.types.ClassType.attribute">attribute</a></code>
-</p>
-<div class="desc inherited"><p>The attributes of this class. Needs to be a lambda that expects as first argument the object itself</p></div>
+<div class="desc"><p>The attributes of this class. Need to be a lambda that expects as first argument the object itself</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def attribute(self, attr: str) -&gt; plt.AST:
+    &#34;&#34;&#34;The attributes of this class. Need to be a lambda that expects as first argument the object itself&#34;&#34;&#34;
+    if attr == &#34;CONSTR_ID&#34;:
+        # access to constructor
+        return plt.Lambda(
+            [&#34;self&#34;],
+            plt.Constructor(plt.Var(&#34;self&#34;)),
+        )
+    return super().attribute(attr)</code></pre>
+</details>
 </dd>
 <dt id="opshin.types.AnyType.attribute_type"><code class="name flex">
-<span>def <span class="ident">attribute_type</span></span>(<span>self, attr) ‑> <a title="opshin.types.Type" href="#opshin.types.Type">Type</a></span>
+<span>def <span class="ident">attribute_type</span></span>(<span>self, attr: str) ‑> <a title="opshin.types.Type" href="#opshin.types.Type">Type</a></span>
 </code></dt>
 <dd>
 <p class="inheritance">
@@ -2649,9 +2920,19 @@ def transform_output_map(p: Type):
 <code><a title="opshin.types.ClassType" href="#opshin.types.ClassType">ClassType</a></code>.<code><a title="opshin.types.ClassType.attribute_type" href="#opshin.types.ClassType.attribute_type">attribute_type</a></code>
 </p>
 <div class="desc inherited"><p>The types of the named attributes of this class</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def attribute_type(self, attr: str) -&gt; Type:
+    &#34;&#34;&#34;The types of the named attributes of this class&#34;&#34;&#34;
+    if attr == &#34;CONSTR_ID&#34;:
+        return IntegerInstanceType
+    return super().attribute_type(attr)</code></pre>
+</details>
 </dd>
 <dt id="opshin.types.AnyType.cmp"><code class="name flex">
-<span>def <span class="ident">cmp</span></span>(<span>self, op: _ast.cmpop, o: <a title="opshin.types.Type" href="#opshin.types.Type">Type</a>) ‑> pluthon.pluthon_ast.AST</span>
+<span>def <span class="ident">cmp</span></span>(<span>self, op: ast.cmpop, o: <a title="opshin.types.Type" href="#opshin.types.Type">Type</a>) ‑> pluthon.pluthon_ast.AST</span>
 </code></dt>
 <dd>
 <p class="inheritance">
@@ -2679,6 +2960,17 @@ def transform_output_map(p: Type):
 <code><a title="opshin.types.ClassType" href="#opshin.types.ClassType">ClassType</a></code>.<code><a title="opshin.types.ClassType.constr_type" href="#opshin.types.ClassType.constr_type">constr_type</a></code>
 </p>
 <div class="desc inherited"><p>The type of the constructor for this class</p></div>
+</dd>
+<dt id="opshin.types.AnyType.copy_only_attributes"><code class="name flex">
+<span>def <span class="ident">copy_only_attributes</span></span>(<span>self) ‑> pluthon.pluthon_ast.AST</span>
+</code></dt>
+<dd>
+<p class="inheritance">
+<em>Inherited from:</em>
+<code><a title="opshin.types.ClassType" href="#opshin.types.ClassType">ClassType</a></code>.<code><a title="opshin.types.ClassType.copy_only_attributes" href="#opshin.types.ClassType.copy_only_attributes">copy_only_attributes</a></code>
+</p>
+<div class="desc inherited"><p>Returns a copy of this type with only the declared attributes (mapped to builtin values, thus checking atomic types too).
+For anything but record …</p></div>
 </dd>
 <dt id="opshin.types.AnyType.stringify"><code class="name flex">
 <span>def <span class="ident">stringify</span></span>(<span>self, recursive: bool = False) ‑> pluthon.pluthon_ast.AST</span>
@@ -2913,7 +3205,8 @@ def transform_output_map(p: Type):
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">class AtomicType(ClassType):
+<pre><code class="python">@dataclass(frozen=True, unsafe_hash=True)
+class AtomicType(ClassType):
     def __ge__(self, other):
         # Can only substitute for its own type (also subtypes)
         return isinstance(other, self.__class__)</code></pre>
@@ -2954,7 +3247,7 @@ def transform_output_map(p: Type):
 <div class="desc inherited"><p>The types of the named attributes of this class</p></div>
 </dd>
 <dt id="opshin.types.AtomicType.cmp"><code class="name flex">
-<span>def <span class="ident">cmp</span></span>(<span>self, op: _ast.cmpop, o: <a title="opshin.types.Type" href="#opshin.types.Type">Type</a>) ‑> pluthon.pluthon_ast.AST</span>
+<span>def <span class="ident">cmp</span></span>(<span>self, op: ast.cmpop, o: <a title="opshin.types.Type" href="#opshin.types.Type">Type</a>) ‑> pluthon.pluthon_ast.AST</span>
 </code></dt>
 <dd>
 <p class="inheritance">
@@ -2982,6 +3275,17 @@ def transform_output_map(p: Type):
 <code><a title="opshin.types.ClassType" href="#opshin.types.ClassType">ClassType</a></code>.<code><a title="opshin.types.ClassType.constr_type" href="#opshin.types.ClassType.constr_type">constr_type</a></code>
 </p>
 <div class="desc inherited"><p>The type of the constructor for this class</p></div>
+</dd>
+<dt id="opshin.types.AtomicType.copy_only_attributes"><code class="name flex">
+<span>def <span class="ident">copy_only_attributes</span></span>(<span>self) ‑> pluthon.pluthon_ast.AST</span>
+</code></dt>
+<dd>
+<p class="inheritance">
+<em>Inherited from:</em>
+<code><a title="opshin.types.ClassType" href="#opshin.types.ClassType">ClassType</a></code>.<code><a title="opshin.types.ClassType.copy_only_attributes" href="#opshin.types.ClassType.copy_only_attributes">copy_only_attributes</a></code>
+</p>
+<div class="desc inherited"><p>Returns a copy of this type with only the declared attributes (mapped to builtin values, thus checking atomic types too).
+For anything but record …</p></div>
 </dd>
 <dt id="opshin.types.AtomicType.stringify"><code class="name flex">
 <span>def <span class="ident">stringify</span></span>(<span>self, recursive: bool = False) ‑> pluthon.pluthon_ast.AST</span>
@@ -3146,7 +3450,8 @@ def transform_output_map(p: Type):
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">class BoolType(AtomicType):
+<pre><code class="python">@dataclass(frozen=True, unsafe_hash=True)
+class BoolType(AtomicType):
     def constr_type(self) -&gt; &#34;InstanceType&#34;:
         return InstanceType(PolymorphicFunctionType(BoolImpl()))
 
@@ -3208,7 +3513,7 @@ def transform_output_map(p: Type):
 <div class="desc inherited"><p>The types of the named attributes of this class</p></div>
 </dd>
 <dt id="opshin.types.BoolType.cmp"><code class="name flex">
-<span>def <span class="ident">cmp</span></span>(<span>self, op: _ast.cmpop, o: <a title="opshin.types.Type" href="#opshin.types.Type">Type</a>) ‑> pluthon.pluthon_ast.AST</span>
+<span>def <span class="ident">cmp</span></span>(<span>self, op: ast.cmpop, o: <a title="opshin.types.Type" href="#opshin.types.Type">Type</a>) ‑> pluthon.pluthon_ast.AST</span>
 </code></dt>
 <dd>
 <p class="inheritance">
@@ -3267,6 +3572,17 @@ def transform_output_map(p: Type):
     return InstanceType(PolymorphicFunctionType(BoolImpl()))</code></pre>
 </details>
 </dd>
+<dt id="opshin.types.BoolType.copy_only_attributes"><code class="name flex">
+<span>def <span class="ident">copy_only_attributes</span></span>(<span>self) ‑> pluthon.pluthon_ast.AST</span>
+</code></dt>
+<dd>
+<p class="inheritance">
+<em>Inherited from:</em>
+<code><a title="opshin.types.AtomicType" href="#opshin.types.AtomicType">AtomicType</a></code>.<code><a title="opshin.types.AtomicType.copy_only_attributes" href="#opshin.types.AtomicType.copy_only_attributes">copy_only_attributes</a></code>
+</p>
+<div class="desc inherited"><p>Returns a copy of this type with only the declared attributes (mapped to builtin values, thus checking atomic types too).
+For anything but record …</p></div>
+</dd>
 <dt id="opshin.types.BoolType.stringify"><code class="name flex">
 <span>def <span class="ident">stringify</span></span>(<span>self, recursive: bool = False) ‑> pluthon.pluthon_ast.AST</span>
 </code></dt>
@@ -3302,15 +3618,16 @@ def transform_output_map(p: Type):
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">class ByteStringType(AtomicType):
+<pre><code class="python">@dataclass(frozen=True, unsafe_hash=True)
+class ByteStringType(AtomicType):
     def constr_type(self) -&gt; InstanceType:
         return InstanceType(PolymorphicFunctionType(BytesImpl()))
 
     def attribute_type(self, attr) -&gt; Type:
         if attr == &#34;decode&#34;:
-            return InstanceType(FunctionType([], StringInstanceType))
+            return InstanceType(FunctionType(frozenlist([]), StringInstanceType))
         if attr == &#34;hex&#34;:
-            return InstanceType(FunctionType([], StringInstanceType))
+            return InstanceType(FunctionType(frozenlist([]), StringInstanceType))
         return super().attribute_type(attr)
 
     def attribute(self, attr) -&gt; plt.AST:
@@ -3766,14 +4083,14 @@ def transform_output_map(p: Type):
 </summary>
 <pre><code class="python">def attribute_type(self, attr) -&gt; Type:
     if attr == &#34;decode&#34;:
-        return InstanceType(FunctionType([], StringInstanceType))
+        return InstanceType(FunctionType(frozenlist([]), StringInstanceType))
     if attr == &#34;hex&#34;:
-        return InstanceType(FunctionType([], StringInstanceType))
+        return InstanceType(FunctionType(frozenlist([]), StringInstanceType))
     return super().attribute_type(attr)</code></pre>
 </details>
 </dd>
 <dt id="opshin.types.ByteStringType.cmp"><code class="name flex">
-<span>def <span class="ident">cmp</span></span>(<span>self, op: _ast.cmpop, o: <a title="opshin.types.Type" href="#opshin.types.Type">Type</a>) ‑> pluthon.pluthon_ast.AST</span>
+<span>def <span class="ident">cmp</span></span>(<span>self, op: ast.cmpop, o: <a title="opshin.types.Type" href="#opshin.types.Type">Type</a>) ‑> pluthon.pluthon_ast.AST</span>
 </code></dt>
 <dd>
 <p class="inheritance">
@@ -3872,6 +4189,17 @@ def transform_output_map(p: Type):
 <pre><code class="python">def constr_type(self) -&gt; InstanceType:
     return InstanceType(PolymorphicFunctionType(BytesImpl()))</code></pre>
 </details>
+</dd>
+<dt id="opshin.types.ByteStringType.copy_only_attributes"><code class="name flex">
+<span>def <span class="ident">copy_only_attributes</span></span>(<span>self) ‑> pluthon.pluthon_ast.AST</span>
+</code></dt>
+<dd>
+<p class="inheritance">
+<em>Inherited from:</em>
+<code><a title="opshin.types.AtomicType" href="#opshin.types.AtomicType">AtomicType</a></code>.<code><a title="opshin.types.AtomicType.copy_only_attributes" href="#opshin.types.AtomicType.copy_only_attributes">copy_only_attributes</a></code>
+</p>
+<div class="desc inherited"><p>Returns a copy of this type with only the declared attributes (mapped to builtin values, thus checking atomic types too).
+For anything but record …</p></div>
 </dd>
 <dt id="opshin.types.ByteStringType.stringify"><code class="name flex">
 <span>def <span class="ident">stringify</span></span>(<span>self, recursive: bool = False) ‑> pluthon.pluthon_ast.AST</span>
@@ -4202,9 +4530,17 @@ def transform_output_map(p: Type):
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">class ClassType(Type):
+<pre><code class="python">@dataclass(frozen=True, unsafe_hash=True)
+class ClassType(Type):
     def __ge__(self, other):
-        raise NotImplementedError(&#34;Comparison between raw classtypes impossible&#34;)</code></pre>
+        raise NotImplementedError(&#34;Comparison between raw classtypes impossible&#34;)
+
+    def copy_only_attributes(self) -&gt; plt.AST:
+        &#34;&#34;&#34;
+        Returns a copy of this type with only the declared attributes (mapped to builtin values, thus checking atomic types too).
+        For anything but record types and union types, this is the identity function.
+        &#34;&#34;&#34;
+        return plt.Lambda([&#34;self&#34;], plt.Var(&#34;self&#34;))</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -4248,7 +4584,7 @@ def transform_output_map(p: Type):
 <div class="desc inherited"><p>The types of the named attributes of this class</p></div>
 </dd>
 <dt id="opshin.types.ClassType.cmp"><code class="name flex">
-<span>def <span class="ident">cmp</span></span>(<span>self, op: _ast.cmpop, o: <a title="opshin.types.Type" href="#opshin.types.Type">Type</a>) ‑> pluthon.pluthon_ast.AST</span>
+<span>def <span class="ident">cmp</span></span>(<span>self, op: ast.cmpop, o: <a title="opshin.types.Type" href="#opshin.types.Type">Type</a>) ‑> pluthon.pluthon_ast.AST</span>
 </code></dt>
 <dd>
 <p class="inheritance">
@@ -4277,6 +4613,24 @@ def transform_output_map(p: Type):
 </p>
 <div class="desc inherited"><p>The type of the constructor for this class</p></div>
 </dd>
+<dt id="opshin.types.ClassType.copy_only_attributes"><code class="name flex">
+<span>def <span class="ident">copy_only_attributes</span></span>(<span>self) ‑> pluthon.pluthon_ast.AST</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Returns a copy of this type with only the declared attributes (mapped to builtin values, thus checking atomic types too).
+For anything but record types and union types, this is the identity function.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def copy_only_attributes(self) -&gt; plt.AST:
+    &#34;&#34;&#34;
+    Returns a copy of this type with only the declared attributes (mapped to builtin values, thus checking atomic types too).
+    For anything but record types and union types, this is the identity function.
+    &#34;&#34;&#34;
+    return plt.Lambda([&#34;self&#34;], plt.Var(&#34;self&#34;))</code></pre>
+</details>
+</dd>
 <dt id="opshin.types.ClassType.stringify"><code class="name flex">
 <span>def <span class="ident">stringify</span></span>(<span>self, recursive: bool = False) ‑> pluthon.pluthon_ast.AST</span>
 </code></dt>
@@ -4299,25 +4653,28 @@ def transform_output_map(p: Type):
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">class DictType(ClassType):
+<pre><code class="python">@dataclass(frozen=True, unsafe_hash=True)
+class DictType(ClassType):
     key_typ: Type
     value_typ: Type
 
     def attribute_type(self, attr) -&gt; &#34;Type&#34;:
         if attr == &#34;get&#34;:
             return InstanceType(
-                FunctionType([self.key_typ, self.value_typ], self.value_typ)
+                FunctionType(frozenlist([self.key_typ, self.value_typ]), self.value_typ)
             )
         if attr == &#34;keys&#34;:
-            return InstanceType(FunctionType([], InstanceType(ListType(self.key_typ))))
+            return InstanceType(
+                FunctionType(frozenlist([]), InstanceType(ListType(self.key_typ)))
+            )
         if attr == &#34;values&#34;:
             return InstanceType(
-                FunctionType([], InstanceType(ListType(self.value_typ)))
+                FunctionType(frozenlist([]), InstanceType(ListType(self.value_typ)))
             )
         if attr == &#34;items&#34;:
             return InstanceType(
                 FunctionType(
-                    [],
+                    frozenlist([]),
                     InstanceType(
                         ListType(InstanceType(PairType(self.key_typ, self.value_typ)))
                     ),
@@ -4456,7 +4813,125 @@ def transform_output_map(p: Type):
                     ),
                 ),
             ),
-        )</code></pre>
+        )
+
+    def copy_only_attributes(self) -&gt; plt.AST:
+        def CustomMapFilterList(
+            l: plt.AST,
+            filter_op: plt.AST,
+            map_op: plt.AST,
+            empty_list=plt.EmptyDataList(),
+        ):
+            from pluthon import (
+                Apply,
+                Lambda as PLambda,
+                RecFun,
+                IteNullList,
+                Var as PVar,
+                HeadList,
+                Ite,
+                TailList,
+                PrependList,
+                Let as PLet,
+            )
+
+            &#34;&#34;&#34;
+            Apply a filter and a map function on each element in a list (throws out all that evaluate to false)
+            Performs only a single pass and is hence much more efficient than filter + map
+            &#34;&#34;&#34;
+            return Apply(
+                PLambda(
+                    [&#34;filter&#34;, &#34;map&#34;],
+                    RecFun(
+                        PLambda(
+                            [&#34;filtermap&#34;, &#34;xs&#34;],
+                            IteNullList(
+                                PVar(&#34;xs&#34;),
+                                empty_list,
+                                PLet(
+                                    [
+                                        (&#34;head&#34;, HeadList(PVar(&#34;xs&#34;))),
+                                        (&#34;tail&#34;, TailList(PVar(&#34;xs&#34;))),
+                                    ],
+                                    Ite(
+                                        Apply(
+                                            PVar(&#34;filter&#34;), PVar(&#34;head&#34;), PVar(&#34;tail&#34;)
+                                        ),
+                                        PrependList(
+                                            Apply(PVar(&#34;map&#34;), PVar(&#34;head&#34;)),
+                                            Apply(
+                                                PVar(&#34;filtermap&#34;),
+                                                PVar(&#34;filtermap&#34;),
+                                                PVar(&#34;tail&#34;),
+                                            ),
+                                        ),
+                                        Apply(
+                                            PVar(&#34;filtermap&#34;),
+                                            PVar(&#34;filtermap&#34;),
+                                            PVar(&#34;tail&#34;),
+                                        ),
+                                    ),
+                                ),
+                            ),
+                        ),
+                    ),
+                ),
+                filter_op,
+                map_op,
+                l,
+            )
+
+        mapped_attrs = CustomMapFilterList(
+            plt.Var(&#34;self&#34;),
+            plt.Lambda(
+                [&#34;h&#34;, &#34;t&#34;],
+                plt.Let(
+                    [
+                        (&#34;hfst&#34;, plt.FstPair(plt.Var(&#34;h&#34;))),
+                        (
+                            &#34;found_elem&#34;,
+                            plt.FindList(
+                                plt.Var(&#34;t&#34;),
+                                plt.Lambda(
+                                    [&#34;e&#34;],
+                                    plt.EqualsData(
+                                        plt.Var(&#34;hfst&#34;), plt.FstPair(plt.Var(&#34;e&#34;))
+                                    ),
+                                ),
+                                plt.UPLCConstant(uplc.PlutusConstr(-1, [])),
+                            ),
+                        ),
+                    ],
+                    plt.EqualsData(
+                        plt.Var(&#34;found_elem&#34;),
+                        plt.UPLCConstant(uplc.PlutusConstr(-1, [])),
+                    ),
+                ),
+            ),
+            plt.Lambda(
+                [&#34;v&#34;],
+                plt.MkPairData(
+                    transform_output_map(self.key_typ)(
+                        plt.Apply(
+                            self.key_typ.copy_only_attributes(),
+                            transform_ext_params_map(self.key_typ)(
+                                plt.FstPair(plt.Var(&#34;v&#34;))
+                            ),
+                        )
+                    ),
+                    transform_output_map(self.value_typ)(
+                        plt.Apply(
+                            self.value_typ.copy_only_attributes(),
+                            transform_ext_params_map(self.value_typ)(
+                                plt.SndPair(plt.Var(&#34;v&#34;))
+                            ),
+                        )
+                    ),
+                ),
+            ),
+            plt.EmptyDataPairList(),
+        )
+        return plt.Lambda([&#34;self&#34;], mapped_attrs)</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -4567,18 +5042,20 @@ def transform_output_map(p: Type):
 <pre><code class="python">def attribute_type(self, attr) -&gt; &#34;Type&#34;:
     if attr == &#34;get&#34;:
         return InstanceType(
-            FunctionType([self.key_typ, self.value_typ], self.value_typ)
+            FunctionType(frozenlist([self.key_typ, self.value_typ]), self.value_typ)
         )
     if attr == &#34;keys&#34;:
-        return InstanceType(FunctionType([], InstanceType(ListType(self.key_typ))))
+        return InstanceType(
+            FunctionType(frozenlist([]), InstanceType(ListType(self.key_typ)))
+        )
     if attr == &#34;values&#34;:
         return InstanceType(
-            FunctionType([], InstanceType(ListType(self.value_typ)))
+            FunctionType(frozenlist([]), InstanceType(ListType(self.value_typ)))
         )
     if attr == &#34;items&#34;:
         return InstanceType(
             FunctionType(
-                [],
+                frozenlist([]),
                 InstanceType(
                     ListType(InstanceType(PairType(self.key_typ, self.value_typ)))
                 ),
@@ -4590,7 +5067,7 @@ def transform_output_map(p: Type):
 </details>
 </dd>
 <dt id="opshin.types.DictType.cmp"><code class="name flex">
-<span>def <span class="ident">cmp</span></span>(<span>self, op: _ast.cmpop, o: <a title="opshin.types.Type" href="#opshin.types.Type">Type</a>) ‑> pluthon.pluthon_ast.AST</span>
+<span>def <span class="ident">cmp</span></span>(<span>self, op: ast.cmpop, o: <a title="opshin.types.Type" href="#opshin.types.Type">Type</a>) ‑> pluthon.pluthon_ast.AST</span>
 </code></dt>
 <dd>
 <p class="inheritance">
@@ -4618,6 +5095,139 @@ def transform_output_map(p: Type):
 <code><a title="opshin.types.ClassType" href="#opshin.types.ClassType">ClassType</a></code>.<code><a title="opshin.types.ClassType.constr_type" href="#opshin.types.ClassType.constr_type">constr_type</a></code>
 </p>
 <div class="desc inherited"><p>The type of the constructor for this class</p></div>
+</dd>
+<dt id="opshin.types.DictType.copy_only_attributes"><code class="name flex">
+<span>def <span class="ident">copy_only_attributes</span></span>(<span>self) ‑> pluthon.pluthon_ast.AST</span>
+</code></dt>
+<dd>
+<p class="inheritance">
+<em>Inherited from:</em>
+<code><a title="opshin.types.ClassType" href="#opshin.types.ClassType">ClassType</a></code>.<code><a title="opshin.types.ClassType.copy_only_attributes" href="#opshin.types.ClassType.copy_only_attributes">copy_only_attributes</a></code>
+</p>
+<div class="desc inherited"><p>Returns a copy of this type with only the declared attributes (mapped to builtin values, thus checking atomic types too).
+For anything but record …</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def copy_only_attributes(self) -&gt; plt.AST:
+    def CustomMapFilterList(
+        l: plt.AST,
+        filter_op: plt.AST,
+        map_op: plt.AST,
+        empty_list=plt.EmptyDataList(),
+    ):
+        from pluthon import (
+            Apply,
+            Lambda as PLambda,
+            RecFun,
+            IteNullList,
+            Var as PVar,
+            HeadList,
+            Ite,
+            TailList,
+            PrependList,
+            Let as PLet,
+        )
+
+        &#34;&#34;&#34;
+        Apply a filter and a map function on each element in a list (throws out all that evaluate to false)
+        Performs only a single pass and is hence much more efficient than filter + map
+        &#34;&#34;&#34;
+        return Apply(
+            PLambda(
+                [&#34;filter&#34;, &#34;map&#34;],
+                RecFun(
+                    PLambda(
+                        [&#34;filtermap&#34;, &#34;xs&#34;],
+                        IteNullList(
+                            PVar(&#34;xs&#34;),
+                            empty_list,
+                            PLet(
+                                [
+                                    (&#34;head&#34;, HeadList(PVar(&#34;xs&#34;))),
+                                    (&#34;tail&#34;, TailList(PVar(&#34;xs&#34;))),
+                                ],
+                                Ite(
+                                    Apply(
+                                        PVar(&#34;filter&#34;), PVar(&#34;head&#34;), PVar(&#34;tail&#34;)
+                                    ),
+                                    PrependList(
+                                        Apply(PVar(&#34;map&#34;), PVar(&#34;head&#34;)),
+                                        Apply(
+                                            PVar(&#34;filtermap&#34;),
+                                            PVar(&#34;filtermap&#34;),
+                                            PVar(&#34;tail&#34;),
+                                        ),
+                                    ),
+                                    Apply(
+                                        PVar(&#34;filtermap&#34;),
+                                        PVar(&#34;filtermap&#34;),
+                                        PVar(&#34;tail&#34;),
+                                    ),
+                                ),
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+            filter_op,
+            map_op,
+            l,
+        )
+
+    mapped_attrs = CustomMapFilterList(
+        plt.Var(&#34;self&#34;),
+        plt.Lambda(
+            [&#34;h&#34;, &#34;t&#34;],
+            plt.Let(
+                [
+                    (&#34;hfst&#34;, plt.FstPair(plt.Var(&#34;h&#34;))),
+                    (
+                        &#34;found_elem&#34;,
+                        plt.FindList(
+                            plt.Var(&#34;t&#34;),
+                            plt.Lambda(
+                                [&#34;e&#34;],
+                                plt.EqualsData(
+                                    plt.Var(&#34;hfst&#34;), plt.FstPair(plt.Var(&#34;e&#34;))
+                                ),
+                            ),
+                            plt.UPLCConstant(uplc.PlutusConstr(-1, [])),
+                        ),
+                    ),
+                ],
+                plt.EqualsData(
+                    plt.Var(&#34;found_elem&#34;),
+                    plt.UPLCConstant(uplc.PlutusConstr(-1, [])),
+                ),
+            ),
+        ),
+        plt.Lambda(
+            [&#34;v&#34;],
+            plt.MkPairData(
+                transform_output_map(self.key_typ)(
+                    plt.Apply(
+                        self.key_typ.copy_only_attributes(),
+                        transform_ext_params_map(self.key_typ)(
+                            plt.FstPair(plt.Var(&#34;v&#34;))
+                        ),
+                    )
+                ),
+                transform_output_map(self.value_typ)(
+                    plt.Apply(
+                        self.value_typ.copy_only_attributes(),
+                        transform_ext_params_map(self.value_typ)(
+                            plt.SndPair(plt.Var(&#34;v&#34;))
+                        ),
+                    )
+                ),
+            ),
+        ),
+        plt.EmptyDataPairList(),
+    )
+    return plt.Lambda([&#34;self&#34;], mapped_attrs)</code></pre>
+</details>
 </dd>
 <dt id="opshin.types.DictType.stringify"><code class="name flex">
 <span>def <span class="ident">stringify</span></span>(<span>self, recursive: bool = False) ‑> pluthon.pluthon_ast.AST</span>
@@ -4708,7 +5318,8 @@ def transform_output_map(p: Type):
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">class FunctionType(ClassType):
+<pre><code class="python">@dataclass(frozen=True, unsafe_hash=True)
+class FunctionType(ClassType):
     argtyps: typing.List[Type]
     rettyp: Type
 
@@ -4761,7 +5372,7 @@ def transform_output_map(p: Type):
 <div class="desc inherited"><p>The types of the named attributes of this class</p></div>
 </dd>
 <dt id="opshin.types.FunctionType.cmp"><code class="name flex">
-<span>def <span class="ident">cmp</span></span>(<span>self, op: _ast.cmpop, o: <a title="opshin.types.Type" href="#opshin.types.Type">Type</a>) ‑> pluthon.pluthon_ast.AST</span>
+<span>def <span class="ident">cmp</span></span>(<span>self, op: ast.cmpop, o: <a title="opshin.types.Type" href="#opshin.types.Type">Type</a>) ‑> pluthon.pluthon_ast.AST</span>
 </code></dt>
 <dd>
 <p class="inheritance">
@@ -4789,6 +5400,17 @@ def transform_output_map(p: Type):
 <code><a title="opshin.types.ClassType" href="#opshin.types.ClassType">ClassType</a></code>.<code><a title="opshin.types.ClassType.constr_type" href="#opshin.types.ClassType.constr_type">constr_type</a></code>
 </p>
 <div class="desc inherited"><p>The type of the constructor for this class</p></div>
+</dd>
+<dt id="opshin.types.FunctionType.copy_only_attributes"><code class="name flex">
+<span>def <span class="ident">copy_only_attributes</span></span>(<span>self) ‑> pluthon.pluthon_ast.AST</span>
+</code></dt>
+<dd>
+<p class="inheritance">
+<em>Inherited from:</em>
+<code><a title="opshin.types.ClassType" href="#opshin.types.ClassType">ClassType</a></code>.<code><a title="opshin.types.ClassType.copy_only_attributes" href="#opshin.types.ClassType.copy_only_attributes">copy_only_attributes</a></code>
+</p>
+<div class="desc inherited"><p>Returns a copy of this type with only the declared attributes (mapped to builtin values, thus checking atomic types too).
+For anything but record …</p></div>
 </dd>
 <dt id="opshin.types.FunctionType.stringify"><code class="name flex">
 <span>def <span class="ident">stringify</span></span>(<span>self, recursive: bool = False) ‑> pluthon.pluthon_ast.AST</span>
@@ -4851,7 +5473,7 @@ def transform_output_map(p: Type):
 <div class="desc inherited"><p>The types of the named attributes of this class</p></div>
 </dd>
 <dt id="opshin.types.InaccessibleType.cmp"><code class="name flex">
-<span>def <span class="ident">cmp</span></span>(<span>self, op: _ast.cmpop, o: <a title="opshin.types.Type" href="#opshin.types.Type">Type</a>) ‑> pluthon.pluthon_ast.AST</span>
+<span>def <span class="ident">cmp</span></span>(<span>self, op: ast.cmpop, o: <a title="opshin.types.Type" href="#opshin.types.Type">Type</a>) ‑> pluthon.pluthon_ast.AST</span>
 </code></dt>
 <dd>
 <p class="inheritance">
@@ -4880,6 +5502,17 @@ def transform_output_map(p: Type):
 </p>
 <div class="desc inherited"><p>The type of the constructor for this class</p></div>
 </dd>
+<dt id="opshin.types.InaccessibleType.copy_only_attributes"><code class="name flex">
+<span>def <span class="ident">copy_only_attributes</span></span>(<span>self) ‑> pluthon.pluthon_ast.AST</span>
+</code></dt>
+<dd>
+<p class="inheritance">
+<em>Inherited from:</em>
+<code><a title="opshin.types.ClassType" href="#opshin.types.ClassType">ClassType</a></code>.<code><a title="opshin.types.ClassType.copy_only_attributes" href="#opshin.types.ClassType.copy_only_attributes">copy_only_attributes</a></code>
+</p>
+<div class="desc inherited"><p>Returns a copy of this type with only the declared attributes (mapped to builtin values, thus checking atomic types too).
+For anything but record …</p></div>
+</dd>
 <dt id="opshin.types.InaccessibleType.stringify"><code class="name flex">
 <span>def <span class="ident">stringify</span></span>(<span>self, recursive: bool = False) ‑> pluthon.pluthon_ast.AST</span>
 </code></dt>
@@ -4902,7 +5535,8 @@ def transform_output_map(p: Type):
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">class InstanceType(Type):
+<pre><code class="python">@dataclass(frozen=True, unsafe_hash=True)
+class InstanceType(Type):
     typ: ClassType
 
     def constr_type(self) -&gt; FunctionType:
@@ -4927,7 +5561,10 @@ def transform_output_map(p: Type):
         return isinstance(other, InstanceType) and self.typ &gt;= other.typ
 
     def stringify(self, recursive: bool = False) -&gt; plt.AST:
-        return self.typ.stringify(recursive=recursive)</code></pre>
+        return self.typ.stringify(recursive=recursive)
+
+    def copy_only_attributes(self) -&gt; plt.AST:
+        return self.typ.copy_only_attributes()</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -4981,7 +5618,7 @@ def transform_output_map(p: Type):
 </details>
 </dd>
 <dt id="opshin.types.InstanceType.cmp"><code class="name flex">
-<span>def <span class="ident">cmp</span></span>(<span>self, op: _ast.cmpop, o: <a title="opshin.types.Type" href="#opshin.types.Type">Type</a>) ‑> pluthon.pluthon_ast.AST</span>
+<span>def <span class="ident">cmp</span></span>(<span>self, op: ast.cmpop, o: <a title="opshin.types.Type" href="#opshin.types.Type">Type</a>) ‑> pluthon.pluthon_ast.AST</span>
 </code></dt>
 <dd>
 <p class="inheritance">
@@ -5032,6 +5669,19 @@ def transform_output_map(p: Type):
 </summary>
 <pre><code class="python">def constr_type(self) -&gt; FunctionType:
     raise TypeInferenceError(f&#34;Can not construct an instance {self}&#34;)</code></pre>
+</details>
+</dd>
+<dt id="opshin.types.InstanceType.copy_only_attributes"><code class="name flex">
+<span>def <span class="ident">copy_only_attributes</span></span>(<span>self) ‑> pluthon.pluthon_ast.AST</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def copy_only_attributes(self) -&gt; plt.AST:
+    return self.typ.copy_only_attributes()</code></pre>
 </details>
 </dd>
 <dt id="opshin.types.InstanceType.stringify"><code class="name flex">
@@ -5099,11 +5749,10 @@ def transform_output_map(p: Type):
                             ),
                         ),
                         (
-                            &#34;second_int&#34;,
-                            plt.Ite(
-                                plt.LessThanInteger(plt.Integer(1), plt.Var(&#34;len&#34;)),
-                                plt.IndexByteString(plt.Var(&#34;e&#34;), plt.Integer(1)),
-                                plt.Integer(ord(&#34;_&#34;)),
+                            &#34;last_int&#34;,
+                            plt.IndexByteString(
+                                plt.Var(&#34;e&#34;),
+                                plt.SubtractInteger(plt.Var(&#34;len&#34;), plt.Integer(1)),
                             ),
                         ),
                         (
@@ -5163,26 +5812,26 @@ def transform_output_map(p: Type):
                     ],
                     plt.Ite(
                         plt.Or(
-                            plt.EqualsInteger(plt.Var(&#34;len&#34;), plt.Integer(0)),
                             plt.Or(
                                 plt.EqualsInteger(
                                     plt.Var(&#34;first_int&#34;),
                                     plt.Integer(ord(&#34;_&#34;)),
                                 ),
-                                plt.And(
-                                    plt.Or(
-                                        plt.EqualsInteger(
-                                            plt.Var(&#34;first_int&#34;),
-                                            plt.Integer(ord(&#34;-&#34;)),
-                                        ),
-                                        plt.EqualsInteger(
-                                            plt.Var(&#34;first_int&#34;),
-                                            plt.Integer(ord(&#34;+&#34;)),
-                                        ),
+                                plt.EqualsInteger(
+                                    plt.Var(&#34;last_int&#34;),
+                                    plt.Integer(ord(&#34;_&#34;)),
+                                ),
+                            ),
+                            plt.And(
+                                plt.EqualsInteger(plt.Var(&#34;len&#34;), plt.Integer(1)),
+                                plt.Or(
+                                    plt.EqualsInteger(
+                                        plt.Var(&#34;first_int&#34;),
+                                        plt.Integer(ord(&#34;-&#34;)),
                                     ),
                                     plt.EqualsInteger(
-                                        plt.Var(&#34;second_int&#34;),
-                                        plt.Integer(ord(&#34;_&#34;)),
+                                        plt.Var(&#34;first_int&#34;),
+                                        plt.Integer(ord(&#34;+&#34;)),
                                     ),
                                 ),
                             ),
@@ -5255,11 +5904,10 @@ def transform_output_map(p: Type):
                         ),
                     ),
                     (
-                        &#34;second_int&#34;,
-                        plt.Ite(
-                            plt.LessThanInteger(plt.Integer(1), plt.Var(&#34;len&#34;)),
-                            plt.IndexByteString(plt.Var(&#34;e&#34;), plt.Integer(1)),
-                            plt.Integer(ord(&#34;_&#34;)),
+                        &#34;last_int&#34;,
+                        plt.IndexByteString(
+                            plt.Var(&#34;e&#34;),
+                            plt.SubtractInteger(plt.Var(&#34;len&#34;), plt.Integer(1)),
                         ),
                     ),
                     (
@@ -5319,26 +5967,26 @@ def transform_output_map(p: Type):
                 ],
                 plt.Ite(
                     plt.Or(
-                        plt.EqualsInteger(plt.Var(&#34;len&#34;), plt.Integer(0)),
                         plt.Or(
                             plt.EqualsInteger(
                                 plt.Var(&#34;first_int&#34;),
                                 plt.Integer(ord(&#34;_&#34;)),
                             ),
-                            plt.And(
-                                plt.Or(
-                                    plt.EqualsInteger(
-                                        plt.Var(&#34;first_int&#34;),
-                                        plt.Integer(ord(&#34;-&#34;)),
-                                    ),
-                                    plt.EqualsInteger(
-                                        plt.Var(&#34;first_int&#34;),
-                                        plt.Integer(ord(&#34;+&#34;)),
-                                    ),
+                            plt.EqualsInteger(
+                                plt.Var(&#34;last_int&#34;),
+                                plt.Integer(ord(&#34;_&#34;)),
+                            ),
+                        ),
+                        plt.And(
+                            plt.EqualsInteger(plt.Var(&#34;len&#34;), plt.Integer(1)),
+                            plt.Or(
+                                plt.EqualsInteger(
+                                    plt.Var(&#34;first_int&#34;),
+                                    plt.Integer(ord(&#34;-&#34;)),
                                 ),
                                 plt.EqualsInteger(
-                                    plt.Var(&#34;second_int&#34;),
-                                    plt.Integer(ord(&#34;_&#34;)),
+                                    plt.Var(&#34;first_int&#34;),
+                                    plt.Integer(ord(&#34;+&#34;)),
                                 ),
                             ),
                         ),
@@ -5404,7 +6052,8 @@ def transform_output_map(p: Type):
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">class IntegerType(AtomicType):
+<pre><code class="python">@dataclass(frozen=True, unsafe_hash=True)
+class IntegerType(AtomicType):
     def constr_type(self) -&gt; InstanceType:
         return InstanceType(PolymorphicFunctionType(IntImpl()))
 
@@ -5576,7 +6225,7 @@ def transform_output_map(p: Type):
 <div class="desc inherited"><p>The types of the named attributes of this class</p></div>
 </dd>
 <dt id="opshin.types.IntegerType.cmp"><code class="name flex">
-<span>def <span class="ident">cmp</span></span>(<span>self, op: _ast.cmpop, o: <a title="opshin.types.Type" href="#opshin.types.Type">Type</a>) ‑> pluthon.pluthon_ast.AST</span>
+<span>def <span class="ident">cmp</span></span>(<span>self, op: ast.cmpop, o: <a title="opshin.types.Type" href="#opshin.types.Type">Type</a>) ‑> pluthon.pluthon_ast.AST</span>
 </code></dt>
 <dd>
 <p class="inheritance">
@@ -5689,6 +6338,17 @@ def transform_output_map(p: Type):
     return InstanceType(PolymorphicFunctionType(IntImpl()))</code></pre>
 </details>
 </dd>
+<dt id="opshin.types.IntegerType.copy_only_attributes"><code class="name flex">
+<span>def <span class="ident">copy_only_attributes</span></span>(<span>self) ‑> pluthon.pluthon_ast.AST</span>
+</code></dt>
+<dd>
+<p class="inheritance">
+<em>Inherited from:</em>
+<code><a title="opshin.types.AtomicType" href="#opshin.types.AtomicType">AtomicType</a></code>.<code><a title="opshin.types.AtomicType.copy_only_attributes" href="#opshin.types.AtomicType.copy_only_attributes">copy_only_attributes</a></code>
+</p>
+<div class="desc inherited"><p>Returns a copy of this type with only the declared attributes (mapped to builtin values, thus checking atomic types too).
+For anything but record …</p></div>
+</dd>
 <dt id="opshin.types.IntegerType.stringify"><code class="name flex">
 <span>def <span class="ident">stringify</span></span>(<span>self, recursive: bool = False) ‑> pluthon.pluthon_ast.AST</span>
 </code></dt>
@@ -5781,7 +6441,8 @@ def transform_output_map(p: Type):
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">class ListType(ClassType):
+<pre><code class="python">@dataclass(frozen=True, unsafe_hash=True)
+class ListType(ClassType):
     typ: Type
 
     def __ge__(self, other):
@@ -5835,7 +6496,23 @@ def transform_output_map(p: Type):
                     ),
                 ),
             ),
-        )</code></pre>
+        )
+
+    def copy_only_attributes(self) -&gt; plt.AST:
+        mapped_attrs = plt.MapList(
+            plt.Var(&#34;self&#34;),
+            plt.Lambda(
+                [&#34;v&#34;],
+                transform_output_map(self.typ)(
+                    plt.Apply(
+                        self.typ.copy_only_attributes(),
+                        transform_ext_params_map(self.typ)(plt.Var(&#34;v&#34;)),
+                    )
+                ),
+            ),
+            plt.EmptyDataList(),
+        )
+        return plt.Lambda([&#34;self&#34;], mapped_attrs)</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -5872,7 +6549,7 @@ def transform_output_map(p: Type):
 <div class="desc inherited"><p>The types of the named attributes of this class</p></div>
 </dd>
 <dt id="opshin.types.ListType.cmp"><code class="name flex">
-<span>def <span class="ident">cmp</span></span>(<span>self, op: _ast.cmpop, o: <a title="opshin.types.Type" href="#opshin.types.Type">Type</a>) ‑> pluthon.pluthon_ast.AST</span>
+<span>def <span class="ident">cmp</span></span>(<span>self, op: ast.cmpop, o: <a title="opshin.types.Type" href="#opshin.types.Type">Type</a>) ‑> pluthon.pluthon_ast.AST</span>
 </code></dt>
 <dd>
 <p class="inheritance">
@@ -5900,6 +6577,37 @@ def transform_output_map(p: Type):
 <code><a title="opshin.types.ClassType" href="#opshin.types.ClassType">ClassType</a></code>.<code><a title="opshin.types.ClassType.constr_type" href="#opshin.types.ClassType.constr_type">constr_type</a></code>
 </p>
 <div class="desc inherited"><p>The type of the constructor for this class</p></div>
+</dd>
+<dt id="opshin.types.ListType.copy_only_attributes"><code class="name flex">
+<span>def <span class="ident">copy_only_attributes</span></span>(<span>self) ‑> pluthon.pluthon_ast.AST</span>
+</code></dt>
+<dd>
+<p class="inheritance">
+<em>Inherited from:</em>
+<code><a title="opshin.types.ClassType" href="#opshin.types.ClassType">ClassType</a></code>.<code><a title="opshin.types.ClassType.copy_only_attributes" href="#opshin.types.ClassType.copy_only_attributes">copy_only_attributes</a></code>
+</p>
+<div class="desc inherited"><p>Returns a copy of this type with only the declared attributes (mapped to builtin values, thus checking atomic types too).
+For anything but record …</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def copy_only_attributes(self) -&gt; plt.AST:
+    mapped_attrs = plt.MapList(
+        plt.Var(&#34;self&#34;),
+        plt.Lambda(
+            [&#34;v&#34;],
+            transform_output_map(self.typ)(
+                plt.Apply(
+                    self.typ.copy_only_attributes(),
+                    transform_ext_params_map(self.typ)(plt.Var(&#34;v&#34;)),
+                )
+            ),
+        ),
+        plt.EmptyDataList(),
+    )
+    return plt.Lambda([&#34;self&#34;], mapped_attrs)</code></pre>
+</details>
 </dd>
 <dt id="opshin.types.ListType.stringify"><code class="name flex">
 <span>def <span class="ident">stringify</span></span>(<span>self, recursive: bool = False) ‑> pluthon.pluthon_ast.AST</span>
@@ -5977,7 +6685,8 @@ def transform_output_map(p: Type):
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">class PairType(ClassType):
+<pre><code class="python">@dataclass(frozen=True, unsafe_hash=True)
+class PairType(ClassType):
     &#34;&#34;&#34;An internal type representing built-in PlutusData pairs&#34;&#34;&#34;
 
     l_typ: Type
@@ -6047,7 +6756,7 @@ def transform_output_map(p: Type):
 <div class="desc inherited"><p>The types of the named attributes of this class</p></div>
 </dd>
 <dt id="opshin.types.PairType.cmp"><code class="name flex">
-<span>def <span class="ident">cmp</span></span>(<span>self, op: _ast.cmpop, o: <a title="opshin.types.Type" href="#opshin.types.Type">Type</a>) ‑> pluthon.pluthon_ast.AST</span>
+<span>def <span class="ident">cmp</span></span>(<span>self, op: ast.cmpop, o: <a title="opshin.types.Type" href="#opshin.types.Type">Type</a>) ‑> pluthon.pluthon_ast.AST</span>
 </code></dt>
 <dd>
 <p class="inheritance">
@@ -6075,6 +6784,17 @@ def transform_output_map(p: Type):
 <code><a title="opshin.types.ClassType" href="#opshin.types.ClassType">ClassType</a></code>.<code><a title="opshin.types.ClassType.constr_type" href="#opshin.types.ClassType.constr_type">constr_type</a></code>
 </p>
 <div class="desc inherited"><p>The type of the constructor for this class</p></div>
+</dd>
+<dt id="opshin.types.PairType.copy_only_attributes"><code class="name flex">
+<span>def <span class="ident">copy_only_attributes</span></span>(<span>self) ‑> pluthon.pluthon_ast.AST</span>
+</code></dt>
+<dd>
+<p class="inheritance">
+<em>Inherited from:</em>
+<code><a title="opshin.types.ClassType" href="#opshin.types.ClassType">ClassType</a></code>.<code><a title="opshin.types.ClassType.copy_only_attributes" href="#opshin.types.ClassType.copy_only_attributes">copy_only_attributes</a></code>
+</p>
+<div class="desc inherited"><p>Returns a copy of this type with only the declared attributes (mapped to builtin values, thus checking atomic types too).
+For anything but record …</p></div>
 </dd>
 <dt id="opshin.types.PairType.stringify"><code class="name flex">
 <span>def <span class="ident">stringify</span></span>(<span>self, recursive: bool = False) ‑> pluthon.pluthon_ast.AST</span>
@@ -6132,6 +6852,7 @@ def transform_output_map(p: Type):
 <li><a title="opshin.fun_impls.LenImpl" href="fun_impls.html#opshin.fun_impls.LenImpl">LenImpl</a></li>
 <li><a title="opshin.fun_impls.PrintImpl" href="fun_impls.html#opshin.fun_impls.PrintImpl">PrintImpl</a></li>
 <li><a title="opshin.fun_impls.ReversedImpl" href="fun_impls.html#opshin.fun_impls.ReversedImpl">ReversedImpl</a></li>
+<li><a title="opshin.rewrite.rewrite_import_integrity_check.IntegrityCheckImpl" href="rewrite/rewrite_import_integrity_check.html#opshin.rewrite.rewrite_import_integrity_check.IntegrityCheckImpl">IntegrityCheckImpl</a></li>
 <li><a title="opshin.types.BoolImpl" href="#opshin.types.BoolImpl">BoolImpl</a></li>
 <li><a title="opshin.types.BytesImpl" href="#opshin.types.BytesImpl">BytesImpl</a></li>
 <li><a title="opshin.types.IntImpl" href="#opshin.types.IntImpl">IntImpl</a></li>
@@ -6177,7 +6898,8 @@ def transform_output_map(p: Type):
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">class PolymorphicFunctionInstanceType(InstanceType):
+<pre><code class="python">@dataclass(frozen=True, unsafe_hash=True)
+class PolymorphicFunctionInstanceType(InstanceType):
     typ: FunctionType
     polymorphic_function: PolymorphicFunction</code></pre>
 </details>
@@ -6220,7 +6942,7 @@ def transform_output_map(p: Type):
 <div class="desc inherited"><p>The types of the named attributes of this class</p></div>
 </dd>
 <dt id="opshin.types.PolymorphicFunctionInstanceType.cmp"><code class="name flex">
-<span>def <span class="ident">cmp</span></span>(<span>self, op: _ast.cmpop, o: <a title="opshin.types.Type" href="#opshin.types.Type">Type</a>) ‑> pluthon.pluthon_ast.AST</span>
+<span>def <span class="ident">cmp</span></span>(<span>self, op: ast.cmpop, o: <a title="opshin.types.Type" href="#opshin.types.Type">Type</a>) ‑> pluthon.pluthon_ast.AST</span>
 </code></dt>
 <dd>
 <p class="inheritance">
@@ -6271,7 +6993,8 @@ def transform_output_map(p: Type):
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">class PolymorphicFunctionType(ClassType):
+<pre><code class="python">@dataclass(frozen=True, unsafe_hash=True)
+class PolymorphicFunctionType(ClassType):
     &#34;&#34;&#34;A special type of builtin that may act differently on different parameters&#34;&#34;&#34;
 
     polymorphic_function: PolymorphicFunction</code></pre>
@@ -6311,7 +7034,7 @@ def transform_output_map(p: Type):
 <div class="desc inherited"><p>The types of the named attributes of this class</p></div>
 </dd>
 <dt id="opshin.types.PolymorphicFunctionType.cmp"><code class="name flex">
-<span>def <span class="ident">cmp</span></span>(<span>self, op: _ast.cmpop, o: <a title="opshin.types.Type" href="#opshin.types.Type">Type</a>) ‑> pluthon.pluthon_ast.AST</span>
+<span>def <span class="ident">cmp</span></span>(<span>self, op: ast.cmpop, o: <a title="opshin.types.Type" href="#opshin.types.Type">Type</a>) ‑> pluthon.pluthon_ast.AST</span>
 </code></dt>
 <dd>
 <p class="inheritance">
@@ -6340,6 +7063,17 @@ def transform_output_map(p: Type):
 </p>
 <div class="desc inherited"><p>The type of the constructor for this class</p></div>
 </dd>
+<dt id="opshin.types.PolymorphicFunctionType.copy_only_attributes"><code class="name flex">
+<span>def <span class="ident">copy_only_attributes</span></span>(<span>self) ‑> pluthon.pluthon_ast.AST</span>
+</code></dt>
+<dd>
+<p class="inheritance">
+<em>Inherited from:</em>
+<code><a title="opshin.types.ClassType" href="#opshin.types.ClassType">ClassType</a></code>.<code><a title="opshin.types.ClassType.copy_only_attributes" href="#opshin.types.ClassType.copy_only_attributes">copy_only_attributes</a></code>
+</p>
+<div class="desc inherited"><p>Returns a copy of this type with only the declared attributes (mapped to builtin values, thus checking atomic types too).
+For anything but record …</p></div>
+</dd>
 <dt id="opshin.types.PolymorphicFunctionType.stringify"><code class="name flex">
 <span>def <span class="ident">stringify</span></span>(<span>self, recursive: bool = False) ‑> pluthon.pluthon_ast.AST</span>
 </code></dt>
@@ -6354,18 +7088,19 @@ def transform_output_map(p: Type):
 </dd>
 <dt id="opshin.types.Record"><code class="flex name class">
 <span>class <span class="ident">Record</span></span>
-<span>(</span><span>name: str, constructor: int, fields: Union[List[Tuple[str, <a title="opshin.types.Type" href="#opshin.types.Type">Type</a>]], frozenlist._frozenlist.FrozenList])</span>
+<span>(</span><span>name: str, constructor: int, fields: Union[List[Tuple[str, <a title="opshin.types.Type" href="#opshin.types.Type">Type</a>]], frozenlist2.frozenlist])</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Record(name: str, constructor: int, fields: Union[List[Tuple[str, opshin.types.Type]], frozenlist._frozenlist.FrozenList])</p></div>
+<div class="desc"><p>Record(name: str, constructor: int, fields: Union[List[Tuple[str, opshin.types.Type]], frozenlist2.frozenlist])</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">class Record:
+<pre><code class="python">@dataclass(frozen=True, unsafe_hash=True)
+class Record:
     name: str
     constructor: int
-    fields: typing.Union[typing.List[typing.Tuple[str, Type]], FrozenList]
+    fields: typing.Union[typing.List[typing.Tuple[str, Type]], frozenlist]
 
     def __ge__(self, other):
         if not isinstance(other, Record):
@@ -6382,7 +7117,7 @@ def transform_output_map(p: Type):
 <dd>
 <div class="desc"></div>
 </dd>
-<dt id="opshin.types.Record.fields"><code class="name">var <span class="ident">fields</span> : Union[List[Tuple[str, <a title="opshin.types.Type" href="#opshin.types.Type">Type</a>]], frozenlist._frozenlist.FrozenList]</code></dt>
+<dt id="opshin.types.Record.fields"><code class="name">var <span class="ident">fields</span> : Union[List[Tuple[str, <a title="opshin.types.Type" href="#opshin.types.Type">Type</a>]], frozenlist2.frozenlist]</code></dt>
 <dd>
 <div class="desc"></div>
 </dd>
@@ -6402,12 +7137,15 @@ def transform_output_map(p: Type):
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">class RecordType(ClassType):
+<pre><code class="python">@dataclass(frozen=True, unsafe_hash=True)
+class RecordType(ClassType):
     record: Record
 
     def constr_type(self) -&gt; &#34;InstanceType&#34;:
         return InstanceType(
-            FunctionType([f[1] for f in self.record.fields], InstanceType(self))
+            FunctionType(
+                frozenlist([f[1] for f in self.record.fields]), InstanceType(self)
+            )
         )
 
     def constr(self) -&gt; plt.AST:
@@ -6431,9 +7169,7 @@ def transform_output_map(p: Type):
             if n == attr:
                 return t
         if attr == &#34;to_cbor&#34;:
-            return InstanceType(
-                FunctionType(FrozenFrozenList([]), ByteStringInstanceType)
-            )
+            return InstanceType(FunctionType(frozenlist([]), ByteStringInstanceType))
         raise TypeInferenceError(
             f&#34;Type {self.record.name} does not have attribute {attr}&#34;
         )
@@ -6553,6 +7289,38 @@ def transform_output_map(p: Type):
         return plt.Lambda(
             [&#34;self&#34;, &#34;_&#34;],
             plt.AppendString(plt.Text(f&#34;{self.record.name}(&#34;), map_fields),
+        )
+
+    def copy_only_attributes(self) -&gt; plt.AST:
+        copied_attributes = plt.EmptyDataList()
+        for attr_name, attr_type in reversed(self.record.fields):
+            copied_attributes = plt.Let(
+                [
+                    (&#34;f&#34;, plt.HeadList(plt.Var(&#34;fs&#34;))),
+                    (&#34;fs&#34;, plt.TailList(plt.Var(&#34;fs&#34;))),
+                ],
+                plt.MkCons(
+                    transform_output_map(attr_type)(
+                        plt.Apply(
+                            attr_type.copy_only_attributes(),
+                            transform_ext_params_map(attr_type)(
+                                plt.Var(&#34;f&#34;),
+                            ),
+                        )
+                    ),
+                    copied_attributes,
+                ),
+            )
+        copied_attributes = plt.Let(
+            [(&#34;fs&#34;, plt.Fields(plt.Var(&#34;self&#34;)))],
+            copied_attributes,
+        )
+        return plt.Lambda(
+            [&#34;self&#34;],
+            plt.ConstrData(
+                plt.Integer(self.record.constructor),
+                copied_attributes,
+            ),
         )</code></pre>
 </details>
 <h3>Ancestors</h3>
@@ -6630,16 +7398,14 @@ def transform_output_map(p: Type):
         if n == attr:
             return t
     if attr == &#34;to_cbor&#34;:
-        return InstanceType(
-            FunctionType(FrozenFrozenList([]), ByteStringInstanceType)
-        )
+        return InstanceType(FunctionType(frozenlist([]), ByteStringInstanceType))
     raise TypeInferenceError(
         f&#34;Type {self.record.name} does not have attribute {attr}&#34;
     )</code></pre>
 </details>
 </dd>
 <dt id="opshin.types.RecordType.cmp"><code class="name flex">
-<span>def <span class="ident">cmp</span></span>(<span>self, op: _ast.cmpop, o: <a title="opshin.types.Type" href="#opshin.types.Type">Type</a>) ‑> pluthon.pluthon_ast.AST</span>
+<span>def <span class="ident">cmp</span></span>(<span>self, op: ast.cmpop, o: <a title="opshin.types.Type" href="#opshin.types.Type">Type</a>) ‑> pluthon.pluthon_ast.AST</span>
 </code></dt>
 <dd>
 <p class="inheritance">
@@ -6741,7 +7507,56 @@ def transform_output_map(p: Type):
 </summary>
 <pre><code class="python">def constr_type(self) -&gt; &#34;InstanceType&#34;:
     return InstanceType(
-        FunctionType([f[1] for f in self.record.fields], InstanceType(self))
+        FunctionType(
+            frozenlist([f[1] for f in self.record.fields]), InstanceType(self)
+        )
+    )</code></pre>
+</details>
+</dd>
+<dt id="opshin.types.RecordType.copy_only_attributes"><code class="name flex">
+<span>def <span class="ident">copy_only_attributes</span></span>(<span>self) ‑> pluthon.pluthon_ast.AST</span>
+</code></dt>
+<dd>
+<p class="inheritance">
+<em>Inherited from:</em>
+<code><a title="opshin.types.ClassType" href="#opshin.types.ClassType">ClassType</a></code>.<code><a title="opshin.types.ClassType.copy_only_attributes" href="#opshin.types.ClassType.copy_only_attributes">copy_only_attributes</a></code>
+</p>
+<div class="desc inherited"><p>Returns a copy of this type with only the declared attributes (mapped to builtin values, thus checking atomic types too).
+For anything but record …</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def copy_only_attributes(self) -&gt; plt.AST:
+    copied_attributes = plt.EmptyDataList()
+    for attr_name, attr_type in reversed(self.record.fields):
+        copied_attributes = plt.Let(
+            [
+                (&#34;f&#34;, plt.HeadList(plt.Var(&#34;fs&#34;))),
+                (&#34;fs&#34;, plt.TailList(plt.Var(&#34;fs&#34;))),
+            ],
+            plt.MkCons(
+                transform_output_map(attr_type)(
+                    plt.Apply(
+                        attr_type.copy_only_attributes(),
+                        transform_ext_params_map(attr_type)(
+                            plt.Var(&#34;f&#34;),
+                        ),
+                    )
+                ),
+                copied_attributes,
+            ),
+        )
+    copied_attributes = plt.Let(
+        [(&#34;fs&#34;, plt.Fields(plt.Var(&#34;self&#34;)))],
+        copied_attributes,
+    )
+    return plt.Lambda(
+        [&#34;self&#34;],
+        plt.ConstrData(
+            plt.Integer(self.record.constructor),
+            copied_attributes,
+        ),
     )</code></pre>
 </details>
 </dd>
@@ -6865,13 +7680,14 @@ def transform_output_map(p: Type):
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">class StringType(AtomicType):
+<pre><code class="python">@dataclass(frozen=True, unsafe_hash=True)
+class StringType(AtomicType):
     def constr_type(self) -&gt; InstanceType:
         return InstanceType(PolymorphicFunctionType(StrImpl()))
 
     def attribute_type(self, attr) -&gt; Type:
         if attr == &#34;encode&#34;:
-            return InstanceType(FunctionType([], ByteStringInstanceType))
+            return InstanceType(FunctionType(frozenlist([]), ByteStringInstanceType))
         return super().attribute_type(attr)
 
     def attribute(self, attr) -&gt; plt.AST:
@@ -6939,12 +7755,12 @@ def transform_output_map(p: Type):
 </summary>
 <pre><code class="python">def attribute_type(self, attr) -&gt; Type:
     if attr == &#34;encode&#34;:
-        return InstanceType(FunctionType([], ByteStringInstanceType))
+        return InstanceType(FunctionType(frozenlist([]), ByteStringInstanceType))
     return super().attribute_type(attr)</code></pre>
 </details>
 </dd>
 <dt id="opshin.types.StringType.cmp"><code class="name flex">
-<span>def <span class="ident">cmp</span></span>(<span>self, op: _ast.cmpop, o: <a title="opshin.types.Type" href="#opshin.types.Type">Type</a>) ‑> pluthon.pluthon_ast.AST</span>
+<span>def <span class="ident">cmp</span></span>(<span>self, op: ast.cmpop, o: <a title="opshin.types.Type" href="#opshin.types.Type">Type</a>) ‑> pluthon.pluthon_ast.AST</span>
 </code></dt>
 <dd>
 <p class="inheritance">
@@ -6990,6 +7806,17 @@ def transform_output_map(p: Type):
     return InstanceType(PolymorphicFunctionType(StrImpl()))</code></pre>
 </details>
 </dd>
+<dt id="opshin.types.StringType.copy_only_attributes"><code class="name flex">
+<span>def <span class="ident">copy_only_attributes</span></span>(<span>self) ‑> pluthon.pluthon_ast.AST</span>
+</code></dt>
+<dd>
+<p class="inheritance">
+<em>Inherited from:</em>
+<code><a title="opshin.types.AtomicType" href="#opshin.types.AtomicType">AtomicType</a></code>.<code><a title="opshin.types.AtomicType.copy_only_attributes" href="#opshin.types.AtomicType.copy_only_attributes">copy_only_attributes</a></code>
+</p>
+<div class="desc inherited"><p>Returns a copy of this type with only the declared attributes (mapped to builtin values, thus checking atomic types too).
+For anything but record …</p></div>
+</dd>
 <dt id="opshin.types.StringType.stringify"><code class="name flex">
 <span>def <span class="ident">stringify</span></span>(<span>self, recursive: bool = False) ‑> pluthon.pluthon_ast.AST</span>
 </code></dt>
@@ -7026,7 +7853,8 @@ def transform_output_map(p: Type):
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">class TupleType(ClassType):
+<pre><code class="python">@dataclass(frozen=True, unsafe_hash=True)
+class TupleType(ClassType):
     typs: typing.List[Type]
 
     def __ge__(self, other):
@@ -7107,7 +7935,7 @@ def transform_output_map(p: Type):
 <div class="desc inherited"><p>The types of the named attributes of this class</p></div>
 </dd>
 <dt id="opshin.types.TupleType.cmp"><code class="name flex">
-<span>def <span class="ident">cmp</span></span>(<span>self, op: _ast.cmpop, o: <a title="opshin.types.Type" href="#opshin.types.Type">Type</a>) ‑> pluthon.pluthon_ast.AST</span>
+<span>def <span class="ident">cmp</span></span>(<span>self, op: ast.cmpop, o: <a title="opshin.types.Type" href="#opshin.types.Type">Type</a>) ‑> pluthon.pluthon_ast.AST</span>
 </code></dt>
 <dd>
 <p class="inheritance">
@@ -7135,6 +7963,17 @@ def transform_output_map(p: Type):
 <code><a title="opshin.types.ClassType" href="#opshin.types.ClassType">ClassType</a></code>.<code><a title="opshin.types.ClassType.constr_type" href="#opshin.types.ClassType.constr_type">constr_type</a></code>
 </p>
 <div class="desc inherited"><p>The type of the constructor for this class</p></div>
+</dd>
+<dt id="opshin.types.TupleType.copy_only_attributes"><code class="name flex">
+<span>def <span class="ident">copy_only_attributes</span></span>(<span>self) ‑> pluthon.pluthon_ast.AST</span>
+</code></dt>
+<dd>
+<p class="inheritance">
+<em>Inherited from:</em>
+<code><a title="opshin.types.ClassType" href="#opshin.types.ClassType">ClassType</a></code>.<code><a title="opshin.types.ClassType.copy_only_attributes" href="#opshin.types.ClassType.copy_only_attributes">copy_only_attributes</a></code>
+</p>
+<div class="desc inherited"><p>Returns a copy of this type with only the declared attributes (mapped to builtin values, thus checking atomic types too).
+For anything but record …</p></div>
 </dd>
 <dt id="opshin.types.TupleType.stringify"><code class="name flex">
 <span>def <span class="ident">stringify</span></span>(<span>self, recursive: bool = False) ‑> pluthon.pluthon_ast.AST</span>
@@ -7208,12 +8047,14 @@ def transform_output_map(p: Type):
 
     def constr(self) -&gt; plt.AST:
         &#34;&#34;&#34;The constructor for this class&#34;&#34;&#34;
-        raise NotImplementedError(f&#34;Constructor of {self.__class__} not implemented&#34;)
+        raise NotImplementedError(
+            f&#34;Constructor of {type(self).__name__} not implemented&#34;
+        )
 
     def attribute_type(self, attr) -&gt; &#34;Type&#34;:
         &#34;&#34;&#34;The types of the named attributes of this class&#34;&#34;&#34;
         raise TypeInferenceError(
-            f&#34;Object of type {self.__class__} does not have attribute {attr}&#34;
+            f&#34;Object of type {type(self).__name__} does not have attribute {attr}&#34;
         )
 
     def attribute(self, attr) -&gt; plt.AST:
@@ -7232,7 +8073,10 @@ def transform_output_map(p: Type):
 
         The recursive parameter informs the method whether it was invoked recursively from another invokation
         &#34;&#34;&#34;
-        raise NotImplementedError(f&#34;{type(self).__name__} can not be stringified&#34;)</code></pre>
+        raise NotImplementedError(f&#34;{type(self).__name__} can not be stringified&#34;)
+
+    def copy_only_attributes(self) -&gt; plt.AST:
+        raise NotImplementedError(f&#34;{type(self).__name__} can not be copied&#34;)</code></pre>
 </details>
 <h3>Subclasses</h3>
 <ul class="hlist">
@@ -7267,12 +8111,12 @@ def transform_output_map(p: Type):
 <pre><code class="python">def attribute_type(self, attr) -&gt; &#34;Type&#34;:
     &#34;&#34;&#34;The types of the named attributes of this class&#34;&#34;&#34;
     raise TypeInferenceError(
-        f&#34;Object of type {self.__class__} does not have attribute {attr}&#34;
+        f&#34;Object of type {type(self).__name__} does not have attribute {attr}&#34;
     )</code></pre>
 </details>
 </dd>
 <dt id="opshin.types.Type.cmp"><code class="name flex">
-<span>def <span class="ident">cmp</span></span>(<span>self, op: _ast.cmpop, o: <a title="opshin.types.Type" href="#opshin.types.Type">Type</a>) ‑> pluthon.pluthon_ast.AST</span>
+<span>def <span class="ident">cmp</span></span>(<span>self, op: ast.cmpop, o: <a title="opshin.types.Type" href="#opshin.types.Type">Type</a>) ‑> pluthon.pluthon_ast.AST</span>
 </code></dt>
 <dd>
 <div class="desc"><p>The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second the comparison.</p></div>
@@ -7298,7 +8142,9 @@ def transform_output_map(p: Type):
 </summary>
 <pre><code class="python">def constr(self) -&gt; plt.AST:
     &#34;&#34;&#34;The constructor for this class&#34;&#34;&#34;
-    raise NotImplementedError(f&#34;Constructor of {self.__class__} not implemented&#34;)</code></pre>
+    raise NotImplementedError(
+        f&#34;Constructor of {type(self).__name__} not implemented&#34;
+    )</code></pre>
 </details>
 </dd>
 <dt id="opshin.types.Type.constr_type"><code class="name flex">
@@ -7315,6 +8161,19 @@ def transform_output_map(p: Type):
     raise TypeInferenceError(
         f&#34;Object of type {self.__class__} does not have a constructor&#34;
     )</code></pre>
+</details>
+</dd>
+<dt id="opshin.types.Type.copy_only_attributes"><code class="name flex">
+<span>def <span class="ident">copy_only_attributes</span></span>(<span>self) ‑> pluthon.pluthon_ast.AST</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def copy_only_attributes(self) -&gt; plt.AST:
+    raise NotImplementedError(f&#34;{type(self).__name__} can not be copied&#34;)</code></pre>
 </details>
 </dd>
 <dt id="opshin.types.Type.stringify"><code class="name flex">
@@ -7368,19 +8227,18 @@ def transform_output_map(p: Type):
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">class UnionType(ClassType):
+<pre><code class="python">@dataclass(frozen=True, unsafe_hash=True)
+class UnionType(ClassType):
     typs: typing.List[RecordType]
 
     def attribute_type(self, attr) -&gt; &#34;Type&#34;:
         if attr == &#34;CONSTR_ID&#34;:
             return IntegerInstanceType
-        # iterate through all names/types of the unioned records by position
-        for attr_names, attr_types in map(
-            lambda x: zip(*x), zip(*(t.record.fields for t in self.typs))
-        ):
-            # need to have a common field with the same name, in the same position!
-            if any(attr_name != attr for attr_name in attr_names):
-                continue
+        # need to have a common field with the same name
+        if all(attr in (n for n, t in x.record.fields) for x in self.typs):
+            attr_types = set(
+                t for x in self.typs for n, t in x.record.fields if n == attr
+            )
             for at in attr_types:
                 # return the maximum element if there is one
                 if all(at &gt;= at2 for at2 in attr_types):
@@ -7391,14 +8249,12 @@ def transform_output_map(p: Type):
                 for at in attr_types
             ) and distinct([at.typ.record.constructor for at in attr_types]):
                 return InstanceType(
-                    UnionType(FrozenFrozenList([at.typ for at in attr_types]))
+                    UnionType(frozenlist([at.typ for at in attr_types]))
                 )
             # return Anytype
             return InstanceType(AnyType())
         if attr == &#34;to_cbor&#34;:
-            return InstanceType(
-                FunctionType(FrozenFrozenList([]), ByteStringInstanceType)
-            )
+            return InstanceType(FunctionType(frozenlist([]), ByteStringInstanceType))
         raise TypeInferenceError(
             f&#34;Can not access attribute {attr} of Union type. Cast to desired type with an &#39;if isinstance(_, _):&#39; branch.&#34;
         )
@@ -7413,20 +8269,48 @@ def transform_output_map(p: Type):
         # iterate through all names/types of the unioned records by position
         if any(attr in (n for n, t in r.record.fields) for r in self.typs):
             attr_typ = self.attribute_type(attr)
-            pos = next(
-                i
-                for i, (ns, _) in enumerate(
-                    map(lambda x: zip(*x), zip(*(t.record.fields for t in self.typs)))
-                )
-                if all(n == attr for n in ns)
-            )
+            pos_constrs = [
+                (i, x.record.constructor)
+                for x in self.typs
+                for i, (n, t) in enumerate(x.record.fields)
+                if n == attr
+            ]
+            pos_constrs = sorted(pos_constrs, key=lambda x: x[0])
+            pos_constrs = [
+                (pos, [c[1] for c in constrs])
+                for (pos, constrs) in itertools.groupby(pos_constrs, key=lambda x: x[0])
+            ]
+            # largest group last so we save the comparisons for that
+            pos_constrs = sorted(pos_constrs, key=lambda x: len(x[1]))
             # access to normal fields
+            if not pos_constrs:
+                pos_decisor = plt.TraceError(&#34;Invalid constructor&#34;)
+            else:
+                pos_decisor = plt.Integer(pos_constrs[-1][0])
+                pos_constrs = pos_constrs[:-1]
+            for pos, constrs in pos_constrs:
+                assert constrs, &#34;Found empty constructors for a position&#34;
+                constr_check = plt.EqualsInteger(
+                    plt.Var(&#34;constr&#34;), plt.Integer(constrs[0])
+                )
+                for constr in constrs[1:]:
+                    constr_check = plt.Or(
+                        plt.EqualsInteger(plt.Var(&#34;constr&#34;), plt.Integer(constr)),
+                        constr_check,
+                    )
+                pos_decisor = plt.Ite(
+                    constr_check,
+                    plt.Integer(pos),
+                    pos_decisor,
+                )
             return plt.Lambda(
                 [&#34;self&#34;],
                 transform_ext_params_map(attr_typ)(
                     plt.NthField(
                         plt.Var(&#34;self&#34;),
-                        plt.Integer(pos),
+                        plt.Let(
+                            [(&#34;constr&#34;, plt.Constructor(plt.Var(&#34;self&#34;)))], pos_decisor
+                        ),
                     ),
                 ),
             )
@@ -7468,7 +8352,7 @@ def transform_output_map(p: Type):
         if (
             isinstance(o, ListType)
             and isinstance(o.typ, InstanceType)
-            and (o.typ.typ &gt;= t or t &gt;= o.typ.typ for t in self.typs)
+            and any(o.typ.typ &gt;= t or t &gt;= o.typ.typ for t in self.typs)
         ):
             if isinstance(op, In):
                 return plt.Lambda(
@@ -7507,6 +8391,26 @@ def transform_output_map(p: Type):
             plt.Let(
                 [(&#34;c&#34;, plt.Constructor(plt.Var(&#34;self&#34;)))],
                 plt.Apply(decide_string_func, plt.Var(&#34;self&#34;), plt.Var(&#34;_&#34;)),
+            ),
+        )
+
+    def copy_only_attributes(self) -&gt; plt.AST:
+        copied_attributes = plt.TraceError(
+            f&#34;Invalid CONSTR_ID for instance of Union[{&#39;, &#39;.join(type(typ).__name__ for typ in self.typs)}]&#34;
+        )
+        for typ in self.typs:
+            copied_attributes = plt.Ite(
+                plt.EqualsInteger(
+                    plt.Var(&#34;constr&#34;), plt.Integer(typ.record.constructor)
+                ),
+                plt.Apply(typ.copy_only_attributes(), plt.Var(&#34;self&#34;)),
+                copied_attributes,
+            )
+        return plt.Lambda(
+            [&#34;self&#34;],
+            plt.Let(
+                [(&#34;constr&#34;, plt.Constructor(plt.Var(&#34;self&#34;)))],
+                copied_attributes,
             ),
         )</code></pre>
 </details>
@@ -7547,20 +8451,48 @@ def transform_output_map(p: Type):
     # iterate through all names/types of the unioned records by position
     if any(attr in (n for n, t in r.record.fields) for r in self.typs):
         attr_typ = self.attribute_type(attr)
-        pos = next(
-            i
-            for i, (ns, _) in enumerate(
-                map(lambda x: zip(*x), zip(*(t.record.fields for t in self.typs)))
-            )
-            if all(n == attr for n in ns)
-        )
+        pos_constrs = [
+            (i, x.record.constructor)
+            for x in self.typs
+            for i, (n, t) in enumerate(x.record.fields)
+            if n == attr
+        ]
+        pos_constrs = sorted(pos_constrs, key=lambda x: x[0])
+        pos_constrs = [
+            (pos, [c[1] for c in constrs])
+            for (pos, constrs) in itertools.groupby(pos_constrs, key=lambda x: x[0])
+        ]
+        # largest group last so we save the comparisons for that
+        pos_constrs = sorted(pos_constrs, key=lambda x: len(x[1]))
         # access to normal fields
+        if not pos_constrs:
+            pos_decisor = plt.TraceError(&#34;Invalid constructor&#34;)
+        else:
+            pos_decisor = plt.Integer(pos_constrs[-1][0])
+            pos_constrs = pos_constrs[:-1]
+        for pos, constrs in pos_constrs:
+            assert constrs, &#34;Found empty constructors for a position&#34;
+            constr_check = plt.EqualsInteger(
+                plt.Var(&#34;constr&#34;), plt.Integer(constrs[0])
+            )
+            for constr in constrs[1:]:
+                constr_check = plt.Or(
+                    plt.EqualsInteger(plt.Var(&#34;constr&#34;), plt.Integer(constr)),
+                    constr_check,
+                )
+            pos_decisor = plt.Ite(
+                constr_check,
+                plt.Integer(pos),
+                pos_decisor,
+            )
         return plt.Lambda(
             [&#34;self&#34;],
             transform_ext_params_map(attr_typ)(
                 plt.NthField(
                     plt.Var(&#34;self&#34;),
-                    plt.Integer(pos),
+                    plt.Let(
+                        [(&#34;constr&#34;, plt.Constructor(plt.Var(&#34;self&#34;)))], pos_decisor
+                    ),
                 ),
             ),
         )
@@ -7590,13 +8522,11 @@ def transform_output_map(p: Type):
 <pre><code class="python">def attribute_type(self, attr) -&gt; &#34;Type&#34;:
     if attr == &#34;CONSTR_ID&#34;:
         return IntegerInstanceType
-    # iterate through all names/types of the unioned records by position
-    for attr_names, attr_types in map(
-        lambda x: zip(*x), zip(*(t.record.fields for t in self.typs))
-    ):
-        # need to have a common field with the same name, in the same position!
-        if any(attr_name != attr for attr_name in attr_names):
-            continue
+    # need to have a common field with the same name
+    if all(attr in (n for n, t in x.record.fields) for x in self.typs):
+        attr_types = set(
+            t for x in self.typs for n, t in x.record.fields if n == attr
+        )
         for at in attr_types:
             # return the maximum element if there is one
             if all(at &gt;= at2 for at2 in attr_types):
@@ -7607,21 +8537,19 @@ def transform_output_map(p: Type):
             for at in attr_types
         ) and distinct([at.typ.record.constructor for at in attr_types]):
             return InstanceType(
-                UnionType(FrozenFrozenList([at.typ for at in attr_types]))
+                UnionType(frozenlist([at.typ for at in attr_types]))
             )
         # return Anytype
         return InstanceType(AnyType())
     if attr == &#34;to_cbor&#34;:
-        return InstanceType(
-            FunctionType(FrozenFrozenList([]), ByteStringInstanceType)
-        )
+        return InstanceType(FunctionType(frozenlist([]), ByteStringInstanceType))
     raise TypeInferenceError(
         f&#34;Can not access attribute {attr} of Union type. Cast to desired type with an &#39;if isinstance(_, _):&#39; branch.&#34;
     )</code></pre>
 </details>
 </dd>
 <dt id="opshin.types.UnionType.cmp"><code class="name flex">
-<span>def <span class="ident">cmp</span></span>(<span>self, op: _ast.cmpop, o: <a title="opshin.types.Type" href="#opshin.types.Type">Type</a>) ‑> pluthon.pluthon_ast.AST</span>
+<span>def <span class="ident">cmp</span></span>(<span>self, op: ast.cmpop, o: <a title="opshin.types.Type" href="#opshin.types.Type">Type</a>) ‑> pluthon.pluthon_ast.AST</span>
 </code></dt>
 <dd>
 <p class="inheritance">
@@ -7657,7 +8585,7 @@ def transform_output_map(p: Type):
     if (
         isinstance(o, ListType)
         and isinstance(o.typ, InstanceType)
-        and (o.typ.typ &gt;= t or t &gt;= o.typ.typ for t in self.typs)
+        and any(o.typ.typ &gt;= t or t &gt;= o.typ.typ for t in self.typs)
     ):
         if isinstance(op, In):
             return plt.Lambda(
@@ -7704,6 +8632,41 @@ def transform_output_map(p: Type):
 </p>
 <div class="desc inherited"><p>The type of the constructor for this class</p></div>
 </dd>
+<dt id="opshin.types.UnionType.copy_only_attributes"><code class="name flex">
+<span>def <span class="ident">copy_only_attributes</span></span>(<span>self) ‑> pluthon.pluthon_ast.AST</span>
+</code></dt>
+<dd>
+<p class="inheritance">
+<em>Inherited from:</em>
+<code><a title="opshin.types.ClassType" href="#opshin.types.ClassType">ClassType</a></code>.<code><a title="opshin.types.ClassType.copy_only_attributes" href="#opshin.types.ClassType.copy_only_attributes">copy_only_attributes</a></code>
+</p>
+<div class="desc inherited"><p>Returns a copy of this type with only the declared attributes (mapped to builtin values, thus checking atomic types too).
+For anything but record …</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def copy_only_attributes(self) -&gt; plt.AST:
+    copied_attributes = plt.TraceError(
+        f&#34;Invalid CONSTR_ID for instance of Union[{&#39;, &#39;.join(type(typ).__name__ for typ in self.typs)}]&#34;
+    )
+    for typ in self.typs:
+        copied_attributes = plt.Ite(
+            plt.EqualsInteger(
+                plt.Var(&#34;constr&#34;), plt.Integer(typ.record.constructor)
+            ),
+            plt.Apply(typ.copy_only_attributes(), plt.Var(&#34;self&#34;)),
+            copied_attributes,
+        )
+    return plt.Lambda(
+        [&#34;self&#34;],
+        plt.Let(
+            [(&#34;constr&#34;, plt.Constructor(plt.Var(&#34;self&#34;)))],
+            copied_attributes,
+        ),
+    )</code></pre>
+</details>
+</dd>
 <dt id="opshin.types.UnionType.stringify"><code class="name flex">
 <span>def <span class="ident">stringify</span></span>(<span>self, recursive: bool = False) ‑> pluthon.pluthon_ast.AST</span>
 </code></dt>
@@ -7745,7 +8708,8 @@ def transform_output_map(p: Type):
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">class UnitType(AtomicType):
+<pre><code class="python">@dataclass(frozen=True, unsafe_hash=True)
+class UnitType(AtomicType):
     def cmp(self, op: cmpop, o: &#34;Type&#34;) -&gt; plt.AST:
         if isinstance(o, UnitType):
             if isinstance(op, Eq):
@@ -7786,7 +8750,7 @@ def transform_output_map(p: Type):
 <div class="desc inherited"><p>The types of the named attributes of this class</p></div>
 </dd>
 <dt id="opshin.types.UnitType.cmp"><code class="name flex">
-<span>def <span class="ident">cmp</span></span>(<span>self, op: _ast.cmpop, o: <a title="opshin.types.Type" href="#opshin.types.Type">Type</a>) ‑> pluthon.pluthon_ast.AST</span>
+<span>def <span class="ident">cmp</span></span>(<span>self, op: ast.cmpop, o: <a title="opshin.types.Type" href="#opshin.types.Type">Type</a>) ‑> pluthon.pluthon_ast.AST</span>
 </code></dt>
 <dd>
 <p class="inheritance">
@@ -7826,6 +8790,17 @@ def transform_output_map(p: Type):
 <code><a title="opshin.types.AtomicType" href="#opshin.types.AtomicType">AtomicType</a></code>.<code><a title="opshin.types.AtomicType.constr_type" href="#opshin.types.AtomicType.constr_type">constr_type</a></code>
 </p>
 <div class="desc inherited"><p>The type of the constructor for this class</p></div>
+</dd>
+<dt id="opshin.types.UnitType.copy_only_attributes"><code class="name flex">
+<span>def <span class="ident">copy_only_attributes</span></span>(<span>self) ‑> pluthon.pluthon_ast.AST</span>
+</code></dt>
+<dd>
+<p class="inheritance">
+<em>Inherited from:</em>
+<code><a title="opshin.types.AtomicType" href="#opshin.types.AtomicType">AtomicType</a></code>.<code><a title="opshin.types.AtomicType.copy_only_attributes" href="#opshin.types.AtomicType.copy_only_attributes">copy_only_attributes</a></code>
+</p>
+<div class="desc inherited"><p>Returns a copy of this type with only the declared attributes (mapped to builtin values, thus checking atomic types too).
+For anything but record …</p></div>
 </dd>
 <dt id="opshin.types.UnitType.stringify"><code class="name flex">
 <span>def <span class="ident">stringify</span></span>(<span>self, recursive: bool = False) ‑> pluthon.pluthon_ast.AST</span>
@@ -7928,23 +8903,25 @@ setTimeout(() => input.focus(), 100);
 <ul>
 <li>
 <h4><code><a title="opshin.types.AnyType" href="#opshin.types.AnyType">AnyType</a></code></h4>
-<ul class="two-column">
+<ul class="">
 <li><code><a title="opshin.types.AnyType.attribute" href="#opshin.types.AnyType.attribute">attribute</a></code></li>
 <li><code><a title="opshin.types.AnyType.attribute_type" href="#opshin.types.AnyType.attribute_type">attribute_type</a></code></li>
 <li><code><a title="opshin.types.AnyType.cmp" href="#opshin.types.AnyType.cmp">cmp</a></code></li>
 <li><code><a title="opshin.types.AnyType.constr" href="#opshin.types.AnyType.constr">constr</a></code></li>
 <li><code><a title="opshin.types.AnyType.constr_type" href="#opshin.types.AnyType.constr_type">constr_type</a></code></li>
+<li><code><a title="opshin.types.AnyType.copy_only_attributes" href="#opshin.types.AnyType.copy_only_attributes">copy_only_attributes</a></code></li>
 <li><code><a title="opshin.types.AnyType.stringify" href="#opshin.types.AnyType.stringify">stringify</a></code></li>
 </ul>
 </li>
 <li>
 <h4><code><a title="opshin.types.AtomicType" href="#opshin.types.AtomicType">AtomicType</a></code></h4>
-<ul class="two-column">
+<ul class="">
 <li><code><a title="opshin.types.AtomicType.attribute" href="#opshin.types.AtomicType.attribute">attribute</a></code></li>
 <li><code><a title="opshin.types.AtomicType.attribute_type" href="#opshin.types.AtomicType.attribute_type">attribute_type</a></code></li>
 <li><code><a title="opshin.types.AtomicType.cmp" href="#opshin.types.AtomicType.cmp">cmp</a></code></li>
 <li><code><a title="opshin.types.AtomicType.constr" href="#opshin.types.AtomicType.constr">constr</a></code></li>
 <li><code><a title="opshin.types.AtomicType.constr_type" href="#opshin.types.AtomicType.constr_type">constr_type</a></code></li>
+<li><code><a title="opshin.types.AtomicType.copy_only_attributes" href="#opshin.types.AtomicType.copy_only_attributes">copy_only_attributes</a></code></li>
 <li><code><a title="opshin.types.AtomicType.stringify" href="#opshin.types.AtomicType.stringify">stringify</a></code></li>
 </ul>
 </li>
@@ -7957,23 +8934,25 @@ setTimeout(() => input.focus(), 100);
 </li>
 <li>
 <h4><code><a title="opshin.types.BoolType" href="#opshin.types.BoolType">BoolType</a></code></h4>
-<ul class="two-column">
+<ul class="">
 <li><code><a title="opshin.types.BoolType.attribute" href="#opshin.types.BoolType.attribute">attribute</a></code></li>
 <li><code><a title="opshin.types.BoolType.attribute_type" href="#opshin.types.BoolType.attribute_type">attribute_type</a></code></li>
 <li><code><a title="opshin.types.BoolType.cmp" href="#opshin.types.BoolType.cmp">cmp</a></code></li>
 <li><code><a title="opshin.types.BoolType.constr" href="#opshin.types.BoolType.constr">constr</a></code></li>
 <li><code><a title="opshin.types.BoolType.constr_type" href="#opshin.types.BoolType.constr_type">constr_type</a></code></li>
+<li><code><a title="opshin.types.BoolType.copy_only_attributes" href="#opshin.types.BoolType.copy_only_attributes">copy_only_attributes</a></code></li>
 <li><code><a title="opshin.types.BoolType.stringify" href="#opshin.types.BoolType.stringify">stringify</a></code></li>
 </ul>
 </li>
 <li>
 <h4><code><a title="opshin.types.ByteStringType" href="#opshin.types.ByteStringType">ByteStringType</a></code></h4>
-<ul class="two-column">
+<ul class="">
 <li><code><a title="opshin.types.ByteStringType.attribute" href="#opshin.types.ByteStringType.attribute">attribute</a></code></li>
 <li><code><a title="opshin.types.ByteStringType.attribute_type" href="#opshin.types.ByteStringType.attribute_type">attribute_type</a></code></li>
 <li><code><a title="opshin.types.ByteStringType.cmp" href="#opshin.types.ByteStringType.cmp">cmp</a></code></li>
 <li><code><a title="opshin.types.ByteStringType.constr" href="#opshin.types.ByteStringType.constr">constr</a></code></li>
 <li><code><a title="opshin.types.ByteStringType.constr_type" href="#opshin.types.ByteStringType.constr_type">constr_type</a></code></li>
+<li><code><a title="opshin.types.ByteStringType.copy_only_attributes" href="#opshin.types.ByteStringType.copy_only_attributes">copy_only_attributes</a></code></li>
 <li><code><a title="opshin.types.ByteStringType.stringify" href="#opshin.types.ByteStringType.stringify">stringify</a></code></li>
 </ul>
 </li>
@@ -7986,23 +8965,25 @@ setTimeout(() => input.focus(), 100);
 </li>
 <li>
 <h4><code><a title="opshin.types.ClassType" href="#opshin.types.ClassType">ClassType</a></code></h4>
-<ul class="two-column">
+<ul class="">
 <li><code><a title="opshin.types.ClassType.attribute" href="#opshin.types.ClassType.attribute">attribute</a></code></li>
 <li><code><a title="opshin.types.ClassType.attribute_type" href="#opshin.types.ClassType.attribute_type">attribute_type</a></code></li>
 <li><code><a title="opshin.types.ClassType.cmp" href="#opshin.types.ClassType.cmp">cmp</a></code></li>
 <li><code><a title="opshin.types.ClassType.constr" href="#opshin.types.ClassType.constr">constr</a></code></li>
 <li><code><a title="opshin.types.ClassType.constr_type" href="#opshin.types.ClassType.constr_type">constr_type</a></code></li>
+<li><code><a title="opshin.types.ClassType.copy_only_attributes" href="#opshin.types.ClassType.copy_only_attributes">copy_only_attributes</a></code></li>
 <li><code><a title="opshin.types.ClassType.stringify" href="#opshin.types.ClassType.stringify">stringify</a></code></li>
 </ul>
 </li>
 <li>
 <h4><code><a title="opshin.types.DictType" href="#opshin.types.DictType">DictType</a></code></h4>
-<ul class="two-column">
+<ul class="">
 <li><code><a title="opshin.types.DictType.attribute" href="#opshin.types.DictType.attribute">attribute</a></code></li>
 <li><code><a title="opshin.types.DictType.attribute_type" href="#opshin.types.DictType.attribute_type">attribute_type</a></code></li>
 <li><code><a title="opshin.types.DictType.cmp" href="#opshin.types.DictType.cmp">cmp</a></code></li>
 <li><code><a title="opshin.types.DictType.constr" href="#opshin.types.DictType.constr">constr</a></code></li>
 <li><code><a title="opshin.types.DictType.constr_type" href="#opshin.types.DictType.constr_type">constr_type</a></code></li>
+<li><code><a title="opshin.types.DictType.copy_only_attributes" href="#opshin.types.DictType.copy_only_attributes">copy_only_attributes</a></code></li>
 <li><code><a title="opshin.types.DictType.key_typ" href="#opshin.types.DictType.key_typ">key_typ</a></code></li>
 <li><code><a title="opshin.types.DictType.stringify" href="#opshin.types.DictType.stringify">stringify</a></code></li>
 <li><code><a title="opshin.types.DictType.value_typ" href="#opshin.types.DictType.value_typ">value_typ</a></code></li>
@@ -8010,36 +8991,39 @@ setTimeout(() => input.focus(), 100);
 </li>
 <li>
 <h4><code><a title="opshin.types.FunctionType" href="#opshin.types.FunctionType">FunctionType</a></code></h4>
-<ul class="two-column">
+<ul class="">
 <li><code><a title="opshin.types.FunctionType.argtyps" href="#opshin.types.FunctionType.argtyps">argtyps</a></code></li>
 <li><code><a title="opshin.types.FunctionType.attribute" href="#opshin.types.FunctionType.attribute">attribute</a></code></li>
 <li><code><a title="opshin.types.FunctionType.attribute_type" href="#opshin.types.FunctionType.attribute_type">attribute_type</a></code></li>
 <li><code><a title="opshin.types.FunctionType.cmp" href="#opshin.types.FunctionType.cmp">cmp</a></code></li>
 <li><code><a title="opshin.types.FunctionType.constr" href="#opshin.types.FunctionType.constr">constr</a></code></li>
 <li><code><a title="opshin.types.FunctionType.constr_type" href="#opshin.types.FunctionType.constr_type">constr_type</a></code></li>
+<li><code><a title="opshin.types.FunctionType.copy_only_attributes" href="#opshin.types.FunctionType.copy_only_attributes">copy_only_attributes</a></code></li>
 <li><code><a title="opshin.types.FunctionType.rettyp" href="#opshin.types.FunctionType.rettyp">rettyp</a></code></li>
 <li><code><a title="opshin.types.FunctionType.stringify" href="#opshin.types.FunctionType.stringify">stringify</a></code></li>
 </ul>
 </li>
 <li>
 <h4><code><a title="opshin.types.InaccessibleType" href="#opshin.types.InaccessibleType">InaccessibleType</a></code></h4>
-<ul class="two-column">
+<ul class="">
 <li><code><a title="opshin.types.InaccessibleType.attribute" href="#opshin.types.InaccessibleType.attribute">attribute</a></code></li>
 <li><code><a title="opshin.types.InaccessibleType.attribute_type" href="#opshin.types.InaccessibleType.attribute_type">attribute_type</a></code></li>
 <li><code><a title="opshin.types.InaccessibleType.cmp" href="#opshin.types.InaccessibleType.cmp">cmp</a></code></li>
 <li><code><a title="opshin.types.InaccessibleType.constr" href="#opshin.types.InaccessibleType.constr">constr</a></code></li>
 <li><code><a title="opshin.types.InaccessibleType.constr_type" href="#opshin.types.InaccessibleType.constr_type">constr_type</a></code></li>
+<li><code><a title="opshin.types.InaccessibleType.copy_only_attributes" href="#opshin.types.InaccessibleType.copy_only_attributes">copy_only_attributes</a></code></li>
 <li><code><a title="opshin.types.InaccessibleType.stringify" href="#opshin.types.InaccessibleType.stringify">stringify</a></code></li>
 </ul>
 </li>
 <li>
 <h4><code><a title="opshin.types.InstanceType" href="#opshin.types.InstanceType">InstanceType</a></code></h4>
-<ul class="two-column">
+<ul class="">
 <li><code><a title="opshin.types.InstanceType.attribute" href="#opshin.types.InstanceType.attribute">attribute</a></code></li>
 <li><code><a title="opshin.types.InstanceType.attribute_type" href="#opshin.types.InstanceType.attribute_type">attribute_type</a></code></li>
 <li><code><a title="opshin.types.InstanceType.cmp" href="#opshin.types.InstanceType.cmp">cmp</a></code></li>
 <li><code><a title="opshin.types.InstanceType.constr" href="#opshin.types.InstanceType.constr">constr</a></code></li>
 <li><code><a title="opshin.types.InstanceType.constr_type" href="#opshin.types.InstanceType.constr_type">constr_type</a></code></li>
+<li><code><a title="opshin.types.InstanceType.copy_only_attributes" href="#opshin.types.InstanceType.copy_only_attributes">copy_only_attributes</a></code></li>
 <li><code><a title="opshin.types.InstanceType.stringify" href="#opshin.types.InstanceType.stringify">stringify</a></code></li>
 <li><code><a title="opshin.types.InstanceType.typ" href="#opshin.types.InstanceType.typ">typ</a></code></li>
 </ul>
@@ -8053,35 +9037,38 @@ setTimeout(() => input.focus(), 100);
 </li>
 <li>
 <h4><code><a title="opshin.types.IntegerType" href="#opshin.types.IntegerType">IntegerType</a></code></h4>
-<ul class="two-column">
+<ul class="">
 <li><code><a title="opshin.types.IntegerType.attribute" href="#opshin.types.IntegerType.attribute">attribute</a></code></li>
 <li><code><a title="opshin.types.IntegerType.attribute_type" href="#opshin.types.IntegerType.attribute_type">attribute_type</a></code></li>
 <li><code><a title="opshin.types.IntegerType.cmp" href="#opshin.types.IntegerType.cmp">cmp</a></code></li>
 <li><code><a title="opshin.types.IntegerType.constr" href="#opshin.types.IntegerType.constr">constr</a></code></li>
 <li><code><a title="opshin.types.IntegerType.constr_type" href="#opshin.types.IntegerType.constr_type">constr_type</a></code></li>
+<li><code><a title="opshin.types.IntegerType.copy_only_attributes" href="#opshin.types.IntegerType.copy_only_attributes">copy_only_attributes</a></code></li>
 <li><code><a title="opshin.types.IntegerType.stringify" href="#opshin.types.IntegerType.stringify">stringify</a></code></li>
 </ul>
 </li>
 <li>
 <h4><code><a title="opshin.types.ListType" href="#opshin.types.ListType">ListType</a></code></h4>
-<ul class="two-column">
+<ul class="">
 <li><code><a title="opshin.types.ListType.attribute" href="#opshin.types.ListType.attribute">attribute</a></code></li>
 <li><code><a title="opshin.types.ListType.attribute_type" href="#opshin.types.ListType.attribute_type">attribute_type</a></code></li>
 <li><code><a title="opshin.types.ListType.cmp" href="#opshin.types.ListType.cmp">cmp</a></code></li>
 <li><code><a title="opshin.types.ListType.constr" href="#opshin.types.ListType.constr">constr</a></code></li>
 <li><code><a title="opshin.types.ListType.constr_type" href="#opshin.types.ListType.constr_type">constr_type</a></code></li>
+<li><code><a title="opshin.types.ListType.copy_only_attributes" href="#opshin.types.ListType.copy_only_attributes">copy_only_attributes</a></code></li>
 <li><code><a title="opshin.types.ListType.stringify" href="#opshin.types.ListType.stringify">stringify</a></code></li>
 <li><code><a title="opshin.types.ListType.typ" href="#opshin.types.ListType.typ">typ</a></code></li>
 </ul>
 </li>
 <li>
 <h4><code><a title="opshin.types.PairType" href="#opshin.types.PairType">PairType</a></code></h4>
-<ul class="two-column">
+<ul class="">
 <li><code><a title="opshin.types.PairType.attribute" href="#opshin.types.PairType.attribute">attribute</a></code></li>
 <li><code><a title="opshin.types.PairType.attribute_type" href="#opshin.types.PairType.attribute_type">attribute_type</a></code></li>
 <li><code><a title="opshin.types.PairType.cmp" href="#opshin.types.PairType.cmp">cmp</a></code></li>
 <li><code><a title="opshin.types.PairType.constr" href="#opshin.types.PairType.constr">constr</a></code></li>
 <li><code><a title="opshin.types.PairType.constr_type" href="#opshin.types.PairType.constr_type">constr_type</a></code></li>
+<li><code><a title="opshin.types.PairType.copy_only_attributes" href="#opshin.types.PairType.copy_only_attributes">copy_only_attributes</a></code></li>
 <li><code><a title="opshin.types.PairType.l_typ" href="#opshin.types.PairType.l_typ">l_typ</a></code></li>
 <li><code><a title="opshin.types.PairType.r_typ" href="#opshin.types.PairType.r_typ">r_typ</a></code></li>
 <li><code><a title="opshin.types.PairType.stringify" href="#opshin.types.PairType.stringify">stringify</a></code></li>
@@ -8115,6 +9102,7 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="opshin.types.PolymorphicFunctionType.cmp" href="#opshin.types.PolymorphicFunctionType.cmp">cmp</a></code></li>
 <li><code><a title="opshin.types.PolymorphicFunctionType.constr" href="#opshin.types.PolymorphicFunctionType.constr">constr</a></code></li>
 <li><code><a title="opshin.types.PolymorphicFunctionType.constr_type" href="#opshin.types.PolymorphicFunctionType.constr_type">constr_type</a></code></li>
+<li><code><a title="opshin.types.PolymorphicFunctionType.copy_only_attributes" href="#opshin.types.PolymorphicFunctionType.copy_only_attributes">copy_only_attributes</a></code></li>
 <li><code><a title="opshin.types.PolymorphicFunctionType.polymorphic_function" href="#opshin.types.PolymorphicFunctionType.polymorphic_function">polymorphic_function</a></code></li>
 <li><code><a title="opshin.types.PolymorphicFunctionType.stringify" href="#opshin.types.PolymorphicFunctionType.stringify">stringify</a></code></li>
 </ul>
@@ -8129,12 +9117,13 @@ setTimeout(() => input.focus(), 100);
 </li>
 <li>
 <h4><code><a title="opshin.types.RecordType" href="#opshin.types.RecordType">RecordType</a></code></h4>
-<ul class="two-column">
+<ul class="">
 <li><code><a title="opshin.types.RecordType.attribute" href="#opshin.types.RecordType.attribute">attribute</a></code></li>
 <li><code><a title="opshin.types.RecordType.attribute_type" href="#opshin.types.RecordType.attribute_type">attribute_type</a></code></li>
 <li><code><a title="opshin.types.RecordType.cmp" href="#opshin.types.RecordType.cmp">cmp</a></code></li>
 <li><code><a title="opshin.types.RecordType.constr" href="#opshin.types.RecordType.constr">constr</a></code></li>
 <li><code><a title="opshin.types.RecordType.constr_type" href="#opshin.types.RecordType.constr_type">constr_type</a></code></li>
+<li><code><a title="opshin.types.RecordType.copy_only_attributes" href="#opshin.types.RecordType.copy_only_attributes">copy_only_attributes</a></code></li>
 <li><code><a title="opshin.types.RecordType.record" href="#opshin.types.RecordType.record">record</a></code></li>
 <li><code><a title="opshin.types.RecordType.stringify" href="#opshin.types.RecordType.stringify">stringify</a></code></li>
 </ul>
@@ -8148,35 +9137,38 @@ setTimeout(() => input.focus(), 100);
 </li>
 <li>
 <h4><code><a title="opshin.types.StringType" href="#opshin.types.StringType">StringType</a></code></h4>
-<ul class="two-column">
+<ul class="">
 <li><code><a title="opshin.types.StringType.attribute" href="#opshin.types.StringType.attribute">attribute</a></code></li>
 <li><code><a title="opshin.types.StringType.attribute_type" href="#opshin.types.StringType.attribute_type">attribute_type</a></code></li>
 <li><code><a title="opshin.types.StringType.cmp" href="#opshin.types.StringType.cmp">cmp</a></code></li>
 <li><code><a title="opshin.types.StringType.constr" href="#opshin.types.StringType.constr">constr</a></code></li>
 <li><code><a title="opshin.types.StringType.constr_type" href="#opshin.types.StringType.constr_type">constr_type</a></code></li>
+<li><code><a title="opshin.types.StringType.copy_only_attributes" href="#opshin.types.StringType.copy_only_attributes">copy_only_attributes</a></code></li>
 <li><code><a title="opshin.types.StringType.stringify" href="#opshin.types.StringType.stringify">stringify</a></code></li>
 </ul>
 </li>
 <li>
 <h4><code><a title="opshin.types.TupleType" href="#opshin.types.TupleType">TupleType</a></code></h4>
-<ul class="two-column">
+<ul class="">
 <li><code><a title="opshin.types.TupleType.attribute" href="#opshin.types.TupleType.attribute">attribute</a></code></li>
 <li><code><a title="opshin.types.TupleType.attribute_type" href="#opshin.types.TupleType.attribute_type">attribute_type</a></code></li>
 <li><code><a title="opshin.types.TupleType.cmp" href="#opshin.types.TupleType.cmp">cmp</a></code></li>
 <li><code><a title="opshin.types.TupleType.constr" href="#opshin.types.TupleType.constr">constr</a></code></li>
 <li><code><a title="opshin.types.TupleType.constr_type" href="#opshin.types.TupleType.constr_type">constr_type</a></code></li>
+<li><code><a title="opshin.types.TupleType.copy_only_attributes" href="#opshin.types.TupleType.copy_only_attributes">copy_only_attributes</a></code></li>
 <li><code><a title="opshin.types.TupleType.stringify" href="#opshin.types.TupleType.stringify">stringify</a></code></li>
 <li><code><a title="opshin.types.TupleType.typs" href="#opshin.types.TupleType.typs">typs</a></code></li>
 </ul>
 </li>
 <li>
 <h4><code><a title="opshin.types.Type" href="#opshin.types.Type">Type</a></code></h4>
-<ul class="two-column">
+<ul class="">
 <li><code><a title="opshin.types.Type.attribute" href="#opshin.types.Type.attribute">attribute</a></code></li>
 <li><code><a title="opshin.types.Type.attribute_type" href="#opshin.types.Type.attribute_type">attribute_type</a></code></li>
 <li><code><a title="opshin.types.Type.cmp" href="#opshin.types.Type.cmp">cmp</a></code></li>
 <li><code><a title="opshin.types.Type.constr" href="#opshin.types.Type.constr">constr</a></code></li>
 <li><code><a title="opshin.types.Type.constr_type" href="#opshin.types.Type.constr_type">constr_type</a></code></li>
+<li><code><a title="opshin.types.Type.copy_only_attributes" href="#opshin.types.Type.copy_only_attributes">copy_only_attributes</a></code></li>
 <li><code><a title="opshin.types.Type.stringify" href="#opshin.types.Type.stringify">stringify</a></code></li>
 </ul>
 </li>
@@ -8185,24 +9177,26 @@ setTimeout(() => input.focus(), 100);
 </li>
 <li>
 <h4><code><a title="opshin.types.UnionType" href="#opshin.types.UnionType">UnionType</a></code></h4>
-<ul class="two-column">
+<ul class="">
 <li><code><a title="opshin.types.UnionType.attribute" href="#opshin.types.UnionType.attribute">attribute</a></code></li>
 <li><code><a title="opshin.types.UnionType.attribute_type" href="#opshin.types.UnionType.attribute_type">attribute_type</a></code></li>
 <li><code><a title="opshin.types.UnionType.cmp" href="#opshin.types.UnionType.cmp">cmp</a></code></li>
 <li><code><a title="opshin.types.UnionType.constr" href="#opshin.types.UnionType.constr">constr</a></code></li>
 <li><code><a title="opshin.types.UnionType.constr_type" href="#opshin.types.UnionType.constr_type">constr_type</a></code></li>
+<li><code><a title="opshin.types.UnionType.copy_only_attributes" href="#opshin.types.UnionType.copy_only_attributes">copy_only_attributes</a></code></li>
 <li><code><a title="opshin.types.UnionType.stringify" href="#opshin.types.UnionType.stringify">stringify</a></code></li>
 <li><code><a title="opshin.types.UnionType.typs" href="#opshin.types.UnionType.typs">typs</a></code></li>
 </ul>
 </li>
 <li>
 <h4><code><a title="opshin.types.UnitType" href="#opshin.types.UnitType">UnitType</a></code></h4>
-<ul class="two-column">
+<ul class="">
 <li><code><a title="opshin.types.UnitType.attribute" href="#opshin.types.UnitType.attribute">attribute</a></code></li>
 <li><code><a title="opshin.types.UnitType.attribute_type" href="#opshin.types.UnitType.attribute_type">attribute_type</a></code></li>
 <li><code><a title="opshin.types.UnitType.cmp" href="#opshin.types.UnitType.cmp">cmp</a></code></li>
 <li><code><a title="opshin.types.UnitType.constr" href="#opshin.types.UnitType.constr">constr</a></code></li>
 <li><code><a title="opshin.types.UnitType.constr_type" href="#opshin.types.UnitType.constr_type">constr_type</a></code></li>
+<li><code><a title="opshin.types.UnitType.copy_only_attributes" href="#opshin.types.UnitType.copy_only_attributes">copy_only_attributes</a></code></li>
 <li><code><a title="opshin.types.UnitType.stringify" href="#opshin.types.UnitType.stringify">stringify</a></code></li>
 </ul>
 </li>

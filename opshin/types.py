@@ -1,9 +1,12 @@
 import logging
 from ast import *
 from dataclasses import dataclass
+from functools import lru_cache
+
 import itertools
 
 import pluthon as plt
+import uplc.ast
 
 from .util import *
 
@@ -15,6 +18,16 @@ class TypeInferenceError(AssertionError):
 
 
 class Type:
+    def __new__(meta, *args, **kwargs):
+        klass = super().__new__(meta)
+
+        for key in ["constr", "attribute", "cmp", "stringify", "copy_only_attributes"]:
+            value = getattr(klass, key)
+            wrapped = patternize(value)
+            object.__setattr__(klass, key, wrapped)
+
+        return klass
+
     def constr_type(self) -> "InstanceType":
         """The type of the constructor for this class"""
         raise TypeInferenceError(
@@ -23,12 +36,14 @@ class Type:
 
     def constr(self) -> plt.AST:
         """The constructor for this class"""
-        raise NotImplementedError(f"Constructor of {self.__class__} not implemented")
+        raise NotImplementedError(
+            f"Constructor of {type(self).__name__} not implemented"
+        )
 
     def attribute_type(self, attr) -> "Type":
         """The types of the named attributes of this class"""
         raise TypeInferenceError(
-            f"Object of type {self.__class__} does not have attribute {attr}"
+            f"Object of type {type(self).__name__} does not have attribute {attr}"
         )
 
     def attribute(self, attr) -> plt.AST:
@@ -48,6 +63,9 @@ class Type:
         The recursive parameter informs the method whether it was invoked recursively from another invokation
         """
         raise NotImplementedError(f"{type(self).__name__} can not be stringified")
+
+    def copy_only_attributes(self) -> plt.AST:
+        raise NotImplementedError(f"{type(self).__name__} can not be copied")
 
 
 @dataclass(frozen=True, unsafe_hash=True)
@@ -71,10 +89,33 @@ class ClassType(Type):
     def __ge__(self, other):
         raise NotImplementedError("Comparison between raw classtypes impossible")
 
+    def copy_only_attributes(self) -> plt.AST:
+        """
+        Returns a copy of this type with only the declared attributes (mapped to builtin values, thus checking atomic types too).
+        For anything but record types and union types, this is the identity function.
+        """
+        return plt.Lambda(["self"], plt.Var("self"))
+
 
 @dataclass(frozen=True, unsafe_hash=True)
 class AnyType(ClassType):
     """The top element in the partial order on types (excluding FunctionTypes, which do not compare to anything)"""
+
+    def attribute_type(self, attr: str) -> Type:
+        """The types of the named attributes of this class"""
+        if attr == "CONSTR_ID":
+            return IntegerInstanceType
+        return super().attribute_type(attr)
+
+    def attribute(self, attr: str) -> plt.AST:
+        """The attributes of this class. Need to be a lambda that expects as first argument the object itself"""
+        if attr == "CONSTR_ID":
+            # access to constructor
+            return plt.Lambda(
+                ["self"],
+                plt.Constructor(plt.Var("self")),
+            )
+        return super().attribute(attr)
 
     def __ge__(self, other):
         return (
@@ -166,7 +207,8 @@ class AnyType(ClassType):
                                         ],
                                         plt.Ite(
                                             plt.LessThanInteger(
-                                                plt.Var("constructor"), plt.Integer(128)
+                                                plt.Var("constructor"),
+                                                plt.Integer(128),
                                             ),
                                             plt.ConcatString(
                                                 plt.Text("CBORTag("),
@@ -399,7 +441,8 @@ class RecordType(ClassType):
                         plt.FindList(
                             plt.Var("y"),
                             plt.Apply(
-                                plt.BuiltIn(uplc.BuiltInFun.EqualsData), plt.Var("x")
+                                plt.BuiltIn(uplc.BuiltInFun.EqualsData),
+                                plt.Var("x"),
                             ),
                             # this simply ensures the default is always unequal to the searched value
                             plt.ConstrData(
@@ -451,6 +494,38 @@ class RecordType(ClassType):
         return plt.Lambda(
             ["self", "_"],
             plt.AppendString(plt.Text(f"{self.record.name}("), map_fields),
+        )
+
+    def copy_only_attributes(self) -> plt.AST:
+        copied_attributes = plt.EmptyDataList()
+        for attr_name, attr_type in reversed(self.record.fields):
+            copied_attributes = plt.Let(
+                [
+                    ("f", plt.HeadList(plt.Var("fs"))),
+                    ("fs", plt.TailList(plt.Var("fs"))),
+                ],
+                plt.MkCons(
+                    transform_output_map(attr_type)(
+                        plt.Apply(
+                            attr_type.copy_only_attributes(),
+                            transform_ext_params_map(attr_type)(
+                                plt.Var("f"),
+                            ),
+                        )
+                    ),
+                    copied_attributes,
+                ),
+            )
+        copied_attributes = plt.Let(
+            [("fs", plt.Fields(plt.Var("self")))],
+            copied_attributes,
+        )
+        return plt.Lambda(
+            ["self"],
+            plt.ConstrData(
+                plt.Integer(self.record.constructor),
+                copied_attributes,
+            ),
         )
 
 
@@ -536,7 +611,8 @@ class UnionType(ClassType):
                     plt.NthField(
                         plt.Var("self"),
                         plt.Let(
-                            [("constr", plt.Constructor(plt.Var("self")))], pos_decisor
+                            [("constr", plt.Constructor(plt.Var("self")))],
+                            pos_decisor,
                         ),
                     ),
                 ),
@@ -579,7 +655,7 @@ class UnionType(ClassType):
         if (
             isinstance(o, ListType)
             and isinstance(o.typ, InstanceType)
-            and (o.typ.typ >= t or t >= o.typ.typ for t in self.typs)
+            and any(o.typ.typ >= t or t >= o.typ.typ for t in self.typs)
         ):
             if isinstance(op, In):
                 return plt.Lambda(
@@ -589,7 +665,8 @@ class UnionType(ClassType):
                         plt.FindList(
                             plt.Var("y"),
                             plt.Apply(
-                                plt.BuiltIn(uplc.BuiltInFun.EqualsData), plt.Var("x")
+                                plt.BuiltIn(uplc.BuiltInFun.EqualsData),
+                                plt.Var("x"),
                             ),
                             # this simply ensures the default is always unequal to the searched value
                             plt.ConstrData(
@@ -618,6 +695,26 @@ class UnionType(ClassType):
             plt.Let(
                 [("c", plt.Constructor(plt.Var("self")))],
                 plt.Apply(decide_string_func, plt.Var("self"), plt.Var("_")),
+            ),
+        )
+
+    def copy_only_attributes(self) -> plt.AST:
+        copied_attributes = plt.TraceError(
+            f"Invalid CONSTR_ID for instance of Union[{', '.join(type(typ).__name__ for typ in self.typs)}]"
+        )
+        for typ in self.typs:
+            copied_attributes = plt.Ite(
+                plt.EqualsInteger(
+                    plt.Var("constr"), plt.Integer(typ.record.constructor)
+                ),
+                plt.Apply(typ.copy_only_attributes(), plt.Var("self")),
+                copied_attributes,
+            )
+        return plt.Lambda(
+            ["self"],
+            plt.Let(
+                [("constr", plt.Constructor(plt.Var("self")))],
+                copied_attributes,
             ),
         )
 
@@ -759,6 +856,22 @@ class ListType(ClassType):
                 ),
             ),
         )
+
+    def copy_only_attributes(self) -> plt.AST:
+        mapped_attrs = plt.MapList(
+            plt.Var("self"),
+            plt.Lambda(
+                ["v"],
+                transform_output_map(self.typ)(
+                    plt.Apply(
+                        self.typ.copy_only_attributes(),
+                        transform_ext_params_map(self.typ)(plt.Var("v")),
+                    )
+                ),
+            ),
+            plt.EmptyDataList(),
+        )
+        return plt.Lambda(["self"], mapped_attrs)
 
 
 @dataclass(frozen=True, unsafe_hash=True)
@@ -923,6 +1036,124 @@ class DictType(ClassType):
             ),
         )
 
+    def copy_only_attributes(self) -> plt.AST:
+        def CustomMapFilterList(
+            l: plt.AST,
+            filter_op: plt.AST,
+            map_op: plt.AST,
+            empty_list=plt.EmptyDataList(),
+        ):
+            from pluthon import (
+                Apply,
+                Lambda as PLambda,
+                RecFun,
+                IteNullList,
+                Var as PVar,
+                HeadList,
+                Ite,
+                TailList,
+                PrependList,
+                Let as PLet,
+            )
+
+            """
+            Apply a filter and a map function on each element in a list (throws out all that evaluate to false)
+            Performs only a single pass and is hence much more efficient than filter + map
+            """
+            return Apply(
+                PLambda(
+                    ["filter", "map"],
+                    RecFun(
+                        PLambda(
+                            ["filtermap", "xs"],
+                            IteNullList(
+                                PVar("xs"),
+                                empty_list,
+                                PLet(
+                                    [
+                                        ("head", HeadList(PVar("xs"))),
+                                        ("tail", TailList(PVar("xs"))),
+                                    ],
+                                    Ite(
+                                        Apply(
+                                            PVar("filter"), PVar("head"), PVar("tail")
+                                        ),
+                                        PrependList(
+                                            Apply(PVar("map"), PVar("head")),
+                                            Apply(
+                                                PVar("filtermap"),
+                                                PVar("filtermap"),
+                                                PVar("tail"),
+                                            ),
+                                        ),
+                                        Apply(
+                                            PVar("filtermap"),
+                                            PVar("filtermap"),
+                                            PVar("tail"),
+                                        ),
+                                    ),
+                                ),
+                            ),
+                        ),
+                    ),
+                ),
+                filter_op,
+                map_op,
+                l,
+            )
+
+        mapped_attrs = CustomMapFilterList(
+            plt.Var("self"),
+            plt.Lambda(
+                ["h", "t"],
+                plt.Let(
+                    [
+                        ("hfst", plt.FstPair(plt.Var("h"))),
+                        (
+                            "found_elem",
+                            plt.FindList(
+                                plt.Var("t"),
+                                plt.Lambda(
+                                    ["e"],
+                                    plt.EqualsData(
+                                        plt.Var("hfst"), plt.FstPair(plt.Var("e"))
+                                    ),
+                                ),
+                                plt.UPLCConstant(uplc.PlutusConstr(-1, [])),
+                            ),
+                        ),
+                    ],
+                    plt.EqualsData(
+                        plt.Var("found_elem"),
+                        plt.UPLCConstant(uplc.PlutusConstr(-1, [])),
+                    ),
+                ),
+            ),
+            plt.Lambda(
+                ["v"],
+                plt.MkPairData(
+                    transform_output_map(self.key_typ)(
+                        plt.Apply(
+                            self.key_typ.copy_only_attributes(),
+                            transform_ext_params_map(self.key_typ)(
+                                plt.FstPair(plt.Var("v"))
+                            ),
+                        )
+                    ),
+                    transform_output_map(self.value_typ)(
+                        plt.Apply(
+                            self.value_typ.copy_only_attributes(),
+                            transform_ext_params_map(self.value_typ)(
+                                plt.SndPair(plt.Var("v"))
+                            ),
+                        )
+                    ),
+                ),
+            ),
+            plt.EmptyDataPairList(),
+        )
+        return plt.Lambda(["self"], mapped_attrs)
+
 
 @dataclass(frozen=True, unsafe_hash=True)
 class FunctionType(ClassType):
@@ -967,6 +1198,9 @@ class InstanceType(Type):
 
     def stringify(self, recursive: bool = False) -> plt.AST:
         return self.typ.stringify(recursive=recursive)
+
+    def copy_only_attributes(self) -> plt.AST:
+        return self.typ.copy_only_attributes()
 
 
 @dataclass(frozen=True, unsafe_hash=True)
@@ -1540,6 +1774,8 @@ ATOMIC_TYPES = {
     int.__name__: IntegerType(),
     str.__name__: StringType(),
     bytes.__name__: ByteStringType(),
+    "ByteString": ByteStringType(),
+    bytearray.__name__: ByteStringType(),
     type(None).__name__: UnitType(),
     bool.__name__: BoolType(),
 }
@@ -1613,6 +1849,16 @@ StrIntMulImpl = repeated_addition(plt.Text(""), plt.AppendString)
 
 
 class PolymorphicFunction:
+    def __new__(meta, *args, **kwargs):
+        klass = super().__new__(meta)
+
+        for key in ["impl_from_args"]:
+            value = getattr(klass, key)
+            wrapped = patternize(value)
+            object.__setattr__(klass, key, wrapped)
+
+        return klass
+
     def type_from_args(self, args: typing.List[Type]) -> FunctionType:
         raise NotImplementedError()
 
@@ -1672,11 +1918,10 @@ class IntImpl(PolymorphicFunction):
                             ),
                         ),
                         (
-                            "second_int",
-                            plt.Ite(
-                                plt.LessThanInteger(plt.Integer(1), plt.Var("len")),
-                                plt.IndexByteString(plt.Var("e"), plt.Integer(1)),
-                                plt.Integer(ord("_")),
+                            "last_int",
+                            plt.IndexByteString(
+                                plt.Var("e"),
+                                plt.SubtractInteger(plt.Var("len"), plt.Integer(1)),
                             ),
                         ),
                         (
@@ -1736,26 +1981,26 @@ class IntImpl(PolymorphicFunction):
                     ],
                     plt.Ite(
                         plt.Or(
-                            plt.EqualsInteger(plt.Var("len"), plt.Integer(0)),
                             plt.Or(
                                 plt.EqualsInteger(
                                     plt.Var("first_int"),
                                     plt.Integer(ord("_")),
                                 ),
-                                plt.And(
-                                    plt.Or(
-                                        plt.EqualsInteger(
-                                            plt.Var("first_int"),
-                                            plt.Integer(ord("-")),
-                                        ),
-                                        plt.EqualsInteger(
-                                            plt.Var("first_int"),
-                                            plt.Integer(ord("+")),
-                                        ),
+                                plt.EqualsInteger(
+                                    plt.Var("last_int"),
+                                    plt.Integer(ord("_")),
+                                ),
+                            ),
+                            plt.And(
+                                plt.EqualsInteger(plt.Var("len"), plt.Integer(1)),
+                                plt.Or(
+                                    plt.EqualsInteger(
+                                        plt.Var("first_int"),
+                                        plt.Integer(ord("-")),
                                     ),
                                     plt.EqualsInteger(
-                                        plt.Var("second_int"),
-                                        plt.Integer(ord("_")),
+                                        plt.Var("first_int"),
+                                        plt.Integer(ord("+")),
                                     ),
                                 ),
                             ),
@@ -1929,8 +2174,8 @@ def empty_list(p: Type):
             uplc.BuiltinList(
                 [],
                 uplc.BuiltinPair(
-                    uplc.PlutusConstr(0, FrozenList([])),
-                    uplc.PlutusConstr(0, FrozenList([])),
+                    uplc.PlutusConstr(0, frozenlist([])),
+                    uplc.PlutusConstr(0, frozenlist([])),
                 ),
             )
         )

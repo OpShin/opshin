@@ -126,7 +126,8 @@ This has a number of benefits:
 This comes at the cost of an ugly hack.
 Generally, all validator functions `v` are wrapped in a short script that takes two arguments `a0` and `a1`.
 It checks whether `a1` is a ScriptContext by checking if it is PlutusData and has constructor id `0`.
-If so, `v((), a0, a1)` is executed and returned.
+If so, `v({6:[]}, a0, a1)` is executed and returned,
+where `{6:[]}` represents an object of type `Nothing` as defined in the prelude.
 If not, `v(a0, a1)` is executed (the first two arguments being bound to the function)
 and returned, expecting as only argument the remaining script context.
 

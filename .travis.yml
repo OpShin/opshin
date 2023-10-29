@@ -39,9 +39,9 @@ script:
 - >
   coverage run -a --source=opshin -m opshin build spending examples/smart_contracts/parameterized.py '{"int": 42}'
 - >
-  coverage run -a --source=opshin -m opshin build any examples/smart_contracts/dual_use.py --force-three-params
+  coverage run -a --source=opshin -m opshin build spending examples/smart_contracts/dual_use.py --force-three-params
 - >
-  coverage run -a --source=opshin -m opshin build any examples/smart_contracts/wrapped_token.py '{"bytes": "ae810731b5d21c0d182d89c60a1eff7095dffd1c0dce8707a8611099"}' '{"bytes": "4d494c4b"}' '{"int": 1000000}' --force-three-params
+  coverage run -a --source=opshin -m opshin build spending examples/smart_contracts/wrapped_token.py '{"bytes": "ae810731b5d21c0d182d89c60a1eff7095dffd1c0dce8707a8611099"}' '{"bytes": "4d494c4b"}' '{"int": 1000000}' --force-three-params
 - >
   test ! -n "$(coverage run -a --source=opshin -m opshin lint any examples/smart_contracts/wrapped_token.py)"
 - >
@@ -51,7 +51,7 @@ script:
 - coverage run -a --source=opshin -m opshin compile lib opshin/prelude.py
 # build the libraries
 - >
-  for i in $(find opshin/std opshin/ledger -type f -name "*.py"); do
+  for i in $(find opshin/std opshin/ledger -type f -name "*.py" ! -name "*integrity.py"); do
     echo "$i"
     coverage run -a --source=opshin -m opshin compile lib "$i" > /dev/null || exit
   done

@@ -91,6 +91,7 @@ security into the Smart Contract by checking type correctness.
 
 [1]: https://legacy.python.org/workshops/2000-01/proceedings/papers/aycock/aycock.html
 &#34;&#34;&#34;
+import typing
 from collections import defaultdict
 
 from copy import copy
@@ -131,7 +132,7 @@ def record_from_plutusdata(c: PlutusData):
     return Record(
         name=c.__class__.__name__,
         constructor=c.CONSTR_ID,
-        fields=FrozenFrozenList([(k, constant_type(v)) for k, v in c.__dict__.items()]),
+        fields=frozenlist([(k, constant_type(v)) for k, v in c.__dict__.items()]),
     )
 
 
@@ -222,20 +223,34 @@ TypeMapPair = typing.Tuple[TypeMap, TypeMap]
 
 
 def union_types(*ts: Type):
-    ts = [t if isinstance(t, UnionType) else UnionType([t]) for t in ts]
+    ts = list(set(ts))
+    if len(ts) == 1:
+        return ts[0]
+    assert ts, &#34;Union must combine multiple classes&#34;
+    ts = [t if isinstance(t, UnionType) else UnionType(frozenlist([t])) for t in ts]
+    assert all(
+        isinstance(e, UnionType) and all(isinstance(e2, RecordType) for e2 in e.typs)
+        for e in ts
+    ), &#34;Union must combine multiple PlutusData classes&#34;
     union_set = set()
     for t in ts:
         union_set.update(t.typs)
-    return UnionType(list(union_set))
+    assert distinct(
+        [e.record.constructor for e in union_set]
+    ), &#34;Union must combine PlutusData classes with unique constructors&#34;
+    return UnionType(frozenlist(union_set))
 
 
 def intersection_types(*ts: Type):
-    ts = [t if isinstance(t, UnionType) else UnionType([t]) for t in ts]
+    ts = list(set(ts))
+    if len(ts) == 1:
+        return ts[0]
+    ts = [t if isinstance(t, UnionType) else UnionType(frozenlist([t])) for t in ts]
     assert ts, &#34;Must have at least one type to intersect&#34;
     intersection_set = set(ts[0].typs)
     for t in ts[1:]:
         intersection_set.intersection_update(t.typs)
-    return UnionType(list(intersection_set))
+    return UnionType(frozenlist(intersection_set))
 
 
 class TypeCheckVisitor(TypedNodeVisitor):
@@ -245,6 +260,9 @@ class TypeCheckVisitor(TypedNodeVisitor):
     for variable names that are assured to have a specific type if this expression
     is True/False respectively
     &#34;&#34;&#34;
+
+    def __init__(self, allow_isinstance_anything=False):
+        self.allow_isinstance_anything = allow_isinstance_anything
 
     def generic_visit(self, node: AST) -&gt; TypeMapPair:
         return getattr(node, &#34;typechecks&#34;, ({}, {}))
@@ -262,22 +280,27 @@ class TypeCheckVisitor(TypedNodeVisitor):
             node.args[1], Name
         ), &#34;Target 1 of an isinstance cast must be a class name&#34;
         target_class: RecordType = node.args[1].typ
-        target_inst = node.args[0]
-        target_inst_class = target_inst.typ
+        inst = node.args[0]
+        inst_class = inst.typ
         assert isinstance(
-            target_inst_class, InstanceType
+            inst_class, InstanceType
         ), &#34;Can only cast instances, not classes&#34;
-        assert isinstance(
-            target_inst_class.typ, UnionType
-        ), &#34;Can only cast instances of Union types of PlutusData&#34;
         assert isinstance(target_class, RecordType), &#34;Can only cast to PlutusData&#34;
-        assert (
-            target_class in target_inst_class.typ.typs
-        ), f&#34;Trying to cast an instance of Union type to non-instance of union type&#34;
+        if isinstance(inst_class.typ, UnionType):
+            assert (
+                target_class in inst_class.typ.typs
+            ), f&#34;Trying to cast an instance of Union type to non-instance of union type&#34;
+            union_without_target_class = union_types(
+                *(x for x in inst_class.typ.typs if x != target_class)
+            )
+        elif isinstance(inst_class.typ, AnyType) and self.allow_isinstance_anything:
+            union_without_target_class = AnyType()
+        else:
+            assert (
+                inst_class.typ == target_class
+            ), &#34;Can only cast instances of Union types of PlutusData or cast the same class. If you know what you are doing, enable the flag &#39;--allow-isinstance-anything&#39;&#34;
+            union_without_target_class = target_class
         varname = node.args[0].id
-        union_without_target_class = union_types(
-            *(x for x in target_inst_class.typ.typs if x != target_class)
-        )
         return ({varname: target_class}, {varname: union_without_target_class})
 
     def visit_BoolOp(self, node: BoolOp) -&gt; PairType:
@@ -318,7 +341,33 @@ class TypeCheckVisitor(TypedNodeVisitor):
         return (res, inv_res)
 
 
+def merge_scope(s1: typing.Dict[str, Type], s2: typing.Dict[str, Type]):
+    keys = set(s1.keys()).union(s2.keys())
+    merged = {}
+    for k in keys:
+        if k not in s1.keys():
+            merged[k] = s2[k]
+        elif k not in s2.keys():
+            merged[k] = s1[k]
+        else:
+            try:
+                assert (
+                    isinstance(s1[k], InstanceType) and isinstance(s2[k], InstanceType)
+                ) or s1[k] == s2[
+                    k
+                ], &#34;Can only merge instance types or same types into one&#34;
+                merged[k] = InstanceType(union_types(s1[k].typ, s2[k].typ))
+            except AssertionError as e:
+                raise AssertionError(
+                    f&#34;Can not merge scopes after branching, conflicting types for {k}: {e}&#34;
+                )
+    return merged
+
+
 class AggressiveTypeInferencer(CompilingNodeTransformer):
+    def __init__(self, allow_isinstance_anything=False):
+        self.allow_isinstance_anything = allow_isinstance_anything
+
     step = &#34;Static Type Inference&#34;
 
     # A stack of dictionaries for storing scoped knowledge of variable types
@@ -373,17 +422,10 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                 ann.value, Name
             ), &#34;Only Union, Dict and List are allowed as Generic types&#34;
             if ann.value.id == &#34;Union&#34;:
-                assert isinstance(
-                    ann.slice, Tuple
-                ), &#34;Union must combine multiple classes&#34;
-                ann_types = [self.type_from_annotation(e) for e in ann.slice.elts]
-                assert all(
-                    isinstance(e, RecordType) for e in ann_types
-                ), &#34;Union must combine multiple PlutusData classes&#34;
-                assert distinct(
-                    [e.record.constructor for e in ann_types]
-                ), &#34;Union must combine PlutusData classes with unique constructors&#34;
-                return UnionType(FrozenFrozenList(ann_types))
+                ann_types = frozenlist(
+                    [self.type_from_annotation(e) for e in ann.slice.elts]
+                )
+                return union_types(*ann_types)
             if ann.value.id == &#34;List&#34;:
                 ann_type = self.type_from_annotation(ann.slice)
                 assert isinstance(
@@ -414,7 +456,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                 assert all(
                     isinstance(e, ClassType) for e in ann_types
                 ), &#34;Tuple must combine classes&#34;
-                return TupleType(FrozenFrozenList([InstanceType(a) for a in ann_types]))
+                return TupleType(frozenlist([InstanceType(a) for a in ann_types]))
             raise NotImplementedError(
                 &#34;Only Union, Dict and List are allowed as Generic types&#34;
             )
@@ -430,7 +472,9 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             stmts.append(stmt)
             # if an assert is amng the statements apply the isinstance cast
             if isinstance(stmt, Assert):
-                typchecks, _ = TypeCheckVisitor().visit(stmt.test)
+                typchecks, _ = TypeCheckVisitor(self.allow_isinstance_anything).visit(
+                    stmt.test
+                )
                 # for the time after this assert, the variable has the specialized type
                 prevtyps.update(self.implement_typechecks(typchecks))
         self.implement_typechecks(prevtyps)
@@ -457,7 +501,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
     def visit_Tuple(self, node: Tuple) -&gt; TypedTuple:
         tt = copy(node)
         tt.elts = [self.visit(e) for e in node.elts]
-        tt.typ = InstanceType(TupleType([e.typ for e in tt.elts]))
+        tt.typ = InstanceType(TupleType(frozenlist([e.typ for e in tt.elts])))
         return tt
 
     def visit_List(self, node: List) -&gt; TypedList:
@@ -491,7 +535,8 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             assert isinstance(
                 t, Name
             ), &#34;Can only assign to variable names, no type deconstruction&#34;
-            self.set_variable_type(t.id, typed_ass.value.typ)
+            # Overwrite previous type -&gt; this will only affect following statements
+            self.set_variable_type(t.id, typed_ass.value.typ, force=True)
         typed_ass.targets = [self.visit(t) for t in node.targets]
         return typed_ass
 
@@ -518,15 +563,23 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         assert (
             typed_if.test.typ == BoolInstanceType
         ), &#34;Branching condition must have boolean type&#34;
-        typchecks, inv_typchecks = TypeCheckVisitor().visit(typed_if.test)
+        typchecks, inv_typchecks = TypeCheckVisitor(
+            self.allow_isinstance_anything
+        ).visit(typed_if.test)
         # for the time of the branch, these types are cast
-        prevtyps = self.implement_typechecks(typchecks)
+        initial_scope = copy(self.scopes[-1])
+        self.implement_typechecks(typchecks)
         typed_if.body = self.visit_sequence(node.body)
-        self.implement_typechecks(prevtyps)
+        # save resulting types
+        final_scope_body = copy(self.scopes[-1])
+        # reverse typechecks and remove typing of one branch
+        self.scopes[-1] = initial_scope
         # for the time of the else branch, the inverse types hold
-        prevtyps = self.implement_typechecks(inv_typchecks)
+        self.implement_typechecks(inv_typchecks)
         typed_if.orelse = self.visit_sequence(node.orelse)
-        self.implement_typechecks(prevtyps)
+        final_scope_else = self.scopes[-1]
+        # unify the resulting branch scopes
+        self.scopes[-1] = merge_scope(final_scope_body, final_scope_else)
         return typed_if
 
     def visit_While(self, node: While) -&gt; TypedWhile:
@@ -535,15 +588,21 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         assert (
             typed_while.test.typ == BoolInstanceType
         ), &#34;Branching condition must have boolean type&#34;
-        typchecks, inv_typchecks = TypeCheckVisitor().visit(typed_while.test)
+        typchecks, inv_typchecks = TypeCheckVisitor(
+            self.allow_isinstance_anything
+        ).visit(typed_while.test)
         # for the time of the branch, these types are cast
-        prevtyps = self.implement_typechecks(typchecks)
+        initial_scope = copy(self.scopes[-1])
+        self.implement_typechecks(typchecks)
         typed_while.body = self.visit_sequence(node.body)
-        self.implement_typechecks(prevtyps)
+        final_scope_body = copy(self.scopes[-1])
+        # revert changes
+        self.scopes[-1] = initial_scope
         # for the time of the else branch, the inverse types hold
-        prevtyps = self.implement_typechecks(inv_typchecks)
+        self.implement_typechecks(inv_typchecks)
         typed_while.orelse = self.visit_sequence(node.orelse)
-        self.implement_typechecks(prevtyps)
+        final_scope_else = self.scopes[-1]
+        self.scopes[-1] = merge_scope(final_scope_body, final_scope_else)
         return typed_while
 
     def visit_For(self, node: For) -&gt; TypedFor:
@@ -620,7 +679,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         self.enter_scope()
         tfd.args = self.visit(node.args)
         functyp = FunctionType(
-            [t.typ for t in tfd.args.args],
+            frozenlist([t.typ for t in tfd.args.args]),
             InstanceType(self.type_from_annotation(tfd.returns)),
         )
         tfd.typ = InstanceType(functyp)
@@ -680,7 +739,9 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             prevtyps = {}
             for e in node.values:
                 values.append(self.visit(e))
-                typchecks, _ = TypeCheckVisitor().visit(values[-1])
+                typchecks, _ = TypeCheckVisitor(self.allow_isinstance_anything).visit(
+                    values[-1]
+                )
                 # for the time after the shortcut and the variable type to the specialized type
                 prevtyps.update(self.implement_typechecks(typchecks))
             self.implement_typechecks(prevtyps)
@@ -690,7 +751,9 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             prevtyps = {}
             for e in node.values:
                 values.append(self.visit(e))
-                _, inv_typechecks = TypeCheckVisitor().visit(values[-1])
+                _, inv_typechecks = TypeCheckVisitor(
+                    self.allow_isinstance_anything
+                ).visit(values[-1])
                 # for the time after the shortcut or the variable type is *not* the specialized type
                 prevtyps.update(self.implement_typechecks(inv_typechecks))
             self.implement_typechecks(prevtyps)
@@ -801,15 +864,24 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         # might be isinstance
         if isinstance(tc.func, Name) and tc.func.id == &#34;isinstance&#34;:
             target_class = tc.args[1].typ
-            ntc = self.visit(
-                Compare(
-                    left=Attribute(tc.args[0], &#34;CONSTR_ID&#34;),
-                    ops=[Eq()],
-                    comparators=[Constant(target_class.record.constructor)],
+            if (
+                isinstance(tc.args[0].typ, InstanceType)
+                and isinstance(tc.args[0].typ.typ, AnyType)
+                and not self.allow_isinstance_anything
+            ):
+                raise AssertionError(
+                    &#34;OpShin does not permit checking the instance of raw Anything/Datum objects as this only checks the equality of the constructor id and nothing more. &#34;
+                    &#34;If you are certain of what you are doing, please use the flag &#39;--allow-isinstance-anything&#39;.&#34;
                 )
+            ntc = Compare(
+                left=Attribute(tc.args[0], &#34;CONSTR_ID&#34;),
+                ops=[Eq()],
+                comparators=[Constant(target_class.record.constructor)],
             )
+            custom_fix_missing_locations(ntc, node)
+            ntc = self.visit(ntc)
             ntc.typ = BoolInstanceType
-            ntc.typechecks = TypeCheckVisitor().visit(tc)
+            ntc.typechecks = TypeCheckVisitor(self.allow_isinstance_anything).visit(tc)
             return ntc
         tc.func = self.visit(node.func)
         # might be a class
@@ -879,7 +951,9 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         node_cp = copy(node)
         node_cp.test = self.visit(node.test)
         assert node_cp.test.typ == BoolInstanceType, &#34;Comparison must have type boolean&#34;
-        typchecks, inv_typchecks = TypeCheckVisitor().visit(node_cp.test)
+        typchecks, inv_typchecks = TypeCheckVisitor(
+            self.allow_isinstance_anything
+        ).visit(node_cp.test)
         prevtyps = self.implement_typechecks(typchecks)
         node_cp.body = self.visit(node.body)
         self.implement_typechecks(prevtyps)
@@ -980,7 +1054,7 @@ class RecordReader(NodeVisitor):
     def extract(cls, c: ClassDef, type_inferencer: AggressiveTypeInferencer) -&gt; Record:
         f = cls(type_inferencer)
         f.visit(c)
-        return Record(f.name, f.constructor, FrozenFrozenList(f.attributes))
+        return Record(f.name, f.constructor, frozenlist(f.attributes))
 
     def visit_AnnAssign(self, node: AnnAssign) -&gt; None:
         assert isinstance(
@@ -1107,12 +1181,47 @@ def typed_ast(ast: AST):
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def intersection_types(*ts: Type):
-    ts = [t if isinstance(t, UnionType) else UnionType([t]) for t in ts]
+    ts = list(set(ts))
+    if len(ts) == 1:
+        return ts[0]
+    ts = [t if isinstance(t, UnionType) else UnionType(frozenlist([t])) for t in ts]
     assert ts, &#34;Must have at least one type to intersect&#34;
     intersection_set = set(ts[0].typs)
     for t in ts[1:]:
         intersection_set.intersection_update(t.typs)
-    return UnionType(list(intersection_set))</code></pre>
+    return UnionType(frozenlist(intersection_set))</code></pre>
+</details>
+</dd>
+<dt id="opshin.type_inference.merge_scope"><code class="name flex">
+<span>def <span class="ident">merge_scope</span></span>(<span>s1: Dict[str, <a title="opshin.types.Type" href="types.html#opshin.types.Type">Type</a>], s2: Dict[str, <a title="opshin.types.Type" href="types.html#opshin.types.Type">Type</a>])</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def merge_scope(s1: typing.Dict[str, Type], s2: typing.Dict[str, Type]):
+    keys = set(s1.keys()).union(s2.keys())
+    merged = {}
+    for k in keys:
+        if k not in s1.keys():
+            merged[k] = s2[k]
+        elif k not in s2.keys():
+            merged[k] = s1[k]
+        else:
+            try:
+                assert (
+                    isinstance(s1[k], InstanceType) and isinstance(s2[k], InstanceType)
+                ) or s1[k] == s2[
+                    k
+                ], &#34;Can only merge instance types or same types into one&#34;
+                merged[k] = InstanceType(union_types(s1[k].typ, s2[k].typ))
+            except AssertionError as e:
+                raise AssertionError(
+                    f&#34;Can not merge scopes after branching, conflicting types for {k}: {e}&#34;
+                )
+    return merged</code></pre>
 </details>
 </dd>
 <dt id="opshin.type_inference.record_from_plutusdata"><code class="name flex">
@@ -1128,12 +1237,12 @@ def typed_ast(ast: AST):
     return Record(
         name=c.__class__.__name__,
         constructor=c.CONSTR_ID,
-        fields=FrozenFrozenList([(k, constant_type(v)) for k, v in c.__dict__.items()]),
+        fields=frozenlist([(k, constant_type(v)) for k, v in c.__dict__.items()]),
     )</code></pre>
 </details>
 </dd>
 <dt id="opshin.type_inference.typed_ast"><code class="name flex">
-<span>def <span class="ident">typed_ast</span></span>(<span>ast: _ast.AST)</span>
+<span>def <span class="ident">typed_ast</span></span>(<span>ast: ast.AST)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -1155,11 +1264,22 @@ def typed_ast(ast: AST):
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def union_types(*ts: Type):
-    ts = [t if isinstance(t, UnionType) else UnionType([t]) for t in ts]
+    ts = list(set(ts))
+    if len(ts) == 1:
+        return ts[0]
+    assert ts, &#34;Union must combine multiple classes&#34;
+    ts = [t if isinstance(t, UnionType) else UnionType(frozenlist([t])) for t in ts]
+    assert all(
+        isinstance(e, UnionType) and all(isinstance(e2, RecordType) for e2 in e.typs)
+        for e in ts
+    ), &#34;Union must combine multiple PlutusData classes&#34;
     union_set = set()
     for t in ts:
         union_set.update(t.typs)
-    return UnionType(list(union_set))</code></pre>
+    assert distinct(
+        [e.record.constructor for e in union_set]
+    ), &#34;Union must combine PlutusData classes with unique constructors&#34;
+    return UnionType(frozenlist(union_set))</code></pre>
 </details>
 </dd>
 </dl>
@@ -1169,6 +1289,7 @@ def typed_ast(ast: AST):
 <dl>
 <dt id="opshin.type_inference.AggressiveTypeInferencer"><code class="flex name class">
 <span>class <span class="ident">AggressiveTypeInferencer</span></span>
+<span>(</span><span>allow_isinstance_anything=False)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>A :class:<code>NodeVisitor</code> subclass that walks the abstract syntax tree and
@@ -1186,7 +1307,7 @@ original node in which case no replacement takes place.</p>
 <pre><code>   def visit_Name(self, node):
        return Subscript(
            value=Name(id='data', ctx=Load()),
-           slice=Index(value=Str(s=node.id)),
+           slice=Constant(value=node.id),
            ctx=node.ctx
        )
 </code></pre>
@@ -1203,6 +1324,9 @@ just a single node.</p>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">class AggressiveTypeInferencer(CompilingNodeTransformer):
+    def __init__(self, allow_isinstance_anything=False):
+        self.allow_isinstance_anything = allow_isinstance_anything
+
     step = &#34;Static Type Inference&#34;
 
     # A stack of dictionaries for storing scoped knowledge of variable types
@@ -1257,17 +1381,10 @@ just a single node.</p>
                 ann.value, Name
             ), &#34;Only Union, Dict and List are allowed as Generic types&#34;
             if ann.value.id == &#34;Union&#34;:
-                assert isinstance(
-                    ann.slice, Tuple
-                ), &#34;Union must combine multiple classes&#34;
-                ann_types = [self.type_from_annotation(e) for e in ann.slice.elts]
-                assert all(
-                    isinstance(e, RecordType) for e in ann_types
-                ), &#34;Union must combine multiple PlutusData classes&#34;
-                assert distinct(
-                    [e.record.constructor for e in ann_types]
-                ), &#34;Union must combine PlutusData classes with unique constructors&#34;
-                return UnionType(FrozenFrozenList(ann_types))
+                ann_types = frozenlist(
+                    [self.type_from_annotation(e) for e in ann.slice.elts]
+                )
+                return union_types(*ann_types)
             if ann.value.id == &#34;List&#34;:
                 ann_type = self.type_from_annotation(ann.slice)
                 assert isinstance(
@@ -1298,7 +1415,7 @@ just a single node.</p>
                 assert all(
                     isinstance(e, ClassType) for e in ann_types
                 ), &#34;Tuple must combine classes&#34;
-                return TupleType(FrozenFrozenList([InstanceType(a) for a in ann_types]))
+                return TupleType(frozenlist([InstanceType(a) for a in ann_types]))
             raise NotImplementedError(
                 &#34;Only Union, Dict and List are allowed as Generic types&#34;
             )
@@ -1314,7 +1431,9 @@ just a single node.</p>
             stmts.append(stmt)
             # if an assert is amng the statements apply the isinstance cast
             if isinstance(stmt, Assert):
-                typchecks, _ = TypeCheckVisitor().visit(stmt.test)
+                typchecks, _ = TypeCheckVisitor(self.allow_isinstance_anything).visit(
+                    stmt.test
+                )
                 # for the time after this assert, the variable has the specialized type
                 prevtyps.update(self.implement_typechecks(typchecks))
         self.implement_typechecks(prevtyps)
@@ -1341,7 +1460,7 @@ just a single node.</p>
     def visit_Tuple(self, node: Tuple) -&gt; TypedTuple:
         tt = copy(node)
         tt.elts = [self.visit(e) for e in node.elts]
-        tt.typ = InstanceType(TupleType([e.typ for e in tt.elts]))
+        tt.typ = InstanceType(TupleType(frozenlist([e.typ for e in tt.elts])))
         return tt
 
     def visit_List(self, node: List) -&gt; TypedList:
@@ -1375,7 +1494,8 @@ just a single node.</p>
             assert isinstance(
                 t, Name
             ), &#34;Can only assign to variable names, no type deconstruction&#34;
-            self.set_variable_type(t.id, typed_ass.value.typ)
+            # Overwrite previous type -&gt; this will only affect following statements
+            self.set_variable_type(t.id, typed_ass.value.typ, force=True)
         typed_ass.targets = [self.visit(t) for t in node.targets]
         return typed_ass
 
@@ -1402,15 +1522,23 @@ just a single node.</p>
         assert (
             typed_if.test.typ == BoolInstanceType
         ), &#34;Branching condition must have boolean type&#34;
-        typchecks, inv_typchecks = TypeCheckVisitor().visit(typed_if.test)
+        typchecks, inv_typchecks = TypeCheckVisitor(
+            self.allow_isinstance_anything
+        ).visit(typed_if.test)
         # for the time of the branch, these types are cast
-        prevtyps = self.implement_typechecks(typchecks)
+        initial_scope = copy(self.scopes[-1])
+        self.implement_typechecks(typchecks)
         typed_if.body = self.visit_sequence(node.body)
-        self.implement_typechecks(prevtyps)
+        # save resulting types
+        final_scope_body = copy(self.scopes[-1])
+        # reverse typechecks and remove typing of one branch
+        self.scopes[-1] = initial_scope
         # for the time of the else branch, the inverse types hold
-        prevtyps = self.implement_typechecks(inv_typchecks)
+        self.implement_typechecks(inv_typchecks)
         typed_if.orelse = self.visit_sequence(node.orelse)
-        self.implement_typechecks(prevtyps)
+        final_scope_else = self.scopes[-1]
+        # unify the resulting branch scopes
+        self.scopes[-1] = merge_scope(final_scope_body, final_scope_else)
         return typed_if
 
     def visit_While(self, node: While) -&gt; TypedWhile:
@@ -1419,15 +1547,21 @@ just a single node.</p>
         assert (
             typed_while.test.typ == BoolInstanceType
         ), &#34;Branching condition must have boolean type&#34;
-        typchecks, inv_typchecks = TypeCheckVisitor().visit(typed_while.test)
+        typchecks, inv_typchecks = TypeCheckVisitor(
+            self.allow_isinstance_anything
+        ).visit(typed_while.test)
         # for the time of the branch, these types are cast
-        prevtyps = self.implement_typechecks(typchecks)
+        initial_scope = copy(self.scopes[-1])
+        self.implement_typechecks(typchecks)
         typed_while.body = self.visit_sequence(node.body)
-        self.implement_typechecks(prevtyps)
+        final_scope_body = copy(self.scopes[-1])
+        # revert changes
+        self.scopes[-1] = initial_scope
         # for the time of the else branch, the inverse types hold
-        prevtyps = self.implement_typechecks(inv_typchecks)
+        self.implement_typechecks(inv_typchecks)
         typed_while.orelse = self.visit_sequence(node.orelse)
-        self.implement_typechecks(prevtyps)
+        final_scope_else = self.scopes[-1]
+        self.scopes[-1] = merge_scope(final_scope_body, final_scope_else)
         return typed_while
 
     def visit_For(self, node: For) -&gt; TypedFor:
@@ -1504,7 +1638,7 @@ just a single node.</p>
         self.enter_scope()
         tfd.args = self.visit(node.args)
         functyp = FunctionType(
-            [t.typ for t in tfd.args.args],
+            frozenlist([t.typ for t in tfd.args.args]),
             InstanceType(self.type_from_annotation(tfd.returns)),
         )
         tfd.typ = InstanceType(functyp)
@@ -1564,7 +1698,9 @@ just a single node.</p>
             prevtyps = {}
             for e in node.values:
                 values.append(self.visit(e))
-                typchecks, _ = TypeCheckVisitor().visit(values[-1])
+                typchecks, _ = TypeCheckVisitor(self.allow_isinstance_anything).visit(
+                    values[-1]
+                )
                 # for the time after the shortcut and the variable type to the specialized type
                 prevtyps.update(self.implement_typechecks(typchecks))
             self.implement_typechecks(prevtyps)
@@ -1574,7 +1710,9 @@ just a single node.</p>
             prevtyps = {}
             for e in node.values:
                 values.append(self.visit(e))
-                _, inv_typechecks = TypeCheckVisitor().visit(values[-1])
+                _, inv_typechecks = TypeCheckVisitor(
+                    self.allow_isinstance_anything
+                ).visit(values[-1])
                 # for the time after the shortcut or the variable type is *not* the specialized type
                 prevtyps.update(self.implement_typechecks(inv_typechecks))
             self.implement_typechecks(prevtyps)
@@ -1685,15 +1823,24 @@ just a single node.</p>
         # might be isinstance
         if isinstance(tc.func, Name) and tc.func.id == &#34;isinstance&#34;:
             target_class = tc.args[1].typ
-            ntc = self.visit(
-                Compare(
-                    left=Attribute(tc.args[0], &#34;CONSTR_ID&#34;),
-                    ops=[Eq()],
-                    comparators=[Constant(target_class.record.constructor)],
+            if (
+                isinstance(tc.args[0].typ, InstanceType)
+                and isinstance(tc.args[0].typ.typ, AnyType)
+                and not self.allow_isinstance_anything
+            ):
+                raise AssertionError(
+                    &#34;OpShin does not permit checking the instance of raw Anything/Datum objects as this only checks the equality of the constructor id and nothing more. &#34;
+                    &#34;If you are certain of what you are doing, please use the flag &#39;--allow-isinstance-anything&#39;.&#34;
                 )
+            ntc = Compare(
+                left=Attribute(tc.args[0], &#34;CONSTR_ID&#34;),
+                ops=[Eq()],
+                comparators=[Constant(target_class.record.constructor)],
             )
+            custom_fix_missing_locations(ntc, node)
+            ntc = self.visit(ntc)
             ntc.typ = BoolInstanceType
-            ntc.typechecks = TypeCheckVisitor().visit(tc)
+            ntc.typechecks = TypeCheckVisitor(self.allow_isinstance_anything).visit(tc)
             return ntc
         tc.func = self.visit(node.func)
         # might be a class
@@ -1763,7 +1910,9 @@ just a single node.</p>
         node_cp = copy(node)
         node_cp.test = self.visit(node.test)
         assert node_cp.test.typ == BoolInstanceType, &#34;Comparison must have type boolean&#34;
-        typchecks, inv_typchecks = TypeCheckVisitor().visit(node_cp.test)
+        typchecks, inv_typchecks = TypeCheckVisitor(
+            self.allow_isinstance_anything
+        ).visit(node_cp.test)
         prevtyps = self.implement_typechecks(typchecks)
         node_cp.body = self.visit(node.body)
         self.implement_typechecks(prevtyps)
@@ -1895,7 +2044,7 @@ just a single node.</p>
 </details>
 </dd>
 <dt id="opshin.type_inference.AggressiveTypeInferencer.generic_visit"><code class="name flex">
-<span>def <span class="ident">generic_visit</span></span>(<span>self, node: _ast.AST) ‑> <a title="opshin.typed_ast.TypedAST" href="typed_ast.html#opshin.typed_ast.TypedAST">TypedAST</a></span>
+<span>def <span class="ident">generic_visit</span></span>(<span>self, node: ast.AST) ‑> <a title="opshin.typed_ast.TypedAST" href="typed_ast.html#opshin.typed_ast.TypedAST">TypedAST</a></span>
 </code></dt>
 <dd>
 <div class="desc"><p>Called if no explicit visitor function exists for a node.</p></div>
@@ -1947,7 +2096,7 @@ just a single node.</p>
 </details>
 </dd>
 <dt id="opshin.type_inference.AggressiveTypeInferencer.type_from_annotation"><code class="name flex">
-<span>def <span class="ident">type_from_annotation</span></span>(<span>self, ann: _ast.expr)</span>
+<span>def <span class="ident">type_from_annotation</span></span>(<span>self, ann: ast.expr)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -1973,17 +2122,10 @@ just a single node.</p>
             ann.value, Name
         ), &#34;Only Union, Dict and List are allowed as Generic types&#34;
         if ann.value.id == &#34;Union&#34;:
-            assert isinstance(
-                ann.slice, Tuple
-            ), &#34;Union must combine multiple classes&#34;
-            ann_types = [self.type_from_annotation(e) for e in ann.slice.elts]
-            assert all(
-                isinstance(e, RecordType) for e in ann_types
-            ), &#34;Union must combine multiple PlutusData classes&#34;
-            assert distinct(
-                [e.record.constructor for e in ann_types]
-            ), &#34;Union must combine PlutusData classes with unique constructors&#34;
-            return UnionType(FrozenFrozenList(ann_types))
+            ann_types = frozenlist(
+                [self.type_from_annotation(e) for e in ann.slice.elts]
+            )
+            return union_types(*ann_types)
         if ann.value.id == &#34;List&#34;:
             ann_type = self.type_from_annotation(ann.slice)
             assert isinstance(
@@ -2014,7 +2156,7 @@ just a single node.</p>
             assert all(
                 isinstance(e, ClassType) for e in ann_types
             ), &#34;Tuple must combine classes&#34;
-            return TupleType(FrozenFrozenList([InstanceType(a) for a in ann_types]))
+            return TupleType(frozenlist([InstanceType(a) for a in ann_types]))
         raise NotImplementedError(
             &#34;Only Union, Dict and List are allowed as Generic types&#34;
         )
@@ -2051,7 +2193,7 @@ just a single node.</p>
 <div class="desc inherited"><p>Visit a node.</p></div>
 </dd>
 <dt id="opshin.type_inference.AggressiveTypeInferencer.visit_AnnAssign"><code class="name flex">
-<span>def <span class="ident">visit_AnnAssign</span></span>(<span>self, node: _ast.AnnAssign) ‑> <a title="opshin.typed_ast.TypedAnnAssign" href="typed_ast.html#opshin.typed_ast.TypedAnnAssign">TypedAnnAssign</a></span>
+<span>def <span class="ident">visit_AnnAssign</span></span>(<span>self, node: ast.AnnAssign) ‑> <a title="opshin.typed_ast.TypedAnnAssign" href="typed_ast.html#opshin.typed_ast.TypedAnnAssign">TypedAnnAssign</a></span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -2078,7 +2220,7 @@ just a single node.</p>
 </details>
 </dd>
 <dt id="opshin.type_inference.AggressiveTypeInferencer.visit_Assert"><code class="name flex">
-<span>def <span class="ident">visit_Assert</span></span>(<span>self, node: _ast.Assert) ‑> <a title="opshin.typed_ast.TypedAssert" href="typed_ast.html#opshin.typed_ast.TypedAssert">TypedAssert</a></span>
+<span>def <span class="ident">visit_Assert</span></span>(<span>self, node: ast.Assert) ‑> <a title="opshin.typed_ast.TypedAssert" href="typed_ast.html#opshin.typed_ast.TypedAssert">TypedAssert</a></span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -2101,7 +2243,7 @@ just a single node.</p>
 </details>
 </dd>
 <dt id="opshin.type_inference.AggressiveTypeInferencer.visit_Assign"><code class="name flex">
-<span>def <span class="ident">visit_Assign</span></span>(<span>self, node: _ast.Assign) ‑> <a title="opshin.typed_ast.TypedAssign" href="typed_ast.html#opshin.typed_ast.TypedAssign">TypedAssign</a></span>
+<span>def <span class="ident">visit_Assign</span></span>(<span>self, node: ast.Assign) ‑> <a title="opshin.typed_ast.TypedAssign" href="typed_ast.html#opshin.typed_ast.TypedAssign">TypedAssign</a></span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -2117,13 +2259,14 @@ just a single node.</p>
         assert isinstance(
             t, Name
         ), &#34;Can only assign to variable names, no type deconstruction&#34;
-        self.set_variable_type(t.id, typed_ass.value.typ)
+        # Overwrite previous type -&gt; this will only affect following statements
+        self.set_variable_type(t.id, typed_ass.value.typ, force=True)
     typed_ass.targets = [self.visit(t) for t in node.targets]
     return typed_ass</code></pre>
 </details>
 </dd>
 <dt id="opshin.type_inference.AggressiveTypeInferencer.visit_Attribute"><code class="name flex">
-<span>def <span class="ident">visit_Attribute</span></span>(<span>self, node: _ast.Attribute) ‑> <a title="opshin.typed_ast.TypedAttribute" href="typed_ast.html#opshin.typed_ast.TypedAttribute">TypedAttribute</a></span>
+<span>def <span class="ident">visit_Attribute</span></span>(<span>self, node: ast.Attribute) ‑> <a title="opshin.typed_ast.TypedAttribute" href="typed_ast.html#opshin.typed_ast.TypedAttribute">TypedAttribute</a></span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -2141,7 +2284,7 @@ just a single node.</p>
 </details>
 </dd>
 <dt id="opshin.type_inference.AggressiveTypeInferencer.visit_BinOp"><code class="name flex">
-<span>def <span class="ident">visit_BinOp</span></span>(<span>self, node: _ast.BinOp) ‑> <a title="opshin.typed_ast.TypedBinOp" href="typed_ast.html#opshin.typed_ast.TypedBinOp">TypedBinOp</a></span>
+<span>def <span class="ident">visit_BinOp</span></span>(<span>self, node: ast.BinOp) ‑> <a title="opshin.typed_ast.TypedBinOp" href="typed_ast.html#opshin.typed_ast.TypedBinOp">TypedBinOp</a></span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -2166,7 +2309,7 @@ just a single node.</p>
 </details>
 </dd>
 <dt id="opshin.type_inference.AggressiveTypeInferencer.visit_BoolOp"><code class="name flex">
-<span>def <span class="ident">visit_BoolOp</span></span>(<span>self, node: _ast.BoolOp) ‑> <a title="opshin.typed_ast.TypedBoolOp" href="typed_ast.html#opshin.typed_ast.TypedBoolOp">TypedBoolOp</a></span>
+<span>def <span class="ident">visit_BoolOp</span></span>(<span>self, node: ast.BoolOp) ‑> <a title="opshin.typed_ast.TypedBoolOp" href="typed_ast.html#opshin.typed_ast.TypedBoolOp">TypedBoolOp</a></span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -2181,7 +2324,9 @@ just a single node.</p>
         prevtyps = {}
         for e in node.values:
             values.append(self.visit(e))
-            typchecks, _ = TypeCheckVisitor().visit(values[-1])
+            typchecks, _ = TypeCheckVisitor(self.allow_isinstance_anything).visit(
+                values[-1]
+            )
             # for the time after the shortcut and the variable type to the specialized type
             prevtyps.update(self.implement_typechecks(typchecks))
         self.implement_typechecks(prevtyps)
@@ -2191,7 +2336,9 @@ just a single node.</p>
         prevtyps = {}
         for e in node.values:
             values.append(self.visit(e))
-            _, inv_typechecks = TypeCheckVisitor().visit(values[-1])
+            _, inv_typechecks = TypeCheckVisitor(
+                self.allow_isinstance_anything
+            ).visit(values[-1])
             # for the time after the shortcut or the variable type is *not* the specialized type
             prevtyps.update(self.implement_typechecks(inv_typechecks))
         self.implement_typechecks(prevtyps)
@@ -2206,7 +2353,7 @@ just a single node.</p>
 </details>
 </dd>
 <dt id="opshin.type_inference.AggressiveTypeInferencer.visit_Call"><code class="name flex">
-<span>def <span class="ident">visit_Call</span></span>(<span>self, node: _ast.Call) ‑> <a title="opshin.typed_ast.TypedCall" href="typed_ast.html#opshin.typed_ast.TypedCall">TypedCall</a></span>
+<span>def <span class="ident">visit_Call</span></span>(<span>self, node: ast.Call) ‑> <a title="opshin.typed_ast.TypedCall" href="typed_ast.html#opshin.typed_ast.TypedCall">TypedCall</a></span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -2221,15 +2368,24 @@ just a single node.</p>
     # might be isinstance
     if isinstance(tc.func, Name) and tc.func.id == &#34;isinstance&#34;:
         target_class = tc.args[1].typ
-        ntc = self.visit(
-            Compare(
-                left=Attribute(tc.args[0], &#34;CONSTR_ID&#34;),
-                ops=[Eq()],
-                comparators=[Constant(target_class.record.constructor)],
+        if (
+            isinstance(tc.args[0].typ, InstanceType)
+            and isinstance(tc.args[0].typ.typ, AnyType)
+            and not self.allow_isinstance_anything
+        ):
+            raise AssertionError(
+                &#34;OpShin does not permit checking the instance of raw Anything/Datum objects as this only checks the equality of the constructor id and nothing more. &#34;
+                &#34;If you are certain of what you are doing, please use the flag &#39;--allow-isinstance-anything&#39;.&#34;
             )
+        ntc = Compare(
+            left=Attribute(tc.args[0], &#34;CONSTR_ID&#34;),
+            ops=[Eq()],
+            comparators=[Constant(target_class.record.constructor)],
         )
+        custom_fix_missing_locations(ntc, node)
+        ntc = self.visit(ntc)
         ntc.typ = BoolInstanceType
-        ntc.typechecks = TypeCheckVisitor().visit(tc)
+        ntc.typechecks = TypeCheckVisitor(self.allow_isinstance_anything).visit(tc)
         return ntc
     tc.func = self.visit(node.func)
     # might be a class
@@ -2262,7 +2418,7 @@ just a single node.</p>
 </details>
 </dd>
 <dt id="opshin.type_inference.AggressiveTypeInferencer.visit_ClassDef"><code class="name flex">
-<span>def <span class="ident">visit_ClassDef</span></span>(<span>self, node: _ast.ClassDef) ‑> <a title="opshin.typed_ast.TypedClassDef" href="typed_ast.html#opshin.typed_ast.TypedClassDef">TypedClassDef</a></span>
+<span>def <span class="ident">visit_ClassDef</span></span>(<span>self, node: ast.ClassDef) ‑> <a title="opshin.typed_ast.TypedClassDef" href="typed_ast.html#opshin.typed_ast.TypedClassDef">TypedClassDef</a></span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -2280,7 +2436,7 @@ just a single node.</p>
 </details>
 </dd>
 <dt id="opshin.type_inference.AggressiveTypeInferencer.visit_Compare"><code class="name flex">
-<span>def <span class="ident">visit_Compare</span></span>(<span>self, node: _ast.Compare) ‑> <a title="opshin.typed_ast.TypedCompare" href="typed_ast.html#opshin.typed_ast.TypedCompare">TypedCompare</a></span>
+<span>def <span class="ident">visit_Compare</span></span>(<span>self, node: ast.Compare) ‑> <a title="opshin.typed_ast.TypedCompare" href="typed_ast.html#opshin.typed_ast.TypedCompare">TypedCompare</a></span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -2298,7 +2454,7 @@ just a single node.</p>
 </details>
 </dd>
 <dt id="opshin.type_inference.AggressiveTypeInferencer.visit_Constant"><code class="name flex">
-<span>def <span class="ident">visit_Constant</span></span>(<span>self, node: _ast.Constant) ‑> <a title="opshin.typed_ast.TypedConstant" href="typed_ast.html#opshin.typed_ast.TypedConstant">TypedConstant</a></span>
+<span>def <span class="ident">visit_Constant</span></span>(<span>self, node: ast.Constant) ‑> <a title="opshin.typed_ast.TypedConstant" href="typed_ast.html#opshin.typed_ast.TypedConstant">TypedConstant</a></span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -2318,7 +2474,7 @@ just a single node.</p>
 </details>
 </dd>
 <dt id="opshin.type_inference.AggressiveTypeInferencer.visit_Dict"><code class="name flex">
-<span>def <span class="ident">visit_Dict</span></span>(<span>self, node: _ast.Dict) ‑> <a title="opshin.typed_ast.TypedDict" href="typed_ast.html#opshin.typed_ast.TypedDict">TypedDict</a></span>
+<span>def <span class="ident">visit_Dict</span></span>(<span>self, node: ast.Dict) ‑> <a title="opshin.typed_ast.TypedDict" href="typed_ast.html#opshin.typed_ast.TypedDict">TypedDict</a></span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -2341,7 +2497,7 @@ just a single node.</p>
 </details>
 </dd>
 <dt id="opshin.type_inference.AggressiveTypeInferencer.visit_Expr"><code class="name flex">
-<span>def <span class="ident">visit_Expr</span></span>(<span>self, node: _ast.Expr) ‑> <a title="opshin.typed_ast.TypedExpr" href="typed_ast.html#opshin.typed_ast.TypedExpr">TypedExpr</a></span>
+<span>def <span class="ident">visit_Expr</span></span>(<span>self, node: ast.Expr) ‑> <a title="opshin.typed_ast.TypedExpr" href="typed_ast.html#opshin.typed_ast.TypedExpr">TypedExpr</a></span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -2356,7 +2512,7 @@ just a single node.</p>
 </details>
 </dd>
 <dt id="opshin.type_inference.AggressiveTypeInferencer.visit_For"><code class="name flex">
-<span>def <span class="ident">visit_For</span></span>(<span>self, node: _ast.For) ‑> <a title="opshin.typed_ast.TypedFor" href="typed_ast.html#opshin.typed_ast.TypedFor">TypedFor</a></span>
+<span>def <span class="ident">visit_For</span></span>(<span>self, node: ast.For) ‑> <a title="opshin.typed_ast.TypedFor" href="typed_ast.html#opshin.typed_ast.TypedFor">TypedFor</a></span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -2396,7 +2552,7 @@ just a single node.</p>
 </details>
 </dd>
 <dt id="opshin.type_inference.AggressiveTypeInferencer.visit_FormattedValue"><code class="name flex">
-<span>def <span class="ident">visit_FormattedValue</span></span>(<span>self, node: _ast.FormattedValue) ‑> <a title="opshin.typed_ast.TypedFormattedValue" href="typed_ast.html#opshin.typed_ast.TypedFormattedValue">TypedFormattedValue</a></span>
+<span>def <span class="ident">visit_FormattedValue</span></span>(<span>self, node: ast.FormattedValue) ‑> <a title="opshin.typed_ast.TypedFormattedValue" href="typed_ast.html#opshin.typed_ast.TypedFormattedValue">TypedFormattedValue</a></span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -2419,7 +2575,7 @@ just a single node.</p>
 </details>
 </dd>
 <dt id="opshin.type_inference.AggressiveTypeInferencer.visit_FunctionDef"><code class="name flex">
-<span>def <span class="ident">visit_FunctionDef</span></span>(<span>self, node: _ast.FunctionDef) ‑> <a title="opshin.typed_ast.TypedFunctionDef" href="typed_ast.html#opshin.typed_ast.TypedFunctionDef">TypedFunctionDef</a></span>
+<span>def <span class="ident">visit_FunctionDef</span></span>(<span>self, node: ast.FunctionDef) ‑> <a title="opshin.typed_ast.TypedFunctionDef" href="typed_ast.html#opshin.typed_ast.TypedFunctionDef">TypedFunctionDef</a></span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -2442,7 +2598,7 @@ just a single node.</p>
     self.enter_scope()
     tfd.args = self.visit(node.args)
     functyp = FunctionType(
-        [t.typ for t in tfd.args.args],
+        frozenlist([t.typ for t in tfd.args.args]),
         InstanceType(self.type_from_annotation(tfd.returns)),
     )
     tfd.typ = InstanceType(functyp)
@@ -2470,7 +2626,7 @@ just a single node.</p>
 </details>
 </dd>
 <dt id="opshin.type_inference.AggressiveTypeInferencer.visit_If"><code class="name flex">
-<span>def <span class="ident">visit_If</span></span>(<span>self, node: _ast.If) ‑> <a title="opshin.typed_ast.TypedIf" href="typed_ast.html#opshin.typed_ast.TypedIf">TypedIf</a></span>
+<span>def <span class="ident">visit_If</span></span>(<span>self, node: ast.If) ‑> <a title="opshin.typed_ast.TypedIf" href="typed_ast.html#opshin.typed_ast.TypedIf">TypedIf</a></span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -2484,20 +2640,28 @@ just a single node.</p>
     assert (
         typed_if.test.typ == BoolInstanceType
     ), &#34;Branching condition must have boolean type&#34;
-    typchecks, inv_typchecks = TypeCheckVisitor().visit(typed_if.test)
+    typchecks, inv_typchecks = TypeCheckVisitor(
+        self.allow_isinstance_anything
+    ).visit(typed_if.test)
     # for the time of the branch, these types are cast
-    prevtyps = self.implement_typechecks(typchecks)
+    initial_scope = copy(self.scopes[-1])
+    self.implement_typechecks(typchecks)
     typed_if.body = self.visit_sequence(node.body)
-    self.implement_typechecks(prevtyps)
+    # save resulting types
+    final_scope_body = copy(self.scopes[-1])
+    # reverse typechecks and remove typing of one branch
+    self.scopes[-1] = initial_scope
     # for the time of the else branch, the inverse types hold
-    prevtyps = self.implement_typechecks(inv_typchecks)
+    self.implement_typechecks(inv_typchecks)
     typed_if.orelse = self.visit_sequence(node.orelse)
-    self.implement_typechecks(prevtyps)
+    final_scope_else = self.scopes[-1]
+    # unify the resulting branch scopes
+    self.scopes[-1] = merge_scope(final_scope_body, final_scope_else)
     return typed_if</code></pre>
 </details>
 </dd>
 <dt id="opshin.type_inference.AggressiveTypeInferencer.visit_IfExp"><code class="name flex">
-<span>def <span class="ident">visit_IfExp</span></span>(<span>self, node: _ast.IfExp) ‑> <a title="opshin.typed_ast.TypedIfExp" href="typed_ast.html#opshin.typed_ast.TypedIfExp">TypedIfExp</a></span>
+<span>def <span class="ident">visit_IfExp</span></span>(<span>self, node: ast.IfExp) ‑> <a title="opshin.typed_ast.TypedIfExp" href="typed_ast.html#opshin.typed_ast.TypedIfExp">TypedIfExp</a></span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -2509,7 +2673,9 @@ just a single node.</p>
     node_cp = copy(node)
     node_cp.test = self.visit(node.test)
     assert node_cp.test.typ == BoolInstanceType, &#34;Comparison must have type boolean&#34;
-    typchecks, inv_typchecks = TypeCheckVisitor().visit(node_cp.test)
+    typchecks, inv_typchecks = TypeCheckVisitor(
+        self.allow_isinstance_anything
+    ).visit(node_cp.test)
     prevtyps = self.implement_typechecks(typchecks)
     node_cp.body = self.visit(node.body)
     self.implement_typechecks(prevtyps)
@@ -2528,7 +2694,7 @@ just a single node.</p>
 </details>
 </dd>
 <dt id="opshin.type_inference.AggressiveTypeInferencer.visit_ImportFrom"><code class="name flex">
-<span>def <span class="ident">visit_ImportFrom</span></span>(<span>self, node: _ast.ImportFrom) ‑> _ast.ImportFrom</span>
+<span>def <span class="ident">visit_ImportFrom</span></span>(<span>self, node: ast.ImportFrom) ‑> ast.ImportFrom</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -2542,7 +2708,7 @@ just a single node.</p>
 </details>
 </dd>
 <dt id="opshin.type_inference.AggressiveTypeInferencer.visit_JoinedStr"><code class="name flex">
-<span>def <span class="ident">visit_JoinedStr</span></span>(<span>self, node: _ast.JoinedStr) ‑> <a title="opshin.typed_ast.TypedJoinedStr" href="typed_ast.html#opshin.typed_ast.TypedJoinedStr">TypedJoinedStr</a></span>
+<span>def <span class="ident">visit_JoinedStr</span></span>(<span>self, node: ast.JoinedStr) ‑> <a title="opshin.typed_ast.TypedJoinedStr" href="typed_ast.html#opshin.typed_ast.TypedJoinedStr">TypedJoinedStr</a></span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -2558,7 +2724,7 @@ just a single node.</p>
 </details>
 </dd>
 <dt id="opshin.type_inference.AggressiveTypeInferencer.visit_List"><code class="name flex">
-<span>def <span class="ident">visit_List</span></span>(<span>self, node: _ast.List) ‑> <a title="opshin.typed_ast.TypedList" href="typed_ast.html#opshin.typed_ast.TypedList">TypedList</a></span>
+<span>def <span class="ident">visit_List</span></span>(<span>self, node: ast.List) ‑> <a title="opshin.typed_ast.TypedList" href="typed_ast.html#opshin.typed_ast.TypedList">TypedList</a></span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -2578,7 +2744,7 @@ just a single node.</p>
 </details>
 </dd>
 <dt id="opshin.type_inference.AggressiveTypeInferencer.visit_ListComp"><code class="name flex">
-<span>def <span class="ident">visit_ListComp</span></span>(<span>self, node: _ast.ListComp) ‑> <a title="opshin.typed_ast.TypedListComp" href="typed_ast.html#opshin.typed_ast.TypedListComp">TypedListComp</a></span>
+<span>def <span class="ident">visit_ListComp</span></span>(<span>self, node: ast.ListComp) ‑> <a title="opshin.typed_ast.TypedListComp" href="typed_ast.html#opshin.typed_ast.TypedListComp">TypedListComp</a></span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -2600,7 +2766,7 @@ just a single node.</p>
 </details>
 </dd>
 <dt id="opshin.type_inference.AggressiveTypeInferencer.visit_Module"><code class="name flex">
-<span>def <span class="ident">visit_Module</span></span>(<span>self, node: _ast.Module) ‑> <a title="opshin.typed_ast.TypedModule" href="typed_ast.html#opshin.typed_ast.TypedModule">TypedModule</a></span>
+<span>def <span class="ident">visit_Module</span></span>(<span>self, node: ast.Module) ‑> <a title="opshin.typed_ast.TypedModule" href="typed_ast.html#opshin.typed_ast.TypedModule">TypedModule</a></span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -2617,7 +2783,7 @@ just a single node.</p>
 </details>
 </dd>
 <dt id="opshin.type_inference.AggressiveTypeInferencer.visit_Name"><code class="name flex">
-<span>def <span class="ident">visit_Name</span></span>(<span>self, node: _ast.Name) ‑> <a title="opshin.typed_ast.TypedName" href="typed_ast.html#opshin.typed_ast.TypedName">TypedName</a></span>
+<span>def <span class="ident">visit_Name</span></span>(<span>self, node: ast.Name) ‑> <a title="opshin.typed_ast.TypedName" href="typed_ast.html#opshin.typed_ast.TypedName">TypedName</a></span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -2633,7 +2799,7 @@ just a single node.</p>
 </details>
 </dd>
 <dt id="opshin.type_inference.AggressiveTypeInferencer.visit_Pass"><code class="name flex">
-<span>def <span class="ident">visit_Pass</span></span>(<span>self, node: _ast.Pass) ‑> <a title="opshin.typed_ast.TypedPass" href="typed_ast.html#opshin.typed_ast.TypedPass">TypedPass</a></span>
+<span>def <span class="ident">visit_Pass</span></span>(<span>self, node: ast.Pass) ‑> <a title="opshin.typed_ast.TypedPass" href="typed_ast.html#opshin.typed_ast.TypedPass">TypedPass</a></span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -2661,7 +2827,7 @@ just a single node.</p>
 </details>
 </dd>
 <dt id="opshin.type_inference.AggressiveTypeInferencer.visit_Return"><code class="name flex">
-<span>def <span class="ident">visit_Return</span></span>(<span>self, node: _ast.Return) ‑> <a title="opshin.typed_ast.TypedReturn" href="typed_ast.html#opshin.typed_ast.TypedReturn">TypedReturn</a></span>
+<span>def <span class="ident">visit_Return</span></span>(<span>self, node: ast.Return) ‑> <a title="opshin.typed_ast.TypedReturn" href="typed_ast.html#opshin.typed_ast.TypedReturn">TypedReturn</a></span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -2677,7 +2843,7 @@ just a single node.</p>
 </details>
 </dd>
 <dt id="opshin.type_inference.AggressiveTypeInferencer.visit_Subscript"><code class="name flex">
-<span>def <span class="ident">visit_Subscript</span></span>(<span>self, node: _ast.Subscript) ‑> <a title="opshin.typed_ast.TypedSubscript" href="typed_ast.html#opshin.typed_ast.TypedSubscript">TypedSubscript</a></span>
+<span>def <span class="ident">visit_Subscript</span></span>(<span>self, node: ast.Subscript) ‑> <a title="opshin.typed_ast.TypedSubscript" href="typed_ast.html#opshin.typed_ast.TypedSubscript">TypedSubscript</a></span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -2772,7 +2938,7 @@ just a single node.</p>
 </details>
 </dd>
 <dt id="opshin.type_inference.AggressiveTypeInferencer.visit_Tuple"><code class="name flex">
-<span>def <span class="ident">visit_Tuple</span></span>(<span>self, node: _ast.Tuple) ‑> <a title="opshin.typed_ast.TypedTuple" href="typed_ast.html#opshin.typed_ast.TypedTuple">TypedTuple</a></span>
+<span>def <span class="ident">visit_Tuple</span></span>(<span>self, node: ast.Tuple) ‑> <a title="opshin.typed_ast.TypedTuple" href="typed_ast.html#opshin.typed_ast.TypedTuple">TypedTuple</a></span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -2783,12 +2949,12 @@ just a single node.</p>
 <pre><code class="python">def visit_Tuple(self, node: Tuple) -&gt; TypedTuple:
     tt = copy(node)
     tt.elts = [self.visit(e) for e in node.elts]
-    tt.typ = InstanceType(TupleType([e.typ for e in tt.elts]))
+    tt.typ = InstanceType(TupleType(frozenlist([e.typ for e in tt.elts])))
     return tt</code></pre>
 </details>
 </dd>
 <dt id="opshin.type_inference.AggressiveTypeInferencer.visit_UnaryOp"><code class="name flex">
-<span>def <span class="ident">visit_UnaryOp</span></span>(<span>self, node: _ast.UnaryOp) ‑> <a title="opshin.typed_ast.TypedUnaryOp" href="typed_ast.html#opshin.typed_ast.TypedUnaryOp">TypedUnaryOp</a></span>
+<span>def <span class="ident">visit_UnaryOp</span></span>(<span>self, node: ast.UnaryOp) ‑> <a title="opshin.typed_ast.TypedUnaryOp" href="typed_ast.html#opshin.typed_ast.TypedUnaryOp">TypedUnaryOp</a></span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -2804,7 +2970,7 @@ just a single node.</p>
 </details>
 </dd>
 <dt id="opshin.type_inference.AggressiveTypeInferencer.visit_While"><code class="name flex">
-<span>def <span class="ident">visit_While</span></span>(<span>self, node: _ast.While) ‑> <a title="opshin.typed_ast.TypedWhile" href="typed_ast.html#opshin.typed_ast.TypedWhile">TypedWhile</a></span>
+<span>def <span class="ident">visit_While</span></span>(<span>self, node: ast.While) ‑> <a title="opshin.typed_ast.TypedWhile" href="typed_ast.html#opshin.typed_ast.TypedWhile">TypedWhile</a></span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -2818,20 +2984,26 @@ just a single node.</p>
     assert (
         typed_while.test.typ == BoolInstanceType
     ), &#34;Branching condition must have boolean type&#34;
-    typchecks, inv_typchecks = TypeCheckVisitor().visit(typed_while.test)
+    typchecks, inv_typchecks = TypeCheckVisitor(
+        self.allow_isinstance_anything
+    ).visit(typed_while.test)
     # for the time of the branch, these types are cast
-    prevtyps = self.implement_typechecks(typchecks)
+    initial_scope = copy(self.scopes[-1])
+    self.implement_typechecks(typchecks)
     typed_while.body = self.visit_sequence(node.body)
-    self.implement_typechecks(prevtyps)
+    final_scope_body = copy(self.scopes[-1])
+    # revert changes
+    self.scopes[-1] = initial_scope
     # for the time of the else branch, the inverse types hold
-    prevtyps = self.implement_typechecks(inv_typchecks)
+    self.implement_typechecks(inv_typchecks)
     typed_while.orelse = self.visit_sequence(node.orelse)
-    self.implement_typechecks(prevtyps)
+    final_scope_else = self.scopes[-1]
+    self.scopes[-1] = merge_scope(final_scope_body, final_scope_else)
     return typed_while</code></pre>
 </details>
 </dd>
 <dt id="opshin.type_inference.AggressiveTypeInferencer.visit_arg"><code class="name flex">
-<span>def <span class="ident">visit_arg</span></span>(<span>self, node: _ast.arg) ‑> <a title="opshin.typed_ast.typedarg" href="typed_ast.html#opshin.typed_ast.typedarg">typedarg</a></span>
+<span>def <span class="ident">visit_arg</span></span>(<span>self, node: ast.arg) ‑> <a title="opshin.typed_ast.typedarg" href="typed_ast.html#opshin.typed_ast.typedarg">typedarg</a></span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -2847,7 +3019,7 @@ just a single node.</p>
 </details>
 </dd>
 <dt id="opshin.type_inference.AggressiveTypeInferencer.visit_arguments"><code class="name flex">
-<span>def <span class="ident">visit_arguments</span></span>(<span>self, node: _ast.arguments) ‑> <a title="opshin.typed_ast.typedarguments" href="typed_ast.html#opshin.typed_ast.typedarguments">typedarguments</a></span>
+<span>def <span class="ident">visit_arguments</span></span>(<span>self, node: ast.arguments) ‑> <a title="opshin.typed_ast.typedarguments" href="typed_ast.html#opshin.typed_ast.typedarguments">typedarguments</a></span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -2866,7 +3038,7 @@ just a single node.</p>
 </details>
 </dd>
 <dt id="opshin.type_inference.AggressiveTypeInferencer.visit_comprehension"><code class="name flex">
-<span>def <span class="ident">visit_comprehension</span></span>(<span>self, g: _ast.comprehension) ‑> <a title="opshin.typed_ast.typedcomprehension" href="typed_ast.html#opshin.typed_ast.typedcomprehension">typedcomprehension</a></span>
+<span>def <span class="ident">visit_comprehension</span></span>(<span>self, g: ast.comprehension) ‑> <a title="opshin.typed_ast.typedcomprehension" href="typed_ast.html#opshin.typed_ast.typedcomprehension">typedcomprehension</a></span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -2904,7 +3076,7 @@ just a single node.</p>
 </details>
 </dd>
 <dt id="opshin.type_inference.AggressiveTypeInferencer.visit_sequence"><code class="name flex">
-<span>def <span class="ident">visit_sequence</span></span>(<span>self, node_seq: List[_ast.stmt]) ‑> pluthon.pluthon_ast.AST</span>
+<span>def <span class="ident">visit_sequence</span></span>(<span>self, node_seq: List[ast.stmt]) ‑> pluthon.pluthon_ast.AST</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -2920,7 +3092,9 @@ just a single node.</p>
         stmts.append(stmt)
         # if an assert is amng the statements apply the isinstance cast
         if isinstance(stmt, Assert):
-            typchecks, _ = TypeCheckVisitor().visit(stmt.test)
+            typchecks, _ = TypeCheckVisitor(self.allow_isinstance_anything).visit(
+                stmt.test
+            )
             # for the time after this assert, the variable has the specialized type
             prevtyps.update(self.implement_typechecks(typchecks))
     self.implement_typechecks(prevtyps)
@@ -2971,7 +3145,7 @@ allows modifications.</p></div>
     def extract(cls, c: ClassDef, type_inferencer: AggressiveTypeInferencer) -&gt; Record:
         f = cls(type_inferencer)
         f.visit(c)
-        return Record(f.name, f.constructor, FrozenFrozenList(f.attributes))
+        return Record(f.name, f.constructor, frozenlist(f.attributes))
 
     def visit_AnnAssign(self, node: AnnAssign) -&gt; None:
         assert isinstance(
@@ -3055,7 +3229,7 @@ allows modifications.</p></div>
 <h3>Static methods</h3>
 <dl>
 <dt id="opshin.type_inference.RecordReader.extract"><code class="name flex">
-<span>def <span class="ident">extract</span></span>(<span>c: _ast.ClassDef, type_inferencer: <a title="opshin.type_inference.AggressiveTypeInferencer" href="#opshin.type_inference.AggressiveTypeInferencer">AggressiveTypeInferencer</a>) ‑> <a title="opshin.types.Record" href="types.html#opshin.types.Record">Record</a></span>
+<span>def <span class="ident">extract</span></span>(<span>c: ast.ClassDef, type_inferencer: <a title="opshin.type_inference.AggressiveTypeInferencer" href="#opshin.type_inference.AggressiveTypeInferencer">AggressiveTypeInferencer</a>) ‑> <a title="opshin.types.Record" href="types.html#opshin.types.Record">Record</a></span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -3067,14 +3241,14 @@ allows modifications.</p></div>
 def extract(cls, c: ClassDef, type_inferencer: AggressiveTypeInferencer) -&gt; Record:
     f = cls(type_inferencer)
     f.visit(c)
-    return Record(f.name, f.constructor, FrozenFrozenList(f.attributes))</code></pre>
+    return Record(f.name, f.constructor, frozenlist(f.attributes))</code></pre>
 </details>
 </dd>
 </dl>
 <h3>Methods</h3>
 <dl>
 <dt id="opshin.type_inference.RecordReader.generic_visit"><code class="name flex">
-<span>def <span class="ident">generic_visit</span></span>(<span>self, node: _ast.AST) ‑> None</span>
+<span>def <span class="ident">generic_visit</span></span>(<span>self, node: ast.AST) ‑> None</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Called if no explicit visitor function exists for a node.</p></div>
@@ -3087,7 +3261,7 @@ def extract(cls, c: ClassDef, type_inferencer: AggressiveTypeInferencer) -&gt; R
 </details>
 </dd>
 <dt id="opshin.type_inference.RecordReader.visit_AnnAssign"><code class="name flex">
-<span>def <span class="ident">visit_AnnAssign</span></span>(<span>self, node: _ast.AnnAssign) ‑> None</span>
+<span>def <span class="ident">visit_AnnAssign</span></span>(<span>self, node: ast.AnnAssign) ‑> None</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -3125,7 +3299,7 @@ def extract(cls, c: ClassDef, type_inferencer: AggressiveTypeInferencer) -&gt; R
 </details>
 </dd>
 <dt id="opshin.type_inference.RecordReader.visit_Assign"><code class="name flex">
-<span>def <span class="ident">visit_Assign</span></span>(<span>self, node: _ast.Assign) ‑> None</span>
+<span>def <span class="ident">visit_Assign</span></span>(<span>self, node: ast.Assign) ‑> None</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -3150,7 +3324,7 @@ def extract(cls, c: ClassDef, type_inferencer: AggressiveTypeInferencer) -&gt; R
 </details>
 </dd>
 <dt id="opshin.type_inference.RecordReader.visit_ClassDef"><code class="name flex">
-<span>def <span class="ident">visit_ClassDef</span></span>(<span>self, node: _ast.ClassDef) ‑> None</span>
+<span>def <span class="ident">visit_ClassDef</span></span>(<span>self, node: ast.ClassDef) ‑> None</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -3165,7 +3339,7 @@ def extract(cls, c: ClassDef, type_inferencer: AggressiveTypeInferencer) -&gt; R
 </details>
 </dd>
 <dt id="opshin.type_inference.RecordReader.visit_Expr"><code class="name flex">
-<span>def <span class="ident">visit_Expr</span></span>(<span>self, node: _ast.Expr) ‑> None</span>
+<span>def <span class="ident">visit_Expr</span></span>(<span>self, node: ast.Expr) ‑> None</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -3181,7 +3355,7 @@ def extract(cls, c: ClassDef, type_inferencer: AggressiveTypeInferencer) -&gt; R
 </details>
 </dd>
 <dt id="opshin.type_inference.RecordReader.visit_Pass"><code class="name flex">
-<span>def <span class="ident">visit_Pass</span></span>(<span>self, node: _ast.Pass) ‑> None</span>
+<span>def <span class="ident">visit_Pass</span></span>(<span>self, node: ast.Pass) ‑> None</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -3197,6 +3371,7 @@ def extract(cls, c: ClassDef, type_inferencer: AggressiveTypeInferencer) -&gt; R
 </dd>
 <dt id="opshin.type_inference.TypeCheckVisitor"><code class="flex name class">
 <span>class <span class="ident">TypeCheckVisitor</span></span>
+<span>(</span><span>allow_isinstance_anything=False)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Generates the types to which objects are cast due to a boolean expression
@@ -3215,6 +3390,9 @@ is True/False respectively</p></div>
     is True/False respectively
     &#34;&#34;&#34;
 
+    def __init__(self, allow_isinstance_anything=False):
+        self.allow_isinstance_anything = allow_isinstance_anything
+
     def generic_visit(self, node: AST) -&gt; TypeMapPair:
         return getattr(node, &#34;typechecks&#34;, ({}, {}))
 
@@ -3231,22 +3409,27 @@ is True/False respectively</p></div>
             node.args[1], Name
         ), &#34;Target 1 of an isinstance cast must be a class name&#34;
         target_class: RecordType = node.args[1].typ
-        target_inst = node.args[0]
-        target_inst_class = target_inst.typ
+        inst = node.args[0]
+        inst_class = inst.typ
         assert isinstance(
-            target_inst_class, InstanceType
+            inst_class, InstanceType
         ), &#34;Can only cast instances, not classes&#34;
-        assert isinstance(
-            target_inst_class.typ, UnionType
-        ), &#34;Can only cast instances of Union types of PlutusData&#34;
         assert isinstance(target_class, RecordType), &#34;Can only cast to PlutusData&#34;
-        assert (
-            target_class in target_inst_class.typ.typs
-        ), f&#34;Trying to cast an instance of Union type to non-instance of union type&#34;
+        if isinstance(inst_class.typ, UnionType):
+            assert (
+                target_class in inst_class.typ.typs
+            ), f&#34;Trying to cast an instance of Union type to non-instance of union type&#34;
+            union_without_target_class = union_types(
+                *(x for x in inst_class.typ.typs if x != target_class)
+            )
+        elif isinstance(inst_class.typ, AnyType) and self.allow_isinstance_anything:
+            union_without_target_class = AnyType()
+        else:
+            assert (
+                inst_class.typ == target_class
+            ), &#34;Can only cast instances of Union types of PlutusData or cast the same class. If you know what you are doing, enable the flag &#39;--allow-isinstance-anything&#39;&#34;
+            union_without_target_class = target_class
         varname = node.args[0].id
-        union_without_target_class = union_types(
-            *(x for x in target_inst_class.typ.typs if x != target_class)
-        )
         return ({varname: target_class}, {varname: union_without_target_class})
 
     def visit_BoolOp(self, node: BoolOp) -&gt; PairType:
@@ -3294,7 +3477,7 @@ is True/False respectively</p></div>
 <h3>Methods</h3>
 <dl>
 <dt id="opshin.type_inference.TypeCheckVisitor.generic_visit"><code class="name flex">
-<span>def <span class="ident">generic_visit</span></span>(<span>self, node: _ast.AST) ‑> Tuple[Dict[str, <a title="opshin.types.Type" href="types.html#opshin.types.Type">Type</a>], Dict[str, <a title="opshin.types.Type" href="types.html#opshin.types.Type">Type</a>]]</span>
+<span>def <span class="ident">generic_visit</span></span>(<span>self, node: ast.AST) ‑> Tuple[Dict[str, <a title="opshin.types.Type" href="types.html#opshin.types.Type">Type</a>], Dict[str, <a title="opshin.types.Type" href="types.html#opshin.types.Type">Type</a>]]</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Called if no explicit visitor function exists for a node.</p></div>
@@ -3317,7 +3500,7 @@ is True/False respectively</p></div>
 <div class="desc inherited"><p>Visit a node.</p></div>
 </dd>
 <dt id="opshin.type_inference.TypeCheckVisitor.visit_BoolOp"><code class="name flex">
-<span>def <span class="ident">visit_BoolOp</span></span>(<span>self, node: _ast.BoolOp) ‑> <a title="opshin.types.PairType" href="types.html#opshin.types.PairType">PairType</a></span>
+<span>def <span class="ident">visit_BoolOp</span></span>(<span>self, node: ast.BoolOp) ‑> <a title="opshin.types.PairType" href="types.html#opshin.types.PairType">PairType</a></span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -3358,7 +3541,7 @@ is True/False respectively</p></div>
 </details>
 </dd>
 <dt id="opshin.type_inference.TypeCheckVisitor.visit_Call"><code class="name flex">
-<span>def <span class="ident">visit_Call</span></span>(<span>self, node: _ast.Call) ‑> Tuple[Dict[str, <a title="opshin.types.Type" href="types.html#opshin.types.Type">Type</a>], Dict[str, <a title="opshin.types.Type" href="types.html#opshin.types.Type">Type</a>]]</span>
+<span>def <span class="ident">visit_Call</span></span>(<span>self, node: ast.Call) ‑> Tuple[Dict[str, <a title="opshin.types.Type" href="types.html#opshin.types.Type">Type</a>], Dict[str, <a title="opshin.types.Type" href="types.html#opshin.types.Type">Type</a>]]</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -3379,27 +3562,32 @@ is True/False respectively</p></div>
         node.args[1], Name
     ), &#34;Target 1 of an isinstance cast must be a class name&#34;
     target_class: RecordType = node.args[1].typ
-    target_inst = node.args[0]
-    target_inst_class = target_inst.typ
+    inst = node.args[0]
+    inst_class = inst.typ
     assert isinstance(
-        target_inst_class, InstanceType
+        inst_class, InstanceType
     ), &#34;Can only cast instances, not classes&#34;
-    assert isinstance(
-        target_inst_class.typ, UnionType
-    ), &#34;Can only cast instances of Union types of PlutusData&#34;
     assert isinstance(target_class, RecordType), &#34;Can only cast to PlutusData&#34;
-    assert (
-        target_class in target_inst_class.typ.typs
-    ), f&#34;Trying to cast an instance of Union type to non-instance of union type&#34;
+    if isinstance(inst_class.typ, UnionType):
+        assert (
+            target_class in inst_class.typ.typs
+        ), f&#34;Trying to cast an instance of Union type to non-instance of union type&#34;
+        union_without_target_class = union_types(
+            *(x for x in inst_class.typ.typs if x != target_class)
+        )
+    elif isinstance(inst_class.typ, AnyType) and self.allow_isinstance_anything:
+        union_without_target_class = AnyType()
+    else:
+        assert (
+            inst_class.typ == target_class
+        ), &#34;Can only cast instances of Union types of PlutusData or cast the same class. If you know what you are doing, enable the flag &#39;--allow-isinstance-anything&#39;&#34;
+        union_without_target_class = target_class
     varname = node.args[0].id
-    union_without_target_class = union_types(
-        *(x for x in target_inst_class.typ.typs if x != target_class)
-    )
     return ({varname: target_class}, {varname: union_without_target_class})</code></pre>
 </details>
 </dd>
 <dt id="opshin.type_inference.TypeCheckVisitor.visit_UnaryOp"><code class="name flex">
-<span>def <span class="ident">visit_UnaryOp</span></span>(<span>self, node: _ast.UnaryOp) ‑> <a title="opshin.types.PairType" href="types.html#opshin.types.PairType">PairType</a></span>
+<span>def <span class="ident">visit_UnaryOp</span></span>(<span>self, node: ast.UnaryOp) ‑> <a title="opshin.types.PairType" href="types.html#opshin.types.PairType">PairType</a></span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -3487,6 +3675,7 @@ setTimeout(() => input.focus(), 100);
 <ul class="">
 <li><code><a title="opshin.type_inference.constant_type" href="#opshin.type_inference.constant_type">constant_type</a></code></li>
 <li><code><a title="opshin.type_inference.intersection_types" href="#opshin.type_inference.intersection_types">intersection_types</a></code></li>
+<li><code><a title="opshin.type_inference.merge_scope" href="#opshin.type_inference.merge_scope">merge_scope</a></code></li>
 <li><code><a title="opshin.type_inference.record_from_plutusdata" href="#opshin.type_inference.record_from_plutusdata">record_from_plutusdata</a></code></li>
 <li><code><a title="opshin.type_inference.typed_ast" href="#opshin.type_inference.typed_ast">typed_ast</a></code></li>
 <li><code><a title="opshin.type_inference.union_types" href="#opshin.type_inference.union_types">union_types</a></code></li>

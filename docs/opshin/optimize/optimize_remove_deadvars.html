@@ -342,7 +342,7 @@ allows modifications.</p></div>
 <div class="desc inherited"><p>Visit a node.</p></div>
 </dd>
 <dt id="opshin.optimize.optimize_remove_deadvars.NameLoadCollector.visit_ClassDef"><code class="name flex">
-<span>def <span class="ident">visit_ClassDef</span></span>(<span>self, node: _ast.ClassDef)</span>
+<span>def <span class="ident">visit_ClassDef</span></span>(<span>self, node: ast.ClassDef)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -356,7 +356,7 @@ allows modifications.</p></div>
 </details>
 </dd>
 <dt id="opshin.optimize.optimize_remove_deadvars.NameLoadCollector.visit_FunctionDef"><code class="name flex">
-<span>def <span class="ident">visit_FunctionDef</span></span>(<span>self, node: _ast.FunctionDef)</span>
+<span>def <span class="ident">visit_FunctionDef</span></span>(<span>self, node: ast.FunctionDef)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -371,7 +371,7 @@ allows modifications.</p></div>
 </details>
 </dd>
 <dt id="opshin.optimize.optimize_remove_deadvars.NameLoadCollector.visit_Name"><code class="name flex">
-<span>def <span class="ident">visit_Name</span></span>(<span>self, node: _ast.Name) ‑> None</span>
+<span>def <span class="ident">visit_Name</span></span>(<span>self, node: ast.Name) ‑> None</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -405,7 +405,7 @@ original node in which case no replacement takes place.</p>
 <pre><code>   def visit_Name(self, node):
        return Subscript(
            value=Name(id='data', ctx=Load()),
-           slice=Index(value=Str(s=node.id)),
+           slice=Constant(value=node.id),
            ctx=node.ctx
        )
 </code></pre>
@@ -673,7 +673,7 @@ just a single node.</p>
 </details>
 </dd>
 <dt id="opshin.optimize.optimize_remove_deadvars.OptimizeRemoveDeadvars.visit_Assign"><code class="name flex">
-<span>def <span class="ident">visit_Assign</span></span>(<span>self, node: _ast.Assign)</span>
+<span>def <span class="ident">visit_Assign</span></span>(<span>self, node: ast.Assign)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -700,7 +700,7 @@ just a single node.</p>
 </details>
 </dd>
 <dt id="opshin.optimize.optimize_remove_deadvars.OptimizeRemoveDeadvars.visit_ClassDef"><code class="name flex">
-<span>def <span class="ident">visit_ClassDef</span></span>(<span>self, node: _ast.ClassDef)</span>
+<span>def <span class="ident">visit_ClassDef</span></span>(<span>self, node: ast.ClassDef)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -716,7 +716,7 @@ just a single node.</p>
 </details>
 </dd>
 <dt id="opshin.optimize.optimize_remove_deadvars.OptimizeRemoveDeadvars.visit_For"><code class="name flex">
-<span>def <span class="ident">visit_For</span></span>(<span>self, node: _ast.For)</span>
+<span>def <span class="ident">visit_For</span></span>(<span>self, node: ast.For)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -736,7 +736,7 @@ just a single node.</p>
 </details>
 </dd>
 <dt id="opshin.optimize.optimize_remove_deadvars.OptimizeRemoveDeadvars.visit_FunctionDef"><code class="name flex">
-<span>def <span class="ident">visit_FunctionDef</span></span>(<span>self, node: _ast.FunctionDef)</span>
+<span>def <span class="ident">visit_FunctionDef</span></span>(<span>self, node: ast.FunctionDef)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -759,7 +759,7 @@ just a single node.</p>
 </details>
 </dd>
 <dt id="opshin.optimize.optimize_remove_deadvars.OptimizeRemoveDeadvars.visit_If"><code class="name flex">
-<span>def <span class="ident">visit_If</span></span>(<span>self, node: _ast.If)</span>
+<span>def <span class="ident">visit_If</span></span>(<span>self, node: ast.If)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -785,7 +785,7 @@ just a single node.</p>
 </details>
 </dd>
 <dt id="opshin.optimize.optimize_remove_deadvars.OptimizeRemoveDeadvars.visit_Module"><code class="name flex">
-<span>def <span class="ident">visit_Module</span></span>(<span>self, node: _ast.Module) ‑> _ast.Module</span>
+<span>def <span class="ident">visit_Module</span></span>(<span>self, node: ast.Module) ‑> ast.Module</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -815,7 +815,7 @@ just a single node.</p>
 </details>
 </dd>
 <dt id="opshin.optimize.optimize_remove_deadvars.OptimizeRemoveDeadvars.visit_While"><code class="name flex">
-<span>def <span class="ident">visit_While</span></span>(<span>self, node: _ast.While)</span>
+<span>def <span class="ident">visit_While</span></span>(<span>self, node: ast.While)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -903,7 +903,7 @@ allows modifications.</p></div>
 <h3>Methods</h3>
 <dl>
 <dt id="opshin.optimize.optimize_remove_deadvars.SafeOperationVisitor.generic_visit"><code class="name flex">
-<span>def <span class="ident">generic_visit</span></span>(<span>self, node: _ast.AST) ‑> bool</span>
+<span>def <span class="ident">generic_visit</span></span>(<span>self, node: ast.AST) ‑> bool</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Called if no explicit visitor function exists for a node.</p></div>
@@ -927,7 +927,7 @@ allows modifications.</p></div>
 <div class="desc inherited"><p>Visit a node.</p></div>
 </dd>
 <dt id="opshin.optimize.optimize_remove_deadvars.SafeOperationVisitor.visit_Constant"><code class="name flex">
-<span>def <span class="ident">visit_Constant</span></span>(<span>self, node: _ast.Constant) ‑> bool</span>
+<span>def <span class="ident">visit_Constant</span></span>(<span>self, node: ast.Constant) ‑> bool</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -941,7 +941,7 @@ allows modifications.</p></div>
 </details>
 </dd>
 <dt id="opshin.optimize.optimize_remove_deadvars.SafeOperationVisitor.visit_Lambda"><code class="name flex">
-<span>def <span class="ident">visit_Lambda</span></span>(<span>self, node: _ast.Lambda) ‑> bool</span>
+<span>def <span class="ident">visit_Lambda</span></span>(<span>self, node: ast.Lambda) ‑> bool</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -955,7 +955,7 @@ allows modifications.</p></div>
 </details>
 </dd>
 <dt id="opshin.optimize.optimize_remove_deadvars.SafeOperationVisitor.visit_Name"><code class="name flex">
-<span>def <span class="ident">visit_Name</span></span>(<span>self, node: _ast.Name) ‑> bool</span>
+<span>def <span class="ident">visit_Name</span></span>(<span>self, node: ast.Name) ‑> bool</span>
 </code></dt>
 <dd>
 <div class="desc"></div>

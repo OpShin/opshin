@@ -1,11 +1,16 @@
 import typing
 
 import ast
+from functools import lru_cache
+from dataclasses import dataclass
+
 import pycardano
 from frozendict import frozendict
 from frozenlist2 import frozenlist
 
 import uplc.ast as uplc
+import pluthon as plt
+from hashlib import sha256
 
 
 def distinct(xs: list):
@@ -98,3 +103,68 @@ def datum_to_cbor(d: pycardano.Datum) -> bytes:
 
 def datum_to_json(d: pycardano.Datum) -> str:
     return pycardano.PlutusData.to_json(d)
+
+
+def custom_fix_missing_locations(node, parent=None):
+    """
+    Works like ast.fix_missing_location but forces it onto everything
+    """
+
+    def _fix(node, lineno, col_offset, end_lineno, end_col_offset):
+        if getattr(node, "lineno", None) is None:
+            node.lineno = lineno
+        else:
+            lineno = node.lineno
+        if getattr(node, "end_lineno", None) is None:
+            node.end_lineno = end_lineno
+        else:
+            end_lineno = node.end_lineno
+        if getattr(node, "col_offset", None) is None:
+            node.col_offset = col_offset
+        else:
+            col_offset = node.col_offset
+        if getattr(node, "end_col_offset", None) is None:
+            node.end_col_offset = end_col_offset
+        else:
+            end_col_offset = node.end_col_offset
+        for child in ast.iter_child_nodes(node):
+            _fix(child, lineno, col_offset, end_lineno, end_col_offset)
+
+    lineno, col_offset, end_lineno, end_col_offset = (
+        getattr(parent, "lineno", 1),
+        getattr(parent, "col_offset", 0),
+        getattr(parent, "end_lineno", 1),
+        getattr(parent, "end_col_offset", 0),
+    )
+    _fix(node, lineno, col_offset, end_lineno, end_col_offset)
+    return node
+
+
+_patterns_cached = {}
+
+
+def make_pattern(structure: plt.AST) -> plt.Pattern:
+    """Creates a shared pattern from the given lambda, cached so that it is re-used in subsequent calls"""
+    structure_serialized = structure.dumps()
+    if _patterns_cached.get(structure_serialized) is None:
+        # @dataclass
+        # class AdHocPattern(plt.Pattern):
+
+        #     def compose(self):
+        #         return structure
+        AdHocPattern = type(
+            f"AdHocPattern_{sha256(structure_serialized.encode()).digest().hex()}",
+            (plt.Pattern,),
+            {"compose": lambda self: structure},
+        )
+        AdHocPattern = dataclass(AdHocPattern)
+
+        _patterns_cached[structure_serialized] = AdHocPattern()
+    return _patterns_cached[structure_serialized]
+
+
+def patternize(method):
+    def wrapped(*args, **kwargs):
+        return make_pattern(method(*args, **kwargs))
+
+    return wrapped

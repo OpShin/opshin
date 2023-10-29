@@ -15,6 +15,7 @@ import ast
 import pycardano
 from pycardano import PlutusData
 
+import pluthon
 import uplc
 import uplc.ast
 
@@ -130,6 +131,16 @@ def check_params(
     onchain_params = validator_args[-1 - num_onchain_params : -1]
     param_types = validator_args[: -1 - num_onchain_params]
     required_onchain_parameters = 3 if purpose == Purpose.spending else 2
+    if force_three_params:
+        datum_type = onchain_params[0]
+        assert (
+            (
+                typing.get_origin(datum_type) == typing.Union
+                and prelude.Nothing in typing.get_args(datum_type)
+            )
+            or datum_type == prelude.Anything
+            or datum_type == prelude.Nothing
+        ), f"Expected contract to accept Nothing or Anything as datum since it forces three parameters, but got {datum_type}"
     assert (
         len(onchain_params) == required_onchain_parameters
     ), f"""\
@@ -244,6 +255,7 @@ def perform_command(args):
             constant_folding=constant_folding,
             # do not remove dead code when compiling a library - none of the code will be used
             remove_dead_code=purpose != Purpose.lib,
+            allow_isinstance_anything=args.allow_isinstance_anything,
         )
     except CompilerError as c:
         # Generate nice error message from compiler error
@@ -280,7 +292,7 @@ Note that opshin errors may be overly restrictive as they aim to prevent code wi
     if command == Command.compile_pluto:
         print(code.dumps())
         return
-    code = code.compile()
+    code = pluthon.compile(code)
 
     # apply parameters from the command line to the contract (instantiates parameterized contract!)
     code = code.term
@@ -377,6 +389,11 @@ def parse_args():
         "--cf",
         action="store_true",
         help="Enables experimental constant folding, including propagation and code execution.",
+    )
+    a.add_argument(
+        "--allow-isinstance-anything",
+        action="store_true",
+        help="Enables the use of isinstance(x, D) in the contract where x is of type Anything. This is not recommended as it only checks the constructor id and not the actual type of the data.",
     )
     a.add_argument(
         "args",

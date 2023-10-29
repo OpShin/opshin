@@ -64,6 +64,18 @@ fill="currentColor" class="octo-body"></path>
 <h1 class="title">Module <code>opshin.tests</code></h1>
 </header>
 <section id="section-intro">
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">import datetime
+import hypothesis
+
+PLUTUS_VM_PROFILE = &#34;plutus_vm&#34;
+hypothesis.settings.register_profile(
+    PLUTUS_VM_PROFILE, deadline=datetime.timedelta(seconds=1)
+)</code></pre>
+</details>
 </section>
 <section>
 <h2 class="section-title" id="header-submodules">Sub-modules</h2>

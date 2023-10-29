@@ -247,7 +247,10 @@ class TypedAssert(typedstmt, Assert):
 
 class RawPlutoExpr(typedexpr):
     typ: Type
-    expr: plt.AST</code></pre>
+    expr: plt.AST
+
+    _attributes = [&#34;lineno&#34;, &#34;col_offset&#34;, &#34;end_lineno&#34;, &#34;end_col_offset&#34;]
+    _fields = []</code></pre>
 </details>
 </section>
 <section>
@@ -264,21 +267,50 @@ class RawPlutoExpr(typedexpr):
 <span>(</span><span>*args, **kwargs)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>expr = BoolOp(boolop op, expr<em> values)
+| NamedExpr(expr target, expr value)
+| BinOp(expr left, operator op, expr right)
+| UnaryOp(unaryop op, expr operand)
+| Lambda(arguments args, expr body)
+| IfExp(expr test, expr body, expr orelse)
+| Dict(expr</em> keys, expr<em> values)
+| Set(expr</em> elts)
+| ListComp(expr elt, comprehension<em> generators)
+| SetComp(expr elt, comprehension</em> generators)
+| DictComp(expr key, expr value, comprehension<em> generators)
+| GeneratorExp(expr elt, comprehension</em> generators)
+| Await(expr value)
+| Yield(expr? value)
+| YieldFrom(expr value)
+| Compare(expr left, cmpop<em> ops, expr</em> comparators)
+| Call(expr func, expr<em> args, keyword</em> keywords)
+| FormattedValue(expr value, int conversion, expr? format_spec)
+| JoinedStr(expr<em> values)
+| Constant(constant value, string? kind)
+| Attribute(expr value, identifier attr, expr_context ctx)
+| Subscript(expr value, expr slice, expr_context ctx)
+| Starred(expr value, expr_context ctx)
+| Name(identifier id, expr_context ctx)
+| List(expr</em> elts, expr_context ctx)
+| Tuple(expr* elts, expr_context ctx)
+| Slice(expr? lower, expr? upper, expr? step)</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">class RawPlutoExpr(typedexpr):
     typ: Type
-    expr: plt.AST</code></pre>
+    expr: plt.AST
+
+    _attributes = [&#34;lineno&#34;, &#34;col_offset&#34;, &#34;end_lineno&#34;, &#34;end_col_offset&#34;]
+    _fields = []</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
 <li><a title="opshin.typed_ast.typedexpr" href="#opshin.typed_ast.typedexpr">typedexpr</a></li>
 <li><a title="opshin.typed_ast.TypedAST" href="#opshin.typed_ast.TypedAST">TypedAST</a></li>
-<li>_ast.expr</li>
-<li>_ast.AST</li>
+<li>ast.expr</li>
+<li>ast.AST</li>
 </ul>
 <h3>Class variables</h3>
 <dl>
@@ -320,7 +352,7 @@ class RawPlutoExpr(typedexpr):
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
-<li>_ast.AST</li>
+<li>ast.AST</li>
 </ul>
 <h3>Subclasses</h3>
 <ul class="hlist">
@@ -343,7 +375,7 @@ class RawPlutoExpr(typedexpr):
 <span>(</span><span>*args, **kwargs)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>AnnAssign(expr target, expr annotation, expr? value, int simple)</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -357,9 +389,9 @@ class RawPlutoExpr(typedexpr):
 <ul class="hlist">
 <li><a title="opshin.typed_ast.typedstmt" href="#opshin.typed_ast.typedstmt">typedstmt</a></li>
 <li><a title="opshin.typed_ast.TypedAST" href="#opshin.typed_ast.TypedAST">TypedAST</a></li>
-<li>_ast.AnnAssign</li>
-<li>_ast.stmt</li>
-<li>_ast.AST</li>
+<li>ast.AnnAssign</li>
+<li>ast.stmt</li>
+<li>ast.AST</li>
 </ul>
 <h3>Class variables</h3>
 <dl>
@@ -382,7 +414,7 @@ class RawPlutoExpr(typedexpr):
 <span>(</span><span>*args, **kwargs)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Assert(expr test, expr? msg)</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -395,9 +427,9 @@ class RawPlutoExpr(typedexpr):
 <ul class="hlist">
 <li><a title="opshin.typed_ast.typedstmt" href="#opshin.typed_ast.typedstmt">typedstmt</a></li>
 <li><a title="opshin.typed_ast.TypedAST" href="#opshin.typed_ast.TypedAST">TypedAST</a></li>
-<li>_ast.Assert</li>
-<li>_ast.stmt</li>
-<li>_ast.AST</li>
+<li>ast.Assert</li>
+<li>ast.stmt</li>
+<li>ast.AST</li>
 </ul>
 <h3>Class variables</h3>
 <dl>
@@ -416,7 +448,7 @@ class RawPlutoExpr(typedexpr):
 <span>(</span><span>*args, **kwargs)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Assign(expr* targets, expr value, string? type_comment)</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -429,9 +461,9 @@ class RawPlutoExpr(typedexpr):
 <ul class="hlist">
 <li><a title="opshin.typed_ast.typedstmt" href="#opshin.typed_ast.typedstmt">typedstmt</a></li>
 <li><a title="opshin.typed_ast.TypedAST" href="#opshin.typed_ast.TypedAST">TypedAST</a></li>
-<li>_ast.Assign</li>
-<li>_ast.stmt</li>
-<li>_ast.AST</li>
+<li>ast.Assign</li>
+<li>ast.stmt</li>
+<li>ast.AST</li>
 </ul>
 <h3>Class variables</h3>
 <dl>
@@ -450,7 +482,7 @@ class RawPlutoExpr(typedexpr):
 <span>(</span><span>*args, **kwargs)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Attribute(expr value, identifier attr, expr_context ctx)</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -463,9 +495,9 @@ class RawPlutoExpr(typedexpr):
 <ul class="hlist">
 <li><a title="opshin.typed_ast.typedexpr" href="#opshin.typed_ast.typedexpr">typedexpr</a></li>
 <li><a title="opshin.typed_ast.TypedAST" href="#opshin.typed_ast.TypedAST">TypedAST</a></li>
-<li>_ast.Attribute</li>
-<li>_ast.expr</li>
-<li>_ast.AST</li>
+<li>ast.Attribute</li>
+<li>ast.expr</li>
+<li>ast.AST</li>
 </ul>
 <h3>Class variables</h3>
 <dl>
@@ -497,7 +529,7 @@ class RawPlutoExpr(typedexpr):
 <span>(</span><span>*args, **kwargs)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>BinOp(expr left, operator op, expr right)</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -510,9 +542,9 @@ class RawPlutoExpr(typedexpr):
 <ul class="hlist">
 <li><a title="opshin.typed_ast.typedexpr" href="#opshin.typed_ast.typedexpr">typedexpr</a></li>
 <li><a title="opshin.typed_ast.TypedAST" href="#opshin.typed_ast.TypedAST">TypedAST</a></li>
-<li>_ast.BinOp</li>
-<li>_ast.expr</li>
-<li>_ast.AST</li>
+<li>ast.BinOp</li>
+<li>ast.expr</li>
+<li>ast.AST</li>
 </ul>
 <h3>Class variables</h3>
 <dl>
@@ -544,7 +576,7 @@ class RawPlutoExpr(typedexpr):
 <span>(</span><span>*args, **kwargs)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>BoolOp(boolop op, expr* values)</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -556,9 +588,9 @@ class RawPlutoExpr(typedexpr):
 <ul class="hlist">
 <li><a title="opshin.typed_ast.typedexpr" href="#opshin.typed_ast.typedexpr">typedexpr</a></li>
 <li><a title="opshin.typed_ast.TypedAST" href="#opshin.typed_ast.TypedAST">TypedAST</a></li>
-<li>_ast.BoolOp</li>
-<li>_ast.expr</li>
-<li>_ast.AST</li>
+<li>ast.BoolOp</li>
+<li>ast.expr</li>
+<li>ast.AST</li>
 </ul>
 <h3>Class variables</h3>
 <dl>
@@ -586,7 +618,7 @@ class RawPlutoExpr(typedexpr):
 <span>(</span><span>*args, **kwargs)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Call(expr func, expr<em> args, keyword</em> keywords)</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -599,9 +631,9 @@ class RawPlutoExpr(typedexpr):
 <ul class="hlist">
 <li><a title="opshin.typed_ast.typedexpr" href="#opshin.typed_ast.typedexpr">typedexpr</a></li>
 <li><a title="opshin.typed_ast.TypedAST" href="#opshin.typed_ast.TypedAST">TypedAST</a></li>
-<li>_ast.Call</li>
-<li>_ast.expr</li>
-<li>_ast.AST</li>
+<li>ast.Call</li>
+<li>ast.expr</li>
+<li>ast.AST</li>
 </ul>
 <h3>Class variables</h3>
 <dl>
@@ -633,7 +665,7 @@ class RawPlutoExpr(typedexpr):
 <span>(</span><span>*args, **kwargs)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>ClassDef(identifier name, expr<em> bases, keyword</em> keywords, stmt<em> body, expr</em> decorator_list)</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -645,9 +677,9 @@ class RawPlutoExpr(typedexpr):
 <ul class="hlist">
 <li><a title="opshin.typed_ast.typedstmt" href="#opshin.typed_ast.typedstmt">typedstmt</a></li>
 <li><a title="opshin.typed_ast.TypedAST" href="#opshin.typed_ast.TypedAST">TypedAST</a></li>
-<li>_ast.ClassDef</li>
-<li>_ast.stmt</li>
-<li>_ast.AST</li>
+<li>ast.ClassDef</li>
+<li>ast.stmt</li>
+<li>ast.AST</li>
 </ul>
 <h3>Class variables</h3>
 <dl>
@@ -662,7 +694,7 @@ class RawPlutoExpr(typedexpr):
 <span>(</span><span>*args, **kwargs)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Compare(expr left, cmpop<em> ops, expr</em> comparators)</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -676,9 +708,9 @@ class RawPlutoExpr(typedexpr):
 <ul class="hlist">
 <li><a title="opshin.typed_ast.typedexpr" href="#opshin.typed_ast.typedexpr">typedexpr</a></li>
 <li><a title="opshin.typed_ast.TypedAST" href="#opshin.typed_ast.TypedAST">TypedAST</a></li>
-<li>_ast.Compare</li>
-<li>_ast.expr</li>
-<li>_ast.AST</li>
+<li>ast.Compare</li>
+<li>ast.expr</li>
+<li>ast.AST</li>
 </ul>
 <h3>Class variables</h3>
 <dl>
@@ -690,7 +722,7 @@ class RawPlutoExpr(typedexpr):
 <dd>
 <div class="desc"></div>
 </dd>
-<dt id="opshin.typed_ast.TypedCompare.ops"><code class="name">var <span class="ident">ops</span> : List[_ast.cmpop]</code></dt>
+<dt id="opshin.typed_ast.TypedCompare.ops"><code class="name">var <span class="ident">ops</span> : List[ast.cmpop]</code></dt>
 <dd>
 <div class="desc"></div>
 </dd>
@@ -714,7 +746,7 @@ class RawPlutoExpr(typedexpr):
 <span>(</span><span>*args, **kwargs)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Constant(constant value, string? kind)</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -725,24 +757,17 @@ class RawPlutoExpr(typedexpr):
 <h3>Ancestors</h3>
 <ul class="hlist">
 <li><a title="opshin.typed_ast.TypedAST" href="#opshin.typed_ast.TypedAST">TypedAST</a></li>
-<li>_ast.Constant</li>
-<li>_ast.expr</li>
-<li>_ast.AST</li>
+<li>ast.Constant</li>
+<li>ast.expr</li>
+<li>ast.AST</li>
 </ul>
-<h3>Class variables</h3>
-<dl>
-<dt id="opshin.typed_ast.TypedConstant.typ"><code class="name">var <span class="ident">typ</span> : <a title="opshin.types.Type" href="types.html#opshin.types.Type">Type</a></code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-</dl>
 </dd>
 <dt id="opshin.typed_ast.TypedDict"><code class="flex name class">
 <span>class <span class="ident">TypedDict</span></span>
 <span>(</span><span>*args, **kwargs)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Dict(expr<em> keys, expr</em> values)</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -754,17 +779,10 @@ class RawPlutoExpr(typedexpr):
 <ul class="hlist">
 <li><a title="opshin.typed_ast.typedexpr" href="#opshin.typed_ast.typedexpr">typedexpr</a></li>
 <li><a title="opshin.typed_ast.TypedAST" href="#opshin.typed_ast.TypedAST">TypedAST</a></li>
-<li>_ast.Dict</li>
-<li>_ast.expr</li>
-<li>_ast.AST</li>
+<li>ast.Dict</li>
+<li>ast.expr</li>
+<li>ast.AST</li>
 </ul>
-<h3>Class variables</h3>
-<dl>
-<dt id="opshin.typed_ast.TypedDict.typ"><code class="name">var <span class="ident">typ</span> : <a title="opshin.types.Type" href="types.html#opshin.types.Type">Type</a></code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-</dl>
 <h3>Methods</h3>
 <dl>
 <dt id="opshin.typed_ast.TypedDict.typechecks"><code class="name flex">
@@ -784,7 +802,7 @@ class RawPlutoExpr(typedexpr):
 <span>(</span><span>*args, **kwargs)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Expr(expr value)</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -796,9 +814,9 @@ class RawPlutoExpr(typedexpr):
 <ul class="hlist">
 <li><a title="opshin.typed_ast.typedstmt" href="#opshin.typed_ast.typedstmt">typedstmt</a></li>
 <li><a title="opshin.typed_ast.TypedAST" href="#opshin.typed_ast.TypedAST">TypedAST</a></li>
-<li>_ast.Expr</li>
-<li>_ast.stmt</li>
-<li>_ast.AST</li>
+<li>ast.Expr</li>
+<li>ast.stmt</li>
+<li>ast.AST</li>
 </ul>
 <h3>Class variables</h3>
 <dl>
@@ -813,7 +831,32 @@ class RawPlutoExpr(typedexpr):
 <span>(</span><span>*args, **kwargs)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>stmt = FunctionDef(identifier name, arguments args, stmt<em> body, expr</em> decorator_list, expr? returns, string? type_comment)
+| AsyncFunctionDef(identifier name, arguments args, stmt<em> body, expr</em> decorator_list, expr? returns, string? type_comment)
+| ClassDef(identifier name, expr<em> bases, keyword</em> keywords, stmt<em> body, expr</em> decorator_list)
+| Return(expr? value)
+| Delete(expr<em> targets)
+| Assign(expr</em> targets, expr value, string? type_comment)
+| AugAssign(expr target, operator op, expr value)
+| AnnAssign(expr target, expr annotation, expr? value, int simple)
+| For(expr target, expr iter, stmt<em> body, stmt</em> orelse, string? type_comment)
+| AsyncFor(expr target, expr iter, stmt<em> body, stmt</em> orelse, string? type_comment)
+| While(expr test, stmt<em> body, stmt</em> orelse)
+| If(expr test, stmt<em> body, stmt</em> orelse)
+| With(withitem<em> items, stmt</em> body, string? type_comment)
+| AsyncWith(withitem<em> items, stmt</em> body, string? type_comment)
+| Match(expr subject, match_case<em> cases)
+| Raise(expr? exc, expr? cause)
+| Try(stmt</em> body, excepthandler<em> handlers, stmt</em> orelse, stmt<em> finalbody)
+| Assert(expr test, expr? msg)
+| Import(alias</em> names)
+| ImportFrom(identifier? module, alias<em> names, int? level)
+| Global(identifier</em> names)
+| Nonlocal(identifier* names)
+| Expr(expr value)
+| Pass
+| Break
+| Continue</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -825,10 +868,10 @@ class RawPlutoExpr(typedexpr):
 <ul class="hlist">
 <li><a title="opshin.typed_ast.typedstmt" href="#opshin.typed_ast.typedstmt">typedstmt</a></li>
 <li><a title="opshin.typed_ast.TypedAST" href="#opshin.typed_ast.TypedAST">TypedAST</a></li>
-<li>_ast.stmt</li>
-<li>_ast.Expression</li>
-<li>_ast.mod</li>
-<li>_ast.AST</li>
+<li>ast.stmt</li>
+<li>ast.Expression</li>
+<li>ast.mod</li>
+<li>ast.AST</li>
 </ul>
 <h3>Class variables</h3>
 <dl>
@@ -843,7 +886,7 @@ class RawPlutoExpr(typedexpr):
 <span>(</span><span>*args, **kwargs)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>For(expr target, expr iter, stmt<em> body, stmt</em> orelse, string? type_comment)</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -858,9 +901,9 @@ class RawPlutoExpr(typedexpr):
 <ul class="hlist">
 <li><a title="opshin.typed_ast.typedstmt" href="#opshin.typed_ast.typedstmt">typedstmt</a></li>
 <li><a title="opshin.typed_ast.TypedAST" href="#opshin.typed_ast.TypedAST">TypedAST</a></li>
-<li>_ast.For</li>
-<li>_ast.stmt</li>
-<li>_ast.AST</li>
+<li>ast.For</li>
+<li>ast.stmt</li>
+<li>ast.AST</li>
 </ul>
 <h3>Class variables</h3>
 <dl>
@@ -887,7 +930,7 @@ class RawPlutoExpr(typedexpr):
 <span>(</span><span>*args, **kwargs)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>FormattedValue(expr value, int conversion, expr? format_spec)</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -901,9 +944,9 @@ class RawPlutoExpr(typedexpr):
 <ul class="hlist">
 <li><a title="opshin.typed_ast.typedexpr" href="#opshin.typed_ast.typedexpr">typedexpr</a></li>
 <li><a title="opshin.typed_ast.TypedAST" href="#opshin.typed_ast.TypedAST">TypedAST</a></li>
-<li>_ast.FormattedValue</li>
-<li>_ast.expr</li>
-<li>_ast.AST</li>
+<li>ast.FormattedValue</li>
+<li>ast.expr</li>
+<li>ast.AST</li>
 </ul>
 <h3>Class variables</h3>
 <dl>
@@ -911,7 +954,7 @@ class RawPlutoExpr(typedexpr):
 <dd>
 <div class="desc"></div>
 </dd>
-<dt id="opshin.typed_ast.TypedFormattedValue.format_spec"><code class="name">var <span class="ident">format_spec</span> : Optional[_ast.JoinedStr]</code></dt>
+<dt id="opshin.typed_ast.TypedFormattedValue.format_spec"><code class="name">var <span class="ident">format_spec</span> : Optional[ast.JoinedStr]</code></dt>
 <dd>
 <div class="desc"></div>
 </dd>
@@ -939,7 +982,7 @@ class RawPlutoExpr(typedexpr):
 <span>(</span><span>*args, **kwargs)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>FunctionDef(identifier name, arguments args, stmt<em> body, expr</em> decorator_list, expr? returns, string? type_comment)</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -952,13 +995,13 @@ class RawPlutoExpr(typedexpr):
 <ul class="hlist">
 <li><a title="opshin.typed_ast.typedstmt" href="#opshin.typed_ast.typedstmt">typedstmt</a></li>
 <li><a title="opshin.typed_ast.TypedAST" href="#opshin.typed_ast.TypedAST">TypedAST</a></li>
-<li>_ast.FunctionDef</li>
-<li>_ast.stmt</li>
-<li>_ast.AST</li>
+<li>ast.FunctionDef</li>
+<li>ast.stmt</li>
+<li>ast.AST</li>
 </ul>
 <h3>Class variables</h3>
 <dl>
-<dt id="opshin.typed_ast.TypedFunctionDef.args"><code class="name">var <span class="ident">args</span> : _ast.arguments</code></dt>
+<dt id="opshin.typed_ast.TypedFunctionDef.args"><code class="name">var <span class="ident">args</span> : ast.arguments</code></dt>
 <dd>
 <div class="desc"></div>
 </dd>
@@ -973,7 +1016,7 @@ class RawPlutoExpr(typedexpr):
 <span>(</span><span>*args, **kwargs)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>If(expr test, stmt<em> body, stmt</em> orelse)</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -987,9 +1030,9 @@ class RawPlutoExpr(typedexpr):
 <ul class="hlist">
 <li><a title="opshin.typed_ast.typedstmt" href="#opshin.typed_ast.typedstmt">typedstmt</a></li>
 <li><a title="opshin.typed_ast.TypedAST" href="#opshin.typed_ast.TypedAST">TypedAST</a></li>
-<li>_ast.If</li>
-<li>_ast.stmt</li>
-<li>_ast.AST</li>
+<li>ast.If</li>
+<li>ast.stmt</li>
+<li>ast.AST</li>
 </ul>
 <h3>Class variables</h3>
 <dl>
@@ -1012,7 +1055,32 @@ class RawPlutoExpr(typedexpr):
 <span>(</span><span>*args, **kwargs)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>stmt = FunctionDef(identifier name, arguments args, stmt<em> body, expr</em> decorator_list, expr? returns, string? type_comment)
+| AsyncFunctionDef(identifier name, arguments args, stmt<em> body, expr</em> decorator_list, expr? returns, string? type_comment)
+| ClassDef(identifier name, expr<em> bases, keyword</em> keywords, stmt<em> body, expr</em> decorator_list)
+| Return(expr? value)
+| Delete(expr<em> targets)
+| Assign(expr</em> targets, expr value, string? type_comment)
+| AugAssign(expr target, operator op, expr value)
+| AnnAssign(expr target, expr annotation, expr? value, int simple)
+| For(expr target, expr iter, stmt<em> body, stmt</em> orelse, string? type_comment)
+| AsyncFor(expr target, expr iter, stmt<em> body, stmt</em> orelse, string? type_comment)
+| While(expr test, stmt<em> body, stmt</em> orelse)
+| If(expr test, stmt<em> body, stmt</em> orelse)
+| With(withitem<em> items, stmt</em> body, string? type_comment)
+| AsyncWith(withitem<em> items, stmt</em> body, string? type_comment)
+| Match(expr subject, match_case<em> cases)
+| Raise(expr? exc, expr? cause)
+| Try(stmt</em> body, excepthandler<em> handlers, stmt</em> orelse, stmt<em> finalbody)
+| Assert(expr test, expr? msg)
+| Import(alias</em> names)
+| ImportFrom(identifier? module, alias<em> names, int? level)
+| Global(identifier</em> names)
+| Nonlocal(identifier* names)
+| Expr(expr value)
+| Pass
+| Break
+| Continue</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -1026,10 +1094,10 @@ class RawPlutoExpr(typedexpr):
 <ul class="hlist">
 <li><a title="opshin.typed_ast.typedstmt" href="#opshin.typed_ast.typedstmt">typedstmt</a></li>
 <li><a title="opshin.typed_ast.TypedAST" href="#opshin.typed_ast.TypedAST">TypedAST</a></li>
-<li>_ast.stmt</li>
-<li>_ast.IfExp</li>
-<li>_ast.expr</li>
-<li>_ast.AST</li>
+<li>ast.stmt</li>
+<li>ast.IfExp</li>
+<li>ast.expr</li>
+<li>ast.AST</li>
 </ul>
 <h3>Class variables</h3>
 <dl>
@@ -1052,7 +1120,7 @@ class RawPlutoExpr(typedexpr):
 <span>(</span><span>*args, **kwargs)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>JoinedStr(expr* values)</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -1064,9 +1132,9 @@ class RawPlutoExpr(typedexpr):
 <ul class="hlist">
 <li><a title="opshin.typed_ast.typedexpr" href="#opshin.typed_ast.typedexpr">typedexpr</a></li>
 <li><a title="opshin.typed_ast.TypedAST" href="#opshin.typed_ast.TypedAST">TypedAST</a></li>
-<li>_ast.JoinedStr</li>
-<li>_ast.expr</li>
-<li>_ast.AST</li>
+<li>ast.JoinedStr</li>
+<li>ast.expr</li>
+<li>ast.AST</li>
 </ul>
 <h3>Class variables</h3>
 <dl>
@@ -1094,7 +1162,7 @@ class RawPlutoExpr(typedexpr):
 <span>(</span><span>*args, **kwargs)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>List(expr* elts, expr_context ctx)</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -1106,17 +1174,10 @@ class RawPlutoExpr(typedexpr):
 <ul class="hlist">
 <li><a title="opshin.typed_ast.typedexpr" href="#opshin.typed_ast.typedexpr">typedexpr</a></li>
 <li><a title="opshin.typed_ast.TypedAST" href="#opshin.typed_ast.TypedAST">TypedAST</a></li>
-<li>_ast.List</li>
-<li>_ast.expr</li>
-<li>_ast.AST</li>
+<li>ast.List</li>
+<li>ast.expr</li>
+<li>ast.AST</li>
 </ul>
-<h3>Class variables</h3>
-<dl>
-<dt id="opshin.typed_ast.TypedList.typ"><code class="name">var <span class="ident">typ</span> : <a title="opshin.types.Type" href="types.html#opshin.types.Type">Type</a></code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-</dl>
 <h3>Methods</h3>
 <dl>
 <dt id="opshin.typed_ast.TypedList.typechecks"><code class="name flex">
@@ -1136,7 +1197,7 @@ class RawPlutoExpr(typedexpr):
 <span>(</span><span>*args, **kwargs)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>ListComp(expr elt, comprehension* generators)</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -1149,9 +1210,9 @@ class RawPlutoExpr(typedexpr):
 <ul class="hlist">
 <li><a title="opshin.typed_ast.typedexpr" href="#opshin.typed_ast.typedexpr">typedexpr</a></li>
 <li><a title="opshin.typed_ast.TypedAST" href="#opshin.typed_ast.TypedAST">TypedAST</a></li>
-<li>_ast.ListComp</li>
-<li>_ast.expr</li>
-<li>_ast.AST</li>
+<li>ast.ListComp</li>
+<li>ast.expr</li>
+<li>ast.AST</li>
 </ul>
 <h3>Class variables</h3>
 <dl>
@@ -1183,7 +1244,32 @@ class RawPlutoExpr(typedexpr):
 <span>(</span><span>*args, **kwargs)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>stmt = FunctionDef(identifier name, arguments args, stmt<em> body, expr</em> decorator_list, expr? returns, string? type_comment)
+| AsyncFunctionDef(identifier name, arguments args, stmt<em> body, expr</em> decorator_list, expr? returns, string? type_comment)
+| ClassDef(identifier name, expr<em> bases, keyword</em> keywords, stmt<em> body, expr</em> decorator_list)
+| Return(expr? value)
+| Delete(expr<em> targets)
+| Assign(expr</em> targets, expr value, string? type_comment)
+| AugAssign(expr target, operator op, expr value)
+| AnnAssign(expr target, expr annotation, expr? value, int simple)
+| For(expr target, expr iter, stmt<em> body, stmt</em> orelse, string? type_comment)
+| AsyncFor(expr target, expr iter, stmt<em> body, stmt</em> orelse, string? type_comment)
+| While(expr test, stmt<em> body, stmt</em> orelse)
+| If(expr test, stmt<em> body, stmt</em> orelse)
+| With(withitem<em> items, stmt</em> body, string? type_comment)
+| AsyncWith(withitem<em> items, stmt</em> body, string? type_comment)
+| Match(expr subject, match_case<em> cases)
+| Raise(expr? exc, expr? cause)
+| Try(stmt</em> body, excepthandler<em> handlers, stmt</em> orelse, stmt<em> finalbody)
+| Assert(expr test, expr? msg)
+| Import(alias</em> names)
+| ImportFrom(identifier? module, alias<em> names, int? level)
+| Global(identifier</em> names)
+| Nonlocal(identifier* names)
+| Expr(expr value)
+| Pass
+| Break
+| Continue</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -1195,10 +1281,10 @@ class RawPlutoExpr(typedexpr):
 <ul class="hlist">
 <li><a title="opshin.typed_ast.typedstmt" href="#opshin.typed_ast.typedstmt">typedstmt</a></li>
 <li><a title="opshin.typed_ast.TypedAST" href="#opshin.typed_ast.TypedAST">TypedAST</a></li>
-<li>_ast.stmt</li>
-<li>_ast.Module</li>
-<li>_ast.mod</li>
-<li>_ast.AST</li>
+<li>ast.stmt</li>
+<li>ast.Module</li>
+<li>ast.mod</li>
+<li>ast.AST</li>
 </ul>
 <h3>Class variables</h3>
 <dl>
@@ -1213,7 +1299,7 @@ class RawPlutoExpr(typedexpr):
 <span>(</span><span>*args, **kwargs)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Name(identifier id, expr_context ctx)</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -1225,17 +1311,10 @@ class RawPlutoExpr(typedexpr):
 <ul class="hlist">
 <li><a title="opshin.typed_ast.typedexpr" href="#opshin.typed_ast.typedexpr">typedexpr</a></li>
 <li><a title="opshin.typed_ast.TypedAST" href="#opshin.typed_ast.TypedAST">TypedAST</a></li>
-<li>_ast.Name</li>
-<li>_ast.expr</li>
-<li>_ast.AST</li>
+<li>ast.Name</li>
+<li>ast.expr</li>
+<li>ast.AST</li>
 </ul>
-<h3>Class variables</h3>
-<dl>
-<dt id="opshin.typed_ast.TypedName.typ"><code class="name">var <span class="ident">typ</span> : <a title="opshin.types.Type" href="types.html#opshin.types.Type">Type</a></code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-</dl>
 <h3>Methods</h3>
 <dl>
 <dt id="opshin.typed_ast.TypedName.typechecks"><code class="name flex">
@@ -1255,7 +1334,7 @@ class RawPlutoExpr(typedexpr):
 <span>(</span><span>*args, **kwargs)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Pass</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -1267,24 +1346,17 @@ class RawPlutoExpr(typedexpr):
 <ul class="hlist">
 <li><a title="opshin.typed_ast.typedstmt" href="#opshin.typed_ast.typedstmt">typedstmt</a></li>
 <li><a title="opshin.typed_ast.TypedAST" href="#opshin.typed_ast.TypedAST">TypedAST</a></li>
-<li>_ast.Pass</li>
-<li>_ast.stmt</li>
-<li>_ast.AST</li>
+<li>ast.Pass</li>
+<li>ast.stmt</li>
+<li>ast.AST</li>
 </ul>
-<h3>Class variables</h3>
-<dl>
-<dt id="opshin.typed_ast.TypedPass.typ"><code class="name">var <span class="ident">typ</span> : <a title="opshin.types.Type" href="types.html#opshin.types.Type">Type</a></code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-</dl>
 </dd>
 <dt id="opshin.typed_ast.TypedReturn"><code class="flex name class">
 <span>class <span class="ident">TypedReturn</span></span>
 <span>(</span><span>*args, **kwargs)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Return(expr? value)</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -1296,9 +1368,9 @@ class RawPlutoExpr(typedexpr):
 <ul class="hlist">
 <li><a title="opshin.typed_ast.typedstmt" href="#opshin.typed_ast.typedstmt">typedstmt</a></li>
 <li><a title="opshin.typed_ast.TypedAST" href="#opshin.typed_ast.TypedAST">TypedAST</a></li>
-<li>_ast.Return</li>
-<li>_ast.stmt</li>
-<li>_ast.AST</li>
+<li>ast.Return</li>
+<li>ast.stmt</li>
+<li>ast.AST</li>
 </ul>
 <h3>Class variables</h3>
 <dl>
@@ -1313,7 +1385,7 @@ class RawPlutoExpr(typedexpr):
 <span>(</span><span>*args, **kwargs)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Subscript(expr value, expr slice, expr_context ctx)</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -1325,9 +1397,9 @@ class RawPlutoExpr(typedexpr):
 <ul class="hlist">
 <li><a title="opshin.typed_ast.typedexpr" href="#opshin.typed_ast.typedexpr">typedexpr</a></li>
 <li><a title="opshin.typed_ast.TypedAST" href="#opshin.typed_ast.TypedAST">TypedAST</a></li>
-<li>_ast.Subscript</li>
-<li>_ast.expr</li>
-<li>_ast.AST</li>
+<li>ast.Subscript</li>
+<li>ast.expr</li>
+<li>ast.AST</li>
 </ul>
 <h3>Class variables</h3>
 <dl>
@@ -1355,7 +1427,7 @@ class RawPlutoExpr(typedexpr):
 <span>(</span><span>*args, **kwargs)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Tuple(expr* elts, expr_context ctx)</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -1367,17 +1439,10 @@ class RawPlutoExpr(typedexpr):
 <ul class="hlist">
 <li><a title="opshin.typed_ast.typedexpr" href="#opshin.typed_ast.typedexpr">typedexpr</a></li>
 <li><a title="opshin.typed_ast.TypedAST" href="#opshin.typed_ast.TypedAST">TypedAST</a></li>
-<li>_ast.Tuple</li>
-<li>_ast.expr</li>
-<li>_ast.AST</li>
+<li>ast.Tuple</li>
+<li>ast.expr</li>
+<li>ast.AST</li>
 </ul>
-<h3>Class variables</h3>
-<dl>
-<dt id="opshin.typed_ast.TypedTuple.typ"><code class="name">var <span class="ident">typ</span> : <a title="opshin.types.Type" href="types.html#opshin.types.Type">Type</a></code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-</dl>
 <h3>Methods</h3>
 <dl>
 <dt id="opshin.typed_ast.TypedTuple.typechecks"><code class="name flex">
@@ -1397,7 +1462,7 @@ class RawPlutoExpr(typedexpr):
 <span>(</span><span>*args, **kwargs)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>UnaryOp(unaryop op, expr operand)</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -1409,9 +1474,9 @@ class RawPlutoExpr(typedexpr):
 <ul class="hlist">
 <li><a title="opshin.typed_ast.typedexpr" href="#opshin.typed_ast.typedexpr">typedexpr</a></li>
 <li><a title="opshin.typed_ast.TypedAST" href="#opshin.typed_ast.TypedAST">TypedAST</a></li>
-<li>_ast.UnaryOp</li>
-<li>_ast.expr</li>
-<li>_ast.AST</li>
+<li>ast.UnaryOp</li>
+<li>ast.expr</li>
+<li>ast.AST</li>
 </ul>
 <h3>Class variables</h3>
 <dl>
@@ -1439,7 +1504,7 @@ class RawPlutoExpr(typedexpr):
 <span>(</span><span>*args, **kwargs)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>While(expr test, stmt<em> body, stmt</em> orelse)</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -1453,9 +1518,9 @@ class RawPlutoExpr(typedexpr):
 <ul class="hlist">
 <li><a title="opshin.typed_ast.typedstmt" href="#opshin.typed_ast.typedstmt">typedstmt</a></li>
 <li><a title="opshin.typed_ast.TypedAST" href="#opshin.typed_ast.TypedAST">TypedAST</a></li>
-<li>_ast.While</li>
-<li>_ast.stmt</li>
-<li>_ast.AST</li>
+<li>ast.While</li>
+<li>ast.stmt</li>
+<li>ast.AST</li>
 </ul>
 <h3>Class variables</h3>
 <dl>
@@ -1478,7 +1543,7 @@ class RawPlutoExpr(typedexpr):
 <span>(</span><span>*args, **kwargs)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>arg(identifier arg, expr? annotation, string? type_comment)</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -1489,23 +1554,16 @@ class RawPlutoExpr(typedexpr):
 <h3>Ancestors</h3>
 <ul class="hlist">
 <li><a title="opshin.typed_ast.TypedAST" href="#opshin.typed_ast.TypedAST">TypedAST</a></li>
-<li>_ast.arg</li>
-<li>_ast.AST</li>
+<li>ast.arg</li>
+<li>ast.AST</li>
 </ul>
-<h3>Class variables</h3>
-<dl>
-<dt id="opshin.typed_ast.typedarg.typ"><code class="name">var <span class="ident">typ</span> : <a title="opshin.types.Type" href="types.html#opshin.types.Type">Type</a></code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-</dl>
 </dd>
 <dt id="opshin.typed_ast.typedarguments"><code class="flex name class">
 <span>class <span class="ident">typedarguments</span></span>
 <span>(</span><span>*args, **kwargs)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>arguments(arg<em> posonlyargs, arg</em> args, arg? vararg, arg<em> kwonlyargs, expr</em> kw_defaults, arg? kwarg, expr* defaults)</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -1521,8 +1579,8 @@ class RawPlutoExpr(typedexpr):
 <h3>Ancestors</h3>
 <ul class="hlist">
 <li><a title="opshin.typed_ast.TypedAST" href="#opshin.typed_ast.TypedAST">TypedAST</a></li>
-<li>_ast.arguments</li>
-<li>_ast.AST</li>
+<li>ast.arguments</li>
+<li>ast.AST</li>
 </ul>
 <h3>Class variables</h3>
 <dl>
@@ -1557,7 +1615,33 @@ class RawPlutoExpr(typedexpr):
 <span>(</span><span>*args, **kwargs)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>expr = BoolOp(boolop op, expr<em> values)
+| NamedExpr(expr target, expr value)
+| BinOp(expr left, operator op, expr right)
+| UnaryOp(unaryop op, expr operand)
+| Lambda(arguments args, expr body)
+| IfExp(expr test, expr body, expr orelse)
+| Dict(expr</em> keys, expr<em> values)
+| Set(expr</em> elts)
+| ListComp(expr elt, comprehension<em> generators)
+| SetComp(expr elt, comprehension</em> generators)
+| DictComp(expr key, expr value, comprehension<em> generators)
+| GeneratorExp(expr elt, comprehension</em> generators)
+| Await(expr value)
+| Yield(expr? value)
+| YieldFrom(expr value)
+| Compare(expr left, cmpop<em> ops, expr</em> comparators)
+| Call(expr func, expr<em> args, keyword</em> keywords)
+| FormattedValue(expr value, int conversion, expr? format_spec)
+| JoinedStr(expr<em> values)
+| Constant(constant value, string? kind)
+| Attribute(expr value, identifier attr, expr_context ctx)
+| Subscript(expr value, expr slice, expr_context ctx)
+| Starred(expr value, expr_context ctx)
+| Name(identifier id, expr_context ctx)
+| List(expr</em> elts, expr_context ctx)
+| Tuple(expr* elts, expr_context ctx)
+| Slice(expr? lower, expr? upper, expr? step)</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -1571,9 +1655,9 @@ class RawPlutoExpr(typedexpr):
 <ul class="hlist">
 <li><a title="opshin.typed_ast.typedexpr" href="#opshin.typed_ast.typedexpr">typedexpr</a></li>
 <li><a title="opshin.typed_ast.TypedAST" href="#opshin.typed_ast.TypedAST">TypedAST</a></li>
-<li>_ast.expr</li>
-<li>_ast.comprehension</li>
-<li>_ast.AST</li>
+<li>ast.expr</li>
+<li>ast.comprehension</li>
+<li>ast.AST</li>
 </ul>
 <h3>Class variables</h3>
 <dl>
@@ -1609,7 +1693,33 @@ class RawPlutoExpr(typedexpr):
 <span>(</span><span>*args, **kwargs)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>expr = BoolOp(boolop op, expr<em> values)
+| NamedExpr(expr target, expr value)
+| BinOp(expr left, operator op, expr right)
+| UnaryOp(unaryop op, expr operand)
+| Lambda(arguments args, expr body)
+| IfExp(expr test, expr body, expr orelse)
+| Dict(expr</em> keys, expr<em> values)
+| Set(expr</em> elts)
+| ListComp(expr elt, comprehension<em> generators)
+| SetComp(expr elt, comprehension</em> generators)
+| DictComp(expr key, expr value, comprehension<em> generators)
+| GeneratorExp(expr elt, comprehension</em> generators)
+| Await(expr value)
+| Yield(expr? value)
+| YieldFrom(expr value)
+| Compare(expr left, cmpop<em> ops, expr</em> comparators)
+| Call(expr func, expr<em> args, keyword</em> keywords)
+| FormattedValue(expr value, int conversion, expr? format_spec)
+| JoinedStr(expr<em> values)
+| Constant(constant value, string? kind)
+| Attribute(expr value, identifier attr, expr_context ctx)
+| Subscript(expr value, expr slice, expr_context ctx)
+| Starred(expr value, expr_context ctx)
+| Name(identifier id, expr_context ctx)
+| List(expr</em> elts, expr_context ctx)
+| Tuple(expr* elts, expr_context ctx)
+| Slice(expr? lower, expr? upper, expr? step)</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -1622,8 +1732,8 @@ class RawPlutoExpr(typedexpr):
 <h3>Ancestors</h3>
 <ul class="hlist">
 <li><a title="opshin.typed_ast.TypedAST" href="#opshin.typed_ast.TypedAST">TypedAST</a></li>
-<li>_ast.expr</li>
-<li>_ast.AST</li>
+<li>ast.expr</li>
+<li>ast.AST</li>
 </ul>
 <h3>Subclasses</h3>
 <ul class="hlist">
@@ -1644,13 +1754,6 @@ class RawPlutoExpr(typedexpr):
 <li><a title="opshin.typed_ast.TypedUnaryOp" href="#opshin.typed_ast.TypedUnaryOp">TypedUnaryOp</a></li>
 <li><a title="opshin.typed_ast.typedcomprehension" href="#opshin.typed_ast.typedcomprehension">typedcomprehension</a></li>
 </ul>
-<h3>Class variables</h3>
-<dl>
-<dt id="opshin.typed_ast.typedexpr.typ"><code class="name">var <span class="ident">typ</span> : <a title="opshin.types.Type" href="types.html#opshin.types.Type">Type</a></code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-</dl>
 <h3>Methods</h3>
 <dl>
 <dt id="opshin.typed_ast.typedexpr.typechecks"><code class="name flex">
@@ -1674,7 +1777,32 @@ class RawPlutoExpr(typedexpr):
 <span>(</span><span>*args, **kwargs)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>stmt = FunctionDef(identifier name, arguments args, stmt<em> body, expr</em> decorator_list, expr? returns, string? type_comment)
+| AsyncFunctionDef(identifier name, arguments args, stmt<em> body, expr</em> decorator_list, expr? returns, string? type_comment)
+| ClassDef(identifier name, expr<em> bases, keyword</em> keywords, stmt<em> body, expr</em> decorator_list)
+| Return(expr? value)
+| Delete(expr<em> targets)
+| Assign(expr</em> targets, expr value, string? type_comment)
+| AugAssign(expr target, operator op, expr value)
+| AnnAssign(expr target, expr annotation, expr? value, int simple)
+| For(expr target, expr iter, stmt<em> body, stmt</em> orelse, string? type_comment)
+| AsyncFor(expr target, expr iter, stmt<em> body, stmt</em> orelse, string? type_comment)
+| While(expr test, stmt<em> body, stmt</em> orelse)
+| If(expr test, stmt<em> body, stmt</em> orelse)
+| With(withitem<em> items, stmt</em> body, string? type_comment)
+| AsyncWith(withitem<em> items, stmt</em> body, string? type_comment)
+| Match(expr subject, match_case<em> cases)
+| Raise(expr? exc, expr? cause)
+| Try(stmt</em> body, excepthandler<em> handlers, stmt</em> orelse, stmt<em> finalbody)
+| Assert(expr test, expr? msg)
+| Import(alias</em> names)
+| ImportFrom(identifier? module, alias<em> names, int? level)
+| Global(identifier</em> names)
+| Nonlocal(identifier* names)
+| Expr(expr value)
+| Pass
+| Break
+| Continue</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -1686,8 +1814,8 @@ class RawPlutoExpr(typedexpr):
 <h3>Ancestors</h3>
 <ul class="hlist">
 <li><a title="opshin.typed_ast.TypedAST" href="#opshin.typed_ast.TypedAST">TypedAST</a></li>
-<li>_ast.stmt</li>
-<li>_ast.AST</li>
+<li>ast.stmt</li>
+<li>ast.AST</li>
 </ul>
 <h3>Subclasses</h3>
 <ul class="hlist">
@@ -1867,14 +1995,10 @@ setTimeout(() => input.focus(), 100);
 </li>
 <li>
 <h4><code><a title="opshin.typed_ast.TypedConstant" href="#opshin.typed_ast.TypedConstant">TypedConstant</a></code></h4>
-<ul class="">
-<li><code><a title="opshin.typed_ast.TypedConstant.typ" href="#opshin.typed_ast.TypedConstant.typ">typ</a></code></li>
-</ul>
 </li>
 <li>
 <h4><code><a title="opshin.typed_ast.TypedDict" href="#opshin.typed_ast.TypedDict">TypedDict</a></code></h4>
 <ul class="">
-<li><code><a title="opshin.typed_ast.TypedDict.typ" href="#opshin.typed_ast.TypedDict.typ">typ</a></code></li>
 <li><code><a title="opshin.typed_ast.TypedDict.typechecks" href="#opshin.typed_ast.TypedDict.typechecks">typechecks</a></code></li>
 </ul>
 </li>
@@ -1941,7 +2065,6 @@ setTimeout(() => input.focus(), 100);
 <li>
 <h4><code><a title="opshin.typed_ast.TypedList" href="#opshin.typed_ast.TypedList">TypedList</a></code></h4>
 <ul class="">
-<li><code><a title="opshin.typed_ast.TypedList.typ" href="#opshin.typed_ast.TypedList.typ">typ</a></code></li>
 <li><code><a title="opshin.typed_ast.TypedList.typechecks" href="#opshin.typed_ast.TypedList.typechecks">typechecks</a></code></li>
 </ul>
 </li>
@@ -1962,15 +2085,11 @@ setTimeout(() => input.focus(), 100);
 <li>
 <h4><code><a title="opshin.typed_ast.TypedName" href="#opshin.typed_ast.TypedName">TypedName</a></code></h4>
 <ul class="">
-<li><code><a title="opshin.typed_ast.TypedName.typ" href="#opshin.typed_ast.TypedName.typ">typ</a></code></li>
 <li><code><a title="opshin.typed_ast.TypedName.typechecks" href="#opshin.typed_ast.TypedName.typechecks">typechecks</a></code></li>
 </ul>
 </li>
 <li>
 <h4><code><a title="opshin.typed_ast.TypedPass" href="#opshin.typed_ast.TypedPass">TypedPass</a></code></h4>
-<ul class="">
-<li><code><a title="opshin.typed_ast.TypedPass.typ" href="#opshin.typed_ast.TypedPass.typ">typ</a></code></li>
-</ul>
 </li>
 <li>
 <h4><code><a title="opshin.typed_ast.TypedReturn" href="#opshin.typed_ast.TypedReturn">TypedReturn</a></code></h4>
@@ -1988,7 +2107,6 @@ setTimeout(() => input.focus(), 100);
 <li>
 <h4><code><a title="opshin.typed_ast.TypedTuple" href="#opshin.typed_ast.TypedTuple">TypedTuple</a></code></h4>
 <ul class="">
-<li><code><a title="opshin.typed_ast.TypedTuple.typ" href="#opshin.typed_ast.TypedTuple.typ">typ</a></code></li>
 <li><code><a title="opshin.typed_ast.TypedTuple.typechecks" href="#opshin.typed_ast.TypedTuple.typechecks">typechecks</a></code></li>
 </ul>
 </li>
@@ -2009,9 +2127,6 @@ setTimeout(() => input.focus(), 100);
 </li>
 <li>
 <h4><code><a title="opshin.typed_ast.typedarg" href="#opshin.typed_ast.typedarg">typedarg</a></code></h4>
-<ul class="">
-<li><code><a title="opshin.typed_ast.typedarg.typ" href="#opshin.typed_ast.typedarg.typ">typ</a></code></li>
-</ul>
 </li>
 <li>
 <h4><code><a title="opshin.typed_ast.typedarguments" href="#opshin.typed_ast.typedarguments">typedarguments</a></code></h4>
@@ -2036,7 +2151,6 @@ setTimeout(() => input.focus(), 100);
 <li>
 <h4><code><a title="opshin.typed_ast.typedexpr" href="#opshin.typed_ast.typedexpr">typedexpr</a></code></h4>
 <ul class="">
-<li><code><a title="opshin.typed_ast.typedexpr.typ" href="#opshin.typed_ast.typedexpr.typ">typ</a></code></li>
 <li><code><a title="opshin.typed_ast.typedexpr.typechecks" href="#opshin.typed_ast.typedexpr.typechecks">typechecks</a></code></li>
 </ul>
 </li>

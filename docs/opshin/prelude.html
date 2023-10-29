@@ -69,7 +69,18 @@ fill="currentColor" class="octo-body"></path>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">from opshin.ledger.api_v2 import *
-from hashlib import sha256, sha3_256, blake2b
+
+
+@dataclass(unsafe_hash=True)
+class Nothing(PlutusData):
+    &#34;&#34;&#34;
+    Nothing, can be used to signify non-importance of a parameter to a function
+
+    Example value: Nothing()
+    &#34;&#34;&#34;
+
+    # The maximimum constructor ID for simple cbor types, chosen to minimize probability of collision while keeping the corresponding cbor small
+    CONSTR_ID = 6
 
 
 @dataclass(unsafe_hash=True)
@@ -78,6 +89,7 @@ class Token(PlutusData):
     A token, represented by policy id and token name
     &#34;&#34;&#34;
 
+    CONSTR_ID = 0
     policy_id: PolicyId
     token_name: TokenName
 
@@ -127,9 +139,9 @@ def all_tokens_locked_at_address(
     )
 
 
-def resolve_spent_utxo(txins: List[TxInInfo], p: Spending) -&gt; TxOut:
+def resolve_spent_utxo(inputs: List[TxInInfo], purpose: Spending) -&gt; TxOut:
     &#34;&#34;&#34;Returns the UTxO whose spending should be validated&#34;&#34;&#34;
-    return [txi.resolved for txi in txins if txi.out_ref == p.tx_out_ref][0]
+    return [txi.resolved for txi in inputs if txi.out_ref == purpose.tx_out_ref][0]
 
 
 def resolve_datum_unsafe(txout: TxOut, tx_info: TxInfo) -&gt; BuiltinData:
@@ -176,7 +188,9 @@ def own_spent_utxo(txins: List[TxInInfo], p: Spending) -&gt; TxOut:
 
 
 def own_policy_id(own_spent_utxo: TxOut) -&gt; PolicyId:
-    # obtain the policy id for which this contract can validate minting/burning
+    &#34;&#34;&#34;
+    obtain the policy id for which this contract can validate minting/burning
+    &#34;&#34;&#34;
     cred = own_spent_utxo.address.payment_credential
     if isinstance(cred, ScriptCredential):
         policy_id = cred.credential_hash
@@ -185,7 +199,22 @@ def own_policy_id(own_spent_utxo: TxOut) -&gt; PolicyId:
 
 
 def own_address(own_policy_id: PolicyId) -&gt; Address:
-    return Address(ScriptCredential(own_policy_id), NoStakingCredential())</code></pre>
+    &#34;&#34;&#34;
+    Computes the spending script address corresponding to the given policy ID
+    &#34;&#34;&#34;
+    return Address(ScriptCredential(own_policy_id), NoStakingCredential())
+
+
+def token_present_in_inputs(token: Token, inputs: List[TxInInfo]):
+    &#34;&#34;&#34;
+    Returns whether the given token is spent in one of the inputs of the transaction
+    &#34;&#34;&#34;
+    return any(
+        [
+            x.resolved.value.get(token.policy_id, {b&#34;&#34;: 0}).get(token.token_name, 0) &gt; 0
+            for x in inputs
+        ]
+    )</code></pre>
 </details>
 </section>
 <section>
@@ -265,12 +294,15 @@ def own_address(own_policy_id: PolicyId) -&gt; Address:
 <span>def <span class="ident">own_address</span></span>(<span>own_policy_id: bytes) ‑> <a title="opshin.ledger.api_v2.Address" href="ledger/api_v2.html#opshin.ledger.api_v2.Address">Address</a></span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Computes the spending script address corresponding to the given policy ID</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def own_address(own_policy_id: PolicyId) -&gt; Address:
+    &#34;&#34;&#34;
+    Computes the spending script address corresponding to the given policy ID
+    &#34;&#34;&#34;
     return Address(ScriptCredential(own_policy_id), NoStakingCredential())</code></pre>
 </details>
 </dd>
@@ -278,13 +310,15 @@ def own_address(own_policy_id: PolicyId) -&gt; Address:
 <span>def <span class="ident">own_policy_id</span></span>(<span>own_spent_utxo: <a title="opshin.ledger.api_v2.TxOut" href="ledger/api_v2.html#opshin.ledger.api_v2.TxOut">TxOut</a>) ‑> bytes</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>obtain the policy id for which this contract can validate minting/burning</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def own_policy_id(own_spent_utxo: TxOut) -&gt; PolicyId:
-    # obtain the policy id for which this contract can validate minting/burning
+    &#34;&#34;&#34;
+    obtain the policy id for which this contract can validate minting/burning
+    &#34;&#34;&#34;
     cred = own_spent_utxo.address.payment_credential
     if isinstance(cred, ScriptCredential):
         policy_id = cred.credential_hash
@@ -366,7 +400,7 @@ Raises an exception if no datum was attached.</p></div>
 </details>
 </dd>
 <dt id="opshin.prelude.resolve_spent_utxo"><code class="name flex">
-<span>def <span class="ident">resolve_spent_utxo</span></span>(<span>txins: List[<a title="opshin.ledger.api_v2.TxInInfo" href="ledger/api_v2.html#opshin.ledger.api_v2.TxInInfo">TxInInfo</a>], p: <a title="opshin.ledger.api_v2.Spending" href="ledger/api_v2.html#opshin.ledger.api_v2.Spending">Spending</a>) ‑> <a title="opshin.ledger.api_v2.TxOut" href="ledger/api_v2.html#opshin.ledger.api_v2.TxOut">TxOut</a></span>
+<span>def <span class="ident">resolve_spent_utxo</span></span>(<span>inputs: List[<a title="opshin.ledger.api_v2.TxInInfo" href="ledger/api_v2.html#opshin.ledger.api_v2.TxInInfo">TxInInfo</a>], purpose: <a title="opshin.ledger.api_v2.Spending" href="ledger/api_v2.html#opshin.ledger.api_v2.Spending">Spending</a>) ‑> <a title="opshin.ledger.api_v2.TxOut" href="ledger/api_v2.html#opshin.ledger.api_v2.TxOut">TxOut</a></span>
 </code></dt>
 <dd>
 <div class="desc"><p>Returns the UTxO whose spending should be validated</p></div>
@@ -374,9 +408,30 @@ Raises an exception if no datum was attached.</p></div>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def resolve_spent_utxo(txins: List[TxInInfo], p: Spending) -&gt; TxOut:
+<pre><code class="python">def resolve_spent_utxo(inputs: List[TxInInfo], purpose: Spending) -&gt; TxOut:
     &#34;&#34;&#34;Returns the UTxO whose spending should be validated&#34;&#34;&#34;
-    return [txi.resolved for txi in txins if txi.out_ref == p.tx_out_ref][0]</code></pre>
+    return [txi.resolved for txi in inputs if txi.out_ref == purpose.tx_out_ref][0]</code></pre>
+</details>
+</dd>
+<dt id="opshin.prelude.token_present_in_inputs"><code class="name flex">
+<span>def <span class="ident">token_present_in_inputs</span></span>(<span>token: <a title="opshin.prelude.Token" href="#opshin.prelude.Token">Token</a>, inputs: List[<a title="opshin.ledger.api_v2.TxInInfo" href="ledger/api_v2.html#opshin.ledger.api_v2.TxInInfo">TxInInfo</a>])</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Returns whether the given token is spent in one of the inputs of the transaction</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def token_present_in_inputs(token: Token, inputs: List[TxInInfo]):
+    &#34;&#34;&#34;
+    Returns whether the given token is spent in one of the inputs of the transaction
+    &#34;&#34;&#34;
+    return any(
+        [
+            x.resolved.value.get(token.policy_id, {b&#34;&#34;: 0}).get(token.token_name, 0) &gt; 0
+            for x in inputs
+        ]
+    )</code></pre>
 </details>
 </dd>
 </dl>
@@ -384,6 +439,76 @@ Raises an exception if no datum was attached.</p></div>
 <section>
 <h2 class="section-title" id="header-classes">Classes</h2>
 <dl>
+<dt id="opshin.prelude.Nothing"><code class="flex name class">
+<span>class <span class="ident">Nothing</span></span>
+</code></dt>
+<dd>
+<div class="desc"><p>Nothing, can be used to signify non-importance of a parameter to a function</p>
+<p>Example value: Nothing()</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@dataclass(unsafe_hash=True)
+class Nothing(PlutusData):
+    &#34;&#34;&#34;
+    Nothing, can be used to signify non-importance of a parameter to a function
+
+    Example value: Nothing()
+    &#34;&#34;&#34;
+
+    # The maximimum constructor ID for simple cbor types, chosen to minimize probability of collision while keeping the corresponding cbor small
+    CONSTR_ID = 6</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li>pycardano.plutus.PlutusData</li>
+<li>pycardano.serialization.ArrayCBORSerializable</li>
+<li>pycardano.serialization.CBORSerializable</li>
+</ul>
+<h3>Class variables</h3>
+<dl>
+<dt id="opshin.prelude.Nothing.CONSTR_ID"><code class="name">var <span class="ident">CONSTR_ID</span> : ClassVar[int]</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+</dl>
+</dd>
+<dt id="opshin.prelude.Nothing"><code class="flex name class">
+<span>class <span class="ident">NoRedeemer</span></span>
+</code></dt>
+<dd>
+<div class="desc"><p>Nothing, can be used to signify non-importance of a parameter to a function</p>
+<p>Example value: Nothing()</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@dataclass(unsafe_hash=True)
+class Nothing(PlutusData):
+    &#34;&#34;&#34;
+    Nothing, can be used to signify non-importance of a parameter to a function
+
+    Example value: Nothing()
+    &#34;&#34;&#34;
+
+    # The maximimum constructor ID for simple cbor types, chosen to minimize probability of collision while keeping the corresponding cbor small
+    CONSTR_ID = 6</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li>pycardano.plutus.PlutusData</li>
+<li>pycardano.serialization.ArrayCBORSerializable</li>
+<li>pycardano.serialization.CBORSerializable</li>
+</ul>
+<h3>Class variables</h3>
+<dl>
+<dt id="opshin.prelude.Nothing.CONSTR_ID"><code class="name">var <span class="ident">CONSTR_ID</span> : ClassVar[int]</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+</dl>
+</dd>
 <dt id="opshin.prelude.Token"><code class="flex name class">
 <span>class <span class="ident">Token</span></span>
 <span>(</span><span>policy_id: bytes, token_name: bytes)</span>
@@ -394,11 +519,13 @@ Raises an exception if no datum was attached.</p></div>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">class Token(PlutusData):
+<pre><code class="python">@dataclass(unsafe_hash=True)
+class Token(PlutusData):
     &#34;&#34;&#34;
     A token, represented by policy id and token name
     &#34;&#34;&#34;
 
+    CONSTR_ID = 0
     policy_id: PolicyId
     token_name: TokenName</code></pre>
 </details>
@@ -410,6 +537,10 @@ Raises an exception if no datum was attached.</p></div>
 </ul>
 <h3>Class variables</h3>
 <dl>
+<dt id="opshin.prelude.Token.CONSTR_ID"><code class="name">var <span class="ident">CONSTR_ID</span> : ClassVar[int]</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
 <dt id="opshin.prelude.Token.policy_id"><code class="name">var <span class="ident">policy_id</span> : bytes</code></dt>
 <dd>
 <div class="desc"></div>
@@ -498,13 +629,27 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="opshin.prelude.resolve_datum" href="#opshin.prelude.resolve_datum">resolve_datum</a></code></li>
 <li><code><a title="opshin.prelude.resolve_datum_unsafe" href="#opshin.prelude.resolve_datum_unsafe">resolve_datum_unsafe</a></code></li>
 <li><code><a title="opshin.prelude.resolve_spent_utxo" href="#opshin.prelude.resolve_spent_utxo">resolve_spent_utxo</a></code></li>
+<li><code><a title="opshin.prelude.token_present_in_inputs" href="#opshin.prelude.token_present_in_inputs">token_present_in_inputs</a></code></li>
 </ul>
 </li>
 <li><h3><a href="#header-classes">Classes</a></h3>
 <ul>
 <li>
+<h4><code><a title="opshin.prelude.Nothing" href="#opshin.prelude.Nothing">Nothing</a></code></h4>
+<ul class="">
+<li><code><a title="opshin.prelude.Nothing.CONSTR_ID" href="#opshin.prelude.Nothing.CONSTR_ID">CONSTR_ID</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="opshin.prelude.Nothing" href="#opshin.prelude.Nothing">Nothing</a></code></h4>
+<ul class="">
+<li><code><a title="opshin.prelude.Nothing.CONSTR_ID" href="#opshin.prelude.Nothing.CONSTR_ID">CONSTR_ID</a></code></li>
+</ul>
+</li>
+<li>
 <h4><code><a title="opshin.prelude.Token" href="#opshin.prelude.Token">Token</a></code></h4>
 <ul class="">
+<li><code><a title="opshin.prelude.Token.CONSTR_ID" href="#opshin.prelude.Token.CONSTR_ID">CONSTR_ID</a></code></li>
 <li><code><a title="opshin.prelude.Token.policy_id" href="#opshin.prelude.Token.policy_id">policy_id</a></code></li>
 <li><code><a title="opshin.prelude.Token.token_name" href="#opshin.prelude.Token.token_name">token_name</a></code></li>
 </ul>

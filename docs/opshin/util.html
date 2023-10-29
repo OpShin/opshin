@@ -73,7 +73,7 @@ fill="currentColor" class="octo-body"></path>
 import ast
 import pycardano
 from frozendict import frozendict
-from frozenlist import FrozenList
+from frozenlist2 import frozenlist
 
 import uplc.ast as uplc
 
@@ -81,12 +81,6 @@ import uplc.ast as uplc
 def distinct(xs: list):
     &#34;&#34;&#34;Returns true iff the list consists of distinct elements&#34;&#34;&#34;
     return len(xs) == len(set(xs))
-
-
-def FrozenFrozenList(l: list):
-    fl = FrozenList(l)
-    fl.freeze()
-    return fl
 
 
 class TypedNodeTransformer(ast.NodeTransformer):
@@ -154,7 +148,7 @@ def data_from_json(j: typing.Dict[str, typing.Any]) -&gt; uplc.PlutusData:
     if &#34;int&#34; in j:
         return uplc.PlutusInteger(int(j[&#34;int&#34;]))
     if &#34;list&#34; in j:
-        return uplc.PlutusList(FrozenFrozenList(list(map(data_from_json, j[&#34;list&#34;]))))
+        return uplc.PlutusList(frozenlist(list(map(data_from_json, j[&#34;list&#34;]))))
     if &#34;map&#34; in j:
         return uplc.PlutusMap(
             frozendict(
@@ -163,7 +157,7 @@ def data_from_json(j: typing.Dict[str, typing.Any]) -&gt; uplc.PlutusData:
         )
     if &#34;constructor&#34; in j and &#34;fields&#34; in j:
         return uplc.PlutusConstr(
-            j[&#34;constructor&#34;], FrozenFrozenList(list(map(data_from_json, j[&#34;fields&#34;])))
+            j[&#34;constructor&#34;], frozenlist(list(map(data_from_json, j[&#34;fields&#34;])))
         )
     raise NotImplementedError(f&#34;Unknown datum representation {j}&#34;)
 
@@ -173,7 +167,42 @@ def datum_to_cbor(d: pycardano.Datum) -&gt; bytes:
 
 
 def datum_to_json(d: pycardano.Datum) -&gt; str:
-    return pycardano.PlutusData.to_json(d)</code></pre>
+    return pycardano.PlutusData.to_json(d)
+
+
+def custom_fix_missing_locations(node, parent=None):
+    &#34;&#34;&#34;
+    Works like ast.fix_missing_location but forces it onto everything
+    &#34;&#34;&#34;
+
+    def _fix(node, lineno, col_offset, end_lineno, end_col_offset):
+        if getattr(node, &#34;lineno&#34;, None) is None:
+            node.lineno = lineno
+        else:
+            lineno = node.lineno
+        if getattr(node, &#34;end_lineno&#34;, None) is None:
+            node.end_lineno = end_lineno
+        else:
+            end_lineno = node.end_lineno
+        if getattr(node, &#34;col_offset&#34;, None) is None:
+            node.col_offset = col_offset
+        else:
+            col_offset = node.col_offset
+        if getattr(node, &#34;end_col_offset&#34;, None) is None:
+            node.end_col_offset = end_col_offset
+        else:
+            end_col_offset = node.end_col_offset
+        for child in ast.iter_child_nodes(node):
+            _fix(child, lineno, col_offset, end_lineno, end_col_offset)
+
+    lineno, col_offset, end_lineno, end_col_offset = (
+        getattr(parent, &#34;lineno&#34;, 1),
+        getattr(parent, &#34;col_offset&#34;, 0),
+        getattr(parent, &#34;end_lineno&#34;, 1),
+        getattr(parent, &#34;end_col_offset&#34;, 0),
+    )
+    _fix(node, lineno, col_offset, end_lineno, end_col_offset)
+    return node</code></pre>
 </details>
 </section>
 <section>
@@ -183,19 +212,48 @@ def datum_to_json(d: pycardano.Datum) -&gt; str:
 <section>
 <h2 class="section-title" id="header-functions">Functions</h2>
 <dl>
-<dt id="opshin.util.FrozenFrozenList"><code class="name flex">
-<span>def <span class="ident">FrozenFrozenList</span></span>(<span>l: list)</span>
+<dt id="opshin.util.custom_fix_missing_locations"><code class="name flex">
+<span>def <span class="ident">custom_fix_missing_locations</span></span>(<span>node, parent=None)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Works like ast.fix_missing_location but forces it onto everything</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def FrozenFrozenList(l: list):
-    fl = FrozenList(l)
-    fl.freeze()
-    return fl</code></pre>
+<pre><code class="python">def custom_fix_missing_locations(node, parent=None):
+    &#34;&#34;&#34;
+    Works like ast.fix_missing_location but forces it onto everything
+    &#34;&#34;&#34;
+
+    def _fix(node, lineno, col_offset, end_lineno, end_col_offset):
+        if getattr(node, &#34;lineno&#34;, None) is None:
+            node.lineno = lineno
+        else:
+            lineno = node.lineno
+        if getattr(node, &#34;end_lineno&#34;, None) is None:
+            node.end_lineno = end_lineno
+        else:
+            end_lineno = node.end_lineno
+        if getattr(node, &#34;col_offset&#34;, None) is None:
+            node.col_offset = col_offset
+        else:
+            col_offset = node.col_offset
+        if getattr(node, &#34;end_col_offset&#34;, None) is None:
+            node.end_col_offset = end_col_offset
+        else:
+            end_col_offset = node.end_col_offset
+        for child in ast.iter_child_nodes(node):
+            _fix(child, lineno, col_offset, end_lineno, end_col_offset)
+
+    lineno, col_offset, end_lineno, end_col_offset = (
+        getattr(parent, &#34;lineno&#34;, 1),
+        getattr(parent, &#34;col_offset&#34;, 0),
+        getattr(parent, &#34;end_lineno&#34;, 1),
+        getattr(parent, &#34;end_col_offset&#34;, 0),
+    )
+    _fix(node, lineno, col_offset, end_lineno, end_col_offset)
+    return node</code></pre>
 </details>
 </dd>
 <dt id="opshin.util.data_from_json"><code class="name flex">
@@ -213,7 +271,7 @@ def datum_to_json(d: pycardano.Datum) -&gt; str:
     if &#34;int&#34; in j:
         return uplc.PlutusInteger(int(j[&#34;int&#34;]))
     if &#34;list&#34; in j:
-        return uplc.PlutusList(FrozenFrozenList(list(map(data_from_json, j[&#34;list&#34;]))))
+        return uplc.PlutusList(frozenlist(list(map(data_from_json, j[&#34;list&#34;]))))
     if &#34;map&#34; in j:
         return uplc.PlutusMap(
             frozendict(
@@ -222,7 +280,7 @@ def datum_to_json(d: pycardano.Datum) -&gt; str:
         )
     if &#34;constructor&#34; in j and &#34;fields&#34; in j:
         return uplc.PlutusConstr(
-            j[&#34;constructor&#34;], FrozenFrozenList(list(map(data_from_json, j[&#34;fields&#34;])))
+            j[&#34;constructor&#34;], frozenlist(list(map(data_from_json, j[&#34;fields&#34;])))
         )
     raise NotImplementedError(f&#34;Unknown datum representation {j}&#34;)</code></pre>
 </details>
@@ -274,7 +332,7 @@ def datum_to_json(d: pycardano.Datum) -&gt; str:
 <dl>
 <dt id="opshin.util.CompilerError"><code class="flex name class">
 <span>class <span class="ident">CompilerError</span></span>
-<span>(</span><span>orig_err: Exception, node: _ast.AST, compilation_step: str)</span>
+<span>(</span><span>orig_err: Exception, node: ast.AST, compilation_step: str)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Common base class for all non-exit exceptions.</p></div>
@@ -313,7 +371,7 @@ original node in which case no replacement takes place.</p>
 <pre><code>   def visit_Name(self, node):
        return Subscript(
            value=Name(id='data', ctx=Load()),
-           slice=Index(value=Str(s=node.id)),
+           slice=Constant(value=node.id),
            ctx=node.ctx
        )
 </code></pre>
@@ -356,11 +414,13 @@ just a single node.</p>
 <li><a title="opshin.optimize.optimize_varlen.OptimizeVarlen" href="optimize/optimize_varlen.html#opshin.optimize.optimize_varlen.OptimizeVarlen">OptimizeVarlen</a></li>
 <li><a title="opshin.rewrite.rewrite_augassign.RewriteAugAssign" href="rewrite/rewrite_augassign.html#opshin.rewrite.rewrite_augassign.RewriteAugAssign">RewriteAugAssign</a></li>
 <li><a title="opshin.rewrite.rewrite_cast_condition.RewriteConditions" href="rewrite/rewrite_cast_condition.html#opshin.rewrite.rewrite_cast_condition.RewriteConditions">RewriteConditions</a></li>
+<li><a title="opshin.rewrite.rewrite_comparison_chaining.RewriteComparisonChaining" href="rewrite/rewrite_comparison_chaining.html#opshin.rewrite.rewrite_comparison_chaining.RewriteComparisonChaining">RewriteComparisonChaining</a></li>
 <li><a title="opshin.rewrite.rewrite_forbidden_overwrites.RewriteForbiddenOverwrites" href="rewrite/rewrite_forbidden_overwrites.html#opshin.rewrite.rewrite_forbidden_overwrites.RewriteForbiddenOverwrites">RewriteForbiddenOverwrites</a></li>
 <li><a title="opshin.rewrite.rewrite_import.RewriteImport" href="rewrite/rewrite_import.html#opshin.rewrite.rewrite_import.RewriteImport">RewriteImport</a></li>
 <li><a title="opshin.rewrite.rewrite_import.RewriteLocation" href="rewrite/rewrite_import.html#opshin.rewrite.rewrite_import.RewriteLocation">RewriteLocation</a></li>
 <li><a title="opshin.rewrite.rewrite_import_dataclasses.RewriteImportDataclasses" href="rewrite/rewrite_import_dataclasses.html#opshin.rewrite.rewrite_import_dataclasses.RewriteImportDataclasses">RewriteImportDataclasses</a></li>
 <li><a title="opshin.rewrite.rewrite_import_hashlib.RewriteImportHashlib" href="rewrite/rewrite_import_hashlib.html#opshin.rewrite.rewrite_import_hashlib.RewriteImportHashlib">RewriteImportHashlib</a></li>
+<li><a title="opshin.rewrite.rewrite_import_integrity_check.RewriteImportIntegrityCheck" href="rewrite/rewrite_import_integrity_check.html#opshin.rewrite.rewrite_import_integrity_check.RewriteImportIntegrityCheck">RewriteImportIntegrityCheck</a></li>
 <li><a title="opshin.rewrite.rewrite_import_plutusdata.RewriteImportPlutusData" href="rewrite/rewrite_import_plutusdata.html#opshin.rewrite.rewrite_import_plutusdata.RewriteImportPlutusData">RewriteImportPlutusData</a></li>
 <li><a title="opshin.rewrite.rewrite_import_typing.RewriteImportTyping" href="rewrite/rewrite_import_typing.html#opshin.rewrite.rewrite_import_typing.RewriteImportTyping">RewriteImportTyping</a></li>
 <li><a title="opshin.rewrite.rewrite_import_uplc_builtins.RewriteImportUPLCBuiltins" href="rewrite/rewrite_import_uplc_builtins.html#opshin.rewrite.rewrite_import_uplc_builtins.RewriteImportUPLCBuiltins">RewriteImportUPLCBuiltins</a></li>
@@ -371,7 +431,6 @@ just a single node.</p>
 <li><a title="opshin.rewrite.rewrite_scoping.RewriteScoping" href="rewrite/rewrite_scoping.html#opshin.rewrite.rewrite_scoping.RewriteScoping">RewriteScoping</a></li>
 <li><a title="opshin.rewrite.rewrite_subscript38.RewriteSubscript38" href="rewrite/rewrite_subscript38.html#opshin.rewrite.rewrite_subscript38.RewriteSubscript38">RewriteSubscript38</a></li>
 <li><a title="opshin.rewrite.rewrite_tuple_assign.RewriteTupleAssign" href="rewrite/rewrite_tuple_assign.html#opshin.rewrite.rewrite_tuple_assign.RewriteTupleAssign">RewriteTupleAssign</a></li>
-<li><a title="opshin.rewrite.rewrite_zero_ary.RewriteZeroAry" href="rewrite/rewrite_zero_ary.html#opshin.rewrite.rewrite_zero_ary.RewriteZeroAry">RewriteZeroAry</a></li>
 <li><a title="opshin.type_inference.AggressiveTypeInferencer" href="type_inference.html#opshin.type_inference.AggressiveTypeInferencer">AggressiveTypeInferencer</a></li>
 <li><a title="opshin.util.NoOp" href="#opshin.util.NoOp">NoOp</a></li>
 </ul>
@@ -546,7 +605,7 @@ original node in which case no replacement takes place.</p>
 <pre><code>   def visit_Name(self, node):
        return Subscript(
            value=Name(id='data', ctx=Load()),
-           slice=Index(value=Str(s=node.id)),
+           slice=Constant(value=node.id),
            ctx=node.ctx
        )
 </code></pre>
@@ -741,7 +800,7 @@ setTimeout(() => input.focus(), 100);
 </li>
 <li><h3><a href="#header-functions">Functions</a></h3>
 <ul class="">
-<li><code><a title="opshin.util.FrozenFrozenList" href="#opshin.util.FrozenFrozenList">FrozenFrozenList</a></code></li>
+<li><code><a title="opshin.util.custom_fix_missing_locations" href="#opshin.util.custom_fix_missing_locations">custom_fix_missing_locations</a></code></li>
 <li><code><a title="opshin.util.data_from_json" href="#opshin.util.data_from_json">data_from_json</a></code></li>
 <li><code><a title="opshin.util.datum_to_cbor" href="#opshin.util.datum_to_cbor">datum_to_cbor</a></code></li>
 <li><code><a title="opshin.util.datum_to_json" href="#opshin.util.datum_to_json">datum_to_json</a></code></li>

@@ -1,12 +1,16 @@
 import dataclasses
 import json
+import typing
+from ast import Module
+from typing import Optional, Any
 
 from . import __version__, compiler
 
 import uplc.ast
-from uplc import flatten
+from uplc import flatten, ast as uplc_ast, eval as uplc_eval
 import cbor2
 import pycardano
+from pluthon import compile as plt_compile
 
 from .util import datum_to_cbor
 
@@ -20,30 +24,90 @@ class ScriptArtifacts:
     policy_id: str
 
 
-def build(
-    contract_file: str,
-    *args: pycardano.Datum,
+def compile(
+    program: Module,
+    contract_filename: Optional[str] = None,
     force_three_params=False,
     validator_function_name="validator",
+    remove_dead_code=True,
+    constant_folding=False,
+    allow_isinstance_anything=False,
+    **pluto_kwargs: Any,
+) -> uplc_ast.Program:
+    code = compiler.compile(
+        program,
+        filename=contract_filename,
+        force_three_params=force_three_params,
+        validator_function_name=validator_function_name,
+        remove_dead_code=remove_dead_code,
+        constant_folding=constant_folding,
+        allow_isinstance_anything=allow_isinstance_anything,
+    )
+    plt_code = plt_compile(code, **pluto_kwargs)
+    return plt_code
+
+
+def _compile(
+    source_code: str,
+    *args: typing.Union[pycardano.Datum, uplc_ast.Constant],
+    contract_file: str = "<unknown>",
+    force_three_params=False,
+    validator_function_name="validator",
+    optimize_patterns=True,
+    remove_dead_code=True,
+    constant_folding=False,
+    allow_isinstance_anything=False,
+):
+    """
+    Expects a python module and returns the build artifacts from compiling it
+    """
+
+    source_ast = compiler.parse(source_code, filename=contract_file)
+    code = compile(
+        source_ast,
+        contract_filename=contract_file,
+        force_three_params=force_three_params,
+        validator_function_name=validator_function_name,
+        optimize_patterns=optimize_patterns,
+        remove_dead_code=remove_dead_code,
+        constant_folding=constant_folding,
+        allow_isinstance_anything=allow_isinstance_anything,
+    )
+
+    # apply parameters from the command line to the contract (instantiates parameterized contract!)
+    code = code.term
+    # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+    for d in args:
+        code = uplc.ast.Apply(
+            code,
+            uplc.ast.data_from_cbor(datum_to_cbor(d))
+            if not isinstance(d, uplc_ast.Constant)
+            else d,
+        )
+    code = uplc.ast.Program((1, 0, 0), code)
+    return code
+
+
+def build(
+    contract_file: str,
+    *args: typing.Union[pycardano.Datum, uplc_ast.Constant],
+    force_three_params=False,
+    validator_function_name="validator",
+    optimize_patterns=True,
 ):
     """
     Expects a python module and returns the build artifacts from compiling it
     """
     with open(contract_file) as f:
         source_code = f.read()
-
-    source_ast = compiler.parse(source_code, filename=contract_file)
-    code = compiler.compile(
-        source_ast, filename=contract_file, force_three_params=force_three_params
+    code = _compile(
+        source_code,
+        *args,
+        contract_file=contract_file,
+        force_three_params=force_three_params,
+        validator_function_name=validator_function_name,
+        optimize_patterns=optimize_patterns,
     )
-    code = code.compile()
-
-    # apply parameters from the command line to the contract (instantiates parameterized contract!)
-    code = code.term
-    # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
-    for d in args:
-        code = uplc.ast.Apply(code, uplc.ast.data_from_cbor(datum_to_cbor(d)))
-    code = uplc.ast.Program((1, 0, 0), code)
     return _build(code)
 
 
