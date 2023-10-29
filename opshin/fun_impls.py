@@ -1,9 +1,4 @@
-from enum import Enum, auto
-
-import typing
-
-import pluthon as plt
-from uplc import ast as uplc
+from enum import Enum
 
 from .typed_ast import *
 
@@ -319,7 +314,7 @@ class PythonBuiltIn(Enum):
             )
         ),
     )
-    len = auto()
+    len = "len"
     max = plt.Lambda(
         ["xs", "_"],
         plt.FoldList(
@@ -350,7 +345,7 @@ class PythonBuiltIn(Enum):
             plt.HeadList(plt.Var("xs")),
         ),
     )
-    print = auto()
+    print = "print"
     # NOTE: only correctly defined for positive y
     pow = plt.Lambda(["x", "y", "_"], PowImpl(plt.Var("x"), plt.Var("y")))
     oct = plt.Lambda(
@@ -427,7 +422,7 @@ class PythonBuiltIn(Enum):
         ["limit", "_"],
         plt.Range(plt.Var("limit")),
     )
-    reversed = auto()
+    reversed = "reversed"
     sum = plt.Lambda(
         ["xs", "_"],
         plt.FoldList(
