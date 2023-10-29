@@ -2,6 +2,7 @@ import copy
 import dataclasses
 import enum
 import json
+import types
 import typing
 from ast import Module
 from typing import Optional, Any, Union
@@ -332,6 +333,47 @@ def to_plutus_schema(cls: typing.Type[Datum]) -> dict:
         return {"dataType": "list"}
     else:
         return {}
+
+
+def from_plutus_schema(schema: dict) -> typing.Type[pycardano.Datum]:
+    """
+    Convert from a dictionary representing a json schema according to CIP 57 Plutus Blueprint
+    """
+    if "anyOf" in schema:
+        if len(schema["anyOf"]) == 0:
+            raise ValueError("Cannot convert empty anyOf schema")
+        union_t = typing.Union[from_plutus_schema(schema["anyOf"][0])]
+        for s in schema["anyOf"][1:]:
+            union_t = typing.Union[union_t, from_plutus_schema(s)]
+        return union_t
+    typ = schema["dataType"]
+    if typ == "bytes":
+        return bytes
+    elif typ == "integer":
+        return int
+    elif typ == "list":
+        if "items" in schema:
+            return typing.List[from_plutus_schema(schema["items"])]
+        else:
+            return typing.List[pycardano.Datum]
+    elif typ == "map":
+        key_t = (
+            from_plutus_schema(schema["keys"]) if "keys" in schema else pycardano.Datum
+        )
+        value_t = (
+            from_plutus_schema(schema["values"])
+            if "values" in schema
+            else pycardano.Datum
+        )
+        return typing.Dict[key_t, value_t]
+    elif typ == "constructor":
+        fields = {}
+        for field in schema["fields"]:
+            fields[field["title"]] = from_plutus_schema(field)
+        fields["CONSTR_ID"] = schema["index"]
+        return dataclasses.dataclass(
+            types.new_class(schema["title"], (pycardano.PlutusData,), fields)
+        )
 
 
 def apply_parameters(script: PlutusV2Script, *args: pycardano.Datum):
