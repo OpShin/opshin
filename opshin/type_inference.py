@@ -16,7 +16,6 @@ from collections import defaultdict
 
 from copy import copy
 from pycardano import PlutusData
-from logging import getLogger
 
 from .typed_ast import *
 from .util import CompilingNodeTransformer
