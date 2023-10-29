@@ -1,3 +1,5 @@
+import json
+import tempfile
 import xml.etree.ElementTree
 
 import unittest
@@ -13,7 +15,7 @@ import pluthon
 from uplc import ast as uplc, eval as uplc_eval
 
 from . import PLUTUS_VM_PROFILE
-from .. import compiler, prelude, builder
+from .. import compiler, prelude, builder, Purpose, PlutusContract
 from .utils import eval_uplc_value, Unit, eval_uplc
 
 hypothesis.settings.load_profile(PLUTUS_VM_PROFILE)
@@ -2092,3 +2094,55 @@ def validator({param_string}) -> bool:
 """
         res = eval_uplc_value(source_code, *[x[0] for x in xs])
         self.assertEqual(bool(res), eval(eval_string))
+
+    def test_wrapping_contract_apply(self):
+        # TODO devise tests for this
+        input_file = "examples/smart_contracts/wrapped_token.py"
+        contract = builder.build(input_file, force_three_params=True)
+        artifacts = PlutusContract(
+            contract,
+            datum_type=("datum", prelude.Nothing),
+            redeemer_type=("redeemer", prelude.Nothing),
+            parameter_types=[
+                ("token_policy_id", bytes),
+                ("token_name", bytes),
+                ("wrapping_factor", int),
+            ],
+            purpose=[Purpose.spending, Purpose.minting],
+        )
+        applied = artifacts.apply_parameter(b"", b"")
+        assert len(applied.parameter_types) == 1
+        assert applied.parameter_types[0][0] == "wrapping_factor"
+        assert applied.datum_type == ("datum", prelude.Nothing)
+
+    def test_wrapping_contract_dump_load(self):
+        input_file = "examples/smart_contracts/wrapped_token.py"
+        contract = builder.build(input_file, force_three_params=True)
+        artifacts = PlutusContract(
+            contract,
+            datum_type=("datum", prelude.Nothing),
+            redeemer_type=("redeemer", prelude.ScriptContext),
+            parameter_types=[
+                ("token_policy_id", bytes),
+                ("token_name", bytes),
+                ("wrapping_factor", int),
+            ],
+            purpose=[Purpose.spending, Purpose.minting],
+            description="Wrapped token contract",
+            license="MIT",
+        )
+        target_dir = tempfile.TemporaryDirectory()
+        artifacts.dump(target_dir.name)
+        loaded = builder.load(target_dir.name)
+        assert len(loaded.parameter_types) == len(artifacts.parameter_types)
+        assert loaded.datum_type[1].__name__ == artifacts.datum_type[1].__name__
+        assert loaded.datum_type[0] == artifacts.datum_type[0]
+        assert loaded.datum_type[1].CONSTR_ID == artifacts.datum_type[1].CONSTR_ID
+        assert loaded.redeemer_type[1].__name__ == artifacts.redeemer_type[1].__name__
+        assert loaded.redeemer_type[0] == artifacts.redeemer_type[0]
+        assert loaded.redeemer_type[1].CONSTR_ID == artifacts.redeemer_type[1].CONSTR_ID
+        assert loaded.purpose == artifacts.purpose
+        assert loaded.description == artifacts.description
+        assert loaded.license == artifacts.license
+        assert loaded.title == artifacts.title
+        assert loaded.version == artifacts.version
