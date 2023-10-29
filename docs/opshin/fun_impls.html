@@ -68,12 +68,7 @@ fill="currentColor" class="octo-body"></path>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">from enum import Enum, auto
-
-import typing
-
-import pluthon as plt
-from uplc import ast as uplc
+<pre><code class="python">from enum import Enum
 
 from .typed_ast import *
 
@@ -93,7 +88,7 @@ class LenImpl(PolymorphicFunction):
         assert isinstance(arg, InstanceType), &#34;Can only determine length of instances&#34;
         if arg == ByteStringInstanceType:
             return plt.Lambda([&#34;x&#34;, &#34;_&#34;], plt.LengthOfByteString(plt.Var(&#34;x&#34;)))
-        elif isinstance(arg.typ, ListType):
+        elif isinstance(arg.typ, ListType) or isinstance(arg.typ, DictType):
             # simple list length function
             return plt.Lambda(
                 [&#34;x&#34;, &#34;_&#34;],
@@ -104,6 +99,11 @@ class LenImpl(PolymorphicFunction):
                     ),
                     plt.Integer(0),
                 ),
+            )
+        elif isinstance(arg.typ, TupleType):
+            return plt.Lambda(
+                [&#34;x&#34;, &#34;_&#34;],
+                plt.Integer(len(arg.typ.typs)),
             )
         raise NotImplementedError(f&#34;&#39;len&#39; is not implemented for type {arg}&#34;)
 
@@ -384,7 +384,7 @@ class PythonBuiltIn(Enum):
             )
         ),
     )
-    len = auto()
+    len = &#34;len&#34;
     max = plt.Lambda(
         [&#34;xs&#34;, &#34;_&#34;],
         plt.FoldList(
@@ -415,7 +415,7 @@ class PythonBuiltIn(Enum):
             plt.HeadList(plt.Var(&#34;xs&#34;)),
         ),
     )
-    print = auto()
+    print = &#34;print&#34;
     # NOTE: only correctly defined for positive y
     pow = plt.Lambda([&#34;x&#34;, &#34;y&#34;, &#34;_&#34;], PowImpl(plt.Var(&#34;x&#34;), plt.Var(&#34;y&#34;)))
     oct = plt.Lambda(
@@ -492,7 +492,7 @@ class PythonBuiltIn(Enum):
         [&#34;limit&#34;, &#34;_&#34;],
         plt.Range(plt.Var(&#34;limit&#34;)),
     )
-    reversed = auto()
+    reversed = &#34;reversed&#34;
     sum = plt.Lambda(
         [&#34;xs&#34;, &#34;_&#34;],
         plt.FoldList(
@@ -586,6 +586,7 @@ PythonBuiltInTypes = {
 <dl>
 <dt id="opshin.fun_impls.LenImpl"><code class="flex name class">
 <span>class <span class="ident">LenImpl</span></span>
+<span>(</span><span>*args, **kwargs)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -608,7 +609,7 @@ PythonBuiltInTypes = {
         assert isinstance(arg, InstanceType), &#34;Can only determine length of instances&#34;
         if arg == ByteStringInstanceType:
             return plt.Lambda([&#34;x&#34;, &#34;_&#34;], plt.LengthOfByteString(plt.Var(&#34;x&#34;)))
-        elif isinstance(arg.typ, ListType):
+        elif isinstance(arg.typ, ListType) or isinstance(arg.typ, DictType):
             # simple list length function
             return plt.Lambda(
                 [&#34;x&#34;, &#34;_&#34;],
@@ -619,6 +620,11 @@ PythonBuiltInTypes = {
                     ),
                     plt.Integer(0),
                 ),
+            )
+        elif isinstance(arg.typ, TupleType):
+            return plt.Lambda(
+                [&#34;x&#34;, &#34;_&#34;],
+                plt.Integer(len(arg.typ.typs)),
             )
         raise NotImplementedError(f&#34;&#39;len&#39; is not implemented for type {arg}&#34;)</code></pre>
 </details>
@@ -642,7 +648,7 @@ PythonBuiltInTypes = {
     assert isinstance(arg, InstanceType), &#34;Can only determine length of instances&#34;
     if arg == ByteStringInstanceType:
         return plt.Lambda([&#34;x&#34;, &#34;_&#34;], plt.LengthOfByteString(plt.Var(&#34;x&#34;)))
-    elif isinstance(arg.typ, ListType):
+    elif isinstance(arg.typ, ListType) or isinstance(arg.typ, DictType):
         # simple list length function
         return plt.Lambda(
             [&#34;x&#34;, &#34;_&#34;],
@@ -653,6 +659,11 @@ PythonBuiltInTypes = {
                 ),
                 plt.Integer(0),
             ),
+        )
+    elif isinstance(arg.typ, TupleType):
+        return plt.Lambda(
+            [&#34;x&#34;, &#34;_&#34;],
+            plt.Integer(len(arg.typ.typs)),
         )
     raise NotImplementedError(f&#34;&#39;len&#39; is not implemented for type {arg}&#34;)</code></pre>
 </details>
@@ -680,6 +691,7 @@ PythonBuiltInTypes = {
 </dd>
 <dt id="opshin.fun_impls.PrintImpl"><code class="flex name class">
 <span>class <span class="ident">PrintImpl</span></span>
+<span>(</span><span>*args, **kwargs)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -994,7 +1006,7 @@ PythonBuiltInTypes = {
             )
         ),
     )
-    len = auto()
+    len = &#34;len&#34;
     max = plt.Lambda(
         [&#34;xs&#34;, &#34;_&#34;],
         plt.FoldList(
@@ -1025,7 +1037,7 @@ PythonBuiltInTypes = {
             plt.HeadList(plt.Var(&#34;xs&#34;)),
         ),
     )
-    print = auto()
+    print = &#34;print&#34;
     # NOTE: only correctly defined for positive y
     pow = plt.Lambda([&#34;x&#34;, &#34;y&#34;, &#34;_&#34;], PowImpl(plt.Var(&#34;x&#34;), plt.Var(&#34;y&#34;)))
     oct = plt.Lambda(
@@ -1102,7 +1114,7 @@ PythonBuiltInTypes = {
         [&#34;limit&#34;, &#34;_&#34;],
         plt.Range(plt.Var(&#34;limit&#34;)),
     )
-    reversed = auto()
+    reversed = &#34;reversed&#34;
     sum = plt.Lambda(
         [&#34;xs&#34;, &#34;_&#34;],
         plt.FoldList(
@@ -1180,6 +1192,7 @@ PythonBuiltInTypes = {
 </dd>
 <dt id="opshin.fun_impls.ReversedImpl"><code class="flex name class">
 <span>class <span class="ident">ReversedImpl</span></span>
+<span>(</span><span>*args, **kwargs)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>

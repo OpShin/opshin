@@ -6,7 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
 <meta name="generator" content="pdoc 0.10.0" />
 <link rel="icon" href="https://raw.githubusercontent.com/OpShin/opshin/dev/docs/opshin_32.png" sizes="32x32" type="image/png">
-<title>opshin.tests API documentation</title>
+<title>opshin.tests.utils API documentation</title>
 <meta name="description" content="" />
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/sanitize.min.css" integrity="sha256-PK9q560IAAa6WVRRh76LtCaI8pjTJ2z11v0miyNNjrs=" crossorigin>
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/typography.min.css" integrity="sha256-7l/o7C8jubJiy74VsKTidCy1yBkRtiUGbVkYBylBqUg=" crossorigin>
@@ -61,60 +61,185 @@ fill="currentColor" class="octo-body"></path>
 </a>
 <article id="content">
 <header>
-<h1 class="title">Module <code>opshin.tests</code></h1>
+<h1 class="title">Module <code>opshin.tests.utils</code></h1>
 </header>
 <section id="section-intro">
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">import datetime
-import hypothesis
+<pre><code class="python">import dataclasses
+import typing
 
-PLUTUS_VM_PROFILE = &#34;plutus_vm&#34;
-hypothesis.settings.register_profile(
-    PLUTUS_VM_PROFILE, deadline=datetime.timedelta(seconds=1)
-)</code></pre>
+import pycardano
+import uplc.ast as uplc_ast
+from pycardano import PlutusData
+from uplc import eval as uplc_eval
+
+from ..builder import _compile
+
+
+@dataclasses.dataclass
+class Unit(PlutusData):
+    CONSTR_ID = 0
+
+
+def eval_uplc(
+    source_code: str,
+    *args: typing.Union[pycardano.Datum, uplc_ast.Constant],
+    contract_file: str = &#34;&lt;unknown&gt;&#34;,
+    force_three_params=False,
+    validator_function_name=&#34;validator&#34;,
+    optimize_patterns=True,
+    remove_dead_code=True,
+    constant_folding=False,
+    allow_isinstance_anything=False,
+):
+    code = _compile(
+        source_code,
+        *args,
+        contract_file=contract_file,
+        force_three_params=force_three_params,
+        validator_function_name=validator_function_name,
+        optimize_patterns=optimize_patterns,
+        remove_dead_code=remove_dead_code,
+        constant_folding=constant_folding,
+        allow_isinstance_anything=allow_isinstance_anything,
+    )
+    return uplc_eval(code)
+
+
+def eval_uplc_value(
+    source_code: str,
+    *args: typing.Union[pycardano.Datum, uplc_ast.Constant],
+    contract_file: str = &#34;&lt;unknown&gt;&#34;,
+    force_three_params=False,
+    validator_function_name=&#34;validator&#34;,
+    optimize_patterns=True,
+    remove_dead_code=True,
+    constant_folding=False,
+    allow_isinstance_anything=False,
+):
+    return eval_uplc(
+        source_code,
+        *args,
+        contract_file=contract_file,
+        force_three_params=force_three_params,
+        validator_function_name=validator_function_name,
+        optimize_patterns=optimize_patterns,
+        remove_dead_code=remove_dead_code,
+        constant_folding=constant_folding,
+        allow_isinstance_anything=allow_isinstance_anything,
+    ).value</code></pre>
 </details>
 </section>
 <section>
-<h2 class="section-title" id="header-submodules">Sub-modules</h2>
+</section>
+<section>
+</section>
+<section>
+<h2 class="section-title" id="header-functions">Functions</h2>
 <dl>
-<dt><code class="name"><a title="opshin.tests.test_builtins" href="test_builtins.html">opshin.tests.test_builtins</a></code></dt>
+<dt id="opshin.tests.utils.eval_uplc"><code class="name flex">
+<span>def <span class="ident">eval_uplc</span></span>(<span>source_code: str, *args: Union[pycardano.plutus.PlutusData, dict, int, bytes, pycardano.serialization.IndefiniteList, pycardano.serialization.RawCBOR, pycardano.plutus.RawPlutusData, uplc.ast.Constant], contract_file: str = &#x27;&lt;unknown&gt;&#x27;, force_three_params=False, validator_function_name='validator', optimize_patterns=True, remove_dead_code=True, constant_folding=False, allow_isinstance_anything=False)</span>
+</code></dt>
 <dd>
 <div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def eval_uplc(
+    source_code: str,
+    *args: typing.Union[pycardano.Datum, uplc_ast.Constant],
+    contract_file: str = &#34;&lt;unknown&gt;&#34;,
+    force_three_params=False,
+    validator_function_name=&#34;validator&#34;,
+    optimize_patterns=True,
+    remove_dead_code=True,
+    constant_folding=False,
+    allow_isinstance_anything=False,
+):
+    code = _compile(
+        source_code,
+        *args,
+        contract_file=contract_file,
+        force_three_params=force_three_params,
+        validator_function_name=validator_function_name,
+        optimize_patterns=optimize_patterns,
+        remove_dead_code=remove_dead_code,
+        constant_folding=constant_folding,
+        allow_isinstance_anything=allow_isinstance_anything,
+    )
+    return uplc_eval(code)</code></pre>
+</details>
 </dd>
-<dt><code class="name"><a title="opshin.tests.test_ledger" href="test_ledger/index.html">opshin.tests.test_ledger</a></code></dt>
+<dt id="opshin.tests.utils.eval_uplc_value"><code class="name flex">
+<span>def <span class="ident">eval_uplc_value</span></span>(<span>source_code: str, *args: Union[pycardano.plutus.PlutusData, dict, int, bytes, pycardano.serialization.IndefiniteList, pycardano.serialization.RawCBOR, pycardano.plutus.RawPlutusData, uplc.ast.Constant], contract_file: str = &#x27;&lt;unknown&gt;&#x27;, force_three_params=False, validator_function_name='validator', optimize_patterns=True, remove_dead_code=True, constant_folding=False, allow_isinstance_anything=False)</span>
+</code></dt>
 <dd>
 <div class="desc"></div>
-</dd>
-<dt><code class="name"><a title="opshin.tests.test_misc" href="test_misc.html">opshin.tests.test_misc</a></code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-<dt><code class="name"><a title="opshin.tests.test_ops" href="test_ops.html">opshin.tests.test_ops</a></code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-<dt><code class="name"><a title="opshin.tests.test_std" href="test_std/index.html">opshin.tests.test_std</a></code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-<dt><code class="name"><a title="opshin.tests.test_stdlib" href="test_stdlib.html">opshin.tests.test_stdlib</a></code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-<dt><code class="name"><a title="opshin.tests.utils" href="utils.html">opshin.tests.utils</a></code></dt>
-<dd>
-<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def eval_uplc_value(
+    source_code: str,
+    *args: typing.Union[pycardano.Datum, uplc_ast.Constant],
+    contract_file: str = &#34;&lt;unknown&gt;&#34;,
+    force_three_params=False,
+    validator_function_name=&#34;validator&#34;,
+    optimize_patterns=True,
+    remove_dead_code=True,
+    constant_folding=False,
+    allow_isinstance_anything=False,
+):
+    return eval_uplc(
+        source_code,
+        *args,
+        contract_file=contract_file,
+        force_three_params=force_three_params,
+        validator_function_name=validator_function_name,
+        optimize_patterns=optimize_patterns,
+        remove_dead_code=remove_dead_code,
+        constant_folding=constant_folding,
+        allow_isinstance_anything=allow_isinstance_anything,
+    ).value</code></pre>
+</details>
 </dd>
 </dl>
 </section>
 <section>
-</section>
-<section>
-</section>
-<section>
+<h2 class="section-title" id="header-classes">Classes</h2>
+<dl>
+<dt id="opshin.tests.utils.Unit"><code class="flex name class">
+<span>class <span class="ident">Unit</span></span>
+</code></dt>
+<dd>
+<div class="desc"><p>Unit()</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@dataclasses.dataclass
+class Unit(PlutusData):
+    CONSTR_ID = 0</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li>pycardano.plutus.PlutusData</li>
+<li>pycardano.serialization.ArrayCBORSerializable</li>
+<li>pycardano.serialization.CBORSerializable</li>
+</ul>
+<h3>Class variables</h3>
+<dl>
+<dt id="opshin.tests.utils.Unit.CONSTR_ID"><code class="name">var <span class="ident">CONSTR_ID</span> : ClassVar[int]</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+</dl>
+</dd>
+</dl>
 </section>
 </article>
 <nav id="sidebar">
@@ -178,18 +303,23 @@ setTimeout(() => input.focus(), 100);
 <ul id="index">
 <li><h3>Super-module</h3>
 <ul>
-<li><code><a title="opshin" href="../index.html">opshin</a></code></li>
+<li><code><a title="opshin.tests" href="index.html">opshin.tests</a></code></li>
 </ul>
 </li>
-<li><h3><a href="#header-submodules">Sub-modules</a></h3>
+<li><h3><a href="#header-functions">Functions</a></h3>
+<ul class="">
+<li><code><a title="opshin.tests.utils.eval_uplc" href="#opshin.tests.utils.eval_uplc">eval_uplc</a></code></li>
+<li><code><a title="opshin.tests.utils.eval_uplc_value" href="#opshin.tests.utils.eval_uplc_value">eval_uplc_value</a></code></li>
+</ul>
+</li>
+<li><h3><a href="#header-classes">Classes</a></h3>
 <ul>
-<li><code><a title="opshin.tests.test_builtins" href="test_builtins.html">opshin.tests.test_builtins</a></code></li>
-<li><code><a title="opshin.tests.test_ledger" href="test_ledger/index.html">opshin.tests.test_ledger</a></code></li>
-<li><code><a title="opshin.tests.test_misc" href="test_misc.html">opshin.tests.test_misc</a></code></li>
-<li><code><a title="opshin.tests.test_ops" href="test_ops.html">opshin.tests.test_ops</a></code></li>
-<li><code><a title="opshin.tests.test_std" href="test_std/index.html">opshin.tests.test_std</a></code></li>
-<li><code><a title="opshin.tests.test_stdlib" href="test_stdlib.html">opshin.tests.test_stdlib</a></code></li>
-<li><code><a title="opshin.tests.utils" href="utils.html">opshin.tests.utils</a></code></li>
+<li>
+<h4><code><a title="opshin.tests.utils.Unit" href="#opshin.tests.utils.Unit">Unit</a></code></h4>
+<ul class="">
+<li><code><a title="opshin.tests.utils.Unit.CONSTR_ID" href="#opshin.tests.utils.Unit.CONSTR_ID">CONSTR_ID</a></code></li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>

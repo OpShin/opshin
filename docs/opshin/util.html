@@ -71,11 +71,15 @@ fill="currentColor" class="octo-body"></path>
 <pre><code class="python">import typing
 
 import ast
+from dataclasses import dataclass
+
 import pycardano
 from frozendict import frozendict
 from frozenlist2 import frozenlist
 
 import uplc.ast as uplc
+import pluthon as plt
+from hashlib import sha256
 
 
 def distinct(xs: list):
@@ -202,7 +206,37 @@ def custom_fix_missing_locations(node, parent=None):
         getattr(parent, &#34;end_col_offset&#34;, 0),
     )
     _fix(node, lineno, col_offset, end_lineno, end_col_offset)
-    return node</code></pre>
+    return node
+
+
+_patterns_cached = {}
+
+
+def make_pattern(structure: plt.AST) -&gt; plt.Pattern:
+    &#34;&#34;&#34;Creates a shared pattern from the given lambda, cached so that it is re-used in subsequent calls&#34;&#34;&#34;
+    structure_serialized = structure.dumps()
+    if _patterns_cached.get(structure_serialized) is None:
+        # @dataclass
+        # class AdHocPattern(plt.Pattern):
+
+        #     def compose(self):
+        #         return structure
+        AdHocPattern = type(
+            f&#34;AdHocPattern_{sha256(structure_serialized.encode()).digest().hex()}&#34;,
+            (plt.Pattern,),
+            {&#34;compose&#34;: lambda self: structure},
+        )
+        AdHocPattern = dataclass(AdHocPattern)
+
+        _patterns_cached[structure_serialized] = AdHocPattern()
+    return _patterns_cached[structure_serialized]
+
+
+def patternize(method):
+    def wrapped(*args, **kwargs):
+        return make_pattern(method(*args, **kwargs))
+
+    return wrapped</code></pre>
 </details>
 </section>
 <section>
@@ -325,6 +359,51 @@ def custom_fix_missing_locations(node, parent=None):
     return len(xs) == len(set(xs))</code></pre>
 </details>
 </dd>
+<dt id="opshin.util.make_pattern"><code class="name flex">
+<span>def <span class="ident">make_pattern</span></span>(<span>structure: pluthon.pluthon_ast.AST) ‑> pluthon.pluthon_ast.Pattern</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Creates a shared pattern from the given lambda, cached so that it is re-used in subsequent calls</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def make_pattern(structure: plt.AST) -&gt; plt.Pattern:
+    &#34;&#34;&#34;Creates a shared pattern from the given lambda, cached so that it is re-used in subsequent calls&#34;&#34;&#34;
+    structure_serialized = structure.dumps()
+    if _patterns_cached.get(structure_serialized) is None:
+        # @dataclass
+        # class AdHocPattern(plt.Pattern):
+
+        #     def compose(self):
+        #         return structure
+        AdHocPattern = type(
+            f&#34;AdHocPattern_{sha256(structure_serialized.encode()).digest().hex()}&#34;,
+            (plt.Pattern,),
+            {&#34;compose&#34;: lambda self: structure},
+        )
+        AdHocPattern = dataclass(AdHocPattern)
+
+        _patterns_cached[structure_serialized] = AdHocPattern()
+    return _patterns_cached[structure_serialized]</code></pre>
+</details>
+</dd>
+<dt id="opshin.util.patternize"><code class="name flex">
+<span>def <span class="ident">patternize</span></span>(<span>method)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def patternize(method):
+    def wrapped(*args, **kwargs):
+        return make_pattern(method(*args, **kwargs))
+
+    return wrapped</code></pre>
+</details>
+</dd>
 </dl>
 </section>
 <section>
@@ -406,7 +485,7 @@ just a single node.</p>
 </ul>
 <h3>Subclasses</h3>
 <ul class="hlist">
-<li><a title="opshin.compiler.UPLCCompiler" href="compiler.html#opshin.compiler.UPLCCompiler">UPLCCompiler</a></li>
+<li><a title="opshin.compiler.PlutoCompiler" href="compiler.html#opshin.compiler.PlutoCompiler">PlutoCompiler</a></li>
 <li><a title="opshin.optimize.optimize_const_folding.OptimizeConstantFolding" href="optimize/optimize_const_folding.html#opshin.optimize.optimize_const_folding.OptimizeConstantFolding">OptimizeConstantFolding</a></li>
 <li><a title="opshin.optimize.optimize_remove_comments.OptimizeRemoveDeadconstants" href="optimize/optimize_remove_comments.html#opshin.optimize.optimize_remove_comments.OptimizeRemoveDeadconstants">OptimizeRemoveDeadconstants</a></li>
 <li><a title="opshin.optimize.optimize_remove_deadvars.OptimizeRemoveDeadvars" href="optimize/optimize_remove_deadvars.html#opshin.optimize.optimize_remove_deadvars.OptimizeRemoveDeadvars">OptimizeRemoveDeadvars</a></li>
@@ -805,6 +884,8 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="opshin.util.datum_to_cbor" href="#opshin.util.datum_to_cbor">datum_to_cbor</a></code></li>
 <li><code><a title="opshin.util.datum_to_json" href="#opshin.util.datum_to_json">datum_to_json</a></code></li>
 <li><code><a title="opshin.util.distinct" href="#opshin.util.distinct">distinct</a></code></li>
+<li><code><a title="opshin.util.make_pattern" href="#opshin.util.make_pattern">make_pattern</a></code></li>
+<li><code><a title="opshin.util.patternize" href="#opshin.util.patternize">patternize</a></code></li>
 </ul>
 </li>
 <li><h3><a href="#header-classes">Classes</a></h3>

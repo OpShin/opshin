@@ -70,10 +70,9 @@ fill="currentColor" class="octo-body"></path>
 </summary>
 <pre><code class="python">import logging
 from ast import *
-from dataclasses import dataclass
+
 import itertools
 
-import pluthon as plt
 import uplc.ast
 
 from .util import *
@@ -86,6 +85,16 @@ class TypeInferenceError(AssertionError):
 
 
 class Type:
+    def __new__(meta, *args, **kwargs):
+        klass = super().__new__(meta)
+
+        for key in [&#34;constr&#34;, &#34;attribute&#34;, &#34;cmp&#34;, &#34;stringify&#34;, &#34;copy_only_attributes&#34;]:
+            value = getattr(klass, key)
+            wrapped = patternize(value)
+            object.__setattr__(klass, key, wrapped)
+
+        return klass
+
     def constr_type(self) -&gt; &#34;InstanceType&#34;:
         &#34;&#34;&#34;The type of the constructor for this class&#34;&#34;&#34;
         raise TypeInferenceError(
@@ -265,7 +274,8 @@ class AnyType(ClassType):
                                         ],
                                         plt.Ite(
                                             plt.LessThanInteger(
-                                                plt.Var(&#34;constructor&#34;), plt.Integer(128)
+                                                plt.Var(&#34;constructor&#34;),
+                                                plt.Integer(128),
                                             ),
                                             plt.ConcatString(
                                                 plt.Text(&#34;CBORTag(&#34;),
@@ -498,7 +508,8 @@ class RecordType(ClassType):
                         plt.FindList(
                             plt.Var(&#34;y&#34;),
                             plt.Apply(
-                                plt.BuiltIn(uplc.BuiltInFun.EqualsData), plt.Var(&#34;x&#34;)
+                                plt.BuiltIn(uplc.BuiltInFun.EqualsData),
+                                plt.Var(&#34;x&#34;),
                             ),
                             # this simply ensures the default is always unequal to the searched value
                             plt.ConstrData(
@@ -667,7 +678,8 @@ class UnionType(ClassType):
                     plt.NthField(
                         plt.Var(&#34;self&#34;),
                         plt.Let(
-                            [(&#34;constr&#34;, plt.Constructor(plt.Var(&#34;self&#34;)))], pos_decisor
+                            [(&#34;constr&#34;, plt.Constructor(plt.Var(&#34;self&#34;)))],
+                            pos_decisor,
                         ),
                     ),
                 ),
@@ -720,7 +732,8 @@ class UnionType(ClassType):
                         plt.FindList(
                             plt.Var(&#34;y&#34;),
                             plt.Apply(
-                                plt.BuiltIn(uplc.BuiltInFun.EqualsData), plt.Var(&#34;x&#34;)
+                                plt.BuiltIn(uplc.BuiltInFun.EqualsData),
+                                plt.Var(&#34;x&#34;),
                             ),
                             # this simply ensures the default is always unequal to the searched value
                             plt.ConstrData(
@@ -1828,6 +1841,8 @@ ATOMIC_TYPES = {
     int.__name__: IntegerType(),
     str.__name__: StringType(),
     bytes.__name__: ByteStringType(),
+    &#34;ByteString&#34;: ByteStringType(),
+    bytearray.__name__: ByteStringType(),
     type(None).__name__: UnitType(),
     bool.__name__: BoolType(),
 }
@@ -1901,6 +1916,16 @@ StrIntMulImpl = repeated_addition(plt.Text(&#34;&#34;), plt.AppendString)
 
 
 class PolymorphicFunction:
+    def __new__(meta, *args, **kwargs):
+        klass = super().__new__(meta)
+
+        for key in [&#34;impl_from_args&#34;]:
+            value = getattr(klass, key)
+            wrapped = patternize(value)
+            object.__setattr__(klass, key, wrapped)
+
+        return klass
+
     def type_from_args(self, args: typing.List[Type]) -&gt; FunctionType:
         raise NotImplementedError()
 
@@ -2759,7 +2784,8 @@ class AnyType(ClassType):
                                         ],
                                         plt.Ite(
                                             plt.LessThanInteger(
-                                                plt.Var(&#34;constructor&#34;), plt.Integer(128)
+                                                plt.Var(&#34;constructor&#34;),
+                                                plt.Integer(128),
                                             ),
                                             plt.ConcatString(
                                                 plt.Text(&#34;CBORTag(&#34;),
@@ -3068,7 +3094,8 @@ For anything but record …</p></div>
                                     ],
                                     plt.Ite(
                                         plt.LessThanInteger(
-                                            plt.Var(&#34;constructor&#34;), plt.Integer(128)
+                                            plt.Var(&#34;constructor&#34;),
+                                            plt.Integer(128),
                                         ),
                                         plt.ConcatString(
                                             plt.Text(&#34;CBORTag(&#34;),
@@ -3301,6 +3328,7 @@ For anything but record …</p></div>
 </dd>
 <dt id="opshin.types.BoolImpl"><code class="flex name class">
 <span>class <span class="ident">BoolImpl</span></span>
+<span>(</span><span>*args, **kwargs)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -4385,6 +4413,7 @@ For anything but record …</p></div>
 </dd>
 <dt id="opshin.types.BytesImpl"><code class="flex name class">
 <span>class <span class="ident">BytesImpl</span></span>
+<span>(</span><span>*args, **kwargs)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -5705,6 +5734,7 @@ class InstanceType(Type):
 </dd>
 <dt id="opshin.types.IntImpl"><code class="flex name class">
 <span>class <span class="ident">IntImpl</span></span>
+<span>(</span><span>*args, **kwargs)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -6833,6 +6863,7 @@ For anything but record …</p></div>
 </dd>
 <dt id="opshin.types.PolymorphicFunction"><code class="flex name class">
 <span>class <span class="ident">PolymorphicFunction</span></span>
+<span>(</span><span>*args, **kwargs)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -6841,6 +6872,16 @@ For anything but record …</p></div>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">class PolymorphicFunction:
+    def __new__(meta, *args, **kwargs):
+        klass = super().__new__(meta)
+
+        for key in [&#34;impl_from_args&#34;]:
+            value = getattr(klass, key)
+            wrapped = patternize(value)
+            object.__setattr__(klass, key, wrapped)
+
+        return klass
+
     def type_from_args(self, args: typing.List[Type]) -&gt; FunctionType:
         raise NotImplementedError()
 
@@ -7237,7 +7278,8 @@ class RecordType(ClassType):
                         plt.FindList(
                             plt.Var(&#34;y&#34;),
                             plt.Apply(
-                                plt.BuiltIn(uplc.BuiltInFun.EqualsData), plt.Var(&#34;x&#34;)
+                                plt.BuiltIn(uplc.BuiltInFun.EqualsData),
+                                plt.Var(&#34;x&#34;),
                             ),
                             # this simply ensures the default is always unequal to the searched value
                             plt.ConstrData(
@@ -7450,7 +7492,8 @@ class RecordType(ClassType):
                     plt.FindList(
                         plt.Var(&#34;y&#34;),
                         plt.Apply(
-                            plt.BuiltIn(uplc.BuiltInFun.EqualsData), plt.Var(&#34;x&#34;)
+                            plt.BuiltIn(uplc.BuiltInFun.EqualsData),
+                            plt.Var(&#34;x&#34;),
                         ),
                         # this simply ensures the default is always unequal to the searched value
                         plt.ConstrData(
@@ -7609,6 +7652,7 @@ For anything but record …</p></div>
 </dd>
 <dt id="opshin.types.StrImpl"><code class="flex name class">
 <span>class <span class="ident">StrImpl</span></span>
+<span>(</span><span>*args, **kwargs)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -8031,6 +8075,7 @@ For anything but record …</p></div>
 </dd>
 <dt id="opshin.types.Type"><code class="flex name class">
 <span>class <span class="ident">Type</span></span>
+<span>(</span><span>*args, **kwargs)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -8039,6 +8084,16 @@ For anything but record …</p></div>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">class Type:
+    def __new__(meta, *args, **kwargs):
+        klass = super().__new__(meta)
+
+        for key in [&#34;constr&#34;, &#34;attribute&#34;, &#34;cmp&#34;, &#34;stringify&#34;, &#34;copy_only_attributes&#34;]:
+            value = getattr(klass, key)
+            wrapped = patternize(value)
+            object.__setattr__(klass, key, wrapped)
+
+        return klass
+
     def constr_type(self) -&gt; &#34;InstanceType&#34;:
         &#34;&#34;&#34;The type of the constructor for this class&#34;&#34;&#34;
         raise TypeInferenceError(
@@ -8309,7 +8364,8 @@ class UnionType(ClassType):
                     plt.NthField(
                         plt.Var(&#34;self&#34;),
                         plt.Let(
-                            [(&#34;constr&#34;, plt.Constructor(plt.Var(&#34;self&#34;)))], pos_decisor
+                            [(&#34;constr&#34;, plt.Constructor(plt.Var(&#34;self&#34;)))],
+                            pos_decisor,
                         ),
                     ),
                 ),
@@ -8362,7 +8418,8 @@ class UnionType(ClassType):
                         plt.FindList(
                             plt.Var(&#34;y&#34;),
                             plt.Apply(
-                                plt.BuiltIn(uplc.BuiltInFun.EqualsData), plt.Var(&#34;x&#34;)
+                                plt.BuiltIn(uplc.BuiltInFun.EqualsData),
+                                plt.Var(&#34;x&#34;),
                             ),
                             # this simply ensures the default is always unequal to the searched value
                             plt.ConstrData(
@@ -8491,7 +8548,8 @@ class UnionType(ClassType):
                 plt.NthField(
                     plt.Var(&#34;self&#34;),
                     plt.Let(
-                        [(&#34;constr&#34;, plt.Constructor(plt.Var(&#34;self&#34;)))], pos_decisor
+                        [(&#34;constr&#34;, plt.Constructor(plt.Var(&#34;self&#34;)))],
+                        pos_decisor,
                     ),
                 ),
             ),
@@ -8595,7 +8653,8 @@ class UnionType(ClassType):
                     plt.FindList(
                         plt.Var(&#34;y&#34;),
                         plt.Apply(
-                            plt.BuiltIn(uplc.BuiltInFun.EqualsData), plt.Var(&#34;x&#34;)
+                            plt.BuiltIn(uplc.BuiltInFun.EqualsData),
+                            plt.Var(&#34;x&#34;),
                         ),
                         # this simply ensures the default is always unequal to the searched value
                         plt.ConstrData(

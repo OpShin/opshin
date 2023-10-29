@@ -186,6 +186,29 @@ You can choose from the following options:</p>
 opshin build spending examples/smart_contracts/assert_sum.py
 </code></pre>
 <p>See the <a href="https://pycardano.readthedocs.io/en/latest/guides/plutus.html">tutorial by <code>pycardano</code></a> for explanations how to build transactions with <code><a title="opshin" href="#opshin">opshin</a></code> contracts.</p>
+<h3 id="api-for-smart-contracts">API for Smart Contracts</h3>
+<p>The python interface offers a simple API to compile, load, apply parameters and evaluate smart contracts.</p>
+<pre><code class="language-python3">from opshin.builder import *
+
+# Build a validator script from a python file that contains a validator function
+contract = build(&quot;path/to/contract.py&quot;)
+
+# You can apply parameters to the contract during compilation
+contract = build(&quot;path/to/contract.py&quot;, arg1, arg2, arg3)
+
+# Store the compilation artifacts in a folder
+contract.dump(&quot;path/to/store&quot;)
+
+# You can also load a compiled contract from a path
+contract = load(&quot;path/to/store&quot;)
+
+# And apply parameters after loading a contract
+contract = contract.apply_parameters(arg1, arg2, arg3)
+
+# The artifacts contain the compiled script, the policy ID and the addresses and blueprint
+contract_addr = contract.mainnet_addr
+contract_blueprint = contract.blueprint
+</code></pre>
 <h3 id="the-small-print">The small print</h3>
 <p><em>Not every valid python program is a valid smart contract</em>.
 Not all language features of python will or can be supported.
@@ -405,6 +428,7 @@ setTimeout(() => input.focus(), 100);
 </li>
 <li><a href="#compiling">Compiling</a></li>
 <li><a href="#deploying">Deploying</a></li>
+<li><a href="#api-for-smart-contracts">API for Smart Contracts</a></li>
 <li><a href="#the-small-print">The small print</a></li>
 <li><a href="#name">Name</a></li>
 <li><a href="#debugging-artefacts">Debugging artefacts</a></li>

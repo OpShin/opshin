@@ -68,52 +68,262 @@ fill="currentColor" class="octo-body"></path>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">import dataclasses
+<pre><code class="python">import copy
+import dataclasses
+import enum
 import json
+import types
+import typing
+from ast import Module
+from typing import Optional, Any, Union
+from pathlib import Path
+
+from pycardano import PlutusV2Script, IndefiniteList, PlutusData, Datum
 
 from . import __version__, compiler
 
 import uplc.ast
-from uplc import flatten
+from uplc import flatten, ast as uplc_ast, eval as uplc_eval
 import cbor2
 import pycardano
+from pluthon import compile as plt_compile
 
 from .util import datum_to_cbor
 
 
+class Purpose(enum.Enum):
+    spending = &#34;spending&#34;
+    minting = &#34;minting&#34;
+    rewarding = &#34;rewarding&#34;
+    certifying = &#34;certifying&#34;
+    any = &#34;any&#34;
+    lib = &#34;lib&#34;
+
+
 @dataclasses.dataclass
-class ScriptArtifacts:
-    cbor_hex: str
-    plutus_json: str
-    mainnet_addr: str
-    testnet_addr: str
-    policy_id: str
+class PlutusContract:
+    contract: PlutusV2Script
+    datum_type: Optional[typing.Tuple[str, typing.Type[Datum]]] = None
+    redeemer_type: Optional[typing.Tuple[str, typing.Type[Datum]]] = None
+    parameter_types: typing.List[
+        typing.Tuple[str, typing.Type[Datum]]
+    ] = dataclasses.field(default_factory=list)
+    purpose: typing.Iterable[Purpose] = (Purpose.any,)
+    version: Optional[str] = &#34;1.0.0&#34;
+    title: str = &#34;validator&#34;
+    description: Optional[str] = f&#34;opshin {__version__} Smart Contract&#34;
+    license: Optional[str] = None
+
+    @property
+    def cbor(self) -&gt; bytes:
+        return self.contract
+
+    @property
+    def cbor_hex(self) -&gt; str:
+        return self.contract.hex()
+
+    @property
+    def script_hash(self):
+        return pycardano.plutus_script_hash(self.contract)
+
+    @property
+    def policy_id(self):
+        return self.script_hash.to_primitive().hex()
+
+    @property
+    def mainnet_addr(self):
+        return pycardano.Address(self.script_hash, network=pycardano.Network.MAINNET)
+
+    @property
+    def testnet_addr(self):
+        return pycardano.Address(self.script_hash, network=pycardano.Network.TESTNET)
+
+    @property
+    def plutus_json(self):
+        return json.dumps(
+            {
+                &#34;type&#34;: &#34;PlutusScriptV2&#34;,
+                &#34;description&#34;: self.description,
+                &#34;cborHex&#34;: self.cbor_hex,
+            },
+            indent=2,
+        )
+
+    @property
+    def blueprint(self):
+        return {
+            &#34;$schema&#34;: &#34;https://cips.cardano.org/cips/cip57/schemas/plutus-blueprint.json&#34;,
+            &#34;$id&#34;: &#34;https://github.com/aiken-lang/aiken/blob/main/examples/hello_world/plutus.json&#34;,
+            &#34;$vocabulary&#34;: {
+                &#34;https://json-schema.org/draft/2020-12/vocab/core&#34;: True,
+                &#34;https://json-schema.org/draft/2020-12/vocab/applicator&#34;: True,
+                &#34;https://json-schema.org/draft/2020-12/vocab/validation&#34;: True,
+                &#34;https://cips.cardano.org/cips/cip57&#34;: True,
+            },
+            &#34;preamble&#34;: {
+                &#34;version&#34;: self.version,
+                &#34;plutusVersion&#34;: &#34;v2&#34;,
+                &#34;description&#34;: self.description,
+                &#34;title&#34;: self.title,
+                **({&#34;license&#34;: self.license} if self.license is not None else {}),
+            },
+            &#34;validators&#34;: [
+                {
+                    &#34;title&#34;: self.title,
+                    **(
+                        {
+                            &#34;datum&#34;: {
+                                &#34;title&#34;: self.datum_type[0],
+                                &#34;purpose&#34;: PURPOSE_MAP[Purpose.spending],
+                                &#34;schema&#34;: to_plutus_schema(self.datum_type[1]),
+                            }
+                        }
+                        if self.datum_type is not None
+                        else {}
+                    ),
+                    &#34;redeemer&#34;: {
+                        &#34;title&#34;: self.redeemer_type[0],
+                        &#34;purpose&#34;: {&#34;oneOf&#34;: [PURPOSE_MAP[p] for p in self.purpose]},
+                        &#34;schema&#34;: to_plutus_schema(self.redeemer_type[1]),
+                    }
+                    if self.redeemer_type is not None
+                    else {},
+                    **(
+                        {
+                            &#34;parameters&#34;: [
+                                {
+                                    &#34;title&#34;: t[0],
+                                    &#34;purpose&#34;: PURPOSE_MAP[Purpose.spending],
+                                    &#34;schema&#34;: to_plutus_schema(t[1]),
+                                }
+                                for t in self.parameter_types
+                            ]
+                        }
+                        if self.parameter_types
+                        else {}
+                    ),
+                    &#34;compiledCode&#34;: self.cbor_hex,
+                    &#34;hash&#34;: self.policy_id,
+                },
+            ],
+        }
+
+    def apply_parameter(self, *args: pycardano.Datum):
+        &#34;&#34;&#34;
+        Returns a new OpShin Contract with the applied parameters
+        &#34;&#34;&#34;
+        # update the parameters in the blueprint (remove applied parameters)
+        assert len(self.parameter_types) &gt;= len(
+            args
+        ), f&#34;Applying too many parameters to contract, allowed amount: {self.parameter_types}, but got {len(args)}&#34;
+        new_parameter_types = copy.copy(self.parameter_types)
+        for _ in args:
+            # TODO validate that the applied parameters are of the correct type
+            new_parameter_types.pop(0)
+        new_contract_contract = apply_parameters(self.contract, *args)
+        new_contract = PlutusContract(
+            new_contract_contract,
+            self.datum_type,
+            self.redeemer_type,
+            new_parameter_types,
+            self.purpose,
+            self.version,
+            self.title,
+            self.description,
+        )
+        return new_contract
+
+    def dump(self, target_dir: Union[str, Path]):
+        target_dir = Path(target_dir)
+        target_dir.mkdir(exist_ok=True, parents=True)
+        with (target_dir / &#34;script.cbor&#34;).open(&#34;w&#34;) as fp:
+            fp.write(self.cbor_hex)
+        with (target_dir / &#34;script.plutus&#34;).open(&#34;w&#34;) as fp:
+            fp.write(self.plutus_json)
+        with (target_dir / &#34;script.policy_id&#34;).open(&#34;w&#34;) as fp:
+            fp.write(self.policy_id)
+        with (target_dir / &#34;mainnet.addr&#34;).open(&#34;w&#34;) as fp:
+            fp.write(self.mainnet_addr.encode())
+        with (target_dir / &#34;testnet.addr&#34;).open(&#34;w&#34;) as fp:
+            fp.write(self.testnet_addr.encode())
+        with (target_dir / &#34;blueprint.json&#34;).open(&#34;w&#34;) as fp:
+            json.dump(self.blueprint, fp, indent=2)
+
+
+def compile(
+    program: Module,
+    contract_filename: Optional[str] = None,
+    force_three_params=False,
+    validator_function_name=&#34;validator&#34;,
+    remove_dead_code=True,
+    constant_folding=False,
+    allow_isinstance_anything=False,
+    **pluto_kwargs: Any,
+) -&gt; uplc_ast.Program:
+    code = compiler.compile(
+        program,
+        filename=contract_filename,
+        force_three_params=force_three_params,
+        validator_function_name=validator_function_name,
+        remove_dead_code=remove_dead_code,
+        constant_folding=constant_folding,
+        allow_isinstance_anything=allow_isinstance_anything,
+    )
+    plt_code = plt_compile(code, **pluto_kwargs)
+    return plt_code
+
+
+def _compile(
+    source_code: str,
+    *args: typing.Union[pycardano.Datum, uplc_ast.Constant],
+    contract_file: str = &#34;&lt;unknown&gt;&#34;,
+    force_three_params=False,
+    validator_function_name=&#34;validator&#34;,
+    optimize_patterns=True,
+    remove_dead_code=True,
+    constant_folding=False,
+    allow_isinstance_anything=False,
+):
+    &#34;&#34;&#34;
+    Expects a python module and returns the build artifacts from compiling it
+    &#34;&#34;&#34;
+
+    source_ast = compiler.parse(source_code, filename=contract_file)
+    code = compile(
+        source_ast,
+        contract_filename=contract_file,
+        force_three_params=force_three_params,
+        validator_function_name=validator_function_name,
+        optimize_patterns=optimize_patterns,
+        remove_dead_code=remove_dead_code,
+        constant_folding=constant_folding,
+        allow_isinstance_anything=allow_isinstance_anything,
+    )
+
+    code = _apply_parameters(code, *args)
+    return code
 
 
 def build(
     contract_file: str,
-    *args: pycardano.Datum,
+    *args: typing.Union[pycardano.Datum, uplc_ast.Constant],
     force_three_params=False,
     validator_function_name=&#34;validator&#34;,
+    optimize_patterns=True,
 ):
     &#34;&#34;&#34;
     Expects a python module and returns the build artifacts from compiling it
     &#34;&#34;&#34;
     with open(contract_file) as f:
         source_code = f.read()
-
-    source_ast = compiler.parse(source_code, filename=contract_file)
-    code = compiler.compile(
-        source_ast, filename=contract_file, force_three_params=force_three_params
+    code = _compile(
+        source_code,
+        *args,
+        contract_file=contract_file,
+        force_three_params=force_three_params,
+        validator_function_name=validator_function_name,
+        optimize_patterns=optimize_patterns,
     )
-    code = code.compile()
-
-    # apply parameters from the command line to the contract (instantiates parameterized contract!)
-    code = code.term
-    # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
-    for d in args:
-        code = uplc.ast.Apply(code, uplc.ast.data_from_cbor(datum_to_cbor(d)))
-    code = uplc.ast.Program((1, 0, 0), code)
     return _build(code)
 
 
@@ -123,35 +333,251 @@ def _build(contract: uplc.ast.Program):
     return pycardano.PlutusV2Script(cbor)
 
 
-def generate_artifacts(contract: pycardano.PlutusV2Script):
-    cbor_hex = contract.hex()
-    # double wrap
-    cbor_wrapped = cbor2.dumps(contract)
-    cbor_wrapped_hex = cbor_wrapped.hex()
-    # create plutus file
-    d = {
-        &#34;type&#34;: &#34;PlutusScriptV2&#34;,
-        &#34;description&#34;: f&#34;opshin {__version__} Smart Contract&#34;,
-        &#34;cborHex&#34;: cbor_wrapped_hex,
-    }
-    plutus_json = json.dumps(d, indent=2)
-    script_hash = pycardano.plutus_script_hash(pycardano.PlutusV2Script(contract))
-    policy_id = script_hash.to_primitive().hex()
-    # generate policy ids
-    addr_mainnet = pycardano.Address(
-        script_hash, network=pycardano.Network.MAINNET
-    ).encode()
-    # generate addresses
-    addr_testnet = pycardano.Address(
-        script_hash, network=pycardano.Network.TESTNET
-    ).encode()
-    return ScriptArtifacts(
-        cbor_hex,
-        plutus_json,
-        addr_mainnet,
-        addr_testnet,
-        policy_id,
-    )</code></pre>
+PURPOSE_MAP = {
+    Purpose.any: {&#34;oneOf&#34;: [&#34;spend&#34;, &#34;mint&#34;, &#34;withdraw&#34;, &#34;publish&#34;]},
+    Purpose.spending: &#34;spend&#34;,
+    Purpose.minting: &#34;mint&#34;,
+    Purpose.rewarding: &#34;withdraw&#34;,
+    Purpose.certifying: &#34;publish&#34;,
+}
+
+
+def to_plutus_schema(cls: typing.Type[Datum]) -&gt; dict:
+    &#34;&#34;&#34;
+    Convert to a dictionary representing a json schema according to CIP 57 Plutus Blueprint
+    Reference of the core structure:
+    https://cips.cardano.org/cips/cip57/#corevocabulary
+
+    Args:
+        **kwargs: Extra key word arguments to be passed to `json.dumps()`
+
+    Returns:
+        dict: a dict representing the schema of this class.
+    &#34;&#34;&#34;
+    if hasattr(cls, &#34;__origin__&#34;) and cls.__origin__ is list:
+        return {
+            &#34;dataType&#34;: &#34;list&#34;,
+            **(
+                {&#34;items&#34;: to_plutus_schema(cls.__args__[0])}
+                if hasattr(cls, &#34;__args__&#34;)
+                else {}
+            ),
+        }
+    elif hasattr(cls, &#34;__origin__&#34;) and cls.__origin__ is dict:
+        return {
+            &#34;dataType&#34;: &#34;map&#34;,
+            **(
+                {
+                    &#34;keys&#34;: to_plutus_schema(cls.__args__[0]),
+                    &#34;values&#34;: to_plutus_schema(cls.__args__[1]),
+                }
+                if hasattr(cls, &#34;__args__&#34;)
+                else {}
+            ),
+        }
+    elif hasattr(cls, &#34;__origin__&#34;) and cls.__origin__ is Union:
+        return {
+            &#34;anyOf&#34;: [to_plutus_schema(t) for t in cls.__args__]
+            if hasattr(cls, &#34;__args__&#34;)
+            else []
+        }
+    elif issubclass(cls, PlutusData):
+        fields = []
+        for field_value in cls.__dataclass_fields__.values():
+            if field_value.name == &#34;CONSTR_ID&#34;:
+                continue
+            field_schema = to_plutus_schema(field_value.type)
+            field_schema[&#34;title&#34;] = field_value.name
+            fields.append(field_schema)
+        return {
+            &#34;dataType&#34;: &#34;constructor&#34;,
+            &#34;index&#34;: cls.CONSTR_ID,
+            &#34;fields&#34;: fields,
+            &#34;title&#34;: cls.__name__,
+        }
+    elif issubclass(cls, bytes):
+        return {&#34;dataType&#34;: &#34;bytes&#34;}
+    elif issubclass(cls, int):
+        return {&#34;dataType&#34;: &#34;integer&#34;}
+    elif issubclass(cls, IndefiniteList) or issubclass(cls, list):
+        return {&#34;dataType&#34;: &#34;list&#34;}
+    else:
+        return {}
+
+
+def from_plutus_schema(schema: dict) -&gt; typing.Type[pycardano.Datum]:
+    &#34;&#34;&#34;
+    Convert from a dictionary representing a json schema according to CIP 57 Plutus Blueprint
+    &#34;&#34;&#34;
+    if schema == {}:
+        return pycardano.Datum
+    if &#34;anyOf&#34; in schema:
+        if len(schema[&#34;anyOf&#34;]) == 0:
+            raise ValueError(&#34;Cannot convert empty anyOf schema&#34;)
+        union_t = typing.Union[from_plutus_schema(schema[&#34;anyOf&#34;][0])]
+        for s in schema[&#34;anyOf&#34;][1:]:
+            union_t = typing.Union[union_t, from_plutus_schema(s)]
+        return union_t
+    if &#34;dataType&#34; in schema:
+        typ = schema[&#34;dataType&#34;]
+        if typ == &#34;bytes&#34;:
+            return bytes
+        elif typ == &#34;integer&#34;:
+            return int
+        elif typ == &#34;list&#34;:
+            if &#34;items&#34; in schema:
+                return typing.List[from_plutus_schema(schema[&#34;items&#34;])]
+            else:
+                return typing.List[pycardano.Datum]
+        elif typ == &#34;map&#34;:
+            key_t = (
+                from_plutus_schema(schema[&#34;keys&#34;])
+                if &#34;keys&#34; in schema
+                else pycardano.Datum
+            )
+            value_t = (
+                from_plutus_schema(schema[&#34;values&#34;])
+                if &#34;values&#34; in schema
+                else pycardano.Datum
+            )
+            return typing.Dict[key_t, value_t]
+        elif typ == &#34;constructor&#34;:
+            fields = {}
+            for field in schema[&#34;fields&#34;]:
+                fields[field[&#34;title&#34;]] = from_plutus_schema(field)
+            fields[&#34;CONSTR_ID&#34;] = schema[&#34;index&#34;]
+            return dataclasses.dataclass(
+                type(schema[&#34;title&#34;], (pycardano.PlutusData,), fields)
+            )
+    raise ValueError(f&#34;Cannot read schema (not supported yet) {schema}&#34;)
+
+
+def apply_parameters(script: PlutusV2Script, *args: pycardano.Datum):
+    &#34;&#34;&#34;
+    Expects a plutus script (compiled) and returns the compiled script from applying parameters to it
+    &#34;&#34;&#34;
+    return _build(_apply_parameters(uplc.unflatten(script), *args))
+
+
+def _apply_parameters(script: uplc.ast.Program, *args: pycardano.Datum):
+    &#34;&#34;&#34;
+    Expects a UPLC program and returns the build artifacts from applying parameters to it
+    &#34;&#34;&#34;
+    # apply parameters from the command line to the contract (instantiates parameterized contract!)
+    code = script.term
+    # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+    for d in args:
+        code = uplc.ast.Apply(
+            code,
+            uplc.ast.data_from_cbor(datum_to_cbor(d))
+            if not isinstance(d, uplc_ast.Constant)
+            else d,
+        )
+    code = uplc.ast.Program((1, 0, 0), code)
+    return code
+
+
+def load(contract_path: Union[Path, str]) -&gt; PlutusContract:
+    &#34;&#34;&#34;
+    Load a contract from a file or directory and generate the artifacts
+    &#34;&#34;&#34;
+    if isinstance(contract_path, str):
+        contract_path = Path(contract_path)
+    if contract_path.is_dir():
+        contract_candidates = list(contract_path.iterdir())
+    elif contract_path.is_file():
+        contract_candidates = [contract_path]
+    else:
+        raise ValueError(
+            f&#34;Invalid contract path, is neither file nor directory: {contract_path}&#34;
+        )
+    for contract_file in contract_candidates:
+        with contract_file.open(&#34;r&#34;) as f:
+            contract_content = f.read()
+        # could be a plutus blueprint
+        try:
+            contract = json.loads(contract_content)
+            if &#34;validators&#34; in contract:
+                assert len(contract[&#34;validators&#34;]) == 1, &#34;Only one validator supported&#34;
+                validator = contract[&#34;validators&#34;][0]
+                contract_cbor = PlutusV2Script(bytes.fromhex(validator[&#34;compiledCode&#34;]))
+                datum_type = (
+                    validator[&#34;datum&#34;][&#34;title&#34;],
+                    from_plutus_schema(validator[&#34;datum&#34;][&#34;schema&#34;]),
+                )
+                redeemer_type = (
+                    validator[&#34;redeemer&#34;][&#34;title&#34;],
+                    from_plutus_schema(validator[&#34;redeemer&#34;][&#34;schema&#34;]),
+                )
+                parameter_types = [
+                    (p[&#34;title&#34;], from_plutus_schema(p[&#34;schema&#34;]))
+                    for p in validator[&#34;parameters&#34;]
+                ]
+                if &#34;oneOf&#34; in validator[&#34;redeemer&#34;][&#34;purpose&#34;]:
+                    purpose = [
+                        k
+                        for k, v in PURPOSE_MAP.items()
+                        if v in validator[&#34;redeemer&#34;][&#34;purpose&#34;][&#34;oneOf&#34;]
+                    ]
+                else:
+                    purpose = [
+                        k
+                        for k, v in PURPOSE_MAP.items()
+                        if v == validator[&#34;redeemer&#34;][&#34;purpose&#34;]
+                    ]
+                version = contract[&#34;preamble&#34;].get(&#34;version&#34;)
+                title = contract[&#34;preamble&#34;].get(&#34;title&#34;)
+                description = contract[&#34;preamble&#34;].get(&#34;description&#34;)
+                license = contract[&#34;preamble&#34;].get(&#34;license&#34;)
+                assert (
+                    contract[&#34;preamble&#34;].get(&#34;plutusVersion&#34;) == &#34;v2&#34;
+                ), &#34;Only Plutus V2 supported&#34;
+                return PlutusContract(
+                    contract_cbor,
+                    datum_type,
+                    redeemer_type,
+                    parameter_types,
+                    purpose,
+                    version,
+                    title,
+                    description,
+                    license,
+                )
+        except (ValueError, KeyError) as e:
+            pass
+    contract_cbor = None
+    for contract_file in contract_candidates:
+        with contract_file.open(&#34;r&#34;) as f:
+            contract_content = f.read()
+        # could be a singly wrapped cbor hex
+        try:
+            # try to unwrap to see if it is cbor
+            contract_cbor_unwrapped = cbor2.loads(bytes.fromhex(contract_content))
+            contract_cbor = bytes.fromhex(contract_content)
+            # if we can unwrap again, its doubly wrapped
+            try:
+                cbor2.loads(contract_cbor_unwrapped)
+                contract_cbor = contract_cbor_unwrapped
+            except ValueError:
+                pass
+            break
+        except ValueError:
+            pass
+        # could be a plutus json
+        try:
+            contract = json.loads(contract_content)
+            contract_cbor = cbor2.loads(bytes.fromhex(contract[&#34;cborHex&#34;]))
+        except (ValueError, KeyError):
+            pass
+        # could be uplc
+        try:
+            contract_ast = uplc.parse(contract_content)
+            contract_cbor = uplc.flatten(contract_ast)
+        except:
+            pass
+    if contract_cbor is None:
+        raise ValueError(f&#34;Could not load contract from file {contract_path}&#34;)
+    return PlutusContract(PlutusV2Script(contract_cbor))</code></pre>
 </details>
 </section>
 <section>
@@ -161,8 +587,24 @@ def generate_artifacts(contract: pycardano.PlutusV2Script):
 <section>
 <h2 class="section-title" id="header-functions">Functions</h2>
 <dl>
+<dt id="opshin.builder.apply_parameters"><code class="name flex">
+<span>def <span class="ident">apply_parameters</span></span>(<span>script: pycardano.plutus.PlutusV2Script, *args: Union[pycardano.plutus.PlutusData, dict, int, bytes, pycardano.serialization.IndefiniteList, pycardano.serialization.RawCBOR, pycardano.plutus.RawPlutusData])</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Expects a plutus script (compiled) and returns the compiled script from applying parameters to it</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def apply_parameters(script: PlutusV2Script, *args: pycardano.Datum):
+    &#34;&#34;&#34;
+    Expects a plutus script (compiled) and returns the compiled script from applying parameters to it
+    &#34;&#34;&#34;
+    return _build(_apply_parameters(uplc.unflatten(script), *args))</code></pre>
+</details>
+</dd>
 <dt id="opshin.builder.build"><code class="name flex">
-<span>def <span class="ident">build</span></span>(<span>contract_file: str, *args: Union[pycardano.plutus.PlutusData, dict, int, bytes, pycardano.serialization.IndefiniteList, pycardano.serialization.RawCBOR, pycardano.plutus.RawPlutusData], force_three_params=False, validator_function_name='validator')</span>
+<span>def <span class="ident">build</span></span>(<span>contract_file: str, *args: Union[pycardano.plutus.PlutusData, dict, int, bytes, pycardano.serialization.IndefiniteList, pycardano.serialization.RawCBOR, pycardano.plutus.RawPlutusData, uplc.ast.Constant], force_three_params=False, validator_function_name='validator', optimize_patterns=True)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Expects a python module and returns the build artifacts from compiling it</p></div>
@@ -172,33 +614,29 @@ def generate_artifacts(contract: pycardano.PlutusV2Script):
 </summary>
 <pre><code class="python">def build(
     contract_file: str,
-    *args: pycardano.Datum,
+    *args: typing.Union[pycardano.Datum, uplc_ast.Constant],
     force_three_params=False,
     validator_function_name=&#34;validator&#34;,
+    optimize_patterns=True,
 ):
     &#34;&#34;&#34;
     Expects a python module and returns the build artifacts from compiling it
     &#34;&#34;&#34;
     with open(contract_file) as f:
         source_code = f.read()
-
-    source_ast = compiler.parse(source_code, filename=contract_file)
-    code = compiler.compile(
-        source_ast, filename=contract_file, force_three_params=force_three_params
+    code = _compile(
+        source_code,
+        *args,
+        contract_file=contract_file,
+        force_three_params=force_three_params,
+        validator_function_name=validator_function_name,
+        optimize_patterns=optimize_patterns,
     )
-    code = code.compile()
-
-    # apply parameters from the command line to the contract (instantiates parameterized contract!)
-    code = code.term
-    # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
-    for d in args:
-        code = uplc.ast.Apply(code, uplc.ast.data_from_cbor(datum_to_cbor(d)))
-    code = uplc.ast.Program((1, 0, 0), code)
     return _build(code)</code></pre>
 </details>
 </dd>
-<dt id="opshin.builder.generate_artifacts"><code class="name flex">
-<span>def <span class="ident">generate_artifacts</span></span>(<span>contract: pycardano.plutus.PlutusV2Script)</span>
+<dt id="opshin.builder.compile"><code class="name flex">
+<span>def <span class="ident">compile</span></span>(<span>program: ast.Module, contract_filename: Optional[str] = None, force_three_params=False, validator_function_name='validator', remove_dead_code=True, constant_folding=False, allow_isinstance_anything=False, **pluto_kwargs: Any) ‑> uplc.ast.Program</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -206,35 +644,279 @@ def generate_artifacts(contract: pycardano.PlutusV2Script):
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def generate_artifacts(contract: pycardano.PlutusV2Script):
-    cbor_hex = contract.hex()
-    # double wrap
-    cbor_wrapped = cbor2.dumps(contract)
-    cbor_wrapped_hex = cbor_wrapped.hex()
-    # create plutus file
-    d = {
-        &#34;type&#34;: &#34;PlutusScriptV2&#34;,
-        &#34;description&#34;: f&#34;opshin {__version__} Smart Contract&#34;,
-        &#34;cborHex&#34;: cbor_wrapped_hex,
-    }
-    plutus_json = json.dumps(d, indent=2)
-    script_hash = pycardano.plutus_script_hash(pycardano.PlutusV2Script(contract))
-    policy_id = script_hash.to_primitive().hex()
-    # generate policy ids
-    addr_mainnet = pycardano.Address(
-        script_hash, network=pycardano.Network.MAINNET
-    ).encode()
-    # generate addresses
-    addr_testnet = pycardano.Address(
-        script_hash, network=pycardano.Network.TESTNET
-    ).encode()
-    return ScriptArtifacts(
-        cbor_hex,
-        plutus_json,
-        addr_mainnet,
-        addr_testnet,
-        policy_id,
-    )</code></pre>
+<pre><code class="python">def compile(
+    program: Module,
+    contract_filename: Optional[str] = None,
+    force_three_params=False,
+    validator_function_name=&#34;validator&#34;,
+    remove_dead_code=True,
+    constant_folding=False,
+    allow_isinstance_anything=False,
+    **pluto_kwargs: Any,
+) -&gt; uplc_ast.Program:
+    code = compiler.compile(
+        program,
+        filename=contract_filename,
+        force_three_params=force_three_params,
+        validator_function_name=validator_function_name,
+        remove_dead_code=remove_dead_code,
+        constant_folding=constant_folding,
+        allow_isinstance_anything=allow_isinstance_anything,
+    )
+    plt_code = plt_compile(code, **pluto_kwargs)
+    return plt_code</code></pre>
+</details>
+</dd>
+<dt id="opshin.builder.from_plutus_schema"><code class="name flex">
+<span>def <span class="ident">from_plutus_schema</span></span>(<span>schema: dict) ‑> Type[Union[pycardano.plutus.PlutusData, dict, int, bytes, pycardano.serialization.IndefiniteList, pycardano.serialization.RawCBOR, pycardano.plutus.RawPlutusData]]</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Convert from a dictionary representing a json schema according to CIP 57 Plutus Blueprint</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def from_plutus_schema(schema: dict) -&gt; typing.Type[pycardano.Datum]:
+    &#34;&#34;&#34;
+    Convert from a dictionary representing a json schema according to CIP 57 Plutus Blueprint
+    &#34;&#34;&#34;
+    if schema == {}:
+        return pycardano.Datum
+    if &#34;anyOf&#34; in schema:
+        if len(schema[&#34;anyOf&#34;]) == 0:
+            raise ValueError(&#34;Cannot convert empty anyOf schema&#34;)
+        union_t = typing.Union[from_plutus_schema(schema[&#34;anyOf&#34;][0])]
+        for s in schema[&#34;anyOf&#34;][1:]:
+            union_t = typing.Union[union_t, from_plutus_schema(s)]
+        return union_t
+    if &#34;dataType&#34; in schema:
+        typ = schema[&#34;dataType&#34;]
+        if typ == &#34;bytes&#34;:
+            return bytes
+        elif typ == &#34;integer&#34;:
+            return int
+        elif typ == &#34;list&#34;:
+            if &#34;items&#34; in schema:
+                return typing.List[from_plutus_schema(schema[&#34;items&#34;])]
+            else:
+                return typing.List[pycardano.Datum]
+        elif typ == &#34;map&#34;:
+            key_t = (
+                from_plutus_schema(schema[&#34;keys&#34;])
+                if &#34;keys&#34; in schema
+                else pycardano.Datum
+            )
+            value_t = (
+                from_plutus_schema(schema[&#34;values&#34;])
+                if &#34;values&#34; in schema
+                else pycardano.Datum
+            )
+            return typing.Dict[key_t, value_t]
+        elif typ == &#34;constructor&#34;:
+            fields = {}
+            for field in schema[&#34;fields&#34;]:
+                fields[field[&#34;title&#34;]] = from_plutus_schema(field)
+            fields[&#34;CONSTR_ID&#34;] = schema[&#34;index&#34;]
+            return dataclasses.dataclass(
+                type(schema[&#34;title&#34;], (pycardano.PlutusData,), fields)
+            )
+    raise ValueError(f&#34;Cannot read schema (not supported yet) {schema}&#34;)</code></pre>
+</details>
+</dd>
+<dt id="opshin.builder.load"><code class="name flex">
+<span>def <span class="ident">load</span></span>(<span>contract_path: Union[pathlib.Path, str]) ‑> <a title="opshin.builder.PlutusContract" href="#opshin.builder.PlutusContract">PlutusContract</a></span>
+</code></dt>
+<dd>
+<div class="desc"><p>Load a contract from a file or directory and generate the artifacts</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def load(contract_path: Union[Path, str]) -&gt; PlutusContract:
+    &#34;&#34;&#34;
+    Load a contract from a file or directory and generate the artifacts
+    &#34;&#34;&#34;
+    if isinstance(contract_path, str):
+        contract_path = Path(contract_path)
+    if contract_path.is_dir():
+        contract_candidates = list(contract_path.iterdir())
+    elif contract_path.is_file():
+        contract_candidates = [contract_path]
+    else:
+        raise ValueError(
+            f&#34;Invalid contract path, is neither file nor directory: {contract_path}&#34;
+        )
+    for contract_file in contract_candidates:
+        with contract_file.open(&#34;r&#34;) as f:
+            contract_content = f.read()
+        # could be a plutus blueprint
+        try:
+            contract = json.loads(contract_content)
+            if &#34;validators&#34; in contract:
+                assert len(contract[&#34;validators&#34;]) == 1, &#34;Only one validator supported&#34;
+                validator = contract[&#34;validators&#34;][0]
+                contract_cbor = PlutusV2Script(bytes.fromhex(validator[&#34;compiledCode&#34;]))
+                datum_type = (
+                    validator[&#34;datum&#34;][&#34;title&#34;],
+                    from_plutus_schema(validator[&#34;datum&#34;][&#34;schema&#34;]),
+                )
+                redeemer_type = (
+                    validator[&#34;redeemer&#34;][&#34;title&#34;],
+                    from_plutus_schema(validator[&#34;redeemer&#34;][&#34;schema&#34;]),
+                )
+                parameter_types = [
+                    (p[&#34;title&#34;], from_plutus_schema(p[&#34;schema&#34;]))
+                    for p in validator[&#34;parameters&#34;]
+                ]
+                if &#34;oneOf&#34; in validator[&#34;redeemer&#34;][&#34;purpose&#34;]:
+                    purpose = [
+                        k
+                        for k, v in PURPOSE_MAP.items()
+                        if v in validator[&#34;redeemer&#34;][&#34;purpose&#34;][&#34;oneOf&#34;]
+                    ]
+                else:
+                    purpose = [
+                        k
+                        for k, v in PURPOSE_MAP.items()
+                        if v == validator[&#34;redeemer&#34;][&#34;purpose&#34;]
+                    ]
+                version = contract[&#34;preamble&#34;].get(&#34;version&#34;)
+                title = contract[&#34;preamble&#34;].get(&#34;title&#34;)
+                description = contract[&#34;preamble&#34;].get(&#34;description&#34;)
+                license = contract[&#34;preamble&#34;].get(&#34;license&#34;)
+                assert (
+                    contract[&#34;preamble&#34;].get(&#34;plutusVersion&#34;) == &#34;v2&#34;
+                ), &#34;Only Plutus V2 supported&#34;
+                return PlutusContract(
+                    contract_cbor,
+                    datum_type,
+                    redeemer_type,
+                    parameter_types,
+                    purpose,
+                    version,
+                    title,
+                    description,
+                    license,
+                )
+        except (ValueError, KeyError) as e:
+            pass
+    contract_cbor = None
+    for contract_file in contract_candidates:
+        with contract_file.open(&#34;r&#34;) as f:
+            contract_content = f.read()
+        # could be a singly wrapped cbor hex
+        try:
+            # try to unwrap to see if it is cbor
+            contract_cbor_unwrapped = cbor2.loads(bytes.fromhex(contract_content))
+            contract_cbor = bytes.fromhex(contract_content)
+            # if we can unwrap again, its doubly wrapped
+            try:
+                cbor2.loads(contract_cbor_unwrapped)
+                contract_cbor = contract_cbor_unwrapped
+            except ValueError:
+                pass
+            break
+        except ValueError:
+            pass
+        # could be a plutus json
+        try:
+            contract = json.loads(contract_content)
+            contract_cbor = cbor2.loads(bytes.fromhex(contract[&#34;cborHex&#34;]))
+        except (ValueError, KeyError):
+            pass
+        # could be uplc
+        try:
+            contract_ast = uplc.parse(contract_content)
+            contract_cbor = uplc.flatten(contract_ast)
+        except:
+            pass
+    if contract_cbor is None:
+        raise ValueError(f&#34;Could not load contract from file {contract_path}&#34;)
+    return PlutusContract(PlutusV2Script(contract_cbor))</code></pre>
+</details>
+</dd>
+<dt id="opshin.builder.to_plutus_schema"><code class="name flex">
+<span>def <span class="ident">to_plutus_schema</span></span>(<span>cls: Type[Union[pycardano.plutus.PlutusData, dict, int, bytes, pycardano.serialization.IndefiniteList, pycardano.serialization.RawCBOR, pycardano.plutus.RawPlutusData]]) ‑> dict</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Convert to a dictionary representing a json schema according to CIP 57 Plutus Blueprint
+Reference of the core structure:
+<a href="https://cips.cardano.org/cips/cip57/#corevocabulary">https://cips.cardano.org/cips/cip57/#corevocabulary</a></p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>**kwargs</code></strong></dt>
+<dd>Extra key word arguments to be passed to <code>json.dumps()</code></dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>dict</code></dt>
+<dd>a dict representing the schema of this class.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def to_plutus_schema(cls: typing.Type[Datum]) -&gt; dict:
+    &#34;&#34;&#34;
+    Convert to a dictionary representing a json schema according to CIP 57 Plutus Blueprint
+    Reference of the core structure:
+    https://cips.cardano.org/cips/cip57/#corevocabulary
+
+    Args:
+        **kwargs: Extra key word arguments to be passed to `json.dumps()`
+
+    Returns:
+        dict: a dict representing the schema of this class.
+    &#34;&#34;&#34;
+    if hasattr(cls, &#34;__origin__&#34;) and cls.__origin__ is list:
+        return {
+            &#34;dataType&#34;: &#34;list&#34;,
+            **(
+                {&#34;items&#34;: to_plutus_schema(cls.__args__[0])}
+                if hasattr(cls, &#34;__args__&#34;)
+                else {}
+            ),
+        }
+    elif hasattr(cls, &#34;__origin__&#34;) and cls.__origin__ is dict:
+        return {
+            &#34;dataType&#34;: &#34;map&#34;,
+            **(
+                {
+                    &#34;keys&#34;: to_plutus_schema(cls.__args__[0]),
+                    &#34;values&#34;: to_plutus_schema(cls.__args__[1]),
+                }
+                if hasattr(cls, &#34;__args__&#34;)
+                else {}
+            ),
+        }
+    elif hasattr(cls, &#34;__origin__&#34;) and cls.__origin__ is Union:
+        return {
+            &#34;anyOf&#34;: [to_plutus_schema(t) for t in cls.__args__]
+            if hasattr(cls, &#34;__args__&#34;)
+            else []
+        }
+    elif issubclass(cls, PlutusData):
+        fields = []
+        for field_value in cls.__dataclass_fields__.values():
+            if field_value.name == &#34;CONSTR_ID&#34;:
+                continue
+            field_schema = to_plutus_schema(field_value.type)
+            field_schema[&#34;title&#34;] = field_value.name
+            fields.append(field_schema)
+        return {
+            &#34;dataType&#34;: &#34;constructor&#34;,
+            &#34;index&#34;: cls.CONSTR_ID,
+            &#34;fields&#34;: fields,
+            &#34;title&#34;: cls.__name__,
+        }
+    elif issubclass(cls, bytes):
+        return {&#34;dataType&#34;: &#34;bytes&#34;}
+    elif issubclass(cls, int):
+        return {&#34;dataType&#34;: &#34;integer&#34;}
+    elif issubclass(cls, IndefiniteList) or issubclass(cls, list):
+        return {&#34;dataType&#34;: &#34;list&#34;}
+    else:
+        return {}</code></pre>
 </details>
 </dd>
 </dl>
@@ -242,43 +924,475 @@ def generate_artifacts(contract: pycardano.PlutusV2Script):
 <section>
 <h2 class="section-title" id="header-classes">Classes</h2>
 <dl>
-<dt id="opshin.builder.ScriptArtifacts"><code class="flex name class">
-<span>class <span class="ident">ScriptArtifacts</span></span>
-<span>(</span><span>cbor_hex: str, plutus_json: str, mainnet_addr: str, testnet_addr: str, policy_id: str)</span>
+<dt id="opshin.builder.PlutusContract"><code class="flex name class">
+<span>class <span class="ident">PlutusContract</span></span>
+<span>(</span><span>contract: pycardano.plutus.PlutusV2Script, datum_type: Optional[Tuple[str, Type[Union[pycardano.plutus.PlutusData, dict, int, bytes, pycardano.serialization.IndefiniteList, pycardano.serialization.RawCBOR, pycardano.plutus.RawPlutusData]]]] = None, redeemer_type: Optional[Tuple[str, Type[Union[pycardano.plutus.PlutusData, dict, int, bytes, pycardano.serialization.IndefiniteList, pycardano.serialization.RawCBOR, pycardano.plutus.RawPlutusData]]]] = None, parameter_types: List[Tuple[str, Type[Union[pycardano.plutus.PlutusData, dict, int, bytes, pycardano.serialization.IndefiniteList, pycardano.serialization.RawCBOR, pycardano.plutus.RawPlutusData]]]] = &lt;factory&gt;, purpose: Iterable[<a title="opshin.builder.Purpose" href="#opshin.builder.Purpose">Purpose</a>] = (&lt;Purpose.any: &#x27;any&#x27;&gt;,), version: Optional[str] = '1.0.0', title: str = 'validator', description: Optional[str] = 'opshin 0.17.0 Smart Contract', license: Optional[str] = None)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>ScriptArtifacts(cbor_hex: str, plutus_json: str, mainnet_addr: str, testnet_addr: str, policy_id: str)</p></div>
+<div class="desc"><p>PlutusContract(contract: pycardano.plutus.PlutusV2Script, datum_type: Optional[Tuple[str, Type[Union[pycardano.plutus.PlutusData, dict, int, bytes, pycardano.serialization.IndefiniteList, pycardano.serialization.RawCBOR, pycardano.plutus.RawPlutusData]]]] = None, redeemer_type: Optional[Tuple[str, Type[Union[pycardano.plutus.PlutusData, dict, int, bytes, pycardano.serialization.IndefiniteList, pycardano.serialization.RawCBOR, pycardano.plutus.RawPlutusData]]]] = None, parameter_types: List[Tuple[str, Type[Union[pycardano.plutus.PlutusData, dict, int, bytes, pycardano.serialization.IndefiniteList, pycardano.serialization.RawCBOR, pycardano.plutus.RawPlutusData]]]] = <factory>, purpose: Iterable[opshin.builder.Purpose] = (<Purpose.any: 'any'>,), version: Optional[str] = '1.0.0', title: str = 'validator', description: Optional[str] = 'opshin 0.17.0 Smart Contract', license: Optional[str] = None)</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">@dataclasses.dataclass
-class ScriptArtifacts:
-    cbor_hex: str
-    plutus_json: str
-    mainnet_addr: str
-    testnet_addr: str
-    policy_id: str</code></pre>
+class PlutusContract:
+    contract: PlutusV2Script
+    datum_type: Optional[typing.Tuple[str, typing.Type[Datum]]] = None
+    redeemer_type: Optional[typing.Tuple[str, typing.Type[Datum]]] = None
+    parameter_types: typing.List[
+        typing.Tuple[str, typing.Type[Datum]]
+    ] = dataclasses.field(default_factory=list)
+    purpose: typing.Iterable[Purpose] = (Purpose.any,)
+    version: Optional[str] = &#34;1.0.0&#34;
+    title: str = &#34;validator&#34;
+    description: Optional[str] = f&#34;opshin {__version__} Smart Contract&#34;
+    license: Optional[str] = None
+
+    @property
+    def cbor(self) -&gt; bytes:
+        return self.contract
+
+    @property
+    def cbor_hex(self) -&gt; str:
+        return self.contract.hex()
+
+    @property
+    def script_hash(self):
+        return pycardano.plutus_script_hash(self.contract)
+
+    @property
+    def policy_id(self):
+        return self.script_hash.to_primitive().hex()
+
+    @property
+    def mainnet_addr(self):
+        return pycardano.Address(self.script_hash, network=pycardano.Network.MAINNET)
+
+    @property
+    def testnet_addr(self):
+        return pycardano.Address(self.script_hash, network=pycardano.Network.TESTNET)
+
+    @property
+    def plutus_json(self):
+        return json.dumps(
+            {
+                &#34;type&#34;: &#34;PlutusScriptV2&#34;,
+                &#34;description&#34;: self.description,
+                &#34;cborHex&#34;: self.cbor_hex,
+            },
+            indent=2,
+        )
+
+    @property
+    def blueprint(self):
+        return {
+            &#34;$schema&#34;: &#34;https://cips.cardano.org/cips/cip57/schemas/plutus-blueprint.json&#34;,
+            &#34;$id&#34;: &#34;https://github.com/aiken-lang/aiken/blob/main/examples/hello_world/plutus.json&#34;,
+            &#34;$vocabulary&#34;: {
+                &#34;https://json-schema.org/draft/2020-12/vocab/core&#34;: True,
+                &#34;https://json-schema.org/draft/2020-12/vocab/applicator&#34;: True,
+                &#34;https://json-schema.org/draft/2020-12/vocab/validation&#34;: True,
+                &#34;https://cips.cardano.org/cips/cip57&#34;: True,
+            },
+            &#34;preamble&#34;: {
+                &#34;version&#34;: self.version,
+                &#34;plutusVersion&#34;: &#34;v2&#34;,
+                &#34;description&#34;: self.description,
+                &#34;title&#34;: self.title,
+                **({&#34;license&#34;: self.license} if self.license is not None else {}),
+            },
+            &#34;validators&#34;: [
+                {
+                    &#34;title&#34;: self.title,
+                    **(
+                        {
+                            &#34;datum&#34;: {
+                                &#34;title&#34;: self.datum_type[0],
+                                &#34;purpose&#34;: PURPOSE_MAP[Purpose.spending],
+                                &#34;schema&#34;: to_plutus_schema(self.datum_type[1]),
+                            }
+                        }
+                        if self.datum_type is not None
+                        else {}
+                    ),
+                    &#34;redeemer&#34;: {
+                        &#34;title&#34;: self.redeemer_type[0],
+                        &#34;purpose&#34;: {&#34;oneOf&#34;: [PURPOSE_MAP[p] for p in self.purpose]},
+                        &#34;schema&#34;: to_plutus_schema(self.redeemer_type[1]),
+                    }
+                    if self.redeemer_type is not None
+                    else {},
+                    **(
+                        {
+                            &#34;parameters&#34;: [
+                                {
+                                    &#34;title&#34;: t[0],
+                                    &#34;purpose&#34;: PURPOSE_MAP[Purpose.spending],
+                                    &#34;schema&#34;: to_plutus_schema(t[1]),
+                                }
+                                for t in self.parameter_types
+                            ]
+                        }
+                        if self.parameter_types
+                        else {}
+                    ),
+                    &#34;compiledCode&#34;: self.cbor_hex,
+                    &#34;hash&#34;: self.policy_id,
+                },
+            ],
+        }
+
+    def apply_parameter(self, *args: pycardano.Datum):
+        &#34;&#34;&#34;
+        Returns a new OpShin Contract with the applied parameters
+        &#34;&#34;&#34;
+        # update the parameters in the blueprint (remove applied parameters)
+        assert len(self.parameter_types) &gt;= len(
+            args
+        ), f&#34;Applying too many parameters to contract, allowed amount: {self.parameter_types}, but got {len(args)}&#34;
+        new_parameter_types = copy.copy(self.parameter_types)
+        for _ in args:
+            # TODO validate that the applied parameters are of the correct type
+            new_parameter_types.pop(0)
+        new_contract_contract = apply_parameters(self.contract, *args)
+        new_contract = PlutusContract(
+            new_contract_contract,
+            self.datum_type,
+            self.redeemer_type,
+            new_parameter_types,
+            self.purpose,
+            self.version,
+            self.title,
+            self.description,
+        )
+        return new_contract
+
+    def dump(self, target_dir: Union[str, Path]):
+        target_dir = Path(target_dir)
+        target_dir.mkdir(exist_ok=True, parents=True)
+        with (target_dir / &#34;script.cbor&#34;).open(&#34;w&#34;) as fp:
+            fp.write(self.cbor_hex)
+        with (target_dir / &#34;script.plutus&#34;).open(&#34;w&#34;) as fp:
+            fp.write(self.plutus_json)
+        with (target_dir / &#34;script.policy_id&#34;).open(&#34;w&#34;) as fp:
+            fp.write(self.policy_id)
+        with (target_dir / &#34;mainnet.addr&#34;).open(&#34;w&#34;) as fp:
+            fp.write(self.mainnet_addr.encode())
+        with (target_dir / &#34;testnet.addr&#34;).open(&#34;w&#34;) as fp:
+            fp.write(self.testnet_addr.encode())
+        with (target_dir / &#34;blueprint.json&#34;).open(&#34;w&#34;) as fp:
+            json.dump(self.blueprint, fp, indent=2)</code></pre>
 </details>
 <h3>Class variables</h3>
 <dl>
-<dt id="opshin.builder.ScriptArtifacts.cbor_hex"><code class="name">var <span class="ident">cbor_hex</span> : str</code></dt>
+<dt id="opshin.builder.PlutusContract.contract"><code class="name">var <span class="ident">contract</span> : pycardano.plutus.PlutusV2Script</code></dt>
 <dd>
 <div class="desc"></div>
 </dd>
-<dt id="opshin.builder.ScriptArtifacts.mainnet_addr"><code class="name">var <span class="ident">mainnet_addr</span> : str</code></dt>
+<dt id="opshin.builder.PlutusContract.datum_type"><code class="name">var <span class="ident">datum_type</span> : Optional[Tuple[str, Type[Union[pycardano.plutus.PlutusData, dict, int, bytes, pycardano.serialization.IndefiniteList, pycardano.serialization.RawCBOR, pycardano.plutus.RawPlutusData]]]]</code></dt>
 <dd>
 <div class="desc"></div>
 </dd>
-<dt id="opshin.builder.ScriptArtifacts.plutus_json"><code class="name">var <span class="ident">plutus_json</span> : str</code></dt>
+<dt id="opshin.builder.PlutusContract.description"><code class="name">var <span class="ident">description</span> : Optional[str]</code></dt>
 <dd>
 <div class="desc"></div>
 </dd>
-<dt id="opshin.builder.ScriptArtifacts.policy_id"><code class="name">var <span class="ident">policy_id</span> : str</code></dt>
+<dt id="opshin.builder.PlutusContract.license"><code class="name">var <span class="ident">license</span> : Optional[str]</code></dt>
 <dd>
 <div class="desc"></div>
 </dd>
-<dt id="opshin.builder.ScriptArtifacts.testnet_addr"><code class="name">var <span class="ident">testnet_addr</span> : str</code></dt>
+<dt id="opshin.builder.PlutusContract.parameter_types"><code class="name">var <span class="ident">parameter_types</span> : List[Tuple[str, Type[Union[pycardano.plutus.PlutusData, dict, int, bytes, pycardano.serialization.IndefiniteList, pycardano.serialization.RawCBOR, pycardano.plutus.RawPlutusData]]]]</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="opshin.builder.PlutusContract.purpose"><code class="name">var <span class="ident">purpose</span> : Iterable[<a title="opshin.builder.Purpose" href="#opshin.builder.Purpose">Purpose</a>]</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="opshin.builder.PlutusContract.redeemer_type"><code class="name">var <span class="ident">redeemer_type</span> : Optional[Tuple[str, Type[Union[pycardano.plutus.PlutusData, dict, int, bytes, pycardano.serialization.IndefiniteList, pycardano.serialization.RawCBOR, pycardano.plutus.RawPlutusData]]]]</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="opshin.builder.PlutusContract.title"><code class="name">var <span class="ident">title</span> : str</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="opshin.builder.PlutusContract.version"><code class="name">var <span class="ident">version</span> : Optional[str]</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+</dl>
+<h3>Instance variables</h3>
+<dl>
+<dt id="opshin.builder.PlutusContract.blueprint"><code class="name">var <span class="ident">blueprint</span></code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def blueprint(self):
+    return {
+        &#34;$schema&#34;: &#34;https://cips.cardano.org/cips/cip57/schemas/plutus-blueprint.json&#34;,
+        &#34;$id&#34;: &#34;https://github.com/aiken-lang/aiken/blob/main/examples/hello_world/plutus.json&#34;,
+        &#34;$vocabulary&#34;: {
+            &#34;https://json-schema.org/draft/2020-12/vocab/core&#34;: True,
+            &#34;https://json-schema.org/draft/2020-12/vocab/applicator&#34;: True,
+            &#34;https://json-schema.org/draft/2020-12/vocab/validation&#34;: True,
+            &#34;https://cips.cardano.org/cips/cip57&#34;: True,
+        },
+        &#34;preamble&#34;: {
+            &#34;version&#34;: self.version,
+            &#34;plutusVersion&#34;: &#34;v2&#34;,
+            &#34;description&#34;: self.description,
+            &#34;title&#34;: self.title,
+            **({&#34;license&#34;: self.license} if self.license is not None else {}),
+        },
+        &#34;validators&#34;: [
+            {
+                &#34;title&#34;: self.title,
+                **(
+                    {
+                        &#34;datum&#34;: {
+                            &#34;title&#34;: self.datum_type[0],
+                            &#34;purpose&#34;: PURPOSE_MAP[Purpose.spending],
+                            &#34;schema&#34;: to_plutus_schema(self.datum_type[1]),
+                        }
+                    }
+                    if self.datum_type is not None
+                    else {}
+                ),
+                &#34;redeemer&#34;: {
+                    &#34;title&#34;: self.redeemer_type[0],
+                    &#34;purpose&#34;: {&#34;oneOf&#34;: [PURPOSE_MAP[p] for p in self.purpose]},
+                    &#34;schema&#34;: to_plutus_schema(self.redeemer_type[1]),
+                }
+                if self.redeemer_type is not None
+                else {},
+                **(
+                    {
+                        &#34;parameters&#34;: [
+                            {
+                                &#34;title&#34;: t[0],
+                                &#34;purpose&#34;: PURPOSE_MAP[Purpose.spending],
+                                &#34;schema&#34;: to_plutus_schema(t[1]),
+                            }
+                            for t in self.parameter_types
+                        ]
+                    }
+                    if self.parameter_types
+                    else {}
+                ),
+                &#34;compiledCode&#34;: self.cbor_hex,
+                &#34;hash&#34;: self.policy_id,
+            },
+        ],
+    }</code></pre>
+</details>
+</dd>
+<dt id="opshin.builder.PlutusContract.cbor"><code class="name">var <span class="ident">cbor</span> : bytes</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def cbor(self) -&gt; bytes:
+    return self.contract</code></pre>
+</details>
+</dd>
+<dt id="opshin.builder.PlutusContract.cbor_hex"><code class="name">var <span class="ident">cbor_hex</span> : str</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def cbor_hex(self) -&gt; str:
+    return self.contract.hex()</code></pre>
+</details>
+</dd>
+<dt id="opshin.builder.PlutusContract.mainnet_addr"><code class="name">var <span class="ident">mainnet_addr</span></code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def mainnet_addr(self):
+    return pycardano.Address(self.script_hash, network=pycardano.Network.MAINNET)</code></pre>
+</details>
+</dd>
+<dt id="opshin.builder.PlutusContract.plutus_json"><code class="name">var <span class="ident">plutus_json</span></code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def plutus_json(self):
+    return json.dumps(
+        {
+            &#34;type&#34;: &#34;PlutusScriptV2&#34;,
+            &#34;description&#34;: self.description,
+            &#34;cborHex&#34;: self.cbor_hex,
+        },
+        indent=2,
+    )</code></pre>
+</details>
+</dd>
+<dt id="opshin.builder.PlutusContract.policy_id"><code class="name">var <span class="ident">policy_id</span></code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def policy_id(self):
+    return self.script_hash.to_primitive().hex()</code></pre>
+</details>
+</dd>
+<dt id="opshin.builder.PlutusContract.script_hash"><code class="name">var <span class="ident">script_hash</span></code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def script_hash(self):
+    return pycardano.plutus_script_hash(self.contract)</code></pre>
+</details>
+</dd>
+<dt id="opshin.builder.PlutusContract.testnet_addr"><code class="name">var <span class="ident">testnet_addr</span></code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def testnet_addr(self):
+    return pycardano.Address(self.script_hash, network=pycardano.Network.TESTNET)</code></pre>
+</details>
+</dd>
+</dl>
+<h3>Methods</h3>
+<dl>
+<dt id="opshin.builder.PlutusContract.apply_parameter"><code class="name flex">
+<span>def <span class="ident">apply_parameter</span></span>(<span>self, *args: Union[pycardano.plutus.PlutusData, dict, int, bytes, pycardano.serialization.IndefiniteList, pycardano.serialization.RawCBOR, pycardano.plutus.RawPlutusData])</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Returns a new OpShin Contract with the applied parameters</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def apply_parameter(self, *args: pycardano.Datum):
+    &#34;&#34;&#34;
+    Returns a new OpShin Contract with the applied parameters
+    &#34;&#34;&#34;
+    # update the parameters in the blueprint (remove applied parameters)
+    assert len(self.parameter_types) &gt;= len(
+        args
+    ), f&#34;Applying too many parameters to contract, allowed amount: {self.parameter_types}, but got {len(args)}&#34;
+    new_parameter_types = copy.copy(self.parameter_types)
+    for _ in args:
+        # TODO validate that the applied parameters are of the correct type
+        new_parameter_types.pop(0)
+    new_contract_contract = apply_parameters(self.contract, *args)
+    new_contract = PlutusContract(
+        new_contract_contract,
+        self.datum_type,
+        self.redeemer_type,
+        new_parameter_types,
+        self.purpose,
+        self.version,
+        self.title,
+        self.description,
+    )
+    return new_contract</code></pre>
+</details>
+</dd>
+<dt id="opshin.builder.PlutusContract.dump"><code class="name flex">
+<span>def <span class="ident">dump</span></span>(<span>self, target_dir: Union[pathlib.Path, str])</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def dump(self, target_dir: Union[str, Path]):
+    target_dir = Path(target_dir)
+    target_dir.mkdir(exist_ok=True, parents=True)
+    with (target_dir / &#34;script.cbor&#34;).open(&#34;w&#34;) as fp:
+        fp.write(self.cbor_hex)
+    with (target_dir / &#34;script.plutus&#34;).open(&#34;w&#34;) as fp:
+        fp.write(self.plutus_json)
+    with (target_dir / &#34;script.policy_id&#34;).open(&#34;w&#34;) as fp:
+        fp.write(self.policy_id)
+    with (target_dir / &#34;mainnet.addr&#34;).open(&#34;w&#34;) as fp:
+        fp.write(self.mainnet_addr.encode())
+    with (target_dir / &#34;testnet.addr&#34;).open(&#34;w&#34;) as fp:
+        fp.write(self.testnet_addr.encode())
+    with (target_dir / &#34;blueprint.json&#34;).open(&#34;w&#34;) as fp:
+        json.dump(self.blueprint, fp, indent=2)</code></pre>
+</details>
+</dd>
+</dl>
+</dd>
+<dt id="opshin.builder.Purpose"><code class="flex name class">
+<span>class <span class="ident">Purpose</span></span>
+<span>(</span><span>value, names=None, *, module=None, qualname=None, type=None, start=1)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>An enumeration.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class Purpose(enum.Enum):
+    spending = &#34;spending&#34;
+    minting = &#34;minting&#34;
+    rewarding = &#34;rewarding&#34;
+    certifying = &#34;certifying&#34;
+    any = &#34;any&#34;
+    lib = &#34;lib&#34;</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li>enum.Enum</li>
+</ul>
+<h3>Class variables</h3>
+<dl>
+<dt id="opshin.builder.Purpose.any"><code class="name">var <span class="ident">any</span></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="opshin.builder.Purpose.certifying"><code class="name">var <span class="ident">certifying</span></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="opshin.builder.Purpose.lib"><code class="name">var <span class="ident">lib</span></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="opshin.builder.Purpose.minting"><code class="name">var <span class="ident">minting</span></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="opshin.builder.Purpose.rewarding"><code class="name">var <span class="ident">rewarding</span></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="opshin.builder.Purpose.spending"><code class="name">var <span class="ident">spending</span></code></dt>
 <dd>
 <div class="desc"></div>
 </dd>
@@ -352,21 +1466,50 @@ setTimeout(() => input.focus(), 100);
 </ul>
 </li>
 <li><h3><a href="#header-functions">Functions</a></h3>
-<ul class="">
+<ul class="two-column">
+<li><code><a title="opshin.builder.apply_parameters" href="#opshin.builder.apply_parameters">apply_parameters</a></code></li>
 <li><code><a title="opshin.builder.build" href="#opshin.builder.build">build</a></code></li>
-<li><code><a title="opshin.builder.generate_artifacts" href="#opshin.builder.generate_artifacts">generate_artifacts</a></code></li>
+<li><code><a title="opshin.builder.compile" href="#opshin.builder.compile">compile</a></code></li>
+<li><code><a title="opshin.builder.from_plutus_schema" href="#opshin.builder.from_plutus_schema">from_plutus_schema</a></code></li>
+<li><code><a title="opshin.builder.load" href="#opshin.builder.load">load</a></code></li>
+<li><code><a title="opshin.builder.to_plutus_schema" href="#opshin.builder.to_plutus_schema">to_plutus_schema</a></code></li>
 </ul>
 </li>
 <li><h3><a href="#header-classes">Classes</a></h3>
 <ul>
 <li>
-<h4><code><a title="opshin.builder.ScriptArtifacts" href="#opshin.builder.ScriptArtifacts">ScriptArtifacts</a></code></h4>
-<ul class="">
-<li><code><a title="opshin.builder.ScriptArtifacts.cbor_hex" href="#opshin.builder.ScriptArtifacts.cbor_hex">cbor_hex</a></code></li>
-<li><code><a title="opshin.builder.ScriptArtifacts.mainnet_addr" href="#opshin.builder.ScriptArtifacts.mainnet_addr">mainnet_addr</a></code></li>
-<li><code><a title="opshin.builder.ScriptArtifacts.plutus_json" href="#opshin.builder.ScriptArtifacts.plutus_json">plutus_json</a></code></li>
-<li><code><a title="opshin.builder.ScriptArtifacts.policy_id" href="#opshin.builder.ScriptArtifacts.policy_id">policy_id</a></code></li>
-<li><code><a title="opshin.builder.ScriptArtifacts.testnet_addr" href="#opshin.builder.ScriptArtifacts.testnet_addr">testnet_addr</a></code></li>
+<h4><code><a title="opshin.builder.PlutusContract" href="#opshin.builder.PlutusContract">PlutusContract</a></code></h4>
+<ul class="two-column">
+<li><code><a title="opshin.builder.PlutusContract.apply_parameter" href="#opshin.builder.PlutusContract.apply_parameter">apply_parameter</a></code></li>
+<li><code><a title="opshin.builder.PlutusContract.blueprint" href="#opshin.builder.PlutusContract.blueprint">blueprint</a></code></li>
+<li><code><a title="opshin.builder.PlutusContract.cbor" href="#opshin.builder.PlutusContract.cbor">cbor</a></code></li>
+<li><code><a title="opshin.builder.PlutusContract.cbor_hex" href="#opshin.builder.PlutusContract.cbor_hex">cbor_hex</a></code></li>
+<li><code><a title="opshin.builder.PlutusContract.contract" href="#opshin.builder.PlutusContract.contract">contract</a></code></li>
+<li><code><a title="opshin.builder.PlutusContract.datum_type" href="#opshin.builder.PlutusContract.datum_type">datum_type</a></code></li>
+<li><code><a title="opshin.builder.PlutusContract.description" href="#opshin.builder.PlutusContract.description">description</a></code></li>
+<li><code><a title="opshin.builder.PlutusContract.dump" href="#opshin.builder.PlutusContract.dump">dump</a></code></li>
+<li><code><a title="opshin.builder.PlutusContract.license" href="#opshin.builder.PlutusContract.license">license</a></code></li>
+<li><code><a title="opshin.builder.PlutusContract.mainnet_addr" href="#opshin.builder.PlutusContract.mainnet_addr">mainnet_addr</a></code></li>
+<li><code><a title="opshin.builder.PlutusContract.parameter_types" href="#opshin.builder.PlutusContract.parameter_types">parameter_types</a></code></li>
+<li><code><a title="opshin.builder.PlutusContract.plutus_json" href="#opshin.builder.PlutusContract.plutus_json">plutus_json</a></code></li>
+<li><code><a title="opshin.builder.PlutusContract.policy_id" href="#opshin.builder.PlutusContract.policy_id">policy_id</a></code></li>
+<li><code><a title="opshin.builder.PlutusContract.purpose" href="#opshin.builder.PlutusContract.purpose">purpose</a></code></li>
+<li><code><a title="opshin.builder.PlutusContract.redeemer_type" href="#opshin.builder.PlutusContract.redeemer_type">redeemer_type</a></code></li>
+<li><code><a title="opshin.builder.PlutusContract.script_hash" href="#opshin.builder.PlutusContract.script_hash">script_hash</a></code></li>
+<li><code><a title="opshin.builder.PlutusContract.testnet_addr" href="#opshin.builder.PlutusContract.testnet_addr">testnet_addr</a></code></li>
+<li><code><a title="opshin.builder.PlutusContract.title" href="#opshin.builder.PlutusContract.title">title</a></code></li>
+<li><code><a title="opshin.builder.PlutusContract.version" href="#opshin.builder.PlutusContract.version">version</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="opshin.builder.Purpose" href="#opshin.builder.Purpose">Purpose</a></code></h4>
+<ul class="two-column">
+<li><code><a title="opshin.builder.Purpose.any" href="#opshin.builder.Purpose.any">any</a></code></li>
+<li><code><a title="opshin.builder.Purpose.certifying" href="#opshin.builder.Purpose.certifying">certifying</a></code></li>
+<li><code><a title="opshin.builder.Purpose.lib" href="#opshin.builder.Purpose.lib">lib</a></code></li>
+<li><code><a title="opshin.builder.Purpose.minting" href="#opshin.builder.Purpose.minting">minting</a></code></li>
+<li><code><a title="opshin.builder.Purpose.rewarding" href="#opshin.builder.Purpose.rewarding">rewarding</a></code></li>
+<li><code><a title="opshin.builder.Purpose.spending" href="#opshin.builder.Purpose.spending">spending</a></code></li>
 </ul>
 </li>
 </ul>

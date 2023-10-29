@@ -281,7 +281,7 @@ def extend_statemonad(
 INITIAL_STATE = plt.FunctionalMap()
 
 
-class UPLCCompiler(CompilingNodeTransformer):
+class PlutoCompiler(CompilingNodeTransformer):
     &#34;&#34;&#34;
     Expects a TypedAST and returns UPLC/Pluto like code
     &#34;&#34;&#34;
@@ -1091,7 +1091,7 @@ def compile(
     constant_folding=False,
     validator_function_name=&#34;validator&#34;,
     allow_isinstance_anything=False,
-):
+) -&gt; plt.Program:
     compile_pipeline = [
         # Important to call this one first - it imports all further files
         RewriteImport(filename=filename),
@@ -1129,7 +1129,7 @@ def compile(
         prog = custom_fix_missing_locations(prog)
 
     # the compiler runs last
-    s = UPLCCompiler(
+    s = PlutoCompiler(
         force_three_params=force_three_params,
         validator_function_name=validator_function_name,
     )
@@ -1146,7 +1146,7 @@ def compile(
 <h2 class="section-title" id="header-functions">Functions</h2>
 <dl>
 <dt id="opshin.compiler.compile"><code class="name flex">
-<span>def <span class="ident">compile</span></span>(<span>prog: ast.AST, filename=None, force_three_params=False, remove_dead_code=True, constant_folding=False, validator_function_name='validator', allow_isinstance_anything=False)</span>
+<span>def <span class="ident">compile</span></span>(<span>prog: ast.AST, filename=None, force_three_params=False, remove_dead_code=True, constant_folding=False, validator_function_name='validator', allow_isinstance_anything=False) ‑> pluthon.pluthon_ast.Program</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -1162,7 +1162,7 @@ def compile(
     constant_folding=False,
     validator_function_name=&#34;validator&#34;,
     allow_isinstance_anything=False,
-):
+) -&gt; plt.Program:
     compile_pipeline = [
         # Important to call this one first - it imports all further files
         RewriteImport(filename=filename),
@@ -1200,7 +1200,7 @@ def compile(
         prog = custom_fix_missing_locations(prog)
 
     # the compiler runs last
-    s = UPLCCompiler(
+    s = PlutoCompiler(
         force_three_params=force_three_params,
         validator_function_name=validator_function_name,
     )
@@ -1357,8 +1357,8 @@ def compile(
 <section>
 <h2 class="section-title" id="header-classes">Classes</h2>
 <dl>
-<dt id="opshin.compiler.UPLCCompiler"><code class="flex name class">
-<span>class <span class="ident">UPLCCompiler</span></span>
+<dt id="opshin.compiler.PlutoCompiler"><code class="flex name class">
+<span>class <span class="ident">PlutoCompiler</span></span>
 <span>(</span><span>force_three_params=False, validator_function_name='validator')</span>
 </code></dt>
 <dd>
@@ -1367,7 +1367,7 @@ def compile(
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">class UPLCCompiler(CompilingNodeTransformer):
+<pre><code class="python">class PlutoCompiler(CompilingNodeTransformer):
     &#34;&#34;&#34;
     Expects a TypedAST and returns UPLC/Pluto like code
     &#34;&#34;&#34;
@@ -2177,14 +2177,14 @@ def compile(
 </ul>
 <h3>Class variables</h3>
 <dl>
-<dt id="opshin.compiler.UPLCCompiler.step"><code class="name">var <span class="ident">step</span></code></dt>
+<dt id="opshin.compiler.PlutoCompiler.step"><code class="name">var <span class="ident">step</span></code></dt>
 <dd>
 <div class="desc"></div>
 </dd>
 </dl>
 <h3>Methods</h3>
 <dl>
-<dt id="opshin.compiler.UPLCCompiler.generic_visit"><code class="name flex">
+<dt id="opshin.compiler.PlutoCompiler.generic_visit"><code class="name flex">
 <span>def <span class="ident">generic_visit</span></span>(<span>self, node: ast.AST) ‑> pluthon.pluthon_ast.AST</span>
 </code></dt>
 <dd>
@@ -2197,7 +2197,7 @@ def compile(
     raise NotImplementedError(f&#34;Can not compile {node}&#34;)</code></pre>
 </details>
 </dd>
-<dt id="opshin.compiler.UPLCCompiler.visit"><code class="name flex">
+<dt id="opshin.compiler.PlutoCompiler.visit"><code class="name flex">
 <span>def <span class="ident">visit</span></span>(<span>self, node)</span>
 </code></dt>
 <dd>
@@ -2207,7 +2207,7 @@ def compile(
 </p>
 <div class="desc inherited"><p>Visit a node.</p></div>
 </dd>
-<dt id="opshin.compiler.UPLCCompiler.visit_AnnAssign"><code class="name flex">
+<dt id="opshin.compiler.PlutoCompiler.visit_AnnAssign"><code class="name flex">
 <span>def <span class="ident">visit_AnnAssign</span></span>(<span>self, node: ast.AnnAssign) ‑> pluthon.pluthon_ast.AST</span>
 </code></dt>
 <dd>
@@ -2248,7 +2248,7 @@ def compile(
     )</code></pre>
 </details>
 </dd>
-<dt id="opshin.compiler.UPLCCompiler.visit_Assert"><code class="name flex">
+<dt id="opshin.compiler.PlutoCompiler.visit_Assert"><code class="name flex">
 <span>def <span class="ident">visit_Assert</span></span>(<span>self, node: <a title="opshin.typed_ast.TypedAssert" href="typed_ast.html#opshin.typed_ast.TypedAssert">TypedAssert</a>) ‑> pluthon.pluthon_ast.AST</span>
 </code></dt>
 <dd>
@@ -2275,7 +2275,7 @@ def compile(
     )</code></pre>
 </details>
 </dd>
-<dt id="opshin.compiler.UPLCCompiler.visit_Assign"><code class="name flex">
+<dt id="opshin.compiler.PlutoCompiler.visit_Assign"><code class="name flex">
 <span>def <span class="ident">visit_Assign</span></span>(<span>self, node: <a title="opshin.typed_ast.TypedAssign" href="typed_ast.html#opshin.typed_ast.TypedAssign">TypedAssign</a>) ‑> pluthon.pluthon_ast.AST</span>
 </code></dt>
 <dd>
@@ -2304,7 +2304,7 @@ def compile(
     )</code></pre>
 </details>
 </dd>
-<dt id="opshin.compiler.UPLCCompiler.visit_Attribute"><code class="name flex">
+<dt id="opshin.compiler.PlutoCompiler.visit_Attribute"><code class="name flex">
 <span>def <span class="ident">visit_Attribute</span></span>(<span>self, node: <a title="opshin.typed_ast.TypedAttribute" href="typed_ast.html#opshin.typed_ast.TypedAttribute">TypedAttribute</a>) ‑> pluthon.pluthon_ast.AST</span>
 </code></dt>
 <dd>
@@ -2324,7 +2324,7 @@ def compile(
     )</code></pre>
 </details>
 </dd>
-<dt id="opshin.compiler.UPLCCompiler.visit_BinOp"><code class="name flex">
+<dt id="opshin.compiler.PlutoCompiler.visit_BinOp"><code class="name flex">
 <span>def <span class="ident">visit_BinOp</span></span>(<span>self, node: <a title="opshin.typed_ast.TypedBinOp" href="typed_ast.html#opshin.typed_ast.TypedBinOp">TypedBinOp</a>) ‑> pluthon.pluthon_ast.AST</span>
 </code></dt>
 <dd>
@@ -2356,7 +2356,7 @@ def compile(
     )</code></pre>
 </details>
 </dd>
-<dt id="opshin.compiler.UPLCCompiler.visit_BoolOp"><code class="name flex">
+<dt id="opshin.compiler.PlutoCompiler.visit_BoolOp"><code class="name flex">
 <span>def <span class="ident">visit_BoolOp</span></span>(<span>self, node: <a title="opshin.typed_ast.TypedBoolOp" href="typed_ast.html#opshin.typed_ast.TypedBoolOp">TypedBoolOp</a>) ‑> pluthon.pluthon_ast.AST</span>
 </code></dt>
 <dd>
@@ -2380,7 +2380,7 @@ def compile(
     )</code></pre>
 </details>
 </dd>
-<dt id="opshin.compiler.UPLCCompiler.visit_Call"><code class="name flex">
+<dt id="opshin.compiler.PlutoCompiler.visit_Call"><code class="name flex">
 <span>def <span class="ident">visit_Call</span></span>(<span>self, node: <a title="opshin.typed_ast.TypedCall" href="typed_ast.html#opshin.typed_ast.TypedCall">TypedCall</a>) ‑> pluthon.pluthon_ast.AST</span>
 </code></dt>
 <dd>
@@ -2420,7 +2420,7 @@ def compile(
     )</code></pre>
 </details>
 </dd>
-<dt id="opshin.compiler.UPLCCompiler.visit_ClassDef"><code class="name flex">
+<dt id="opshin.compiler.PlutoCompiler.visit_ClassDef"><code class="name flex">
 <span>def <span class="ident">visit_ClassDef</span></span>(<span>self, node: <a title="opshin.typed_ast.TypedClassDef" href="typed_ast.html#opshin.typed_ast.TypedClassDef">TypedClassDef</a>) ‑> pluthon.pluthon_ast.AST</span>
 </code></dt>
 <dd>
@@ -2440,7 +2440,7 @@ def compile(
     )</code></pre>
 </details>
 </dd>
-<dt id="opshin.compiler.UPLCCompiler.visit_Compare"><code class="name flex">
+<dt id="opshin.compiler.PlutoCompiler.visit_Compare"><code class="name flex">
 <span>def <span class="ident">visit_Compare</span></span>(<span>self, node: <a title="opshin.typed_ast.TypedCompare" href="typed_ast.html#opshin.typed_ast.TypedCompare">TypedCompare</a>) ‑> pluthon.pluthon_ast.AST</span>
 </code></dt>
 <dd>
@@ -2465,7 +2465,7 @@ def compile(
     )</code></pre>
 </details>
 </dd>
-<dt id="opshin.compiler.UPLCCompiler.visit_Constant"><code class="name flex">
+<dt id="opshin.compiler.PlutoCompiler.visit_Constant"><code class="name flex">
 <span>def <span class="ident">visit_Constant</span></span>(<span>self, node: <a title="opshin.typed_ast.TypedConstant" href="typed_ast.html#opshin.typed_ast.TypedConstant">TypedConstant</a>) ‑> pluthon.pluthon_ast.AST</span>
 </code></dt>
 <dd>
@@ -2488,7 +2488,7 @@ def compile(
     return plt.Lambda([STATEMONAD], plt_val)</code></pre>
 </details>
 </dd>
-<dt id="opshin.compiler.UPLCCompiler.visit_Dict"><code class="name flex">
+<dt id="opshin.compiler.PlutoCompiler.visit_Dict"><code class="name flex">
 <span>def <span class="ident">visit_Dict</span></span>(<span>self, node: <a title="opshin.typed_ast.TypedDict" href="typed_ast.html#opshin.typed_ast.TypedDict">TypedDict</a>) ‑> pluthon.pluthon_ast.AST</span>
 </code></dt>
 <dd>
@@ -2518,7 +2518,7 @@ def compile(
     return plt.Lambda([STATEMONAD], l)</code></pre>
 </details>
 </dd>
-<dt id="opshin.compiler.UPLCCompiler.visit_Expr"><code class="name flex">
+<dt id="opshin.compiler.PlutoCompiler.visit_Expr"><code class="name flex">
 <span>def <span class="ident">visit_Expr</span></span>(<span>self, node: <a title="opshin.typed_ast.TypedExpr" href="typed_ast.html#opshin.typed_ast.TypedExpr">TypedExpr</a>) ‑> pluthon.pluthon_ast.AST</span>
 </code></dt>
 <dd>
@@ -2540,7 +2540,7 @@ def compile(
     )</code></pre>
 </details>
 </dd>
-<dt id="opshin.compiler.UPLCCompiler.visit_For"><code class="name flex">
+<dt id="opshin.compiler.PlutoCompiler.visit_For"><code class="name flex">
 <span>def <span class="ident">visit_For</span></span>(<span>self, node: <a title="opshin.typed_ast.TypedFor" href="typed_ast.html#opshin.typed_ast.TypedFor">TypedFor</a>) ‑> pluthon.pluthon_ast.AST</span>
 </code></dt>
 <dd>
@@ -2583,7 +2583,7 @@ def compile(
     )</code></pre>
 </details>
 </dd>
-<dt id="opshin.compiler.UPLCCompiler.visit_FormattedValue"><code class="name flex">
+<dt id="opshin.compiler.PlutoCompiler.visit_FormattedValue"><code class="name flex">
 <span>def <span class="ident">visit_FormattedValue</span></span>(<span>self, node: <a title="opshin.typed_ast.TypedFormattedValue" href="typed_ast.html#opshin.typed_ast.TypedFormattedValue">TypedFormattedValue</a>) ‑> pluthon.pluthon_ast.AST</span>
 </code></dt>
 <dd>
@@ -2603,7 +2603,7 @@ def compile(
     )</code></pre>
 </details>
 </dd>
-<dt id="opshin.compiler.UPLCCompiler.visit_FunctionDef"><code class="name flex">
+<dt id="opshin.compiler.PlutoCompiler.visit_FunctionDef"><code class="name flex">
 <span>def <span class="ident">visit_FunctionDef</span></span>(<span>self, node: <a title="opshin.typed_ast.TypedFunctionDef" href="typed_ast.html#opshin.typed_ast.TypedFunctionDef">TypedFunctionDef</a>) ‑> pluthon.pluthon_ast.AST</span>
 </code></dt>
 <dd>
@@ -2655,7 +2655,7 @@ def compile(
     )</code></pre>
 </details>
 </dd>
-<dt id="opshin.compiler.UPLCCompiler.visit_If"><code class="name flex">
+<dt id="opshin.compiler.PlutoCompiler.visit_If"><code class="name flex">
 <span>def <span class="ident">visit_If</span></span>(<span>self, node: <a title="opshin.typed_ast.TypedIf" href="typed_ast.html#opshin.typed_ast.TypedIf">TypedIf</a>) ‑> pluthon.pluthon_ast.AST</span>
 </code></dt>
 <dd>
@@ -2675,7 +2675,7 @@ def compile(
     )</code></pre>
 </details>
 </dd>
-<dt id="opshin.compiler.UPLCCompiler.visit_IfExp"><code class="name flex">
+<dt id="opshin.compiler.PlutoCompiler.visit_IfExp"><code class="name flex">
 <span>def <span class="ident">visit_IfExp</span></span>(<span>self, node: <a title="opshin.typed_ast.TypedIfExp" href="typed_ast.html#opshin.typed_ast.TypedIfExp">TypedIfExp</a>) ‑> pluthon.pluthon_ast.AST</span>
 </code></dt>
 <dd>
@@ -2695,7 +2695,7 @@ def compile(
     )</code></pre>
 </details>
 </dd>
-<dt id="opshin.compiler.UPLCCompiler.visit_JoinedStr"><code class="name flex">
+<dt id="opshin.compiler.PlutoCompiler.visit_JoinedStr"><code class="name flex">
 <span>def <span class="ident">visit_JoinedStr</span></span>(<span>self, node: <a title="opshin.typed_ast.TypedJoinedStr" href="typed_ast.html#opshin.typed_ast.TypedJoinedStr">TypedJoinedStr</a>) ‑> pluthon.pluthon_ast.AST</span>
 </code></dt>
 <dd>
@@ -2713,7 +2713,7 @@ def compile(
     return plt.Lambda([STATEMONAD], joined_str)</code></pre>
 </details>
 </dd>
-<dt id="opshin.compiler.UPLCCompiler.visit_List"><code class="name flex">
+<dt id="opshin.compiler.PlutoCompiler.visit_List"><code class="name flex">
 <span>def <span class="ident">visit_List</span></span>(<span>self, node: <a title="opshin.typed_ast.TypedList" href="typed_ast.html#opshin.typed_ast.TypedList">TypedList</a>) ‑> pluthon.pluthon_ast.AST</span>
 </code></dt>
 <dd>
@@ -2731,7 +2731,7 @@ def compile(
     return plt.Lambda([STATEMONAD], l)</code></pre>
 </details>
 </dd>
-<dt id="opshin.compiler.UPLCCompiler.visit_ListComp"><code class="name flex">
+<dt id="opshin.compiler.PlutoCompiler.visit_ListComp"><code class="name flex">
 <span>def <span class="ident">visit_ListComp</span></span>(<span>self, node: <a title="opshin.typed_ast.TypedListComp" href="typed_ast.html#opshin.typed_ast.TypedListComp">TypedListComp</a>) ‑> pluthon.pluthon_ast.AST</span>
 </code></dt>
 <dd>
@@ -2793,7 +2793,7 @@ def compile(
         )</code></pre>
 </details>
 </dd>
-<dt id="opshin.compiler.UPLCCompiler.visit_Module"><code class="name flex">
+<dt id="opshin.compiler.PlutoCompiler.visit_Module"><code class="name flex">
 <span>def <span class="ident">visit_Module</span></span>(<span>self, node: <a title="opshin.typed_ast.TypedModule" href="typed_ast.html#opshin.typed_ast.TypedModule">TypedModule</a>) ‑> pluthon.pluthon_ast.AST</span>
 </code></dt>
 <dd>
@@ -2895,7 +2895,7 @@ def compile(
     return cp</code></pre>
 </details>
 </dd>
-<dt id="opshin.compiler.UPLCCompiler.visit_Name"><code class="name flex">
+<dt id="opshin.compiler.PlutoCompiler.visit_Name"><code class="name flex">
 <span>def <span class="ident">visit_Name</span></span>(<span>self, node: <a title="opshin.typed_ast.TypedName" href="typed_ast.html#opshin.typed_ast.TypedName">TypedName</a>) ‑> pluthon.pluthon_ast.AST</span>
 </code></dt>
 <dd>
@@ -2924,7 +2924,7 @@ def compile(
     )</code></pre>
 </details>
 </dd>
-<dt id="opshin.compiler.UPLCCompiler.visit_NoneType"><code class="name flex">
+<dt id="opshin.compiler.PlutoCompiler.visit_NoneType"><code class="name flex">
 <span>def <span class="ident">visit_NoneType</span></span>(<span>self, _: Optional[Any]) ‑> pluthon.pluthon_ast.AST</span>
 </code></dt>
 <dd>
@@ -2937,7 +2937,7 @@ def compile(
     return plt.Lambda([STATEMONAD], plt.Unit())</code></pre>
 </details>
 </dd>
-<dt id="opshin.compiler.UPLCCompiler.visit_Pass"><code class="name flex">
+<dt id="opshin.compiler.PlutoCompiler.visit_Pass"><code class="name flex">
 <span>def <span class="ident">visit_Pass</span></span>(<span>self, node: <a title="opshin.typed_ast.TypedPass" href="typed_ast.html#opshin.typed_ast.TypedPass">TypedPass</a>) ‑> pluthon.pluthon_ast.AST</span>
 </code></dt>
 <dd>
@@ -2950,7 +2950,7 @@ def compile(
     return self.visit_sequence([])</code></pre>
 </details>
 </dd>
-<dt id="opshin.compiler.UPLCCompiler.visit_RawPlutoExpr"><code class="name flex">
+<dt id="opshin.compiler.PlutoCompiler.visit_RawPlutoExpr"><code class="name flex">
 <span>def <span class="ident">visit_RawPlutoExpr</span></span>(<span>self, node: <a title="opshin.typed_ast.RawPlutoExpr" href="typed_ast.html#opshin.typed_ast.RawPlutoExpr">RawPlutoExpr</a>) ‑> pluthon.pluthon_ast.AST</span>
 </code></dt>
 <dd>
@@ -2963,7 +2963,7 @@ def compile(
     return node.expr</code></pre>
 </details>
 </dd>
-<dt id="opshin.compiler.UPLCCompiler.visit_Return"><code class="name flex">
+<dt id="opshin.compiler.PlutoCompiler.visit_Return"><code class="name flex">
 <span>def <span class="ident">visit_Return</span></span>(<span>self, node: <a title="opshin.typed_ast.TypedReturn" href="typed_ast.html#opshin.typed_ast.TypedReturn">TypedReturn</a>) ‑> pluthon.pluthon_ast.AST</span>
 </code></dt>
 <dd>
@@ -2978,7 +2978,7 @@ def compile(
     )</code></pre>
 </details>
 </dd>
-<dt id="opshin.compiler.UPLCCompiler.visit_Subscript"><code class="name flex">
+<dt id="opshin.compiler.PlutoCompiler.visit_Subscript"><code class="name flex">
 <span>def <span class="ident">visit_Subscript</span></span>(<span>self, node: <a title="opshin.typed_ast.TypedSubscript" href="typed_ast.html#opshin.typed_ast.TypedSubscript">TypedSubscript</a>) ‑> pluthon.pluthon_ast.AST</span>
 </code></dt>
 <dd>
@@ -3204,7 +3204,7 @@ def compile(
     )</code></pre>
 </details>
 </dd>
-<dt id="opshin.compiler.UPLCCompiler.visit_Tuple"><code class="name flex">
+<dt id="opshin.compiler.PlutoCompiler.visit_Tuple"><code class="name flex">
 <span>def <span class="ident">visit_Tuple</span></span>(<span>self, node: <a title="opshin.typed_ast.TypedTuple" href="typed_ast.html#opshin.typed_ast.TypedTuple">TypedTuple</a>) ‑> pluthon.pluthon_ast.AST</span>
 </code></dt>
 <dd>
@@ -3222,7 +3222,7 @@ def compile(
     )</code></pre>
 </details>
 </dd>
-<dt id="opshin.compiler.UPLCCompiler.visit_UnaryOp"><code class="name flex">
+<dt id="opshin.compiler.PlutoCompiler.visit_UnaryOp"><code class="name flex">
 <span>def <span class="ident">visit_UnaryOp</span></span>(<span>self, node: <a title="opshin.typed_ast.TypedUnaryOp" href="typed_ast.html#opshin.typed_ast.TypedUnaryOp">TypedUnaryOp</a>) ‑> pluthon.pluthon_ast.AST</span>
 </code></dt>
 <dd>
@@ -3244,7 +3244,7 @@ def compile(
     )</code></pre>
 </details>
 </dd>
-<dt id="opshin.compiler.UPLCCompiler.visit_While"><code class="name flex">
+<dt id="opshin.compiler.PlutoCompiler.visit_While"><code class="name flex">
 <span>def <span class="ident">visit_While</span></span>(<span>self, node: <a title="opshin.typed_ast.TypedWhile" href="typed_ast.html#opshin.typed_ast.TypedWhile">TypedWhile</a>) ‑> pluthon.pluthon_ast.AST</span>
 </code></dt>
 <dd>
@@ -3287,7 +3287,7 @@ def compile(
     )</code></pre>
 </details>
 </dd>
-<dt id="opshin.compiler.UPLCCompiler.visit_sequence"><code class="name flex">
+<dt id="opshin.compiler.PlutoCompiler.visit_sequence"><code class="name flex">
 <span>def <span class="ident">visit_sequence</span></span>(<span>self, node_seq: List[<a title="opshin.typed_ast.typedstmt" href="typed_ast.html#opshin.typed_ast.typedstmt">typedstmt</a>]) ‑> pluthon.pluthon_ast.AST</span>
 </code></dt>
 <dd>
@@ -3385,42 +3385,42 @@ setTimeout(() => input.focus(), 100);
 <li><h3><a href="#header-classes">Classes</a></h3>
 <ul>
 <li>
-<h4><code><a title="opshin.compiler.UPLCCompiler" href="#opshin.compiler.UPLCCompiler">UPLCCompiler</a></code></h4>
+<h4><code><a title="opshin.compiler.PlutoCompiler" href="#opshin.compiler.PlutoCompiler">PlutoCompiler</a></code></h4>
 <ul class="">
-<li><code><a title="opshin.compiler.UPLCCompiler.generic_visit" href="#opshin.compiler.UPLCCompiler.generic_visit">generic_visit</a></code></li>
-<li><code><a title="opshin.compiler.UPLCCompiler.step" href="#opshin.compiler.UPLCCompiler.step">step</a></code></li>
-<li><code><a title="opshin.compiler.UPLCCompiler.visit" href="util.html#opshin.compiler.UPLCCompiler.visit">visit</a></code></li>
-<li><code><a title="opshin.compiler.UPLCCompiler.visit_AnnAssign" href="#opshin.compiler.UPLCCompiler.visit_AnnAssign">visit_AnnAssign</a></code></li>
-<li><code><a title="opshin.compiler.UPLCCompiler.visit_Assert" href="#opshin.compiler.UPLCCompiler.visit_Assert">visit_Assert</a></code></li>
-<li><code><a title="opshin.compiler.UPLCCompiler.visit_Assign" href="#opshin.compiler.UPLCCompiler.visit_Assign">visit_Assign</a></code></li>
-<li><code><a title="opshin.compiler.UPLCCompiler.visit_Attribute" href="#opshin.compiler.UPLCCompiler.visit_Attribute">visit_Attribute</a></code></li>
-<li><code><a title="opshin.compiler.UPLCCompiler.visit_BinOp" href="#opshin.compiler.UPLCCompiler.visit_BinOp">visit_BinOp</a></code></li>
-<li><code><a title="opshin.compiler.UPLCCompiler.visit_BoolOp" href="#opshin.compiler.UPLCCompiler.visit_BoolOp">visit_BoolOp</a></code></li>
-<li><code><a title="opshin.compiler.UPLCCompiler.visit_Call" href="#opshin.compiler.UPLCCompiler.visit_Call">visit_Call</a></code></li>
-<li><code><a title="opshin.compiler.UPLCCompiler.visit_ClassDef" href="#opshin.compiler.UPLCCompiler.visit_ClassDef">visit_ClassDef</a></code></li>
-<li><code><a title="opshin.compiler.UPLCCompiler.visit_Compare" href="#opshin.compiler.UPLCCompiler.visit_Compare">visit_Compare</a></code></li>
-<li><code><a title="opshin.compiler.UPLCCompiler.visit_Constant" href="#opshin.compiler.UPLCCompiler.visit_Constant">visit_Constant</a></code></li>
-<li><code><a title="opshin.compiler.UPLCCompiler.visit_Dict" href="#opshin.compiler.UPLCCompiler.visit_Dict">visit_Dict</a></code></li>
-<li><code><a title="opshin.compiler.UPLCCompiler.visit_Expr" href="#opshin.compiler.UPLCCompiler.visit_Expr">visit_Expr</a></code></li>
-<li><code><a title="opshin.compiler.UPLCCompiler.visit_For" href="#opshin.compiler.UPLCCompiler.visit_For">visit_For</a></code></li>
-<li><code><a title="opshin.compiler.UPLCCompiler.visit_FormattedValue" href="#opshin.compiler.UPLCCompiler.visit_FormattedValue">visit_FormattedValue</a></code></li>
-<li><code><a title="opshin.compiler.UPLCCompiler.visit_FunctionDef" href="#opshin.compiler.UPLCCompiler.visit_FunctionDef">visit_FunctionDef</a></code></li>
-<li><code><a title="opshin.compiler.UPLCCompiler.visit_If" href="#opshin.compiler.UPLCCompiler.visit_If">visit_If</a></code></li>
-<li><code><a title="opshin.compiler.UPLCCompiler.visit_IfExp" href="#opshin.compiler.UPLCCompiler.visit_IfExp">visit_IfExp</a></code></li>
-<li><code><a title="opshin.compiler.UPLCCompiler.visit_JoinedStr" href="#opshin.compiler.UPLCCompiler.visit_JoinedStr">visit_JoinedStr</a></code></li>
-<li><code><a title="opshin.compiler.UPLCCompiler.visit_List" href="#opshin.compiler.UPLCCompiler.visit_List">visit_List</a></code></li>
-<li><code><a title="opshin.compiler.UPLCCompiler.visit_ListComp" href="#opshin.compiler.UPLCCompiler.visit_ListComp">visit_ListComp</a></code></li>
-<li><code><a title="opshin.compiler.UPLCCompiler.visit_Module" href="#opshin.compiler.UPLCCompiler.visit_Module">visit_Module</a></code></li>
-<li><code><a title="opshin.compiler.UPLCCompiler.visit_Name" href="#opshin.compiler.UPLCCompiler.visit_Name">visit_Name</a></code></li>
-<li><code><a title="opshin.compiler.UPLCCompiler.visit_NoneType" href="#opshin.compiler.UPLCCompiler.visit_NoneType">visit_NoneType</a></code></li>
-<li><code><a title="opshin.compiler.UPLCCompiler.visit_Pass" href="#opshin.compiler.UPLCCompiler.visit_Pass">visit_Pass</a></code></li>
-<li><code><a title="opshin.compiler.UPLCCompiler.visit_RawPlutoExpr" href="#opshin.compiler.UPLCCompiler.visit_RawPlutoExpr">visit_RawPlutoExpr</a></code></li>
-<li><code><a title="opshin.compiler.UPLCCompiler.visit_Return" href="#opshin.compiler.UPLCCompiler.visit_Return">visit_Return</a></code></li>
-<li><code><a title="opshin.compiler.UPLCCompiler.visit_Subscript" href="#opshin.compiler.UPLCCompiler.visit_Subscript">visit_Subscript</a></code></li>
-<li><code><a title="opshin.compiler.UPLCCompiler.visit_Tuple" href="#opshin.compiler.UPLCCompiler.visit_Tuple">visit_Tuple</a></code></li>
-<li><code><a title="opshin.compiler.UPLCCompiler.visit_UnaryOp" href="#opshin.compiler.UPLCCompiler.visit_UnaryOp">visit_UnaryOp</a></code></li>
-<li><code><a title="opshin.compiler.UPLCCompiler.visit_While" href="#opshin.compiler.UPLCCompiler.visit_While">visit_While</a></code></li>
-<li><code><a title="opshin.compiler.UPLCCompiler.visit_sequence" href="#opshin.compiler.UPLCCompiler.visit_sequence">visit_sequence</a></code></li>
+<li><code><a title="opshin.compiler.PlutoCompiler.generic_visit" href="#opshin.compiler.PlutoCompiler.generic_visit">generic_visit</a></code></li>
+<li><code><a title="opshin.compiler.PlutoCompiler.step" href="#opshin.compiler.PlutoCompiler.step">step</a></code></li>
+<li><code><a title="opshin.compiler.PlutoCompiler.visit" href="util.html#opshin.compiler.PlutoCompiler.visit">visit</a></code></li>
+<li><code><a title="opshin.compiler.PlutoCompiler.visit_AnnAssign" href="#opshin.compiler.PlutoCompiler.visit_AnnAssign">visit_AnnAssign</a></code></li>
+<li><code><a title="opshin.compiler.PlutoCompiler.visit_Assert" href="#opshin.compiler.PlutoCompiler.visit_Assert">visit_Assert</a></code></li>
+<li><code><a title="opshin.compiler.PlutoCompiler.visit_Assign" href="#opshin.compiler.PlutoCompiler.visit_Assign">visit_Assign</a></code></li>
+<li><code><a title="opshin.compiler.PlutoCompiler.visit_Attribute" href="#opshin.compiler.PlutoCompiler.visit_Attribute">visit_Attribute</a></code></li>
+<li><code><a title="opshin.compiler.PlutoCompiler.visit_BinOp" href="#opshin.compiler.PlutoCompiler.visit_BinOp">visit_BinOp</a></code></li>
+<li><code><a title="opshin.compiler.PlutoCompiler.visit_BoolOp" href="#opshin.compiler.PlutoCompiler.visit_BoolOp">visit_BoolOp</a></code></li>
+<li><code><a title="opshin.compiler.PlutoCompiler.visit_Call" href="#opshin.compiler.PlutoCompiler.visit_Call">visit_Call</a></code></li>
+<li><code><a title="opshin.compiler.PlutoCompiler.visit_ClassDef" href="#opshin.compiler.PlutoCompiler.visit_ClassDef">visit_ClassDef</a></code></li>
+<li><code><a title="opshin.compiler.PlutoCompiler.visit_Compare" href="#opshin.compiler.PlutoCompiler.visit_Compare">visit_Compare</a></code></li>
+<li><code><a title="opshin.compiler.PlutoCompiler.visit_Constant" href="#opshin.compiler.PlutoCompiler.visit_Constant">visit_Constant</a></code></li>
+<li><code><a title="opshin.compiler.PlutoCompiler.visit_Dict" href="#opshin.compiler.PlutoCompiler.visit_Dict">visit_Dict</a></code></li>
+<li><code><a title="opshin.compiler.PlutoCompiler.visit_Expr" href="#opshin.compiler.PlutoCompiler.visit_Expr">visit_Expr</a></code></li>
+<li><code><a title="opshin.compiler.PlutoCompiler.visit_For" href="#opshin.compiler.PlutoCompiler.visit_For">visit_For</a></code></li>
+<li><code><a title="opshin.compiler.PlutoCompiler.visit_FormattedValue" href="#opshin.compiler.PlutoCompiler.visit_FormattedValue">visit_FormattedValue</a></code></li>
+<li><code><a title="opshin.compiler.PlutoCompiler.visit_FunctionDef" href="#opshin.compiler.PlutoCompiler.visit_FunctionDef">visit_FunctionDef</a></code></li>
+<li><code><a title="opshin.compiler.PlutoCompiler.visit_If" href="#opshin.compiler.PlutoCompiler.visit_If">visit_If</a></code></li>
+<li><code><a title="opshin.compiler.PlutoCompiler.visit_IfExp" href="#opshin.compiler.PlutoCompiler.visit_IfExp">visit_IfExp</a></code></li>
+<li><code><a title="opshin.compiler.PlutoCompiler.visit_JoinedStr" href="#opshin.compiler.PlutoCompiler.visit_JoinedStr">visit_JoinedStr</a></code></li>
+<li><code><a title="opshin.compiler.PlutoCompiler.visit_List" href="#opshin.compiler.PlutoCompiler.visit_List">visit_List</a></code></li>
+<li><code><a title="opshin.compiler.PlutoCompiler.visit_ListComp" href="#opshin.compiler.PlutoCompiler.visit_ListComp">visit_ListComp</a></code></li>
+<li><code><a title="opshin.compiler.PlutoCompiler.visit_Module" href="#opshin.compiler.PlutoCompiler.visit_Module">visit_Module</a></code></li>
+<li><code><a title="opshin.compiler.PlutoCompiler.visit_Name" href="#opshin.compiler.PlutoCompiler.visit_Name">visit_Name</a></code></li>
+<li><code><a title="opshin.compiler.PlutoCompiler.visit_NoneType" href="#opshin.compiler.PlutoCompiler.visit_NoneType">visit_NoneType</a></code></li>
+<li><code><a title="opshin.compiler.PlutoCompiler.visit_Pass" href="#opshin.compiler.PlutoCompiler.visit_Pass">visit_Pass</a></code></li>
+<li><code><a title="opshin.compiler.PlutoCompiler.visit_RawPlutoExpr" href="#opshin.compiler.PlutoCompiler.visit_RawPlutoExpr">visit_RawPlutoExpr</a></code></li>
+<li><code><a title="opshin.compiler.PlutoCompiler.visit_Return" href="#opshin.compiler.PlutoCompiler.visit_Return">visit_Return</a></code></li>
+<li><code><a title="opshin.compiler.PlutoCompiler.visit_Subscript" href="#opshin.compiler.PlutoCompiler.visit_Subscript">visit_Subscript</a></code></li>
+<li><code><a title="opshin.compiler.PlutoCompiler.visit_Tuple" href="#opshin.compiler.PlutoCompiler.visit_Tuple">visit_Tuple</a></code></li>
+<li><code><a title="opshin.compiler.PlutoCompiler.visit_UnaryOp" href="#opshin.compiler.PlutoCompiler.visit_UnaryOp">visit_UnaryOp</a></code></li>
+<li><code><a title="opshin.compiler.PlutoCompiler.visit_While" href="#opshin.compiler.PlutoCompiler.visit_While">visit_While</a></code></li>
+<li><code><a title="opshin.compiler.PlutoCompiler.visit_sequence" href="#opshin.compiler.PlutoCompiler.visit_sequence">visit_sequence</a></code></li>
 </ul>
 </li>
 </ul>
