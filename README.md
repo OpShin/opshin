@@ -173,22 +173,17 @@ contract = build("path/to/contract.py")
 contract = build("path/to/contract.py", arg1, arg2, arg3)
 
 # Store the compilation artifacts in a folder
-dump(contract, "path/to/store")
+contract.dump("path/to/store")
 
 # You can also load a compiled contract from a path
 contract = load("path/to/store")
 
 # And apply parameters after loading a contract
-contract = apply_parameters(contract, arg1, arg2, arg3)
+contract = contract.apply_parameters(arg1, arg2, arg3)
 
-# The artifacts contain the compiled script, the policy ID and the addresses
-contract_artifacts = generate_artifacts(contract)
-
-# The artifacts contain the Plutus Blueprint of the validator as well, and you can apply parameters to this blueprint
-validator_blueprint = apply_blueprint_parameters(contract_artifacts.blueprint["validators"][0], arg1, arg2, arg3)
-
-# If you know that a blueprint is present, you can also load the blueprint directly
-contract_artifacts = load_blueprint("path/to/store")
+# The artifacts contain the compiled script, the policy ID and the addresses and blueprint
+contract_addr = contract.mainnet_addr
+contract_blueprint = contract.blueprint
 ```
 
 ### The small print

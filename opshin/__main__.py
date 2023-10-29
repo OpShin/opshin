@@ -19,7 +19,15 @@ import pluthon
 import uplc
 import uplc.ast
 
-from . import compiler, builder, prelude, __version__, __copyright__, Purpose
+from . import (
+    compiler,
+    builder,
+    prelude,
+    __version__,
+    __copyright__,
+    Purpose,
+    PlutusContract,
+)
 from .util import CompilerError, data_from_json
 from .prelude import ScriptContext
 
@@ -315,11 +323,11 @@ Note that opshin errors may be overly restrictive as they aim to prevent code wi
             target_dir = pathlib.Path(args.output_directory)
         built_code = builder._build(code)
         if purpose == Purpose.lib:
-            script_arts = builder.generate_artifacts(
+            script_arts = PlutusContract(
                 built_code,
             )
         else:
-            script_arts = builder.generate_artifacts(
+            script_arts = PlutusContract(
                 built_code,
                 datum_type=onchain_params[0] if len(onchain_params) == 3 else None,
                 redeemer_type=onchain_params[1]
@@ -328,7 +336,7 @@ Note that opshin errors may be overly restrictive as they aim to prevent code wi
                 parameter_types=param_types,
                 purpose=(purpose,),
             )
-        builder.dump(script_arts, target_dir)
+        script_arts.dump(target_dir)
 
         print(f"Wrote script artifacts to {target_dir}/")
         return
