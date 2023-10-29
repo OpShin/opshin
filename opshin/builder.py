@@ -39,9 +39,9 @@ class PlutusContract:
         typing.Tuple[str, typing.Type[Datum]]
     ] = dataclasses.field(default_factory=list)
     purpose: typing.Iterable[Purpose] = (Purpose.any,)
-    version: str = "1.0.0"
+    version: Optional[str] = "1.0.0"
     title: str = "validator"
-    description: str = f"opshin {__version__} Smart Contract"
+    description: Optional[str] = f"opshin {__version__} Smart Contract"
     license: Optional[str] = None
 
     @property
@@ -339,6 +339,8 @@ def from_plutus_schema(schema: dict) -> typing.Type[pycardano.Datum]:
     """
     Convert from a dictionary representing a json schema according to CIP 57 Plutus Blueprint
     """
+    if schema == {}:
+        return pycardano.Datum
     if "anyOf" in schema:
         if len(schema["anyOf"]) == 0:
             raise ValueError("Cannot convert empty anyOf schema")
@@ -375,7 +377,7 @@ def from_plutus_schema(schema: dict) -> typing.Type[pycardano.Datum]:
                 fields[field["title"]] = from_plutus_schema(field)
             fields["CONSTR_ID"] = schema["index"]
             return dataclasses.dataclass(
-                types.new_class(schema["title"], (pycardano.PlutusData,), fields)
+                type(schema["title"], (pycardano.PlutusData,), fields)
             )
     raise ValueError(f"Cannot read schema (not supported yet) {schema}")
 
@@ -419,7 +421,6 @@ def load(contract_path: Union[Path, str]) -> PlutusContract:
         raise ValueError(
             f"Invalid contract path, is neither file nor directory: {contract_path}"
         )
-    contract_cbor = None
     for contract_file in contract_candidates:
         with contract_file.open("r") as f:
             contract_content = f.read()
@@ -472,8 +473,12 @@ def load(contract_path: Union[Path, str]) -> PlutusContract:
                     description,
                     license,
                 )
-        except (ValueError, KeyError):
+        except (ValueError, KeyError) as e:
             pass
+    contract_cbor = None
+    for contract_file in contract_candidates:
+        with contract_file.open("r") as f:
+            contract_content = f.read()
         # could be a singly wrapped cbor hex
         try:
             # try to unwrap to see if it is cbor
