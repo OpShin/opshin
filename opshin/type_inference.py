@@ -13,6 +13,7 @@ security into the Smart Contract by checking type correctness.
 """
 import typing
 from collections import defaultdict
+from ordered_set import OrderedSet
 
 from copy import copy
 from pycardano import PlutusData
@@ -142,7 +143,7 @@ TypeMapPair = typing.Tuple[TypeMap, TypeMap]
 
 
 def union_types(*ts: Type):
-    ts = list(set(ts))
+    ts = OrderedSet(ts)
     if len(ts) == 1:
         return ts[0]
     assert ts, "Union must combine multiple classes"
@@ -151,7 +152,7 @@ def union_types(*ts: Type):
         isinstance(e, UnionType) and all(isinstance(e2, RecordType) for e2 in e.typs)
         for e in ts
     ), "Union must combine multiple PlutusData classes"
-    union_set = set()
+    union_set = OrderedSet()
     for t in ts:
         union_set.update(t.typs)
     assert distinct(
@@ -161,12 +162,12 @@ def union_types(*ts: Type):
 
 
 def intersection_types(*ts: Type):
-    ts = list(set(ts))
+    ts = OrderedSet(ts)
     if len(ts) == 1:
         return ts[0]
     ts = [t if isinstance(t, UnionType) else UnionType(frozenlist([t])) for t in ts]
     assert ts, "Must have at least one type to intersect"
-    intersection_set = set(ts[0].typs)
+    intersection_set = OrderedSet(ts[0].typs)
     for t in ts[1:]:
         intersection_set.intersection_update(t.typs)
     return UnionType(frozenlist(intersection_set))
@@ -261,7 +262,7 @@ class TypeCheckVisitor(TypedNodeVisitor):
 
 
 def merge_scope(s1: typing.Dict[str, Type], s2: typing.Dict[str, Type]):
-    keys = set(s1.keys()).union(s2.keys())
+    keys = OrderedSet(s1.keys()).union(s2.keys())
     merged = {}
     for k in keys:
         if k not in s1.keys():

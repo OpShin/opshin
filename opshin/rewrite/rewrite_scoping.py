@@ -2,6 +2,8 @@ from ast import *
 from copy import copy
 from collections import defaultdict
 
+from ordered_set import OrderedSet
+
 from ..type_inference import INITIAL_SCOPE, PolymorphicFunctionInstanceType
 from ..util import CompilingNodeTransformer, CompilingNodeVisitor
 
@@ -14,7 +16,7 @@ class ShallowNameDefCollector(CompilingNodeVisitor):
     step = "Collecting occuring variable names"
 
     def __init__(self):
-        self.vars = set()
+        self.vars = OrderedSet()
 
     def visit_Name(self, node: Name) -> None:
         if isinstance(node.ctx, Store) or isinstance(
@@ -36,7 +38,7 @@ class RewriteScoping(CompilingNodeTransformer):
 
     def __init__(self):
         self.latest_scope_id = 0
-        self.scopes = [(set(INITIAL_SCOPE.keys()), -1)]
+        self.scopes = [(OrderedSet(INITIAL_SCOPE.keys()), -1)]
 
     def variable_scope_id(self, name: str) -> int:
         """find the id of the scope in which this variable is defined (closest to its usage)"""
@@ -49,7 +51,7 @@ class RewriteScoping(CompilingNodeTransformer):
         )
 
     def enter_scope(self):
-        self.scopes.append((set(), self.latest_scope_id))
+        self.scopes.append((OrderedSet(), self.latest_scope_id))
         self.latest_scope_id += 1
 
     def exit_scope(self):

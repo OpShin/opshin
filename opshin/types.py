@@ -2,6 +2,7 @@ import logging
 from ast import *
 
 import itertools
+from ordered_set import OrderedSet
 
 import uplc.ast
 
@@ -535,7 +536,7 @@ class UnionType(ClassType):
             return IntegerInstanceType
         # need to have a common field with the same name
         if all(attr in (n for n, t in x.record.fields) for x in self.typs):
-            attr_types = set(
+            attr_types = OrderedSet(
                 t for x in self.typs for n, t in x.record.fields if n == attr
             )
             for at in attr_types:

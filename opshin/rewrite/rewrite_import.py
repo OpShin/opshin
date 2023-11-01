@@ -6,6 +6,7 @@ import pathlib
 import typing
 import sys
 from ast import *
+from ordered_set import OrderedSet
 
 from ..util import CompilingNodeTransformer
 
@@ -57,7 +58,7 @@ class RewriteImport(CompilingNodeTransformer):
     def __init__(self, filename=None, package=None, resolved_imports=None):
         self.filename = filename
         self.package = package
-        self.resolved_imports = resolved_imports or set()
+        self.resolved_imports = resolved_imports or OrderedSet()
 
     def visit_ImportFrom(
         self, node: ImportFrom

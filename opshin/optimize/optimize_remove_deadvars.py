@@ -2,6 +2,8 @@ from ast import *
 from copy import copy
 from collections import defaultdict
 
+from ordered_set import OrderedSet
+
 from ..util import CompilingNodeVisitor, CompilingNodeTransformer
 from ..type_inference import INITIAL_SCOPE
 from ..typed_ast import TypedAnnAssign
@@ -93,7 +95,7 @@ class OptimizeRemoveDeadvars(CompilingNodeTransformer):
             # collect all variable names
             collector = NameLoadCollector()
             collector.visit(node_cp)
-            loaded_vars = set(collector.loaded.keys()) | {"validator_0"}
+            loaded_vars = OrderedSet(collector.loaded.keys()) | {"validator_0"}
             # break if the set of loaded vars did not change -> set of vars to remove does also not change
             if loaded_vars == self.loaded_vars:
                 break
@@ -115,7 +117,7 @@ class OptimizeRemoveDeadvars(CompilingNodeTransformer):
         scope_orelse_cp = self.guaranteed_avail_names[-1].copy()
         self.exit_scope()
         # what remains after this in the scope is the intersection of both
-        for var in set(scope_body_cp).intersection(scope_orelse_cp):
+        for var in OrderedSet(scope_body_cp).intersection(scope_orelse_cp):
             self.set_guaranteed(var)
         return node_cp
 
