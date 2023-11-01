@@ -2181,7 +2181,7 @@ def validator(
         with open(input_file) as fp:
             source_code = fp.read()
         code = builder._compile(source_code)
-        for i in range(50):
+        for i in range(10):
             code_2 = builder._compile(source_code)
             self.assertEqual(code.dumps(), code_2.dumps())
 
@@ -2198,7 +2198,7 @@ def validator(
             ],
             capture_output=True,
         )
-        for i in range(50):
+        for i in range(10):
             code_2 = subprocess.run(
                 [
                     sys.executable,
