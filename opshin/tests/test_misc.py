@@ -1,3 +1,7 @@
+import sys
+
+import subprocess
+
 import json
 import tempfile
 import xml.etree.ElementTree
@@ -2171,3 +2175,39 @@ def validator(
     return d
 """
         builder._compile(source_code)
+
+    def test_compilation_deterministic_local(self):
+        input_file = "examples/smart_contracts/assert_sum.py"
+        with open(input_file) as fp:
+            source_code = fp.read()
+        code = builder._compile(source_code)
+        for i in range(50):
+            code_2 = builder._compile(source_code)
+            self.assertEqual(code.dumps(), code_2.dumps())
+
+    def test_compilation_deterministic_external(self):
+        input_file = "examples/smart_contracts/assert_sum.py"
+        code = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "opshin",
+                "compile",
+                "spending",
+                input_file,
+            ],
+            capture_output=True,
+        )
+        for i in range(50):
+            code_2 = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "opshin",
+                    "compile",
+                    "spending",
+                    input_file,
+                ],
+                capture_output=True,
+            )
+            self.assertEqual(code.stdout, code_2.stdout)
