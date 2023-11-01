@@ -926,10 +926,10 @@ Reference of the core structure:
 <dl>
 <dt id="opshin.builder.PlutusContract"><code class="flex name class">
 <span>class <span class="ident">PlutusContract</span></span>
-<span>(</span><span>contract: pycardano.plutus.PlutusV2Script, datum_type: Optional[Tuple[str, Type[Union[pycardano.plutus.PlutusData, dict, int, bytes, pycardano.serialization.IndefiniteList, pycardano.serialization.RawCBOR, pycardano.plutus.RawPlutusData]]]] = None, redeemer_type: Optional[Tuple[str, Type[Union[pycardano.plutus.PlutusData, dict, int, bytes, pycardano.serialization.IndefiniteList, pycardano.serialization.RawCBOR, pycardano.plutus.RawPlutusData]]]] = None, parameter_types: List[Tuple[str, Type[Union[pycardano.plutus.PlutusData, dict, int, bytes, pycardano.serialization.IndefiniteList, pycardano.serialization.RawCBOR, pycardano.plutus.RawPlutusData]]]] = &lt;factory&gt;, purpose: Iterable[<a title="opshin.builder.Purpose" href="#opshin.builder.Purpose">Purpose</a>] = (&lt;Purpose.any: &#x27;any&#x27;&gt;,), version: Optional[str] = '1.0.0', title: str = 'validator', description: Optional[str] = 'opshin 0.17.0 Smart Contract', license: Optional[str] = None)</span>
+<span>(</span><span>contract: pycardano.plutus.PlutusV2Script, datum_type: Optional[Tuple[str, Type[Union[pycardano.plutus.PlutusData, dict, int, bytes, pycardano.serialization.IndefiniteList, pycardano.serialization.RawCBOR, pycardano.plutus.RawPlutusData]]]] = None, redeemer_type: Optional[Tuple[str, Type[Union[pycardano.plutus.PlutusData, dict, int, bytes, pycardano.serialization.IndefiniteList, pycardano.serialization.RawCBOR, pycardano.plutus.RawPlutusData]]]] = None, parameter_types: List[Tuple[str, Type[Union[pycardano.plutus.PlutusData, dict, int, bytes, pycardano.serialization.IndefiniteList, pycardano.serialization.RawCBOR, pycardano.plutus.RawPlutusData]]]] = &lt;factory&gt;, purpose: Iterable[<a title="opshin.builder.Purpose" href="#opshin.builder.Purpose">Purpose</a>] = (&lt;Purpose.any: &#x27;any&#x27;&gt;,), version: Optional[str] = '1.0.0', title: str = 'validator', description: Optional[str] = 'opshin 0.18.0 Smart Contract', license: Optional[str] = None)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>PlutusContract(contract: pycardano.plutus.PlutusV2Script, datum_type: Optional[Tuple[str, Type[Union[pycardano.plutus.PlutusData, dict, int, bytes, pycardano.serialization.IndefiniteList, pycardano.serialization.RawCBOR, pycardano.plutus.RawPlutusData]]]] = None, redeemer_type: Optional[Tuple[str, Type[Union[pycardano.plutus.PlutusData, dict, int, bytes, pycardano.serialization.IndefiniteList, pycardano.serialization.RawCBOR, pycardano.plutus.RawPlutusData]]]] = None, parameter_types: List[Tuple[str, Type[Union[pycardano.plutus.PlutusData, dict, int, bytes, pycardano.serialization.IndefiniteList, pycardano.serialization.RawCBOR, pycardano.plutus.RawPlutusData]]]] = <factory>, purpose: Iterable[opshin.builder.Purpose] = (<Purpose.any: 'any'>,), version: Optional[str] = '1.0.0', title: str = 'validator', description: Optional[str] = 'opshin 0.17.0 Smart Contract', license: Optional[str] = None)</p></div>
+<div class="desc"><p>PlutusContract(contract: pycardano.plutus.PlutusV2Script, datum_type: Optional[Tuple[str, Type[Union[pycardano.plutus.PlutusData, dict, int, bytes, pycardano.serialization.IndefiniteList, pycardano.serialization.RawCBOR, pycardano.plutus.RawPlutusData]]]] = None, redeemer_type: Optional[Tuple[str, Type[Union[pycardano.plutus.PlutusData, dict, int, bytes, pycardano.serialization.IndefiniteList, pycardano.serialization.RawCBOR, pycardano.plutus.RawPlutusData]]]] = None, parameter_types: List[Tuple[str, Type[Union[pycardano.plutus.PlutusData, dict, int, bytes, pycardano.serialization.IndefiniteList, pycardano.serialization.RawCBOR, pycardano.plutus.RawPlutusData]]]] = <factory>, purpose: Iterable[opshin.builder.Purpose] = (<Purpose.any: 'any'>,), version: Optional[str] = '1.0.0', title: str = 'validator', description: Optional[str] = 'opshin 0.18.0 Smart Contract', license: Optional[str] = None)</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -1350,10 +1350,44 @@ def testnet_addr(self):
 </dd>
 <dt id="opshin.builder.Purpose"><code class="flex name class">
 <span>class <span class="ident">Purpose</span></span>
-<span>(</span><span>value, names=None, *, module=None, qualname=None, type=None, start=1)</span>
+<span>(</span><span>*args, **kwds)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>An enumeration.</p></div>
+<div class="desc"><p>Create a collection of name/value pairs.</p>
+<p>Example enumeration:</p>
+<pre><code class="language-python-repl">&gt;&gt;&gt; class Color(Enum):
+...     RED = 1
+...     BLUE = 2
+...     GREEN = 3
+</code></pre>
+<p>Access them by:</p>
+<ul>
+<li>attribute access::</li>
+</ul>
+<pre><code class="language-python-repl">&gt;&gt;&gt; Color.RED
+&lt;Color.RED: 1&gt;
+</code></pre>
+<ul>
+<li>value lookup:</li>
+</ul>
+<pre><code class="language-python-repl">&gt;&gt;&gt; Color(1)
+&lt;Color.RED: 1&gt;
+</code></pre>
+<ul>
+<li>name lookup:</li>
+</ul>
+<pre><code class="language-python-repl">&gt;&gt;&gt; Color['RED']
+&lt;Color.RED: 1&gt;
+</code></pre>
+<p>Enumerations can be iterated over, and know how many members they have:</p>
+<pre><code class="language-python-repl">&gt;&gt;&gt; len(Color)
+3
+</code></pre>
+<pre><code class="language-python-repl">&gt;&gt;&gt; list(Color)
+[&lt;Color.RED: 1&gt;, &lt;Color.BLUE: 2&gt;, &lt;Color.GREEN: 3&gt;]
+</code></pre>
+<p>Methods can be added to enumerations, and members can have their own
+attributes &ndash; see the documentation for details.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>

@@ -99,7 +99,7 @@ class RewriteForbiddenOverwrites(CompilingNodeTransformer):
     step = &#34;Checking for forbidden name overwrites&#34;
 
     def visit_Name(self, node: Name) -&gt; Name:
-        if node.ctx == Store() and node.id in FORBIDDEN_NAMES:
+        if isinstance(node.ctx, Store) and node.id in FORBIDDEN_NAMES:
             raise ForbiddenOverwriteError(
                 f&#34;It is not allowed to overwrite name {node.id}&#34;
             )
@@ -174,7 +174,7 @@ just a single node.</p>
     step = &#34;Checking for forbidden name overwrites&#34;
 
     def visit_Name(self, node: Name) -&gt; Name:
-        if node.ctx == Store() and node.id in FORBIDDEN_NAMES:
+        if isinstance(node.ctx, Store) and node.id in FORBIDDEN_NAMES:
             raise ForbiddenOverwriteError(
                 f&#34;It is not allowed to overwrite name {node.id}&#34;
             )
@@ -216,7 +216,7 @@ just a single node.</p>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def visit_Name(self, node: Name) -&gt; Name:
-    if node.ctx == Store() and node.id in FORBIDDEN_NAMES:
+    if isinstance(node.ctx, Store) and node.id in FORBIDDEN_NAMES:
         raise ForbiddenOverwriteError(
             f&#34;It is not allowed to overwrite name {node.id}&#34;
         )

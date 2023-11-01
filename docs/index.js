@@ -117,7 +117,7 @@ INDEX=[
 {
 "ref":"opshin.typed_ast.typedstmt",
 "url":2,
-"doc":"stmt = FunctionDef(identifier name, arguments args, stmt body, expr decorator_list, expr? returns, string? type_comment) | AsyncFunctionDef(identifier name, arguments args, stmt body, expr decorator_list, expr? returns, string? type_comment) | ClassDef(identifier name, expr bases, keyword keywords, stmt body, expr decorator_list) | Return(expr? value) | Delete(expr targets) | Assign(expr targets, expr value, string? type_comment) | AugAssign(expr target, operator op, expr value) | AnnAssign(expr target, expr annotation, expr? value, int simple) | For(expr target, expr iter, stmt body, stmt orelse, string? type_comment) | AsyncFor(expr target, expr iter, stmt body, stmt orelse, string? type_comment) | While(expr test, stmt body, stmt orelse) | If(expr test, stmt body, stmt orelse) | With(withitem items, stmt body, string? type_comment) | AsyncWith(withitem items, stmt body, string? type_comment) | Match(expr subject, match_case cases) | Raise(expr? exc, expr? cause) | Try(stmt body, excepthandler handlers, stmt orelse, stmt finalbody) | Assert(expr test, expr? msg) | Import(alias names) | ImportFrom(identifier? module, alias names, int? level) | Global(identifier names) | Nonlocal(identifier names) | Expr(expr value) | Pass | Break | Continue"
+"doc":"stmt = FunctionDef(identifier name, arguments args, stmt body, expr decorator_list, expr? returns, string? type_comment) | AsyncFunctionDef(identifier name, arguments args, stmt body, expr decorator_list, expr? returns, string? type_comment) | ClassDef(identifier name, expr bases, keyword keywords, stmt body, expr decorator_list) | Return(expr? value) | Delete(expr targets) | Assign(expr targets, expr value, string? type_comment) | AugAssign(expr target, operator op, expr value) | AnnAssign(expr target, expr annotation, expr? value, int simple) | For(expr target, expr iter, stmt body, stmt orelse, string? type_comment) | AsyncFor(expr target, expr iter, stmt body, stmt orelse, string? type_comment) | While(expr test, stmt body, stmt orelse) | If(expr test, stmt body, stmt orelse) | With(withitem items, stmt body, string? type_comment) | AsyncWith(withitem items, stmt body, string? type_comment) | Match(expr subject, match_case cases) | Raise(expr? exc, expr? cause) | Try(stmt body, excepthandler handlers, stmt orelse, stmt finalbody) | TryStar(stmt body, excepthandler handlers, stmt orelse, stmt finalbody) | Assert(expr test, expr? msg) | Import(alias names) | ImportFrom(identifier? module, alias names, int? level) | Global(identifier names) | Nonlocal(identifier names) | Expr(expr value) | Pass | Break | Continue"
 },
 {
 "ref":"opshin.typed_ast.typedstmt.typ",
@@ -167,7 +167,7 @@ INDEX=[
 {
 "ref":"opshin.typed_ast.TypedModule",
 "url":2,
-"doc":"stmt = FunctionDef(identifier name, arguments args, stmt body, expr decorator_list, expr? returns, string? type_comment) | AsyncFunctionDef(identifier name, arguments args, stmt body, expr decorator_list, expr? returns, string? type_comment) | ClassDef(identifier name, expr bases, keyword keywords, stmt body, expr decorator_list) | Return(expr? value) | Delete(expr targets) | Assign(expr targets, expr value, string? type_comment) | AugAssign(expr target, operator op, expr value) | AnnAssign(expr target, expr annotation, expr? value, int simple) | For(expr target, expr iter, stmt body, stmt orelse, string? type_comment) | AsyncFor(expr target, expr iter, stmt body, stmt orelse, string? type_comment) | While(expr test, stmt body, stmt orelse) | If(expr test, stmt body, stmt orelse) | With(withitem items, stmt body, string? type_comment) | AsyncWith(withitem items, stmt body, string? type_comment) | Match(expr subject, match_case cases) | Raise(expr? exc, expr? cause) | Try(stmt body, excepthandler handlers, stmt orelse, stmt finalbody) | Assert(expr test, expr? msg) | Import(alias names) | ImportFrom(identifier? module, alias names, int? level) | Global(identifier names) | Nonlocal(identifier names) | Expr(expr value) | Pass | Break | Continue"
+"doc":"stmt = FunctionDef(identifier name, arguments args, stmt body, expr decorator_list, expr? returns, string? type_comment) | AsyncFunctionDef(identifier name, arguments args, stmt body, expr decorator_list, expr? returns, string? type_comment) | ClassDef(identifier name, expr bases, keyword keywords, stmt body, expr decorator_list) | Return(expr? value) | Delete(expr targets) | Assign(expr targets, expr value, string? type_comment) | AugAssign(expr target, operator op, expr value) | AnnAssign(expr target, expr annotation, expr? value, int simple) | For(expr target, expr iter, stmt body, stmt orelse, string? type_comment) | AsyncFor(expr target, expr iter, stmt body, stmt orelse, string? type_comment) | While(expr test, stmt body, stmt orelse) | If(expr test, stmt body, stmt orelse) | With(withitem items, stmt body, string? type_comment) | AsyncWith(withitem items, stmt body, string? type_comment) | Match(expr subject, match_case cases) | Raise(expr? exc, expr? cause) | Try(stmt body, excepthandler handlers, stmt orelse, stmt finalbody) | TryStar(stmt body, excepthandler handlers, stmt orelse, stmt finalbody) | Assert(expr test, expr? msg) | Import(alias names) | ImportFrom(identifier? module, alias names, int? level) | Global(identifier names) | Nonlocal(identifier names) | Expr(expr value) | Pass | Break | Continue"
 },
 {
 "ref":"opshin.typed_ast.TypedModule.body",
@@ -222,7 +222,7 @@ INDEX=[
 {
 "ref":"opshin.typed_ast.TypedExpression",
 "url":2,
-"doc":"stmt = FunctionDef(identifier name, arguments args, stmt body, expr decorator_list, expr? returns, string? type_comment) | AsyncFunctionDef(identifier name, arguments args, stmt body, expr decorator_list, expr? returns, string? type_comment) | ClassDef(identifier name, expr bases, keyword keywords, stmt body, expr decorator_list) | Return(expr? value) | Delete(expr targets) | Assign(expr targets, expr value, string? type_comment) | AugAssign(expr target, operator op, expr value) | AnnAssign(expr target, expr annotation, expr? value, int simple) | For(expr target, expr iter, stmt body, stmt orelse, string? type_comment) | AsyncFor(expr target, expr iter, stmt body, stmt orelse, string? type_comment) | While(expr test, stmt body, stmt orelse) | If(expr test, stmt body, stmt orelse) | With(withitem items, stmt body, string? type_comment) | AsyncWith(withitem items, stmt body, string? type_comment) | Match(expr subject, match_case cases) | Raise(expr? exc, expr? cause) | Try(stmt body, excepthandler handlers, stmt orelse, stmt finalbody) | Assert(expr test, expr? msg) | Import(alias names) | ImportFrom(identifier? module, alias names, int? level) | Global(identifier names) | Nonlocal(identifier names) | Expr(expr value) | Pass | Break | Continue"
+"doc":"stmt = FunctionDef(identifier name, arguments args, stmt body, expr decorator_list, expr? returns, string? type_comment) | AsyncFunctionDef(identifier name, arguments args, stmt body, expr decorator_list, expr? returns, string? type_comment) | ClassDef(identifier name, expr bases, keyword keywords, stmt body, expr decorator_list) | Return(expr? value) | Delete(expr targets) | Assign(expr targets, expr value, string? type_comment) | AugAssign(expr target, operator op, expr value) | AnnAssign(expr target, expr annotation, expr? value, int simple) | For(expr target, expr iter, stmt body, stmt orelse, string? type_comment) | AsyncFor(expr target, expr iter, stmt body, stmt orelse, string? type_comment) | While(expr test, stmt body, stmt orelse) | If(expr test, stmt body, stmt orelse) | With(withitem items, stmt body, string? type_comment) | AsyncWith(withitem items, stmt body, string? type_comment) | Match(expr subject, match_case cases) | Raise(expr? exc, expr? cause) | Try(stmt body, excepthandler handlers, stmt orelse, stmt finalbody) | TryStar(stmt body, excepthandler handlers, stmt orelse, stmt finalbody) | Assert(expr test, expr? msg) | Import(alias names) | ImportFrom(identifier? module, alias names, int? level) | Global(identifier names) | Nonlocal(identifier names) | Expr(expr value) | Pass | Break | Continue"
 },
 {
 "ref":"opshin.typed_ast.TypedExpression.body",
@@ -496,7 +496,7 @@ INDEX=[
 {
 "ref":"opshin.typed_ast.TypedIfExp",
 "url":2,
-"doc":"stmt = FunctionDef(identifier name, arguments args, stmt body, expr decorator_list, expr? returns, string? type_comment) | AsyncFunctionDef(identifier name, arguments args, stmt body, expr decorator_list, expr? returns, string? type_comment) | ClassDef(identifier name, expr bases, keyword keywords, stmt body, expr decorator_list) | Return(expr? value) | Delete(expr targets) | Assign(expr targets, expr value, string? type_comment) | AugAssign(expr target, operator op, expr value) | AnnAssign(expr target, expr annotation, expr? value, int simple) | For(expr target, expr iter, stmt body, stmt orelse, string? type_comment) | AsyncFor(expr target, expr iter, stmt body, stmt orelse, string? type_comment) | While(expr test, stmt body, stmt orelse) | If(expr test, stmt body, stmt orelse) | With(withitem items, stmt body, string? type_comment) | AsyncWith(withitem items, stmt body, string? type_comment) | Match(expr subject, match_case cases) | Raise(expr? exc, expr? cause) | Try(stmt body, excepthandler handlers, stmt orelse, stmt finalbody) | Assert(expr test, expr? msg) | Import(alias names) | ImportFrom(identifier? module, alias names, int? level) | Global(identifier names) | Nonlocal(identifier names) | Expr(expr value) | Pass | Break | Continue"
+"doc":"stmt = FunctionDef(identifier name, arguments args, stmt body, expr decorator_list, expr? returns, string? type_comment) | AsyncFunctionDef(identifier name, arguments args, stmt body, expr decorator_list, expr? returns, string? type_comment) | ClassDef(identifier name, expr bases, keyword keywords, stmt body, expr decorator_list) | Return(expr? value) | Delete(expr targets) | Assign(expr targets, expr value, string? type_comment) | AugAssign(expr target, operator op, expr value) | AnnAssign(expr target, expr annotation, expr? value, int simple) | For(expr target, expr iter, stmt body, stmt orelse, string? type_comment) | AsyncFor(expr target, expr iter, stmt body, stmt orelse, string? type_comment) | While(expr test, stmt body, stmt orelse) | If(expr test, stmt body, stmt orelse) | With(withitem items, stmt body, string? type_comment) | AsyncWith(withitem items, stmt body, string? type_comment) | Match(expr subject, match_case cases) | Raise(expr? exc, expr? cause) | Try(stmt body, excepthandler handlers, stmt orelse, stmt finalbody) | TryStar(stmt body, excepthandler handlers, stmt orelse, stmt finalbody) | Assert(expr test, expr? msg) | Import(alias names) | ImportFrom(identifier? module, alias names, int? level) | Global(identifier names) | Nonlocal(identifier names) | Expr(expr value) | Pass | Break | Continue"
 },
 {
 "ref":"opshin.typed_ast.TypedIfExp.test",
@@ -1694,6 +1694,30 @@ INDEX=[
 "func":1
 },
 {
+"ref":"opshin.tests.test_misc.MiscTest.test_bridge",
+"url":6,
+"doc":"",
+"func":1
+},
+{
+"ref":"opshin.tests.test_misc.MiscTest.test_forbidden_overwrite",
+"url":6,
+"doc":"",
+"func":1
+},
+{
+"ref":"opshin.tests.test_misc.MiscTest.test_compilation_deterministic_local",
+"url":6,
+"doc":"",
+"func":1
+},
+{
+"ref":"opshin.tests.test_misc.MiscTest.test_compilation_deterministic_external",
+"url":6,
+"doc":"",
+"func":1
+},
+{
 "ref":"opshin.tests.test_ops",
 "url":7,
 "doc":""
@@ -2526,7 +2550,7 @@ INDEX=[
 {
 "ref":"opshin.fun_impls.PythonBuiltIn",
 "url":17,
-"doc":"An enumeration."
+"doc":"Create a collection of name/value pairs. Example enumeration: >>> class Color(Enum):  . RED = 1  . BLUE = 2  . GREEN = 3 Access them by: - attribute access >>> Color.RED  - value lookup: >>> Color(1)  - name lookup: >>> Color['RED']  Enumerations can be iterated over, and know how many members they have: >>> len(Color) 3 >>> list(Color) [ ,  ,  ] Methods can be added to enumerations, and members can have their own attributes  see the documentation for details."
 },
 {
 "ref":"opshin.fun_impls.PythonBuiltIn.all",
@@ -2611,7 +2635,7 @@ INDEX=[
 {
 "ref":"opshin.builder.Purpose",
 "url":18,
-"doc":"An enumeration."
+"doc":"Create a collection of name/value pairs. Example enumeration: >>> class Color(Enum):  . RED = 1  . BLUE = 2  . GREEN = 3 Access them by: - attribute access >>> Color.RED  - value lookup: >>> Color(1)  - name lookup: >>> Color['RED']  Enumerations can be iterated over, and know how many members they have: >>> len(Color) 3 >>> list(Color) [ ,  ,  ] Methods can be added to enumerations, and members can have their own attributes  see the documentation for details."
 },
 {
 "ref":"opshin.builder.Purpose.spending",
@@ -2646,7 +2670,7 @@ INDEX=[
 {
 "ref":"opshin.builder.PlutusContract",
 "url":18,
-"doc":"PlutusContract(contract: pycardano.plutus.PlutusV2Script, datum_type: Optional[Tuple[str, Type[Union[pycardano.plutus.PlutusData, dict, int, bytes, pycardano.serialization.IndefiniteList, pycardano.serialization.RawCBOR, pycardano.plutus.RawPlutusData  = None, redeemer_type: Optional[Tuple[str, Type[Union[pycardano.plutus.PlutusData, dict, int, bytes, pycardano.serialization.IndefiniteList, pycardano.serialization.RawCBOR, pycardano.plutus.RawPlutusData  = None, parameter_types: List[Tuple[str, Type[Union[pycardano.plutus.PlutusData, dict, int, bytes, pycardano.serialization.IndefiniteList, pycardano.serialization.RawCBOR, pycardano.plutus.RawPlutusData  =  , purpose: Iterable[opshin.builder.Purpose] = ( ,), version: Optional[str] = '1.0.0', title: str = 'validator', description: Optional[str] = 'opshin 0.17.0 Smart Contract', license: Optional[str] = None)"
+"doc":"PlutusContract(contract: pycardano.plutus.PlutusV2Script, datum_type: Optional[Tuple[str, Type[Union[pycardano.plutus.PlutusData, dict, int, bytes, pycardano.serialization.IndefiniteList, pycardano.serialization.RawCBOR, pycardano.plutus.RawPlutusData  = None, redeemer_type: Optional[Tuple[str, Type[Union[pycardano.plutus.PlutusData, dict, int, bytes, pycardano.serialization.IndefiniteList, pycardano.serialization.RawCBOR, pycardano.plutus.RawPlutusData  = None, parameter_types: List[Tuple[str, Type[Union[pycardano.plutus.PlutusData, dict, int, bytes, pycardano.serialization.IndefiniteList, pycardano.serialization.RawCBOR, pycardano.plutus.RawPlutusData  =  , purpose: Iterable[opshin.builder.Purpose] = ( ,), version: Optional[str] = '1.0.0', title: str = 'validator', description: Optional[str] = 'opshin 0.18.0 Smart Contract', license: Optional[str] = None)"
 },
 {
 "ref":"opshin.builder.PlutusContract.contract",
@@ -6045,7 +6069,7 @@ INDEX=[
 {
 "ref":"opshin.rewrite.rewrite_import_hashlib.PythonHashlib",
 "url":45,
-"doc":"An enumeration."
+"doc":"Create a collection of name/value pairs. Example enumeration: >>> class Color(Enum):  . RED = 1  . BLUE = 2  . GREEN = 3 Access them by: - attribute access >>> Color.RED  - value lookup: >>> Color(1)  - name lookup: >>> Color['RED']  Enumerations can be iterated over, and know how many members they have: >>> len(Color) 3 >>> list(Color) [ ,  ,  ] Methods can be added to enumerations, and members can have their own attributes  see the documentation for details."
 },
 {
 "ref":"opshin.rewrite.rewrite_import_hashlib.PythonHashlib.sha256",

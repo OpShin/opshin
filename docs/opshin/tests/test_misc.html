@@ -68,7 +68,11 @@ fill="currentColor" class="octo-body"></path>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">import json
+<pre><code class="python">import sys
+
+import subprocess
+
+import json
 import tempfile
 import xml.etree.ElementTree
 
@@ -87,6 +91,7 @@ from uplc import ast as uplc, eval as uplc_eval
 from . import PLUTUS_VM_PROFILE
 from .. import compiler, prelude, builder, Purpose, PlutusContract
 from .utils import eval_uplc_value, Unit, eval_uplc
+from ..bridge import wraps_builtin
 
 hypothesis.settings.load_profile(PLUTUS_VM_PROFILE)
 
@@ -2215,7 +2220,67 @@ def validator({param_string}) -&gt; bool:
         assert loaded.description == artifacts.description
         assert loaded.license == artifacts.license
         assert loaded.title == artifacts.title
-        assert loaded.version == artifacts.version</code></pre>
+        assert loaded.version == artifacts.version
+
+    def test_bridge(self):
+        @wraps_builtin
+        def add_integer(x: int, y: int) -&gt; int:
+            return x + y
+
+        assert add_integer(1, 2) == 3
+
+        @wraps_builtin
+        def append_byte_string(x: bytes, y: bytes) -&gt; bytes:
+            return x + y
+
+        assert append_byte_string(b&#34;hello&#34;, b&#34;world&#34;) == b&#34;helloworld&#34;
+
+    @unittest.expectedFailure
+    def test_forbidden_overwrite(self):
+        source_code = &#34;&#34;&#34;
+def validator(
+    d: int
+):
+    PlutusData = d
+    return d
+&#34;&#34;&#34;
+        builder._compile(source_code)
+
+    def test_compilation_deterministic_local(self):
+        input_file = &#34;examples/smart_contracts/assert_sum.py&#34;
+        with open(input_file) as fp:
+            source_code = fp.read()
+        code = builder._compile(source_code)
+        for i in range(10):
+            code_2 = builder._compile(source_code)
+            self.assertEqual(code.dumps(), code_2.dumps())
+
+    def test_compilation_deterministic_external(self):
+        input_file = &#34;examples/smart_contracts/assert_sum.py&#34;
+        code = subprocess.run(
+            [
+                sys.executable,
+                &#34;-m&#34;,
+                &#34;opshin&#34;,
+                &#34;compile&#34;,
+                &#34;spending&#34;,
+                input_file,
+            ],
+            capture_output=True,
+        )
+        for i in range(10):
+            code_2 = subprocess.run(
+                [
+                    sys.executable,
+                    &#34;-m&#34;,
+                    &#34;opshin&#34;,
+                    &#34;compile&#34;,
+                    &#34;spending&#34;,
+                    input_file,
+                ],
+                capture_output=True,
+            )
+            self.assertEqual(code.stdout, code_2.stdout)</code></pre>
 </details>
 </section>
 <section>
@@ -4449,7 +4514,67 @@ def validator({param_string}) -&gt; bool:
         assert loaded.description == artifacts.description
         assert loaded.license == artifacts.license
         assert loaded.title == artifacts.title
-        assert loaded.version == artifacts.version</code></pre>
+        assert loaded.version == artifacts.version
+
+    def test_bridge(self):
+        @wraps_builtin
+        def add_integer(x: int, y: int) -&gt; int:
+            return x + y
+
+        assert add_integer(1, 2) == 3
+
+        @wraps_builtin
+        def append_byte_string(x: bytes, y: bytes) -&gt; bytes:
+            return x + y
+
+        assert append_byte_string(b&#34;hello&#34;, b&#34;world&#34;) == b&#34;helloworld&#34;
+
+    @unittest.expectedFailure
+    def test_forbidden_overwrite(self):
+        source_code = &#34;&#34;&#34;
+def validator(
+    d: int
+):
+    PlutusData = d
+    return d
+&#34;&#34;&#34;
+        builder._compile(source_code)
+
+    def test_compilation_deterministic_local(self):
+        input_file = &#34;examples/smart_contracts/assert_sum.py&#34;
+        with open(input_file) as fp:
+            source_code = fp.read()
+        code = builder._compile(source_code)
+        for i in range(10):
+            code_2 = builder._compile(source_code)
+            self.assertEqual(code.dumps(), code_2.dumps())
+
+    def test_compilation_deterministic_external(self):
+        input_file = &#34;examples/smart_contracts/assert_sum.py&#34;
+        code = subprocess.run(
+            [
+                sys.executable,
+                &#34;-m&#34;,
+                &#34;opshin&#34;,
+                &#34;compile&#34;,
+                &#34;spending&#34;,
+                input_file,
+            ],
+            capture_output=True,
+        )
+        for i in range(10):
+            code_2 = subprocess.run(
+                [
+                    sys.executable,
+                    &#34;-m&#34;,
+                    &#34;opshin&#34;,
+                    &#34;compile&#34;,
+                    &#34;spending&#34;,
+                    input_file,
+                ],
+                capture_output=True,
+            )
+            self.assertEqual(code.stdout, code_2.stdout)</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -4590,6 +4715,29 @@ def validator({param_string}) -&gt; bool:
 &#34;&#34;&#34;
         res = eval_uplc_value(source_code, *[x[0] for x in xs])
         self.assertEqual(bool(res), eval(eval_string))</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_bridge"><code class="name flex">
+<span>def <span class="ident">test_bridge</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def test_bridge(self):
+    @wraps_builtin
+    def add_integer(x: int, y: int) -&gt; int:
+        return x + y
+
+    assert add_integer(1, 2) == 3
+
+    @wraps_builtin
+    def append_byte_string(x: bytes, y: bytes) -&gt; bytes:
+        return x + y
+
+    assert append_byte_string(b&#34;hello&#34;, b&#34;world&#34;) == b&#34;helloworld&#34;</code></pre>
 </details>
 </dd>
 <dt id="opshin.tests.test_misc.MiscTest.test_bytearray_alternative"><code class="name flex">
@@ -4740,6 +4888,62 @@ def validator({param_string}) -&gt; bool:
 &#34;&#34;&#34;
         res = eval_uplc_value(source_code, *[x[0] for x in xs])
         self.assertEqual(bool(res), eval(eval_string))</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_compilation_deterministic_external"><code class="name flex">
+<span>def <span class="ident">test_compilation_deterministic_external</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def test_compilation_deterministic_external(self):
+    input_file = &#34;examples/smart_contracts/assert_sum.py&#34;
+    code = subprocess.run(
+        [
+            sys.executable,
+            &#34;-m&#34;,
+            &#34;opshin&#34;,
+            &#34;compile&#34;,
+            &#34;spending&#34;,
+            input_file,
+        ],
+        capture_output=True,
+    )
+    for i in range(10):
+        code_2 = subprocess.run(
+            [
+                sys.executable,
+                &#34;-m&#34;,
+                &#34;opshin&#34;,
+                &#34;compile&#34;,
+                &#34;spending&#34;,
+                input_file,
+            ],
+            capture_output=True,
+        )
+        self.assertEqual(code.stdout, code_2.stdout)</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_compilation_deterministic_local"><code class="name flex">
+<span>def <span class="ident">test_compilation_deterministic_local</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def test_compilation_deterministic_local(self):
+    input_file = &#34;examples/smart_contracts/assert_sum.py&#34;
+    with open(input_file) as fp:
+        source_code = fp.read()
+    code = builder._compile(source_code)
+    for i in range(10):
+        code_2 = builder._compile(source_code)
+        self.assertEqual(code.dumps(), code_2.dumps())</code></pre>
 </details>
 </dd>
 <dt id="opshin.tests.test_misc.MiscTest.test_complex_datum_correct_vals"><code class="name flex">
@@ -5582,6 +5786,27 @@ def test_fib_rec(self, n):
         fib(n),
         ret,
     )</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_forbidden_overwrite"><code class="name flex">
+<span>def <span class="ident">test_forbidden_overwrite</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    @unittest.expectedFailure
+    def test_forbidden_overwrite(self):
+        source_code = &#34;&#34;&#34;
+def validator(
+    d: int
+):
+    PlutusData = d
+    return d
+&#34;&#34;&#34;
+        builder._compile(source_code)</code></pre>
 </details>
 </dd>
 <dt id="opshin.tests.test_misc.MiscTest.test_gift_contract_fail"><code class="name flex">
@@ -7847,12 +8072,15 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_assert_sum_contract_fail" href="#opshin.tests.test_misc.MiscTest.test_assert_sum_contract_fail">test_assert_sum_contract_fail</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_assert_sum_contract_succeed" href="#opshin.tests.test_misc.MiscTest.test_assert_sum_contract_succeed">test_assert_sum_contract_succeed</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_boolop_chaining" href="#opshin.tests.test_misc.MiscTest.test_boolop_chaining">test_boolop_chaining</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_bridge" href="#opshin.tests.test_misc.MiscTest.test_bridge">test_bridge</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_bytearray_alternative" href="#opshin.tests.test_misc.MiscTest.test_bytearray_alternative">test_bytearray_alternative</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_cast_bool_boolops" href="#opshin.tests.test_misc.MiscTest.test_cast_bool_boolops">test_cast_bool_boolops</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_cast_bool_ite" href="#opshin.tests.test_misc.MiscTest.test_cast_bool_ite">test_cast_bool_ite</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_cast_bool_ite_expr" href="#opshin.tests.test_misc.MiscTest.test_cast_bool_ite_expr">test_cast_bool_ite_expr</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_cast_bool_while" href="#opshin.tests.test_misc.MiscTest.test_cast_bool_while">test_cast_bool_while</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_comparison_chaining" href="#opshin.tests.test_misc.MiscTest.test_comparison_chaining">test_comparison_chaining</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_compilation_deterministic_external" href="#opshin.tests.test_misc.MiscTest.test_compilation_deterministic_external">test_compilation_deterministic_external</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_compilation_deterministic_local" href="#opshin.tests.test_misc.MiscTest.test_compilation_deterministic_local">test_compilation_deterministic_local</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_complex_datum_correct_vals" href="#opshin.tests.test_misc.MiscTest.test_complex_datum_correct_vals">test_complex_datum_correct_vals</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_complex_isinstance_cast_if" href="#opshin.tests.test_misc.MiscTest.test_complex_isinstance_cast_if">test_complex_isinstance_cast_if</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_constant_folding" href="#opshin.tests.test_misc.MiscTest.test_constant_folding">test_constant_folding</a></code></li>
@@ -7885,6 +8113,7 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_failing_annotated_type" href="#opshin.tests.test_misc.MiscTest.test_failing_annotated_type">test_failing_annotated_type</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_fib_iter" href="#opshin.tests.test_misc.MiscTest.test_fib_iter">test_fib_iter</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_fib_rec" href="#opshin.tests.test_misc.MiscTest.test_fib_rec">test_fib_rec</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_forbidden_overwrite" href="#opshin.tests.test_misc.MiscTest.test_forbidden_overwrite">test_forbidden_overwrite</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_gift_contract_fail" href="#opshin.tests.test_misc.MiscTest.test_gift_contract_fail">test_gift_contract_fail</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_gift_contract_succeed" href="#opshin.tests.test_misc.MiscTest.test_gift_contract_succeed">test_gift_contract_succeed</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_hello_world" href="#opshin.tests.test_misc.MiscTest.test_hello_world">test_hello_world</a></code></li>
