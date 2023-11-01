@@ -295,7 +295,7 @@ Note that opshin errors may be overly restrictive as they aim to prevent code wi
     if command == Command.compile_pluto:
         print(code.dumps())
         return
-    code = pluthon.compile(code)
+    code = pluthon.compile(code, optimize_patterns=not args.no_optimize_patterns)
 
     # apply parameters from the command line to the contract (instantiates parameterized contract!)
     code = code.term
@@ -401,6 +401,11 @@ def parse_args():
         "--allow-isinstance-anything",
         action="store_true",
         help="Enables the use of isinstance(x, D) in the contract where x is of type Anything. This is not recommended as it only checks the constructor id and not the actual type of the data.",
+    )
+    a.add_argument(
+        "--no-optimize-patterns",
+        action="store_true",
+        help="Disables the compression of re-occurring code patterns. Can reduce memory and CPU steps but increases the size of the compiled contract.",
     )
     a.add_argument(
         "args",
