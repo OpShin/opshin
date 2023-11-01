@@ -1,3 +1,5 @@
+import os
+
 import sys
 
 import subprocess
@@ -29,6 +31,13 @@ hypothesis.settings.load_profile(PLUTUS_VM_PROFILE)
 from ..ledger.api_v2 import *
 from pycardano import RawPlutusData
 from cbor2 import CBORTag
+
+ALL_EXAMPLES = [
+    os.path.join(root, f)
+    for root, dirs, files in os.walk("examples")
+    for f in files
+    if f.endswith(".py") and not f.startswith("broken") and not f.startswith("extract")
+]
 
 
 def fib(n):
@@ -2185,8 +2194,8 @@ def validator(
 """
         builder._compile(source_code)
 
-    def test_compilation_deterministic_local(self):
-        input_file = "examples/smart_contracts/assert_sum.py"
+    @parameterized.expand(ALL_EXAMPLES)
+    def test_compilation_deterministic_local(self, input_file):
         with open(input_file) as fp:
             source_code = fp.read()
         code = builder._compile(source_code)
@@ -2194,15 +2203,15 @@ def validator(
             code_2 = builder._compile(source_code)
             self.assertEqual(code.dumps(), code_2.dumps())
 
-    def test_compilation_deterministic_external(self):
-        input_file = "examples/smart_contracts/assert_sum.py"
+    @parameterized.expand(ALL_EXAMPLES)
+    def test_compilation_deterministic_external(self, input_file):
         code = subprocess.run(
             [
                 sys.executable,
                 "-m",
                 "opshin",
                 "compile",
-                "spending",
+                "any",
                 input_file,
             ],
             capture_output=True,
@@ -2214,7 +2223,7 @@ def validator(
                     "-m",
                     "opshin",
                     "compile",
-                    "spending",
+                    "any",
                     input_file,
                 ],
                 capture_output=True,
