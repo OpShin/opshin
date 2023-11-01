@@ -3,6 +3,7 @@ from collections import defaultdict
 import logging
 
 from ast import *
+from ordered_set import OrderedSet
 
 from pycardano import PlutusData
 
@@ -98,7 +99,7 @@ class ShallowNameDefCollector(CompilingNodeVisitor):
     step = "Collecting occuring variable names"
 
     def __init__(self):
-        self.vars = set()
+        self.vars = OrderedSet()
 
     def visit_Name(self, node: Name) -> None:
         if isinstance(node.ctx, Store):
@@ -172,13 +173,13 @@ class OptimizeConstantFolding(CompilingNodeTransformer):
 
     def __init__(self):
         self.scopes_visible = [
-            set(INITIAL_SCOPE.keys()).difference(SAFE_GLOBALS.keys())
+            OrderedSet(INITIAL_SCOPE.keys()).difference(SAFE_GLOBALS.keys())
         ]
         self.scopes_constants = [dict()]
-        self.constants = set()
+        self.constants = OrderedSet()
 
     def enter_scope(self):
-        self.scopes_visible.append(set())
+        self.scopes_visible.append(OrderedSet())
         self.scopes_constants.append(dict())
 
     def add_var_visible(self, var: str):
@@ -191,7 +192,7 @@ class OptimizeConstantFolding(CompilingNodeTransformer):
         self.scopes_constants[-1][var] = value
 
     def visible_vars(self):
-        res_set = set()
+        res_set = OrderedSet()
         for s in self.scopes_visible:
             res_set.update(s)
         return res_set

@@ -23,10 +23,11 @@ packages = [{include = "opshin"}]
 [tool.poetry.dependencies]
 python = ">=3.8, <3.12"
 uplc = "^0.6.6"
-pluthon = "^0.4.1"
+pluthon = "^0.4.2"
 pycardano = "^0.9.0"
 frozenlist2 = "^1.0.0"
 astunparse = {version = "^1.6.3", python = "<3.9"}
+ordered-set = "^4.1.0"
 
 
 [tool.poetry.group.dev.dependencies]

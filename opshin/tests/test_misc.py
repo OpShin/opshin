@@ -1,3 +1,5 @@
+import os
+
 import sys
 
 import subprocess
@@ -30,6 +32,13 @@ from ..ledger.api_v2 import *
 from pycardano import RawPlutusData
 from cbor2 import CBORTag
 
+ALL_EXAMPLES = [
+    os.path.join(root, f)
+    for root, dirs, files in os.walk("examples")
+    for f in files
+    if f.endswith(".py") and not f.startswith("broken") and not f.startswith("extract")
+]
+
 
 def fib(n):
     a, b = 0, 1
@@ -60,7 +69,16 @@ class MiscTest(unittest.TestCase):
         input_file = "examples/smart_contracts/assert_sum.py"
         with open(input_file) as fp:
             source_code = fp.read()
-        ret = eval_uplc(source_code, 20, 22, Unit())
+        ret = eval_uplc(
+            source_code,
+            20,
+            22,
+            uplc.data_from_cbor(
+                bytes.fromhex(
+                    "d8799fd8799f9fd8799fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffd8799fd8799fd87a9f581cdbe769758f26efb21f008dc097bb194cffc622acc37fcefc5372eee3ffd87a80ffa140a1401a00989680d87a9f5820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dffd87a80ffffff809fd8799fd8799fd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd87a80ffa140a14000d87980d87a80ffffa140a14000a140a1400080a0d8799fd8799fd87980d87a80ffd8799fd87b80d87a80ffff80a1d87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffd87980a15820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd8799f5820746957f0eb57f2b11119684e611a98f373afea93473fefbb7632d579af2f6259ffffd87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffff"
+                )
+            ),
+        )
         self.assertEqual(ret, uplc.PlutusConstr(0, []))
 
     @unittest.expectedFailure
@@ -2176,8 +2194,8 @@ def validator(
 """
         builder._compile(source_code)
 
-    def test_compilation_deterministic_local(self):
-        input_file = "examples/smart_contracts/assert_sum.py"
+    @parameterized.expand(ALL_EXAMPLES)
+    def test_compilation_deterministic_local(self, input_file):
         with open(input_file) as fp:
             source_code = fp.read()
         code = builder._compile(source_code)
@@ -2185,15 +2203,15 @@ def validator(
             code_2 = builder._compile(source_code)
             self.assertEqual(code.dumps(), code_2.dumps())
 
-    def test_compilation_deterministic_external(self):
-        input_file = "examples/smart_contracts/assert_sum.py"
+    @parameterized.expand(ALL_EXAMPLES)
+    def test_compilation_deterministic_external(self, input_file):
         code = subprocess.run(
             [
                 sys.executable,
                 "-m",
                 "opshin",
                 "compile",
-                "spending",
+                "any",
                 input_file,
             ],
             capture_output=True,
@@ -2205,7 +2223,7 @@ def validator(
                     "-m",
                     "opshin",
                     "compile",
-                    "spending",
+                    "any",
                     input_file,
                 ],
                 capture_output=True,
