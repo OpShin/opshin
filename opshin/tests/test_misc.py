@@ -2213,6 +2213,7 @@ def validator(
             self.assertEqual(code.stdout, code_2.stdout)
 
     def test_optimize_const_inline(self):
+        # TODO can we ensure here that the inline optimization is actually performed?
         source_code = """
 def validator(
     d: int
@@ -2227,6 +2228,7 @@ def validator(
         self.assertEqual(res, 1)
 
     def test_optimize_const_inline_complex(self):
+        # TODO can we ensure here that the inline optimization is actually performed?
         source_code = """
 def validator(
     d: int

@@ -1,6 +1,17 @@
 from collections import defaultdict
 
-from _ast import Name, Store, ClassDef, FunctionDef, For, While, If, Import, ImportFrom
+from _ast import (
+    Name,
+    Store,
+    ClassDef,
+    FunctionDef,
+    For,
+    While,
+    If,
+    Import,
+    ImportFrom,
+    Load,
+)
 import typing
 
 import ast
@@ -243,3 +254,23 @@ class DefinedTimesVisitor(CompilingNodeVisitor):
     def visit_ImportFrom(self, node: ImportFrom):
         for n in node.names:
             self.vars[n] += 1
+
+
+class NameLoadCollector(CompilingNodeVisitor):
+    step = "Collecting used variables"
+
+    def __init__(self):
+        self.loaded = defaultdict(int)
+
+    def visit_Name(self, node: Name) -> None:
+        if isinstance(node.ctx, Load):
+            self.loaded[node.id] += 1
+
+    def visit_ClassDef(self, node: ClassDef):
+        # ignore the content (i.e. attribute names) of class definitions
+        pass
+
+    def visit_FunctionDef(self, node: FunctionDef):
+        # ignore the type hints of function arguments
+        for s in node.body:
+            self.visit(s)
