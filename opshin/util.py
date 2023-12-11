@@ -1,3 +1,5 @@
+from copy import copy, deepcopy
+
 import typing
 
 import ast
@@ -159,7 +161,7 @@ def make_pattern(structure: plt.AST) -> plt.Pattern:
         AdHocPattern = dataclass(AdHocPattern)
 
         _patterns_cached[structure_serialized] = AdHocPattern()
-    return _patterns_cached[structure_serialized]
+    return deepcopy(_patterns_cached[structure_serialized])
 
 
 def patternize(method):
