@@ -156,7 +156,7 @@ def make_pattern(structure: plt.AST) -> plt.Pattern:
         AdHocPattern = type(
             f"AdHocPattern_{sha256(structure_serialized.encode()).digest().hex()}",
             (plt.Pattern,),
-            {"compose": lambda self: structure},
+            {"compose": lambda self: deepcopy(structure)},
         )
         AdHocPattern = dataclass(AdHocPattern)
 
