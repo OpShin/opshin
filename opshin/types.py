@@ -427,14 +427,16 @@ class RecordType(ClassType):
             )
         if attr in (n for n, t in self.record.fields):
             attr_typ = self.attribute_type(attr)
-            pos = next(i for i, (n, _) in enumerate(self.record.fields) if n == attr)
+            pos: int = next(
+                i for i, (n, _) in enumerate(self.record.fields) if n == attr
+            )
             # access to normal fields
             return plt.Lambda(
                 ["self"],
                 transform_ext_params_map(attr_typ)(
-                    plt.NthField(
+                    plt.ConstantNthField(
                         plt.Var("self"),
-                        plt.Integer(pos),
+                        pos,
                     ),
                 ),
             )
@@ -512,7 +514,7 @@ class RecordType(ClassType):
                     plt.Apply(
                         field_type.stringify(recursive=True),
                         transform_ext_params_map(field_type)(
-                            plt.NthField(plt.Var("self"), plt.Integer(pos))
+                            plt.ConstantNthField(plt.Var("self"), pos)
                         ),
                         plt.Var("_"),
                     ),
@@ -524,7 +526,7 @@ class RecordType(ClassType):
                 plt.Apply(
                     self.record.fields[0][1].stringify(recursive=True),
                     transform_ext_params_map(self.record.fields[0][1])(
-                        plt.NthField(plt.Var("self"), plt.Integer(pos))
+                        plt.ConstantNthField(plt.Var("self"), pos)
                     ),
                     plt.Var("_"),
                 ),
