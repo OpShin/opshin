@@ -593,7 +593,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         tb = copy(node)
         tb.left = self.visit(node.left)
         tb.right = self.visit(node.right)
-        binop_fun_typ: FunctionType = tb.left.typ.binop_type(tb.right.typ)
+        binop_fun_typ: FunctionType = tb.left.typ.binop_type(tb.op, tb.right.typ)
         tb.typ = binop_fun_typ.rettyp
         return tb
 

@@ -932,7 +932,9 @@ class ListType(ClassType):
 
     def _binop_bin_fun(self, binop: operator, other: AST):
         if isinstance(binop, Add):
-            if isinstance(other.typ, ListType):
+            if isinstance(other.typ, InstanceType) and isinstance(
+                other.typ.typ, ListType
+            ):
                 return plt.AppendList
 
 
@@ -1263,6 +1265,12 @@ class InstanceType(Type):
 
     def copy_only_attributes(self) -> plt.AST:
         return self.typ.copy_only_attributes()
+
+    def binop_type(self, binop: operator, other: "Type") -> "Type":
+        return self.typ.binop_type(binop, other)
+
+    def binop(self, binop: operator, other: AST) -> plt.AST:
+        return self.typ.binop(binop, other)
 
 
 @dataclass(frozen=True, unsafe_hash=True)

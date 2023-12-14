@@ -354,6 +354,21 @@ def validator(x: bytes, y: int) -> bytes:
         ret = eval_uplc_value(source_code, x, y)
         self.assertEqual(ret, x * y, "* returned wrong value")
 
+    @given(
+        xs=st.lists(st.integers(), max_size=20), ys=st.lists(st.integers(), max_size=20)
+    )
+    def test_add_list(self, xs, ys):
+        source_code = """
+def validator(x: List[int], y: List[int]) -> List[int]:
+    return x + y
+            """
+        ret = eval_uplc_value(source_code, xs, ys)
+        self.assertEqual(
+            ret,
+            [PlutusInteger(x) for x in xs] + [PlutusInteger(y) for y in ys],
+            "+ returned wrong value",
+        )
+
     @given(x=st.integers())
     def test_fmt_int(self, x):
         source_code = """
