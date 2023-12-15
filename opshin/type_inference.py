@@ -674,9 +674,28 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                     f"Could not infer type of subscript of typ {ts.value.typ.typ.__class__}"
                 )
         elif isinstance(ts.value.typ.typ, ListType):
-            ts.typ = ts.value.typ.typ.typ
-            ts.slice = self.visit(node.slice)
-            assert ts.slice.typ == IntegerInstanceType, "List indices must be integers"
+            if not isinstance(ts.slice, Slice):
+                ts.typ = ts.value.typ.typ.typ
+                ts.slice = self.visit(node.slice)
+                assert (
+                    ts.slice.typ == IntegerInstanceType
+                ), "List indices must be integers"
+            else:
+                ts.typ = ts.value.typ
+                if ts.slice.lower is None:
+                    ts.slice.lower = Constant(0)
+                ts.slice.lower = self.visit(node.slice.lower)
+                assert (
+                    ts.slice.lower.typ == IntegerInstanceType
+                ), "lower slice indices for lists must be integers"
+                if ts.slice.upper is None:
+                    ts.slice.upper = Call(
+                        func=Name(id="len", ctx=Load()), args=[ts.value], keywords=[]
+                    )
+                ts.slice.upper = self.visit(node.slice.upper)
+                assert (
+                    ts.slice.upper.typ == IntegerInstanceType
+                ), "upper slice indices for lists must be integers"
         elif isinstance(ts.value.typ.typ, ByteStringType):
             if not isinstance(ts.slice, Slice):
                 ts.typ = IntegerInstanceType
@@ -684,7 +703,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                 assert (
                     ts.slice.typ == IntegerInstanceType
                 ), "bytes indices must be integers"
-            elif isinstance(ts.slice, Slice):
+            else:
                 ts.typ = ByteStringInstanceType
                 if ts.slice.lower is None:
                     ts.slice.lower = Constant(0)
@@ -700,12 +719,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                 assert (
                     ts.slice.upper.typ == IntegerInstanceType
                 ), "upper slice indices for bytes must be integers"
-            else:
-                raise TypeInferenceError(
-                    f"Could not infer type of subscript of typ {ts.value.typ.__class__}"
-                )
         elif isinstance(ts.value.typ.typ, DictType):
-            # TODO could be implemented with potentially just erroring. It might be desired to avoid this though.
             if not isinstance(ts.slice, Slice):
                 ts.slice = self.visit(node.slice)
                 assert (
