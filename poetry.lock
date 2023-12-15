@@ -1348,13 +1348,13 @@ testing = ["pytest", "pytest-benchmark"]
 
 [[package]]
 name = "pluthon"
-version = "0.4.3"
+version = "0.4.4"
 description = "Pluto-like programming language for Cardano Smart Contracts in Python"
 optional = false
 python-versions = ">=3"
 files = [
-    {file = "pluthon-0.4.3-py3-none-any.whl", hash = "sha256:60c943cfc171bcafaba9b4af7fb1de36442cea21c3fd18bb715daffa68ae2f24"},
-    {file = "pluthon-0.4.3.tar.gz", hash = "sha256:b43ab89121c0b481441edd85c22846eef90e9249b23bb8e671bd4029ca841441"},
+    {file = "pluthon-0.4.4-py3-none-any.whl", hash = "sha256:219f21a0e55a2bbaee53f7d6469fa49e2f9fa1f8e0871a4223a241f22b65822a"},
+    {file = "pluthon-0.4.4.tar.gz", hash = "sha256:26b408980dd06b2a742e291723032548f9961c156e9f690ecc3a5e9778e827b7"},
 ]
 
 [package.dependencies]
@@ -2259,4 +2259,4 @@ testing = ["big-O", "jaraco.functools", "jaraco.itertools", "more-itertools", "p
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.8, <3.12"
-content-hash = "3cfb608570679f2d2f7fa494ae3ddf2cecc3528f5bea5dd759bf8ddc18e5e764"
+content-hash = "e7fc597f039ba58093a202de5b30718fd577ff3995805176772e9e6c05bb15d0"
