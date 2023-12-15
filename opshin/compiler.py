@@ -725,11 +725,12 @@ class PlutoCompiler(CompilingNodeTransformer):
                         ],
                         plt.Ite(
                             plt.LessThanEqualsInteger(plt.Var("j"), plt.Var("i")),
-                            plt.ByteString(b""),
+                            empty_list(node.value.typ.typ.typ),
                             plt.SliceList(
                                 plt.Var("drop"),
                                 plt.Var("take"),
                                 plt.Var("xs"),
+                                empty_list(node.value.typ.typ.typ),
                             ),
                         ),
                     ),
