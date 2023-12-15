@@ -96,14 +96,20 @@ TypeMapPair = typing.Tuple[TypeMap, TypeMap]
 
 def union_types(*ts: Type):
     ts = OrderedSet(ts)
+    # If all types are the same, just return the type
     if len(ts) == 1:
         return ts[0]
+    # If there is a type that is compatible with all other types, choose the maximum
+    for t in ts:
+        if all(t >= tp for tp in ts):
+            return t
     assert ts, "Union must combine multiple classes"
     ts = [t if isinstance(t, UnionType) else UnionType(frozenlist([t])) for t in ts]
-    assert all(
-        isinstance(e, UnionType) and all(isinstance(e2, RecordType) for e2 in e.typs)
-        for e in ts
-    ), "Union must combine multiple PlutusData classes"
+    for e in ts:
+        for e2 in e.typs:
+            assert isinstance(
+                e2, RecordType
+            ), f"Union must combine multiple PlutusData classes but found {e2.__class__.__name__}"
     union_set = OrderedSet()
     for t in ts:
         union_set.update(t.typs)
@@ -223,11 +229,9 @@ def merge_scope(s1: typing.Dict[str, Type], s2: typing.Dict[str, Type]):
             merged[k] = s1[k]
         else:
             try:
-                assert (
-                    isinstance(s1[k], InstanceType) and isinstance(s2[k], InstanceType)
-                ) or s1[k] == s2[
-                    k
-                ], "Can only merge instance types or same types into one"
+                assert isinstance(s1[k], InstanceType) and isinstance(
+                    s2[k], InstanceType
+                ), "Can only merge instance types"
                 merged[k] = InstanceType(union_types(s1[k].typ, s2[k].typ))
             except AssertionError as e:
                 raise AssertionError(
