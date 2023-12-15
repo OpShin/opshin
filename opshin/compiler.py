@@ -44,53 +44,6 @@ _LOGGER = logging.getLogger(__name__)
 STATEMONAD = "s"
 
 
-BinOpMap = {
-    Add: {
-        IntegerInstanceType: {
-            IntegerInstanceType: plt.AddInteger,
-        },
-        ByteStringInstanceType: {
-            ByteStringInstanceType: plt.AppendByteString,
-        },
-        StringInstanceType: {
-            StringInstanceType: plt.AppendString,
-        },
-    },
-    Sub: {
-        IntegerInstanceType: {
-            IntegerInstanceType: plt.SubtractInteger,
-        }
-    },
-    Mult: {
-        IntegerInstanceType: {
-            IntegerInstanceType: plt.MultiplyInteger,
-            ByteStringInstanceType: lambda x, y: ByteStrIntMulImpl(y, x),
-            StringInstanceType: lambda x, y: StrIntMulImpl(y, x),
-        },
-        StringInstanceType: {
-            IntegerInstanceType: StrIntMulImpl,
-        },
-        ByteStringInstanceType: {
-            IntegerInstanceType: ByteStrIntMulImpl,
-        },
-    },
-    FloorDiv: {
-        IntegerInstanceType: {
-            IntegerInstanceType: plt.DivideInteger,
-        }
-    },
-    Mod: {
-        IntegerInstanceType: {
-            IntegerInstanceType: plt.ModInteger,
-        }
-    },
-    Pow: {
-        IntegerInstanceType: {
-            IntegerInstanceType: PowImpl,
-        }
-    },
-}
-
 BoolOpMap = {
     And: plt.And,
     Or: plt.Or,
@@ -230,24 +183,14 @@ class PlutoCompiler(CompilingNodeTransformer):
         return plt.Lambda([STATEMONAD], s)
 
     def visit_BinOp(self, node: TypedBinOp) -> plt.AST:
-        opmap = BinOpMap.get(type(node.op))
-        if opmap is None:
-            raise NotImplementedError(f"Operation {node.op} is not implemented")
-        opmap2 = opmap.get(node.left.typ)
-        if opmap2 is None:
-            raise NotImplementedError(
-                f"Operation {node.op} is not implemented for left type {node.left.typ}"
-            )
-        op = opmap2.get(node.right.typ)
-        if opmap2 is None:
-            raise NotImplementedError(
-                f"Operation {node.op} is not implemented for left type {node.left.typ} and right type {node.right.typ}"
-            )
+        op = node.left.typ.binop(node.op, node.right)
         return plt.Lambda(
             [STATEMONAD],
-            op(
+            plt.Apply(
+                op,
                 plt.Apply(self.visit(node.left), plt.Var(STATEMONAD)),
                 plt.Apply(self.visit(node.right), plt.Var(STATEMONAD)),
+                plt.Var(STATEMONAD),
             ),
         )
 

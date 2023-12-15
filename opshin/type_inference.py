@@ -90,54 +90,6 @@ def constant_type(c):
     raise NotImplementedError(f"Type {type(c)} not supported")
 
 
-BinOpTypeMap = {
-    Add: {
-        IntegerInstanceType: {
-            IntegerInstanceType: IntegerInstanceType,
-        },
-        ByteStringInstanceType: {
-            ByteStringInstanceType: ByteStringInstanceType,
-        },
-        StringInstanceType: {
-            StringInstanceType: StringInstanceType,
-        },
-    },
-    Sub: {
-        IntegerInstanceType: {
-            IntegerInstanceType: IntegerInstanceType,
-        }
-    },
-    Mult: {
-        IntegerInstanceType: {
-            IntegerInstanceType: IntegerInstanceType,
-            ByteStringInstanceType: ByteStringInstanceType,
-            StringInstanceType: StringInstanceType,
-        },
-        StringInstanceType: {
-            IntegerInstanceType: StringInstanceType,
-        },
-        ByteStringInstanceType: {
-            IntegerInstanceType: ByteStringInstanceType,
-        },
-    },
-    FloorDiv: {
-        IntegerInstanceType: {
-            IntegerInstanceType: IntegerInstanceType,
-        }
-    },
-    Mod: {
-        IntegerInstanceType: {
-            IntegerInstanceType: IntegerInstanceType,
-        }
-    },
-    Pow: {
-        IntegerInstanceType: {
-            IntegerInstanceType: IntegerInstanceType,
-        }
-    },
-}
-
-
 TypeMap = typing.Dict[str, Type]
 TypeMapPair = typing.Tuple[TypeMap, TypeMap]
 
@@ -641,15 +593,8 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         tb = copy(node)
         tb.left = self.visit(node.left)
         tb.right = self.visit(node.right)
-        outcome_typ_map = BinOpTypeMap.get(type(node.op)).get(tb.left.typ)
-        assert (
-            outcome_typ_map is not None
-        ), f"Operation {node.op} not defined for {tb.left.typ}"
-        outcome_typ = outcome_typ_map.get(tb.right.typ)
-        assert (
-            outcome_typ is not None
-        ), f"Operation {node.op} not defined for types {tb.left.typ} and {tb.right.typ}"
-        tb.typ = outcome_typ
+        binop_fun_typ: FunctionType = tb.left.typ.binop_type(tb.op, tb.right.typ)
+        tb.typ = binop_fun_typ.rettyp
         return tb
 
     def visit_BoolOp(self, node: BoolOp) -> TypedBoolOp:

@@ -124,7 +124,7 @@ def validator(x: int) -> str:
     @given(
         xs=st.one_of(
             st.builds(lambda x: str(x), st.integers()),
-            st.from_regex(r"\A(?!\s).*(?<!\s)\Z"),
+            st.from_regex(r"\A(?!\s).*(?<!\s)\Z", fullmatch=True),
         )
     )
     @example("")

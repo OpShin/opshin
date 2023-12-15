@@ -1,3 +1,5 @@
+from typing import Callable
+
 import logging
 from ast import *
 
@@ -63,7 +65,46 @@ class Type:
         raise NotImplementedError(f"{type(self).__name__} can not be stringified")
 
     def copy_only_attributes(self) -> plt.AST:
+        """
+        Pluthon function that returns a copy of only the attributes of the object
+        """
         raise NotImplementedError(f"{type(self).__name__} can not be copied")
+
+    def binop_type(self, binop: operator, other: "Type") -> "Type":
+        """
+        Type of a binary operation between self and other.
+        """
+        return FunctionType(
+            [InstanceType(self), InstanceType(other)],
+            InstanceType(self._binop_return_type(binop, other)),
+        )
+
+    def _binop_return_type(self, binop: operator, other: "Type") -> "Type":
+        """
+        Return the type of a binary operation between self and other
+        """
+        raise NotImplementedError(
+            f"{type(self).__name__} does not implement {binop.__class__.__name__}"
+        )
+
+    def binop(self, binop: operator, other: AST) -> plt.AST:
+        """
+        Implements a binary operation between self and other
+        """
+        return plt.Lambda(
+            ["self", "other", "_"],
+            self._binop_bin_fun(binop, other)(plt.Var("self"), plt.Var("other")),
+        )
+
+    def _binop_bin_fun(
+        self, binop: operator, other: AST
+    ) -> Callable[[plt.AST, plt.AST], plt.AST]:
+        """
+        Returns a binary function that implements the binary operation between self and other.
+        """
+        raise NotImplementedError(
+            f"{type(self).__name__} can not be used with operation {binop.__class__.__name__}"
+        )
 
 
 @dataclass(frozen=True, unsafe_hash=True)
@@ -764,6 +805,12 @@ class TupleType(ClassType):
             plt.ConcatString(plt.Text("("), tuple_content, plt.Text(")")),
         )
 
+    def _binop_return_type(self, binop: operator, other: "Type") -> "Type":
+        if isinstance(binop, Add):
+            if isinstance(other, TupleType):
+                return TupleType(self.typs + other.typs)
+        return super()._binop_return_type(binop, other)
+
 
 @dataclass(frozen=True, unsafe_hash=True)
 class PairType(ClassType):
@@ -870,6 +917,25 @@ class ListType(ClassType):
             plt.EmptyDataList(),
         )
         return plt.Lambda(["self"], mapped_attrs)
+
+    def _binop_return_type(self, binop: operator, other: "Type") -> "Type":
+        if isinstance(binop, Add):
+            if isinstance(other, InstanceType) and isinstance(other.typ, ListType):
+                other_typ = other.typ
+                assert (
+                    self.typ >= other_typ.typ or other_typ.typ >= self.typ
+                ), f"Types of lists {self.typ} and {other_typ.typ} are not compatible"
+                return ListType(
+                    self.typ if self.typ >= other_typ.typ else other_typ.typ
+                )
+        return super()._binop_return_type(binop, other)
+
+    def _binop_bin_fun(self, binop: operator, other: AST):
+        if isinstance(binop, Add):
+            if isinstance(other.typ, InstanceType) and isinstance(
+                other.typ.typ, ListType
+            ):
+                return plt.AppendList
 
 
 @dataclass(frozen=True, unsafe_hash=True)
@@ -1200,6 +1266,12 @@ class InstanceType(Type):
     def copy_only_attributes(self) -> plt.AST:
         return self.typ.copy_only_attributes()
 
+    def binop_type(self, binop: operator, other: "Type") -> "Type":
+        return self.typ.binop_type(binop, other)
+
+    def binop(self, binop: operator, other: AST) -> plt.AST:
+        return self.typ.binop(binop, other)
+
 
 @dataclass(frozen=True, unsafe_hash=True)
 class IntegerType(AtomicType):
@@ -1345,6 +1417,46 @@ class IntegerType(AtomicType):
             ),
         )
 
+    def _binop_return_type(self, binop: operator, other: "Type") -> "Type":
+        if (
+            isinstance(binop, Add)
+            or isinstance(binop, Sub)
+            or isinstance(binop, FloorDiv)
+            or isinstance(binop, Mod)
+            or isinstance(binop, Div)
+            or isinstance(binop, Pow)
+        ):
+            if other == IntegerInstanceType:
+                return IntegerType()
+        if isinstance(binop, Mult):
+            if other == IntegerInstanceType:
+                return IntegerType()
+            elif other == ByteStringInstanceType:
+                return ByteStringType()
+            elif other == StringInstanceType:
+                return StringType()
+        return super().binop_type(binop, other)
+
+    def _binop_bin_fun(self, binop: operator, other: AST):
+        if other.typ == IntegerInstanceType:
+            if isinstance(binop, Add):
+                return plt.AddInteger
+            elif isinstance(binop, Sub):
+                return plt.SubtractInteger
+            elif isinstance(binop, FloorDiv):
+                return plt.DivideInteger
+            elif isinstance(binop, Mod):
+                return plt.ModInteger
+            elif isinstance(binop, Pow):
+                return PowImpl
+        if isinstance(binop, Mult):
+            if other.typ == IntegerInstanceType:
+                return plt.MultiplyInteger
+            elif other.typ == ByteStringInstanceType:
+                return lambda x, y: ByteStrIntMulImpl(y, x)
+            elif other.typ == StringInstanceType:
+                return lambda x, y: StrIntMulImpl(y, x)
+
 
 @dataclass(frozen=True, unsafe_hash=True)
 class StringType(AtomicType):
@@ -1377,6 +1489,23 @@ class StringType(AtomicType):
             )
         else:
             return plt.Lambda(["self", "_"], plt.Var("self"))
+
+    def _binop_return_type(self, binop: operator, other: "Type") -> "Type":
+        if isinstance(binop, Add):
+            if other == StringInstanceType:
+                return StringType()
+        if isinstance(binop, Mult):
+            if other == IntegerInstanceType:
+                return StringType()
+        return super().binop_type(binop, other)
+
+    def _binop_bin_fun(self, binop: operator, other: AST):
+        if isinstance(binop, Add):
+            if other.typ == StringInstanceType:
+                return plt.AppendString
+        if isinstance(binop, Mult):
+            if other.typ == IntegerInstanceType:
+                return StrIntMulImpl
 
 
 @dataclass(frozen=True, unsafe_hash=True)
@@ -1711,6 +1840,23 @@ class ByteStringType(AtomicType):
                 ),
             ),
         )
+
+    def _binop_return_type(self, binop: operator, other: "Type") -> "Type":
+        if isinstance(binop, Add):
+            if other == ByteStringInstanceType:
+                return ByteStringType()
+        if isinstance(binop, Mult):
+            if other == IntegerInstanceType:
+                return ByteStringType()
+        return super().binop_type(binop, other)
+
+    def _binop_bin_fun(self, binop: operator, other: AST):
+        if isinstance(binop, Add):
+            if other.typ == ByteStringInstanceType:
+                return plt.AppendByteString
+        if isinstance(binop, Mult):
+            if other.typ == IntegerInstanceType:
+                return ByteStrIntMulImpl
 
 
 @dataclass(frozen=True, unsafe_hash=True)
