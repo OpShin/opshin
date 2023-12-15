@@ -629,32 +629,112 @@ class PlutoCompiler(CompilingNodeTransformer):
                 ),
             )
         if isinstance(node.value.typ.typ, ListType):
-            assert (
-                node.slice.typ == IntegerInstanceType
-            ), "Only single element list index access supported"
-            return plt.Lambda(
-                [STATEMONAD],
-                plt.Let(
-                    [
-                        ("l", plt.Apply(self.visit(node.value), plt.Var(STATEMONAD))),
-                        (
-                            "raw_i",
-                            plt.Apply(self.visit(node.slice), plt.Var(STATEMONAD)),
-                        ),
-                        (
-                            "i",
-                            plt.Ite(
-                                plt.LessThanInteger(plt.Var("raw_i"), plt.Integer(0)),
-                                plt.AddInteger(
-                                    plt.Var("raw_i"), plt.LengthList(plt.Var("l"))
+            if not isinstance(node.slice, Slice):
+                assert (
+                    node.slice.typ == IntegerInstanceType
+                ), "Only single element list index access supported"
+                return plt.Lambda(
+                    [STATEMONAD],
+                    plt.Let(
+                        [
+                            (
+                                "l",
+                                plt.Apply(self.visit(node.value), plt.Var(STATEMONAD)),
+                            ),
+                            (
+                                "raw_i",
+                                plt.Apply(self.visit(node.slice), plt.Var(STATEMONAD)),
+                            ),
+                            (
+                                "i",
+                                plt.Ite(
+                                    plt.LessThanInteger(
+                                        plt.Var("raw_i"), plt.Integer(0)
+                                    ),
+                                    plt.AddInteger(
+                                        plt.Var("raw_i"), plt.LengthList(plt.Var("l"))
+                                    ),
+                                    plt.Var("raw_i"),
                                 ),
-                                plt.Var("raw_i"),
+                            ),
+                        ],
+                        plt.IndexAccessList(plt.Var("l"), plt.Var("i")),
+                    ),
+                )
+            else:
+                return plt.Lambda(
+                    [STATEMONAD],
+                    plt.Let(
+                        [
+                            (
+                                "xs",
+                                plt.Apply(self.visit(node.value), plt.Var(STATEMONAD)),
+                            ),
+                            (
+                                "raw_i",
+                                plt.Apply(
+                                    self.visit(node.slice.lower), plt.Var(STATEMONAD)
+                                ),
+                            ),
+                            (
+                                "i",
+                                plt.Ite(
+                                    plt.LessThanInteger(
+                                        plt.Var("raw_i"), plt.Integer(0)
+                                    ),
+                                    plt.AddInteger(
+                                        plt.Var("raw_i"),
+                                        plt.LengthList(plt.Var("xs")),
+                                    ),
+                                    plt.Var("raw_i"),
+                                ),
+                            ),
+                            (
+                                "raw_j",
+                                plt.Apply(
+                                    self.visit(node.slice.upper), plt.Var(STATEMONAD)
+                                ),
+                            ),
+                            (
+                                "j",
+                                plt.Ite(
+                                    plt.LessThanInteger(
+                                        plt.Var("raw_j"), plt.Integer(0)
+                                    ),
+                                    plt.AddInteger(
+                                        plt.Var("raw_j"),
+                                        plt.LengthList(plt.Var("xs")),
+                                    ),
+                                    plt.Var("raw_j"),
+                                ),
+                            ),
+                            (
+                                "drop",
+                                plt.Ite(
+                                    plt.LessThanEqualsInteger(
+                                        plt.Var("i"), plt.Integer(0)
+                                    ),
+                                    plt.Integer(0),
+                                    plt.Var("i"),
+                                ),
+                            ),
+                            (
+                                "take",
+                                plt.SubtractInteger(plt.Var("j"), plt.Var("drop")),
+                            ),
+                        ],
+                        plt.Ite(
+                            plt.LessThanEqualsInteger(plt.Var("j"), plt.Var("i")),
+                            empty_list(node.value.typ.typ.typ),
+                            plt.SliceList(
+                                plt.Var("drop"),
+                                plt.Var("take"),
+                                plt.Var("xs"),
+                                empty_list(node.value.typ.typ.typ),
                             ),
                         ),
-                    ],
-                    plt.IndexAccessList(plt.Var("l"), plt.Var("i")),
-                ),
-            )
+                    ),
+                )
         elif isinstance(node.value.typ.typ, DictType):
             dict_typ = node.value.typ.typ
             if not isinstance(node.slice, Slice):
