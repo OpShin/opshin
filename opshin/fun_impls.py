@@ -21,7 +21,7 @@ class LenImpl(PolymorphicFunction):
         elif isinstance(arg.typ, ListType) or isinstance(arg.typ, DictType):
             # simple list length function
             return plt.Lambda(
-                ["x", "_"],
+                ["x"],
                 plt.FoldList(
                     plt.Var("x"),
                     plt.Lambda(
@@ -32,7 +32,7 @@ class LenImpl(PolymorphicFunction):
             )
         elif isinstance(arg.typ, TupleType):
             return plt.Lambda(
-                ["x", "_"],
+                ["x"],
                 plt.Integer(len(arg.typ.typs)),
             )
         raise NotImplementedError(f"'len' is not implemented for type {arg}")
@@ -55,7 +55,7 @@ class ReversedImpl(PolymorphicFunction):
         if isinstance(arg.typ, ListType):
             empty_l = empty_list(arg.typ.typ)
             return plt.Lambda(
-                ["xs", "_"],
+                ["xs"],
                 plt.FoldList(
                     plt.Var("xs"),
                     plt.Lambda(["a", "x"], plt.MkCons(plt.Var("x"), plt.Var("a"))),
@@ -90,7 +90,7 @@ class PrintImpl(PolymorphicFunction):
 
 class PythonBuiltIn(Enum):
     all = plt.Lambda(
-        ["xs", "_"],
+        ["xs"],
         plt.FoldList(
             plt.Var("xs"),
             plt.Lambda(["x", "a"], plt.And(plt.Var("x"), plt.Var("a"))),
@@ -98,7 +98,7 @@ class PythonBuiltIn(Enum):
         ),
     )
     any = plt.Lambda(
-        ["xs", "_"],
+        ["xs"],
         plt.FoldList(
             plt.Var("xs"),
             plt.Lambda(["x", "a"], plt.Or(plt.Var("x"), plt.Var("a"))),
@@ -106,7 +106,7 @@ class PythonBuiltIn(Enum):
         ),
     )
     abs = plt.Lambda(
-        ["x", "_"],
+        ["x"],
         plt.Ite(
             plt.LessThanInteger(plt.Var("x"), plt.Integer(0)),
             plt.Negate(plt.Var("x")),
@@ -116,7 +116,7 @@ class PythonBuiltIn(Enum):
     # maps an integer to a unicode code point and decodes it
     # reference: https://en.wikipedia.org/wiki/UTF-8#Encoding
     chr = plt.Lambda(
-        ["x", "_"],
+        ["x"],
         plt.DecodeUtf8(
             plt.Ite(
                 plt.LessThanInteger(plt.Var("x"), plt.Integer(0x0)),
@@ -231,7 +231,7 @@ class PythonBuiltIn(Enum):
     )
     breakpoint = plt.Lambda(["_"], plt.NoneData())
     hex = plt.Lambda(
-        ["x", "_"],
+        ["x"],
         plt.DecodeUtf8(
             plt.Let(
                 [
@@ -316,7 +316,7 @@ class PythonBuiltIn(Enum):
     )
     len = "len"
     max = plt.Lambda(
-        ["xs", "_"],
+        ["xs"],
         plt.FoldList(
             plt.TailList(plt.Var("xs")),
             plt.Lambda(
@@ -331,7 +331,7 @@ class PythonBuiltIn(Enum):
         ),
     )
     min = plt.Lambda(
-        ["xs", "_"],
+        ["xs"],
         plt.FoldList(
             plt.TailList(plt.Var("xs")),
             plt.Lambda(
@@ -347,9 +347,9 @@ class PythonBuiltIn(Enum):
     )
     print = "print"
     # NOTE: only correctly defined for positive y
-    pow = plt.Lambda(["x", "y", "_"], PowImpl(plt.Var("x"), plt.Var("y")))
+    pow = plt.Lambda(["x", "y"], PowImpl(plt.Var("x"), plt.Var("y")))
     oct = plt.Lambda(
-        ["x", "_"],
+        ["x"],
         plt.DecodeUtf8(
             plt.Let(
                 [
@@ -419,12 +419,12 @@ class PythonBuiltIn(Enum):
         ),
     )
     range = plt.Lambda(
-        ["limit", "_"],
+        ["limit"],
         plt.Range(plt.Var("limit")),
     )
     reversed = "reversed"
     sum = plt.Lambda(
-        ["xs", "_"],
+        ["xs"],
         plt.FoldList(
             plt.Var("xs"), plt.BuiltIn(uplc.BuiltInFun.AddInteger), plt.Integer(0)
         ),

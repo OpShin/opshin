@@ -168,7 +168,7 @@ class AnyType(ClassType):
             "Serializing AnyType will result in RawPlutusData (CBOR representation) to be printed without additional type information. Annotate types where possible to avoid this warning."
         )
         return plt.Lambda(
-            ["self", "_"],
+            ["self"],
             plt.Let(
                 [
                     (
@@ -350,14 +350,12 @@ class AnyType(ClassType):
                                     plt.Apply(
                                         IntegerInstanceType.stringify(recursive=True),
                                         plt.UnIData(plt.Var("d")),
-                                        plt.Var("_"),
                                     ),
                                     plt.Apply(
                                         ByteStringInstanceType.stringify(
                                             recursive=True
                                         ),
                                         plt.UnBData(plt.Var("d")),
-                                        plt.Var("_"),
                                     ),
                                 ),
                             )
@@ -400,7 +398,7 @@ class RecordType(ClassType):
             )
         # then build a constr type with this PlutusData
         return plt.Lambda(
-            [n for n, _ in self.record.fields] + ["_"],
+            [n for n, _ in self.record.fields],
             plt.ConstrData(plt.Integer(self.record.constructor), build_constr_params),
         )
 
@@ -440,7 +438,7 @@ class RecordType(ClassType):
             )
         if attr == "to_cbor":
             return plt.Lambda(
-                ["self", "_"],
+                ["self"],
                 plt.SerialiseData(
                     plt.Var("self"),
                 ),
@@ -514,7 +512,6 @@ class RecordType(ClassType):
                         transform_ext_params_map(field_type)(
                             plt.NthField(plt.Var("self"), plt.Integer(pos))
                         ),
-                        plt.Var("_"),
                     ),
                     map_fields,
                 )
@@ -526,7 +523,6 @@ class RecordType(ClassType):
                     transform_ext_params_map(self.record.fields[0][1])(
                         plt.NthField(plt.Var("self"), plt.Integer(pos))
                     ),
-                    plt.Var("_"),
                 ),
                 map_fields,
             )
@@ -730,10 +726,10 @@ class UnionType(ClassType):
                 decide_string_func,
             )
         return plt.Lambda(
-            ["self", "_"],
+            ["self"],
             plt.Let(
                 [("c", plt.Constructor(plt.Var("self")))],
-                plt.Apply(decide_string_func, plt.Var("self"), plt.Var("_")),
+                plt.Apply(decide_string_func, plt.Var("self")),
             ),
         )
 
@@ -770,7 +766,7 @@ class TupleType(ClassType):
     def stringify(self, recursive: bool = False) -> plt.AST:
         if not self.typs:
             return plt.Lambda(
-                ["self", "_"],
+                ["self"],
                 plt.Text("()"),
             )
         elif len(self.typs) == 1:
@@ -778,7 +774,6 @@ class TupleType(ClassType):
                 plt.Apply(
                     self.typs[0].stringify(recursive=True),
                     plt.FunctionalTupleAccess(plt.Var("self"), 0, len(self.typs)),
-                    plt.Var("_"),
                 ),
                 plt.Text(","),
             )
@@ -787,7 +782,6 @@ class TupleType(ClassType):
                 plt.Apply(
                     self.typs[0].stringify(recursive=True),
                     plt.FunctionalTupleAccess(plt.Var("self"), 0, len(self.typs)),
-                    plt.Var("_"),
                 ),
             )
             for i, t in enumerate(self.typs[1:], start=1):
@@ -797,11 +791,10 @@ class TupleType(ClassType):
                     plt.Apply(
                         t.stringify(recursive=True),
                         plt.FunctionalTupleAccess(plt.Var("self"), i, len(self.typs)),
-                        plt.Var("_"),
                     ),
                 )
         return plt.Lambda(
-            ["self", "_"],
+            ["self"],
             plt.ConcatString(plt.Text("("), tuple_content, plt.Text(")")),
         )
 
@@ -830,17 +823,15 @@ class PairType(ClassType):
             plt.Apply(
                 self.l_typ.stringify(recursive=True),
                 transform_ext_params_map(self.l_typ)(plt.FstPair(plt.Var("self"))),
-                plt.Var("_"),
             ),
             plt.Text(", "),
             plt.Apply(
                 self.r_typ.stringify(recursive=True),
                 transform_ext_params_map(self.r_typ)(plt.SndPair(plt.Var("self"))),
-                plt.Var("_"),
             ),
         )
         return plt.Lambda(
-            ["self", "_"],
+            ["self"],
             plt.ConcatString(plt.Text("("), tuple_content, plt.Text(")")),
         )
 
@@ -854,7 +845,7 @@ class ListType(ClassType):
 
     def stringify(self, recursive: bool = False) -> plt.AST:
         return plt.Lambda(
-            ["self", "_"],
+            ["self"],
             plt.Let(
                 [
                     (
@@ -866,7 +857,6 @@ class ListType(ClassType):
                                     plt.Apply(
                                         self.typ.stringify(recursive=True),
                                         plt.HeadList(plt.Var("l")),
-                                        plt.Var("_"),
                                     ),
                                     plt.Let(
                                         [("t", plt.TailList(plt.Var("l")))],
@@ -972,7 +962,7 @@ class DictType(ClassType):
     def attribute(self, attr) -> plt.AST:
         if attr == "get":
             return plt.Lambda(
-                ["self", "key", "default", "_"],
+                ["self", "key", "default"],
                 transform_ext_params_map(self.value_typ)(
                     plt.SndPair(
                         plt.FindList(
@@ -997,7 +987,7 @@ class DictType(ClassType):
             )
         if attr == "keys":
             return plt.Lambda(
-                ["self", "_"],
+                ["self"],
                 plt.MapList(
                     plt.Var("self"),
                     plt.Lambda(
@@ -1011,7 +1001,7 @@ class DictType(ClassType):
             )
         if attr == "values":
             return plt.Lambda(
-                ["self", "_"],
+                ["self"],
                 plt.MapList(
                     plt.Var("self"),
                     plt.Lambda(
@@ -1025,7 +1015,7 @@ class DictType(ClassType):
             )
         if attr == "items":
             return plt.Lambda(
-                ["self", "_"],
+                ["self"],
                 plt.Var("self"),
             )
         raise NotImplementedError(f"Attribute '{attr}' of Dict is unknown.")
@@ -1039,7 +1029,7 @@ class DictType(ClassType):
 
     def stringify(self, recursive: bool = False) -> plt.AST:
         return plt.Lambda(
-            ["self", "_"],
+            ["self"],
             plt.Let(
                 [
                     (
@@ -1058,7 +1048,6 @@ class DictType(ClassType):
                                             transform_ext_params_map(self.key_typ)(
                                                 plt.FstPair(plt.Var("h"))
                                             ),
-                                            plt.Var("_"),
                                         ),
                                         plt.Text(": "),
                                         plt.Apply(
@@ -1066,7 +1055,6 @@ class DictType(ClassType):
                                             transform_ext_params_map(self.value_typ)(
                                                 plt.SndPair(plt.Var("h"))
                                             ),
-                                            plt.Var("_"),
                                         ),
                                         plt.IteNullList(
                                             plt.Var("t"),
@@ -1232,7 +1220,7 @@ class FunctionType(ClassType):
         )
 
     def stringify(self, recursive: bool = False) -> plt.AST:
-        return plt.Lambda(["x", "_"], plt.Text("<function>"))
+        return plt.Lambda(["x"], plt.Text("<function>"))
 
 
 @dataclass(frozen=True, unsafe_hash=True)
@@ -1353,7 +1341,7 @@ class IntegerType(AtomicType):
 
     def stringify(self, recursive: bool = False) -> plt.AST:
         return plt.Lambda(
-            ["x", "_"],
+            ["x"],
             plt.DecodeUtf8(
                 plt.Let(
                     [
@@ -1484,11 +1472,11 @@ class StringType(AtomicType):
         if recursive:
             # TODO this is not correct, as the string is not properly escaped
             return plt.Lambda(
-                ["self", "_"],
+                ["self"],
                 plt.ConcatString(plt.Text("'"), plt.Var("self"), plt.Text("'")),
             )
         else:
-            return plt.Lambda(["self", "_"], plt.Var("self"))
+            return plt.Lambda(["self"], plt.Var("self"))
 
     def _binop_return_type(self, binop: operator, other: "Type") -> "Type":
         if isinstance(binop, Add):
@@ -1523,10 +1511,10 @@ class ByteStringType(AtomicType):
     def attribute(self, attr) -> plt.AST:
         if attr == "decode":
             # No codec -> only the default (utf8) is allowed
-            return plt.Lambda(["x", "_"], plt.DecodeUtf8(plt.Var("x")))
+            return plt.Lambda(["x"], plt.DecodeUtf8(plt.Var("x")))
         if attr == "hex":
             return plt.Lambda(
-                ["x", "_"],
+                ["x"],
                 plt.DecodeUtf8(
                     plt.Let(
                         [
@@ -1677,7 +1665,7 @@ class ByteStringType(AtomicType):
 
     def stringify(self, recursive: bool = False) -> plt.AST:
         return plt.Lambda(
-            ["x", "_"],
+            ["x"],
             plt.DecodeUtf8(
                 plt.Let(
                     [
@@ -1885,7 +1873,7 @@ class BoolType(AtomicType):
 
     def stringify(self, recursive: bool = False) -> plt.AST:
         return plt.Lambda(
-            ["self", "_"],
+            ["self"],
             plt.Ite(
                 plt.Var("self"),
                 plt.Text("True"),
@@ -1905,7 +1893,7 @@ class UnitType(AtomicType):
         return super().cmp(op, o)
 
     def stringify(self, recursive: bool = False) -> plt.AST:
-        return plt.Lambda(["self", "_"], plt.Text("None"))
+        return plt.Lambda(["self"], plt.Text("None"))
 
 
 IntegerInstanceType = InstanceType(IntegerType())
@@ -2041,14 +2029,14 @@ class IntImpl(PolymorphicFunction):
         arg = args[0]
         assert isinstance(arg, InstanceType), "Can only create ints from instances"
         if isinstance(arg.typ, IntegerType):
-            return plt.Lambda(["x", "_"], plt.Var("x"))
+            return plt.Lambda(["x"], plt.Var("x"))
         elif isinstance(arg.typ, BoolType):
             return plt.Lambda(
-                ["x", "_"], plt.IfThenElse(plt.Var("x"), plt.Integer(1), plt.Integer(0))
+                ["x"], plt.IfThenElse(plt.Var("x"), plt.Integer(1), plt.Integer(0))
             )
         elif isinstance(arg.typ, StringType):
             return plt.Lambda(
-                ["x", "_"],
+                ["x"],
                 plt.Let(
                     [
                         ("e", plt.EncodeUtf8(plt.Var("x"))),
@@ -2203,29 +2191,27 @@ class BoolImpl(PolymorphicFunction):
         arg = args[0]
         assert isinstance(arg, InstanceType), "Can only create bools from instances"
         if isinstance(arg.typ, BoolType):
-            return plt.Lambda(["x", "_"], plt.Var("x"))
+            return plt.Lambda(["x"], plt.Var("x"))
         elif isinstance(arg.typ, IntegerType):
-            return plt.Lambda(
-                ["x", "_"], plt.NotEqualsInteger(plt.Var("x"), plt.Integer(0))
-            )
+            return plt.Lambda(["x"], plt.NotEqualsInteger(plt.Var("x"), plt.Integer(0)))
         elif isinstance(arg.typ, StringType):
             return plt.Lambda(
-                ["x", "_"],
+                ["x"],
                 plt.NotEqualsInteger(
                     plt.LengthOfByteString(plt.EncodeUtf8(plt.Var("x"))), plt.Integer(0)
                 ),
             )
         elif isinstance(arg.typ, ByteStringType):
             return plt.Lambda(
-                ["x", "_"],
+                ["x"],
                 plt.NotEqualsInteger(
                     plt.LengthOfByteString(plt.Var("x")), plt.Integer(0)
                 ),
             )
         elif isinstance(arg.typ, ListType) or isinstance(arg.typ, DictType):
-            return plt.Lambda(["x", "_"], plt.Not(plt.NullList(plt.Var("x"))))
+            return plt.Lambda(["x"], plt.Not(plt.NullList(plt.Var("x"))))
         elif isinstance(arg.typ, UnitType):
-            return plt.Lambda(["x", "_"], plt.Bool(False))
+            return plt.Lambda(["x"], plt.Bool(False))
         else:
             raise NotImplementedError(
                 f"Can not derive bool from type {arg.typ.__name__}"
@@ -2257,10 +2243,10 @@ class BytesImpl(PolymorphicFunction):
         arg = args[0]
         assert isinstance(arg, InstanceType), "Can only create bytes from instances"
         if isinstance(arg.typ, ByteStringType):
-            return plt.Lambda(["x", "_"], plt.Var("x"))
+            return plt.Lambda(["x"], plt.Var("x"))
         elif isinstance(arg.typ, IntegerType):
             return plt.Lambda(
-                ["x", "_"],
+                ["x"],
                 plt.Ite(
                     plt.LessThanInteger(plt.Var("x"), plt.Integer(0)),
                     plt.TraceError("ValueError: negative count"),
@@ -2269,7 +2255,7 @@ class BytesImpl(PolymorphicFunction):
             )
         elif isinstance(arg.typ, ListType):
             return plt.Lambda(
-                ["xs", "_"],
+                ["xs"],
                 plt.RFoldList(
                     plt.Var("xs"),
                     plt.Lambda(
