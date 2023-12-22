@@ -26,7 +26,6 @@ from .rewrite.rewrite_subscript38 import RewriteSubscript38
 from .rewrite.rewrite_tuple_assign import RewriteTupleAssign
 from .optimize.optimize_remove_pass import OptimizeRemovePass
 from .optimize.optimize_remove_deadvars import OptimizeRemoveDeadvars
-from .optimize.optimize_varlen import OptimizeVarlen
 from .type_inference import *
 from .util import (
     CompilingNodeTransformer,
@@ -959,7 +958,6 @@ def compile(
         RewriteScoping(),
         # Apply optimizations
         OptimizeRemoveDeadvars() if remove_dead_code else NoOp(),
-        OptimizeVarlen(),
         OptimizeRemoveDeadconstants(),
         OptimizeRemovePass(),
     ]

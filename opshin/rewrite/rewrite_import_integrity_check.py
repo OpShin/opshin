@@ -30,7 +30,7 @@ class IntegrityCheckImpl(PolymorphicFunction):
         arg = args[0]
         assert isinstance(arg, InstanceType), "Can only check integrity of instances"
         return plt.Lambda(
-            ["x", "_"],
+            ["x"],
             plt.Ite(
                 plt.EqualsData(
                     plt.Var("x"),

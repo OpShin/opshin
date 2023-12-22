@@ -28,7 +28,7 @@ class RewriteInjectBuiltinsConstr(CompilingNodeTransformer):
             additional_assigns.append(
                 TypedAssign(
                     targets=[TypedName(id=tname, typ=typ, ctx=Store())],
-                    value=RawPlutoExpr(typ=typ, expr=plt.Lambda(["_"], t.constr())),
+                    value=RawPlutoExpr(typ=typ, expr=t.constr()),
                 )
             )
         md = copy(node)

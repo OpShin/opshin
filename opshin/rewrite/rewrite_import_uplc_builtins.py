@@ -45,11 +45,8 @@ class RewriteImportUPLCBuiltins(CompilingNodeTransformer):
         uplc_fun = plt.__dict__[CamelCaseFunName]
         pluto_expression = RawPlutoExpr(
             typ=node.typ.typ.rettyp,
-            expr=plt.Lambda(
-                ["_"],
-                uplc_fun(
-                    *(plt.Var(f"p{i}") for i in range(len(node.args.args))),
-                ),
+            expr=uplc_fun(
+                *(plt.Var(f"p{i}") for i in range(len(node.args.args))),
             ),
         )
         node_cp = copy(node)
