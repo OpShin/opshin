@@ -490,7 +490,6 @@ class PlutoCompiler(CompilingNodeTransformer):
                 x,
             ),
         )
-        # TODO does this break with a "return" in a loop?
         return lambda x: plt.Let(
             [
                 ("0adjusted_next", SafeLambda(written_vs, x)),
@@ -513,35 +512,42 @@ class PlutoCompiler(CompilingNodeTransformer):
             compiled_s = self.visit_sequence(node.body)
             compiled_iter = self.visit(node.iter)
             written_vs = written_vars(node)
-            scott_monad_update = plt.Lambda(
-                ["0f"],
-                plt.Apply(
-                    plt.Var("0f"),
-                    plt.Var(node.target.id),
-                    *(plt.Var(x) for x in written_vs),
+            pwritten_vs = [plt.Var(x) for x in written_vs]
+            s_fun = lambda x: plt.Lambda(
+                ["0for", "0iter"] + written_vs,
+                plt.IteNullList(
+                    plt.Var("0iter"),
+                    x,
+                    plt.Let(
+                        [(node.target.id, plt.Delay(plt.HeadList(plt.Var("0iter"))))],
+                        compiled_s(
+                            plt.Apply(
+                                plt.Var("0for"),
+                                plt.Var("0for"),
+                                plt.TailList(plt.Var("0iter")),
+                                *pwritten_vs,
+                            )
+                        ),
+                    ),
                 ),
             )
-            # TODO this will break if a user puts a "return" in a loop
             return lambda x: plt.Let(
                 [
-                    ("0adjusted_next", SafeLambda(written_vs, x)),
+                    ("0adjusted_next", plt.Lambda([node.target.id] + written_vs, x)),
                     (
-                        "0updated_monad",
-                        plt.FoldList(
-                            compiled_iter,
-                            plt.Lambda(
-                                ["0state", "0listhead"],
-                                plt.Apply(
-                                    plt.Var("0state"),
-                                    plt.Var("0listhead"),
-                                    compiled_s(deepcopy(scott_monad_update)),
-                                ),
-                            ),
-                            deepcopy(scott_monad_update),
+                        "0for",
+                        s_fun(
+                            plt.Apply(
+                                plt.Var("0adjusted_next"),
+                                plt.Var(node.target.id),
+                                *pwritten_vs,
+                            )
                         ),
                     ),
                 ],
-                SafeApply(plt.Var("0updated_monad"), plt.Var("0adjusted_next")),
+                plt.Apply(
+                    plt.Var("0for"), plt.Var("0for"), compiled_iter, *pwritten_vs
+                ),
             )
         raise NotImplementedError(
             "Compilation of for statements for anything but lists not implemented yet"

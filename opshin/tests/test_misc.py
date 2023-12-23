@@ -103,12 +103,30 @@ class MiscTest(unittest.TestCase):
         a=st.integers(min_value=-10, max_value=10),
         b=st.integers(min_value=0, max_value=10),
     )
-    def test_mult_while(self, a: int, b: int):
-        input_file = "examples/mult_while.py"
+    def test_mult_for(self, a: int, b: int):
+        input_file = "examples/mult_for.py"
         with open(input_file) as fp:
             source_code = fp.read()
         ret = eval_uplc_value(source_code, a, b)
         self.assertEqual(ret, a * b)
+
+    @given(
+        a=st.integers(min_value=-10, max_value=10),
+        b=st.integers(min_value=0, max_value=10),
+    )
+    def test_mult_for_return(self, a: int, b: int):
+        source_code = """
+def validator(a: int, b: int) -> int:
+    c = 0
+    i = 0
+    for i in range(b):
+        c += a
+        if i == 1:
+            return c
+    return c
+"""
+        ret = eval_uplc_value(source_code, a, b)
+        self.assertEqual(ret, a * min(b, 2))
 
     @given(
         a=st.integers(min_value=-10, max_value=10),
@@ -127,7 +145,7 @@ def validator(a: int, b: int) -> int:
     return c
 """
         ret = eval_uplc_value(source_code, a, b)
-        self.assertEqual(ret, a * max(min(2, b), 0))
+        self.assertEqual(ret, a * min(2, b))
 
     @given(
         a=st.integers(),
