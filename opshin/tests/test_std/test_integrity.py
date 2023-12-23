@@ -38,7 +38,8 @@ def validator(x: B) -> None:
     )
     try:
         eval_uplc(source_code, obj)
-    except:
+    except Exception as e:
+        print(e)
         res = False
     else:
         res = True

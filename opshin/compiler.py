@@ -434,7 +434,7 @@ class PlutoCompiler(CompilingNodeTransformer):
         return plt.Let(
             [(f"0p{i}", a) for i, a in enumerate(args)],
             plt.Apply(
-                plt.Force(func_plt),
+                func_plt,
                 *[plt.Delay(plt.Var(f"0p{i}")) for i in range(len(args))],
             ),
         )
