@@ -492,10 +492,11 @@ class PlutoCompiler(CompilingNodeTransformer):
         )
         # TODO does this break with a "return" in a loop?
         return lambda x: plt.Let(
-            [("0adjusted_next", plt.Lambda(written_vs, x))],
-            plt.Apply(
-                s_fun(plt.Apply(plt.Var("0adjusted_next"), *pwritten_vs)), *pwritten_vs
-            ),
+            [
+                ("0adjusted_next", plt.Lambda(written_vs, x)),
+                ("0while", s_fun(plt.Apply(plt.Var("0adjusted_next"), *pwritten_vs))),
+            ],
+            plt.Apply(plt.Var("0while"), plt.Var("0while"), *pwritten_vs),
         )
 
     def visit_For(self, node: TypedFor) -> CallAST:
@@ -514,7 +515,11 @@ class PlutoCompiler(CompilingNodeTransformer):
             written_vs = written_vars(node)
             scott_monad_update = plt.Lambda(
                 ["0f"],
-                plt.Apply(plt.Var("0f"), *(plt.Var(x) for x in written_vs)),
+                plt.Apply(
+                    plt.Var("0f"),
+                    plt.Var(node.target.id),
+                    *(plt.Var(x) for x in written_vs),
+                ),
             )
             # TODO this will break if a user puts a "return" in a loop
             return lambda x: plt.Let(
@@ -528,6 +533,7 @@ class PlutoCompiler(CompilingNodeTransformer):
                                 ["0state", "0listhead"],
                                 plt.Apply(
                                     plt.Var("0state"),
+                                    plt.Var("0listhead"),
                                     compiled_s(deepcopy(scott_monad_update)),
                                 ),
                             ),
