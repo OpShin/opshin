@@ -527,7 +527,7 @@ class RecordType(ClassType):
                 map_fields,
             )
         return plt.Lambda(
-            ["self", "_"],
+            ["self"],
             plt.AppendString(plt.Text(f"{self.record.name}("), map_fields),
         )
 

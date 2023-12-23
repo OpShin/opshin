@@ -528,10 +528,10 @@ class PlutoCompiler(CompilingNodeTransformer):
                                 ["0state", "0listhead"],
                                 plt.Apply(
                                     plt.Var("0state"),
-                                    compiled_s(copy.deepcopy(scott_monad_update)),
+                                    compiled_s(deepcopy(scott_monad_update)),
                                 ),
                             ),
-                            copy.deepcopy(scott_monad_update),
+                            deepcopy(scott_monad_update),
                         ),
                     ),
                 ],
