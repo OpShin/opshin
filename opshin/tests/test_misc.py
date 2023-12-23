@@ -111,6 +111,25 @@ class MiscTest(unittest.TestCase):
         self.assertEqual(ret, a * b)
 
     @given(
+        a=st.integers(min_value=-10, max_value=10),
+        b=st.integers(min_value=0, max_value=10),
+    )
+    def test_mult_while_return(self, a: int, b: int):
+        source_code = """
+def validator(a: int, b: int) -> int:
+    c = 0
+    i = 0
+    while i < b:
+        c += a
+        i += 1
+        if i == 2:
+            return c
+    return c
+"""
+        ret = eval_uplc_value(source_code, a, b)
+        self.assertEqual(ret, a * max(min(2, b), 0))
+
+    @given(
         a=st.integers(),
         b=st.integers(),
     )

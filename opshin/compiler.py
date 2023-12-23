@@ -291,8 +291,8 @@ class PlutoCompiler(CompilingNodeTransformer):
         written_vs = written_vars(node)
 
         # write all variables once at the beginning so that we can always access them (only potentially causing a nameerror at runtime)
-        validator = plt.Lambda(
-            [f"0p{i}" for i, _ in enumerate(main_fun_typ.argtyps)] or ["_"],
+        validator = SafeLambda(
+            [f"0p{i}" for i, _ in enumerate(main_fun_typ.argtyps)],
             transform_output_map(main_fun_typ.rettyp)(
                 plt.Let(
                     [
@@ -493,8 +493,8 @@ class PlutoCompiler(CompilingNodeTransformer):
         # TODO does this break with a "return" in a loop?
         return lambda x: plt.Let(
             [
-                ("0adjusted_next", plt.Lambda(written_vs, x)),
-                ("0while", s_fun(plt.Apply(plt.Var("0adjusted_next"), *pwritten_vs))),
+                ("0adjusted_next", SafeLambda(written_vs, x)),
+                ("0while", s_fun(SafeApply(plt.Var("0adjusted_next"), *pwritten_vs))),
             ],
             plt.Apply(plt.Var("0while"), plt.Var("0while"), *pwritten_vs),
         )
@@ -524,7 +524,7 @@ class PlutoCompiler(CompilingNodeTransformer):
             # TODO this will break if a user puts a "return" in a loop
             return lambda x: plt.Let(
                 [
-                    ("0adjusted_next", plt.Lambda(written_vs, x)),
+                    ("0adjusted_next", SafeLambda(written_vs, x)),
                     (
                         "0updated_monad",
                         plt.FoldList(
@@ -541,7 +541,7 @@ class PlutoCompiler(CompilingNodeTransformer):
                         ),
                     ),
                 ],
-                plt.Apply(plt.Var("0updated_monad"), plt.Var("0adjusted_next")),
+                SafeApply(plt.Var("0updated_monad"), plt.Var("0adjusted_next")),
             )
         raise NotImplementedError(
             "Compilation of for statements for anything but lists not implemented yet"
@@ -551,14 +551,14 @@ class PlutoCompiler(CompilingNodeTransformer):
         written_vs = written_vars(node)
         pwritten_vs = [plt.Var(x) for x in written_vs]
         return lambda x: plt.Let(
-            ("0adjusted_next", plt.Lambda(written_vs, x)),
+            [("0adjusted_next", SafeLambda(written_vs, x))],
             plt.Ite(
                 self.visit(node.test),
                 self.visit_sequence(node.body)(
-                    plt.Apply(plt.Var("0adjusted_next"), *pwritten_vs)
+                    SafeApply(plt.Var("0adjusted_next"), *pwritten_vs)
                 ),
                 self.visit_sequence(node.orelse)(
-                    plt.Apply(plt.Var("0adjusted_next"), *pwritten_vs)
+                    SafeApply(plt.Var("0adjusted_next"), *pwritten_vs)
                 ),
             ),
         )

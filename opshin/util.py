@@ -178,3 +178,15 @@ def force_params(lmd: plt.Lambda) -> plt.Lambda:
         )
     if isinstance(lmd, plt.Pattern):
         return make_pattern(force_params(lmd.compose()))
+
+
+def SafeLambda(vars: typing.List[str], term: plt.AST) -> plt.Lambda:
+    if not vars:
+        return plt.Lambda(["0_"], term)
+    return plt.Lambda(vars, term)
+
+
+def SafeApply(term: plt.AST, *vars: typing.List[plt.AST]) -> plt.Apply:
+    if not vars:
+        return plt.Apply(term, plt.Unit())
+    return plt.Apply(term, *vars)
