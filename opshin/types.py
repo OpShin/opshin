@@ -92,7 +92,7 @@ class Type:
         Implements a binary operation between self and other
         """
         return plt.Lambda(
-            ["self", "other", "_"],
+            ["self", "other"],
             self._binop_bin_fun(binop, other)(plt.Var("self"), plt.Var("other")),
         )
 

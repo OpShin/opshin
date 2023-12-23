@@ -169,3 +169,12 @@ def patternize(method):
         return make_pattern(method(*args, **kwargs))
 
     return wrapped
+
+
+def force_params(lmd: plt.Lambda) -> plt.Lambda:
+    if isinstance(lmd, plt.Lambda):
+        return plt.Lambda(
+            lmd.vars, plt.Let([(v, plt.Force(plt.Var(v))) for v in lmd.vars], lmd.term)
+        )
+    if isinstance(lmd, plt.Pattern):
+        return make_pattern(force_params(lmd.compose()))

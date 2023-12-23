@@ -415,8 +415,10 @@ class PlutoCompiler(CompilingNodeTransformer):
         # TODO function is actually not of type polymorphic function type here anymore
         if isinstance(node.func.typ, PolymorphicFunctionInstanceType):
             # edge case for weird builtins that are polymorphic
-            func_plt = node.func.typ.polymorphic_function.impl_from_args(
-                node.func.typ.typ.argtyps
+            func_plt = force_params(
+                node.func.typ.polymorphic_function.impl_from_args(
+                    node.func.typ.typ.argtyps
+                )
             )
         else:
             func_plt = self.visit(node.func)
