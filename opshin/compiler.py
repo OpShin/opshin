@@ -281,7 +281,7 @@ class PlutoCompiler(CompilingNodeTransformer):
         body = node.body + [
             TypedReturn(
                 value=Name(
-                    id=self.validator_function_name,
+                    id=main_fun.name,
                     typ=InstanceType(main_fun_typ),
                     ctx=Load(),
                 ),
@@ -291,27 +291,33 @@ class PlutoCompiler(CompilingNodeTransformer):
         written_vs = written_vars(node)
 
         # write all variables once at the beginning so that we can always access them (only potentially causing a nameerror at runtime)
-        validator = plt.Let(
-            [(x, plt.Delay(plt.TraceError(f"NameError: {x}"))) for x in written_vs],
-            plt.Lambda(
-                [f"p{i}" for i, _ in enumerate(main_fun_typ.argtyps)] or ["_"],
-                transform_output_map(main_fun_typ.rettyp)(
-                    plt.Let(
-                        [
-                            (
-                                "g",
+        validator = plt.Lambda(
+            [f"0p{i}" for i, _ in enumerate(main_fun_typ.argtyps)] or ["_"],
+            transform_output_map(main_fun_typ.rettyp)(
+                plt.Let(
+                    [
+                        (
+                            "0g",
+                            plt.Let(
+                                [
+                                    (
+                                        x,
+                                        plt.Delay(plt.TraceError(f"NameError: {x}")),
+                                    )
+                                    for x in written_vs
+                                ],
                                 self.visit_sequence(body)(
                                     plt.ConstrData(plt.Integer(0), plt.EmptyDataList())
                                 ),
                             ),
-                        ],
-                        plt.Apply(
-                            plt.Var("g"),
-                            *[
-                                transform_ext_params_map(a)(plt.Var(f"p{i}"))
-                                for i, a in enumerate(main_fun_typ.argtyps)
-                            ],
                         ),
+                    ],
+                    plt.Apply(
+                        plt.Var("0g"),
+                        *[
+                            plt.Delay(transform_ext_params_map(a)(plt.Var(f"0p{i}")))
+                            for i, a in enumerate(main_fun_typ.argtyps)
+                        ],
                     ),
                 ),
             ),
@@ -394,7 +400,7 @@ class PlutoCompiler(CompilingNodeTransformer):
         if isinstance(node.typ, ClassType):
             # if this is not an instance but a class, call the constructor
             return node.typ.constr()
-        return plt.Var(node.id)
+        return plt.Force(plt.Var(node.id))
 
     def visit_Expr(self, node: TypedExpr) -> CallAST:
         # we exploit UPLCs eager evaluation here
@@ -423,9 +429,14 @@ class PlutoCompiler(CompilingNodeTransformer):
                 # if the function expects input of generic type data, wrap data before passing it inside
                 a_int = transform_output_map(a.typ)(a_int)
             args.append(a_int)
-        return plt.Apply(
-            plt.Force(func_plt),
-            *args,
+        # First assign to let to ensure that the arguments are evaluated before the call, but need to delay
+        # as this is a variable assignment
+        return plt.Let(
+            [(f"0p{i}", a) for i, a in enumerate(args)],
+            plt.Apply(
+                plt.Force(func_plt),
+                *[plt.Delay(plt.Var(f"0p{i}")) for i in range(len(args))],
+            ),
         )
 
     def visit_FunctionDef(self, node: TypedFunctionDef) -> CallAST:
