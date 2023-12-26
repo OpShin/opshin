@@ -435,7 +435,7 @@ class PlutoCompiler(CompilingNodeTransformer):
         # as this is a variable assignment
         return plt.Let(
             [(f"0p{i}", a) for i, a in enumerate(args)],
-            plt.Apply(
+            SafeApply(
                 func_plt,
                 *[plt.Delay(plt.Var(f"0p{i}")) for i in range(len(args))],
             ),
@@ -454,7 +454,7 @@ class PlutoCompiler(CompilingNodeTransformer):
                 (
                     node.name,
                     plt.Delay(
-                        plt.Lambda(
+                        SafeLambda(
                             [a.arg for a in node.args.args],
                             compiled_body,
                         )

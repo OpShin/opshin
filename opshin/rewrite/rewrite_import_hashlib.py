@@ -1,5 +1,5 @@
 from typing import Optional
-from enum import Enum
+from enum import Enum, auto
 
 from ..util import CompilingNodeTransformer
 from ..typed_ast import *
@@ -31,9 +31,9 @@ HashInstanceType = InstanceType(HashType())
 
 
 class PythonHashlib(Enum):
-    sha256 = plt.Lambda(["x"], plt.Lambda(["_"], plt.Sha2_256(plt.Var("x"))))
-    sha3_256 = plt.Lambda(["x"], plt.Lambda(["_"], plt.Sha3_256(plt.Var("x"))))
-    blake2b = plt.Lambda(["x"], plt.Lambda(["_"], plt.Blake2b_256(plt.Var("x"))))
+    sha256 = auto()
+    sha3_256 = auto()
+    blake2b = auto()
 
 
 PythonHashlibTypes = {
@@ -55,6 +55,13 @@ PythonHashlibTypes = {
             HashInstanceType,
         )
     ),
+}
+
+PythonHashlibImpls = {
+
+    PythonHashlib.sha256: force_params(plt.Lambda(["x"], plt.Lambda(["_"], plt.Sha2_256(plt.Var("x"))))),
+PythonHashlib.sha3_256: force_params(plt.Lambda(["x"], plt.Lambda(["_"], plt.Sha3_256(plt.Var("x"))))),
+PythonHashlib.blake2b: force_params(plt.Lambda(["x"], plt.Lambda(["_"], plt.Blake2b_256(plt.Var("x"))))),
 }
 
 
@@ -80,7 +87,7 @@ class RewriteImportHashlib(CompilingNodeTransformer):
             additional_assigns.append(
                 TypedAssign(
                     targets=[TypedName(id=imported_name, typ=typ, ctx=Store())],
-                    value=RawPlutoExpr(typ=typ, expr=imported_fun.value),
+                    value=RawPlutoExpr(typ=typ, expr=PythonHashlibImpls[imported_fun]),
                 )
             )
         return additional_assigns
