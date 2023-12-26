@@ -1,3 +1,5 @@
+from _ast import Name, Store, ClassDef, FunctionDef, Load
+from collections import defaultdict
 from copy import copy, deepcopy
 
 import typing
@@ -190,3 +192,63 @@ def SafeApply(term: plt.AST, *vars: typing.List[plt.AST]) -> plt.Apply:
     if not vars:
         return plt.Apply(term, plt.Unit())
     return plt.Apply(term, *vars)
+
+
+class NameWriteCollector(CompilingNodeVisitor):
+    step = "Collecting variables that are written"
+
+    def __init__(self):
+        self.written = defaultdict(int)
+
+    def visit_Name(self, node: Name) -> None:
+        if isinstance(node.ctx, Store):
+            self.written[node.id] += 1
+
+    def visit_ClassDef(self, node: ClassDef):
+        # ignore the content (i.e. attribute names) of class definitions
+        self.written[node.name] += 1
+        pass
+
+    def visit_FunctionDef(self, node: FunctionDef):
+        # ignore the type hints of function arguments
+        self.written[node.name] += 1
+        for s in node.body:
+            self.visit(s)
+
+
+def written_vars(node):
+    """
+    Returns all variable names written to in this node
+    """
+    collector = NameWriteCollector()
+    collector.visit(node)
+    return sorted(collector.written.keys())
+
+
+class NameReadCollector(CompilingNodeVisitor):
+    step = "Collecting variables that are read"
+
+    def __init__(self):
+        self.read = defaultdict(int)
+
+    def visit_Name(self, node: Name) -> None:
+        if isinstance(node.ctx, Load):
+            self.read[node.id] += 1
+
+    def visit_ClassDef(self, node: ClassDef):
+        # ignore the content (i.e. attribute names) of class definitions
+        pass
+
+    def visit_FunctionDef(self, node: FunctionDef):
+        # ignore the type hints of function arguments
+        for s in node.body:
+            self.visit(s)
+
+
+def read_vars(node):
+    """
+    Returns all variable names read to in this node
+    """
+    collector = NameReadCollector()
+    collector.visit(node)
+    return sorted(collector.read.keys())

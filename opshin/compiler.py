@@ -1,8 +1,5 @@
 import copy
 
-import logging
-from pycardano import PlutusData
-
 from uplc.ast import data_from_cbor
 from .optimize.optimize_const_folding import OptimizeConstantFolding
 from .optimize.optimize_remove_comments import OptimizeRemoveDeadconstants
@@ -35,9 +32,6 @@ from .typed_ast import (
     transform_ext_params_map,
     transform_output_map,
     RawPlutoExpr,
-    PowImpl,
-    ByteStrIntMulImpl,
-    StrIntMulImpl,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -141,38 +135,7 @@ def wrap_validator_double_function(x: plt.AST, pass_through: int = 0):
     )
 
 
-class NameWriteCollector(CompilingNodeVisitor):
-    step = "Collecting variables that are written"
-
-    def __init__(self):
-        self.written = defaultdict(int)
-
-    def visit_Name(self, node: Name) -> None:
-        if isinstance(node.ctx, Store):
-            self.written[node.id] += 1
-
-    def visit_ClassDef(self, node: ClassDef):
-        # ignore the content (i.e. attribute names) of class definitions
-        self.written[node.name] += 1
-        pass
-
-    def visit_FunctionDef(self, node: FunctionDef):
-        # ignore the type hints of function arguments
-        self.written[node.name] += 1
-        for s in node.body:
-            self.visit(s)
-
-
 CallAST = typing.Callable[[plt.AST], plt.AST]
-
-
-def written_vars(node):
-    """
-    Returns all variable names written to in this node
-    """
-    collector = NameWriteCollector()
-    collector.visit(node)
-    return sorted(collector.written.keys())
 
 
 class PlutoCompiler(CompilingNodeTransformer):
@@ -420,8 +383,13 @@ class PlutoCompiler(CompilingNodeTransformer):
                     node.func.typ.typ.argtyps
                 )
             )
+            read_vs = []
         else:
+            assert isinstance(node.func.typ, InstanceType) and isinstance(
+                node.func.typ.typ, FunctionType
+            )
             func_plt = self.visit(node.func)
+            read_vs = node.func.typ.typ.readvars
         args = []
         for a, t in zip(node.args, node.func.typ.typ.argtyps):
             assert isinstance(t, InstanceType)
@@ -433,10 +401,13 @@ class PlutoCompiler(CompilingNodeTransformer):
             args.append(a_int)
         # First assign to let to ensure that the arguments are evaluated before the call, but need to delay
         # as this is a variable assignment
+        # Also bring all states of variables read inside the function into scope / update with value in current state
+        # before call to simulate statemonad with current state being passed in
         return plt.Let(
             [(f"0p{i}", a) for i, a in enumerate(args)],
             SafeApply(
                 func_plt,
+                *[plt.Var(n) for n in read_vs],
                 *[plt.Delay(plt.Var(f"0p{i}")) for i in range(len(args))],
             ),
         )
@@ -449,13 +420,20 @@ class PlutoCompiler(CompilingNodeTransformer):
         else:
             ret_val = plt.Unit()
         compiled_body = self.visit_sequence(body)(ret_val)
+        if isinstance(node.typ, PolymorphicFunctionInstanceType):
+            read_vs = []
+        else:
+            assert isinstance(node.typ, InstanceType) and isinstance(
+                node.typ.typ, FunctionType
+            )
+            read_vs = node.typ.typ.readvars
         return lambda x: plt.Let(
             [
                 (
                     node.name,
                     plt.Delay(
                         SafeLambda(
-                            [a.arg for a in node.args.args],
+                            read_vs + [a.arg for a in node.args.args],
                             compiled_body,
                         )
                     ),

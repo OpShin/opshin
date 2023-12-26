@@ -1,3 +1,4 @@
+import dataclasses
 from typing import Callable
 
 import logging
@@ -1211,6 +1212,7 @@ class DictType(ClassType):
 class FunctionType(ClassType):
     argtyps: typing.List[Type]
     rettyp: Type
+    readvars: typing.List[str] = dataclasses.field(default_factory=frozenlist)
 
     def __ge__(self, other):
         return (

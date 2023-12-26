@@ -30,6 +30,7 @@ def validator(b: bytes) -> bytes:
     exp = sha3_256(b).digest()
     assert res == exp, "Invalid implementation of sha3_256"
 
+
 @hypothesis.given(hst.binary())
 def test_blake2b(b: bytes):
     source_code = """

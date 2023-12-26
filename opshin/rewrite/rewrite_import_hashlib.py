@@ -58,10 +58,15 @@ PythonHashlibTypes = {
 }
 
 PythonHashlibImpls = {
-
-    PythonHashlib.sha256: force_params(plt.Lambda(["x"], plt.Lambda(["_"], plt.Sha2_256(plt.Var("x"))))),
-PythonHashlib.sha3_256: force_params(plt.Lambda(["x"], plt.Lambda(["_"], plt.Sha3_256(plt.Var("x"))))),
-PythonHashlib.blake2b: force_params(plt.Lambda(["x"], plt.Lambda(["_"], plt.Blake2b_256(plt.Var("x"))))),
+    PythonHashlib.sha256: force_params(
+        plt.Lambda(["x"], plt.Lambda(["_"], plt.Sha2_256(plt.Var("x"))))
+    ),
+    PythonHashlib.sha3_256: force_params(
+        plt.Lambda(["x"], plt.Lambda(["_"], plt.Sha3_256(plt.Var("x"))))
+    ),
+    PythonHashlib.blake2b: force_params(
+        plt.Lambda(["x"], plt.Lambda(["_"], plt.Blake2b_256(plt.Var("x"))))
+    ),
 }
 
 
