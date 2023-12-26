@@ -4,9 +4,7 @@ import sys
 
 import subprocess
 
-import json
 import tempfile
-import xml.etree.ElementTree
 
 import unittest
 
@@ -17,11 +15,10 @@ from hypothesis import given
 from hypothesis import strategies as st
 from parameterized import parameterized
 
-import pluthon
 from uplc import ast as uplc, eval as uplc_eval
 
 from . import PLUTUS_VM_PROFILE
-from .. import compiler, prelude, builder, Purpose, PlutusContract
+from .. import prelude, builder, Purpose, PlutusContract
 from .utils import eval_uplc_value, Unit, eval_uplc
 from ..bridge import wraps_builtin
 
