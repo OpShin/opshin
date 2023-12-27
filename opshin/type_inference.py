@@ -924,6 +924,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
 
 class RecordReader(NodeVisitor):
     name: str
+    orig_name: str
     constructor: int
     attributes: typing.List[typing.Tuple[str, Type]]
     _type_inferencer: AggressiveTypeInferencer
@@ -937,7 +938,7 @@ class RecordReader(NodeVisitor):
     def extract(cls, c: ClassDef, type_inferencer: AggressiveTypeInferencer) -> Record:
         f = cls(type_inferencer)
         f.visit(c)
-        return Record(f.name, f.constructor, frozenlist(f.attributes))
+        return Record(f.name, f.orig_name, f.constructor, frozenlist(f.attributes))
 
     def visit_AnnAssign(self, node: AnnAssign) -> None:
         assert isinstance(
@@ -969,6 +970,7 @@ class RecordReader(NodeVisitor):
 
     def visit_ClassDef(self, node: ClassDef) -> None:
         self.name = node.name
+        self.orig_name = node.orig_name
         for s in node.body:
             self.visit(s)
 

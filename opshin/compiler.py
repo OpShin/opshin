@@ -243,44 +243,40 @@ class PlutoCompiler(CompilingNodeTransformer):
                 )
         body = node.body + [
             TypedReturn(
-                value=Name(
-                    id=main_fun.name,
-                    typ=InstanceType(main_fun_typ),
-                    ctx=Load(),
-                ),
-                typ=InstanceType(main_fun_typ),
+                TypedCall(
+                    func=Name(
+                        id=main_fun.name,
+                        typ=InstanceType(main_fun_typ),
+                        ctx=Load(),
+                    ),
+                    typ=main_fun_typ.rettyp,
+                    args=[
+                        RawPlutoExpr(
+                            expr=transform_ext_params_map(a)(plt.Var(f"0val_param{i}")),
+                            typ=a,
+                        )
+                        for i, a in enumerate(main_fun_typ.argtyps)
+                    ],
+                )
             )
         ]
-        written_vs = written_vars(node)
+        all_vs = all_vars(node)
 
-        # write all variables once at the beginning so that we can always access them (only potentially causing a nameerror at runtime)
+        # write all variables that are ever read
+        # once at the beginning so that we can always access them (only potentially causing a nameerror at runtime)
         validator = SafeLambda(
-            [f"0p{i}" for i, _ in enumerate(main_fun_typ.argtyps)],
+            [f"0val_param{i}" for i, _ in enumerate(main_fun_typ.argtyps)],
             transform_output_map(main_fun_typ.rettyp)(
                 plt.Let(
                     [
                         (
-                            "0g",
-                            plt.Let(
-                                [
-                                    (
-                                        x,
-                                        plt.Delay(plt.TraceError(f"NameError: {x}")),
-                                    )
-                                    for x in written_vs
-                                ],
-                                self.visit_sequence(body)(
-                                    plt.ConstrData(plt.Integer(0), plt.EmptyDataList())
-                                ),
-                            ),
-                        ),
+                            x,
+                            plt.Delay(plt.TraceError(f"NameError: {x}")),
+                        )
+                        for x in all_vs
                     ],
-                    plt.Apply(
-                        plt.Var("0g"),
-                        *[
-                            plt.Delay(transform_ext_params_map(a)(plt.Var(f"0p{i}")))
-                            for i, a in enumerate(main_fun_typ.argtyps)
-                        ],
+                    self.visit_sequence(body)(
+                        plt.ConstrData(plt.Integer(0), plt.EmptyDataList())
                     ),
                 ),
             ),
@@ -950,15 +946,15 @@ def compile(
         RewriteImportDataclasses(),
         RewriteInjectBuiltins(),
         RewriteConditions(),
+        # Save the original names of variables
+        RewriteOrigName(),
+        RewriteScoping(),
         # The type inference needs to be run after complex python operations were rewritten
         AggressiveTypeInferencer(allow_isinstance_anything),
         # Rewrites that circumvent the type inference or use its results
         RewriteImportUPLCBuiltins(),
         RewriteInjectBuiltinsConstr(),
         RewriteRemoveTypeStuff(),
-        # Save the original names of variables
-        RewriteOrigName(),
-        RewriteScoping(),
         # Apply optimizations
         OptimizeRemoveDeadvars() if remove_dead_code else NoOp(),
         OptimizeRemoveDeadconstants(),

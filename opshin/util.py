@@ -252,3 +252,7 @@ def read_vars(node):
     collector = NameReadCollector()
     collector.visit(node)
     return sorted(collector.read.keys())
+
+
+def all_vars(node):
+    return sorted(set(read_vars(node) + written_vars(node)))

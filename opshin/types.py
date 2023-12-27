@@ -111,6 +111,7 @@ class Type:
 @dataclass(frozen=True, unsafe_hash=True)
 class Record:
     name: str
+    orig_name: str
     constructor: int
     fields: typing.Union[typing.List[typing.Tuple[str, Type]], frozenlist]
 
