@@ -29,6 +29,7 @@ INITIAL_SCOPE = dict(
     {
         # class annotations
         "bytes": ByteStringType(),
+        "bytearray": ByteStringType(),
         "int": IntegerType(),
         "bool": BoolType(),
         "str": StringType(),
