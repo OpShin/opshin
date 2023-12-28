@@ -1,11 +1,9 @@
 from ast import *
 from copy import copy
-from collections import defaultdict
 
 from ordered_set import OrderedSet
 
 from .rewrite_forbidden_overwrites import FORBIDDEN_NAMES
-from ..typed_ast import PolymorphicFunctionInstanceType, InstanceType
 from ..type_inference import INITIAL_SCOPE
 from ..util import CompilingNodeTransformer, CompilingNodeVisitor
 

@@ -11,11 +11,6 @@ security into the Smart Contract by checking type correctness.
 
 [1]: https://legacy.python.org/workshops/2000-01/proceedings/papers/aycock/aycock.html
 """
-import typing
-from collections import defaultdict
-from ordered_set import OrderedSet
-
-from copy import copy
 from pycardano import PlutusData
 
 from .typed_ast import *
@@ -148,7 +143,7 @@ class TypeCheckVisitor(TypedNodeVisitor):
     def visit_Call(self, node: Call) -> TypeMapPair:
         if isinstance(node.func, Name) and node.func.orig_id == SPECIAL_BOOL:
             return self.visit(node.args[0])
-        if not (isinstance(node.func, Name) and node.func.id == "isinstance"):
+        if not (isinstance(node.func, Name) and node.func.orig_id == "isinstance"):
             return ({}, {})
         # special case for Union
         assert isinstance(
@@ -255,7 +250,9 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         for scope in reversed(self.scopes):
             if name in scope:
                 return scope[name]
-        raise TypeInferenceError(f"Variable {name} not initialized at access")
+        raise TypeInferenceError(
+            f"Variable {map_to_orig_name(name)} not initialized at access"
+        )
 
     def enter_scope(self):
         self.scopes.append({})
@@ -269,7 +266,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                 # the specified type is broader, we pass on this
                 return
             raise TypeInferenceError(
-                f"Type {self.scopes[-1][name]} of variable {name} in local scope does not match inferred type {typ}"
+                f"Type {self.scopes[-1][name]} of variable {map_to_orig_name(name)} in local scope does not match inferred type {typ}"
             )
         self.scopes[-1][name] = typ
 
@@ -291,18 +288,18 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             if isinstance(v_t, ClassType):
                 return v_t
             raise TypeInferenceError(
-                f"Class name {ann.id} not initialized before annotating variable"
+                f"Class name {ann.orig_id} not initialized before annotating variable"
             )
         if isinstance(ann, Subscript):
             assert isinstance(
                 ann.value, Name
             ), "Only Union, Dict and List are allowed as Generic types"
-            if ann.value.id == "Union":
+            if ann.value.orig_id == "Union":
                 ann_types = frozenlist(
                     [self.type_from_annotation(e) for e in ann.slice.elts]
                 )
                 return union_types(*ann_types)
-            if ann.value.id == "List":
+            if ann.value.orig_id == "List":
                 ann_type = self.type_from_annotation(ann.slice)
                 assert isinstance(
                     ann_type, ClassType
@@ -311,7 +308,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                     ann_type, TupleType
                 ), "List can currently not hold tuples"
                 return ListType(InstanceType(ann_type))
-            if ann.value.id == "Dict":
+            if ann.value.orig_id == "Dict":
                 assert isinstance(ann.slice, Tuple), "Dict must combine two classes"
                 assert len(ann.slice.elts) == 2, "Dict must combine two classes"
                 ann_types = self.type_from_annotation(
@@ -324,7 +321,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                     isinstance(e, TupleType) for e in ann_types
                 ), "Dict can currently not hold tuples"
                 return DictType(*(InstanceType(a) for a in ann_types))
-            if ann.value.id == "Tuple":
+            if ann.value.orig_id == "Tuple":
                 assert isinstance(
                     ann.slice, Tuple
                 ), "Tuple must combine several classes"
@@ -543,7 +540,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         tfd = copy(node)
         wraps_builtin = (
             all(
-                isinstance(o, Name) and o.id == "wraps_builtin"
+                isinstance(o, Name) and o.orig_id == "wraps_builtin"
                 for o in node.decorator_list
             )
             and node.decorator_list
@@ -570,11 +567,11 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             if not isinstance(node.body[-1], Return):
                 assert (
                     functyp.rettyp >= NoneInstanceType
-                ), f"Function '{node.name}' has no return statement but is supposed to return not-None value"
+                ), f"Function '{node.orig_name}' has no return statement but is supposed to return not-None value"
             else:
                 assert (
                     functyp.rettyp >= tfd.body[-1].typ
-                ), f"Function '{node.name}' annotated return type does not match actual return type"
+                ), f"Function '{node.orig_name}' annotated return type does not match actual return type"
 
         self.exit_scope()
         # We need the function type outside for usage
@@ -644,7 +641,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
     def visit_Subscript(self, node: Subscript) -> TypedSubscript:
         ts = copy(node)
         # special case: Subscript of Union / Dict / List and atomic types
-        if isinstance(ts.value, Name) and ts.value.id in [
+        if isinstance(ts.value, Name) and ts.value.orig_id in [
             "Union",
             "Dict",
             "List",
@@ -696,6 +693,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                     ts.slice.upper = Call(
                         func=Name(id="len", ctx=Load()), args=[ts.value], keywords=[]
                     )
+                    ts.slice.upper.func.orig_id = "len"
                 ts.slice.upper = self.visit(node.slice.upper)
                 assert (
                     ts.slice.upper.typ == IntegerInstanceType
@@ -719,6 +717,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                     ts.slice.upper = Call(
                         func=Name(id="len", ctx=Load()), args=[ts.value], keywords=[]
                     )
+                    ts.slice.upper.func.orig_id = "len"
                 ts.slice.upper = self.visit(node.slice.upper)
                 assert (
                     ts.slice.upper.typ == IntegerInstanceType
@@ -745,7 +744,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         tc = copy(node)
         tc.args = [self.visit(a) for a in node.args]
         # might be isinstance
-        if isinstance(tc.func, Name) and tc.func.id == "isinstance":
+        if isinstance(tc.func, Name) and tc.func.orig_id == "isinstance":
             target_class = tc.args[1].typ
             if (
                 isinstance(tc.args[0].typ, InstanceType)
@@ -1004,3 +1003,7 @@ class RecordReader(NodeVisitor):
 
 def typed_ast(ast: AST):
     return AggressiveTypeInferencer().visit(ast)
+
+
+def map_to_orig_name(name: str):
+    return re.sub(r"_\d+$", "", name)
