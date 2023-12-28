@@ -698,17 +698,19 @@ class PlutoCompiler(CompilingNodeTransformer):
                     ],
                     transform_ext_params_map(dict_typ.value_typ)(
                         plt.SndPair(
-                            plt.FindList(self.visit(node.value)),
-                            plt.Lambda(
-                                ["x"],
-                                plt.EqualsData(
-                                    transform_output_map(dict_typ.key_typ)(
-                                        plt.Var("key")
+                            plt.FindList(
+                                self.visit(node.value),
+                                plt.Lambda(
+                                    ["x"],
+                                    plt.EqualsData(
+                                        transform_output_map(dict_typ.key_typ)(
+                                            plt.Var("key")
+                                        ),
+                                        plt.FstPair(plt.Var("x")),
                                     ),
-                                    plt.FstPair(plt.Var("x")),
                                 ),
-                            ),
-                            plt.TraceError("KeyError"),
+                                plt.TraceError("KeyError"),
+                            )
                         ),
                     ),
                 )
