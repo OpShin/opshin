@@ -540,11 +540,11 @@ class PlutoCompiler(CompilingNodeTransformer):
             "Compilation of for statements for anything but lists not implemented yet"
         )
 
-    def visit_If(self, node: TypedIf) -> plt.AST:
+    def visit_If(self, node: TypedIf) -> CallAST:
         written_vs = written_vars(node)
         pwritten_vs = [plt.Var(x) for x in written_vs]
         return lambda x: plt.Let(
-            [("1adjusted_next", SafeLambda(deepcopy(pwritten_vs), x))],
+            [("1adjusted_next", SafeLambda(written_vs, x))],
             plt.Ite(
                 self.visit(node.test),
                 self.visit_sequence(node.body)(
