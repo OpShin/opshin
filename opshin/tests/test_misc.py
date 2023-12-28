@@ -435,6 +435,21 @@ def validator(x: Token) -> bool:
         ret = eval_uplc_value(source_code, Unit())
         self.assertEqual(ret, True)
 
+    def test_removedeadvar_noissue3(self):
+        source_code = """
+from opshin.prelude import *
+
+def foo(x: Token) -> bool:
+    b = 4
+    a = b
+    return True
+
+def validator(x: Token) -> bool:
+    return foo(x)
+        """
+        ret = eval_uplc_value(source_code, Unit())
+        self.assertEqual(ret, True)
+
     @unittest.expectedFailure
     def test_overopt_removedeadvar(self):
         source_code = """
