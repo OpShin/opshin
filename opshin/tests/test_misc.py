@@ -2162,6 +2162,8 @@ def validator(
 """
         eval_uplc(source_code, bytearray(b"hello"))
 
+    # TODO enable when pycardano version is fixed s.t. import of ByteString works
+    @unittest.expectedFailure
     def test_ByteString_alternative(self):
         source_code = """
 def validator(
