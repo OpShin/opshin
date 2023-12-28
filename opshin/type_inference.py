@@ -11,6 +11,8 @@ security into the Smart Contract by checking type correctness.
 
 [1]: https://legacy.python.org/workshops/2000-01/proceedings/papers/aycock/aycock.html
 """
+import re
+
 from pycardano import PlutusData
 
 from .typed_ast import *
@@ -847,9 +849,17 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         elif node_cp.orelse.typ >= node_cp.body.typ:
             node_cp.typ = node_cp.orelse.typ
         else:
-            raise TypeInferenceError(
-                "Branches of if-expression must return compatible types"
-            )
+            try:
+                assert isinstance(node_cp.body.typ, InstanceType) and isinstance(
+                    node_cp.orelse.typ, InstanceType
+                )
+                node_cp.typ = InstanceType(
+                    union_types(node_cp.body.typ.typ, node_cp.orelse.typ.typ)
+                )
+            except AssertionError:
+                raise TypeInferenceError(
+                    "Branches of if-expression must return compatible types."
+                )
         return node_cp
 
     def visit_comprehension(self, g: comprehension) -> typedcomprehension:

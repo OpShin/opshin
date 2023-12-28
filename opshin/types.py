@@ -396,7 +396,7 @@ class RecordType(ClassType):
         build_constr_params = plt.EmptyDataList()
         for n, t in reversed(self.record.fields):
             build_constr_params = plt.MkCons(
-                transform_output_map(t)(plt.Var(n)), build_constr_params
+                transform_output_map(t)(plt.Force(plt.Var(n))), build_constr_params
             )
         # then build a constr type with this PlutusData
         return plt.Lambda(

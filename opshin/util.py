@@ -231,6 +231,17 @@ class NameReadCollector(CompilingNodeVisitor):
     def __init__(self):
         self.read = defaultdict(int)
 
+    def visit_AnnAssign(self, node) -> None:
+        # ignore annotations of variables
+        self.visit(node.value)
+        self.visit(node.target)
+
+    def visit_FunctionDef(self, node) -> None:
+        # ignore annotations of paramters and return
+        self.visit(node.args)
+        for b in node.body:
+            self.visit(b)
+
     def visit_Name(self, node: Name) -> None:
         if isinstance(node.ctx, Load):
             self.read[node.id] += 1
