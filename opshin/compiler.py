@@ -878,7 +878,7 @@ class PlutoCompiler(CompilingNodeTransformer):
         map_fun = plt.Lambda(
             ["1x"],
             plt.Let(
-                [(gen.target.id, plt.Var("1x"))],
+                [(gen.target.id, plt.Delay(plt.Var("1x")))],
                 self.visit(node.elt),
             ),
         )
@@ -887,7 +887,7 @@ class PlutoCompiler(CompilingNodeTransformer):
             filter_fun = plt.Lambda(
                 ["1x"],
                 plt.Let(
-                    [(gen.target.id, plt.Var("1x"))],
+                    [(gen.target.id, plt.Delay(plt.Var("1x")))],
                     ifs,
                 ),
             )
