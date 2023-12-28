@@ -399,7 +399,7 @@ class RecordType(ClassType):
                 transform_output_map(t)(plt.Force(plt.Var(n))), build_constr_params
             )
         # then build a constr type with this PlutusData
-        return plt.Lambda(
+        return SafeLambda(
             [n for n, _ in self.record.fields],
             plt.ConstrData(plt.Integer(self.record.constructor), build_constr_params),
         )
