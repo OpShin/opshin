@@ -146,7 +146,7 @@ class TypeCheckVisitor(TypedNodeVisitor):
         return getattr(node, "typechecks", ({}, {}))
 
     def visit_Call(self, node: Call) -> TypeMapPair:
-        if isinstance(node.func, Name) and node.func.id == SPECIAL_BOOL:
+        if isinstance(node.func, Name) and node.func.orig_id == SPECIAL_BOOL:
             return self.visit(node.args[0])
         if not (isinstance(node.func, Name) and node.func.id == "isinstance"):
             return ({}, {})

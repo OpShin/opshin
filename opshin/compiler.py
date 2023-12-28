@@ -252,7 +252,7 @@ class PlutoCompiler(CompilingNodeTransformer):
                     typ=main_fun_typ.rettyp,
                     args=[
                         RawPlutoExpr(
-                            expr=transform_ext_params_map(a)(plt.Var(f"0val_param{i}")),
+                            expr=transform_ext_params_map(a)(plt.Var(f"1val_param{i}")),
                             typ=a,
                         )
                         for i, a in enumerate(main_fun_typ.argtyps)
@@ -265,7 +265,7 @@ class PlutoCompiler(CompilingNodeTransformer):
         # write all variables that are ever read
         # once at the beginning so that we can always access them (only potentially causing a nameerror at runtime)
         validator = SafeLambda(
-            [f"0val_param{i}" for i, _ in enumerate(main_fun_typ.argtyps)],
+            [f"1val_param{i}" for i, _ in enumerate(main_fun_typ.argtyps)],
             transform_output_map(main_fun_typ.rettyp)(
                 plt.Let(
                     [
@@ -400,11 +400,11 @@ class PlutoCompiler(CompilingNodeTransformer):
         # Also bring all states of variables read inside the function into scope / update with value in current state
         # before call to simulate statemonad with current state being passed in
         return plt.Let(
-            [(f"0p{i}", a) for i, a in enumerate(args)],
+            [(f"1p{i}", a) for i, a in enumerate(args)],
             SafeApply(
                 func_plt,
                 *[plt.Var(n) for n in read_vs],
-                *[plt.Delay(plt.Var(f"0p{i}")) for i in range(len(args))],
+                *[plt.Delay(plt.Var(f"1p{i}")) for i in range(len(args))],
             ),
         )
 
@@ -451,13 +451,13 @@ class PlutoCompiler(CompilingNodeTransformer):
         written_vs = written_vars(node)
         pwritten_vs = [plt.Var(x) for x in written_vs]
         s_fun = lambda x: plt.Lambda(
-            ["0while"] + written_vs,
+            ["1while"] + written_vs,
             plt.Ite(
                 compiled_c,
                 compiled_s(
                     plt.Apply(
-                        plt.Var("0while"),
-                        plt.Var("0while"),
+                        plt.Var("1while"),
+                        plt.Var("1while"),
                         *pwritten_vs,
                     )
                 ),
@@ -466,10 +466,10 @@ class PlutoCompiler(CompilingNodeTransformer):
         )
         return lambda x: plt.Let(
             [
-                ("0adjusted_next", SafeLambda(written_vs, x)),
-                ("0while", s_fun(SafeApply(plt.Var("0adjusted_next"), *pwritten_vs))),
+                ("1adjusted_next", SafeLambda(written_vs, x)),
+                ("1while", s_fun(SafeApply(plt.Var("1adjusted_next"), *pwritten_vs))),
             ],
-            plt.Apply(plt.Var("0while"), plt.Var("0while"), *pwritten_vs),
+            plt.Apply(plt.Var("1while"), plt.Var("1while"), *pwritten_vs),
         )
 
     def visit_For(self, node: TypedFor) -> CallAST:
@@ -488,17 +488,17 @@ class PlutoCompiler(CompilingNodeTransformer):
             written_vs = written_vars(node)
             pwritten_vs = [plt.Var(x) for x in written_vs]
             s_fun = lambda x: plt.Lambda(
-                ["0for", "0iter"] + written_vs,
+                ["1for", "1iter"] + written_vs,
                 plt.IteNullList(
-                    plt.Var("0iter"),
+                    plt.Var("1iter"),
                     x,
                     plt.Let(
-                        [(node.target.id, plt.Delay(plt.HeadList(plt.Var("0iter"))))],
+                        [(node.target.id, plt.Delay(plt.HeadList(plt.Var("1iter"))))],
                         compiled_s(
                             plt.Apply(
-                                plt.Var("0for"),
-                                plt.Var("0for"),
-                                plt.TailList(plt.Var("0iter")),
+                                plt.Var("1for"),
+                                plt.Var("1for"),
+                                plt.TailList(plt.Var("1iter")),
                                 *pwritten_vs,
                             )
                         ),
@@ -507,12 +507,12 @@ class PlutoCompiler(CompilingNodeTransformer):
             )
             return lambda x: plt.Let(
                 [
-                    ("0adjusted_next", plt.Lambda([node.target.id] + written_vs, x)),
+                    ("1adjusted_next", plt.Lambda([node.target.id] + written_vs, x)),
                     (
-                        "0for",
+                        "1for",
                         s_fun(
                             plt.Apply(
-                                plt.Var("0adjusted_next"),
+                                plt.Var("1adjusted_next"),
                                 plt.Var(node.target.id),
                                 *pwritten_vs,
                             )
@@ -520,7 +520,7 @@ class PlutoCompiler(CompilingNodeTransformer):
                     ),
                 ],
                 plt.Apply(
-                    plt.Var("0for"), plt.Var("0for"), compiled_iter, *pwritten_vs
+                    plt.Var("1for"), plt.Var("1for"), compiled_iter, *pwritten_vs
                 ),
             )
         raise NotImplementedError(
@@ -531,14 +531,14 @@ class PlutoCompiler(CompilingNodeTransformer):
         written_vs = written_vars(node)
         pwritten_vs = [plt.Var(x) for x in written_vs]
         return lambda x: plt.Let(
-            [("0adjusted_next", SafeLambda(written_vs, x))],
+            [("1adjusted_next", SafeLambda(written_vs, x))],
             plt.Ite(
                 self.visit(node.test),
                 self.visit_sequence(node.body)(
-                    SafeApply(plt.Var("0adjusted_next"), *pwritten_vs)
+                    SafeApply(plt.Var("1adjusted_next"), *pwritten_vs)
                 ),
                 self.visit_sequence(node.orelse)(
-                    SafeApply(plt.Var("0adjusted_next"), *pwritten_vs)
+                    SafeApply(plt.Var("1adjusted_next"), *pwritten_vs)
                 ),
             ),
         )
@@ -876,18 +876,18 @@ class PlutoCompiler(CompilingNodeTransformer):
             else:
                 ifs = plt.And(ifs, self.visit(ifexpr))
         map_fun = plt.Lambda(
-            ["0x"],
+            ["1x"],
             plt.Let(
-                [(gen.target.id, plt.Var("0x"))],
+                [(gen.target.id, plt.Var("1x"))],
                 self.visit(node.elt),
             ),
         )
         empty_list_con = empty_list(node.elt.typ)
         if ifs is not None:
             filter_fun = plt.Lambda(
-                ["0x"],
+                ["1x"],
                 plt.Let(
-                    [(gen.target.id, plt.Var("0x"))],
+                    [(gen.target.id, plt.Var("1x"))],
                     ifs,
                 ),
             )
