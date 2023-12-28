@@ -964,23 +964,33 @@ class DictType(ClassType):
     def attribute(self, attr) -> plt.AST:
         if attr == "get":
             return plt.Lambda(
-                ["self", "key", "default"],
+                ["1self", "1key", "1default"],
                 transform_ext_params_map(self.value_typ)(
-                    plt.SndPair(
-                        plt.FindList(
-                            plt.Var("self"),
-                            plt.Lambda(
-                                ["x"],
-                                plt.EqualsData(
-                                    transform_output_map(self.key_typ)(plt.Var("key")),
-                                    plt.FstPair(plt.Var("x")),
+                    plt.Let(
+                        [
+                            (
+                                "1key_mapped",
+                                transform_output_map(self.key_typ)(
+                                    plt.Force(plt.Var("1key"))
                                 ),
-                            ),
-                            # this is a bit ugly... we wrap - only to later unwrap again
-                            plt.MkPairData(
-                                transform_output_map(self.key_typ)(plt.Var("key")),
-                                transform_output_map(self.value_typ)(
-                                    plt.Var("default")
+                            )
+                        ],
+                        plt.SndPair(
+                            plt.FindList(
+                                plt.Var("1self"),
+                                plt.Lambda(
+                                    ["1x"],
+                                    plt.EqualsData(
+                                        plt.Var("1key_mapped"),
+                                        plt.FstPair(plt.Var("1x")),
+                                    ),
+                                ),
+                                # this is a bit ugly... we wrap - only to later unwrap again
+                                plt.MkPairData(
+                                    plt.Var("1key_mapped"),
+                                    transform_output_map(self.value_typ)(
+                                        plt.Force(plt.Var("1default"))
+                                    ),
                                 ),
                             ),
                         ),
@@ -989,13 +999,13 @@ class DictType(ClassType):
             )
         if attr == "keys":
             return plt.Lambda(
-                ["self"],
+                ["1self", "_"],
                 plt.MapList(
-                    plt.Var("self"),
+                    plt.Var("1self"),
                     plt.Lambda(
-                        ["x"],
+                        ["1x"],
                         transform_ext_params_map(self.key_typ)(
-                            plt.FstPair(plt.Var("x"))
+                            plt.FstPair(plt.Var("1x"))
                         ),
                     ),
                     empty_list(self.key_typ),
@@ -1003,13 +1013,13 @@ class DictType(ClassType):
             )
         if attr == "values":
             return plt.Lambda(
-                ["self"],
+                ["1self", "_"],
                 plt.MapList(
-                    plt.Var("self"),
+                    plt.Var("1self"),
                     plt.Lambda(
-                        ["x"],
+                        ["1x"],
                         transform_ext_params_map(self.value_typ)(
-                            plt.SndPair(plt.Var("x"))
+                            plt.SndPair(plt.Var("1x"))
                         ),
                     ),
                     empty_list(self.value_typ),
@@ -1017,8 +1027,8 @@ class DictType(ClassType):
             )
         if attr == "items":
             return plt.Lambda(
-                ["self"],
-                plt.Var("self"),
+                ["1self", "_"],
+                plt.Var("1self"),
             )
         raise NotImplementedError(f"Attribute '{attr}' of Dict is unknown.")
 
@@ -1514,10 +1524,10 @@ class ByteStringType(AtomicType):
     def attribute(self, attr) -> plt.AST:
         if attr == "decode":
             # No codec -> only the default (utf8) is allowed
-            return plt.Lambda(["x"], plt.DecodeUtf8(plt.Var("x")))
+            return plt.Lambda(["x", "_"], plt.DecodeUtf8(plt.Var("x")))
         if attr == "hex":
             return plt.Lambda(
-                ["x"],
+                ["x", "_"],
                 plt.DecodeUtf8(
                     plt.Let(
                         [
