@@ -271,7 +271,9 @@ class PlutoCompiler(CompilingNodeTransformer):
                     [
                         (
                             x,
-                            plt.Delay(plt.TraceError(f"NameError: {x}")),
+                            plt.Delay(
+                                plt.TraceError(f"NameError: {map_to_orig_name(x)}")
+                            ),
                         )
                         for x in all_vs
                     ],

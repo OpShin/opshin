@@ -422,27 +422,27 @@ class RecordType(ClassType):
         if attr == "CONSTR_ID":
             # access to constructor
             return plt.Lambda(
-                ["self"],
-                plt.Constructor(plt.Var("self")),
+                ["1self"],
+                plt.Constructor(plt.Var("1self")),
             )
         if attr in (n for n, t in self.record.fields):
             attr_typ = self.attribute_type(attr)
             pos = next(i for i, (n, _) in enumerate(self.record.fields) if n == attr)
             # access to normal fields
             return plt.Lambda(
-                ["self"],
+                ["1self"],
                 transform_ext_params_map(attr_typ)(
                     plt.NthField(
-                        plt.Var("self"),
+                        plt.Var("1self"),
                         plt.Integer(pos),
                     ),
                 ),
             )
         if attr == "to_cbor":
             return plt.Lambda(
-                ["self"],
+                ["1self", "_"],
                 plt.SerialiseData(
-                    plt.Var("self"),
+                    plt.Var("1self"),
                 ),
             )
         raise NotImplementedError(f"Attribute {attr} not implemented for type {self}")
@@ -602,8 +602,8 @@ class UnionType(ClassType):
         if attr == "CONSTR_ID":
             # access to constructor
             return plt.Lambda(
-                ["self"],
-                plt.Constructor(plt.Var("self")),
+                ["1self"],
+                plt.Constructor(plt.Var("1self")),
             )
         # iterate through all names/types of the unioned records by position
         if any(attr in (n for n, t in r.record.fields) for r in self.typs):
@@ -643,12 +643,12 @@ class UnionType(ClassType):
                     pos_decisor,
                 )
             return plt.Lambda(
-                ["self"],
+                ["1self"],
                 transform_ext_params_map(attr_typ)(
                     plt.NthField(
-                        plt.Var("self"),
+                        plt.Var("1self"),
                         plt.Let(
-                            [("constr", plt.Constructor(plt.Var("self")))],
+                            [("constr", plt.Constructor(plt.Var("1self")))],
                             pos_decisor,
                         ),
                     ),
@@ -656,9 +656,9 @@ class UnionType(ClassType):
             )
         if attr == "to_cbor":
             return plt.Lambda(
-                ["self", "_"],
+                ["1self", "_"],
                 plt.SerialiseData(
-                    plt.Var("self"),
+                    plt.Var("1self"),
                 ),
             )
         raise NotImplementedError(f"Attribute {attr} not implemented for type {self}")
