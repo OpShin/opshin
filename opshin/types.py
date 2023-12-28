@@ -530,7 +530,7 @@ class RecordType(ClassType):
             )
         return plt.Lambda(
             ["self"],
-            plt.AppendString(plt.Text(f"{self.record.name}("), map_fields),
+            plt.AppendString(plt.Text(f"{self.record.orig_name}("), map_fields),
         )
 
     def copy_only_attributes(self) -> plt.AST:
