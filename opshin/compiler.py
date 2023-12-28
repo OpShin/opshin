@@ -260,7 +260,11 @@ class PlutoCompiler(CompilingNodeTransformer):
                 )
             )
         ]
-        all_vs = all_vars(node)
+        # because read variables are defined at type inference
+        # they do not take into account variables being removed due to being dead vars
+        # as all read vars are passed in at invocation of a function,
+        # for now we have to define even removed variables with KeyError
+        all_vs = sorted(set(all_vars(node) + main_fun_typ.readvars))
 
         # write all variables that are ever read
         # once at the beginning so that we can always access them (only potentially causing a nameerror at runtime)
