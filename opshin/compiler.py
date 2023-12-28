@@ -458,7 +458,7 @@ class PlutoCompiler(CompilingNodeTransformer):
                     plt.Apply(
                         plt.Var("1while"),
                         plt.Var("1while"),
-                        *pwritten_vs,
+                        *deepcopy(pwritten_vs),
                     )
                 ),
                 x,
@@ -467,9 +467,12 @@ class PlutoCompiler(CompilingNodeTransformer):
         return lambda x: plt.Let(
             [
                 ("1adjusted_next", SafeLambda(written_vs, x)),
-                ("1while", s_fun(SafeApply(plt.Var("1adjusted_next"), *pwritten_vs))),
+                (
+                    "1while",
+                    s_fun(SafeApply(plt.Var("1adjusted_next"), *deepcopy(pwritten_vs))),
+                ),
             ],
-            plt.Apply(plt.Var("1while"), plt.Var("1while"), *pwritten_vs),
+            plt.Apply(plt.Var("1while"), plt.Var("1while"), *deepcopy(pwritten_vs)),
         )
 
     def visit_For(self, node: TypedFor) -> CallAST:
@@ -499,7 +502,7 @@ class PlutoCompiler(CompilingNodeTransformer):
                                 plt.Var("1for"),
                                 plt.Var("1for"),
                                 plt.TailList(plt.Var("1iter")),
-                                *pwritten_vs,
+                                *deepcopy(pwritten_vs),
                             )
                         ),
                     ),
@@ -514,13 +517,16 @@ class PlutoCompiler(CompilingNodeTransformer):
                             plt.Apply(
                                 plt.Var("1adjusted_next"),
                                 plt.Var(node.target.id),
-                                *pwritten_vs,
+                                *deepcopy(pwritten_vs),
                             )
                         ),
                     ),
                 ],
                 plt.Apply(
-                    plt.Var("1for"), plt.Var("1for"), compiled_iter, *pwritten_vs
+                    plt.Var("1for"),
+                    plt.Var("1for"),
+                    compiled_iter,
+                    *deepcopy(pwritten_vs),
                 ),
             )
         raise NotImplementedError(
@@ -531,14 +537,14 @@ class PlutoCompiler(CompilingNodeTransformer):
         written_vs = written_vars(node)
         pwritten_vs = [plt.Var(x) for x in written_vs]
         return lambda x: plt.Let(
-            [("1adjusted_next", SafeLambda(written_vs, x))],
+            [("1adjusted_next", SafeLambda(deepcopy(pwritten_vs), x))],
             plt.Ite(
                 self.visit(node.test),
                 self.visit_sequence(node.body)(
-                    SafeApply(plt.Var("1adjusted_next"), *pwritten_vs)
+                    SafeApply(plt.Var("1adjusted_next"), *deepcopy(pwritten_vs))
                 ),
                 self.visit_sequence(node.orelse)(
-                    SafeApply(plt.Var("1adjusted_next"), *pwritten_vs)
+                    SafeApply(plt.Var("1adjusted_next"), *deepcopy(pwritten_vs))
                 ),
             ),
         )
