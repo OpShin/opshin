@@ -48,6 +48,7 @@ INITIAL_SCOPE.update(
 def record_from_plutusdata(c: PlutusData):
     return Record(
         name=c.__class__.__name__,
+        orig_name=c.__class__.__name__,
         constructor=c.CONSTR_ID,
         fields=frozenlist([(k, constant_type(v)) for k, v in c.__dict__.items()]),
     )

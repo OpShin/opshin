@@ -146,6 +146,7 @@ class PlutoCompiler(CompilingNodeTransformer):
     step = "Compiling python statements to UPLC"
 
     def __init__(self, force_three_params=False, validator_function_name="validator"):
+        self.current_function_typ: typing.List[FunctionType] = []
         self.force_three_params = force_three_params
         self.validator_function_name = validator_function_name
 
@@ -260,6 +261,7 @@ class PlutoCompiler(CompilingNodeTransformer):
                 )
             )
         ]
+        self.current_function_typ.append(FunctionType([], InstanceType(AnyType())))
         # because read variables are defined at type inference
         # they do not take into account variables being removed due to being dead vars
         # as all read vars are passed in at invocation of a function,
@@ -270,23 +272,20 @@ class PlutoCompiler(CompilingNodeTransformer):
         # once at the beginning so that we can always access them (only potentially causing a nameerror at runtime)
         validator = SafeLambda(
             [f"1val_param{i}" for i, _ in enumerate(main_fun_typ.argtyps)],
-            transform_output_map(main_fun_typ.rettyp)(
-                plt.Let(
-                    [
-                        (
-                            x,
-                            plt.Delay(
-                                plt.TraceError(f"NameError: {map_to_orig_name(x)}")
-                            ),
-                        )
-                        for x in all_vs
-                    ],
-                    self.visit_sequence(body)(
-                        plt.ConstrData(plt.Integer(0), plt.EmptyDataList())
-                    ),
+            plt.Let(
+                [
+                    (
+                        x,
+                        plt.Delay(plt.TraceError(f"NameError: {map_to_orig_name(x)}")),
+                    )
+                    for x in all_vs
+                ],
+                self.visit_sequence(body)(
+                    plt.ConstrData(plt.Integer(0), plt.EmptyDataList())
                 ),
             ),
         )
+        self.current_function_typ.pop()
         if enable_double_func_mint_spend:
             validator = wrap_validator_double_function(
                 validator, pass_through=len(main_fun_typ.argtyps) - 3
@@ -421,7 +420,9 @@ class PlutoCompiler(CompilingNodeTransformer):
             ret_val = plt.ConstrData(plt.Integer(0), plt.EmptyDataList())
         else:
             ret_val = plt.Unit()
+        self.current_function_typ.append(node.typ.typ)
         compiled_body = self.visit_sequence(body)(ret_val)
+        self.current_function_typ.pop()
         if isinstance(node.typ, PolymorphicFunctionInstanceType):
             read_vs = []
         else:
@@ -556,7 +557,11 @@ class PlutoCompiler(CompilingNodeTransformer):
         )
 
     def visit_Return(self, node: TypedReturn) -> CallAST:
-        return lambda _: self.visit(node.value)
+        value_plt = self.visit(node.value)
+        assert self.current_function_typ, "Can not handle Return outside of a function"
+        if isinstance(self.current_function_typ[-1].rettyp.typ, AnyType):
+            value_plt = transform_output_map(node.value.typ)(value_plt)
+        return lambda _: value_plt
 
     def visit_Pass(self, node: TypedPass) -> CallAST:
         return self.visit_sequence([])
