@@ -138,6 +138,24 @@ def wrap_validator_double_function(x: plt.AST, pass_through: int = 0):
 CallAST = typing.Callable[[plt.AST], plt.AST]
 
 
+class FunctionReadVarsCollector(NodeVisitor):
+    def __init__(self):
+        self.functions_read_vars: typing.Dict[
+            FunctionType, typing.List[str]
+        ] = defaultdict(list)
+
+    def visit_FunctionDef(self, node: FunctionDef) -> None:
+        self.functions_read_vars[node.typ.typ] = read_vars(node)
+
+
+def extract_function_read_vars(
+    node: AST,
+) -> typing.Dict[FunctionType, typing.List[str]]:
+    e = FunctionReadVarsCollector()
+    e.visit(node)
+    return e.functions_read_vars
+
+
 class PlutoCompiler(CompilingNodeTransformer):
     """
     Expects a TypedAST and returns UPLC/Pluto like code
@@ -146,9 +164,12 @@ class PlutoCompiler(CompilingNodeTransformer):
     step = "Compiling python statements to UPLC"
 
     def __init__(self, force_three_params=False, validator_function_name="validator"):
-        self.current_function_typ: typing.List[FunctionType] = []
+        # parameters
         self.force_three_params = force_three_params
         self.validator_function_name = validator_function_name
+        # marked knowledge during compilation
+        self.current_function_typ: typing.List[FunctionType] = []
+        self.functions_read_vars: typing.Dict[FunctionType, typing.List[str]] = {}
 
     def visit_sequence(self, node_seq: typing.List[typedstmt]) -> CallAST:
         def g(s: plt.AST):
@@ -200,6 +221,7 @@ class PlutoCompiler(CompilingNodeTransformer):
         )
 
     def visit_Module(self, node: TypedModule) -> plt.AST:
+        self.functions_read_vars = extract_function_read_vars(node)
         # for validators find main function
         # TODO can use more sophisiticated procedure here i.e. functions marked by comment
         main_fun: typing.Optional[InstanceType] = None
@@ -262,11 +284,7 @@ class PlutoCompiler(CompilingNodeTransformer):
             )
         ]
         self.current_function_typ.append(FunctionType([], InstanceType(AnyType())))
-        # because read variables are defined at type inference
-        # they do not take into account variables being removed due to being dead vars
-        # as all read vars are passed in at invocation of a function,
-        # for now we have to define even removed variables with KeyError
-        all_vs = sorted(set(all_vars(node) + main_fun_typ.readvars))
+        all_vs = sorted(set(all_vars(node)))
 
         # write all variables that are ever read
         # once at the beginning so that we can always access them (only potentially causing a nameerror at runtime)
@@ -384,13 +402,12 @@ class PlutoCompiler(CompilingNodeTransformer):
                     node.func.typ.typ.argtyps
                 )
             )
-            read_vs = []
         else:
             assert isinstance(node.func.typ, InstanceType) and isinstance(
                 node.func.typ.typ, FunctionType
             )
             func_plt = self.visit(node.func)
-            read_vs = node.func.typ.typ.readvars
+        read_vs = self.functions_read_vars[node.func.typ.typ]
         args = []
         for a, t in zip(node.args, node.func.typ.typ.argtyps):
             assert isinstance(t, InstanceType)
@@ -423,13 +440,7 @@ class PlutoCompiler(CompilingNodeTransformer):
         self.current_function_typ.append(node.typ.typ)
         compiled_body = self.visit_sequence(body)(ret_val)
         self.current_function_typ.pop()
-        if isinstance(node.typ, PolymorphicFunctionInstanceType):
-            read_vs = []
-        else:
-            assert isinstance(node.typ, InstanceType) and isinstance(
-                node.typ.typ, FunctionType
-            )
-            read_vs = node.typ.typ.readvars
+        read_vs = self.functions_read_vars[node.typ.typ]
         return lambda x: plt.Let(
             [
                 (

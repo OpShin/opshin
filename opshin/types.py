@@ -115,6 +115,9 @@ class Record:
     constructor: int
     fields: typing.Union[typing.List[typing.Tuple[str, Type]], frozenlist]
 
+    def __post_init__(self):
+        object.__setattr__(self, "fields", frozenlist(self.fields))
+
     def __ge__(self, other):
         if not isinstance(other, Record):
             return False
@@ -569,6 +572,9 @@ class RecordType(ClassType):
 @dataclass(frozen=True, unsafe_hash=True)
 class UnionType(ClassType):
     typs: typing.List[RecordType]
+
+    def __post_init__(self):
+        object.__setattr__(self, "typs", frozenlist(self.typs))
 
     def attribute_type(self, attr) -> "Type":
         if attr == "CONSTR_ID":
@@ -1223,7 +1229,12 @@ class DictType(ClassType):
 class FunctionType(ClassType):
     argtyps: typing.List[Type]
     rettyp: Type
-    readvars: typing.List[str] = dataclasses.field(default_factory=frozenlist)
+    # Functions are made unique (enough) by the actual variables that they read
+    read_vs: typing.List[str] = dataclasses.field(default_factory=frozenlist)
+
+    def __post_init__(self):
+        object.__setattr__(self, "argtyps", frozenlist(self.argtyps))
+        object.__setattr__(self, "read_vs", frozenlist(self.read_vs))
 
     def __ge__(self, other):
         return (
