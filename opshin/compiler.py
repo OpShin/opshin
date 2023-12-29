@@ -146,6 +146,7 @@ class FunctionReadVarsCollector(NodeVisitor):
 
     def visit_FunctionDef(self, node: FunctionDef) -> None:
         self.functions_read_vars[node.typ.typ] = read_vars(node)
+        self.generic_visit(node)
 
 
 def extract_function_read_vars(

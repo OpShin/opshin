@@ -277,6 +277,20 @@ def validator(a: int, b: int) -> int:
             ),
         )
 
+    def test_recursion_simple(self):
+        source_code = """
+def validator(_: None) -> int:
+    def a(n: int) -> int:
+      if n == 0:
+        res = 0
+      else:
+        res = a(n-1)
+      return res
+    return a(1)
+        """
+        ret = eval_uplc_value(source_code, Unit())
+        self.assertEqual(0, ret)
+
     def test_recursion(self):
         source_code = """
 def validator(_: None) -> int:
