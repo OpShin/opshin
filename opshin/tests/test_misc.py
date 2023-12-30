@@ -1943,6 +1943,17 @@ def validator(x: Union[A, B]) -> int:
         builder._compile(source_code)
 
     @unittest.expectedFailure
+    def test_retype_while_wrong_after_iter(self):
+        source_code = """
+def validator(x: int) -> bytes:
+    while True:
+        x += 1
+        x = b''
+    return x
+"""
+        builder._compile(source_code)
+
+    @unittest.expectedFailure
     def test_retype(self):
         source_code = """
 def validator(x: int) -> str:
