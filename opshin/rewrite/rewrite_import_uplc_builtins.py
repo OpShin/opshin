@@ -46,7 +46,7 @@ class RewriteImportUPLCBuiltins(CompilingNodeTransformer):
         pluto_expression = RawPlutoExpr(
             typ=node.typ.typ.rettyp,
             expr=uplc_fun(
-                *(plt.Var(f"p{i}") for i in range(len(node.args.args))),
+                *(plt.Force(plt.Var(a.arg)) for a in node.args.args),
             ),
         )
         node_cp = copy(node)

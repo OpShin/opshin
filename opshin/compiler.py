@@ -415,7 +415,7 @@ class PlutoCompiler(CompilingNodeTransformer):
                 node.func.typ.typ, FunctionType
             )
             func_plt = self.visit(node.func)
-        read_vs = self.function_bound_vars[node.func.typ.typ]
+        bound_vs = self.function_bound_vars[node.func.typ.typ]
         args = []
         for a, t in zip(node.args, node.func.typ.typ.argtyps):
             assert isinstance(t, InstanceType)
@@ -433,7 +433,7 @@ class PlutoCompiler(CompilingNodeTransformer):
             [(f"1p{i}", a) for i, a in enumerate(args)],
             SafeApply(
                 func_plt,
-                *[plt.Var(n) for n in read_vs],
+                *[plt.Var(n) for n in bound_vs],
                 *[plt.Delay(plt.Var(f"1p{i}")) for i in range(len(args))],
             ),
         )
