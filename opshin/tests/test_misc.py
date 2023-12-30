@@ -1270,12 +1270,32 @@ def validator(_: None) -> int:
         code_src = code.dumps()
         self.assertIn(f"(con integer {2**10})", code_src)
 
-    def test_constant_folding_ignore_reassignment(self):
+    def test_reassign_builtin(self):
         source_code = """
-from opshin.prelude import *
+b = int
+def validator(_: None) -> int:
+    def int(a) -> b:
+        return 2
+    return int(5)
+"""
+        res = eval_uplc_value(source_code, Unit())
+        self.assertEqual(res, 2)
 
+    @unittest.expectedFailure
+    def test_reassign_builtin_invalid_type(self):
+        source_code = """
 def validator(_: None) -> int:
     def int(a) -> int:
+        return 2
+    return int(5)
+"""
+        builder._compile(source_code)
+
+    def test_constant_folding_ignore_reassignment(self):
+        source_code = """
+b = int
+def validator(_: None) -> int:
+    def int(a) -> b:
         return 2
     return int(5)
 """
