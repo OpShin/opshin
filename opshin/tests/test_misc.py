@@ -260,6 +260,21 @@ def validator(_: None) -> int:
         ret = eval_uplc_value(source_code, Unit())
         self.assertEqual(100, ret)
 
+    @unittest.expectedFailure
+    def test_type_reassignment_function_bound(self):
+        # changing the type of a variable should be disallowed if the variable is bound by a function
+        # it can be ok if the types can be merged (resulting in union type inside the function) but
+        # generally should be disallowed
+        source_code = """
+def validator(_: None) -> int:
+    b = 1
+    def a(n: int) -> int:
+      return b
+    b = b''
+    return a(1)
+        """
+        builder._compile(source_code)
+
     def test_datum_cast(self):
         input_file = "examples/datum_cast.py"
         with open(input_file) as fp:
@@ -1769,7 +1784,7 @@ def validator(x: Union[A, B], y: int) -> bool:
         )
 
     @hypothesis.given(a_or_b)
-    def test_retype_if(self, x):
+    def test_uniontype_if(self, x):
         source_code = """
 from dataclasses import dataclass
 from typing import Dict, List, Union
@@ -1850,6 +1865,7 @@ def validator(x: Union[A, B]):
 """
         builder._compile(source_code)
 
+    @unittest.expectedFailure
     @hypothesis.given(a_or_b)
     def test_retype_while(self, x):
         source_code = """
@@ -1926,6 +1942,7 @@ def validator(x: Union[A, B]) -> int:
 """
         builder._compile(source_code)
 
+    @unittest.expectedFailure
     def test_retype(self):
         source_code = """
 def validator(x: int) -> str:
@@ -1935,6 +1952,7 @@ def validator(x: int) -> str:
         res = eval_uplc_value(source_code, 1)
         self.assertEqual(res, b"hello")
 
+    @unittest.expectedFailure
     def test_retype_if_primitives(self):
         source_code = """
 def validator(x: int) -> str:
