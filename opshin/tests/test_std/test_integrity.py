@@ -2,7 +2,6 @@ from parameterized import parameterized
 
 from uplc import ast as uplc, eval as uplc_eval
 from ..utils import eval_uplc
-from ... import compiler
 
 
 @parameterized.expand(
@@ -187,6 +186,28 @@ def validator(x: B) -> None:
     assert res == (
         all(isinstance(x, int) for x in keys + values) and len(set(keys)) == len(keys)
     )
+
+
+def test_integrity_check_rename():
+    source_code = """
+from dataclasses import dataclass
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
+from opshin.std.integrity import check_integrity as integ
+
+@dataclass()
+class B(PlutusData):
+    CONSTR_ID = 1
+    foobar: int
+
+def validator(x: B) -> None:
+    integ(x)
+"""
+    obj = uplc.PlutusConstr(
+        1,
+        [uplc.PlutusInteger(1)],
+    )
+    eval_uplc(source_code, obj)
 
 
 # TODO implement better way to check for uniqueness test in dict keys

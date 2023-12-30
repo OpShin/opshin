@@ -1,3 +1,4 @@
+import typing
 from ast import *
 from copy import copy
 
@@ -33,10 +34,8 @@ class ShallowNameDefCollector(CompilingNodeVisitor):
 
 class RewriteScoping(CompilingNodeTransformer):
     step = "Rewrite all variables to inambiguously point to the definition in the nearest enclosing scope"
-
-    def __init__(self):
-        self.latest_scope_id = 0
-        self.scopes = [(OrderedSet(INITIAL_SCOPE.keys() | FORBIDDEN_NAMES), -1)]
+    latest_scope_id: int
+    scopes: typing.List[typing.Tuple[OrderedSet, int]]
 
     def variable_scope_id(self, name: str) -> int:
         """find the id of the scope in which this variable is defined (closest to its usage)"""
@@ -66,6 +65,8 @@ class RewriteScoping(CompilingNodeTransformer):
         return f"{name}_{scope_id}"
 
     def visit_Module(self, node: Module) -> Module:
+        self.latest_scope_id = 0
+        self.scopes = [(OrderedSet(INITIAL_SCOPE.keys() | FORBIDDEN_NAMES), -1)]
         node_cp = copy(node)
         self.enter_scope()
         # vars defined in this scope

@@ -31,18 +31,13 @@ class IntegrityCheckImpl(PolymorphicFunction):
         assert isinstance(arg, InstanceType), "Can only check integrity of instances"
         return plt.Lambda(
             ["x"],
-            plt.Let(
-                [("xunwrapped", plt.Force(plt.Var("x")))],
-                plt.Ite(
-                    plt.EqualsData(
-                        plt.Var("xunwrapped"),
-                        plt.Apply(
-                            arg.typ.copy_only_attributes(), plt.Var("xunwrapped")
-                        ),
-                    ),
-                    plt.Unit(),
-                    plt.TraceError("ValueError: datum integrity check failed"),
+            plt.Ite(
+                plt.EqualsData(
+                    plt.Var("x"),
+                    plt.Apply(arg.typ.copy_only_attributes(), plt.Var("x")),
                 ),
+                plt.Unit(),
+                plt.TraceError("ValueError: datum integrity check failed"),
             ),
         )
 

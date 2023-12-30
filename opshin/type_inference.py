@@ -25,17 +25,15 @@ from .rewrite.rewrite_cast_condition import SPECIAL_BOOL
 _LOGGER = logging.getLogger(__name__)
 
 
-INITIAL_SCOPE = dict(
-    {
-        # class annotations
-        "bytes": ByteStringType(),
-        "bytearray": ByteStringType(),
-        "int": IntegerType(),
-        "bool": BoolType(),
-        "str": StringType(),
-        "Anything": AnyType(),
-    }
-)
+INITIAL_SCOPE = {
+    # class annotations
+    "bytes": ByteStringType(),
+    "bytearray": ByteStringType(),
+    "int": IntegerType(),
+    "bool": BoolType(),
+    "str": StringType(),
+    "Anything": AnyType(),
+}
 
 INITIAL_SCOPE.update(
     {
