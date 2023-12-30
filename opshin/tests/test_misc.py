@@ -275,6 +275,23 @@ def validator(_: None) -> int:
         """
         builder._compile(source_code)
 
+    @unittest.expectedFailure
+    def test_illegal_function_retype(self):
+        source_code = """
+def validator(_: None) -> int:
+    def a(n: int) -> int:
+      if n == 0:
+        res = 0
+      else:
+        res = a(n-1)
+      return res
+    b = a
+    def a() -> int:
+      return 100
+    return b(1)
+        """
+        builder._compile(source_code)
+
     def test_datum_cast(self):
         input_file = "examples/datum_cast.py"
         with open(input_file) as fp:

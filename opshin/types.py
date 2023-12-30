@@ -1227,6 +1227,7 @@ class FunctionType(ClassType):
     def __ge__(self, other):
         return (
             isinstance(other, FunctionType)
+            and len(self.argtyps) == len(other.argtyps)
             and all(a >= oa for a, oa in zip(self.argtyps, other.argtyps))
             and other.rettyp >= self.rettyp
         )
