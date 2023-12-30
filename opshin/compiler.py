@@ -170,7 +170,7 @@ class PlutoCompiler(CompilingNodeTransformer):
         self.validator_function_name = validator_function_name
         # marked knowledge during compilation
         self.current_function_typ: typing.List[FunctionType] = []
-        self.functions_read_vars: typing.Dict[FunctionType, typing.List[str]] = {}
+        self.current_function_written_vars: typing.List[typing.List[str]] = []
 
     def visit_sequence(self, node_seq: typing.List[typedstmt]) -> CallAST:
         def g(s: plt.AST):
@@ -222,7 +222,6 @@ class PlutoCompiler(CompilingNodeTransformer):
         )
 
     def visit_Module(self, node: TypedModule) -> plt.AST:
-        self.functions_read_vars = extract_function_read_vars(node)
         # for validators find main function
         # TODO can use more sophisiticated procedure here i.e. functions marked by comment
         main_fun: typing.Optional[InstanceType] = None
@@ -285,6 +284,7 @@ class PlutoCompiler(CompilingNodeTransformer):
             )
         ]
         self.current_function_typ.append(FunctionType([], InstanceType(AnyType())))
+        self.current_function_written_vars.append(written_vars(node))
         all_vs = sorted(set(all_vars(node)))
 
         # write all variables that are ever read
@@ -408,7 +408,7 @@ class PlutoCompiler(CompilingNodeTransformer):
                 node.func.typ.typ, FunctionType
             )
             func_plt = self.visit(node.func)
-        read_vs = self.functions_read_vars[node.func.typ.typ]
+        potentially_read_vs = self.current_function_written_vars[-1]
         args = []
         for a, t in zip(node.args, node.func.typ.typ.argtyps):
             assert isinstance(t, InstanceType)
@@ -426,7 +426,7 @@ class PlutoCompiler(CompilingNodeTransformer):
             [(f"1p{i}", a) for i, a in enumerate(args)],
             SafeApply(
                 func_plt,
-                *[plt.Var(n) for n in read_vs],
+                *[plt.Var(n) for n in potentially_read_vs],
                 *[plt.Delay(plt.Var(f"1p{i}")) for i in range(len(args))],
             ),
         )
@@ -439,16 +439,18 @@ class PlutoCompiler(CompilingNodeTransformer):
         else:
             ret_val = plt.Unit()
         self.current_function_typ.append(node.typ.typ)
+        self.current_function_written_vars.append(written_vars(node))
         compiled_body = self.visit_sequence(body)(ret_val)
         self.current_function_typ.pop()
-        read_vs = self.functions_read_vars[node.typ.typ]
+        self.current_function_written_vars.pop()
+        potentially_read_vs = self.current_function_written_vars[-1]
         return lambda x: plt.Let(
             [
                 (
                     node.name,
                     plt.Delay(
                         SafeLambda(
-                            read_vs + [a.arg for a in node.args.args],
+                            potentially_read_vs + [a.arg for a in node.args.args],
                             compiled_body,
                         )
                     ),

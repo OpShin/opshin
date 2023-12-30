@@ -1229,12 +1229,9 @@ class DictType(ClassType):
 class FunctionType(ClassType):
     argtyps: typing.List[Type]
     rettyp: Type
-    # Functions are made unique (enough) by the actual variables that they read
-    read_vs: typing.List[str] = dataclasses.field(default_factory=frozenlist)
 
     def __post_init__(self):
         object.__setattr__(self, "argtyps", frozenlist(self.argtyps))
-        object.__setattr__(self, "read_vs", frozenlist(self.read_vs))
 
     def __ge__(self, other):
         return (
