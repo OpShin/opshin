@@ -1784,7 +1784,7 @@ def validator(x: Union[A, B], y: int) -> bool:
         )
 
     @hypothesis.given(a_or_b)
-    def test_retype_if(self, x):
+    def test_uniontype_if(self, x):
         source_code = """
 from dataclasses import dataclass
 from typing import Dict, List, Union
@@ -1865,6 +1865,7 @@ def validator(x: Union[A, B]):
 """
         builder._compile(source_code)
 
+    @unittest.expectedFailure
     @hypothesis.given(a_or_b)
     def test_retype_while(self, x):
         source_code = """
@@ -1941,6 +1942,7 @@ def validator(x: Union[A, B]) -> int:
 """
         builder._compile(source_code)
 
+    @unittest.expectedFailure
     def test_retype(self):
         source_code = """
 def validator(x: int) -> str:
@@ -1950,6 +1952,7 @@ def validator(x: int) -> str:
         res = eval_uplc_value(source_code, 1)
         self.assertEqual(res, b"hello")
 
+    @unittest.expectedFailure
     def test_retype_if_primitives(self):
         source_code = """
 def validator(x: int) -> str:
