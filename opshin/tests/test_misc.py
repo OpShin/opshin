@@ -291,7 +291,9 @@ def validator(_: None) -> int:
         ret = eval_uplc_value(source_code, Unit())
         self.assertEqual(0, ret)
 
-    def test_recursion(self):
+    @unittest.expectedFailure
+    def test_recursion_illegal(self):
+        # this is now an illegal retyping because read variables dont match
         source_code = """
 def validator(_: None) -> int:
     def a(n: int) -> int:
@@ -307,6 +309,57 @@ def validator(_: None) -> int:
         """
         ret = eval_uplc_value(source_code, Unit())
         self.assertEqual(100, ret)
+
+    def test_recursion_legal(self):
+        source_code = """
+def validator(_: None) -> int:
+    def a(n: int) -> int:
+      if n == 0:
+        res = 0
+      else:
+        res = a(n-1)
+      return res
+    b = a
+    def a(n: int) -> int:
+      a
+      if 1 == n:
+        pass
+      return 100
+    return b(1)
+        """
+        ret = eval_uplc_value(source_code, Unit())
+        self.assertEqual(100, ret)
+
+    @unittest.expectedFailure
+    def test_uninitialized_access(self):
+        source_code = """
+def validator(_: None) -> int:
+    b = 1
+    def a(n: int) -> int:
+      b += 1
+      if b == 2:
+        return 0
+      else:
+        return a(n-1)
+    return a(1)
+        """
+        builder._compile(source_code)
+
+    @unittest.expectedFailure
+    def test_illegal_bind(self):
+        source_code = """
+def validator(_: None) -> int:
+    b = 1
+    def a(n: int) -> int:
+      if n == 0:
+        return 100
+      if b == 2:
+        return 0
+      b = 2
+      return a(n-1)
+    return a(2)
+        """
+        builder._compile(source_code)
 
     @unittest.expectedFailure
     def test_type_reassignment_function_bound(self):

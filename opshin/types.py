@@ -1229,17 +1229,17 @@ class DictType(ClassType):
 class FunctionType(ClassType):
     argtyps: typing.List[Type]
     rettyp: Type
-    read_vars: typing.List[str] = dataclasses.field(default_factory=frozenlist)
+    bound_vars: typing.List[str] = dataclasses.field(default_factory=frozenlist)
 
     def __post_init__(self):
         object.__setattr__(self, "argtyps", frozenlist(self.argtyps))
-        object.__setattr__(self, "read_vars", frozenlist(self.read_vars))
+        object.__setattr__(self, "bound_vars", frozenlist(self.bound_vars))
 
     def __ge__(self, other):
         return (
             isinstance(other, FunctionType)
             and all(a >= oa for a, oa in zip(self.argtyps, other.argtyps))
-            and self.read_vars == other.read_vars
+            and self.bound_vars == other.bound_vars
             and other.rettyp >= self.rettyp
         )
 

@@ -212,6 +212,8 @@ class NameWriteCollector(CompilingNodeVisitor):
     def visit_FunctionDef(self, node: FunctionDef):
         # ignore the type hints of function arguments
         self.written[node.name] += 1
+        for a in node.args.args:
+            self.written[a.arg] += 1
         for s in node.body:
             self.visit(s)
 
@@ -267,3 +269,8 @@ def read_vars(node):
 
 def all_vars(node):
     return sorted(set(read_vars(node) + written_vars(node)))
+
+
+def externally_bound_vars(node: FunctionDef):
+    """A superset of the variables bound from an outer scope"""
+    return sorted(set(read_vars(node)) - (set(written_vars(node)) - {node.name}))

@@ -138,23 +138,25 @@ def wrap_validator_double_function(x: plt.AST, pass_through: int = 0):
 CallAST = typing.Callable[[plt.AST], plt.AST]
 
 
-class FunctionReadVarsCollector(NodeVisitor):
+class FunctionBoundVarsCollector(NodeVisitor):
     def __init__(self):
-        self.functions_read_vars: typing.Dict[
+        self.functions_bound_vars: typing.Dict[
             FunctionType, typing.List[str]
         ] = defaultdict(list)
 
     def visit_FunctionDef(self, node: FunctionDef) -> None:
-        self.functions_read_vars[node.typ.typ] = read_vars(node)
+        self.functions_bound_vars[node.typ.typ] = sorted(
+            set(self.functions_bound_vars[node.typ.typ] + externally_bound_vars(node))
+        )
         self.generic_visit(node)
 
 
-def extract_function_read_vars(
+def extract_function_bound_vars(
     node: AST,
 ) -> typing.Dict[FunctionType, typing.List[str]]:
-    e = FunctionReadVarsCollector()
+    e = FunctionBoundVarsCollector()
     e.visit(node)
-    return e.functions_read_vars
+    return e.functions_bound_vars
 
 
 class PlutoCompiler(CompilingNodeTransformer):
@@ -170,7 +172,9 @@ class PlutoCompiler(CompilingNodeTransformer):
         self.validator_function_name = validator_function_name
         # marked knowledge during compilation
         self.current_function_typ: typing.List[FunctionType] = []
-        self.current_function_written_vars: typing.List[typing.List[str]] = []
+        self.function_bound_vars: typing.Dict[
+            FunctionType, typing.List[str]
+        ] = defaultdict(list)
 
     def visit_sequence(self, node_seq: typing.List[typedstmt]) -> CallAST:
         def g(s: plt.AST):
@@ -264,6 +268,10 @@ class PlutoCompiler(CompilingNodeTransformer):
                 _LOGGER.warning(
                     "The second argument to the validator function potentially has constructor id 0. The validator will not be able to double function as minting script and spending script."
                 )
+
+        # extract actually read variables by each function
+        self.function_bound_vars = extract_function_bound_vars(node)
+
         body = node.body + [
             TypedReturn(
                 TypedCall(
@@ -284,7 +292,6 @@ class PlutoCompiler(CompilingNodeTransformer):
             )
         ]
         self.current_function_typ.append(FunctionType([], InstanceType(AnyType())))
-        self.current_function_written_vars.append(written_vars(node))
         all_vs = sorted(set(all_vars(node)))
 
         # write all variables that are ever read
@@ -408,7 +415,7 @@ class PlutoCompiler(CompilingNodeTransformer):
                 node.func.typ.typ, FunctionType
             )
             func_plt = self.visit(node.func)
-        potentially_read_vs = self.current_function_written_vars[-1]
+        read_vs = self.function_bound_vars[node.func.typ.typ]
         args = []
         for a, t in zip(node.args, node.func.typ.typ.argtyps):
             assert isinstance(t, InstanceType)
@@ -426,7 +433,7 @@ class PlutoCompiler(CompilingNodeTransformer):
             [(f"1p{i}", a) for i, a in enumerate(args)],
             SafeApply(
                 func_plt,
-                *[plt.Var(n) for n in potentially_read_vs],
+                *[plt.Var(n) for n in read_vs],
                 *[plt.Delay(plt.Var(f"1p{i}")) for i in range(len(args))],
             ),
         )
@@ -438,19 +445,17 @@ class PlutoCompiler(CompilingNodeTransformer):
             ret_val = plt.ConstrData(plt.Integer(0), plt.EmptyDataList())
         else:
             ret_val = plt.Unit()
+        read_vs = self.function_bound_vars[node.typ.typ]
         self.current_function_typ.append(node.typ.typ)
-        self.current_function_written_vars.append(written_vars(node))
         compiled_body = self.visit_sequence(body)(ret_val)
         self.current_function_typ.pop()
-        self.current_function_written_vars.pop()
-        potentially_read_vs = self.current_function_written_vars[-1]
         return lambda x: plt.Let(
             [
                 (
                     node.name,
                     plt.Delay(
                         SafeLambda(
-                            potentially_read_vs + [a.arg for a in node.args.args],
+                            read_vs + [a.arg for a in node.args.args],
                             compiled_body,
                         )
                     ),
