@@ -226,79 +226,114 @@ class PlutoCompiler(CompilingNodeTransformer):
         )
 
     def visit_Module(self, node: TypedModule) -> plt.AST:
-        # for validators find main function
-        # TODO can use more sophisiticated procedure here i.e. functions marked by comment
-        main_fun: typing.Optional[InstanceType] = None
-        for s in node.body:
-            if (
-                isinstance(s, FunctionDef)
-                and s.orig_name == self.validator_function_name
-            ):
-                main_fun = s
-        assert (
-            main_fun is not None
-        ), f"Could not find function named {self.validator_function_name}"
-        main_fun_typ: FunctionType = main_fun.typ.typ
-        assert isinstance(
-            main_fun_typ, FunctionType
-        ), f"Variable named {self.validator_function_name} is not of type function"
-
-        # check if this is a contract written to double function
-        enable_double_func_mint_spend = False
-        if len(main_fun_typ.argtyps) >= 3 and self.force_three_params:
-            # check if is possible
-            second_last_arg = main_fun_typ.argtyps[-2]
-            assert isinstance(
-                second_last_arg, InstanceType
-            ), "Can not pass Class into validator"
-            if isinstance(second_last_arg.typ, UnionType):
-                possible_types = second_last_arg.typ.typs
-            else:
-                possible_types = [second_last_arg.typ]
-            if any(isinstance(t, UnitType) for t in possible_types):
-                _LOGGER.warning(
-                    "The redeemer is annotated to be 'None'. This value is usually encoded in PlutusData with constructor id 0 and no fields. If you want the script to double function as minting and spending script, annotate the second argument with 'NoRedeemer'."
-                )
-            enable_double_func_mint_spend = not any(
-                (isinstance(t, RecordType) and t.record.constructor == 0)
-                or isinstance(t, UnitType)
-                for t in possible_types
-            )
-            if not enable_double_func_mint_spend:
-                _LOGGER.warning(
-                    "The second argument to the validator function potentially has constructor id 0. The validator will not be able to double function as minting script and spending script."
-                )
-
         # extract actually read variables by each function
         self.function_bound_vars = extract_function_bound_vars(node)
+        if self.validator_function_name is not None:
+            # for validators find main function
+            # TODO can use more sophisiticated procedure here i.e. functions marked by comment
+            main_fun: typing.Optional[InstanceType] = None
+            for s in node.body:
+                if (
+                    isinstance(s, FunctionDef)
+                    and s.orig_name == self.validator_function_name
+                ):
+                    main_fun = s
+            assert (
+                main_fun is not None
+            ), f"Could not find function named {self.validator_function_name}"
+            main_fun_typ: FunctionType = main_fun.typ.typ
+            assert isinstance(
+                main_fun_typ, FunctionType
+            ), f"Variable named {self.validator_function_name} is not of type function"
 
-        body = node.body + [
-            TypedReturn(
-                TypedCall(
-                    func=Name(
-                        id=main_fun.name,
-                        typ=InstanceType(main_fun_typ),
-                        ctx=Load(),
-                    ),
-                    typ=main_fun_typ.rettyp,
-                    args=[
-                        RawPlutoExpr(
-                            expr=transform_ext_params_map(a)(plt.Var(f"1val_param{i}")),
-                            typ=a,
-                        )
-                        for i, a in enumerate(main_fun_typ.argtyps)
-                    ],
+            # check if this is a contract written to double function
+            enable_double_func_mint_spend = False
+            if len(main_fun_typ.argtyps) >= 3 and self.force_three_params:
+                # check if is possible
+                second_last_arg = main_fun_typ.argtyps[-2]
+                assert isinstance(
+                    second_last_arg, InstanceType
+                ), "Can not pass Class into validator"
+                if isinstance(second_last_arg.typ, UnionType):
+                    possible_types = second_last_arg.typ.typs
+                else:
+                    possible_types = [second_last_arg.typ]
+                if any(isinstance(t, UnitType) for t in possible_types):
+                    _LOGGER.warning(
+                        "The redeemer is annotated to be 'None'. This value is usually encoded in PlutusData with constructor id 0 and no fields. If you want the script to double function as minting and spending script, annotate the second argument with 'NoRedeemer'."
+                    )
+                enable_double_func_mint_spend = not any(
+                    (isinstance(t, RecordType) and t.record.constructor == 0)
+                    or isinstance(t, UnitType)
+                    for t in possible_types
                 )
-            )
-        ]
-        self.current_function_typ.append(FunctionType([], InstanceType(AnyType())))
-        all_vs = sorted(set(all_vars(node)))
+                if not enable_double_func_mint_spend:
+                    _LOGGER.warning(
+                        "The second argument to the validator function potentially has constructor id 0. The validator will not be able to double function as minting script and spending script."
+                    )
 
-        # write all variables that are ever read
-        # once at the beginning so that we can always access them (only potentially causing a nameerror at runtime)
-        validator = SafeLambda(
-            [f"1val_param{i}" for i, _ in enumerate(main_fun_typ.argtyps)],
-            plt.Let(
+            body = node.body + (
+                [
+                    TypedReturn(
+                        TypedCall(
+                            func=Name(
+                                id=main_fun.name,
+                                typ=InstanceType(main_fun_typ),
+                                ctx=Load(),
+                            ),
+                            typ=main_fun_typ.rettyp,
+                            args=[
+                                RawPlutoExpr(
+                                    expr=transform_ext_params_map(a)(
+                                        plt.Var(f"1val_param{i}")
+                                    ),
+                                    typ=a,
+                                )
+                                for i, a in enumerate(main_fun_typ.argtyps)
+                            ],
+                        )
+                    )
+                ]
+            )
+            self.current_function_typ.append(FunctionType([], InstanceType(AnyType())))
+            all_vs = sorted(set(all_vars(node)))
+
+            # write all variables that are ever read
+            # once at the beginning so that we can always access them (only potentially causing a nameerror at runtime)
+            validator = SafeLambda(
+                [f"1val_param{i}" for i, _ in enumerate(main_fun_typ.argtyps)],
+                plt.Let(
+                    [
+                        (
+                            x,
+                            plt.Delay(
+                                plt.TraceError(f"NameError: {map_to_orig_name(x)}")
+                            ),
+                        )
+                        for x in all_vs
+                    ],
+                    self.visit_sequence(body)(
+                        plt.ConstrData(plt.Integer(0), plt.EmptyDataList())
+                    ),
+                ),
+            )
+            self.current_function_typ.pop()
+            if enable_double_func_mint_spend:
+                validator = wrap_validator_double_function(
+                    validator, pass_through=len(main_fun_typ.argtyps) - 3
+                )
+            elif self.force_three_params:
+                # Error if the double function is enforced but not possible
+                raise RuntimeError(
+                    "The contract can not always detect if it was passed three or two parameters on-chain."
+                )
+        else:
+            all_vs = sorted(set(all_vars(node)))
+
+            body = node.body
+            # write all variables that are ever read
+            # once at the beginning so that we can always access them (only potentially causing a nameerror at runtime)
+            validator = plt.Let(
                 [
                     (
                         x,
@@ -309,18 +344,8 @@ class PlutoCompiler(CompilingNodeTransformer):
                 self.visit_sequence(body)(
                     plt.ConstrData(plt.Integer(0), plt.EmptyDataList())
                 ),
-            ),
-        )
-        self.current_function_typ.pop()
-        if enable_double_func_mint_spend:
-            validator = wrap_validator_double_function(
-                validator, pass_through=len(main_fun_typ.argtyps) - 3
             )
-        elif self.force_three_params:
-            # Error if the double function is enforced but not possible
-            raise RuntimeError(
-                "The contract can not always detect if it was passed three or two parameters on-chain."
-            )
+
         cp = plt.Program((1, 0, 0), validator)
         return cp
 
