@@ -107,15 +107,15 @@ def wrap_validator_double_function(x: plt.AST, pass_through: int = 0):
 
     pass_through defines how many parameters x would normally take and should be passed through to x
     """
-    return plt.Lambda(
+    return OLambda(
         [f"v{i}" for i in range(pass_through)] + ["a0", "a1"],
-        plt.Let(
-            [("p", plt.Apply(x, *(plt.Var(f"v{i}") for i in range(pass_through))))],
+        OLet(
+            [("p", plt.Apply(x, *(OVar(f"v{i}") for i in range(pass_through))))],
             plt.Ite(
                 # if the second argument has constructor 0 = script context
                 plt.DelayedChooseData(
-                    plt.Var("a1"),
-                    plt.EqualsInteger(plt.Constructor(plt.Var("a1")), plt.Integer(0)),
+                    OVar("a1"),
+                    plt.EqualsInteger(plt.Constructor(OVar("a1")), plt.Integer(0)),
                     plt.Bool(False),
                     plt.Bool(False),
                     plt.Bool(False),
@@ -123,13 +123,13 @@ def wrap_validator_double_function(x: plt.AST, pass_through: int = 0):
                 ),
                 # call the validator with a0, a1, and plug in "Nothing" for data
                 plt.Apply(
-                    plt.Var("p"),
+                    OVar("p"),
                     plt.UPLCConstant(uplc.PlutusConstr(6, [])),
-                    plt.Var("a0"),
-                    plt.Var("a1"),
+                    OVar("a0"),
+                    OVar("a1"),
                 ),
                 # else call the validator with a0, a1 and return (now partially bound)
-                plt.Apply(plt.Var("p"), plt.Var("a0"), plt.Var("a1")),
+                plt.Apply(OVar("p"), OVar("a0"), OVar("a1")),
             ),
         ),
     )
@@ -285,7 +285,7 @@ class PlutoCompiler(CompilingNodeTransformer):
                             args=[
                                 RawPlutoExpr(
                                     expr=transform_ext_params_map(a)(
-                                        plt.Var(f"1val_param{i}")
+                                        OVar(f"val_param{i}")
                                     ),
                                     typ=a,
                                 )
@@ -300,8 +300,8 @@ class PlutoCompiler(CompilingNodeTransformer):
 
             # write all variables that are ever read
             # once at the beginning so that we can always access them (only potentially causing a nameerror at runtime)
-            validator = SafeLambda(
-                [f"1val_param{i}" for i, _ in enumerate(main_fun_typ.argtyps)],
+            validator = SafeOLambda(
+                [f"val_param{i}" for i, _ in enumerate(main_fun_typ.argtyps)],
                 plt.Let(
                     [
                         (
@@ -376,7 +376,10 @@ class PlutoCompiler(CompilingNodeTransformer):
         varname = node.targets[0].id
         # first evaluate the term, then wrap in a delay
         return lambda x: plt.Let(
-            [(f"0{varname}", compiled_e), (varname, plt.Delay(plt.Var(f"0{varname}")))],
+            [
+                (opshin_name_scheme_compatible_varname(varname), compiled_e),
+                (varname, plt.Delay(OVar(varname))),
+            ],
             x,
         )
 
@@ -402,8 +405,8 @@ class PlutoCompiler(CompilingNodeTransformer):
             val = transform_output_map(node.value.typ)(val)
         return lambda x: plt.Let(
             [
-                (f"0{node.target.id}", val),
-                (node.target.id, plt.Delay(plt.Var(f"0{node.target.id}"))),
+                (opshin_name_scheme_compatible_varname(node.target.id), val),
+                (node.target.id, plt.Delay(OVar(node.target.id))),
             ],
             x,
         )
@@ -422,7 +425,7 @@ class PlutoCompiler(CompilingNodeTransformer):
         # the expression is computed even though its value is eventually discarded
         # Note this really only makes sense for Trace
         # we use an invalid name here to avoid conflicts
-        return lambda x: plt.Apply(plt.Lambda(["0"], x), self.visit(node.value))
+        return lambda x: plt.Apply(OLambda(["0"], x), self.visit(node.value))
 
     def visit_Call(self, node: TypedCall) -> plt.AST:
         # compiled_args = " ".join(f"({self.visit(a)} {STATEMONAD})" for a in node.args)
@@ -454,12 +457,12 @@ class PlutoCompiler(CompilingNodeTransformer):
         # as this is a variable assignment
         # Also bring all states of variables read inside the function into scope / update with value in current state
         # before call to simulate statemonad with current state being passed in
-        return plt.Let(
-            [(f"1p{i}", a) for i, a in enumerate(args)],
+        return OLet(
+            [(f"p{i}", a) for i, a in enumerate(args)],
             SafeApply(
                 func_plt,
                 *[plt.Var(n) for n in bound_vs],
-                *[plt.Delay(plt.Var(f"1p{i}")) for i in range(len(args))],
+                *[plt.Delay(OVar(f"p{i}")) for i in range(len(args))],
             ),
         )
 
@@ -501,29 +504,32 @@ class PlutoCompiler(CompilingNodeTransformer):
         compiled_s = self.visit_sequence(node.body)
         written_vs = written_vars(node)
         pwritten_vs = [plt.Var(x) for x in written_vs]
-        s_fun = lambda x: plt.Lambda(
-            ["1while"] + written_vs,
-            plt.Ite(
-                compiled_c,
-                compiled_s(
-                    plt.Apply(
-                        plt.Var("1while"),
-                        plt.Var("1while"),
-                        *deepcopy(pwritten_vs),
-                    )
+        s_fun = lambda x: OLambda(
+            ["while"],
+            plt.Lambda(
+                written_vs,
+                plt.Ite(
+                    compiled_c,
+                    compiled_s(
+                        plt.Apply(
+                            OVar("while"),
+                            OVar("while"),
+                            *deepcopy(pwritten_vs),
+                        )
+                    ),
+                    x,
                 ),
-                x,
             ),
         )
-        return lambda x: plt.Let(
+        return lambda x: OLet(
             [
-                ("1adjusted_next", SafeLambda(written_vs, x)),
+                ("adjusted_next", SafeLambda(written_vs, x)),
                 (
-                    "1while",
-                    s_fun(SafeApply(plt.Var("1adjusted_next"), *deepcopy(pwritten_vs))),
+                    "while",
+                    s_fun(SafeApply(OVar("adjusted_next"), *deepcopy(pwritten_vs))),
                 ),
             ],
-            plt.Apply(plt.Var("1while"), plt.Var("1while"), *deepcopy(pwritten_vs)),
+            plt.Apply(OVar("while"), OVar("while"), *deepcopy(pwritten_vs)),
         )
 
     def visit_For(self, node: TypedFor) -> CallAST:
@@ -541,32 +547,35 @@ class PlutoCompiler(CompilingNodeTransformer):
             compiled_iter = self.visit(node.iter)
             written_vs = written_vars(node)
             pwritten_vs = [plt.Var(x) for x in written_vs]
-            s_fun = lambda x: plt.Lambda(
-                ["1for", "1iter"] + written_vs,
-                plt.IteNullList(
-                    plt.Var("1iter"),
-                    x,
-                    plt.Let(
-                        [(node.target.id, plt.Delay(plt.HeadList(plt.Var("1iter"))))],
-                        compiled_s(
-                            plt.Apply(
-                                plt.Var("1for"),
-                                plt.Var("1for"),
-                                plt.TailList(plt.Var("1iter")),
-                                *deepcopy(pwritten_vs),
-                            )
+            s_fun = lambda x: OLambda(
+                ["for", "iter"],
+                plt.Lambda(
+                    written_vs,
+                    plt.IteNullList(
+                        OVar("iter"),
+                        x,
+                        plt.Let(
+                            [(node.target.id, plt.Delay(plt.HeadList(OVar("iter"))))],
+                            compiled_s(
+                                plt.Apply(
+                                    OVar("for"),
+                                    OVar("for"),
+                                    plt.TailList(OVar("iter")),
+                                    *deepcopy(pwritten_vs),
+                                )
+                            ),
                         ),
                     ),
                 ),
             )
             return lambda x: plt.Let(
                 [
-                    ("1adjusted_next", plt.Lambda([node.target.id] + written_vs, x)),
+                    ("adjusted_next", plt.Lambda([node.target.id] + written_vs, x)),
                     (
-                        "1for",
+                        "for",
                         s_fun(
                             plt.Apply(
-                                plt.Var("1adjusted_next"),
+                                OVar("adjusted_next"),
                                 plt.Var(node.target.id),
                                 *deepcopy(pwritten_vs),
                             )
@@ -574,8 +583,8 @@ class PlutoCompiler(CompilingNodeTransformer):
                     ),
                 ],
                 plt.Apply(
-                    plt.Var("1for"),
-                    plt.Var("1for"),
+                    OVar("for"),
+                    OVar("for"),
                     compiled_iter,
                     *deepcopy(pwritten_vs),
                 ),
@@ -587,15 +596,15 @@ class PlutoCompiler(CompilingNodeTransformer):
     def visit_If(self, node: TypedIf) -> CallAST:
         written_vs = written_vars(node)
         pwritten_vs = [plt.Var(x) for x in written_vs]
-        return lambda x: plt.Let(
-            [("1adjusted_next", SafeLambda(written_vs, x))],
+        return lambda x: OLet(
+            [("adjusted_next", SafeLambda(written_vs, x))],
             plt.Ite(
                 self.visit(node.test),
                 self.visit_sequence(node.body)(
-                    SafeApply(plt.Var("1adjusted_next"), *deepcopy(pwritten_vs))
+                    SafeApply(OVar("adjusted_next"), *deepcopy(pwritten_vs))
                 ),
                 self.visit_sequence(node.orelse)(
-                    SafeApply(plt.Var("1adjusted_next"), *deepcopy(pwritten_vs))
+                    SafeApply(OVar("adjusted_next"), *deepcopy(pwritten_vs))
                 ),
             ),
         )
@@ -657,7 +666,7 @@ class PlutoCompiler(CompilingNodeTransformer):
                 assert (
                     node.slice.typ == IntegerInstanceType
                 ), "Only single element list index access supported"
-                return plt.Let(
+                return OLet(
                     [
                         (
                             "l",
@@ -670,15 +679,15 @@ class PlutoCompiler(CompilingNodeTransformer):
                         (
                             "i",
                             plt.Ite(
-                                plt.LessThanInteger(plt.Var("raw_i"), plt.Integer(0)),
+                                plt.LessThanInteger(OVar("raw_i"), plt.Integer(0)),
                                 plt.AddInteger(
-                                    plt.Var("raw_i"), plt.LengthList(plt.Var("l"))
+                                    OVar("raw_i"), plt.LengthList(OVar("l"))
                                 ),
-                                plt.Var("raw_i"),
+                                OVar("raw_i"),
                             ),
                         ),
                     ],
-                    plt.IndexAccessList(plt.Var("l"), plt.Var("i")),
+                    plt.IndexAccessList(OVar("l"), OVar("i")),
                 )
             else:
                 return plt.Let(
@@ -694,12 +703,12 @@ class PlutoCompiler(CompilingNodeTransformer):
                         (
                             "i",
                             plt.Ite(
-                                plt.LessThanInteger(plt.Var("raw_i"), plt.Integer(0)),
+                                plt.LessThanInteger(OVar("raw_i"), plt.Integer(0)),
                                 plt.AddInteger(
-                                    plt.Var("raw_i"),
-                                    plt.LengthList(plt.Var("xs")),
+                                    OVar("raw_i"),
+                                    plt.LengthList(OVar("xs")),
                                 ),
-                                plt.Var("raw_i"),
+                                OVar("raw_i"),
                             ),
                         ),
                         (
@@ -709,34 +718,34 @@ class PlutoCompiler(CompilingNodeTransformer):
                         (
                             "j",
                             plt.Ite(
-                                plt.LessThanInteger(plt.Var("raw_j"), plt.Integer(0)),
+                                plt.LessThanInteger(OVar("raw_j"), plt.Integer(0)),
                                 plt.AddInteger(
-                                    plt.Var("raw_j"),
-                                    plt.LengthList(plt.Var("xs")),
+                                    OVar("raw_j"),
+                                    plt.LengthList(OVar("xs")),
                                 ),
-                                plt.Var("raw_j"),
+                                OVar("raw_j"),
                             ),
                         ),
                         (
                             "drop",
                             plt.Ite(
-                                plt.LessThanEqualsInteger(plt.Var("i"), plt.Integer(0)),
+                                plt.LessThanEqualsInteger(OVar("i"), plt.Integer(0)),
                                 plt.Integer(0),
-                                plt.Var("i"),
+                                OVar("i"),
                             ),
                         ),
                         (
                             "take",
-                            plt.SubtractInteger(plt.Var("j"), plt.Var("drop")),
+                            plt.SubtractInteger(OVar("j"), OVar("drop")),
                         ),
                     ],
                     plt.Ite(
-                        plt.LessThanEqualsInteger(plt.Var("j"), plt.Var("i")),
+                        plt.LessThanEqualsInteger(OVar("j"), OVar("i")),
                         empty_list(node.value.typ.typ.typ),
                         plt.SliceList(
-                            plt.Var("drop"),
-                            plt.Var("take"),
-                            plt.Var("xs"),
+                            OVar("drop"),
+                            OVar("take"),
+                            OVar("xs"),
                             empty_list(node.value.typ.typ.typ),
                         ),
                     ),
@@ -755,13 +764,13 @@ class PlutoCompiler(CompilingNodeTransformer):
                         plt.SndPair(
                             plt.FindList(
                                 self.visit(node.value),
-                                plt.Lambda(
+                                OLambda(
                                     ["x"],
                                     plt.EqualsData(
                                         transform_output_map(dict_typ.key_typ)(
-                                            plt.Var("key")
+                                            OVar("key")
                                         ),
-                                        plt.FstPair(plt.Var("x")),
+                                        plt.FstPair(OVar("x")),
                                     ),
                                 ),
                                 plt.TraceError("KeyError"),
@@ -784,16 +793,16 @@ class PlutoCompiler(CompilingNodeTransformer):
                         (
                             "ix",
                             plt.Ite(
-                                plt.LessThanInteger(plt.Var("raw_ix"), plt.Integer(0)),
+                                plt.LessThanInteger(OVar("raw_ix"), plt.Integer(0)),
                                 plt.AddInteger(
-                                    plt.Var("raw_ix"),
-                                    plt.LengthOfByteString(plt.Var("bs")),
+                                    OVar("raw_ix"),
+                                    plt.LengthOfByteString(OVar("bs")),
                                 ),
-                                plt.Var("raw_ix"),
+                                OVar("raw_ix"),
                             ),
                         ),
                     ],
-                    plt.IndexByteString(plt.Var("bs"), plt.Var("ix")),
+                    plt.IndexByteString(OVar("bs"), OVar("ix")),
                 )
             elif isinstance(node.slice, Slice):
                 return plt.Let(
@@ -809,12 +818,12 @@ class PlutoCompiler(CompilingNodeTransformer):
                         (
                             "i",
                             plt.Ite(
-                                plt.LessThanInteger(plt.Var("raw_i"), plt.Integer(0)),
+                                plt.LessThanInteger(OVar("raw_i"), plt.Integer(0)),
                                 plt.AddInteger(
-                                    plt.Var("raw_i"),
-                                    plt.LengthOfByteString(plt.Var("bs")),
+                                    OVar("raw_i"),
+                                    plt.LengthOfByteString(OVar("bs")),
                                 ),
-                                plt.Var("raw_i"),
+                                OVar("raw_i"),
                             ),
                         ),
                         (
@@ -824,34 +833,34 @@ class PlutoCompiler(CompilingNodeTransformer):
                         (
                             "j",
                             plt.Ite(
-                                plt.LessThanInteger(plt.Var("raw_j"), plt.Integer(0)),
+                                plt.LessThanInteger(OVar("raw_j"), plt.Integer(0)),
                                 plt.AddInteger(
-                                    plt.Var("raw_j"),
-                                    plt.LengthOfByteString(plt.Var("bs")),
+                                    OVar("raw_j"),
+                                    plt.LengthOfByteString(OVar("bs")),
                                 ),
-                                plt.Var("raw_j"),
+                                OVar("raw_j"),
                             ),
                         ),
                         (
                             "drop",
                             plt.Ite(
-                                plt.LessThanEqualsInteger(plt.Var("i"), plt.Integer(0)),
+                                plt.LessThanEqualsInteger(OVar("i"), plt.Integer(0)),
                                 plt.Integer(0),
-                                plt.Var("i"),
+                                OVar("i"),
                             ),
                         ),
                         (
                             "take",
-                            plt.SubtractInteger(plt.Var("j"), plt.Var("drop")),
+                            plt.SubtractInteger(OVar("j"), OVar("drop")),
                         ),
                     ],
                     plt.Ite(
-                        plt.LessThanEqualsInteger(plt.Var("j"), plt.Var("i")),
+                        plt.LessThanEqualsInteger(OVar("j"), OVar("i")),
                         plt.ByteString(b""),
                         plt.SliceByteString(
-                            plt.Var("drop"),
-                            plt.Var("take"),
-                            plt.Var("bs"),
+                            OVar("drop"),
+                            OVar("take"),
+                            OVar("bs"),
                         ),
                     ),
                 )
@@ -938,19 +947,19 @@ class PlutoCompiler(CompilingNodeTransformer):
                 ifs = self.visit(ifexpr)
             else:
                 ifs = plt.And(ifs, self.visit(ifexpr))
-        map_fun = plt.Lambda(
-            ["1x"],
+        map_fun = OLambda(
+            ["x"],
             plt.Let(
-                [(gen.target.id, plt.Delay(plt.Var("1x")))],
+                [(gen.target.id, plt.Delay(OVar("x")))],
                 self.visit(node.elt),
             ),
         )
         empty_list_con = empty_list(node.elt.typ)
         if ifs is not None:
-            filter_fun = plt.Lambda(
-                ["1x"],
+            filter_fun = OLambda(
+                ["x"],
                 plt.Let(
-                    [(gen.target.id, plt.Delay(plt.Var("1x")))],
+                    [(gen.target.id, plt.Delay(OVar("x")))],
                     ifs,
                 ),
             )

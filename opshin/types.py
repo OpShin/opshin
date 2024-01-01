@@ -92,9 +92,9 @@ class Type:
         """
         Implements a binary operation between self and other
         """
-        return plt.Lambda(
+        return OLambda(
             ["self", "other"],
-            self._binop_bin_fun(binop, other)(plt.Var("self"), plt.Var("other")),
+            self._binop_bin_fun(binop, other)(OVar("self"), OVar("other")),
         )
 
     def _binop_bin_fun(
@@ -138,7 +138,7 @@ class ClassType(Type):
         Returns a copy of this type with only the declared attributes (mapped to builtin values, thus checking atomic types too).
         For anything but record types and union types, this is the identity function.
         """
-        return plt.Lambda(["self"], plt.Var("self"))
+        return OLambda(["self"], OVar("self"))
 
 
 @dataclass(frozen=True, unsafe_hash=True)
@@ -155,9 +155,9 @@ class AnyType(ClassType):
         """The attributes of this class. Need to be a lambda that expects as first argument the object itself"""
         if attr == "CONSTR_ID":
             # access to constructor
-            return plt.Lambda(
+            return OLambda(
                 ["self"],
-                plt.Constructor(plt.Var("self")),
+                plt.Constructor(OVar("self")),
             )
         return super().attribute(attr)
 
@@ -172,44 +172,42 @@ class AnyType(ClassType):
         _LOGGER.warning(
             "Serializing AnyType will result in RawPlutusData (CBOR representation) to be printed without additional type information. Annotate types where possible to avoid this warning."
         )
-        return plt.Lambda(
+        return OLambda(
             ["self"],
-            plt.Let(
+            OLet(
                 [
                     (
                         "joinMapList",
-                        plt.Lambda(
+                        OLambda(
                             ["m", "l", "start", "end"],
-                            plt.Let(
+                            OLet(
                                 [
                                     (
                                         "g",
                                         plt.RecFun(
-                                            plt.Lambda(
+                                            OLambda(
                                                 ["f", "l"],
                                                 plt.AppendString(
                                                     plt.Apply(
-                                                        plt.Var("m"),
-                                                        plt.HeadList(plt.Var("l")),
+                                                        OVar("m"),
+                                                        plt.HeadList(OVar("l")),
                                                     ),
-                                                    plt.Let(
+                                                    OLet(
                                                         [
                                                             (
                                                                 "t",
-                                                                plt.TailList(
-                                                                    plt.Var("l")
-                                                                ),
+                                                                plt.TailList(OVar("l")),
                                                             )
                                                         ],
                                                         plt.IteNullList(
-                                                            plt.Var("t"),
-                                                            plt.Var("end"),
+                                                            OVar("t"),
+                                                            OVar("end"),
                                                             plt.AppendString(
                                                                 plt.Text(", "),
                                                                 plt.Apply(
-                                                                    plt.Var("f"),
-                                                                    plt.Var("f"),
-                                                                    plt.Var("t"),
+                                                                    OVar("f"),
+                                                                    OVar("f"),
+                                                                    OVar("t"),
                                                                 ),
                                                             ),
                                                         ),
@@ -220,13 +218,13 @@ class AnyType(ClassType):
                                     )
                                 ],
                                 plt.AppendString(
-                                    plt.Var("start"),
+                                    OVar("start"),
                                     plt.IteNullList(
-                                        plt.Var("l"),
-                                        plt.Var("end"),
+                                        OVar("l"),
+                                        OVar("end"),
                                         plt.Apply(
-                                            plt.Var("g"),
-                                            plt.Var("l"),
+                                            OVar("g"),
+                                            OVar("l"),
                                         ),
                                     ),
                                 ),
@@ -236,37 +234,35 @@ class AnyType(ClassType):
                     (
                         "stringifyPlutusData",
                         plt.RecFun(
-                            plt.Lambda(
+                            OLambda(
                                 ["f", "d"],
                                 plt.DelayedChooseData(
-                                    plt.Var("d"),
-                                    plt.Let(
+                                    OVar("d"),
+                                    OLet(
                                         [
                                             (
                                                 "constructor",
                                                 plt.FstPair(
-                                                    plt.UnConstrData(plt.Var("d"))
+                                                    plt.UnConstrData(OVar("d"))
                                                 ),
                                             )
                                         ],
                                         plt.Ite(
                                             plt.LessThanInteger(
-                                                plt.Var("constructor"),
+                                                OVar("constructor"),
                                                 plt.Integer(128),
                                             ),
                                             plt.ConcatString(
                                                 plt.Text("CBORTag("),
                                                 plt.Apply(
-                                                    plt.Var("f"),
-                                                    plt.Var("f"),
+                                                    OVar("f"),
+                                                    OVar("f"),
                                                     plt.IData(
                                                         plt.AddInteger(
-                                                            plt.Var("constructor"),
+                                                            OVar("constructor"),
                                                             plt.Ite(
                                                                 plt.LessThanInteger(
-                                                                    plt.Var(
-                                                                        "constructor"
-                                                                    ),
+                                                                    OVar("constructor"),
                                                                     plt.Integer(7),
                                                                 ),
                                                                 plt.Integer(121),
@@ -277,13 +273,11 @@ class AnyType(ClassType):
                                                 ),
                                                 plt.Text(", "),
                                                 plt.Apply(
-                                                    plt.Var("f"),
-                                                    plt.Var("f"),
+                                                    OVar("f"),
+                                                    OVar("f"),
                                                     plt.ListData(
                                                         plt.SndPair(
-                                                            plt.UnConstrData(
-                                                                plt.Var("d")
-                                                            )
+                                                            plt.UnConstrData(OVar("d"))
                                                         )
                                                     ),
                                                 ),
@@ -292,18 +286,18 @@ class AnyType(ClassType):
                                             plt.ConcatString(
                                                 plt.Text("CBORTag(102, "),
                                                 plt.Apply(
-                                                    plt.Var("f"),
-                                                    plt.Var("f"),
+                                                    OVar("f"),
+                                                    OVar("f"),
                                                     plt.ListData(
                                                         plt.MkCons(
                                                             plt.IData(
-                                                                plt.Var("constructor")
+                                                                OVar("constructor")
                                                             ),
                                                             plt.MkCons(
                                                                 plt.ListData(
                                                                     plt.SndPair(
                                                                         plt.UnConstrData(
-                                                                            plt.Var("d")
+                                                                            OVar("d")
                                                                         )
                                                                     )
                                                                 ),
@@ -317,50 +311,50 @@ class AnyType(ClassType):
                                         ),
                                     ),
                                     plt.Apply(
-                                        plt.Var("joinMapList"),
-                                        plt.Lambda(
+                                        OVar("joinMapList"),
+                                        OLambda(
                                             ["x"],
                                             plt.ConcatString(
                                                 plt.Apply(
-                                                    plt.Var("f"),
-                                                    plt.Var("f"),
-                                                    plt.FstPair(plt.Var("x")),
+                                                    OVar("f"),
+                                                    OVar("f"),
+                                                    plt.FstPair(OVar("x")),
                                                 ),
                                                 plt.Text(": "),
                                                 plt.Apply(
-                                                    plt.Var("f"),
-                                                    plt.Var("f"),
-                                                    plt.SndPair(plt.Var("x")),
+                                                    OVar("f"),
+                                                    OVar("f"),
+                                                    plt.SndPair(OVar("x")),
                                                 ),
                                             ),
                                         ),
-                                        plt.UnMapData(plt.Var("d")),
+                                        plt.UnMapData(OVar("d")),
                                         plt.Text("{"),
                                         plt.Text("}"),
                                     ),
                                     plt.Apply(
-                                        plt.Var("joinMapList"),
-                                        plt.Lambda(
+                                        OVar("joinMapList"),
+                                        OLambda(
                                             ["x"],
                                             plt.Apply(
-                                                plt.Var("f"),
-                                                plt.Var("f"),
-                                                plt.Var("x"),
+                                                OVar("f"),
+                                                OVar("f"),
+                                                OVar("x"),
                                             ),
                                         ),
-                                        plt.UnListData(plt.Var("d")),
+                                        plt.UnListData(OVar("d")),
                                         plt.Text("["),
                                         plt.Text("]"),
                                     ),
                                     plt.Apply(
                                         IntegerInstanceType.stringify(recursive=True),
-                                        plt.UnIData(plt.Var("d")),
+                                        plt.UnIData(OVar("d")),
                                     ),
                                     plt.Apply(
                                         ByteStringInstanceType.stringify(
                                             recursive=True
                                         ),
-                                        plt.UnBData(plt.Var("d")),
+                                        plt.UnBData(OVar("d")),
                                     ),
                                 ),
                             )
@@ -369,7 +363,7 @@ class AnyType(ClassType):
                 ],
                 plt.ConcatString(
                     plt.Text("RawPlutusData(data="),
-                    plt.Apply(plt.Var("stringifyPlutusData"), plt.Var("self")),
+                    plt.Apply(OVar("stringifyPlutusData"), OVar("self")),
                     plt.Text(")"),
                 ),
             ),
@@ -399,7 +393,7 @@ class RecordType(ClassType):
         build_constr_params = plt.EmptyDataList()
         for n, t in reversed(self.record.fields):
             build_constr_params = plt.MkCons(
-                transform_output_map(t)(plt.Force(plt.Var(n))), build_constr_params
+                transform_output_map(t)(plt.Force(OVar(n))), build_constr_params
             )
         # then build a constr type with this PlutusData
         return SafeLambda(
@@ -424,28 +418,28 @@ class RecordType(ClassType):
         """The attributes of this class. Need to be a lambda that expects as first argument the object itself"""
         if attr == "CONSTR_ID":
             # access to constructor
-            return plt.Lambda(
-                ["1self"],
-                plt.Constructor(plt.Var("1self")),
+            return OLambda(
+                ["self"],
+                plt.Constructor(OVar("self")),
             )
         if attr in (n for n, t in self.record.fields):
             attr_typ = self.attribute_type(attr)
             pos = next(i for i, (n, _) in enumerate(self.record.fields) if n == attr)
             # access to normal fields
-            return plt.Lambda(
-                ["1self"],
+            return OLambda(
+                ["self"],
                 transform_ext_params_map(attr_typ)(
                     plt.NthField(
-                        plt.Var("1self"),
+                        OVar("self"),
                         plt.Integer(pos),
                     ),
                 ),
             )
         if attr == "to_cbor":
-            return plt.Lambda(
-                ["1self", "_"],
+            return OLambda(
+                ["self", "_"],
                 plt.SerialiseData(
-                    plt.Var("1self"),
+                    OVar("self"),
                 ),
             )
         raise NotImplementedError(f"Attribute {attr} not implemented for type {self}")
@@ -460,13 +454,13 @@ class RecordType(ClassType):
             if isinstance(op, Eq):
                 return plt.BuiltIn(uplc.BuiltInFun.EqualsData)
             if isinstance(op, NotEq):
-                return plt.Lambda(
+                return OLambda(
                     ["x", "y"],
                     plt.Not(
                         plt.Apply(
                             plt.BuiltIn(uplc.BuiltInFun.EqualsData),
-                            plt.Var("x"),
-                            plt.Var("y"),
+                            OVar("x"),
+                            OVar("y"),
                         )
                     ),
                 )
@@ -476,20 +470,20 @@ class RecordType(ClassType):
             and (o.typ.typ >= self or self >= o.typ.typ)
         ):
             if isinstance(op, In):
-                return plt.Lambda(
+                return OLambda(
                     ["x", "y"],
                     plt.EqualsData(
-                        plt.Var("x"),
+                        OVar("x"),
                         plt.FindList(
-                            plt.Var("y"),
+                            OVar("y"),
                             plt.Apply(
                                 plt.BuiltIn(uplc.BuiltInFun.EqualsData),
-                                plt.Var("x"),
+                                OVar("x"),
                             ),
                             # this simply ensures the default is always unequal to the searched value
                             plt.ConstrData(
                                 plt.AddInteger(
-                                    plt.Constructor(plt.Var("x")), plt.Integer(1)
+                                    plt.Constructor(OVar("x")), plt.Integer(1)
                                 ),
                                 plt.MkNilData(plt.Unit()),
                             ),
@@ -515,7 +509,7 @@ class RecordType(ClassType):
                     plt.Apply(
                         field_type.stringify(recursive=True),
                         transform_ext_params_map(field_type)(
-                            plt.NthField(plt.Var("self"), plt.Integer(pos))
+                            plt.NthField(OVar("self"), plt.Integer(pos))
                         ),
                     ),
                     map_fields,
@@ -526,12 +520,12 @@ class RecordType(ClassType):
                 plt.Apply(
                     self.record.fields[0][1].stringify(recursive=True),
                     transform_ext_params_map(self.record.fields[0][1])(
-                        plt.NthField(plt.Var("self"), plt.Integer(pos))
+                        plt.NthField(OVar("self"), plt.Integer(pos))
                     ),
                 ),
                 map_fields,
             )
-        return plt.Lambda(
+        return OLambda(
             ["self"],
             plt.AppendString(plt.Text(f"{self.record.orig_name}("), map_fields),
         )
@@ -539,28 +533,28 @@ class RecordType(ClassType):
     def copy_only_attributes(self) -> plt.AST:
         copied_attributes = plt.EmptyDataList()
         for attr_name, attr_type in reversed(self.record.fields):
-            copied_attributes = plt.Let(
+            copied_attributes = OLet(
                 [
-                    ("f", plt.HeadList(plt.Var("fs"))),
-                    ("fs", plt.TailList(plt.Var("fs"))),
+                    ("f", plt.HeadList(OVar("fs"))),
+                    ("fs", plt.TailList(OVar("fs"))),
                 ],
                 plt.MkCons(
                     transform_output_map(attr_type)(
                         plt.Apply(
                             attr_type.copy_only_attributes(),
                             transform_ext_params_map(attr_type)(
-                                plt.Var("f"),
+                                OVar("f"),
                             ),
                         )
                     ),
                     copied_attributes,
                 ),
             )
-        copied_attributes = plt.Let(
-            [("fs", plt.Fields(plt.Var("self")))],
+        copied_attributes = OLet(
+            [("fs", plt.Fields(OVar("self")))],
             copied_attributes,
         )
-        return plt.Lambda(
+        return OLambda(
             ["self"],
             plt.ConstrData(
                 plt.Integer(self.record.constructor),
@@ -607,9 +601,9 @@ class UnionType(ClassType):
     def attribute(self, attr: str) -> plt.AST:
         if attr == "CONSTR_ID":
             # access to constructor
-            return plt.Lambda(
-                ["1self"],
-                plt.Constructor(plt.Var("1self")),
+            return OLambda(
+                ["self"],
+                plt.Constructor(OVar("self")),
             )
         # iterate through all names/types of the unioned records by position
         if any(attr in (n for n, t in r.record.fields) for r in self.typs):
@@ -636,11 +630,11 @@ class UnionType(ClassType):
             for pos, constrs in pos_constrs:
                 assert constrs, "Found empty constructors for a position"
                 constr_check = plt.EqualsInteger(
-                    plt.Var("constr"), plt.Integer(constrs[0])
+                    OVar("constr"), plt.Integer(constrs[0])
                 )
                 for constr in constrs[1:]:
                     constr_check = plt.Or(
-                        plt.EqualsInteger(plt.Var("constr"), plt.Integer(constr)),
+                        plt.EqualsInteger(OVar("constr"), plt.Integer(constr)),
                         constr_check,
                     )
                 pos_decisor = plt.Ite(
@@ -648,23 +642,23 @@ class UnionType(ClassType):
                     plt.Integer(pos),
                     pos_decisor,
                 )
-            return plt.Lambda(
-                ["1self"],
+            return OLambda(
+                ["self"],
                 transform_ext_params_map(attr_typ)(
                     plt.NthField(
-                        plt.Var("1self"),
-                        plt.Let(
-                            [("constr", plt.Constructor(plt.Var("1self")))],
+                        OVar("self"),
+                        OLet(
+                            [("constr", plt.Constructor(OVar("self")))],
                             pos_decisor,
                         ),
                     ),
                 ),
             )
         if attr == "to_cbor":
-            return plt.Lambda(
-                ["1self", "_"],
+            return OLambda(
+                ["self", "_"],
                 plt.SerialiseData(
-                    plt.Var("1self"),
+                    OVar("self"),
                 ),
             )
         raise NotImplementedError(f"Attribute {attr} not implemented for type {self}")
@@ -685,13 +679,13 @@ class UnionType(ClassType):
             if isinstance(op, Eq):
                 return plt.BuiltIn(uplc.BuiltInFun.EqualsData)
             if isinstance(op, NotEq):
-                return plt.Lambda(
+                return OLambda(
                     ["x", "y"],
                     plt.Not(
                         plt.Apply(
                             plt.BuiltIn(uplc.BuiltInFun.EqualsData),
-                            plt.Var("x"),
-                            plt.Var("y"),
+                            OVar("x"),
+                            OVar("y"),
                         )
                     ),
                 )
@@ -701,20 +695,20 @@ class UnionType(ClassType):
             and any(o.typ.typ >= t or t >= o.typ.typ for t in self.typs)
         ):
             if isinstance(op, In):
-                return plt.Lambda(
+                return OLambda(
                     ["x", "y"],
                     plt.EqualsData(
-                        plt.Var("x"),
+                        OVar("x"),
                         plt.FindList(
-                            plt.Var("y"),
+                            OVar("y"),
                             plt.Apply(
                                 plt.BuiltIn(uplc.BuiltInFun.EqualsData),
-                                plt.Var("x"),
+                                OVar("x"),
                             ),
                             # this simply ensures the default is always unequal to the searched value
                             plt.ConstrData(
                                 plt.AddInteger(
-                                    plt.Constructor(plt.Var("x")), plt.Integer(1)
+                                    plt.Constructor(OVar("x")), plt.Integer(1)
                                 ),
                                 plt.MkNilData(plt.Unit()),
                             ),
@@ -729,15 +723,15 @@ class UnionType(ClassType):
         decide_string_func = plt.TraceError("Invalid constructor id in Union")
         for t in self.typs:
             decide_string_func = plt.Ite(
-                plt.EqualsInteger(plt.Var("c"), plt.Integer(t.record.constructor)),
+                plt.EqualsInteger(OVar("c"), plt.Integer(t.record.constructor)),
                 t.stringify(recursive=True),
                 decide_string_func,
             )
-        return plt.Lambda(
+        return OLambda(
             ["self"],
-            plt.Let(
-                [("c", plt.Constructor(plt.Var("self")))],
-                plt.Apply(decide_string_func, plt.Var("self")),
+            OLet(
+                [("c", plt.Constructor(OVar("self")))],
+                plt.Apply(decide_string_func, OVar("self")),
             ),
         )
 
@@ -747,16 +741,14 @@ class UnionType(ClassType):
         )
         for typ in self.typs:
             copied_attributes = plt.Ite(
-                plt.EqualsInteger(
-                    plt.Var("constr"), plt.Integer(typ.record.constructor)
-                ),
-                plt.Apply(typ.copy_only_attributes(), plt.Var("self")),
+                plt.EqualsInteger(OVar("constr"), plt.Integer(typ.record.constructor)),
+                plt.Apply(typ.copy_only_attributes(), OVar("self")),
                 copied_attributes,
             )
-        return plt.Lambda(
+        return OLambda(
             ["self"],
-            plt.Let(
-                [("constr", plt.Constructor(plt.Var("self")))],
+            OLet(
+                [("constr", plt.Constructor(OVar("self")))],
                 copied_attributes,
             ),
         )
@@ -773,7 +765,7 @@ class TupleType(ClassType):
 
     def stringify(self, recursive: bool = False) -> plt.AST:
         if not self.typs:
-            return plt.Lambda(
+            return OLambda(
                 ["self"],
                 plt.Text("()"),
             )
@@ -781,7 +773,7 @@ class TupleType(ClassType):
             tuple_content = plt.ConcatString(
                 plt.Apply(
                     self.typs[0].stringify(recursive=True),
-                    plt.FunctionalTupleAccess(plt.Var("self"), 0, len(self.typs)),
+                    plt.FunctionalTupleAccess(OVar("self"), 0, len(self.typs)),
                 ),
                 plt.Text(","),
             )
@@ -789,7 +781,7 @@ class TupleType(ClassType):
             tuple_content = plt.ConcatString(
                 plt.Apply(
                     self.typs[0].stringify(recursive=True),
-                    plt.FunctionalTupleAccess(plt.Var("self"), 0, len(self.typs)),
+                    plt.FunctionalTupleAccess(OVar("self"), 0, len(self.typs)),
                 ),
             )
             for i, t in enumerate(self.typs[1:], start=1):
@@ -798,10 +790,10 @@ class TupleType(ClassType):
                     plt.Text(", "),
                     plt.Apply(
                         t.stringify(recursive=True),
-                        plt.FunctionalTupleAccess(plt.Var("self"), i, len(self.typs)),
+                        plt.FunctionalTupleAccess(OVar("self"), i, len(self.typs)),
                     ),
                 )
-        return plt.Lambda(
+        return OLambda(
             ["self"],
             plt.ConcatString(plt.Text("("), tuple_content, plt.Text(")")),
         )
@@ -830,15 +822,15 @@ class PairType(ClassType):
         tuple_content = plt.ConcatString(
             plt.Apply(
                 self.l_typ.stringify(recursive=True),
-                transform_ext_params_map(self.l_typ)(plt.FstPair(plt.Var("self"))),
+                transform_ext_params_map(self.l_typ)(plt.FstPair(OVar("self"))),
             ),
             plt.Text(", "),
             plt.Apply(
                 self.r_typ.stringify(recursive=True),
-                transform_ext_params_map(self.r_typ)(plt.SndPair(plt.Var("self"))),
+                transform_ext_params_map(self.r_typ)(plt.SndPair(OVar("self"))),
             ),
         )
-        return plt.Lambda(
+        return OLambda(
             ["self"],
             plt.ConcatString(plt.Text("("), tuple_content, plt.Text(")")),
         )
@@ -852,31 +844,31 @@ class ListType(ClassType):
         return isinstance(other, ListType) and self.typ >= other.typ
 
     def stringify(self, recursive: bool = False) -> plt.AST:
-        return plt.Lambda(
+        return OLambda(
             ["self"],
-            plt.Let(
+            OLet(
                 [
                     (
                         "g",
                         plt.RecFun(
-                            plt.Lambda(
+                            OLambda(
                                 ["f", "l"],
                                 plt.AppendString(
                                     plt.Apply(
                                         self.typ.stringify(recursive=True),
-                                        plt.HeadList(plt.Var("l")),
+                                        plt.HeadList(OVar("l")),
                                     ),
-                                    plt.Let(
-                                        [("t", plt.TailList(plt.Var("l")))],
+                                    OLet(
+                                        [("t", plt.TailList(OVar("l")))],
                                         plt.IteNullList(
-                                            plt.Var("t"),
+                                            OVar("t"),
                                             plt.Text("]"),
                                             plt.AppendString(
                                                 plt.Text(", "),
                                                 plt.Apply(
-                                                    plt.Var("f"),
-                                                    plt.Var("f"),
-                                                    plt.Var("t"),
+                                                    OVar("f"),
+                                                    OVar("f"),
+                                                    OVar("t"),
                                                 ),
                                             ),
                                         ),
@@ -889,11 +881,11 @@ class ListType(ClassType):
                 plt.AppendString(
                     plt.Text("["),
                     plt.IteNullList(
-                        plt.Var("self"),
+                        OVar("self"),
                         plt.Text("]"),
                         plt.Apply(
-                            plt.Var("g"),
-                            plt.Var("self"),
+                            OVar("g"),
+                            OVar("self"),
                         ),
                     ),
                 ),
@@ -902,19 +894,19 @@ class ListType(ClassType):
 
     def copy_only_attributes(self) -> plt.AST:
         mapped_attrs = plt.MapList(
-            plt.Var("self"),
-            plt.Lambda(
+            OVar("self"),
+            OLambda(
                 ["v"],
                 transform_output_map(self.typ)(
                     plt.Apply(
                         self.typ.copy_only_attributes(),
-                        transform_ext_params_map(self.typ)(plt.Var("v")),
+                        transform_ext_params_map(self.typ)(OVar("v")),
                     )
                 ),
             ),
             plt.EmptyDataList(),
         )
-        return plt.Lambda(["self"], mapped_attrs)
+        return OLambda(["self"], mapped_attrs)
 
     def _binop_return_type(self, binop: operator, other: "Type") -> "Type":
         if isinstance(binop, Add):
@@ -969,33 +961,33 @@ class DictType(ClassType):
 
     def attribute(self, attr) -> plt.AST:
         if attr == "get":
-            return plt.Lambda(
-                ["1self", "1key", "1default"],
+            return OLambda(
+                ["self", "key", "default"],
                 transform_ext_params_map(self.value_typ)(
-                    plt.Let(
+                    OLet(
                         [
                             (
-                                "1key_mapped",
+                                "key_mapped",
                                 transform_output_map(self.key_typ)(
-                                    plt.Force(plt.Var("1key"))
+                                    plt.Force(OVar("key"))
                                 ),
                             )
                         ],
                         plt.SndPair(
                             plt.FindList(
-                                plt.Var("1self"),
-                                plt.Lambda(
-                                    ["1x"],
+                                OVar("self"),
+                                OLambda(
+                                    ["x"],
                                     plt.EqualsData(
-                                        plt.Var("1key_mapped"),
-                                        plt.FstPair(plt.Var("1x")),
+                                        OVar("key_mapped"),
+                                        plt.FstPair(OVar("x")),
                                     ),
                                 ),
                                 # this is a bit ugly... we wrap - only to later unwrap again
                                 plt.MkPairData(
-                                    plt.Var("1key_mapped"),
+                                    OVar("key_mapped"),
                                     transform_output_map(self.value_typ)(
-                                        plt.Force(plt.Var("1default"))
+                                        plt.Force(OVar("default"))
                                     ),
                                 ),
                             ),
@@ -1004,37 +996,35 @@ class DictType(ClassType):
                 ),
             )
         if attr == "keys":
-            return plt.Lambda(
-                ["1self", "_"],
+            return OLambda(
+                ["self", "_"],
                 plt.MapList(
-                    plt.Var("1self"),
-                    plt.Lambda(
-                        ["1x"],
-                        transform_ext_params_map(self.key_typ)(
-                            plt.FstPair(plt.Var("1x"))
-                        ),
+                    OVar("self"),
+                    OLambda(
+                        ["x"],
+                        transform_ext_params_map(self.key_typ)(plt.FstPair(OVar("x"))),
                     ),
                     empty_list(self.key_typ),
                 ),
             )
         if attr == "values":
-            return plt.Lambda(
-                ["1self", "_"],
+            return OLambda(
+                ["self", "_"],
                 plt.MapList(
-                    plt.Var("1self"),
-                    plt.Lambda(
-                        ["1x"],
+                    OVar("self"),
+                    OLambda(
+                        ["x"],
                         transform_ext_params_map(self.value_typ)(
-                            plt.SndPair(plt.Var("1x"))
+                            plt.SndPair(OVar("x"))
                         ),
                     ),
                     empty_list(self.value_typ),
                 ),
             )
         if attr == "items":
-            return plt.Lambda(
-                ["1self", "_"],
-                plt.Var("1self"),
+            return OLambda(
+                ["self", "_"],
+                OVar("self"),
             )
         raise NotImplementedError(f"Attribute '{attr}' of Dict is unknown.")
 
@@ -1046,43 +1036,43 @@ class DictType(ClassType):
         )
 
     def stringify(self, recursive: bool = False) -> plt.AST:
-        return plt.Lambda(
+        return OLambda(
             ["self"],
-            plt.Let(
+            OLet(
                 [
                     (
                         "g",
                         plt.RecFun(
-                            plt.Lambda(
+                            OLambda(
                                 ["f", "l"],
-                                plt.Let(
+                                OLet(
                                     [
-                                        ("h", plt.HeadList(plt.Var("l"))),
-                                        ("t", plt.TailList(plt.Var("l"))),
+                                        ("h", plt.HeadList(OVar("l"))),
+                                        ("t", plt.TailList(OVar("l"))),
                                     ],
                                     plt.ConcatString(
                                         plt.Apply(
                                             self.key_typ.stringify(recursive=True),
                                             transform_ext_params_map(self.key_typ)(
-                                                plt.FstPair(plt.Var("h"))
+                                                plt.FstPair(OVar("h"))
                                             ),
                                         ),
                                         plt.Text(": "),
                                         plt.Apply(
                                             self.value_typ.stringify(recursive=True),
                                             transform_ext_params_map(self.value_typ)(
-                                                plt.SndPair(plt.Var("h"))
+                                                plt.SndPair(OVar("h"))
                                             ),
                                         ),
                                         plt.IteNullList(
-                                            plt.Var("t"),
+                                            OVar("t"),
                                             plt.Text("}"),
                                             plt.AppendString(
                                                 plt.Text(", "),
                                                 plt.Apply(
-                                                    plt.Var("f"),
-                                                    plt.Var("f"),
-                                                    plt.Var("t"),
+                                                    OVar("f"),
+                                                    OVar("f"),
+                                                    OVar("t"),
                                                 ),
                                             ),
                                         ),
@@ -1095,11 +1085,11 @@ class DictType(ClassType):
                 plt.AppendString(
                     plt.Text("{"),
                     plt.IteNullList(
-                        plt.Var("self"),
+                        OVar("self"),
                         plt.Text("}"),
                         plt.Apply(
-                            plt.Var("g"),
-                            plt.Var("self"),
+                            OVar("g"),
+                            OVar("self"),
                         ),
                     ),
                 ),
@@ -1173,20 +1163,20 @@ class DictType(ClassType):
             )
 
         mapped_attrs = CustomMapFilterList(
-            plt.Var("self"),
-            plt.Lambda(
+            OVar("self"),
+            OLambda(
                 ["h", "t"],
-                plt.Let(
+                OLet(
                     [
-                        ("hfst", plt.FstPair(plt.Var("h"))),
+                        ("hfst", plt.FstPair(OVar("h"))),
                         (
                             "found_elem",
                             plt.FindList(
-                                plt.Var("t"),
-                                plt.Lambda(
+                                OVar("t"),
+                                OLambda(
                                     ["e"],
                                     plt.EqualsData(
-                                        plt.Var("hfst"), plt.FstPair(plt.Var("e"))
+                                        OVar("hfst"), plt.FstPair(OVar("e"))
                                     ),
                                 ),
                                 plt.UPLCConstant(uplc.PlutusConstr(-1, [])),
@@ -1194,19 +1184,19 @@ class DictType(ClassType):
                         ),
                     ],
                     plt.EqualsData(
-                        plt.Var("found_elem"),
+                        OVar("found_elem"),
                         plt.UPLCConstant(uplc.PlutusConstr(-1, [])),
                     ),
                 ),
             ),
-            plt.Lambda(
+            OLambda(
                 ["v"],
                 plt.MkPairData(
                     transform_output_map(self.key_typ)(
                         plt.Apply(
                             self.key_typ.copy_only_attributes(),
                             transform_ext_params_map(self.key_typ)(
-                                plt.FstPair(plt.Var("v"))
+                                plt.FstPair(OVar("v"))
                             ),
                         )
                     ),
@@ -1214,7 +1204,7 @@ class DictType(ClassType):
                         plt.Apply(
                             self.value_typ.copy_only_attributes(),
                             transform_ext_params_map(self.value_typ)(
-                                plt.SndPair(plt.Var("v"))
+                                plt.SndPair(OVar("v"))
                             ),
                         )
                     ),
@@ -1222,7 +1212,7 @@ class DictType(ClassType):
             ),
             plt.EmptyDataPairList(),
         )
-        return plt.Lambda(["self"], mapped_attrs)
+        return OLambda(["self"], mapped_attrs)
 
 
 @dataclass(frozen=True, unsafe_hash=True)
@@ -1244,7 +1234,7 @@ class FunctionType(ClassType):
         )
 
     def stringify(self, recursive: bool = False) -> plt.AST:
-        return plt.Lambda(["x"], plt.Text("<function>"))
+        return OLambda(["x"], plt.Text("<function>"))
 
 
 @dataclass(frozen=True, unsafe_hash=True)
@@ -1297,25 +1287,25 @@ class IntegerType(AtomicType):
                 # 1 == True
                 # 0 == False
                 # all other comparisons are False
-                return plt.Lambda(
+                return OLambda(
                     ["x", "y"],
                     plt.Ite(
-                        plt.Var("y"),
-                        plt.EqualsInteger(plt.Var("x"), plt.Integer(1)),
-                        plt.EqualsInteger(plt.Var("x"), plt.Integer(0)),
+                        OVar("y"),
+                        plt.EqualsInteger(OVar("x"), plt.Integer(1)),
+                        plt.EqualsInteger(OVar("x"), plt.Integer(0)),
                     ),
                 )
         if isinstance(o, IntegerType):
             if isinstance(op, Eq):
                 return plt.BuiltIn(uplc.BuiltInFun.EqualsInteger)
             if isinstance(op, NotEq):
-                return plt.Lambda(
+                return OLambda(
                     ["x", "y"],
                     plt.Not(
                         plt.Apply(
                             plt.BuiltIn(uplc.BuiltInFun.EqualsInteger),
-                            plt.Var("y"),
-                            plt.Var("x"),
+                            OVar("y"),
+                            OVar("x"),
                         )
                     ),
                 )
@@ -1324,21 +1314,21 @@ class IntegerType(AtomicType):
             if isinstance(op, Lt):
                 return plt.BuiltIn(uplc.BuiltInFun.LessThanInteger)
             if isinstance(op, Gt):
-                return plt.Lambda(
+                return OLambda(
                     ["x", "y"],
                     plt.Apply(
                         plt.BuiltIn(uplc.BuiltInFun.LessThanInteger),
-                        plt.Var("y"),
-                        plt.Var("x"),
+                        OVar("y"),
+                        OVar("x"),
                     ),
                 )
             if isinstance(op, GtE):
-                return plt.Lambda(
+                return OLambda(
                     ["x", "y"],
                     plt.Apply(
                         plt.BuiltIn(uplc.BuiltInFun.LessThanEqualsInteger),
-                        plt.Var("y"),
-                        plt.Var("x"),
+                        OVar("y"),
+                        OVar("x"),
                     ),
                 )
         if (
@@ -1347,50 +1337,50 @@ class IntegerType(AtomicType):
             and isinstance(o.typ.typ, IntegerType)
         ):
             if isinstance(op, In):
-                return plt.Lambda(
+                return OLambda(
                     ["x", "y"],
                     plt.EqualsInteger(
-                        plt.Var("x"),
+                        OVar("x"),
                         plt.FindList(
-                            plt.Var("y"),
+                            OVar("y"),
                             plt.Apply(
-                                plt.BuiltIn(uplc.BuiltInFun.EqualsInteger), plt.Var("x")
+                                plt.BuiltIn(uplc.BuiltInFun.EqualsInteger), OVar("x")
                             ),
                             # this simply ensures the default is always unequal to the searched value
-                            plt.AddInteger(plt.Var("x"), plt.Integer(1)),
+                            plt.AddInteger(OVar("x"), plt.Integer(1)),
                         ),
                     ),
                 )
         return super().cmp(op, o)
 
     def stringify(self, recursive: bool = False) -> plt.AST:
-        return plt.Lambda(
+        return OLambda(
             ["x"],
             plt.DecodeUtf8(
-                plt.Let(
+                OLet(
                     [
                         (
                             "strlist",
                             plt.RecFun(
-                                plt.Lambda(
+                                OLambda(
                                     ["f", "i"],
                                     plt.Ite(
                                         plt.LessThanEqualsInteger(
-                                            plt.Var("i"), plt.Integer(0)
+                                            OVar("i"), plt.Integer(0)
                                         ),
                                         plt.EmptyIntegerList(),
                                         plt.MkCons(
                                             plt.AddInteger(
                                                 plt.ModInteger(
-                                                    plt.Var("i"), plt.Integer(10)
+                                                    OVar("i"), plt.Integer(10)
                                                 ),
                                                 plt.Integer(ord("0")),
                                             ),
                                             plt.Apply(
-                                                plt.Var("f"),
-                                                plt.Var("f"),
+                                                OVar("f"),
+                                                OVar("f"),
                                                 plt.DivideInteger(
-                                                    plt.Var("i"), plt.Integer(10)
+                                                    OVar("i"), plt.Integer(10)
                                                 ),
                                             ),
                                         ),
@@ -1400,13 +1390,13 @@ class IntegerType(AtomicType):
                         ),
                         (
                             "mkstr",
-                            plt.Lambda(
+                            OLambda(
                                 ["i"],
                                 plt.FoldList(
-                                    plt.Apply(plt.Var("strlist"), plt.Var("i")),
-                                    plt.Lambda(
+                                    plt.Apply(OVar("strlist"), OVar("i")),
+                                    OLambda(
                                         ["b", "i"],
-                                        plt.ConsByteString(plt.Var("i"), plt.Var("b")),
+                                        plt.ConsByteString(OVar("i"), OVar("b")),
                                     ),
                                     plt.ByteString(b""),
                                 ),
@@ -1414,15 +1404,15 @@ class IntegerType(AtomicType):
                         ),
                     ],
                     plt.Ite(
-                        plt.EqualsInteger(plt.Var("x"), plt.Integer(0)),
+                        plt.EqualsInteger(OVar("x"), plt.Integer(0)),
                         plt.ByteString(b"0"),
                         plt.Ite(
-                            plt.LessThanInteger(plt.Var("x"), plt.Integer(0)),
+                            plt.LessThanInteger(OVar("x"), plt.Integer(0)),
                             plt.ConsByteString(
                                 plt.Integer(ord("-")),
-                                plt.Apply(plt.Var("mkstr"), plt.Negate(plt.Var("x"))),
+                                plt.Apply(OVar("mkstr"), plt.Negate(OVar("x"))),
                             ),
-                            plt.Apply(plt.Var("mkstr"), plt.Var("x")),
+                            plt.Apply(OVar("mkstr"), OVar("x")),
                         ),
                     ),
                 )
@@ -1483,7 +1473,7 @@ class StringType(AtomicType):
     def attribute(self, attr) -> plt.AST:
         if attr == "encode":
             # No codec -> only the default (utf8) is allowed
-            return plt.Lambda(["x", "_"], plt.EncodeUtf8(plt.Var("x")))
+            return OLambda(["x", "_"], plt.EncodeUtf8(OVar("x")))
         return super().attribute(attr)
 
     def cmp(self, op: cmpop, o: "Type") -> plt.AST:
@@ -1495,12 +1485,12 @@ class StringType(AtomicType):
     def stringify(self, recursive: bool = False) -> plt.AST:
         if recursive:
             # TODO this is not correct, as the string is not properly escaped
-            return plt.Lambda(
+            return OLambda(
                 ["self"],
-                plt.ConcatString(plt.Text("'"), plt.Var("self"), plt.Text("'")),
+                plt.ConcatString(plt.Text("'"), OVar("self"), plt.Text("'")),
             )
         else:
-            return plt.Lambda(["self"], plt.Var("self"))
+            return OLambda(["self"], OVar("self"))
 
     def _binop_return_type(self, binop: operator, other: "Type") -> "Type":
         if isinstance(binop, Add):
@@ -1535,32 +1525,32 @@ class ByteStringType(AtomicType):
     def attribute(self, attr) -> plt.AST:
         if attr == "decode":
             # No codec -> only the default (utf8) is allowed
-            return plt.Lambda(["x", "_"], plt.DecodeUtf8(plt.Var("x")))
+            return OLambda(["x", "_"], plt.DecodeUtf8(OVar("x")))
         if attr == "hex":
-            return plt.Lambda(
+            return OLambda(
                 ["x", "_"],
                 plt.DecodeUtf8(
-                    plt.Let(
+                    OLet(
                         [
                             (
                                 "hexlist",
                                 plt.RecFun(
-                                    plt.Lambda(
+                                    OLambda(
                                         ["f", "i"],
                                         plt.Ite(
                                             plt.LessThanInteger(
-                                                plt.Var("i"), plt.Integer(0)
+                                                OVar("i"), plt.Integer(0)
                                             ),
                                             plt.EmptyIntegerList(),
                                             plt.MkCons(
                                                 plt.IndexByteString(
-                                                    plt.Var("x"), plt.Var("i")
+                                                    OVar("x"), OVar("i")
                                                 ),
                                                 plt.Apply(
-                                                    plt.Var("f"),
-                                                    plt.Var("f"),
+                                                    OVar("f"),
+                                                    OVar("f"),
                                                     plt.SubtractInteger(
-                                                        plt.Var("i"), plt.Integer(1)
+                                                        OVar("i"), plt.Integer(1)
                                                     ),
                                                 ),
                                             ),
@@ -1570,13 +1560,13 @@ class ByteStringType(AtomicType):
                             ),
                             (
                                 "map_str",
-                                plt.Lambda(
+                                OLambda(
                                     ["i"],
                                     plt.AddInteger(
-                                        plt.Var("i"),
+                                        OVar("i"),
                                         plt.IfThenElse(
                                             plt.LessThanInteger(
-                                                plt.Var("i"), plt.Integer(10)
+                                                OVar("i"), plt.Integer(10)
                                             ),
                                             plt.Integer(ord("0")),
                                             plt.Integer(ord("a") - 10),
@@ -1586,28 +1576,28 @@ class ByteStringType(AtomicType):
                             ),
                             (
                                 "mkstr",
-                                plt.Lambda(
+                                OLambda(
                                     ["i"],
                                     plt.FoldList(
-                                        plt.Apply(plt.Var("hexlist"), plt.Var("i")),
-                                        plt.Lambda(
+                                        plt.Apply(OVar("hexlist"), OVar("i")),
+                                        OLambda(
                                             ["b", "i"],
                                             plt.ConsByteString(
                                                 plt.Apply(
-                                                    plt.Var("map_str"),
+                                                    OVar("map_str"),
                                                     plt.DivideInteger(
-                                                        plt.Var("i"), plt.Integer(16)
+                                                        OVar("i"), plt.Integer(16)
                                                     ),
                                                 ),
                                                 plt.ConsByteString(
                                                     plt.Apply(
-                                                        plt.Var("map_str"),
+                                                        OVar("map_str"),
                                                         plt.ModInteger(
-                                                            plt.Var("i"),
+                                                            OVar("i"),
                                                             plt.Integer(16),
                                                         ),
                                                     ),
-                                                    plt.Var("b"),
+                                                    OVar("b"),
                                                 ),
                                             ),
                                         ),
@@ -1617,9 +1607,9 @@ class ByteStringType(AtomicType):
                             ),
                         ],
                         plt.Apply(
-                            plt.Var("mkstr"),
+                            OVar("mkstr"),
                             plt.SubtractInteger(
-                                plt.LengthOfByteString(plt.Var("x")), plt.Integer(1)
+                                plt.LengthOfByteString(OVar("x")), plt.Integer(1)
                             ),
                         ),
                     ),
@@ -1632,13 +1622,13 @@ class ByteStringType(AtomicType):
             if isinstance(op, Eq):
                 return plt.BuiltIn(uplc.BuiltInFun.EqualsByteString)
             if isinstance(op, NotEq):
-                return plt.Lambda(
+                return OLambda(
                     ["x", "y"],
                     plt.Not(
                         plt.Apply(
                             plt.BuiltIn(uplc.BuiltInFun.EqualsByteString),
-                            plt.Var("y"),
-                            plt.Var("x"),
+                            OVar("y"),
+                            OVar("x"),
                         )
                     ),
                 )
@@ -1647,21 +1637,21 @@ class ByteStringType(AtomicType):
             if isinstance(op, LtE):
                 return plt.BuiltIn(uplc.BuiltInFun.LessThanEqualsByteString)
             if isinstance(op, Gt):
-                return plt.Lambda(
+                return OLambda(
                     ["x", "y"],
                     plt.Apply(
                         plt.BuiltIn(uplc.BuiltInFun.LessThanByteString),
-                        plt.Var("y"),
-                        plt.Var("x"),
+                        OVar("y"),
+                        OVar("x"),
                     ),
                 )
             if isinstance(op, GtE):
-                return plt.Lambda(
+                return OLambda(
                     ["x", "y"],
                     plt.Apply(
                         plt.BuiltIn(uplc.BuiltInFun.LessThanEqualsByteString),
-                        plt.Var("y"),
-                        plt.Var("x"),
+                        OVar("y"),
+                        OVar("x"),
                     ),
                 )
         if (
@@ -1670,48 +1660,44 @@ class ByteStringType(AtomicType):
             and isinstance(o.typ.typ, ByteStringType)
         ):
             if isinstance(op, In):
-                return plt.Lambda(
+                return OLambda(
                     ["x", "y"],
                     plt.EqualsByteString(
-                        plt.Var("x"),
+                        OVar("x"),
                         plt.FindList(
-                            plt.Var("y"),
+                            OVar("y"),
                             plt.Apply(
                                 plt.BuiltIn(uplc.BuiltInFun.EqualsByteString),
-                                plt.Var("x"),
+                                OVar("x"),
                             ),
                             # this simply ensures the default is always unequal to the searched value
-                            plt.ConsByteString(plt.Integer(0), plt.Var("x")),
+                            plt.ConsByteString(plt.Integer(0), OVar("x")),
                         ),
                     ),
                 )
         return super().cmp(op, o)
 
     def stringify(self, recursive: bool = False) -> plt.AST:
-        return plt.Lambda(
+        return OLambda(
             ["x"],
             plt.DecodeUtf8(
-                plt.Let(
+                OLet(
                     [
                         (
                             "hexlist",
                             plt.RecFun(
-                                plt.Lambda(
+                                OLambda(
                                     ["f", "i"],
                                     plt.Ite(
-                                        plt.LessThanInteger(
-                                            plt.Var("i"), plt.Integer(0)
-                                        ),
+                                        plt.LessThanInteger(OVar("i"), plt.Integer(0)),
                                         plt.EmptyIntegerList(),
                                         plt.MkCons(
-                                            plt.IndexByteString(
-                                                plt.Var("x"), plt.Var("i")
-                                            ),
+                                            plt.IndexByteString(OVar("x"), OVar("i")),
                                             plt.Apply(
-                                                plt.Var("f"),
-                                                plt.Var("f"),
+                                                OVar("f"),
+                                                OVar("f"),
                                                 plt.SubtractInteger(
-                                                    plt.Var("i"), plt.Integer(1)
+                                                    OVar("i"), plt.Integer(1)
                                                 ),
                                             ),
                                         ),
@@ -1721,14 +1707,12 @@ class ByteStringType(AtomicType):
                         ),
                         (
                             "map_str",
-                            plt.Lambda(
+                            OLambda(
                                 ["i"],
                                 plt.AddInteger(
-                                    plt.Var("i"),
+                                    OVar("i"),
                                     plt.IfThenElse(
-                                        plt.LessThanInteger(
-                                            plt.Var("i"), plt.Integer(10)
-                                        ),
+                                        plt.LessThanInteger(OVar("i"), plt.Integer(10)),
                                         plt.Integer(ord("0")),
                                         plt.Integer(ord("a") - 10),
                                     ),
@@ -1737,95 +1721,91 @@ class ByteStringType(AtomicType):
                         ),
                         (
                             "mkstr",
-                            plt.Lambda(
+                            OLambda(
                                 ["i"],
                                 plt.FoldList(
-                                    plt.Apply(plt.Var("hexlist"), plt.Var("i")),
-                                    plt.Lambda(
+                                    plt.Apply(OVar("hexlist"), OVar("i")),
+                                    OLambda(
                                         ["b", "i"],
                                         plt.Ite(
                                             # ascii printable characters are kept unmodified
                                             plt.And(
                                                 plt.LessThanEqualsInteger(
-                                                    plt.Integer(0x20), plt.Var("i")
+                                                    plt.Integer(0x20), OVar("i")
                                                 ),
                                                 plt.LessThanEqualsInteger(
-                                                    plt.Var("i"), plt.Integer(0x7E)
+                                                    OVar("i"), plt.Integer(0x7E)
                                                 ),
                                             ),
                                             plt.Ite(
                                                 plt.EqualsInteger(
-                                                    plt.Var("i"),
+                                                    OVar("i"),
                                                     plt.Integer(ord("\\")),
                                                 ),
                                                 plt.AppendByteString(
                                                     plt.ByteString(b"\\\\"),
-                                                    plt.Var("b"),
+                                                    OVar("b"),
                                                 ),
                                                 plt.Ite(
                                                     plt.EqualsInteger(
-                                                        plt.Var("i"),
+                                                        OVar("i"),
                                                         plt.Integer(ord("'")),
                                                     ),
                                                     plt.AppendByteString(
                                                         plt.ByteString(b"\\'"),
-                                                        plt.Var("b"),
+                                                        OVar("b"),
                                                     ),
                                                     plt.ConsByteString(
-                                                        plt.Var("i"), plt.Var("b")
+                                                        OVar("i"), OVar("b")
                                                     ),
                                                 ),
                                             ),
                                             plt.Ite(
                                                 plt.EqualsInteger(
-                                                    plt.Var("i"), plt.Integer(ord("\t"))
+                                                    OVar("i"), plt.Integer(ord("\t"))
                                                 ),
                                                 plt.AppendByteString(
-                                                    plt.ByteString(b"\\t"), plt.Var("b")
+                                                    plt.ByteString(b"\\t"), OVar("b")
                                                 ),
                                                 plt.Ite(
                                                     plt.EqualsInteger(
-                                                        plt.Var("i"),
+                                                        OVar("i"),
                                                         plt.Integer(ord("\n")),
                                                     ),
                                                     plt.AppendByteString(
                                                         plt.ByteString(b"\\n"),
-                                                        plt.Var("b"),
+                                                        OVar("b"),
                                                     ),
                                                     plt.Ite(
                                                         plt.EqualsInteger(
-                                                            plt.Var("i"),
+                                                            OVar("i"),
                                                             plt.Integer(ord("\r")),
                                                         ),
                                                         plt.AppendByteString(
                                                             plt.ByteString(b"\\r"),
-                                                            plt.Var("b"),
+                                                            OVar("b"),
                                                         ),
                                                         plt.AppendByteString(
                                                             plt.ByteString(b"\\x"),
                                                             plt.ConsByteString(
                                                                 plt.Apply(
-                                                                    plt.Var("map_str"),
+                                                                    OVar("map_str"),
                                                                     plt.DivideInteger(
-                                                                        plt.Var("i"),
+                                                                        OVar("i"),
                                                                         plt.Integer(16),
                                                                     ),
                                                                 ),
                                                                 plt.ConsByteString(
                                                                     plt.Apply(
-                                                                        plt.Var(
-                                                                            "map_str"
-                                                                        ),
+                                                                        OVar("map_str"),
                                                                         plt.ModInteger(
-                                                                            plt.Var(
-                                                                                "i"
-                                                                            ),
+                                                                            OVar("i"),
                                                                             plt.Integer(
                                                                                 16
                                                                             ),
                                                                         ),
                                                                     ),
-                                                                    plt.Var("b"),
+                                                                    OVar("b"),
                                                                 ),
                                                             ),
                                                         ),
@@ -1842,9 +1822,9 @@ class ByteStringType(AtomicType):
                     plt.ConcatByteString(
                         plt.ByteString(b"b'"),
                         plt.Apply(
-                            plt.Var("mkstr"),
+                            OVar("mkstr"),
                             plt.SubtractInteger(
-                                plt.LengthOfByteString(plt.Var("x")), plt.Integer(1)
+                                plt.LengthOfByteString(OVar("x")), plt.Integer(1)
                             ),
                         ),
                         plt.ByteString(b"'"),
@@ -1882,24 +1862,24 @@ class BoolType(AtomicType):
                 # 1 == True
                 # 0 == False
                 # all other comparisons are False
-                return plt.Lambda(
+                return OLambda(
                     ["y", "x"],
                     plt.Ite(
-                        plt.Var("y"),
-                        plt.EqualsInteger(plt.Var("x"), plt.Integer(1)),
-                        plt.EqualsInteger(plt.Var("x"), plt.Integer(0)),
+                        OVar("y"),
+                        plt.EqualsInteger(OVar("x"), plt.Integer(1)),
+                        plt.EqualsInteger(OVar("x"), plt.Integer(0)),
                     ),
                 )
         if isinstance(o, BoolType):
             if isinstance(op, Eq):
-                return plt.Lambda(["x", "y"], plt.Iff(plt.Var("x"), plt.Var("y")))
+                return OLambda(["x", "y"], plt.Iff(OVar("x"), OVar("y")))
         return super().cmp(op, o)
 
     def stringify(self, recursive: bool = False) -> plt.AST:
-        return plt.Lambda(
+        return OLambda(
             ["self"],
             plt.Ite(
-                plt.Var("self"),
+                OVar("self"),
                 plt.Text("True"),
                 plt.Text("False"),
             ),
@@ -1911,13 +1891,13 @@ class UnitType(AtomicType):
     def cmp(self, op: cmpop, o: "Type") -> plt.AST:
         if isinstance(o, UnitType):
             if isinstance(op, Eq):
-                return plt.Lambda(["x", "y"], plt.Bool(True))
+                return OLambda(["x", "y"], plt.Bool(True))
             if isinstance(op, NotEq):
-                return plt.Lambda(["x", "y"], plt.Bool(False))
+                return OLambda(["x", "y"], plt.Bool(False))
         return super().cmp(op, o)
 
     def stringify(self, recursive: bool = False) -> plt.AST:
-        return plt.Lambda(["self"], plt.Text("None"))
+        return OLambda(["self"], plt.Text("None"))
 
 
 IntegerInstanceType = InstanceType(IntegerType())
@@ -1951,39 +1931,37 @@ def repeated_addition(zero, add):
     def RepeatedAdd(x: plt.AST, y: plt.AST):
         return plt.Apply(
             plt.RecFun(
-                plt.Lambda(
+                OLambda(
                     ["f", "y", "x", "n"],
                     plt.Ite(
-                        plt.LessThanEqualsInteger(plt.Var("n"), plt.Integer(0)),
-                        plt.Var("y"),
-                        plt.Let(
+                        plt.LessThanEqualsInteger(OVar("n"), plt.Integer(0)),
+                        OVar("y"),
+                        OLet(
                             [
                                 (
                                     "n_half",
-                                    plt.DivideInteger(plt.Var("n"), plt.Integer(2)),
+                                    plt.DivideInteger(OVar("n"), plt.Integer(2)),
                                 )
                             ],
                             plt.Ite(
                                 # tests whether (x//2)*2 == x which is True iff x is even
                                 plt.EqualsInteger(
-                                    plt.AddInteger(
-                                        plt.Var("n_half"), plt.Var("n_half")
-                                    ),
-                                    plt.Var("n"),
+                                    plt.AddInteger(OVar("n_half"), OVar("n_half")),
+                                    OVar("n"),
                                 ),
                                 plt.Apply(
-                                    plt.Var("f"),
-                                    plt.Var("f"),
-                                    plt.Var("y"),
-                                    add(plt.Var("x"), plt.Var("x")),
-                                    plt.Var("n_half"),
+                                    OVar("f"),
+                                    OVar("f"),
+                                    OVar("y"),
+                                    add(OVar("x"), OVar("x")),
+                                    OVar("n_half"),
                                 ),
                                 plt.Apply(
-                                    plt.Var("f"),
-                                    plt.Var("f"),
-                                    add(plt.Var("y"), plt.Var("x")),
-                                    add(plt.Var("x"), plt.Var("x")),
-                                    plt.Var("n_half"),
+                                    OVar("f"),
+                                    OVar("f"),
+                                    add(OVar("y"), OVar("x")),
+                                    add(OVar("x"), OVar("x")),
+                                    OVar("n_half"),
                                 ),
                             ),
                         ),
@@ -2052,64 +2030,64 @@ class IntImpl(PolymorphicFunction):
         arg = args[0]
         assert isinstance(arg, InstanceType), "Can only create ints from instances"
         if isinstance(arg.typ, IntegerType):
-            return plt.Lambda(["x"], plt.Var("x"))
+            return OLambda(["x"], OVar("x"))
         elif isinstance(arg.typ, BoolType):
-            return plt.Lambda(
-                ["x"], plt.IfThenElse(plt.Var("x"), plt.Integer(1), plt.Integer(0))
+            return OLambda(
+                ["x"], plt.IfThenElse(OVar("x"), plt.Integer(1), plt.Integer(0))
             )
         elif isinstance(arg.typ, StringType):
-            return plt.Lambda(
+            return OLambda(
                 ["x"],
-                plt.Let(
+                OLet(
                     [
-                        ("e", plt.EncodeUtf8(plt.Var("x"))),
-                        ("len", plt.LengthOfByteString(plt.Var("e"))),
+                        ("e", plt.EncodeUtf8(OVar("x"))),
+                        ("len", plt.LengthOfByteString(OVar("e"))),
                         (
                             "first_int",
                             plt.Ite(
-                                plt.LessThanInteger(plt.Integer(0), plt.Var("len")),
-                                plt.IndexByteString(plt.Var("e"), plt.Integer(0)),
+                                plt.LessThanInteger(plt.Integer(0), OVar("len")),
+                                plt.IndexByteString(OVar("e"), plt.Integer(0)),
                                 plt.Integer(ord("_")),
                             ),
                         ),
                         (
                             "last_int",
                             plt.IndexByteString(
-                                plt.Var("e"),
-                                plt.SubtractInteger(plt.Var("len"), plt.Integer(1)),
+                                OVar("e"),
+                                plt.SubtractInteger(OVar("len"), plt.Integer(1)),
                             ),
                         ),
                         (
                             "fold_start",
-                            plt.Lambda(
+                            OLambda(
                                 ["start"],
                                 plt.FoldList(
-                                    plt.Range(plt.Var("len"), plt.Var("start")),
-                                    plt.Lambda(
+                                    plt.Range(OVar("len"), OVar("start")),
+                                    OLambda(
                                         ["s", "i"],
-                                        plt.Let(
+                                        OLet(
                                             [
                                                 (
                                                     "b",
                                                     plt.IndexByteString(
-                                                        plt.Var("e"), plt.Var("i")
+                                                        OVar("e"), OVar("i")
                                                     ),
                                                 )
                                             ],
                                             plt.Ite(
                                                 plt.EqualsInteger(
-                                                    plt.Var("b"), plt.Integer(ord("_"))
+                                                    OVar("b"), plt.Integer(ord("_"))
                                                 ),
-                                                plt.Var("s"),
+                                                OVar("s"),
                                                 plt.Ite(
                                                     plt.Or(
                                                         plt.LessThanInteger(
-                                                            plt.Var("b"),
+                                                            OVar("b"),
                                                             plt.Integer(ord("0")),
                                                         ),
                                                         plt.LessThanInteger(
                                                             plt.Integer(ord("9")),
-                                                            plt.Var("b"),
+                                                            OVar("b"),
                                                         ),
                                                     ),
                                                     plt.TraceError(
@@ -2117,11 +2095,11 @@ class IntImpl(PolymorphicFunction):
                                                     ),
                                                     plt.AddInteger(
                                                         plt.SubtractInteger(
-                                                            plt.Var("b"),
+                                                            OVar("b"),
                                                             plt.Integer(ord("0")),
                                                         ),
                                                         plt.MultiplyInteger(
-                                                            plt.Var("s"),
+                                                            OVar("s"),
                                                             plt.Integer(10),
                                                         ),
                                                     ),
@@ -2138,23 +2116,23 @@ class IntImpl(PolymorphicFunction):
                         plt.Or(
                             plt.Or(
                                 plt.EqualsInteger(
-                                    plt.Var("first_int"),
+                                    OVar("first_int"),
                                     plt.Integer(ord("_")),
                                 ),
                                 plt.EqualsInteger(
-                                    plt.Var("last_int"),
+                                    OVar("last_int"),
                                     plt.Integer(ord("_")),
                                 ),
                             ),
                             plt.And(
-                                plt.EqualsInteger(plt.Var("len"), plt.Integer(1)),
+                                plt.EqualsInteger(OVar("len"), plt.Integer(1)),
                                 plt.Or(
                                     plt.EqualsInteger(
-                                        plt.Var("first_int"),
+                                        OVar("first_int"),
                                         plt.Integer(ord("-")),
                                     ),
                                     plt.EqualsInteger(
-                                        plt.Var("first_int"),
+                                        OVar("first_int"),
                                         plt.Integer(ord("+")),
                                     ),
                                 ),
@@ -2165,19 +2143,19 @@ class IntImpl(PolymorphicFunction):
                         ),
                         plt.Ite(
                             plt.EqualsInteger(
-                                plt.Var("first_int"),
+                                OVar("first_int"),
                                 plt.Integer(ord("-")),
                             ),
                             plt.Negate(
-                                plt.Apply(plt.Var("fold_start"), plt.Integer(1)),
+                                plt.Apply(OVar("fold_start"), plt.Integer(1)),
                             ),
                             plt.Ite(
                                 plt.EqualsInteger(
-                                    plt.Var("first_int"),
+                                    OVar("first_int"),
                                     plt.Integer(ord("+")),
                                 ),
-                                plt.Apply(plt.Var("fold_start"), plt.Integer(1)),
-                                plt.Apply(plt.Var("fold_start"), plt.Integer(0)),
+                                plt.Apply(OVar("fold_start"), plt.Integer(1)),
+                                plt.Apply(OVar("fold_start"), plt.Integer(0)),
                             ),
                         ),
                     ),
@@ -2214,27 +2192,25 @@ class BoolImpl(PolymorphicFunction):
         arg = args[0]
         assert isinstance(arg, InstanceType), "Can only create bools from instances"
         if isinstance(arg.typ, BoolType):
-            return plt.Lambda(["x"], plt.Var("x"))
+            return OLambda(["x"], OVar("x"))
         elif isinstance(arg.typ, IntegerType):
-            return plt.Lambda(["x"], plt.NotEqualsInteger(plt.Var("x"), plt.Integer(0)))
+            return OLambda(["x"], plt.NotEqualsInteger(OVar("x"), plt.Integer(0)))
         elif isinstance(arg.typ, StringType):
-            return plt.Lambda(
+            return OLambda(
                 ["x"],
                 plt.NotEqualsInteger(
-                    plt.LengthOfByteString(plt.EncodeUtf8(plt.Var("x"))), plt.Integer(0)
+                    plt.LengthOfByteString(plt.EncodeUtf8(OVar("x"))), plt.Integer(0)
                 ),
             )
         elif isinstance(arg.typ, ByteStringType):
-            return plt.Lambda(
+            return OLambda(
                 ["x"],
-                plt.NotEqualsInteger(
-                    plt.LengthOfByteString(plt.Var("x")), plt.Integer(0)
-                ),
+                plt.NotEqualsInteger(plt.LengthOfByteString(OVar("x")), plt.Integer(0)),
             )
         elif isinstance(arg.typ, ListType) or isinstance(arg.typ, DictType):
-            return plt.Lambda(["x"], plt.Not(plt.NullList(plt.Var("x"))))
+            return OLambda(["x"], plt.Not(plt.NullList(OVar("x"))))
         elif isinstance(arg.typ, UnitType):
-            return plt.Lambda(["x"], plt.Bool(False))
+            return OLambda(["x"], plt.Bool(False))
         else:
             raise NotImplementedError(
                 f"Can not derive bool from type {arg.typ.__name__}"
@@ -2266,24 +2242,22 @@ class BytesImpl(PolymorphicFunction):
         arg = args[0]
         assert isinstance(arg, InstanceType), "Can only create bytes from instances"
         if isinstance(arg.typ, ByteStringType):
-            return plt.Lambda(["x"], plt.Var("x"))
+            return OLambda(["x"], OVar("x"))
         elif isinstance(arg.typ, IntegerType):
-            return plt.Lambda(
+            return OLambda(
                 ["x"],
                 plt.Ite(
-                    plt.LessThanInteger(plt.Var("x"), plt.Integer(0)),
+                    plt.LessThanInteger(OVar("x"), plt.Integer(0)),
                     plt.TraceError("ValueError: negative count"),
-                    ByteStrIntMulImpl(plt.ByteString(b"\x00"), plt.Var("x")),
+                    ByteStrIntMulImpl(plt.ByteString(b"\x00"), OVar("x")),
                 ),
             )
         elif isinstance(arg.typ, ListType):
-            return plt.Lambda(
+            return OLambda(
                 ["xs"],
                 plt.RFoldList(
-                    plt.Var("xs"),
-                    plt.Lambda(
-                        ["a", "x"], plt.ConsByteString(plt.Var("x"), plt.Var("a"))
-                    ),
+                    OVar("xs"),
+                    OLambda(["a", "x"], plt.ConsByteString(OVar("x"), OVar("a"))),
                     plt.ByteString(b""),
                 ),
             )
@@ -2345,7 +2319,7 @@ TransformExtParamsMap = {
     IntegerInstanceType: lambda x: plt.UnIData(x),
     ByteStringInstanceType: lambda x: plt.UnBData(x),
     StringInstanceType: lambda x: plt.DecodeUtf8(plt.UnBData(x)),
-    UnitInstanceType: lambda x: plt.Apply(plt.Lambda(["_"], plt.Unit())),
+    UnitInstanceType: lambda x: plt.Apply(OLambda(["_"], plt.Unit())),
     BoolInstanceType: lambda x: plt.NotEqualsInteger(plt.UnIData(x), plt.Integer(0)),
 }
 
@@ -2360,7 +2334,7 @@ def transform_ext_params_map(p: Type):
         list_int_typ = p.typ.typ
         return lambda x: plt.MapList(
             plt.UnListData(x),
-            plt.Lambda(["x"], transform_ext_params_map(list_int_typ)(plt.Var("x"))),
+            OLambda(["x"], transform_ext_params_map(list_int_typ)(OVar("x"))),
             empty_list(p.typ.typ),
         )
     if isinstance(p.typ, DictType):
@@ -2375,7 +2349,7 @@ TransformOutputMap = {
     IntegerInstanceType: lambda x: plt.IData(x),
     ByteStringInstanceType: lambda x: plt.BData(x),
     UnitInstanceType: lambda x: plt.Apply(
-        plt.Lambda(["_"], plt.ConstrData(plt.Integer(0), plt.EmptyDataList())), x
+        OLambda(["_"], plt.ConstrData(plt.Integer(0), plt.EmptyDataList())), x
     ),
     BoolInstanceType: lambda x: plt.IData(
         plt.IfThenElse(x, plt.Integer(1), plt.Integer(0))
@@ -2398,7 +2372,7 @@ def transform_output_map(p: Type):
         return lambda x: plt.ListData(
             plt.MapList(
                 x,
-                plt.Lambda(["x"], transform_output_map(list_int_typ)(plt.Var("x"))),
+                OLambda(["x"], transform_output_map(list_int_typ)(OVar("x"))),
             ),
         )
     if isinstance(p.typ, DictType):

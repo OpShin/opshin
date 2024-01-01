@@ -182,18 +182,6 @@ def force_params(lmd: plt.Lambda) -> plt.Lambda:
         return make_pattern(force_params(lmd.compose()))
 
 
-def SafeLambda(vars: typing.List[str], term: plt.AST) -> plt.Lambda:
-    if not vars:
-        return plt.Lambda(["0_"], term)
-    return plt.Lambda(vars, term)
-
-
-def SafeApply(term: plt.AST, *vars: typing.List[plt.AST]) -> plt.Apply:
-    if not vars:
-        return plt.Apply(term, plt.Unit())
-    return plt.Apply(term, *vars)
-
-
 class NameWriteCollector(CompilingNodeVisitor):
     step = "Collecting variables that are written"
 
@@ -274,3 +262,39 @@ def all_vars(node):
 def externally_bound_vars(node: FunctionDef):
     """A superset of the variables bound from an outer scope"""
     return sorted(set(read_vars(node)) - (set(written_vars(node)) - {node.name}))
+
+
+def opshin_name_scheme_compatible_varname(n: str):
+    return f"1{n}"
+
+
+def OVar(name: str):
+    return plt.Var(opshin_name_scheme_compatible_varname(name))
+
+
+def OLambda(names: typing.List[str], term: plt.AST):
+    return plt.Lambda([opshin_name_scheme_compatible_varname(x) for x in names], term)
+
+
+def OLet(bindings: typing.List[typing.Tuple[str, plt.AST]], term: plt.AST):
+    return plt.Let(
+        [(opshin_name_scheme_compatible_varname(n), t) for n, t in bindings], term
+    )
+
+
+def SafeLambda(vars: typing.List[str], term: plt.AST) -> plt.Lambda:
+    if not vars:
+        return plt.Lambda(["0_"], term)
+    return plt.Lambda(vars, term)
+
+
+def SafeOLambda(vars: typing.List[str], term: plt.AST) -> plt.Lambda:
+    if not vars:
+        return OLambda(["0_"], term)
+    return OLambda(vars, term)
+
+
+def SafeApply(term: plt.AST, *vars: typing.List[plt.AST]) -> plt.Apply:
+    if not vars:
+        return plt.Apply(term, plt.Unit())
+    return plt.Apply(term, *vars)
