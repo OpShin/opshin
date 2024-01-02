@@ -689,7 +689,7 @@ class PlutoCompiler(CompilingNodeTransformer):
                     plt.IndexAccessList(OVar("l"), OVar("i")),
                 )
             else:
-                return plt.Let(
+                return OLet(
                     [
                         (
                             "xs",
@@ -752,7 +752,7 @@ class PlutoCompiler(CompilingNodeTransformer):
         elif isinstance(node.value.typ.typ, DictType):
             dict_typ = node.value.typ.typ
             if not isinstance(node.slice, Slice):
-                return plt.Let(
+                return OLet(
                     [
                         (
                             "key",
@@ -779,7 +779,7 @@ class PlutoCompiler(CompilingNodeTransformer):
                 )
         elif isinstance(node.value.typ.typ, ByteStringType):
             if not isinstance(node.slice, Slice):
-                return plt.Let(
+                return OLet(
                     [
                         (
                             "bs",
@@ -804,7 +804,7 @@ class PlutoCompiler(CompilingNodeTransformer):
                     plt.IndexByteString(OVar("bs"), OVar("ix")),
                 )
             elif isinstance(node.slice, Slice):
-                return plt.Let(
+                return OLet(
                     [
                         (
                             "bs",
