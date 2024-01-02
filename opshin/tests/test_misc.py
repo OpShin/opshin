@@ -2555,3 +2555,15 @@ def validator(_: None) -> Union[A, B]:
             uplc.PlutusConstr(1, [uplc.PlutusInteger(2), uplc.PlutusInteger(1)]),
             "Invalid return",
         )
+
+    @unittest.expectedFailure
+    def test_return_in_if_missing_return(self):
+        source_code = """
+def validator(_: None) -> str:
+    i = 0
+    if i == 1:
+        return "a"
+    else:
+        pass
+        """
+        builder._compile(source_code)
