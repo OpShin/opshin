@@ -566,14 +566,19 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             self.set_variable_type(node.name, tfd.typ)
             tfd.body = self.visit_sequence(node.body)
             # Check that return type and annotated return type match
-            if not isinstance(node.body[-1], Return):
+            rets_extractor = ReturnExtractor()
+            for b in tfd.body:
+                rets_extractor.visit(b)
+            rets = rets_extractor.returns
+            # Check that return type and annotated return type match
+            if not rets:
                 assert (
                     functyp.rettyp >= NoneInstanceType
-                ), f"Function '{node.orig_name}' has no return statement but is supposed to return not-None value"
+                ), f"Function '{node.name}' has no return statement but is supposed to return not-None value"
             else:
-                assert (
-                    functyp.rettyp >= tfd.body[-1].typ
-                ), f"Function '{node.orig_name}' annotated return type does not match actual return type"
+                assert all(
+                    functyp.rettyp >= r.typ for r in rets
+                ), f"Function '{node.name}' annotated return type does not match actual return type"
 
         self.exit_scope()
         # We need the function type outside for usage
@@ -1017,3 +1022,13 @@ def typed_ast(ast: AST):
 
 def map_to_orig_name(name: str):
     return re.sub(r"_\d+$", "", name)
+
+
+class ReturnExtractor(TypedNodeVisitor):
+    """Utility to find all Return statements in an AST subtree"""
+
+    def __init__(self):
+        self.returns = []
+
+    def visit_Return(self, node: Return) -> None:
+        self.returns.append(node)

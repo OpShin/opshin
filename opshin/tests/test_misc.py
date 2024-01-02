@@ -2474,3 +2474,84 @@ def validator(_: None) -> int:
     return 0
         """
         builder._compile(source_code)
+
+    def test_return_in_loop(self):
+        source_code = """
+def validator(_: None) -> int:
+    i = 0
+    while i < 10:
+        i += 1
+        if i == 5:
+          return i
+    return 0
+        """
+        res = eval_uplc_value(source_code, Unit())
+        self.assertEqual(res, 5, "Invalid return break")
+
+    def test_return_in_for(self):
+        source_code = """
+def validator(_: None) -> int:
+    i = 0
+    for i in range(10):
+        i += 1
+        if i == 5:
+          return i
+    return 0
+        """
+        res = eval_uplc_value(source_code, Unit())
+        self.assertEqual(res, 5, "Invalid return break")
+
+    def test_return_in_if(self):
+        source_code = """
+def validator(_: None) -> int:
+    i = 0
+    if i == 1:
+        return 0
+    else:
+        return 1
+        """
+        res = eval_uplc_value(source_code, Unit())
+        self.assertEqual(res, 1, "Invalid return")
+
+    @unittest.expectedFailure
+    def test_return_in_if_same_type(self):
+        source_code = """
+def validator(_: None) -> str:
+    i = 0
+    if i == 1:
+        return "a"
+    else:
+        return 1
+        """
+        builder._compile(source_code)
+
+    def test_isinstance_cast_if(self):
+        source_code = """
+from dataclasses import dataclass
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
+
+@dataclass()
+class A(PlutusData):
+    CONSTR_ID = 0
+    foo: int
+
+@dataclass()
+class B(PlutusData):
+    CONSTR_ID = 1
+    foobar: int
+    bar: int
+
+def validator(_: None) -> Union[A, B]:
+    x = 0
+    if x == 1:
+        return A(1)
+    else:
+        return B(2, 1)
+"""
+        res = eval_uplc(source_code, Unit())
+        self.assertEqual(
+            res,
+            uplc.PlutusConstr(1, [uplc.PlutusInteger(2), uplc.PlutusInteger(1)]),
+            "Invalid return",
+        )
