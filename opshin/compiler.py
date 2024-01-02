@@ -504,23 +504,21 @@ class PlutoCompiler(CompilingNodeTransformer):
         compiled_s = self.visit_sequence(node.body)
         written_vs = written_vars(node)
         pwritten_vs = [plt.Var(x) for x in written_vs]
-        s_fun = lambda x: OLambda(
-            ["while"],
-            plt.Lambda(
-                written_vs,
-                plt.Ite(
-                    compiled_c,
-                    compiled_s(
-                        plt.Apply(
-                            OVar("while"),
-                            OVar("while"),
-                            *deepcopy(pwritten_vs),
-                        )
-                    ),
-                    x,
+        s_fun = lambda x: plt.Lambda(
+            [opshin_name_scheme_compatible_varname("while")] + written_vs,
+            plt.Ite(
+                compiled_c,
+                compiled_s(
+                    plt.Apply(
+                        OVar("while"),
+                        OVar("while"),
+                        *deepcopy(pwritten_vs),
+                    )
                 ),
+                x,
             ),
         )
+
         return lambda x: OLet(
             [
                 ("adjusted_next", SafeLambda(written_vs, x)),
@@ -547,28 +545,29 @@ class PlutoCompiler(CompilingNodeTransformer):
             compiled_iter = self.visit(node.iter)
             written_vs = written_vars(node)
             pwritten_vs = [plt.Var(x) for x in written_vs]
-            s_fun = lambda x: OLambda(
-                ["for", "iter"],
-                plt.Lambda(
-                    written_vs,
-                    plt.IteNullList(
-                        OVar("iter"),
-                        x,
-                        plt.Let(
-                            [(node.target.id, plt.Delay(plt.HeadList(OVar("iter"))))],
-                            compiled_s(
-                                plt.Apply(
-                                    OVar("for"),
-                                    OVar("for"),
-                                    plt.TailList(OVar("iter")),
-                                    *deepcopy(pwritten_vs),
-                                )
-                            ),
+            s_fun = lambda x: plt.Lambda(
+                [
+                    opshin_name_scheme_compatible_varname("for"),
+                    opshin_name_scheme_compatible_varname("iter"),
+                ]
+                + written_vs,
+                plt.IteNullList(
+                    OVar("iter"),
+                    x,
+                    plt.Let(
+                        [(node.target.id, plt.Delay(plt.HeadList(OVar("iter"))))],
+                        compiled_s(
+                            plt.Apply(
+                                OVar("for"),
+                                OVar("for"),
+                                plt.TailList(OVar("iter")),
+                                *deepcopy(pwritten_vs),
+                            )
                         ),
                     ),
                 ),
             )
-            return lambda x: plt.Let(
+            return lambda x: OLet(
                 [
                     ("adjusted_next", plt.Lambda([node.target.id] + written_vs, x)),
                     (
