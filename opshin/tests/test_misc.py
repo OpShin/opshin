@@ -1436,6 +1436,18 @@ def validator(x: bytes, y: bytes) -> bytes:
         res = eval_uplc_value(source_code, x, y)
         self.assertEqual(res, x + y)
 
+    def test_trace_order(self):
+        # TODO can become a proper test once uplc is upgraded to >=1.0.0
+        source_code = """
+from opshin.std.builtins import *
+def validator() -> None:
+    print("test")
+    print("hi")
+    print("there")
+    return None
+"""
+        eval_uplc(source_code, PlutusData())
+
     @hypothesis.given(st.integers())
     def test_cast_bool_ite(self, x):
         source_code = """

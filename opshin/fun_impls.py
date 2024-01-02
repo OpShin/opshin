@@ -75,12 +75,11 @@ class PrintImpl(PolymorphicFunction):
             isinstance(arg, InstanceType) for arg in args
         ), "Can only stringify instances"
         stringify_ops = [
-            plt.Apply(arg.typ.stringify(), OVar(f"x{i}"), OVar("_"))
-            for i, arg in enumerate(args)
+            plt.Apply(arg.typ.stringify(), OVar(f"x{i}")) for i, arg in enumerate(args)
         ]
         stringify_ops_joined = sum(((x, plt.Text(" ")) for x in stringify_ops), ())[:-1]
-        print = OLambda(
-            [f"x{i}" for i in range(len(args))] + ["_"],
+        print = SafeOLambda(
+            [f"x{i}" for i in range(len(args))],
             plt.Trace(plt.ConcatString(*stringify_ops_joined), plt.NoneData()),
         )
         return print
