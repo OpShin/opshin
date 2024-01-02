@@ -2464,3 +2464,13 @@ def validator(
                 capture_output=True,
             )
             self.assertEqual(code.stdout, code_2.stdout)
+
+    @unittest.expectedFailure
+    def test_return_illegal(self):
+        # this is now an illegal retyping because read variables dont match
+        source_code = """
+return 1
+def validator(_: None) -> int:
+    return 0
+        """
+        builder._compile(source_code)
