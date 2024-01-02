@@ -4,9 +4,7 @@ import sys
 
 import subprocess
 
-import json
 import tempfile
-import xml.etree.ElementTree
 
 import unittest
 
@@ -17,11 +15,10 @@ from hypothesis import given
 from hypothesis import strategies as st
 from parameterized import parameterized
 
-import pluthon
 from uplc import ast as uplc, eval as uplc_eval
 
 from . import PLUTUS_VM_PROFILE
-from .. import compiler, prelude, builder, Purpose, PlutusContract
+from .. import prelude, builder, Purpose, PlutusContract
 from .utils import eval_uplc_value, Unit, eval_uplc
 from ..bridge import wraps_builtin
 
@@ -103,12 +100,49 @@ class MiscTest(unittest.TestCase):
         a=st.integers(min_value=-10, max_value=10),
         b=st.integers(min_value=0, max_value=10),
     )
-    def test_mult_while(self, a: int, b: int):
-        input_file = "examples/mult_while.py"
+    def test_mult_for(self, a: int, b: int):
+        input_file = "examples/mult_for.py"
         with open(input_file) as fp:
             source_code = fp.read()
         ret = eval_uplc_value(source_code, a, b)
         self.assertEqual(ret, a * b)
+
+    @given(
+        a=st.integers(min_value=-10, max_value=10),
+        b=st.integers(min_value=0, max_value=10),
+    )
+    def test_mult_for_return(self, a: int, b: int):
+        source_code = """
+def validator(a: int, b: int) -> int:
+    c = 0
+    i = 0
+    for i in range(b):
+        c += a
+        if i == 1:
+            return c
+    return c
+"""
+        ret = eval_uplc_value(source_code, a, b)
+        self.assertEqual(ret, a * min(b, 2))
+
+    @given(
+        a=st.integers(min_value=-10, max_value=10),
+        b=st.integers(min_value=0, max_value=10),
+    )
+    def test_mult_while_return(self, a: int, b: int):
+        source_code = """
+def validator(a: int, b: int) -> int:
+    c = 0
+    i = 0
+    while i < b:
+        c += a
+        i += 1
+        if i == 2:
+            return c
+    return c
+"""
+        ret = eval_uplc_value(source_code, a, b)
+        self.assertEqual(ret, a * min(2, b))
 
     @given(
         a=st.integers(),
@@ -243,7 +277,23 @@ class MiscTest(unittest.TestCase):
             ),
         )
 
-    def test_recursion(self):
+    def test_recursion_simple(self):
+        source_code = """
+def validator(_: None) -> int:
+    def a(n: int) -> int:
+      if n == 0:
+        res = 0
+      else:
+        res = a(n-1)
+      return res
+    return a(1)
+        """
+        ret = eval_uplc_value(source_code, Unit())
+        self.assertEqual(0, ret)
+
+    @unittest.expectedFailure
+    def test_recursion_illegal(self):
+        # this is now an illegal retyping because read variables dont match
         source_code = """
 def validator(_: None) -> int:
     def a(n: int) -> int:
@@ -259,6 +309,57 @@ def validator(_: None) -> int:
         """
         ret = eval_uplc_value(source_code, Unit())
         self.assertEqual(100, ret)
+
+    def test_recursion_legal(self):
+        source_code = """
+def validator(_: None) -> int:
+    def a(n: int) -> int:
+      if n == 0:
+        res = 0
+      else:
+        res = a(n-1)
+      return res
+    b = a
+    def a(n: int) -> int:
+      a
+      if 1 == n:
+        pass
+      return 100
+    return b(1)
+        """
+        ret = eval_uplc_value(source_code, Unit())
+        self.assertEqual(100, ret)
+
+    @unittest.expectedFailure
+    def test_uninitialized_access(self):
+        source_code = """
+def validator(_: None) -> int:
+    b = 1
+    def a(n: int) -> int:
+      b += 1
+      if b == 2:
+        return 0
+      else:
+        return a(n-1)
+    return a(1)
+        """
+        builder._compile(source_code)
+
+    @unittest.expectedFailure
+    def test_illegal_bind(self):
+        source_code = """
+def validator(_: None) -> int:
+    b = 1
+    def a(n: int) -> int:
+      if n == 0:
+        return 100
+      if b == 2:
+        return 0
+      b = 2
+      return a(n-1)
+    return a(2)
+        """
+        builder._compile(source_code)
 
     @unittest.expectedFailure
     def test_type_reassignment_function_bound(self):
@@ -393,6 +494,45 @@ def validator(_: None) -> int:
         )
         ret = eval_uplc_value(source_code, d)
         self.assertFalse(bool(ret))
+
+    def test_removedeadvar_noissue(self):
+        source_code = """
+from opshin.prelude import *
+def validator(x: Token) -> bool:
+    b = 4
+    a = b
+    return True
+        """
+        ret = eval_uplc_value(source_code, Unit())
+        self.assertEqual(ret, True)
+
+    def test_removedeadvar_noissue2(self):
+        source_code = """
+from opshin.prelude import *
+def validator(x: Token) -> bool:
+    def foo(x: Token) -> bool:
+        b = 4
+        a = b
+        return True
+    return foo(x)
+        """
+        ret = eval_uplc_value(source_code, Unit())
+        self.assertEqual(ret, True)
+
+    def test_removedeadvar_noissue3(self):
+        source_code = """
+from opshin.prelude import *
+
+def foo(x: Token) -> bool:
+    b = 4
+    a = b
+    return True
+
+def validator(x: Token) -> bool:
+    return foo(x)
+        """
+        ret = eval_uplc_value(source_code, Unit())
+        self.assertEqual(ret, True)
 
     @unittest.expectedFailure
     def test_overopt_removedeadvar(self):
@@ -1147,12 +1287,32 @@ def validator(_: None) -> int:
         code_src = code.dumps()
         self.assertIn(f"(con integer {2**10})", code_src)
 
-    def test_constant_folding_ignore_reassignment(self):
+    def test_reassign_builtin(self):
         source_code = """
-from opshin.prelude import *
+b = int
+def validator(_: None) -> int:
+    def int(a) -> b:
+        return 2
+    return int(5)
+"""
+        res = eval_uplc_value(source_code, Unit())
+        self.assertEqual(res, 2)
 
+    @unittest.expectedFailure
+    def test_reassign_builtin_invalid_type(self):
+        source_code = """
 def validator(_: None) -> int:
     def int(a) -> int:
+        return 2
+    return int(5)
+"""
+        builder._compile(source_code)
+
+    def test_constant_folding_ignore_reassignment(self):
+        source_code = """
+b = int
+def validator(_: None) -> int:
+    def int(a) -> b:
         return 2
     return int(5)
 """
@@ -1292,6 +1452,33 @@ def validator(x: bytes, y: bytes) -> bytes:
 """
         res = eval_uplc_value(source_code, x, y)
         self.assertEqual(res, x + y)
+
+    def test_trace_order(self):
+        # TODO can become a proper test once uplc is upgraded to >=1.0.0
+        source_code = """
+from opshin.std.builtins import *
+def validator() -> None:
+    print("test")
+    print("hi")
+    print("there")
+    return None
+"""
+        eval_uplc(source_code, PlutusData())
+
+    def test_print_empty(self):
+        # TODO can become a proper test once uplc is upgraded to >=1.0.0
+        source_code = """
+from opshin.std.builtins import *
+def validator() -> None:
+    print()
+    print()
+    print()
+    print()
+    print()
+    print()
+    return None
+"""
+        eval_uplc(source_code, PlutusData())
 
     @hypothesis.given(st.integers())
     def test_cast_bool_ite(self, x):
@@ -2134,6 +2321,8 @@ def validator(
 """
         eval_uplc(source_code, bytearray(b"hello"))
 
+    # TODO enable when pycardano version is fixed s.t. import of ByteString works
+    @unittest.expectedFailure
     def test_ByteString_alternative(self):
         source_code = """
 def validator(

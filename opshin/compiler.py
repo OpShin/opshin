@@ -1,5 +1,4 @@
-import logging
-from pycardano import PlutusData
+import copy
 
 from uplc.ast import data_from_cbor
 from .optimize.optimize_const_folding import OptimizeConstantFolding
@@ -24,7 +23,6 @@ from .rewrite.rewrite_subscript38 import RewriteSubscript38
 from .rewrite.rewrite_tuple_assign import RewriteTupleAssign
 from .optimize.optimize_remove_pass import OptimizeRemovePass
 from .optimize.optimize_remove_deadvars import OptimizeRemoveDeadvars
-from .optimize.optimize_varlen import OptimizeVarlen
 from .type_inference import *
 from .util import (
     CompilingNodeTransformer,
@@ -34,14 +32,9 @@ from .typed_ast import (
     transform_ext_params_map,
     transform_output_map,
     RawPlutoExpr,
-    PowImpl,
-    ByteStrIntMulImpl,
-    StrIntMulImpl,
 )
 
 _LOGGER = logging.getLogger(__name__)
-
-STATEMONAD = "s"
 
 
 BoolOpMap = {
@@ -114,15 +107,15 @@ def wrap_validator_double_function(x: plt.AST, pass_through: int = 0):
 
     pass_through defines how many parameters x would normally take and should be passed through to x
     """
-    return plt.Lambda(
+    return OLambda(
         [f"v{i}" for i in range(pass_through)] + ["a0", "a1"],
-        plt.Let(
-            [("p", plt.Apply(x, *(plt.Var(f"v{i}") for i in range(pass_through))))],
+        OLet(
+            [("p", plt.Apply(x, *(OVar(f"v{i}") for i in range(pass_through))))],
             plt.Ite(
                 # if the second argument has constructor 0 = script context
                 plt.DelayedChooseData(
-                    plt.Var("a1"),
-                    plt.EqualsInteger(plt.Constructor(plt.Var("a1")), plt.Integer(0)),
+                    OVar("a1"),
+                    plt.EqualsInteger(plt.Constructor(OVar("a1")), plt.Integer(0)),
                     plt.Bool(False),
                     plt.Bool(False),
                     plt.Bool(False),
@@ -130,38 +123,40 @@ def wrap_validator_double_function(x: plt.AST, pass_through: int = 0):
                 ),
                 # call the validator with a0, a1, and plug in "Nothing" for data
                 plt.Apply(
-                    plt.Var("p"),
+                    OVar("p"),
                     plt.UPLCConstant(uplc.PlutusConstr(6, [])),
-                    plt.Var("a0"),
-                    plt.Var("a1"),
+                    OVar("a0"),
+                    OVar("a1"),
                 ),
                 # else call the validator with a0, a1 and return (now partially bound)
-                plt.Apply(plt.Var("p"), plt.Var("a0"), plt.Var("a1")),
+                plt.Apply(OVar("p"), OVar("a0"), OVar("a1")),
             ),
         ),
     )
 
 
-def extend_statemonad(
-    names: typing.List[str],
-    values: typing.List[plt.AST],
-    old_statemonad: plt.FunctionalMap,
-):
-    """Ensures that the argument is fully evaluated before being passed into the monad (like in imperative languages)"""
-    assert len(names) == len(values), "Unequal amount of names and values passed in"
-    lam_names = [f"a{i}" for i, _ in enumerate(names)]
-    return plt.Apply(
-        plt.Lambda(
-            lam_names,
-            plt.FunctionalMapExtend(
-                old_statemonad, names, [plt.Var(n) for n in lam_names]
-            ),
-        ),
-        *values,
-    )
+CallAST = typing.Callable[[plt.AST], plt.AST]
 
 
-INITIAL_STATE = plt.FunctionalMap()
+class FunctionBoundVarsCollector(NodeVisitor):
+    def __init__(self):
+        self.functions_bound_vars: typing.Dict[
+            FunctionType, typing.List[str]
+        ] = defaultdict(list)
+
+    def visit_FunctionDef(self, node: FunctionDef) -> None:
+        self.functions_bound_vars[node.typ.typ] = sorted(
+            set(self.functions_bound_vars[node.typ.typ] + externally_bound_vars(node))
+        )
+        self.generic_visit(node)
+
+
+def extract_function_bound_vars(
+    node: AST,
+) -> typing.Dict[FunctionType, typing.List[str]]:
+    e = FunctionBoundVarsCollector()
+    e.visit(node)
+    return e.functions_bound_vars
 
 
 class PlutoCompiler(CompilingNodeTransformer):
@@ -172,41 +167,42 @@ class PlutoCompiler(CompilingNodeTransformer):
     step = "Compiling python statements to UPLC"
 
     def __init__(self, force_three_params=False, validator_function_name="validator"):
+        # parameters
         self.force_three_params = force_three_params
         self.validator_function_name = validator_function_name
+        # marked knowledge during compilation
+        self.current_function_typ: typing.List[FunctionType] = []
+        self.function_bound_vars: typing.Dict[
+            FunctionType, typing.List[str]
+        ] = defaultdict(list)
 
-    def visit_sequence(self, node_seq: typing.List[typedstmt]) -> plt.AST:
-        s = plt.Var(STATEMONAD)
-        for n in node_seq:
-            compiled_stmt = self.visit(n)
-            s = plt.Apply(compiled_stmt, s)
-        return plt.Lambda([STATEMONAD], s)
+    def visit_sequence(self, node_seq: typing.List[typedstmt]) -> CallAST:
+        def g(s: plt.AST):
+            for n in reversed(node_seq):
+                compiled_stmt = self.visit(n)
+                s = compiled_stmt(s)
+            return s
+
+        return g
 
     def visit_BinOp(self, node: TypedBinOp) -> plt.AST:
         op = node.left.typ.binop(node.op, node.right)
-        return plt.Lambda(
-            [STATEMONAD],
-            plt.Apply(
-                op,
-                plt.Apply(self.visit(node.left), plt.Var(STATEMONAD)),
-                plt.Apply(self.visit(node.right), plt.Var(STATEMONAD)),
-                plt.Var(STATEMONAD),
-            ),
+        return plt.Apply(
+            op,
+            self.visit(node.left),
+            self.visit(node.right),
         )
 
     def visit_BoolOp(self, node: TypedBoolOp) -> plt.AST:
         op = BoolOpMap.get(type(node.op))
         assert len(node.values) >= 2, "Need to compare at least to values"
         ops = op(
-            plt.Apply(self.visit(node.values[0]), plt.Var(STATEMONAD)),
-            plt.Apply(self.visit(node.values[1]), plt.Var(STATEMONAD)),
+            self.visit(node.values[0]),
+            self.visit(node.values[1]),
         )
         for v in node.values[2:]:
-            ops = op(ops, plt.Apply(self.visit(v), plt.Var(STATEMONAD)))
-        return plt.Lambda(
-            [STATEMONAD],
-            ops,
-        )
+            ops = op(ops, self.visit(v))
+        return ops
 
     def visit_UnaryOp(self, node: TypedUnaryOp) -> plt.AST:
         opmap = UnaryOpMap.get(type(node.op))
@@ -215,10 +211,7 @@ class PlutoCompiler(CompilingNodeTransformer):
         assert (
             op is not None
         ), f"Operator {type(node.op)} is not supported for type {node.operand.typ}"
-        return plt.Lambda(
-            [STATEMONAD],
-            op(plt.Apply(self.visit(node.operand), plt.Var(STATEMONAD))),
-        )
+        return op(self.visit(node.operand))
 
     def visit_Compare(self, node: TypedCompare) -> plt.AST:
         assert len(node.ops) == 1, "Only single comparisons are supported"
@@ -226,21 +219,16 @@ class PlutoCompiler(CompilingNodeTransformer):
         cmpop = node.ops[0]
         comparator = node.comparators[0].typ
         op = node.left.typ.cmp(cmpop, comparator)
-        return plt.Lambda(
-            [STATEMONAD],
-            plt.Apply(
-                op,
-                plt.Apply(self.visit(node.left), plt.Var(STATEMONAD)),
-                plt.Apply(self.visit(node.comparators[0]), plt.Var(STATEMONAD)),
-            ),
+        return plt.Apply(
+            op,
+            self.visit(node.left),
+            self.visit(node.comparators[0]),
         )
 
     def visit_Module(self, node: TypedModule) -> plt.AST:
-        compiled_body = plt.Apply(self.visit_sequence(node.body), INITIAL_STATE)
-        if self.validator_function_name is None:
-            # for libraries, just return the body (a statemonad)
-            validator = compiled_body
-        else:
+        # extract actually read variables by each function
+        self.function_bound_vars = extract_function_bound_vars(node)
+        if self.validator_function_name is not None:
             # for validators find main function
             # TODO can use more sophisiticated procedure here i.e. functions marked by comment
             main_fun: typing.Optional[InstanceType] = None
@@ -284,37 +272,52 @@ class PlutoCompiler(CompilingNodeTransformer):
                         "The second argument to the validator function potentially has constructor id 0. The validator will not be able to double function as minting script and spending script."
                     )
 
-            validator = plt.Lambda(
-                [f"p{i}" for i, _ in enumerate(main_fun_typ.argtyps)] or ["_"],
-                transform_output_map(main_fun_typ.rettyp)(
-                    plt.Let(
-                        [
-                            (
-                                "s",
-                                compiled_body,
+            body = node.body + (
+                [
+                    TypedReturn(
+                        TypedCall(
+                            func=Name(
+                                id=main_fun.name,
+                                typ=InstanceType(main_fun_typ),
+                                ctx=Load(),
                             ),
-                            (
-                                "g",
-                                plt.FunctionalMapAccess(
-                                    plt.Var("s"),
-                                    plt.ByteString(main_fun.name),
-                                    plt.TraceError(
-                                        f"NameError: {self.validator_function_name}"
+                            typ=main_fun_typ.rettyp,
+                            args=[
+                                RawPlutoExpr(
+                                    expr=transform_ext_params_map(a)(
+                                        OVar(f"val_param{i}")
                                     ),
-                                ),
-                            ),
-                        ],
-                        plt.Apply(
-                            plt.Var("g"),
-                            *[
-                                transform_ext_params_map(a)(plt.Var(f"p{i}"))
+                                    typ=a,
+                                )
                                 for i, a in enumerate(main_fun_typ.argtyps)
                             ],
-                            plt.Var("s"),
-                        ),
+                        )
+                    )
+                ]
+            )
+            self.current_function_typ.append(FunctionType([], InstanceType(AnyType())))
+            all_vs = sorted(set(all_vars(node)))
+
+            # write all variables that are ever read
+            # once at the beginning so that we can always access them (only potentially causing a nameerror at runtime)
+            validator = SafeOLambda(
+                [f"val_param{i}" for i, _ in enumerate(main_fun_typ.argtyps)],
+                plt.Let(
+                    [
+                        (
+                            x,
+                            plt.Delay(
+                                plt.TraceError(f"NameError: {map_to_orig_name(x)}")
+                            ),
+                        )
+                        for x in all_vs
+                    ],
+                    self.visit_sequence(body)(
+                        plt.ConstrData(plt.Integer(0), plt.EmptyDataList())
                     ),
                 ),
             )
+            self.current_function_typ.pop()
             if enable_double_func_mint_spend:
                 validator = wrap_validator_double_function(
                     validator, pass_through=len(main_fun_typ.argtyps) - 3
@@ -324,6 +327,25 @@ class PlutoCompiler(CompilingNodeTransformer):
                 raise RuntimeError(
                     "The contract can not always detect if it was passed three or two parameters on-chain."
                 )
+        else:
+            all_vs = sorted(set(all_vars(node)))
+
+            body = node.body
+            # write all variables that are ever read
+            # once at the beginning so that we can always access them (only potentially causing a nameerror at runtime)
+            validator = plt.Let(
+                [
+                    (
+                        x,
+                        plt.Delay(plt.TraceError(f"NameError: {map_to_orig_name(x)}")),
+                    )
+                    for x in all_vs
+                ],
+                self.visit_sequence(body)(
+                    plt.ConstrData(plt.Integer(0), plt.EmptyDataList())
+                ),
+            )
+
         cp = plt.Program((1, 0, 0), validator)
         return cp
 
@@ -338,12 +360,12 @@ class PlutoCompiler(CompilingNodeTransformer):
                     f"The string {node.value} looks like it is supposed to be a hex-encoded bytestring but is actually utf8-encoded. Try using `bytes.fromhex('{node.value.decode()}')` instead."
                 )
         plt_val = plt.UPLCConstant(rec_constant_map(node.value))
-        return plt.Lambda([STATEMONAD], plt_val)
+        return plt_val
 
     def visit_NoneType(self, _: typing.Optional[typing.Any]) -> plt.AST:
-        return plt.Lambda([STATEMONAD], plt.Unit())
+        return plt.Unit()
 
-    def visit_Assign(self, node: TypedAssign) -> plt.AST:
+    def visit_Assign(self, node: TypedAssign) -> CallAST:
         assert (
             len(node.targets) == 1
         ), "Assignments to more than one variable not supported yet"
@@ -351,27 +373,24 @@ class PlutoCompiler(CompilingNodeTransformer):
             node.targets[0], Name
         ), "Assignments to other things then names are not supported"
         compiled_e = self.visit(node.value)
-        # (\{STATEMONAD} -> (\x -> if (x ==b {self.visit(node.targets[0])}) then ({compiled_e} {STATEMONAD}) else ({STATEMONAD} x)))
         varname = node.targets[0].id
-        return plt.Lambda(
-            [STATEMONAD],
-            extend_statemonad(
-                [varname],
-                [plt.Apply(compiled_e, plt.Var(STATEMONAD))],
-                plt.Var(STATEMONAD),
-            ),
+        # first evaluate the term, then wrap in a delay
+        return lambda x: plt.Let(
+            [
+                (opshin_name_scheme_compatible_varname(varname), compiled_e),
+                (varname, plt.Delay(OVar(varname))),
+            ],
+            x,
         )
 
-    def visit_AnnAssign(self, node: AnnAssign) -> plt.AST:
+    def visit_AnnAssign(self, node: AnnAssign) -> CallAST:
         assert isinstance(
             node.target, Name
         ), "Assignments to other things then names are not supported"
         assert isinstance(
             node.target.typ, InstanceType
         ), "Can only assign instances to instances"
-        compiled_e = self.visit(node.value)
-        # (\{STATEMONAD} -> (\x -> if (x ==b {self.visit(node.targets[0])}) then ({compiled_e} {STATEMONAD}) else ({STATEMONAD} x)))
-        val = plt.Apply(compiled_e, plt.Var(STATEMONAD))
+        val = self.visit(node.value)
         if isinstance(node.value.typ, InstanceType) and isinstance(
             node.value.typ.typ, AnyType
         ):
@@ -384,13 +403,12 @@ class PlutoCompiler(CompilingNodeTransformer):
             # we need to map this back as it will be treated as PlutusData
             # AnyType is the only type other than the builtin itself that can be cast to from builtin values
             val = transform_output_map(node.value.typ)(val)
-        return plt.Lambda(
-            [STATEMONAD],
-            extend_statemonad(
-                [node.target.id],
-                [val],
-                plt.Var(STATEMONAD),
-            ),
+        return lambda x: plt.Let(
+            [
+                (opshin_name_scheme_compatible_varname(node.target.id), val),
+                (node.target.id, plt.Delay(OVar(node.target.id))),
+            ],
+            x,
         )
 
     def visit_Name(self, node: TypedName) -> plt.AST:
@@ -399,30 +417,15 @@ class PlutoCompiler(CompilingNodeTransformer):
             raise NotImplementedError(f"Context {node.ctx} not supported")
         if isinstance(node.typ, ClassType):
             # if this is not an instance but a class, call the constructor
-            return plt.Lambda(
-                [STATEMONAD],
-                node.typ.constr(),
-            )
-        return plt.Lambda(
-            [STATEMONAD],
-            plt.FunctionalMapAccess(
-                plt.Var(STATEMONAD),
-                plt.ByteString(node.id),
-                plt.TraceError(f"NameError: {node.orig_id}"),
-            ),
-        )
+            return node.typ.constr()
+        return plt.Force(plt.Var(node.id))
 
-    def visit_Expr(self, node: TypedExpr) -> plt.AST:
+    def visit_Expr(self, node: TypedExpr) -> CallAST:
         # we exploit UPLCs eager evaluation here
         # the expression is computed even though its value is eventually discarded
         # Note this really only makes sense for Trace
-        return plt.Lambda(
-            [STATEMONAD],
-            plt.Apply(
-                plt.Lambda(["_"], plt.Var(STATEMONAD)),
-                plt.Apply(self.visit(node.value), plt.Var(STATEMONAD)),
-            ),
-        )
+        # we use an invalid name here to avoid conflicts
+        return lambda x: plt.Apply(OLambda(["0"], x), self.visit(node.value))
 
     def visit_Call(self, node: TypedCall) -> plt.AST:
         # compiled_args = " ".join(f"({self.visit(a)} {STATEMONAD})" for a in node.args)
@@ -430,106 +433,104 @@ class PlutoCompiler(CompilingNodeTransformer):
         # TODO function is actually not of type polymorphic function type here anymore
         if isinstance(node.func.typ, PolymorphicFunctionInstanceType):
             # edge case for weird builtins that are polymorphic
-            func_plt = node.func.typ.polymorphic_function.impl_from_args(
-                node.func.typ.typ.argtyps
+            func_plt = force_params(
+                node.func.typ.polymorphic_function.impl_from_args(
+                    node.func.typ.typ.argtyps
+                )
             )
         else:
-            func_plt = plt.Apply(self.visit(node.func), plt.Var(STATEMONAD))
+            assert isinstance(node.func.typ, InstanceType) and isinstance(
+                node.func.typ.typ, FunctionType
+            )
+            func_plt = self.visit(node.func)
+        bound_vs = self.function_bound_vars[node.func.typ.typ]
         args = []
         for a, t in zip(node.args, node.func.typ.typ.argtyps):
             assert isinstance(t, InstanceType)
             # pass in all arguments evaluated with the statemonad
-            a_int = plt.Apply(self.visit(a), plt.Var(STATEMONAD))
+            a_int = self.visit(a)
             if isinstance(t.typ, AnyType):
                 # if the function expects input of generic type data, wrap data before passing it inside
                 a_int = transform_output_map(a.typ)(a_int)
             args.append(a_int)
-        return plt.Lambda(
-            [STATEMONAD],
-            plt.Apply(
+        # First assign to let to ensure that the arguments are evaluated before the call, but need to delay
+        # as this is a variable assignment
+        # Also bring all states of variables read inside the function into scope / update with value in current state
+        # before call to simulate statemonad with current state being passed in
+        return OLet(
+            [(f"p{i}", a) for i, a in enumerate(args)],
+            SafeApply(
                 func_plt,
-                *args,
-                # eventually pass in the state monad as well
-                plt.Var(STATEMONAD),
+                *[plt.Var(n) for n in bound_vs],
+                *[plt.Delay(OVar(f"p{i}")) for i in range(len(args))],
             ),
         )
 
-    def visit_FunctionDef(self, node: TypedFunctionDef) -> plt.AST:
+    def visit_FunctionDef(self, node: TypedFunctionDef) -> CallAST:
         body = node.body.copy()
-        if not body or not isinstance(body[-1], Return):
-            tr = Return(TypedConstant(None, typ=NoneInstanceType))
-            tr.typ = NoneInstanceType
-            body.append(tr)
-        compiled_body = self.visit_sequence(body[:-1])
-        args_state = (
-            extend_statemonad(
-                # the function can see its argument under the argument names
-                [a.arg for a in node.args.args],
-                [plt.Var(f"p{i}") for i in range(len(node.args.args))],
-                plt.Var(STATEMONAD),
-            )
-            if node.args.args
-            else plt.Var(STATEMONAD)
-        )
-        compiled_return = plt.Apply(
-            self.visit(body[-1].value),
-            plt.Apply(
-                compiled_body,
-                args_state,
-            ),
-        )
-        if isinstance(node.typ.typ.rettyp.typ, AnyType):
-            # if the function returns generic data, wrap the function return value
-            compiled_return = transform_output_map(body[-1].value.typ)(compiled_return)
-        return plt.Lambda(
-            [STATEMONAD],
-            extend_statemonad(
-                [node.name],
-                [
-                    plt.Lambda(
-                        # expect the statemonad again -> this is the basis for internally available values
-                        [f"p{i}" for i in range(len(node.args.args))] + [STATEMONAD],
-                        compiled_return,
-                    )
-                ],
-                plt.Var(STATEMONAD),
-            ),
+        # defaults to returning None if there is no return statement
+        if node.typ.typ.rettyp.typ == AnyType():
+            ret_val = plt.ConstrData(plt.Integer(0), plt.EmptyDataList())
+        else:
+            ret_val = plt.Unit()
+        read_vs = self.function_bound_vars[node.typ.typ]
+        self.current_function_typ.append(node.typ.typ)
+        compiled_body = self.visit_sequence(body)(ret_val)
+        self.current_function_typ.pop()
+        return lambda x: plt.Let(
+            [
+                (
+                    node.name,
+                    plt.Delay(
+                        SafeLambda(
+                            read_vs + [a.arg for a in node.args.args],
+                            compiled_body,
+                        )
+                    ),
+                )
+            ],
+            x,
         )
 
-    def visit_While(self, node: TypedWhile) -> plt.AST:
-        compiled_c = self.visit(node.test)
-        compiled_s = self.visit_sequence(node.body)
+    def visit_While(self, node: TypedWhile) -> CallAST:
+        # the while loop calls itself, updating the values at overwritten names
+        # by overwriting them with arguments to its self-recall
         if node.orelse:
             # If there is orelse, transform it to an appended sequence (TODO check if this is correct)
             cn = copy(node)
             cn.orelse = []
             return self.visit_sequence([cn] + node.orelse)
-        # return rf"(\{STATEMONAD} -> let g = (\s f -> if ({compiled_c} s) then f ({compiled_s} s) f else s) in (g {STATEMONAD} g))"
-        return plt.Lambda(
-            [STATEMONAD],
-            plt.Let(
-                bindings=[
-                    (
-                        "g",
-                        plt.Lambda(
-                            ["s", "f"],
-                            plt.Ite(
-                                plt.Apply(compiled_c, plt.Var("s")),
-                                plt.Apply(
-                                    plt.Var("f"),
-                                    plt.Apply(compiled_s, plt.Var("s")),
-                                    plt.Var("f"),
-                                ),
-                                plt.Var("s"),
-                            ),
-                        ),
-                    ),
-                ],
-                term=plt.Apply(plt.Var("g"), plt.Var(STATEMONAD), plt.Var("g")),
+        compiled_c = self.visit(node.test)
+        compiled_s = self.visit_sequence(node.body)
+        written_vs = written_vars(node)
+        pwritten_vs = [plt.Var(x) for x in written_vs]
+        s_fun = lambda x: plt.Lambda(
+            [opshin_name_scheme_compatible_varname("while")] + written_vs,
+            plt.Ite(
+                compiled_c,
+                compiled_s(
+                    plt.Apply(
+                        OVar("while"),
+                        OVar("while"),
+                        *deepcopy(pwritten_vs),
+                    )
+                ),
+                x,
             ),
         )
 
-    def visit_For(self, node: TypedFor) -> plt.AST:
+        return lambda x: OLet(
+            [
+                ("adjusted_next", SafeLambda(written_vs, x)),
+                (
+                    "while",
+                    s_fun(SafeApply(OVar("adjusted_next"), *deepcopy(pwritten_vs))),
+                ),
+            ],
+            plt.Apply(OVar("while"), OVar("while"), *deepcopy(pwritten_vs)),
+        )
+
+    def visit_For(self, node: TypedFor) -> CallAST:
         if node.orelse:
             # If there is orelse, transform it to an appended sequence (TODO check if this is correct)
             cn = copy(node)
@@ -540,44 +541,81 @@ class PlutoCompiler(CompilingNodeTransformer):
             assert isinstance(
                 node.target, Name
             ), "Can only assign value to singleton element"
-            return plt.Lambda(
-                [STATEMONAD],
-                plt.FoldList(
-                    plt.Apply(self.visit(node.iter), plt.Var(STATEMONAD)),
-                    plt.Lambda(
-                        [STATEMONAD, "e"],
-                        plt.Apply(
-                            self.visit_sequence(node.body),
-                            extend_statemonad(
-                                [node.target.id],
-                                [plt.Var("e")],
-                                plt.Var(STATEMONAD),
-                            ),
+            compiled_s = self.visit_sequence(node.body)
+            compiled_iter = self.visit(node.iter)
+            written_vs = written_vars(node)
+            pwritten_vs = [plt.Var(x) for x in written_vs]
+            s_fun = lambda x: plt.Lambda(
+                [
+                    opshin_name_scheme_compatible_varname("for"),
+                    opshin_name_scheme_compatible_varname("iter"),
+                ]
+                + written_vs,
+                plt.IteNullList(
+                    OVar("iter"),
+                    x,
+                    plt.Let(
+                        [(node.target.id, plt.Delay(plt.HeadList(OVar("iter"))))],
+                        compiled_s(
+                            plt.Apply(
+                                OVar("for"),
+                                OVar("for"),
+                                plt.TailList(OVar("iter")),
+                                *deepcopy(pwritten_vs),
+                            )
                         ),
                     ),
-                    plt.Var(STATEMONAD),
+                ),
+            )
+            return lambda x: OLet(
+                [
+                    ("adjusted_next", plt.Lambda([node.target.id] + written_vs, x)),
+                    (
+                        "for",
+                        s_fun(
+                            plt.Apply(
+                                OVar("adjusted_next"),
+                                plt.Var(node.target.id),
+                                *deepcopy(pwritten_vs),
+                            )
+                        ),
+                    ),
+                ],
+                plt.Apply(
+                    OVar("for"),
+                    OVar("for"),
+                    compiled_iter,
+                    *deepcopy(pwritten_vs),
                 ),
             )
         raise NotImplementedError(
             "Compilation of for statements for anything but lists not implemented yet"
         )
 
-    def visit_If(self, node: TypedIf) -> plt.AST:
-        return plt.Lambda(
-            [STATEMONAD],
+    def visit_If(self, node: TypedIf) -> CallAST:
+        written_vs = written_vars(node)
+        pwritten_vs = [plt.Var(x) for x in written_vs]
+        return lambda x: OLet(
+            [("adjusted_next", SafeLambda(written_vs, x))],
             plt.Ite(
-                plt.Apply(self.visit(node.test), plt.Var(STATEMONAD)),
-                plt.Apply(self.visit_sequence(node.body), plt.Var(STATEMONAD)),
-                plt.Apply(self.visit_sequence(node.orelse), plt.Var(STATEMONAD)),
+                self.visit(node.test),
+                self.visit_sequence(node.body)(
+                    SafeApply(OVar("adjusted_next"), *deepcopy(pwritten_vs))
+                ),
+                self.visit_sequence(node.orelse)(
+                    SafeApply(OVar("adjusted_next"), *deepcopy(pwritten_vs))
+                ),
             ),
         )
 
-    def visit_Return(self, node: TypedReturn) -> plt.AST:
-        raise NotImplementedError(
-            "Compilation of return statements except for last statement in function is not supported."
-        )
+    def visit_Return(self, node: TypedReturn) -> CallAST:
+        value_plt = self.visit(node.value)
+        assert self.current_function_typ, "Can not handle Return outside of a function"
+        if isinstance(self.current_function_typ[-1].rettyp.typ, AnyType):
+            value_plt = transform_output_map(node.value.typ)(value_plt)
+        return lambda _: value_plt
 
-    def visit_Pass(self, node: TypedPass) -> plt.AST:
+    def visit_Pass(self, node: TypedPass) -> CallAST:
         return self.visit_sequence([])
 
     def visit_Subscript(self, node: TypedSubscript) -> plt.AST:
@@ -595,13 +633,10 @@ class PlutoCompiler(CompilingNodeTransformer):
             if index < 0:
                 index += len(node.value.typ.typ.typs)
             assert isinstance(node.ctx, Load), "Tuples are read-only"
-            return plt.Lambda(
-                [STATEMONAD],
-                plt.FunctionalTupleAccess(
-                    plt.Apply(self.visit(node.value), plt.Var(STATEMONAD)),
-                    index,
-                    len(node.value.typ.typ.typs),
-                ),
+            return plt.FunctionalTupleAccess(
+                self.visit(node.value),
+                index,
+                len(node.value.typ.typ.typs),
             )
         if isinstance(node.value.typ.typ, PairType):
             assert isinstance(
@@ -620,12 +655,9 @@ class PlutoCompiler(CompilingNodeTransformer):
             member_func = plt.FstPair if index == 0 else plt.SndPair
             # the content of pairs is always Data, so we need to unwrap
             member_typ = node.typ
-            return plt.Lambda(
-                [STATEMONAD],
-                transform_ext_params_map(member_typ)(
-                    member_func(
-                        plt.Apply(self.visit(node.value), plt.Var(STATEMONAD)),
-                    ),
+            return transform_ext_params_map(member_typ)(
+                member_func(
+                    self.visit(node.value),
                 ),
             )
         if isinstance(node.value.typ.typ, ListType):
@@ -633,242 +665,201 @@ class PlutoCompiler(CompilingNodeTransformer):
                 assert (
                     node.slice.typ == IntegerInstanceType
                 ), "Only single element list index access supported"
-                return plt.Lambda(
-                    [STATEMONAD],
-                    plt.Let(
-                        [
-                            (
-                                "l",
-                                plt.Apply(self.visit(node.value), plt.Var(STATEMONAD)),
-                            ),
-                            (
-                                "raw_i",
-                                plt.Apply(self.visit(node.slice), plt.Var(STATEMONAD)),
-                            ),
-                            (
-                                "i",
-                                plt.Ite(
-                                    plt.LessThanInteger(
-                                        plt.Var("raw_i"), plt.Integer(0)
-                                    ),
-                                    plt.AddInteger(
-                                        plt.Var("raw_i"), plt.LengthList(plt.Var("l"))
-                                    ),
-                                    plt.Var("raw_i"),
+                return OLet(
+                    [
+                        (
+                            "l",
+                            self.visit(node.value),
+                        ),
+                        (
+                            "raw_i",
+                            self.visit(node.slice),
+                        ),
+                        (
+                            "i",
+                            plt.Ite(
+                                plt.LessThanInteger(OVar("raw_i"), plt.Integer(0)),
+                                plt.AddInteger(
+                                    OVar("raw_i"), plt.LengthList(OVar("l"))
                                 ),
+                                OVar("raw_i"),
                             ),
-                        ],
-                        plt.IndexAccessList(plt.Var("l"), plt.Var("i")),
-                    ),
+                        ),
+                    ],
+                    plt.IndexAccessList(OVar("l"), OVar("i")),
                 )
             else:
-                return plt.Lambda(
-                    [STATEMONAD],
-                    plt.Let(
-                        [
-                            (
-                                "xs",
-                                plt.Apply(self.visit(node.value), plt.Var(STATEMONAD)),
-                            ),
-                            (
-                                "raw_i",
-                                plt.Apply(
-                                    self.visit(node.slice.lower), plt.Var(STATEMONAD)
+                return OLet(
+                    [
+                        (
+                            "xs",
+                            self.visit(node.value),
+                        ),
+                        (
+                            "raw_i",
+                            self.visit(node.slice.lower),
+                        ),
+                        (
+                            "i",
+                            plt.Ite(
+                                plt.LessThanInteger(OVar("raw_i"), plt.Integer(0)),
+                                plt.AddInteger(
+                                    OVar("raw_i"),
+                                    plt.LengthList(OVar("xs")),
                                 ),
+                                OVar("raw_i"),
                             ),
-                            (
-                                "i",
-                                plt.Ite(
-                                    plt.LessThanInteger(
-                                        plt.Var("raw_i"), plt.Integer(0)
-                                    ),
-                                    plt.AddInteger(
-                                        plt.Var("raw_i"),
-                                        plt.LengthList(plt.Var("xs")),
-                                    ),
-                                    plt.Var("raw_i"),
+                        ),
+                        (
+                            "raw_j",
+                            self.visit(node.slice.upper),
+                        ),
+                        (
+                            "j",
+                            plt.Ite(
+                                plt.LessThanInteger(OVar("raw_j"), plt.Integer(0)),
+                                plt.AddInteger(
+                                    OVar("raw_j"),
+                                    plt.LengthList(OVar("xs")),
                                 ),
+                                OVar("raw_j"),
                             ),
-                            (
-                                "raw_j",
-                                plt.Apply(
-                                    self.visit(node.slice.upper), plt.Var(STATEMONAD)
-                                ),
+                        ),
+                        (
+                            "drop",
+                            plt.Ite(
+                                plt.LessThanEqualsInteger(OVar("i"), plt.Integer(0)),
+                                plt.Integer(0),
+                                OVar("i"),
                             ),
-                            (
-                                "j",
-                                plt.Ite(
-                                    plt.LessThanInteger(
-                                        plt.Var("raw_j"), plt.Integer(0)
-                                    ),
-                                    plt.AddInteger(
-                                        plt.Var("raw_j"),
-                                        plt.LengthList(plt.Var("xs")),
-                                    ),
-                                    plt.Var("raw_j"),
-                                ),
-                            ),
-                            (
-                                "drop",
-                                plt.Ite(
-                                    plt.LessThanEqualsInteger(
-                                        plt.Var("i"), plt.Integer(0)
-                                    ),
-                                    plt.Integer(0),
-                                    plt.Var("i"),
-                                ),
-                            ),
-                            (
-                                "take",
-                                plt.SubtractInteger(plt.Var("j"), plt.Var("drop")),
-                            ),
-                        ],
-                        plt.Ite(
-                            plt.LessThanEqualsInteger(plt.Var("j"), plt.Var("i")),
+                        ),
+                        (
+                            "take",
+                            plt.SubtractInteger(OVar("j"), OVar("drop")),
+                        ),
+                    ],
+                    plt.Ite(
+                        plt.LessThanEqualsInteger(OVar("j"), OVar("i")),
+                        empty_list(node.value.typ.typ.typ),
+                        plt.SliceList(
+                            OVar("drop"),
+                            OVar("take"),
+                            OVar("xs"),
                             empty_list(node.value.typ.typ.typ),
-                            plt.SliceList(
-                                plt.Var("drop"),
-                                plt.Var("take"),
-                                plt.Var("xs"),
-                                empty_list(node.value.typ.typ.typ),
-                            ),
                         ),
                     ),
                 )
         elif isinstance(node.value.typ.typ, DictType):
             dict_typ = node.value.typ.typ
             if not isinstance(node.slice, Slice):
-                return plt.Lambda(
-                    [STATEMONAD],
-                    plt.Let(
-                        [
-                            (
-                                "key",
-                                plt.Apply(self.visit(node.slice), plt.Var(STATEMONAD)),
-                            )
-                        ],
-                        transform_ext_params_map(dict_typ.value_typ)(
-                            plt.SndPair(
-                                plt.FindList(
-                                    plt.Apply(
-                                        self.visit(node.value), plt.Var(STATEMONAD)
-                                    ),
-                                    plt.Lambda(
-                                        ["x"],
-                                        plt.EqualsData(
-                                            transform_output_map(dict_typ.key_typ)(
-                                                plt.Var("key")
-                                            ),
-                                            plt.FstPair(plt.Var("x")),
+                return OLet(
+                    [
+                        (
+                            "key",
+                            self.visit(node.slice),
+                        )
+                    ],
+                    transform_ext_params_map(dict_typ.value_typ)(
+                        plt.SndPair(
+                            plt.FindList(
+                                self.visit(node.value),
+                                OLambda(
+                                    ["x"],
+                                    plt.EqualsData(
+                                        transform_output_map(dict_typ.key_typ)(
+                                            OVar("key")
                                         ),
+                                        plt.FstPair(OVar("x")),
                                     ),
-                                    plt.TraceError("KeyError"),
                                 ),
-                            ),
+                                plt.TraceError("KeyError"),
+                            )
                         ),
                     ),
                 )
         elif isinstance(node.value.typ.typ, ByteStringType):
             if not isinstance(node.slice, Slice):
-                return plt.Lambda(
-                    [STATEMONAD],
-                    plt.Let(
-                        [
-                            (
-                                "bs",
-                                plt.Apply(self.visit(node.value), plt.Var(STATEMONAD)),
-                            ),
-                            (
-                                "raw_ix",
-                                plt.Apply(self.visit(node.slice), plt.Var(STATEMONAD)),
-                            ),
-                            (
-                                "ix",
-                                plt.Ite(
-                                    plt.LessThanInteger(
-                                        plt.Var("raw_ix"), plt.Integer(0)
-                                    ),
-                                    plt.AddInteger(
-                                        plt.Var("raw_ix"),
-                                        plt.LengthOfByteString(plt.Var("bs")),
-                                    ),
-                                    plt.Var("raw_ix"),
+                return OLet(
+                    [
+                        (
+                            "bs",
+                            self.visit(node.value),
+                        ),
+                        (
+                            "raw_ix",
+                            self.visit(node.slice),
+                        ),
+                        (
+                            "ix",
+                            plt.Ite(
+                                plt.LessThanInteger(OVar("raw_ix"), plt.Integer(0)),
+                                plt.AddInteger(
+                                    OVar("raw_ix"),
+                                    plt.LengthOfByteString(OVar("bs")),
                                 ),
+                                OVar("raw_ix"),
                             ),
-                        ],
-                        plt.IndexByteString(plt.Var("bs"), plt.Var("ix")),
-                    ),
+                        ),
+                    ],
+                    plt.IndexByteString(OVar("bs"), OVar("ix")),
                 )
             elif isinstance(node.slice, Slice):
-                return plt.Lambda(
-                    [STATEMONAD],
-                    plt.Let(
-                        [
-                            (
-                                "bs",
-                                plt.Apply(self.visit(node.value), plt.Var(STATEMONAD)),
-                            ),
-                            (
-                                "raw_i",
-                                plt.Apply(
-                                    self.visit(node.slice.lower), plt.Var(STATEMONAD)
+                return OLet(
+                    [
+                        (
+                            "bs",
+                            self.visit(node.value),
+                        ),
+                        (
+                            "raw_i",
+                            self.visit(node.slice.lower),
+                        ),
+                        (
+                            "i",
+                            plt.Ite(
+                                plt.LessThanInteger(OVar("raw_i"), plt.Integer(0)),
+                                plt.AddInteger(
+                                    OVar("raw_i"),
+                                    plt.LengthOfByteString(OVar("bs")),
                                 ),
+                                OVar("raw_i"),
                             ),
-                            (
-                                "i",
-                                plt.Ite(
-                                    plt.LessThanInteger(
-                                        plt.Var("raw_i"), plt.Integer(0)
-                                    ),
-                                    plt.AddInteger(
-                                        plt.Var("raw_i"),
-                                        plt.LengthOfByteString(plt.Var("bs")),
-                                    ),
-                                    plt.Var("raw_i"),
+                        ),
+                        (
+                            "raw_j",
+                            self.visit(node.slice.upper),
+                        ),
+                        (
+                            "j",
+                            plt.Ite(
+                                plt.LessThanInteger(OVar("raw_j"), plt.Integer(0)),
+                                plt.AddInteger(
+                                    OVar("raw_j"),
+                                    plt.LengthOfByteString(OVar("bs")),
                                 ),
+                                OVar("raw_j"),
                             ),
-                            (
-                                "raw_j",
-                                plt.Apply(
-                                    self.visit(node.slice.upper), plt.Var(STATEMONAD)
-                                ),
+                        ),
+                        (
+                            "drop",
+                            plt.Ite(
+                                plt.LessThanEqualsInteger(OVar("i"), plt.Integer(0)),
+                                plt.Integer(0),
+                                OVar("i"),
                             ),
-                            (
-                                "j",
-                                plt.Ite(
-                                    plt.LessThanInteger(
-                                        plt.Var("raw_j"), plt.Integer(0)
-                                    ),
-                                    plt.AddInteger(
-                                        plt.Var("raw_j"),
-                                        plt.LengthOfByteString(plt.Var("bs")),
-                                    ),
-                                    plt.Var("raw_j"),
-                                ),
-                            ),
-                            (
-                                "drop",
-                                plt.Ite(
-                                    plt.LessThanEqualsInteger(
-                                        plt.Var("i"), plt.Integer(0)
-                                    ),
-                                    plt.Integer(0),
-                                    plt.Var("i"),
-                                ),
-                            ),
-                            (
-                                "take",
-                                plt.SubtractInteger(plt.Var("j"), plt.Var("drop")),
-                            ),
-                        ],
-                        plt.Ite(
-                            plt.LessThanEqualsInteger(plt.Var("j"), plt.Var("i")),
-                            plt.ByteString(b""),
-                            plt.SliceByteString(
-                                plt.Var("drop"),
-                                plt.Var("take"),
-                                plt.Var("bs"),
-                            ),
+                        ),
+                        (
+                            "take",
+                            plt.SubtractInteger(OVar("j"), OVar("drop")),
+                        ),
+                    ],
+                    plt.Ite(
+                        plt.LessThanEqualsInteger(OVar("j"), OVar("i")),
+                        plt.ByteString(b""),
+                        plt.SliceByteString(
+                            OVar("drop"),
+                            OVar("take"),
+                            OVar("bs"),
                         ),
                     ),
                 )
@@ -877,22 +868,10 @@ class PlutoCompiler(CompilingNodeTransformer):
         )
 
     def visit_Tuple(self, node: TypedTuple) -> plt.AST:
-        return plt.Lambda(
-            [STATEMONAD],
-            plt.FunctionalTuple(
-                *(plt.Apply(self.visit(e), plt.Var(STATEMONAD)) for e in node.elts)
-            ),
-        )
+        return plt.FunctionalTuple(*(self.visit(e) for e in node.elts))
 
-    def visit_ClassDef(self, node: TypedClassDef) -> plt.AST:
-        return plt.Lambda(
-            [STATEMONAD],
-            extend_statemonad(
-                [node.name],
-                [node.class_typ.constr()],
-                plt.Var(STATEMONAD),
-            ),
-        )
+    def visit_ClassDef(self, node: TypedClassDef) -> CallAST:
+        return lambda x: plt.Let([(node.name, plt.Delay(node.class_typ.constr()))], x)
 
     def visit_Attribute(self, node: TypedAttribute) -> plt.AST:
         assert isinstance(
@@ -900,24 +879,17 @@ class PlutoCompiler(CompilingNodeTransformer):
         ), "Can only access attributes of instances"
         obj = self.visit(node.value)
         attr = node.value.typ.attribute(node.attr)
-        return plt.Lambda(
-            [STATEMONAD], plt.Apply(attr, plt.Apply(obj, plt.Var(STATEMONAD)))
-        )
+        return plt.Apply(attr, obj)
 
-    def visit_Assert(self, node: TypedAssert) -> plt.AST:
-        return plt.Lambda(
-            [STATEMONAD],
-            plt.Ite(
-                plt.Apply(self.visit(node.test), plt.Var(STATEMONAD)),
-                plt.Var(STATEMONAD),
-                plt.Apply(
-                    plt.Error(),
-                    plt.Trace(
-                        plt.Apply(self.visit(node.msg), plt.Var(STATEMONAD)), plt.Unit()
-                    )
-                    if node.msg is not None
-                    else plt.Unit(),
-                ),
+    def visit_Assert(self, node: TypedAssert) -> CallAST:
+        return lambda x: plt.Ite(
+            self.visit(node.test),
+            x,
+            plt.Apply(
+                plt.Error(),
+                plt.Trace(self.visit(node.msg), plt.Unit())
+                if node.msg is not None
+                else plt.Unit(),
             ),
         )
 
@@ -929,8 +901,8 @@ class PlutoCompiler(CompilingNodeTransformer):
         assert isinstance(node.typ.typ, ListType)
         l = empty_list(node.typ.typ.typ)
         for e in reversed(node.elts):
-            l = plt.MkCons(plt.Apply(self.visit(e), plt.Var(STATEMONAD)), l)
-        return plt.Lambda([STATEMONAD], l)
+            l = plt.MkCons(self.visit(e), l)
+        return l
 
     def visit_Dict(self, node: TypedDict) -> plt.AST:
         assert isinstance(node.typ, InstanceType)
@@ -942,24 +914,21 @@ class PlutoCompiler(CompilingNodeTransformer):
             l = plt.MkCons(
                 plt.MkPairData(
                     transform_output_map(key_type)(
-                        plt.Apply(self.visit(k), plt.Var(STATEMONAD))
+                        self.visit(k),
                     ),
                     transform_output_map(value_type)(
-                        plt.Apply(self.visit(v), plt.Var(STATEMONAD))
+                        self.visit(v),
                     ),
                 ),
                 l,
             )
-        return plt.Lambda([STATEMONAD], l)
+        return l
 
     def visit_IfExp(self, node: TypedIfExp) -> plt.AST:
-        return plt.Lambda(
-            [STATEMONAD],
-            plt.Ite(
-                plt.Apply(self.visit(node.test), plt.Var(STATEMONAD)),
-                plt.Apply(self.visit(node.body), plt.Var(STATEMONAD)),
-                plt.Apply(self.visit(node.orelse), plt.Var(STATEMONAD)),
-            ),
+        return plt.Ite(
+            self.visit(node.test),
+            self.visit(node.body),
+            self.visit(node.orelse),
         )
 
     def visit_ListComp(self, node: TypedListComp) -> plt.AST:
@@ -970,67 +939,53 @@ class PlutoCompiler(CompilingNodeTransformer):
         assert isinstance(
             gen.target, Name
         ), "Can only assign value to singleton element"
-        lst = plt.Apply(self.visit(gen.iter), plt.Var(STATEMONAD))
+        lst = self.visit(gen.iter)
         ifs = None
         for ifexpr in gen.ifs:
             if ifs is None:
                 ifs = self.visit(ifexpr)
             else:
                 ifs = plt.And(ifs, self.visit(ifexpr))
-        map_fun = plt.Lambda(
+        map_fun = OLambda(
             ["x"],
-            plt.Apply(
+            plt.Let(
+                [(gen.target.id, plt.Delay(OVar("x")))],
                 self.visit(node.elt),
-                extend_statemonad([gen.target.id], [plt.Var("x")], plt.Var(STATEMONAD)),
             ),
         )
         empty_list_con = empty_list(node.elt.typ)
         if ifs is not None:
-            filter_fun = plt.Lambda(
+            filter_fun = OLambda(
                 ["x"],
-                plt.Apply(
+                plt.Let(
+                    [(gen.target.id, plt.Delay(OVar("x")))],
                     ifs,
-                    extend_statemonad(
-                        [gen.target.id], [plt.Var("x")], plt.Var(STATEMONAD)
-                    ),
                 ),
             )
-            return plt.Lambda(
-                [STATEMONAD],
-                plt.MapFilterList(
-                    lst,
-                    filter_fun,
-                    map_fun,
-                    empty_list_con,
-                ),
+            return plt.MapFilterList(
+                lst,
+                filter_fun,
+                map_fun,
+                empty_list_con,
             )
         else:
-            return plt.Lambda(
-                [STATEMONAD],
-                plt.MapList(
-                    lst,
-                    map_fun,
-                    empty_list_con,
-                ),
+            return plt.MapList(
+                lst,
+                map_fun,
+                empty_list_con,
             )
 
     def visit_FormattedValue(self, node: TypedFormattedValue) -> plt.AST:
-        return plt.Lambda(
-            [STATEMONAD],
-            plt.Apply(
-                node.value.typ.stringify(),
-                plt.Apply(self.visit(node.value), plt.Var(STATEMONAD)),
-                plt.Var(STATEMONAD),
-            ),
+        return plt.Apply(
+            node.value.typ.stringify(),
+            self.visit(node.value),
         )
 
     def visit_JoinedStr(self, node: TypedJoinedStr) -> plt.AST:
         joined_str = plt.Text("")
         for v in reversed(node.values):
-            joined_str = plt.AppendString(
-                plt.Apply(self.visit(v), plt.Var(STATEMONAD)), joined_str
-            )
-        return plt.Lambda([STATEMONAD], joined_str)
+            joined_str = plt.AppendString(self.visit(v), joined_str)
+        return joined_str
 
     def generic_visit(self, node: AST) -> plt.AST:
         raise NotImplementedError(f"Can not compile {node}")
@@ -1062,18 +1017,17 @@ def compile(
         RewriteImportDataclasses(),
         RewriteInjectBuiltins(),
         RewriteConditions(),
+        # Save the original names of variables
+        RewriteOrigName(),
+        RewriteScoping(),
         # The type inference needs to be run after complex python operations were rewritten
         AggressiveTypeInferencer(allow_isinstance_anything),
         # Rewrites that circumvent the type inference or use its results
         RewriteImportUPLCBuiltins(),
         RewriteInjectBuiltinsConstr(),
         RewriteRemoveTypeStuff(),
-        # Save the original names of variables
-        RewriteOrigName(),
-        RewriteScoping(),
         # Apply optimizations
         OptimizeRemoveDeadvars() if remove_dead_code else NoOp(),
-        OptimizeVarlen(),
         OptimizeRemoveDeadconstants(),
         OptimizeRemovePass(),
     ]

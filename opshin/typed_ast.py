@@ -37,7 +37,7 @@ class TypedModule(typedstmt, Module):
 
 class TypedFunctionDef(typedstmt, FunctionDef):
     body: typing.List[typedstmt]
-    args: arguments
+    args: typedarguments
 
 
 class TypedIf(typedstmt, If):

@@ -1,3 +1,5 @@
+from _ast import Name, Store, ClassDef, FunctionDef, Load
+from collections import defaultdict
 from copy import copy, deepcopy
 
 import typing
@@ -169,3 +171,130 @@ def patternize(method):
         return make_pattern(method(*args, **kwargs))
 
     return wrapped
+
+
+def force_params(lmd: plt.Lambda) -> plt.Lambda:
+    if isinstance(lmd, plt.Lambda):
+        return plt.Lambda(
+            lmd.vars, plt.Let([(v, plt.Force(plt.Var(v))) for v in lmd.vars], lmd.term)
+        )
+    if isinstance(lmd, plt.Pattern):
+        return make_pattern(force_params(lmd.compose()))
+
+
+class NameWriteCollector(CompilingNodeVisitor):
+    step = "Collecting variables that are written"
+
+    def __init__(self):
+        self.written = defaultdict(int)
+
+    def visit_Name(self, node: Name) -> None:
+        if isinstance(node.ctx, Store):
+            self.written[node.id] += 1
+
+    def visit_ClassDef(self, node: ClassDef):
+        # ignore the content (i.e. attribute names) of class definitions
+        self.written[node.name] += 1
+        pass
+
+    def visit_FunctionDef(self, node: FunctionDef):
+        # ignore the type hints of function arguments
+        self.written[node.name] += 1
+        for a in node.args.args:
+            self.written[a.arg] += 1
+        for s in node.body:
+            self.visit(s)
+
+
+def written_vars(node):
+    """
+    Returns all variable names written to in this node
+    """
+    collector = NameWriteCollector()
+    collector.visit(node)
+    return sorted(collector.written.keys())
+
+
+class NameReadCollector(CompilingNodeVisitor):
+    step = "Collecting variables that are read"
+
+    def __init__(self):
+        self.read = defaultdict(int)
+
+    def visit_AnnAssign(self, node) -> None:
+        # ignore annotations of variables
+        self.visit(node.value)
+        self.visit(node.target)
+
+    def visit_FunctionDef(self, node) -> None:
+        # ignore annotations of paramters and return
+        self.visit(node.args)
+        for b in node.body:
+            self.visit(b)
+
+    def visit_Name(self, node: Name) -> None:
+        if isinstance(node.ctx, Load):
+            self.read[node.id] += 1
+
+    def visit_ClassDef(self, node: ClassDef):
+        # ignore the content (i.e. attribute names) of class definitions
+        pass
+
+    def visit_FunctionDef(self, node: FunctionDef):
+        # ignore the type hints of function arguments
+        for s in node.body:
+            self.visit(s)
+
+
+def read_vars(node):
+    """
+    Returns all variable names read to in this node
+    """
+    collector = NameReadCollector()
+    collector.visit(node)
+    return sorted(collector.read.keys())
+
+
+def all_vars(node):
+    return sorted(set(read_vars(node) + written_vars(node)))
+
+
+def externally_bound_vars(node: FunctionDef):
+    """A superset of the variables bound from an outer scope"""
+    return sorted(set(read_vars(node)) - (set(written_vars(node)) - {node.name}))
+
+
+def opshin_name_scheme_compatible_varname(n: str):
+    return f"1{n}"
+
+
+def OVar(name: str):
+    return plt.Var(opshin_name_scheme_compatible_varname(name))
+
+
+def OLambda(names: typing.List[str], term: plt.AST):
+    return plt.Lambda([opshin_name_scheme_compatible_varname(x) for x in names], term)
+
+
+def OLet(bindings: typing.List[typing.Tuple[str, plt.AST]], term: plt.AST):
+    return plt.Let(
+        [(opshin_name_scheme_compatible_varname(n), t) for n, t in bindings], term
+    )
+
+
+def SafeLambda(vars: typing.List[str], term: plt.AST) -> plt.Lambda:
+    if not vars:
+        return plt.Lambda(["0_"], term)
+    return plt.Lambda(vars, term)
+
+
+def SafeOLambda(vars: typing.List[str], term: plt.AST) -> plt.Lambda:
+    if not vars:
+        return OLambda(["0_"], term)
+    return OLambda(vars, term)
+
+
+def SafeApply(term: plt.AST, *vars: typing.List[plt.AST]) -> plt.Apply:
+    if not vars:
+        return plt.Apply(term, plt.Delay(plt.Unit()))
+    return plt.Apply(term, *vars)

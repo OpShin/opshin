@@ -17,22 +17,20 @@ class LenImpl(PolymorphicFunction):
         arg = args[0]
         assert isinstance(arg, InstanceType), "Can only determine length of instances"
         if arg == ByteStringInstanceType:
-            return plt.Lambda(["x", "_"], plt.LengthOfByteString(plt.Var("x")))
+            return OLambda(["x"], plt.LengthOfByteString(OVar("x")))
         elif isinstance(arg.typ, ListType) or isinstance(arg.typ, DictType):
             # simple list length function
-            return plt.Lambda(
-                ["x", "_"],
+            return OLambda(
+                ["x"],
                 plt.FoldList(
-                    plt.Var("x"),
-                    plt.Lambda(
-                        ["a", "_"], plt.AddInteger(plt.Var("a"), plt.Integer(1))
-                    ),
+                    OVar("x"),
+                    OLambda(["a", "_"], plt.AddInteger(OVar("a"), plt.Integer(1))),
                     plt.Integer(0),
                 ),
             )
         elif isinstance(arg.typ, TupleType):
-            return plt.Lambda(
-                ["x", "_"],
+            return OLambda(
+                ["x"],
                 plt.Integer(len(arg.typ.typs)),
             )
         raise NotImplementedError(f"'len' is not implemented for type {arg}")
@@ -54,11 +52,11 @@ class ReversedImpl(PolymorphicFunction):
         assert isinstance(arg, InstanceType), "Can only reverse instances"
         if isinstance(arg.typ, ListType):
             empty_l = empty_list(arg.typ.typ)
-            return plt.Lambda(
-                ["xs", "_"],
+            return OLambda(
+                ["xs"],
                 plt.FoldList(
-                    plt.Var("xs"),
-                    plt.Lambda(["a", "x"], plt.MkCons(plt.Var("x"), plt.Var("a"))),
+                    OVar("xs"),
+                    OLambda(["a", "x"], plt.MkCons(OVar("x"), OVar("a"))),
                     empty_l,
                 ),
             )
@@ -73,91 +71,90 @@ class PrintImpl(PolymorphicFunction):
         return FunctionType(args, NoneInstanceType)
 
     def impl_from_args(self, args: typing.List[Type]) -> plt.AST:
+        if not args:
+            return SafeOLambda([], plt.Trace(plt.Text("\n"), plt.NoneData()))
         assert all(
             isinstance(arg, InstanceType) for arg in args
         ), "Can only stringify instances"
         stringify_ops = [
-            plt.Apply(arg.typ.stringify(), plt.Var(f"x{i}"), plt.Var("_"))
-            for i, arg in enumerate(args)
+            plt.Apply(arg.typ.stringify(), OVar(f"x{i}")) for i, arg in enumerate(args)
         ]
         stringify_ops_joined = sum(((x, plt.Text(" ")) for x in stringify_ops), ())[:-1]
-        print = plt.Lambda(
-            [f"x{i}" for i in range(len(args))] + ["_"],
+        print = SafeOLambda(
+            [f"x{i}" for i in range(len(args))],
             plt.Trace(plt.ConcatString(*stringify_ops_joined), plt.NoneData()),
         )
         return print
 
 
 class PythonBuiltIn(Enum):
-    all = plt.Lambda(
-        ["xs", "_"],
+    all = OLambda(
+        ["xs"],
         plt.FoldList(
-            plt.Var("xs"),
-            plt.Lambda(["x", "a"], plt.And(plt.Var("x"), plt.Var("a"))),
+            OVar("xs"),
+            OLambda(["x", "a"], plt.And(OVar("x"), OVar("a"))),
             plt.Bool(True),
         ),
     )
-    any = plt.Lambda(
-        ["xs", "_"],
+    any = OLambda(
+        ["xs"],
         plt.FoldList(
-            plt.Var("xs"),
-            plt.Lambda(["x", "a"], plt.Or(plt.Var("x"), plt.Var("a"))),
+            OVar("xs"),
+            OLambda(["x", "a"], plt.Or(OVar("x"), OVar("a"))),
             plt.Bool(False),
         ),
     )
-    abs = plt.Lambda(
-        ["x", "_"],
+    abs = OLambda(
+        ["x"],
         plt.Ite(
-            plt.LessThanInteger(plt.Var("x"), plt.Integer(0)),
-            plt.Negate(plt.Var("x")),
-            plt.Var("x"),
+            plt.LessThanInteger(OVar("x"), plt.Integer(0)),
+            plt.Negate(OVar("x")),
+            OVar("x"),
         ),
     )
     # maps an integer to a unicode code point and decodes it
     # reference: https://en.wikipedia.org/wiki/UTF-8#Encoding
-    chr = plt.Lambda(
-        ["x", "_"],
+    chr = OLambda(
+        ["x"],
         plt.DecodeUtf8(
             plt.Ite(
-                plt.LessThanInteger(plt.Var("x"), plt.Integer(0x0)),
+                plt.LessThanInteger(OVar("x"), plt.Integer(0x0)),
                 plt.TraceError("ValueError: chr() arg not in range(0x110000)"),
                 plt.Ite(
-                    plt.LessThanInteger(plt.Var("x"), plt.Integer(0x80)),
+                    plt.LessThanInteger(OVar("x"), plt.Integer(0x80)),
                     # encoding of 0x0 - 0x80
-                    plt.ConsByteString(plt.Var("x"), plt.ByteString(b"")),
+                    plt.ConsByteString(OVar("x"), plt.ByteString(b"")),
                     plt.Ite(
-                        plt.LessThanInteger(plt.Var("x"), plt.Integer(0x800)),
+                        plt.LessThanInteger(OVar("x"), plt.Integer(0x800)),
                         # encoding of 0x80 - 0x800
                         plt.ConsByteString(
                             # we do bit manipulation using integer arithmetic here - nice
                             plt.AddInteger(
                                 plt.Integer(0b110 << 5),
-                                plt.DivideInteger(plt.Var("x"), plt.Integer(1 << 6)),
+                                plt.DivideInteger(OVar("x"), plt.Integer(1 << 6)),
                             ),
                             plt.ConsByteString(
                                 plt.AddInteger(
                                     plt.Integer(0b10 << 6),
-                                    plt.ModInteger(plt.Var("x"), plt.Integer(1 << 6)),
+                                    plt.ModInteger(OVar("x"), plt.Integer(1 << 6)),
                                 ),
                                 plt.ByteString(b""),
                             ),
                         ),
                         plt.Ite(
-                            plt.LessThanInteger(plt.Var("x"), plt.Integer(0x10000)),
+                            plt.LessThanInteger(OVar("x"), plt.Integer(0x10000)),
                             # encoding of 0x800 - 0x10000
                             plt.ConsByteString(
                                 plt.AddInteger(
                                     plt.Integer(0b1110 << 4),
-                                    plt.DivideInteger(
-                                        plt.Var("x"), plt.Integer(1 << 12)
-                                    ),
+                                    plt.DivideInteger(OVar("x"), plt.Integer(1 << 12)),
                                 ),
                                 plt.ConsByteString(
                                     plt.AddInteger(
                                         plt.Integer(0b10 << 6),
                                         plt.DivideInteger(
                                             plt.ModInteger(
-                                                plt.Var("x"), plt.Integer(1 << 12)
+                                                OVar("x"), plt.Integer(1 << 12)
                                             ),
                                             plt.Integer(1 << 6),
                                         ),
@@ -166,7 +163,7 @@ class PythonBuiltIn(Enum):
                                         plt.AddInteger(
                                             plt.Integer(0b10 << 6),
                                             plt.ModInteger(
-                                                plt.Var("x"), plt.Integer(1 << 6)
+                                                OVar("x"), plt.Integer(1 << 6)
                                             ),
                                         ),
                                         plt.ByteString(b""),
@@ -174,15 +171,13 @@ class PythonBuiltIn(Enum):
                                 ),
                             ),
                             plt.Ite(
-                                plt.LessThanInteger(
-                                    plt.Var("x"), plt.Integer(0x110000)
-                                ),
+                                plt.LessThanInteger(OVar("x"), plt.Integer(0x110000)),
                                 # encoding of 0x10000 - 0x10FFF
                                 plt.ConsByteString(
                                     plt.AddInteger(
                                         plt.Integer(0b11110 << 3),
                                         plt.DivideInteger(
-                                            plt.Var("x"), plt.Integer(1 << 18)
+                                            OVar("x"), plt.Integer(1 << 18)
                                         ),
                                     ),
                                     plt.ConsByteString(
@@ -190,7 +185,7 @@ class PythonBuiltIn(Enum):
                                             plt.Integer(0b10 << 6),
                                             plt.DivideInteger(
                                                 plt.ModInteger(
-                                                    plt.Var("x"), plt.Integer(1 << 18)
+                                                    OVar("x"), plt.Integer(1 << 18)
                                                 ),
                                                 plt.Integer(1 << 12),
                                             ),
@@ -200,7 +195,7 @@ class PythonBuiltIn(Enum):
                                                 plt.Integer(0b10 << 6),
                                                 plt.DivideInteger(
                                                     plt.ModInteger(
-                                                        plt.Var("x"),
+                                                        OVar("x"),
                                                         plt.Integer(1 << 12),
                                                     ),
                                                     plt.Integer(1 << 6),
@@ -210,7 +205,7 @@ class PythonBuiltIn(Enum):
                                                 plt.AddInteger(
                                                     plt.Integer(0b10 << 6),
                                                     plt.ModInteger(
-                                                        plt.Var("x"),
+                                                        OVar("x"),
                                                         plt.Integer(1 << 6),
                                                     ),
                                                 ),
@@ -229,37 +224,37 @@ class PythonBuiltIn(Enum):
             )
         ),
     )
-    breakpoint = plt.Lambda(["_"], plt.NoneData())
-    hex = plt.Lambda(
-        ["x", "_"],
+    breakpoint = OLambda(["_"], plt.NoneData())
+    hex = OLambda(
+        ["x"],
         plt.DecodeUtf8(
-            plt.Let(
+            OLet(
                 [
                     (
                         "hexlist",
                         plt.RecFun(
-                            plt.Lambda(
+                            OLambda(
                                 ["f", "i"],
                                 plt.Ite(
                                     plt.LessThanEqualsInteger(
-                                        plt.Var("i"), plt.Integer(0)
+                                        OVar("i"), plt.Integer(0)
                                     ),
                                     plt.EmptyIntegerList(),
                                     plt.MkCons(
-                                        plt.Let(
+                                        OLet(
                                             [
                                                 (
                                                     "mod",
                                                     plt.ModInteger(
-                                                        plt.Var("i"), plt.Integer(16)
+                                                        OVar("i"), plt.Integer(16)
                                                     ),
                                                 ),
                                             ],
                                             plt.AddInteger(
-                                                plt.Var("mod"),
+                                                OVar("mod"),
                                                 plt.IfThenElse(
                                                     plt.LessThanInteger(
-                                                        plt.Var("mod"), plt.Integer(10)
+                                                        OVar("mod"), plt.Integer(10)
                                                     ),
                                                     plt.Integer(ord("0")),
                                                     plt.Integer(ord("a") - 10),
@@ -267,10 +262,10 @@ class PythonBuiltIn(Enum):
                                             ),
                                         ),
                                         plt.Apply(
-                                            plt.Var("f"),
-                                            plt.Var("f"),
+                                            OVar("f"),
+                                            OVar("f"),
                                             plt.DivideInteger(
-                                                plt.Var("i"), plt.Integer(16)
+                                                OVar("i"), plt.Integer(16)
                                             ),
                                         ),
                                     ),
@@ -280,13 +275,13 @@ class PythonBuiltIn(Enum):
                     ),
                     (
                         "mkstr",
-                        plt.Lambda(
+                        OLambda(
                             ["i"],
                             plt.FoldList(
-                                plt.Apply(plt.Var("hexlist"), plt.Var("i")),
-                                plt.Lambda(
+                                plt.Apply(OVar("hexlist"), OVar("i")),
+                                OLambda(
                                     ["b", "i"],
-                                    plt.ConsByteString(plt.Var("i"), plt.Var("b")),
+                                    plt.ConsByteString(OVar("i"), OVar("b")),
                                 ),
                                 plt.ByteString(b""),
                             ),
@@ -294,20 +289,20 @@ class PythonBuiltIn(Enum):
                     ),
                 ],
                 plt.Ite(
-                    plt.EqualsInteger(plt.Var("x"), plt.Integer(0)),
+                    plt.EqualsInteger(OVar("x"), plt.Integer(0)),
                     plt.ByteString(b"0x0"),
                     plt.Ite(
-                        plt.LessThanInteger(plt.Var("x"), plt.Integer(0)),
+                        plt.LessThanInteger(OVar("x"), plt.Integer(0)),
                         plt.ConsByteString(
                             plt.Integer(ord("-")),
                             plt.AppendByteString(
                                 plt.ByteString(b"0x"),
-                                plt.Apply(plt.Var("mkstr"), plt.Negate(plt.Var("x"))),
+                                plt.Apply(OVar("mkstr"), plt.Negate(OVar("x"))),
                             ),
                         ),
                         plt.AppendByteString(
                             plt.ByteString(b"0x"),
-                            plt.Apply(plt.Var("mkstr"), plt.Var("x")),
+                            plt.Apply(OVar("mkstr"), OVar("x")),
                         ),
                     ),
                 ),
@@ -315,66 +310,64 @@ class PythonBuiltIn(Enum):
         ),
     )
     len = "len"
-    max = plt.Lambda(
-        ["xs", "_"],
+    max = OLambda(
+        ["xs"],
         plt.FoldList(
-            plt.TailList(plt.Var("xs")),
-            plt.Lambda(
+            plt.TailList(OVar("xs")),
+            OLambda(
                 ["x", "a"],
                 plt.IfThenElse(
-                    plt.LessThanInteger(plt.Var("a"), plt.Var("x")),
-                    plt.Var("x"),
-                    plt.Var("a"),
+                    plt.LessThanInteger(OVar("a"), OVar("x")),
+                    OVar("x"),
+                    OVar("a"),
                 ),
             ),
-            plt.HeadList(plt.Var("xs")),
+            plt.HeadList(OVar("xs")),
         ),
     )
-    min = plt.Lambda(
-        ["xs", "_"],
+    min = OLambda(
+        ["xs"],
         plt.FoldList(
-            plt.TailList(plt.Var("xs")),
-            plt.Lambda(
+            plt.TailList(OVar("xs")),
+            OLambda(
                 ["x", "a"],
                 plt.IfThenElse(
-                    plt.LessThanInteger(plt.Var("a"), plt.Var("x")),
-                    plt.Var("a"),
-                    plt.Var("x"),
+                    plt.LessThanInteger(OVar("a"), OVar("x")),
+                    OVar("a"),
+                    OVar("x"),
                 ),
             ),
-            plt.HeadList(plt.Var("xs")),
+            plt.HeadList(OVar("xs")),
         ),
     )
     print = "print"
     # NOTE: only correctly defined for positive y
-    pow = plt.Lambda(["x", "y", "_"], PowImpl(plt.Var("x"), plt.Var("y")))
-    oct = plt.Lambda(
-        ["x", "_"],
+    pow = OLambda(["x", "y"], PowImpl(OVar("x"), OVar("y")))
+    oct = OLambda(
+        ["x"],
         plt.DecodeUtf8(
-            plt.Let(
+            OLet(
                 [
                     (
                         "octlist",
                         plt.RecFun(
-                            plt.Lambda(
+                            OLambda(
                                 ["f", "i"],
                                 plt.Ite(
                                     plt.LessThanEqualsInteger(
-                                        plt.Var("i"), plt.Integer(0)
+                                        OVar("i"), plt.Integer(0)
                                     ),
                                     plt.EmptyIntegerList(),
                                     plt.MkCons(
                                         plt.AddInteger(
-                                            plt.ModInteger(
-                                                plt.Var("i"), plt.Integer(8)
-                                            ),
+                                            plt.ModInteger(OVar("i"), plt.Integer(8)),
                                             plt.Integer(ord("0")),
                                         ),
                                         plt.Apply(
-                                            plt.Var("f"),
-                                            plt.Var("f"),
+                                            OVar("f"),
+                                            OVar("f"),
                                             plt.DivideInteger(
-                                                plt.Var("i"), plt.Integer(8)
+                                                OVar("i"), plt.Integer(8)
                                             ),
                                         ),
                                     ),
@@ -384,13 +377,13 @@ class PythonBuiltIn(Enum):
                     ),
                     (
                         "mkoct",
-                        plt.Lambda(
+                        OLambda(
                             ["i"],
                             plt.FoldList(
-                                plt.Apply(plt.Var("octlist"), plt.Var("i")),
-                                plt.Lambda(
+                                plt.Apply(OVar("octlist"), OVar("i")),
+                                OLambda(
                                     ["b", "i"],
-                                    plt.ConsByteString(plt.Var("i"), plt.Var("b")),
+                                    plt.ConsByteString(OVar("i"), OVar("b")),
                                 ),
                                 plt.ByteString(b""),
                             ),
@@ -398,35 +391,35 @@ class PythonBuiltIn(Enum):
                     ),
                 ],
                 plt.Ite(
-                    plt.EqualsInteger(plt.Var("x"), plt.Integer(0)),
+                    plt.EqualsInteger(OVar("x"), plt.Integer(0)),
                     plt.ByteString(b"0o0"),
                     plt.Ite(
-                        plt.LessThanInteger(plt.Var("x"), plt.Integer(0)),
+                        plt.LessThanInteger(OVar("x"), plt.Integer(0)),
                         plt.ConsByteString(
                             plt.Integer(ord("-")),
                             plt.AppendByteString(
                                 plt.ByteString(b"0o"),
-                                plt.Apply(plt.Var("mkoct"), plt.Negate(plt.Var("x"))),
+                                plt.Apply(OVar("mkoct"), plt.Negate(OVar("x"))),
                             ),
                         ),
                         plt.AppendByteString(
                             plt.ByteString(b"0o"),
-                            plt.Apply(plt.Var("mkoct"), plt.Var("x")),
+                            plt.Apply(OVar("mkoct"), OVar("x")),
                         ),
                     ),
                 ),
             )
         ),
     )
-    range = plt.Lambda(
-        ["limit", "_"],
-        plt.Range(plt.Var("limit")),
+    range = OLambda(
+        ["limit"],
+        plt.Range(OVar("limit")),
     )
     reversed = "reversed"
-    sum = plt.Lambda(
-        ["xs", "_"],
+    sum = OLambda(
+        ["xs"],
         plt.FoldList(
-            plt.Var("xs"), plt.BuiltIn(uplc.BuiltInFun.AddInteger), plt.Integer(0)
+            OVar("xs"), plt.BuiltIn(uplc.BuiltInFun.AddInteger), plt.Integer(0)
         ),
     )
 

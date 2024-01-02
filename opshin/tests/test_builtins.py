@@ -105,7 +105,7 @@ def validator(x: int) -> str:
             i_unicode = None
         try:
             ret = eval_uplc_value(source_code, i)
-        except Exception as e:
+        except:
             ret = None
         self.assertEqual(ret, i_unicode, "chr returned wrong value")
 

@@ -29,12 +29,12 @@ class IntegrityCheckImpl(PolymorphicFunction):
     def impl_from_args(self, args: typing.List[Type]) -> plt.AST:
         arg = args[0]
         assert isinstance(arg, InstanceType), "Can only check integrity of instances"
-        return plt.Lambda(
-            ["x", "_"],
+        return OLambda(
+            ["x"],
             plt.Ite(
                 plt.EqualsData(
-                    plt.Var("x"),
-                    plt.Apply(arg.typ.copy_only_attributes(), plt.Var("x")),
+                    OVar("x"),
+                    plt.Apply(arg.typ.copy_only_attributes(), OVar("x")),
                 ),
                 plt.Unit(),
                 plt.TraceError("ValueError: datum integrity check failed"),
