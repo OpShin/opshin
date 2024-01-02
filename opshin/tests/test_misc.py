@@ -2567,3 +2567,18 @@ def validator(_: None) -> str:
         pass
         """
         builder._compile(source_code)
+
+    def test_different_return_types_anything(self):
+        source_code = """
+from opshin.prelude import *
+
+def validator(a: int) -> Anything:
+    if a > 0:
+        return b""
+    else:
+        return 0
+"""
+        res = eval_uplc(source_code, 1)
+        self.assertEqual(res, uplc.PlutusByteString(b""))
+        res = eval_uplc(source_code, -1)
+        self.assertEqual(res, uplc.PlutusInteger(0))
