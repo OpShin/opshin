@@ -296,5 +296,5 @@ def SafeOLambda(vars: typing.List[str], term: plt.AST) -> plt.Lambda:
 
 def SafeApply(term: plt.AST, *vars: typing.List[plt.AST]) -> plt.Apply:
     if not vars:
-        return plt.Apply(term, plt.Unit())
+        return plt.Apply(term, plt.Delay(plt.Unit()))
     return plt.Apply(term, *vars)

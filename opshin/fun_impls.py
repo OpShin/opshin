@@ -71,6 +71,8 @@ class PrintImpl(PolymorphicFunction):
         return FunctionType(args, NoneInstanceType)
 
     def impl_from_args(self, args: typing.List[Type]) -> plt.AST:
+        if not args:
+            return SafeOLambda([], plt.Trace(plt.Text("\n"), plt.NoneData()))
         assert all(
             isinstance(arg, InstanceType) for arg in args
         ), "Can only stringify instances"
