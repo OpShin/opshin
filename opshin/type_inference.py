@@ -1035,10 +1035,18 @@ class ReturnExtractor(TypedNodeVisitor):
         return self.visit_sequence(node.body) and self.visit_sequence(node.orelse)
 
     def visit_For(self, node: For) -> bool:
-        return self.visit_sequence(node.body) and self.visit_sequence(node.orelse)
+        # The body simply has to be checked but has no influence on whether all paths are covered
+        # because it might never be visited
+        self.visit_sequence(node.body)
+        # the else path is always visited
+        return self.visit_sequence(node.orelse)
 
     def visit_While(self, node: For) -> bool:
-        return self.visit_sequence(node.body) and self.visit_sequence(node.orelse)
+        # The body simply has to be checked but has no influence on whether all paths are covered
+        # because it might never be visited
+        self.visit_sequence(node.body)
+        # the else path is always visited
+        return self.visit_sequence(node.orelse)
 
     def visit_Return(self, node: Return) -> bool:
         assert (
