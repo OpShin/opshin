@@ -2582,3 +2582,45 @@ def validator(a: int) -> Anything:
         self.assertEqual(res, uplc.PlutusByteString(b""))
         res = eval_uplc(source_code, -1)
         self.assertEqual(res, uplc.PlutusInteger(0))
+
+    @unittest.expectedFailure
+    def test_different_return_types_while_loop(self):
+        source_code = """
+def validator(a: int) -> str:
+    while a > 0:
+        return b""
+    return 0
+"""
+        builder.compile(source_code)
+
+    @unittest.expectedFailure
+    def test_different_return_types_for_loop(self):
+        source_code = """
+def validator(a: int) -> str:
+    for i in range(a):
+        return b""
+    return 0
+"""
+        builder.compile(source_code)
+
+    def test_return_else_loop_while(self):
+        source_code = """
+def validator(a: int) -> int:
+    while a > 0:
+        a -= 1
+    else:
+        return 0
+"""
+        res = eval_uplc_value(source_code, 1)
+        self.assertEqual(res, 0, "Invalid return")
+
+    def test_return_else_loop_for(self):
+        source_code = """
+def validator(a: int) -> int:
+    for _ in range(a):
+        a -= 1
+    else:
+        return 0
+"""
+        res = eval_uplc_value(source_code, 1)
+        self.assertEqual(res, 0, "Invalid return")
