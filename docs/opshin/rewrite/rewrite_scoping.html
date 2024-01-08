@@ -68,11 +68,14 @@ fill="currentColor" class="octo-body"></path>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">from ast import *
+<pre><code class="python">import typing
+from ast import *
 from copy import copy
-from collections import defaultdict
 
-from ..type_inference import INITIAL_SCOPE, PolymorphicFunctionInstanceType
+from ordered_set import OrderedSet
+
+from .rewrite_forbidden_overwrites import FORBIDDEN_NAMES
+from ..type_inference import INITIAL_SCOPE
 from ..util import CompilingNodeTransformer, CompilingNodeVisitor
 
 &#34;&#34;&#34;
@@ -81,15 +84,13 @@ Rewrites all variable names to point to the definition in the nearest enclosing 
 
 
 class ShallowNameDefCollector(CompilingNodeVisitor):
-    step = &#34;Collecting occuring variable names&#34;
+    step = &#34;Collecting defined variable names&#34;
 
     def __init__(self):
-        self.vars = set()
+        self.vars = OrderedSet()
 
     def visit_Name(self, node: Name) -&gt; None:
-        if isinstance(node.ctx, Store) or isinstance(
-            node.typ, PolymorphicFunctionInstanceType
-        ):
+        if isinstance(node.ctx, Store):
             self.vars.add(node.id)
 
     def visit_ClassDef(self, node: ClassDef):
@@ -103,10 +104,8 @@ class ShallowNameDefCollector(CompilingNodeVisitor):
 
 class RewriteScoping(CompilingNodeTransformer):
     step = &#34;Rewrite all variables to inambiguously point to the definition in the nearest enclosing scope&#34;
-
-    def __init__(self):
-        self.latest_scope_id = 0
-        self.scopes = [(set(INITIAL_SCOPE.keys()), -1)]
+    latest_scope_id: int
+    scopes: typing.List[typing.Tuple[OrderedSet, int]]
 
     def variable_scope_id(self, name: str) -&gt; int:
         &#34;&#34;&#34;find the id of the scope in which this variable is defined (closest to its usage)&#34;&#34;&#34;
@@ -119,7 +118,7 @@ class RewriteScoping(CompilingNodeTransformer):
         )
 
     def enter_scope(self):
-        self.scopes.append((set(), self.latest_scope_id))
+        self.scopes.append((OrderedSet(), self.latest_scope_id))
         self.latest_scope_id += 1
 
     def exit_scope(self):
@@ -136,6 +135,8 @@ class RewriteScoping(CompilingNodeTransformer):
         return f&#34;{name}_{scope_id}&#34;
 
     def visit_Module(self, node: Module) -&gt; Module:
+        self.latest_scope_id = 0
+        self.scopes = [(OrderedSet(INITIAL_SCOPE.keys() | FORBIDDEN_NAMES), -1)]
         node_cp = copy(node)
         self.enter_scope()
         # vars defined in this scope
@@ -155,11 +156,7 @@ class RewriteScoping(CompilingNodeTransformer):
         return nc
 
     def visit_ClassDef(self, node: ClassDef) -&gt; ClassDef:
-        node_cp = copy(node)
-        # setting is handled in either enclosing module or function
-        node_cp.name = self.map_name(node.name)
-        # ignore the content of class definitions
-        return node_cp
+        return RecordScoper.scope(node, self)
 
     def visit_FunctionDef(self, node: FunctionDef) -&gt; FunctionDef:
         node_cp = copy(node)
@@ -173,7 +170,9 @@ class RewriteScoping(CompilingNodeTransformer):
             a_cp = copy(a)
             self.set_variable_scope(a.arg)
             a_cp.arg = self.map_name(a.arg)
+            a_cp.annotation = self.visit(a.annotation)
             node_cp.args.args.append(a_cp)
+        node_cp.returns = self.visit(node.returns)
         # vars defined in this scope
         shallow_node_def_collector = ShallowNameDefCollector()
         for s in node.body:
@@ -184,6 +183,34 @@ class RewriteScoping(CompilingNodeTransformer):
         # map all vars and recurse
         node_cp.body = [self.visit(s) for s in node.body]
         self.exit_scope()
+        return node_cp
+
+    def visit_NoneType(self, node: None) -&gt; None:
+        return node
+
+
+class RecordScoper(NodeTransformer):
+    _scoper: RewriteScoping
+
+    def __init__(self, scoper: RewriteScoping):
+        self._scoper = scoper
+
+    @classmethod
+    def scope(cls, c: ClassDef, scoper: RewriteScoping) -&gt; ClassDef:
+        f = cls(scoper)
+        return f.visit(c)
+
+    def visit_ClassDef(self, c: ClassDef) -&gt; ClassDef:
+        node_cp = copy(c)
+        node_cp.name = self._scoper.map_name(node_cp.name)
+        return self.generic_visit(node_cp)
+
+    def visit_AnnAssign(self, node: AnnAssign) -&gt; AnnAssign:
+        assert isinstance(
+            node.target, Name
+        ), &#34;Record elements must have named attributes&#34;
+        node_cp = copy(node)
+        node_cp.annotation = self._scoper.visit(node_cp.annotation)
         return node_cp</code></pre>
 </details>
 </section>
@@ -196,6 +223,126 @@ class RewriteScoping(CompilingNodeTransformer):
 <section>
 <h2 class="section-title" id="header-classes">Classes</h2>
 <dl>
+<dt id="opshin.rewrite.rewrite_scoping.RecordScoper"><code class="flex name class">
+<span>class <span class="ident">RecordScoper</span></span>
+<span>(</span><span>scoper: <a title="opshin.rewrite.rewrite_scoping.RewriteScoping" href="#opshin.rewrite.rewrite_scoping.RewriteScoping">RewriteScoping</a>)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>A :class:<code>NodeVisitor</code> subclass that walks the abstract syntax tree and
+allows modification of nodes.</p>
+<p>The <code>NodeTransformer</code> will walk the AST and use the return value of the
+visitor methods to replace or remove the old node.
+If the return value of
+the visitor method is <code>None</code>, the node will be removed from its location,
+otherwise it is replaced with the return value.
+The return value may be the
+original node in which case no replacement takes place.</p>
+<p>Here is an example transformer that rewrites all occurrences of name lookups
+(<code>foo</code>) to <code>data['foo']</code>::</p>
+<p>class RewriteName(NodeTransformer):</p>
+<pre><code>   def visit_Name(self, node):
+       return Subscript(
+           value=Name(id='data', ctx=Load()),
+           slice=Constant(value=node.id),
+           ctx=node.ctx
+       )
+</code></pre>
+<p>Keep in mind that if the node you're operating on has child nodes you must
+either transform the child nodes yourself or call the :meth:<code>generic_visit</code>
+method for the node first.</p>
+<p>For nodes that were part of a collection of statements (that applies to all
+statement nodes), the visitor may also return a list of nodes rather than
+just a single node.</p>
+<p>Usually you use the transformer like this::</p>
+<p>node = YourTransformer().visit(node)</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class RecordScoper(NodeTransformer):
+    _scoper: RewriteScoping
+
+    def __init__(self, scoper: RewriteScoping):
+        self._scoper = scoper
+
+    @classmethod
+    def scope(cls, c: ClassDef, scoper: RewriteScoping) -&gt; ClassDef:
+        f = cls(scoper)
+        return f.visit(c)
+
+    def visit_ClassDef(self, c: ClassDef) -&gt; ClassDef:
+        node_cp = copy(c)
+        node_cp.name = self._scoper.map_name(node_cp.name)
+        return self.generic_visit(node_cp)
+
+    def visit_AnnAssign(self, node: AnnAssign) -&gt; AnnAssign:
+        assert isinstance(
+            node.target, Name
+        ), &#34;Record elements must have named attributes&#34;
+        node_cp = copy(node)
+        node_cp.annotation = self._scoper.visit(node_cp.annotation)
+        return node_cp</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li>ast.NodeTransformer</li>
+<li>ast.NodeVisitor</li>
+</ul>
+<h3>Static methods</h3>
+<dl>
+<dt id="opshin.rewrite.rewrite_scoping.RecordScoper.scope"><code class="name flex">
+<span>def <span class="ident">scope</span></span>(<span>c: ast.ClassDef, scoper: <a title="opshin.rewrite.rewrite_scoping.RewriteScoping" href="#opshin.rewrite.rewrite_scoping.RewriteScoping">RewriteScoping</a>) ‑> ast.ClassDef</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@classmethod
+def scope(cls, c: ClassDef, scoper: RewriteScoping) -&gt; ClassDef:
+    f = cls(scoper)
+    return f.visit(c)</code></pre>
+</details>
+</dd>
+</dl>
+<h3>Methods</h3>
+<dl>
+<dt id="opshin.rewrite.rewrite_scoping.RecordScoper.visit_AnnAssign"><code class="name flex">
+<span>def <span class="ident">visit_AnnAssign</span></span>(<span>self, node: ast.AnnAssign) ‑> ast.AnnAssign</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def visit_AnnAssign(self, node: AnnAssign) -&gt; AnnAssign:
+    assert isinstance(
+        node.target, Name
+    ), &#34;Record elements must have named attributes&#34;
+    node_cp = copy(node)
+    node_cp.annotation = self._scoper.visit(node_cp.annotation)
+    return node_cp</code></pre>
+</details>
+</dd>
+<dt id="opshin.rewrite.rewrite_scoping.RecordScoper.visit_ClassDef"><code class="name flex">
+<span>def <span class="ident">visit_ClassDef</span></span>(<span>self, c: ast.ClassDef) ‑> ast.ClassDef</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def visit_ClassDef(self, c: ClassDef) -&gt; ClassDef:
+    node_cp = copy(c)
+    node_cp.name = self._scoper.map_name(node_cp.name)
+    return self.generic_visit(node_cp)</code></pre>
+</details>
+</dd>
+</dl>
+</dd>
 <dt id="opshin.rewrite.rewrite_scoping.RewriteScoping"><code class="flex name class">
 <span>class <span class="ident">RewriteScoping</span></span>
 </code></dt>
@@ -233,10 +380,8 @@ just a single node.</p>
 </summary>
 <pre><code class="python">class RewriteScoping(CompilingNodeTransformer):
     step = &#34;Rewrite all variables to inambiguously point to the definition in the nearest enclosing scope&#34;
-
-    def __init__(self):
-        self.latest_scope_id = 0
-        self.scopes = [(set(INITIAL_SCOPE.keys()), -1)]
+    latest_scope_id: int
+    scopes: typing.List[typing.Tuple[OrderedSet, int]]
 
     def variable_scope_id(self, name: str) -&gt; int:
         &#34;&#34;&#34;find the id of the scope in which this variable is defined (closest to its usage)&#34;&#34;&#34;
@@ -249,7 +394,7 @@ just a single node.</p>
         )
 
     def enter_scope(self):
-        self.scopes.append((set(), self.latest_scope_id))
+        self.scopes.append((OrderedSet(), self.latest_scope_id))
         self.latest_scope_id += 1
 
     def exit_scope(self):
@@ -266,6 +411,8 @@ just a single node.</p>
         return f&#34;{name}_{scope_id}&#34;
 
     def visit_Module(self, node: Module) -&gt; Module:
+        self.latest_scope_id = 0
+        self.scopes = [(OrderedSet(INITIAL_SCOPE.keys() | FORBIDDEN_NAMES), -1)]
         node_cp = copy(node)
         self.enter_scope()
         # vars defined in this scope
@@ -285,11 +432,7 @@ just a single node.</p>
         return nc
 
     def visit_ClassDef(self, node: ClassDef) -&gt; ClassDef:
-        node_cp = copy(node)
-        # setting is handled in either enclosing module or function
-        node_cp.name = self.map_name(node.name)
-        # ignore the content of class definitions
-        return node_cp
+        return RecordScoper.scope(node, self)
 
     def visit_FunctionDef(self, node: FunctionDef) -&gt; FunctionDef:
         node_cp = copy(node)
@@ -303,7 +446,9 @@ just a single node.</p>
             a_cp = copy(a)
             self.set_variable_scope(a.arg)
             a_cp.arg = self.map_name(a.arg)
+            a_cp.annotation = self.visit(a.annotation)
             node_cp.args.args.append(a_cp)
+        node_cp.returns = self.visit(node.returns)
         # vars defined in this scope
         shallow_node_def_collector = ShallowNameDefCollector()
         for s in node.body:
@@ -314,7 +459,10 @@ just a single node.</p>
         # map all vars and recurse
         node_cp.body = [self.visit(s) for s in node.body]
         self.exit_scope()
-        return node_cp</code></pre>
+        return node_cp
+
+    def visit_NoneType(self, node: None) -&gt; None:
+        return node</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -325,6 +473,14 @@ just a single node.</p>
 </ul>
 <h3>Class variables</h3>
 <dl>
+<dt id="opshin.rewrite.rewrite_scoping.RewriteScoping.latest_scope_id"><code class="name">var <span class="ident">latest_scope_id</span> : int</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="opshin.rewrite.rewrite_scoping.RewriteScoping.scopes"><code class="name">var <span class="ident">scopes</span> : List[Tuple[ordered_set.OrderedSet, int]]</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
 <dt id="opshin.rewrite.rewrite_scoping.RewriteScoping.step"><code class="name">var <span class="ident">step</span></code></dt>
 <dd>
 <div class="desc"></div>
@@ -342,7 +498,7 @@ just a single node.</p>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def enter_scope(self):
-    self.scopes.append((set(), self.latest_scope_id))
+    self.scopes.append((OrderedSet(), self.latest_scope_id))
     self.latest_scope_id += 1</code></pre>
 </details>
 </dd>
@@ -429,11 +585,7 @@ just a single node.</p>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def visit_ClassDef(self, node: ClassDef) -&gt; ClassDef:
-    node_cp = copy(node)
-    # setting is handled in either enclosing module or function
-    node_cp.name = self.map_name(node.name)
-    # ignore the content of class definitions
-    return node_cp</code></pre>
+    return RecordScoper.scope(node, self)</code></pre>
 </details>
 </dd>
 <dt id="opshin.rewrite.rewrite_scoping.RewriteScoping.visit_FunctionDef"><code class="name flex">
@@ -457,7 +609,9 @@ just a single node.</p>
         a_cp = copy(a)
         self.set_variable_scope(a.arg)
         a_cp.arg = self.map_name(a.arg)
+        a_cp.annotation = self.visit(a.annotation)
         node_cp.args.args.append(a_cp)
+    node_cp.returns = self.visit(node.returns)
     # vars defined in this scope
     shallow_node_def_collector = ShallowNameDefCollector()
     for s in node.body:
@@ -481,6 +635,8 @@ just a single node.</p>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def visit_Module(self, node: Module) -&gt; Module:
+    self.latest_scope_id = 0
+    self.scopes = [(OrderedSet(INITIAL_SCOPE.keys() | FORBIDDEN_NAMES), -1)]
     node_cp = copy(node)
     self.enter_scope()
     # vars defined in this scope
@@ -508,6 +664,19 @@ just a single node.</p>
     # setting is handled in either enclosing module or function
     nc.id = self.map_name(node.id)
     return nc</code></pre>
+</details>
+</dd>
+<dt id="opshin.rewrite.rewrite_scoping.RewriteScoping.visit_NoneType"><code class="name flex">
+<span>def <span class="ident">visit_NoneType</span></span>(<span>self, node: None) ‑> None</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def visit_NoneType(self, node: None) -&gt; None:
+    return node</code></pre>
 </details>
 </dd>
 </dl>
@@ -539,15 +708,13 @@ allows modifications.</p></div>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">class ShallowNameDefCollector(CompilingNodeVisitor):
-    step = &#34;Collecting occuring variable names&#34;
+    step = &#34;Collecting defined variable names&#34;
 
     def __init__(self):
-        self.vars = set()
+        self.vars = OrderedSet()
 
     def visit_Name(self, node: Name) -&gt; None:
-        if isinstance(node.ctx, Store) or isinstance(
-            node.typ, PolymorphicFunctionInstanceType
-        ):
+        if isinstance(node.ctx, Store):
             self.vars.add(node.id)
 
     def visit_ClassDef(self, node: ClassDef):
@@ -621,9 +788,7 @@ allows modifications.</p></div>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def visit_Name(self, node: Name) -&gt; None:
-    if isinstance(node.ctx, Store) or isinstance(
-        node.typ, PolymorphicFunctionInstanceType
-    ):
+    if isinstance(node.ctx, Store):
         self.vars.add(node.id)</code></pre>
 </details>
 </dd>
@@ -699,11 +864,21 @@ setTimeout(() => input.focus(), 100);
 <li><h3><a href="#header-classes">Classes</a></h3>
 <ul>
 <li>
+<h4><code><a title="opshin.rewrite.rewrite_scoping.RecordScoper" href="#opshin.rewrite.rewrite_scoping.RecordScoper">RecordScoper</a></code></h4>
+<ul class="">
+<li><code><a title="opshin.rewrite.rewrite_scoping.RecordScoper.scope" href="#opshin.rewrite.rewrite_scoping.RecordScoper.scope">scope</a></code></li>
+<li><code><a title="opshin.rewrite.rewrite_scoping.RecordScoper.visit_AnnAssign" href="#opshin.rewrite.rewrite_scoping.RecordScoper.visit_AnnAssign">visit_AnnAssign</a></code></li>
+<li><code><a title="opshin.rewrite.rewrite_scoping.RecordScoper.visit_ClassDef" href="#opshin.rewrite.rewrite_scoping.RecordScoper.visit_ClassDef">visit_ClassDef</a></code></li>
+</ul>
+</li>
+<li>
 <h4><code><a title="opshin.rewrite.rewrite_scoping.RewriteScoping" href="#opshin.rewrite.rewrite_scoping.RewriteScoping">RewriteScoping</a></code></h4>
 <ul class="two-column">
 <li><code><a title="opshin.rewrite.rewrite_scoping.RewriteScoping.enter_scope" href="#opshin.rewrite.rewrite_scoping.RewriteScoping.enter_scope">enter_scope</a></code></li>
 <li><code><a title="opshin.rewrite.rewrite_scoping.RewriteScoping.exit_scope" href="#opshin.rewrite.rewrite_scoping.RewriteScoping.exit_scope">exit_scope</a></code></li>
+<li><code><a title="opshin.rewrite.rewrite_scoping.RewriteScoping.latest_scope_id" href="#opshin.rewrite.rewrite_scoping.RewriteScoping.latest_scope_id">latest_scope_id</a></code></li>
 <li><code><a title="opshin.rewrite.rewrite_scoping.RewriteScoping.map_name" href="#opshin.rewrite.rewrite_scoping.RewriteScoping.map_name">map_name</a></code></li>
+<li><code><a title="opshin.rewrite.rewrite_scoping.RewriteScoping.scopes" href="#opshin.rewrite.rewrite_scoping.RewriteScoping.scopes">scopes</a></code></li>
 <li><code><a title="opshin.rewrite.rewrite_scoping.RewriteScoping.set_variable_scope" href="#opshin.rewrite.rewrite_scoping.RewriteScoping.set_variable_scope">set_variable_scope</a></code></li>
 <li><code><a title="opshin.rewrite.rewrite_scoping.RewriteScoping.step" href="#opshin.rewrite.rewrite_scoping.RewriteScoping.step">step</a></code></li>
 <li><code><a title="opshin.rewrite.rewrite_scoping.RewriteScoping.variable_scope_id" href="#opshin.rewrite.rewrite_scoping.RewriteScoping.variable_scope_id">variable_scope_id</a></code></li>
@@ -712,6 +887,7 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="opshin.rewrite.rewrite_scoping.RewriteScoping.visit_FunctionDef" href="#opshin.rewrite.rewrite_scoping.RewriteScoping.visit_FunctionDef">visit_FunctionDef</a></code></li>
 <li><code><a title="opshin.rewrite.rewrite_scoping.RewriteScoping.visit_Module" href="#opshin.rewrite.rewrite_scoping.RewriteScoping.visit_Module">visit_Module</a></code></li>
 <li><code><a title="opshin.rewrite.rewrite_scoping.RewriteScoping.visit_Name" href="#opshin.rewrite.rewrite_scoping.RewriteScoping.visit_Name">visit_Name</a></code></li>
+<li><code><a title="opshin.rewrite.rewrite_scoping.RewriteScoping.visit_NoneType" href="#opshin.rewrite.rewrite_scoping.RewriteScoping.visit_NoneType">visit_NoneType</a></code></li>
 </ul>
 </li>
 <li>

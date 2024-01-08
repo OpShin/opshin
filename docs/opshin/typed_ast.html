@@ -107,7 +107,7 @@ class TypedModule(typedstmt, Module):
 
 class TypedFunctionDef(typedstmt, FunctionDef):
     body: typing.List[typedstmt]
-    args: arguments
+    args: typedarguments
 
 
 class TypedIf(typedstmt, If):
@@ -848,7 +848,6 @@ class RawPlutoExpr(typedexpr):
 | Match(expr subject, match_case<em> cases)
 | Raise(expr? exc, expr? cause)
 | Try(stmt</em> body, excepthandler<em> handlers, stmt</em> orelse, stmt<em> finalbody)
-| TryStar(stmt</em> body, excepthandler<em> handlers, stmt</em> orelse, stmt<em> finalbody)
 | Assert(expr test, expr? msg)
 | Import(alias</em> names)
 | ImportFrom(identifier? module, alias<em> names, int? level)
@@ -990,7 +989,7 @@ class RawPlutoExpr(typedexpr):
 </summary>
 <pre><code class="python">class TypedFunctionDef(typedstmt, FunctionDef):
     body: typing.List[typedstmt]
-    args: arguments</code></pre>
+    args: typedarguments</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -1002,7 +1001,7 @@ class RawPlutoExpr(typedexpr):
 </ul>
 <h3>Class variables</h3>
 <dl>
-<dt id="opshin.typed_ast.TypedFunctionDef.args"><code class="name">var <span class="ident">args</span> : ast.arguments</code></dt>
+<dt id="opshin.typed_ast.TypedFunctionDef.args"><code class="name">var <span class="ident">args</span> : <a title="opshin.typed_ast.typedarguments" href="#opshin.typed_ast.typedarguments">typedarguments</a></code></dt>
 <dd>
 <div class="desc"></div>
 </dd>
@@ -1073,7 +1072,6 @@ class RawPlutoExpr(typedexpr):
 | Match(expr subject, match_case<em> cases)
 | Raise(expr? exc, expr? cause)
 | Try(stmt</em> body, excepthandler<em> handlers, stmt</em> orelse, stmt<em> finalbody)
-| TryStar(stmt</em> body, excepthandler<em> handlers, stmt</em> orelse, stmt<em> finalbody)
 | Assert(expr test, expr? msg)
 | Import(alias</em> names)
 | ImportFrom(identifier? module, alias<em> names, int? level)
@@ -1263,7 +1261,6 @@ class RawPlutoExpr(typedexpr):
 | Match(expr subject, match_case<em> cases)
 | Raise(expr? exc, expr? cause)
 | Try(stmt</em> body, excepthandler<em> handlers, stmt</em> orelse, stmt<em> finalbody)
-| TryStar(stmt</em> body, excepthandler<em> handlers, stmt</em> orelse, stmt<em> finalbody)
 | Assert(expr test, expr? msg)
 | Import(alias</em> names)
 | ImportFrom(identifier? module, alias<em> names, int? level)
@@ -1797,7 +1794,6 @@ class RawPlutoExpr(typedexpr):
 | Match(expr subject, match_case<em> cases)
 | Raise(expr? exc, expr? cause)
 | Try(stmt</em> body, excepthandler<em> handlers, stmt</em> orelse, stmt<em> finalbody)
-| TryStar(stmt</em> body, excepthandler<em> handlers, stmt</em> orelse, stmt<em> finalbody)
 | Assert(expr test, expr? msg)
 | Import(alias</em> names)
 | ImportFrom(identifier? module, alias<em> names, int? level)

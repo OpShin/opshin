@@ -72,7 +72,6 @@ fill="currentColor" class="octo-body"></path>
 
 from uplc import ast as uplc, eval as uplc_eval
 from ..utils import eval_uplc
-from ... import compiler
 
 
 @parameterized.expand(
@@ -108,7 +107,8 @@ def validator(x: B) -&gt; None:
     )
     try:
         eval_uplc(source_code, obj)
-    except:
+    except Exception as e:
+        print(e)
         res = False
     else:
         res = True
@@ -256,6 +256,28 @@ def validator(x: B) -&gt; None:
     assert res == (
         all(isinstance(x, int) for x in keys + values) and len(set(keys)) == len(keys)
     )
+
+
+def test_integrity_check_rename():
+    source_code = &#34;&#34;&#34;
+from dataclasses import dataclass
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
+from opshin.std.integrity import check_integrity as integ
+
+@dataclass()
+class B(PlutusData):
+    CONSTR_ID = 1
+    foobar: int
+
+def validator(x: B) -&gt; None:
+    integ(x)
+&#34;&#34;&#34;
+    obj = uplc.PlutusConstr(
+        1,
+        [uplc.PlutusInteger(1)],
+    )
+    eval_uplc(source_code, obj)
 
 
 # TODO implement better way to check for uniqueness test in dict keys</code></pre>
@@ -408,6 +430,37 @@ def standalone_func(*a, **kw):
     return func(*(a + p.args), **p.kwargs, **kw)</code></pre>
 </details>
 </dd>
+<dt id="opshin.tests.test_std.test_integrity.test_integrity_check_rename"><code class="name flex">
+<span>def <span class="ident">test_integrity_check_rename</span></span>(<span>)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def test_integrity_check_rename():
+    source_code = &#34;&#34;&#34;
+from dataclasses import dataclass
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
+from opshin.std.integrity import check_integrity as integ
+
+@dataclass()
+class B(PlutusData):
+    CONSTR_ID = 1
+    foobar: int
+
+def validator(x: B) -&gt; None:
+    integ(x)
+&#34;&#34;&#34;
+    obj = uplc.PlutusConstr(
+        1,
+        [uplc.PlutusInteger(1)],
+    )
+    eval_uplc(source_code, obj)</code></pre>
+</details>
+</dd>
 </dl>
 </section>
 <section>
@@ -489,6 +542,7 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="opshin.tests.test_std.test_integrity.test_integrity_check_list_0" href="#opshin.tests.test_std.test_integrity.test_integrity_check_list_0">test_integrity_check_list_0</a></code></li>
 <li><code><a title="opshin.tests.test_std.test_integrity.test_integrity_check_list_1" href="#opshin.tests.test_std.test_integrity.test_integrity_check_list_1">test_integrity_check_list_1</a></code></li>
 <li><code><a title="opshin.tests.test_std.test_integrity.test_integrity_check_list_2" href="#opshin.tests.test_std.test_integrity.test_integrity_check_list_2">test_integrity_check_list_2</a></code></li>
+<li><code><a title="opshin.tests.test_std.test_integrity.test_integrity_check_rename" href="#opshin.tests.test_std.test_integrity.test_integrity_check_rename">test_integrity_check_rename</a></code></li>
 </ul>
 </li>
 </ul>

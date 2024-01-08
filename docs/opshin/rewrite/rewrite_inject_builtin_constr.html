@@ -98,7 +98,7 @@ class RewriteInjectBuiltinsConstr(CompilingNodeTransformer):
             additional_assigns.append(
                 TypedAssign(
                     targets=[TypedName(id=tname, typ=typ, ctx=Store())],
-                    value=RawPlutoExpr(typ=typ, expr=plt.Lambda([&#34;_&#34;], t.constr())),
+                    value=RawPlutoExpr(typ=typ, expr=force_params(t.constr())),
                 )
             )
         md = copy(node)
@@ -169,7 +169,7 @@ just a single node.</p>
             additional_assigns.append(
                 TypedAssign(
                     targets=[TypedName(id=tname, typ=typ, ctx=Store())],
-                    value=RawPlutoExpr(typ=typ, expr=plt.Lambda([&#34;_&#34;], t.constr())),
+                    value=RawPlutoExpr(typ=typ, expr=force_params(t.constr())),
                 )
             )
         md = copy(node)
@@ -227,7 +227,7 @@ just a single node.</p>
         additional_assigns.append(
             TypedAssign(
                 targets=[TypedName(id=tname, typ=typ, ctx=Store())],
-                value=RawPlutoExpr(typ=typ, expr=plt.Lambda([&#34;_&#34;], t.constr())),
+                value=RawPlutoExpr(typ=typ, expr=force_params(t.constr())),
             )
         )
     md = copy(node)
