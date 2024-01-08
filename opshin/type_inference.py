@@ -566,14 +566,8 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             self.set_variable_type(node.name, tfd.typ)
             tfd.body = self.visit_sequence(node.body)
             # Check that return type and annotated return type match
-            if not isinstance(node.body[-1], Return):
-                assert (
-                    functyp.rettyp >= NoneInstanceType
-                ), f"Function '{node.orig_name}' has no return statement but is supposed to return not-None value"
-            else:
-                assert (
-                    functyp.rettyp >= tfd.body[-1].typ
-                ), f"Function '{node.orig_name}' annotated return type does not match actual return type"
+            rets_extractor = ReturnExtractor(functyp.rettyp)
+            rets_extractor.check_fulfills(tfd)
 
         self.exit_scope()
         # We need the function type outside for usage
@@ -1017,3 +1011,52 @@ def typed_ast(ast: AST):
 
 def map_to_orig_name(name: str):
     return re.sub(r"_\d+$", "", name)
+
+
+class ReturnExtractor(TypedNodeVisitor):
+    """
+    Utility to check that all paths end in Return statements with the proper type
+
+    Returns whether there is no remaining path
+    """
+
+    def __init__(self, func_rettyp: Type):
+        self.func_rettyp = func_rettyp
+
+    def visit_sequence(self, nodes: typing.List[TypedAST]) -> bool:
+        all_paths_covered = False
+        for node in nodes:
+            all_paths_covered = self.visit(node)
+            if all_paths_covered:
+                break
+        return all_paths_covered
+
+    def visit_If(self, node: If) -> bool:
+        return self.visit_sequence(node.body) and self.visit_sequence(node.orelse)
+
+    def visit_For(self, node: For) -> bool:
+        # The body simply has to be checked but has no influence on whether all paths are covered
+        # because it might never be visited
+        self.visit_sequence(node.body)
+        # the else path is always visited
+        return self.visit_sequence(node.orelse)
+
+    def visit_While(self, node: For) -> bool:
+        # The body simply has to be checked but has no influence on whether all paths are covered
+        # because it might never be visited
+        self.visit_sequence(node.body)
+        # the else path is always visited
+        return self.visit_sequence(node.orelse)
+
+    def visit_Return(self, node: Return) -> bool:
+        assert (
+            self.func_rettyp >= node.typ
+        ), f"Function '{node.name}' annotated return type does not match actual return type"
+        return True
+
+    def check_fulfills(self, node: FunctionDef):
+        all_paths_covered = self.visit_sequence(node.body)
+        if not all_paths_covered:
+            assert (
+                self.func_rettyp >= NoneInstanceType
+            ), f"Function '{node.name}' has no return statement but is supposed to return not-None value"

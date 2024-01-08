@@ -2464,3 +2464,163 @@ def validator(
                 capture_output=True,
             )
             self.assertEqual(code.stdout, code_2.stdout)
+
+    @unittest.expectedFailure
+    def test_return_illegal(self):
+        # this is now an illegal retyping because read variables dont match
+        source_code = """
+return 1
+def validator(_: None) -> int:
+    return 0
+        """
+        builder._compile(source_code)
+
+    def test_return_in_loop(self):
+        source_code = """
+def validator(_: None) -> int:
+    i = 0
+    while i < 10:
+        i += 1
+        if i == 5:
+          return i
+    return 0
+        """
+        res = eval_uplc_value(source_code, Unit())
+        self.assertEqual(res, 5, "Invalid return break")
+
+    def test_return_in_for(self):
+        source_code = """
+def validator(_: None) -> int:
+    i = 0
+    for i in range(10):
+        i += 1
+        if i == 5:
+          return i
+    return 0
+        """
+        res = eval_uplc_value(source_code, Unit())
+        self.assertEqual(res, 5, "Invalid return break")
+
+    def test_return_in_if(self):
+        source_code = """
+def validator(_: None) -> int:
+    i = 0
+    if i == 1:
+        return 0
+    else:
+        return 1
+        """
+        res = eval_uplc_value(source_code, Unit())
+        self.assertEqual(res, 1, "Invalid return")
+
+    @unittest.expectedFailure
+    def test_return_in_if_same_type(self):
+        source_code = """
+def validator(_: None) -> str:
+    i = 0
+    if i == 1:
+        return "a"
+    else:
+        return 1
+        """
+        builder._compile(source_code)
+
+    def test_isinstance_cast_if(self):
+        source_code = """
+from dataclasses import dataclass
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
+
+@dataclass()
+class A(PlutusData):
+    CONSTR_ID = 0
+    foo: int
+
+@dataclass()
+class B(PlutusData):
+    CONSTR_ID = 1
+    foobar: int
+    bar: int
+
+def validator(_: None) -> Union[A, B]:
+    x = 0
+    if x == 1:
+        return A(1)
+    else:
+        return B(2, 1)
+"""
+        res = eval_uplc(source_code, Unit())
+        self.assertEqual(
+            res,
+            uplc.PlutusConstr(1, [uplc.PlutusInteger(2), uplc.PlutusInteger(1)]),
+            "Invalid return",
+        )
+
+    @unittest.expectedFailure
+    def test_return_in_if_missing_return(self):
+        source_code = """
+def validator(_: None) -> str:
+    i = 0
+    if i == 1:
+        return "a"
+    else:
+        pass
+        """
+        builder._compile(source_code)
+
+    def test_different_return_types_anything(self):
+        source_code = """
+from opshin.prelude import *
+
+def validator(a: int) -> Anything:
+    if a > 0:
+        return b""
+    else:
+        return 0
+"""
+        res = eval_uplc(source_code, 1)
+        self.assertEqual(res, uplc.PlutusByteString(b""))
+        res = eval_uplc(source_code, -1)
+        self.assertEqual(res, uplc.PlutusInteger(0))
+
+    @unittest.expectedFailure
+    def test_different_return_types_while_loop(self):
+        source_code = """
+def validator(a: int) -> str:
+    while a > 0:
+        return b""
+    return 0
+"""
+        builder.compile(source_code)
+
+    @unittest.expectedFailure
+    def test_different_return_types_for_loop(self):
+        source_code = """
+def validator(a: int) -> str:
+    for i in range(a):
+        return b""
+    return 0
+"""
+        builder.compile(source_code)
+
+    def test_return_else_loop_while(self):
+        source_code = """
+def validator(a: int) -> int:
+    while a > 0:
+        a -= 1
+    else:
+        return 0
+"""
+        res = eval_uplc_value(source_code, 1)
+        self.assertEqual(res, 0, "Invalid return")
+
+    def test_return_else_loop_for(self):
+        source_code = """
+def validator(a: int) -> int:
+    for _ in range(a):
+        a -= 1
+    else:
+        return 0
+"""
+        res = eval_uplc_value(source_code, 1)
+        self.assertEqual(res, 0, "Invalid return")

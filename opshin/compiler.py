@@ -7,6 +7,7 @@ from .rewrite.rewrite_augassign import RewriteAugAssign
 from .rewrite.rewrite_cast_condition import RewriteConditions
 from .rewrite.rewrite_comparison_chaining import RewriteComparisonChaining
 from .rewrite.rewrite_forbidden_overwrites import RewriteForbiddenOverwrites
+from .rewrite.rewrite_forbidden_return import RewriteForbiddenReturn
 from .rewrite.rewrite_import import RewriteImport
 from .rewrite.rewrite_import_dataclasses import RewriteImportDataclasses
 from .rewrite.rewrite_import_hashlib import RewriteImportHashlib
@@ -1004,6 +1005,7 @@ def compile(
         # Important to call this one first - it imports all further files
         RewriteImport(filename=filename),
         # Rewrites that simplify the python code
+        RewriteForbiddenReturn(),
         OptimizeConstantFolding() if constant_folding else NoOp(),
         RewriteSubscript38(),
         RewriteAugAssign(),
