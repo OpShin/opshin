@@ -499,9 +499,9 @@ class RecordType(ClassType):
             return OLambda(
                 [&#34;self&#34;],
                 transform_ext_params_map(attr_typ)(
-                    plt.NthField(
+                    plt.ConstantNthField(
                         OVar(&#34;self&#34;),
-                        plt.Integer(pos),
+                        pos,
                     ),
                 ),
             )
@@ -579,7 +579,7 @@ class RecordType(ClassType):
                     plt.Apply(
                         field_type.stringify(recursive=True),
                         transform_ext_params_map(field_type)(
-                            plt.NthField(OVar(&#34;self&#34;), plt.Integer(pos))
+                            plt.ConstantNthField(OVar(&#34;self&#34;), pos)
                         ),
                     ),
                     map_fields,
@@ -590,7 +590,7 @@ class RecordType(ClassType):
                 plt.Apply(
                     self.record.fields[0][1].stringify(recursive=True),
                     transform_ext_params_map(self.record.fields[0][1])(
-                        plt.NthField(OVar(&#34;self&#34;), plt.Integer(pos))
+                        plt.ConstantNthField(OVar(&#34;self&#34;), pos)
                     ),
                 ),
                 map_fields,
@@ -7720,9 +7720,9 @@ class RecordType(ClassType):
             return OLambda(
                 [&#34;self&#34;],
                 transform_ext_params_map(attr_typ)(
-                    plt.NthField(
+                    plt.ConstantNthField(
                         OVar(&#34;self&#34;),
-                        plt.Integer(pos),
+                        pos,
                     ),
                 ),
             )
@@ -7800,7 +7800,7 @@ class RecordType(ClassType):
                     plt.Apply(
                         field_type.stringify(recursive=True),
                         transform_ext_params_map(field_type)(
-                            plt.NthField(OVar(&#34;self&#34;), plt.Integer(pos))
+                            plt.ConstantNthField(OVar(&#34;self&#34;), pos)
                         ),
                     ),
                     map_fields,
@@ -7811,7 +7811,7 @@ class RecordType(ClassType):
                 plt.Apply(
                     self.record.fields[0][1].stringify(recursive=True),
                     transform_ext_params_map(self.record.fields[0][1])(
-                        plt.NthField(OVar(&#34;self&#34;), plt.Integer(pos))
+                        plt.ConstantNthField(OVar(&#34;self&#34;), pos)
                     ),
                 ),
                 map_fields,
@@ -7891,9 +7891,9 @@ class RecordType(ClassType):
         return OLambda(
             [&#34;self&#34;],
             transform_ext_params_map(attr_typ)(
-                plt.NthField(
+                plt.ConstantNthField(
                     OVar(&#34;self&#34;),
-                    plt.Integer(pos),
+                    pos,
                 ),
             ),
         )
@@ -8132,7 +8132,7 @@ For anything but record …</p></div>
                 plt.Apply(
                     field_type.stringify(recursive=True),
                     transform_ext_params_map(field_type)(
-                        plt.NthField(OVar(&#34;self&#34;), plt.Integer(pos))
+                        plt.ConstantNthField(OVar(&#34;self&#34;), pos)
                     ),
                 ),
                 map_fields,
@@ -8143,7 +8143,7 @@ For anything but record …</p></div>
             plt.Apply(
                 self.record.fields[0][1].stringify(recursive=True),
                 transform_ext_params_map(self.record.fields[0][1])(
-                    plt.NthField(OVar(&#34;self&#34;), plt.Integer(pos))
+                    plt.ConstantNthField(OVar(&#34;self&#34;), pos)
                 ),
             ),
             map_fields,
