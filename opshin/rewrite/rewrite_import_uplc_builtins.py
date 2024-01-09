@@ -40,16 +40,13 @@ class RewriteImportUPLCBuiltins(CompilingNodeTransformer):
         ), "To wrap builtin functions, you need to import the builtin function. Add `from opshin.bridge import wraps_builtin` to your code."
         # we replace the body with a forwarded call to the wrapped builtin
         CamelCaseFunName = "".join(
-            p.capitalize() for p in re.split(r"_(?!\d)", node.name)
+            p.capitalize() for p in re.split(r"_(?!\d)", node.orig_name)
         )
         uplc_fun = plt.__dict__[CamelCaseFunName]
         pluto_expression = RawPlutoExpr(
             typ=node.typ.typ.rettyp,
-            expr=plt.Lambda(
-                ["_"],
-                uplc_fun(
-                    *(plt.Var(f"p{i}") for i in range(len(node.args.args))),
-                ),
+            expr=uplc_fun(
+                *(plt.Force(plt.Var(a.arg)) for a in node.args.args),
             ),
         )
         node_cp = copy(node)

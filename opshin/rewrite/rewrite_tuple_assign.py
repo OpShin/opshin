@@ -20,13 +20,13 @@ class RewriteTupleAssign(CompilingNodeTransformer):
             return [node]
         uid = self.unique_id
         self.unique_id += 1
-        assignments = [Assign([Name(f"{uid}_tup", Store())], self.visit(node.value))]
+        assignments = [Assign([Name(f"2_{uid}_tup", Store())], self.visit(node.value))]
         for i, t in enumerate(node.targets[0].elts):
             assignments.append(
                 Assign(
                     [t],
                     Subscript(
-                        value=Name(f"{uid}_tup", Load()),
+                        value=Name(f"2_{uid}_tup", Load()),
                         slice=Constant(i),
                         ctx=Load(),
                     ),
@@ -45,7 +45,7 @@ class RewriteTupleAssign(CompilingNodeTransformer):
         uid = self.unique_id
         self.unique_id += 1
         # write the tuple into a singleton variable
-        new_for.target = Name(f"{uid}_tup", Store())
+        new_for.target = Name(f"2_{uid}_tup", Store())
         assignments = []
         # iteratively assign the deconstructed parts to the original variable names
         for i, t in enumerate(node.target.elts):
@@ -53,7 +53,7 @@ class RewriteTupleAssign(CompilingNodeTransformer):
                 Assign(
                     [t],
                     Subscript(
-                        value=Name(f"{uid}_tup", Load()),
+                        value=Name(f"2_{uid}_tup", Load()),
                         slice=Constant(i),
                         ctx=Load(),
                     ),

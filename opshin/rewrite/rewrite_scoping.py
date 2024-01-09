@@ -1,8 +1,11 @@
+import typing
 from ast import *
 from copy import copy
-from collections import defaultdict
 
-from ..type_inference import INITIAL_SCOPE, PolymorphicFunctionInstanceType
+from ordered_set import OrderedSet
+
+from .rewrite_forbidden_overwrites import FORBIDDEN_NAMES
+from ..type_inference import INITIAL_SCOPE
 from ..util import CompilingNodeTransformer, CompilingNodeVisitor
 
 """
@@ -11,15 +14,13 @@ Rewrites all variable names to point to the definition in the nearest enclosing 
 
 
 class ShallowNameDefCollector(CompilingNodeVisitor):
-    step = "Collecting occuring variable names"
+    step = "Collecting defined variable names"
 
     def __init__(self):
-        self.vars = set()
+        self.vars = OrderedSet()
 
     def visit_Name(self, node: Name) -> None:
-        if isinstance(node.ctx, Store) or isinstance(
-            node.typ, PolymorphicFunctionInstanceType
-        ):
+        if isinstance(node.ctx, Store):
             self.vars.add(node.id)
 
     def visit_ClassDef(self, node: ClassDef):
@@ -33,10 +34,8 @@ class ShallowNameDefCollector(CompilingNodeVisitor):
 
 class RewriteScoping(CompilingNodeTransformer):
     step = "Rewrite all variables to inambiguously point to the definition in the nearest enclosing scope"
-
-    def __init__(self):
-        self.latest_scope_id = 0
-        self.scopes = [(set(INITIAL_SCOPE.keys()), -1)]
+    latest_scope_id: int
+    scopes: typing.List[typing.Tuple[OrderedSet, int]]
 
     def variable_scope_id(self, name: str) -> int:
         """find the id of the scope in which this variable is defined (closest to its usage)"""
@@ -49,7 +48,7 @@ class RewriteScoping(CompilingNodeTransformer):
         )
 
     def enter_scope(self):
-        self.scopes.append((set(), self.latest_scope_id))
+        self.scopes.append((OrderedSet(), self.latest_scope_id))
         self.latest_scope_id += 1
 
     def exit_scope(self):
@@ -66,6 +65,8 @@ class RewriteScoping(CompilingNodeTransformer):
         return f"{name}_{scope_id}"
 
     def visit_Module(self, node: Module) -> Module:
+        self.latest_scope_id = 0
+        self.scopes = [(OrderedSet(INITIAL_SCOPE.keys() | FORBIDDEN_NAMES), -1)]
         node_cp = copy(node)
         self.enter_scope()
         # vars defined in this scope
@@ -85,11 +86,7 @@ class RewriteScoping(CompilingNodeTransformer):
         return nc
 
     def visit_ClassDef(self, node: ClassDef) -> ClassDef:
-        node_cp = copy(node)
-        # setting is handled in either enclosing module or function
-        node_cp.name = self.map_name(node.name)
-        # ignore the content of class definitions
-        return node_cp
+        return RecordScoper.scope(node, self)
 
     def visit_FunctionDef(self, node: FunctionDef) -> FunctionDef:
         node_cp = copy(node)
@@ -103,7 +100,9 @@ class RewriteScoping(CompilingNodeTransformer):
             a_cp = copy(a)
             self.set_variable_scope(a.arg)
             a_cp.arg = self.map_name(a.arg)
+            a_cp.annotation = self.visit(a.annotation)
             node_cp.args.args.append(a_cp)
+        node_cp.returns = self.visit(node.returns)
         # vars defined in this scope
         shallow_node_def_collector = ShallowNameDefCollector()
         for s in node.body:
@@ -114,4 +113,32 @@ class RewriteScoping(CompilingNodeTransformer):
         # map all vars and recurse
         node_cp.body = [self.visit(s) for s in node.body]
         self.exit_scope()
+        return node_cp
+
+    def visit_NoneType(self, node: None) -> None:
+        return node
+
+
+class RecordScoper(NodeTransformer):
+    _scoper: RewriteScoping
+
+    def __init__(self, scoper: RewriteScoping):
+        self._scoper = scoper
+
+    @classmethod
+    def scope(cls, c: ClassDef, scoper: RewriteScoping) -> ClassDef:
+        f = cls(scoper)
+        return f.visit(c)
+
+    def visit_ClassDef(self, c: ClassDef) -> ClassDef:
+        node_cp = copy(c)
+        node_cp.name = self._scoper.map_name(node_cp.name)
+        return self.generic_visit(node_cp)
+
+    def visit_AnnAssign(self, node: AnnAssign) -> AnnAssign:
+        assert isinstance(
+            node.target, Name
+        ), "Record elements must have named attributes"
+        node_cp = copy(node)
+        node_cp.annotation = self._scoper.visit(node_cp.annotation)
         return node_cp

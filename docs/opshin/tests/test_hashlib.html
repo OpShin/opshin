@@ -6,7 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
 <meta name="generator" content="pdoc 0.10.0" />
 <link rel="icon" href="https://raw.githubusercontent.com/OpShin/opshin/dev/docs/opshin_32.png" sizes="32x32" type="image/png">
-<title>opshin.optimize API documentation</title>
+<title>opshin.tests.test_hashlib API documentation</title>
 <meta name="description" content="" />
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/sanitize.min.css" integrity="sha256-PK9q560IAAa6WVRRh76LtCaI8pjTJ2z11v0miyNNjrs=" crossorigin>
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/typography.min.css" integrity="sha256-7l/o7C8jubJiy74VsKTidCy1yBkRtiUGbVkYBylBqUg=" crossorigin>
@@ -61,34 +61,131 @@ fill="currentColor" class="octo-body"></path>
 </a>
 <article id="content">
 <header>
-<h1 class="title">Module <code>opshin.optimize</code></h1>
+<h1 class="title">Module <code>opshin.tests.test_hashlib</code></h1>
 </header>
 <section id="section-intro">
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">import hypothesis
+import hypothesis.strategies as hst
+from hashlib import sha256, sha3_256, blake2b
+
+from .utils import eval_uplc_value
+
+pos_int = hst.integers(min_value=0)
+
+
+@hypothesis.given(hst.binary())
+def test_sha256(b: bytes):
+    source_code = &#34;&#34;&#34;
+from hashlib import sha256
+def validator(b: bytes) -&gt; bytes:
+    return sha256(b).digest()
+&#34;&#34;&#34;
+    res = eval_uplc_value(source_code, b)
+    exp = sha256(b).digest()
+    assert res == exp, &#34;Invalid implementation of sha256&#34;
+
+
+@hypothesis.given(hst.binary())
+def test_sha3_256(b: bytes):
+    source_code = &#34;&#34;&#34;
+from hashlib import sha3_256
+def validator(b: bytes) -&gt; bytes:
+    return sha3_256(b).digest()
+&#34;&#34;&#34;
+    res = eval_uplc_value(source_code, b)
+    exp = sha3_256(b).digest()
+    assert res == exp, &#34;Invalid implementation of sha3_256&#34;
+
+
+@hypothesis.given(hst.binary())
+def test_blake2b(b: bytes):
+    source_code = &#34;&#34;&#34;
+from hashlib import blake2b
+def validator(b: bytes) -&gt; bytes:
+    return blake2b(b).digest()
+&#34;&#34;&#34;
+    res = eval_uplc_value(source_code, b)
+    # TODO this is an error in the semantics, strictly speaking
+    exp = blake2b(b, digest_size=32).digest()
+    assert res == exp, &#34;Invalid implementation of blake2b&#34;</code></pre>
+</details>
 </section>
 <section>
-<h2 class="section-title" id="header-submodules">Sub-modules</h2>
+</section>
+<section>
+</section>
+<section>
+<h2 class="section-title" id="header-functions">Functions</h2>
 <dl>
-<dt><code class="name"><a title="opshin.optimize.optimize_const_folding" href="optimize_const_folding.html">opshin.optimize.optimize_const_folding</a></code></dt>
+<dt id="opshin.tests.test_hashlib.test_blake2b"><code class="name flex">
+<span>def <span class="ident">test_blake2b</span></span>(<span>) ‑> None</span>
+</code></dt>
 <dd>
 <div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@hypothesis.given(hst.binary())
+def test_blake2b(b: bytes):
+    source_code = &#34;&#34;&#34;
+from hashlib import blake2b
+def validator(b: bytes) -&gt; bytes:
+    return blake2b(b).digest()
+&#34;&#34;&#34;
+    res = eval_uplc_value(source_code, b)
+    # TODO this is an error in the semantics, strictly speaking
+    exp = blake2b(b, digest_size=32).digest()
+    assert res == exp, &#34;Invalid implementation of blake2b&#34;</code></pre>
+</details>
 </dd>
-<dt><code class="name"><a title="opshin.optimize.optimize_remove_comments" href="optimize_remove_comments.html">opshin.optimize.optimize_remove_comments</a></code></dt>
+<dt id="opshin.tests.test_hashlib.test_sha256"><code class="name flex">
+<span>def <span class="ident">test_sha256</span></span>(<span>) ‑> None</span>
+</code></dt>
 <dd>
 <div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@hypothesis.given(hst.binary())
+def test_sha256(b: bytes):
+    source_code = &#34;&#34;&#34;
+from hashlib import sha256
+def validator(b: bytes) -&gt; bytes:
+    return sha256(b).digest()
+&#34;&#34;&#34;
+    res = eval_uplc_value(source_code, b)
+    exp = sha256(b).digest()
+    assert res == exp, &#34;Invalid implementation of sha256&#34;</code></pre>
+</details>
 </dd>
-<dt><code class="name"><a title="opshin.optimize.optimize_remove_deadvars" href="optimize_remove_deadvars.html">opshin.optimize.optimize_remove_deadvars</a></code></dt>
+<dt id="opshin.tests.test_hashlib.test_sha3_256"><code class="name flex">
+<span>def <span class="ident">test_sha3_256</span></span>(<span>) ‑> None</span>
+</code></dt>
 <dd>
 <div class="desc"></div>
-</dd>
-<dt><code class="name"><a title="opshin.optimize.optimize_remove_pass" href="optimize_remove_pass.html">opshin.optimize.optimize_remove_pass</a></code></dt>
-<dd>
-<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@hypothesis.given(hst.binary())
+def test_sha3_256(b: bytes):
+    source_code = &#34;&#34;&#34;
+from hashlib import sha3_256
+def validator(b: bytes) -&gt; bytes:
+    return sha3_256(b).digest()
+&#34;&#34;&#34;
+    res = eval_uplc_value(source_code, b)
+    exp = sha3_256(b).digest()
+    assert res == exp, &#34;Invalid implementation of sha3_256&#34;</code></pre>
+</details>
 </dd>
 </dl>
-</section>
-<section>
-</section>
-<section>
 </section>
 <section>
 </section>
@@ -154,15 +251,14 @@ setTimeout(() => input.focus(), 100);
 <ul id="index">
 <li><h3>Super-module</h3>
 <ul>
-<li><code><a title="opshin" href="../index.html">opshin</a></code></li>
+<li><code><a title="opshin.tests" href="index.html">opshin.tests</a></code></li>
 </ul>
 </li>
-<li><h3><a href="#header-submodules">Sub-modules</a></h3>
-<ul>
-<li><code><a title="opshin.optimize.optimize_const_folding" href="optimize_const_folding.html">opshin.optimize.optimize_const_folding</a></code></li>
-<li><code><a title="opshin.optimize.optimize_remove_comments" href="optimize_remove_comments.html">opshin.optimize.optimize_remove_comments</a></code></li>
-<li><code><a title="opshin.optimize.optimize_remove_deadvars" href="optimize_remove_deadvars.html">opshin.optimize.optimize_remove_deadvars</a></code></li>
-<li><code><a title="opshin.optimize.optimize_remove_pass" href="optimize_remove_pass.html">opshin.optimize.optimize_remove_pass</a></code></li>
+<li><h3><a href="#header-functions">Functions</a></h3>
+<ul class="">
+<li><code><a title="opshin.tests.test_hashlib.test_blake2b" href="#opshin.tests.test_hashlib.test_blake2b">test_blake2b</a></code></li>
+<li><code><a title="opshin.tests.test_hashlib.test_sha256" href="#opshin.tests.test_hashlib.test_sha256">test_sha256</a></code></li>
+<li><code><a title="opshin.tests.test_hashlib.test_sha3_256" href="#opshin.tests.test_hashlib.test_sha3_256">test_sha3_256</a></code></li>
 </ul>
 </li>
 </ul>

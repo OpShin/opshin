@@ -330,9 +330,7 @@ Note that opshin errors may be overly restrictive as they aim to prevent code wi
             script_arts = PlutusContract(
                 built_code,
                 datum_type=onchain_params[0] if len(onchain_params) == 3 else None,
-                redeemer_type=onchain_params[1]
-                if len(onchain_params) == 3
-                else onchain_params[0],
+                redeemer_type=onchain_params[1 if len(onchain_params) == 3 else 0],
                 parameter_types=param_types,
                 purpose=(purpose,),
             )
@@ -423,11 +421,18 @@ def parse_args():
         action="version",
         version=f"opshin {__version__} {__copyright__}",
     )
+    a.add_argument(
+        "--recursion-limit",
+        default=sys.getrecursionlimit(),
+        help="Modify the recursion limit (necessary for larger UPLC programs)",
+        type=int,
+    )
     return a.parse_args()
 
 
 def main():
     args = parse_args()
+    sys.setrecursionlimit(args.recursion_limit)
     if Command(args.command) != Command.lint:
         perform_command(args)
     else:

@@ -248,6 +248,7 @@ from opshin.prelude import *
 
 @dataclass
 class Test(PlutusData):
+    CONSTR_ID = 0
     x: int
     y: bytes
 
@@ -257,14 +258,15 @@ def validator(x: int, y: bytes) -&gt; bytes:
 
         @dataclass
         class Test(PlutusData):
+            CONSTR_ID = 0
             x: int
             y: bytes
 
         ret = eval_uplc_value(source_code, x, y)
         self.assertEqual(ret, Test(x, y).to_cbor(), &#34;to_cbor returned wrong value&#34;)
 
-    @given(st.integers())
-    def test_union_to_cbor(self, x: int):
+    @given(st.integers(), st.booleans())
+    def test_union_to_cbor(self, x: int, z: bool):
         source_code = f&#34;&#34;&#34;
 from opshin.prelude import *
 
@@ -273,22 +275,34 @@ class Test(PlutusData):
     CONSTR_ID = 1
     x: int
     y: bytes
-    
+
 @dataclass
 class Test2(PlutusData):
+    CONSTR_ID = 0
     x: int
 
-def validator(x: int) -&gt; bytes:
-    y: Union[Test, Test2] = Test2(x)
+def validator(x: int, z: bool) -&gt; bytes:
+    y: Union[Test, Test2] = Test2(x) if z else Test(x, b&#39;&#39;)
     return y.to_cbor()
-            &#34;&#34;&#34;
+        &#34;&#34;&#34;
+
+        @dataclass
+        class Test(PlutusData):
+            CONSTR_ID = 1
+            x: int
+            y: bytes
 
         @dataclass
         class Test2(PlutusData):
+            CONSTR_ID = 0
             x: int
 
-        ret = eval_uplc_value(source_code, x)
-        self.assertEqual(ret, Test2(x).to_cbor(), &#34;to_cbor returned wrong value&#34;)</code></pre>
+        ret = eval_uplc_value(source_code, x, z)
+        self.assertEqual(
+            ret,
+            Test2(x).to_cbor() if z else Test(x, b&#34;&#34;).to_cbor(),
+            &#34;to_cbor returned wrong value&#34;,
+        )</code></pre>
 </details>
 </section>
 <section>
@@ -502,6 +516,7 @@ from opshin.prelude import *
 
 @dataclass
 class Test(PlutusData):
+    CONSTR_ID = 0
     x: int
     y: bytes
 
@@ -511,14 +526,15 @@ def validator(x: int, y: bytes) -&gt; bytes:
 
         @dataclass
         class Test(PlutusData):
+            CONSTR_ID = 0
             x: int
             y: bytes
 
         ret = eval_uplc_value(source_code, x, y)
         self.assertEqual(ret, Test(x, y).to_cbor(), &#34;to_cbor returned wrong value&#34;)
 
-    @given(st.integers())
-    def test_union_to_cbor(self, x: int):
+    @given(st.integers(), st.booleans())
+    def test_union_to_cbor(self, x: int, z: bool):
         source_code = f&#34;&#34;&#34;
 from opshin.prelude import *
 
@@ -527,22 +543,34 @@ class Test(PlutusData):
     CONSTR_ID = 1
     x: int
     y: bytes
-    
+
 @dataclass
 class Test2(PlutusData):
+    CONSTR_ID = 0
     x: int
 
-def validator(x: int) -&gt; bytes:
-    y: Union[Test, Test2] = Test2(x)
+def validator(x: int, z: bool) -&gt; bytes:
+    y: Union[Test, Test2] = Test2(x) if z else Test(x, b&#39;&#39;)
     return y.to_cbor()
-            &#34;&#34;&#34;
+        &#34;&#34;&#34;
+
+        @dataclass
+        class Test(PlutusData):
+            CONSTR_ID = 1
+            x: int
+            y: bytes
 
         @dataclass
         class Test2(PlutusData):
+            CONSTR_ID = 0
             x: int
 
-        ret = eval_uplc_value(source_code, x)
-        self.assertEqual(ret, Test2(x).to_cbor(), &#34;to_cbor returned wrong value&#34;)</code></pre>
+        ret = eval_uplc_value(source_code, x, z)
+        self.assertEqual(
+            ret,
+            Test2(x).to_cbor() if z else Test(x, b&#34;&#34;).to_cbor(),
+            &#34;to_cbor returned wrong value&#34;,
+        )</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -844,6 +872,7 @@ from opshin.prelude import *
 
 @dataclass
 class Test(PlutusData):
+    CONSTR_ID = 0
     x: int
     y: bytes
 
@@ -853,6 +882,7 @@ def validator(x: int, y: bytes) -&gt; bytes:
 
         @dataclass
         class Test(PlutusData):
+            CONSTR_ID = 0
             x: int
             y: bytes
 
@@ -888,8 +918,8 @@ def validator(x: str) -&gt; bytes:
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">    @given(st.integers())
-    def test_union_to_cbor(self, x: int):
+<pre><code class="python">    @given(st.integers(), st.booleans())
+    def test_union_to_cbor(self, x: int, z: bool):
         source_code = f&#34;&#34;&#34;
 from opshin.prelude import *
 
@@ -898,22 +928,34 @@ class Test(PlutusData):
     CONSTR_ID = 1
     x: int
     y: bytes
-    
+
 @dataclass
 class Test2(PlutusData):
+    CONSTR_ID = 0
     x: int
 
-def validator(x: int) -&gt; bytes:
-    y: Union[Test, Test2] = Test2(x)
+def validator(x: int, z: bool) -&gt; bytes:
+    y: Union[Test, Test2] = Test2(x) if z else Test(x, b&#39;&#39;)
     return y.to_cbor()
-            &#34;&#34;&#34;
+        &#34;&#34;&#34;
+
+        @dataclass
+        class Test(PlutusData):
+            CONSTR_ID = 1
+            x: int
+            y: bytes
 
         @dataclass
         class Test2(PlutusData):
+            CONSTR_ID = 0
             x: int
 
-        ret = eval_uplc_value(source_code, x)
-        self.assertEqual(ret, Test2(x).to_cbor(), &#34;to_cbor returned wrong value&#34;)</code></pre>
+        ret = eval_uplc_value(source_code, x, z)
+        self.assertEqual(
+            ret,
+            Test2(x).to_cbor() if z else Test(x, b&#34;&#34;).to_cbor(),
+            &#34;to_cbor returned wrong value&#34;,
+        )</code></pre>
 </details>
 </dd>
 </dl>

@@ -293,6 +293,72 @@ def validator(x: bytes, y: int, z: int) -&gt; bytes:
         self.assertEqual(ret, exp, &#34;byte slice returned wrong value&#34;)
 
     @given(x=st.binary(), y=st.integers())
+    @example(b&#34;\x00&#34;, -2)
+    @example(b&#34;1234&#34;, 1)
+    @example(b&#34;1234&#34;, 2)
+    @example(b&#34;1234&#34;, 2)
+    @example(b&#34;1234&#34;, 3)
+    @example(b&#34;1234&#34;, 3)
+    def test_slice_bytes_lower(self, x, y):
+        source_code = &#34;&#34;&#34;
+def validator(x: bytes, y: int) -&gt; bytes:
+    return x[y:]
+            &#34;&#34;&#34;
+        try:
+            exp = x[y:]
+        except IndexError:
+            exp = None
+        try:
+            ret = eval_uplc_value(source_code, x, y)
+        except:
+            ret = None
+        self.assertEqual(ret, exp, &#34;byte slice returned wrong value&#34;)
+
+    @given(x=st.binary(), y=st.integers())
+    @example(b&#34;\x00&#34;, 0)
+    @example(b&#34;1234&#34;, 2)
+    @example(b&#34;1234&#34;, 4)
+    @example(b&#34;1234&#34;, 2)
+    @example(b&#34;1234&#34;, 3)
+    @example(b&#34;1234&#34;, 1)
+    def test_slice_bytes_upper(self, x, y):
+        source_code = &#34;&#34;&#34;
+def validator(x: bytes, y: int) -&gt; bytes:
+    return x[:y]
+            &#34;&#34;&#34;
+        try:
+            exp = x[:y]
+        except IndexError:
+            exp = None
+        try:
+            ret = eval_uplc_value(source_code, x, y)
+        except:
+            ret = None
+        self.assertEqual(ret, exp, &#34;byte slice returned wrong value&#34;)
+
+    @given(x=st.binary())
+    @example(b&#34;\x00&#34;)
+    @example(b&#34;1234&#34;)
+    @example(b&#34;1234&#34;)
+    @example(b&#34;1234&#34;)
+    @example(b&#34;1234&#34;)
+    @example(b&#34;1234&#34;)
+    def test_slice_bytes_full(self, x):
+        source_code = &#34;&#34;&#34;
+def validator(x: bytes) -&gt; bytes:
+    return x[:]
+            &#34;&#34;&#34;
+        try:
+            exp = x[:]
+        except IndexError:
+            exp = None
+        try:
+            ret = eval_uplc_value(source_code, x)
+        except:
+            ret = None
+        self.assertEqual(ret, exp, &#34;byte slice returned wrong value&#34;)
+
+    @given(x=st.binary(), y=st.integers())
     @example(b&#34;1234&#34;, 0)
     @example(b&#34;1234&#34;, 1)
     @example(b&#34;1234&#34;, -1)
@@ -329,6 +395,110 @@ def validator(x: List[int], y: int) -&gt; int:
         except Exception as e:
             ret = None
         self.assertEqual(ret, exp, &#34;list index returned wrong value&#34;)
+
+    @given(x=st.lists(st.integers(), max_size=20), y=st.integers(), z=st.integers())
+    @example([0], -2, 0)
+    @example([1, 2, 3, 4], 1, 2)
+    @example([1, 2, 3, 4], 2, 4)
+    @example([1, 2, 3, 4], 2, 2)
+    @example([1, 2, 3, 4], 3, 3)
+    @example([1, 2, 3, 4], 3, 1)
+    def test_slice_list(self, x, y, z):
+        source_code = &#34;&#34;&#34;
+def validator(x: List[int], y: int, z: int) -&gt; List[int]:
+    return x[y:z]
+            &#34;&#34;&#34;
+        try:
+            exp = x[y:z]
+        except IndexError:
+            exp = None
+        try:
+            ret = eval_uplc_value(source_code, x, y, z)
+        except:
+            ret = None
+        self.assertEqual(
+            ret,
+            [PlutusInteger(x) for x in exp] if exp is not None else exp,
+            &#34;list slice returned wrong value&#34;,
+        )
+
+    @given(x=st.lists(st.integers(), max_size=20), y=st.integers())
+    @example([0], -2)
+    @example([1, 2, 3, 4], 1)
+    @example([1, 2, 3, 4], 2)
+    @example([1, 2, 3, 4], 2)
+    @example([1, 2, 3, 4], 3)
+    @example([1, 2, 3, 4], 3)
+    def test_slice_list_lower(self, x, y):
+        source_code = &#34;&#34;&#34;
+def validator(x: List[int], y: int) -&gt; List[int]:
+    return x[y:]
+            &#34;&#34;&#34;
+        try:
+            exp = x[y:]
+        except IndexError:
+            exp = None
+        try:
+            ret = eval_uplc_value(source_code, x, y)
+        except:
+            ret = None
+        self.assertEqual(
+            ret,
+            [PlutusInteger(x) for x in exp] if exp is not None else exp,
+            &#34;list slice returned wrong value&#34;,
+        )
+
+    @given(x=st.lists(st.integers(), max_size=20), y=st.integers())
+    @example([0], 0)
+    @example([1, 2, 3, 4], 2)
+    @example([1, 2, 3, 4], 4)
+    @example([1, 2, 3, 4], 2)
+    @example([1, 2, 3, 4], 3)
+    @example([1, 2, 3, 4], 1)
+    def test_slice_list_upper(self, x, y):
+        source_code = &#34;&#34;&#34;
+def validator(x: List[int], y: int) -&gt; List[int]:
+    return x[:y]
+            &#34;&#34;&#34;
+        try:
+            exp = x[:y]
+        except IndexError:
+            exp = None
+        try:
+            ret = eval_uplc_value(source_code, x, y)
+        except:
+            ret = None
+        self.assertEqual(
+            ret,
+            [PlutusInteger(x) for x in exp] if exp is not None else exp,
+            &#34;list slice returned wrong value&#34;,
+        )
+
+    @given(x=st.lists(st.integers(), max_size=20))
+    @example([0])
+    @example([1, 2, 3, 4])
+    @example([1, 2, 3, 4])
+    @example([1, 2, 3, 4])
+    @example([1, 2, 3, 4])
+    @example([1, 2, 3, 4])
+    def test_slice_list_full(self, x):
+        source_code = &#34;&#34;&#34;
+def validator(x: List[int]) -&gt; List[int]:
+    return x[:]
+            &#34;&#34;&#34;
+        try:
+            exp = x[:]
+        except IndexError:
+            exp = None
+        try:
+            ret = eval_uplc_value(source_code, x)
+        except:
+            ret = None
+        self.assertEqual(
+            ret,
+            [PlutusInteger(x) for x in exp] if exp is not None else exp,
+            &#34;list slice returned wrong value&#34;,
+        )
 
     @given(xs=st.lists(st.integers()), y=st.integers())
     @example(xs=[0, 1], y=-1)
@@ -423,6 +593,21 @@ def validator(x: bytes, y: int) -&gt; bytes:
             &#34;&#34;&#34;
         ret = eval_uplc_value(source_code, x, y)
         self.assertEqual(ret, x * y, &#34;* returned wrong value&#34;)
+
+    @given(
+        xs=st.lists(st.integers(), max_size=20), ys=st.lists(st.integers(), max_size=20)
+    )
+    def test_add_list(self, xs, ys):
+        source_code = &#34;&#34;&#34;
+def validator(x: List[int], y: List[int]) -&gt; List[int]:
+    return x + y
+            &#34;&#34;&#34;
+        ret = eval_uplc_value(source_code, xs, ys)
+        self.assertEqual(
+            ret,
+            [PlutusInteger(x) for x in xs] + [PlutusInteger(y) for y in ys],
+            &#34;+ returned wrong value&#34;,
+        )
 
     @given(x=st.integers())
     def test_fmt_int(self, x):
@@ -903,6 +1088,72 @@ def validator(x: bytes, y: int, z: int) -&gt; bytes:
         self.assertEqual(ret, exp, &#34;byte slice returned wrong value&#34;)
 
     @given(x=st.binary(), y=st.integers())
+    @example(b&#34;\x00&#34;, -2)
+    @example(b&#34;1234&#34;, 1)
+    @example(b&#34;1234&#34;, 2)
+    @example(b&#34;1234&#34;, 2)
+    @example(b&#34;1234&#34;, 3)
+    @example(b&#34;1234&#34;, 3)
+    def test_slice_bytes_lower(self, x, y):
+        source_code = &#34;&#34;&#34;
+def validator(x: bytes, y: int) -&gt; bytes:
+    return x[y:]
+            &#34;&#34;&#34;
+        try:
+            exp = x[y:]
+        except IndexError:
+            exp = None
+        try:
+            ret = eval_uplc_value(source_code, x, y)
+        except:
+            ret = None
+        self.assertEqual(ret, exp, &#34;byte slice returned wrong value&#34;)
+
+    @given(x=st.binary(), y=st.integers())
+    @example(b&#34;\x00&#34;, 0)
+    @example(b&#34;1234&#34;, 2)
+    @example(b&#34;1234&#34;, 4)
+    @example(b&#34;1234&#34;, 2)
+    @example(b&#34;1234&#34;, 3)
+    @example(b&#34;1234&#34;, 1)
+    def test_slice_bytes_upper(self, x, y):
+        source_code = &#34;&#34;&#34;
+def validator(x: bytes, y: int) -&gt; bytes:
+    return x[:y]
+            &#34;&#34;&#34;
+        try:
+            exp = x[:y]
+        except IndexError:
+            exp = None
+        try:
+            ret = eval_uplc_value(source_code, x, y)
+        except:
+            ret = None
+        self.assertEqual(ret, exp, &#34;byte slice returned wrong value&#34;)
+
+    @given(x=st.binary())
+    @example(b&#34;\x00&#34;)
+    @example(b&#34;1234&#34;)
+    @example(b&#34;1234&#34;)
+    @example(b&#34;1234&#34;)
+    @example(b&#34;1234&#34;)
+    @example(b&#34;1234&#34;)
+    def test_slice_bytes_full(self, x):
+        source_code = &#34;&#34;&#34;
+def validator(x: bytes) -&gt; bytes:
+    return x[:]
+            &#34;&#34;&#34;
+        try:
+            exp = x[:]
+        except IndexError:
+            exp = None
+        try:
+            ret = eval_uplc_value(source_code, x)
+        except:
+            ret = None
+        self.assertEqual(ret, exp, &#34;byte slice returned wrong value&#34;)
+
+    @given(x=st.binary(), y=st.integers())
     @example(b&#34;1234&#34;, 0)
     @example(b&#34;1234&#34;, 1)
     @example(b&#34;1234&#34;, -1)
@@ -939,6 +1190,110 @@ def validator(x: List[int], y: int) -&gt; int:
         except Exception as e:
             ret = None
         self.assertEqual(ret, exp, &#34;list index returned wrong value&#34;)
+
+    @given(x=st.lists(st.integers(), max_size=20), y=st.integers(), z=st.integers())
+    @example([0], -2, 0)
+    @example([1, 2, 3, 4], 1, 2)
+    @example([1, 2, 3, 4], 2, 4)
+    @example([1, 2, 3, 4], 2, 2)
+    @example([1, 2, 3, 4], 3, 3)
+    @example([1, 2, 3, 4], 3, 1)
+    def test_slice_list(self, x, y, z):
+        source_code = &#34;&#34;&#34;
+def validator(x: List[int], y: int, z: int) -&gt; List[int]:
+    return x[y:z]
+            &#34;&#34;&#34;
+        try:
+            exp = x[y:z]
+        except IndexError:
+            exp = None
+        try:
+            ret = eval_uplc_value(source_code, x, y, z)
+        except:
+            ret = None
+        self.assertEqual(
+            ret,
+            [PlutusInteger(x) for x in exp] if exp is not None else exp,
+            &#34;list slice returned wrong value&#34;,
+        )
+
+    @given(x=st.lists(st.integers(), max_size=20), y=st.integers())
+    @example([0], -2)
+    @example([1, 2, 3, 4], 1)
+    @example([1, 2, 3, 4], 2)
+    @example([1, 2, 3, 4], 2)
+    @example([1, 2, 3, 4], 3)
+    @example([1, 2, 3, 4], 3)
+    def test_slice_list_lower(self, x, y):
+        source_code = &#34;&#34;&#34;
+def validator(x: List[int], y: int) -&gt; List[int]:
+    return x[y:]
+            &#34;&#34;&#34;
+        try:
+            exp = x[y:]
+        except IndexError:
+            exp = None
+        try:
+            ret = eval_uplc_value(source_code, x, y)
+        except:
+            ret = None
+        self.assertEqual(
+            ret,
+            [PlutusInteger(x) for x in exp] if exp is not None else exp,
+            &#34;list slice returned wrong value&#34;,
+        )
+
+    @given(x=st.lists(st.integers(), max_size=20), y=st.integers())
+    @example([0], 0)
+    @example([1, 2, 3, 4], 2)
+    @example([1, 2, 3, 4], 4)
+    @example([1, 2, 3, 4], 2)
+    @example([1, 2, 3, 4], 3)
+    @example([1, 2, 3, 4], 1)
+    def test_slice_list_upper(self, x, y):
+        source_code = &#34;&#34;&#34;
+def validator(x: List[int], y: int) -&gt; List[int]:
+    return x[:y]
+            &#34;&#34;&#34;
+        try:
+            exp = x[:y]
+        except IndexError:
+            exp = None
+        try:
+            ret = eval_uplc_value(source_code, x, y)
+        except:
+            ret = None
+        self.assertEqual(
+            ret,
+            [PlutusInteger(x) for x in exp] if exp is not None else exp,
+            &#34;list slice returned wrong value&#34;,
+        )
+
+    @given(x=st.lists(st.integers(), max_size=20))
+    @example([0])
+    @example([1, 2, 3, 4])
+    @example([1, 2, 3, 4])
+    @example([1, 2, 3, 4])
+    @example([1, 2, 3, 4])
+    @example([1, 2, 3, 4])
+    def test_slice_list_full(self, x):
+        source_code = &#34;&#34;&#34;
+def validator(x: List[int]) -&gt; List[int]:
+    return x[:]
+            &#34;&#34;&#34;
+        try:
+            exp = x[:]
+        except IndexError:
+            exp = None
+        try:
+            ret = eval_uplc_value(source_code, x)
+        except:
+            ret = None
+        self.assertEqual(
+            ret,
+            [PlutusInteger(x) for x in exp] if exp is not None else exp,
+            &#34;list slice returned wrong value&#34;,
+        )
 
     @given(xs=st.lists(st.integers()), y=st.integers())
     @example(xs=[0, 1], y=-1)
@@ -1033,6 +1388,21 @@ def validator(x: bytes, y: int) -&gt; bytes:
             &#34;&#34;&#34;
         ret = eval_uplc_value(source_code, x, y)
         self.assertEqual(ret, x * y, &#34;* returned wrong value&#34;)
+
+    @given(
+        xs=st.lists(st.integers(), max_size=20), ys=st.lists(st.integers(), max_size=20)
+    )
+    def test_add_list(self, xs, ys):
+        source_code = &#34;&#34;&#34;
+def validator(x: List[int], y: List[int]) -&gt; List[int]:
+    return x + y
+            &#34;&#34;&#34;
+        ret = eval_uplc_value(source_code, xs, ys)
+        self.assertEqual(
+            ret,
+            [PlutusInteger(x) for x in xs] + [PlutusInteger(y) for y in ys],
+            &#34;+ returned wrong value&#34;,
+        )
 
     @given(x=st.integers())
     def test_fmt_int(self, x):
@@ -1313,6 +1683,31 @@ def validator(x: int, y: int) -&gt; int:
             &#34;&#34;&#34;
         ret = eval_uplc_value(source_code, x, y)
         self.assertEqual(ret, x + y, &#34;+ returned wrong value&#34;)</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_ops.OpTest.test_add_list"><code class="name flex">
+<span>def <span class="ident">test_add_list</span></span>(<span>self) ‑> None</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    @given(
+        xs=st.lists(st.integers(), max_size=20), ys=st.lists(st.integers(), max_size=20)
+    )
+    def test_add_list(self, xs, ys):
+        source_code = &#34;&#34;&#34;
+def validator(x: List[int], y: List[int]) -&gt; List[int]:
+    return x + y
+            &#34;&#34;&#34;
+        ret = eval_uplc_value(source_code, xs, ys)
+        self.assertEqual(
+            ret,
+            [PlutusInteger(x) for x in xs] + [PlutusInteger(y) for y in ys],
+            &#34;+ returned wrong value&#34;,
+        )</code></pre>
 </details>
 </dd>
 <dt id="opshin.tests.test_ops.OpTest.test_add_str"><code class="name flex">
@@ -2135,6 +2530,246 @@ def validator(x: bytes, y: int, z: int) -&gt; bytes:
         self.assertEqual(ret, exp, &#34;byte slice returned wrong value&#34;)</code></pre>
 </details>
 </dd>
+<dt id="opshin.tests.test_ops.OpTest.test_slice_bytes_full"><code class="name flex">
+<span>def <span class="ident">test_slice_bytes_full</span></span>(<span>self) ‑> None</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    @given(x=st.binary())
+    @example(b&#34;\x00&#34;)
+    @example(b&#34;1234&#34;)
+    @example(b&#34;1234&#34;)
+    @example(b&#34;1234&#34;)
+    @example(b&#34;1234&#34;)
+    @example(b&#34;1234&#34;)
+    def test_slice_bytes_full(self, x):
+        source_code = &#34;&#34;&#34;
+def validator(x: bytes) -&gt; bytes:
+    return x[:]
+            &#34;&#34;&#34;
+        try:
+            exp = x[:]
+        except IndexError:
+            exp = None
+        try:
+            ret = eval_uplc_value(source_code, x)
+        except:
+            ret = None
+        self.assertEqual(ret, exp, &#34;byte slice returned wrong value&#34;)</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_ops.OpTest.test_slice_bytes_lower"><code class="name flex">
+<span>def <span class="ident">test_slice_bytes_lower</span></span>(<span>self) ‑> None</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    @given(x=st.binary(), y=st.integers())
+    @example(b&#34;\x00&#34;, -2)
+    @example(b&#34;1234&#34;, 1)
+    @example(b&#34;1234&#34;, 2)
+    @example(b&#34;1234&#34;, 2)
+    @example(b&#34;1234&#34;, 3)
+    @example(b&#34;1234&#34;, 3)
+    def test_slice_bytes_lower(self, x, y):
+        source_code = &#34;&#34;&#34;
+def validator(x: bytes, y: int) -&gt; bytes:
+    return x[y:]
+            &#34;&#34;&#34;
+        try:
+            exp = x[y:]
+        except IndexError:
+            exp = None
+        try:
+            ret = eval_uplc_value(source_code, x, y)
+        except:
+            ret = None
+        self.assertEqual(ret, exp, &#34;byte slice returned wrong value&#34;)</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_ops.OpTest.test_slice_bytes_upper"><code class="name flex">
+<span>def <span class="ident">test_slice_bytes_upper</span></span>(<span>self) ‑> None</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    @given(x=st.binary(), y=st.integers())
+    @example(b&#34;\x00&#34;, 0)
+    @example(b&#34;1234&#34;, 2)
+    @example(b&#34;1234&#34;, 4)
+    @example(b&#34;1234&#34;, 2)
+    @example(b&#34;1234&#34;, 3)
+    @example(b&#34;1234&#34;, 1)
+    def test_slice_bytes_upper(self, x, y):
+        source_code = &#34;&#34;&#34;
+def validator(x: bytes, y: int) -&gt; bytes:
+    return x[:y]
+            &#34;&#34;&#34;
+        try:
+            exp = x[:y]
+        except IndexError:
+            exp = None
+        try:
+            ret = eval_uplc_value(source_code, x, y)
+        except:
+            ret = None
+        self.assertEqual(ret, exp, &#34;byte slice returned wrong value&#34;)</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_ops.OpTest.test_slice_list"><code class="name flex">
+<span>def <span class="ident">test_slice_list</span></span>(<span>self) ‑> None</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    @given(x=st.lists(st.integers(), max_size=20), y=st.integers(), z=st.integers())
+    @example([0], -2, 0)
+    @example([1, 2, 3, 4], 1, 2)
+    @example([1, 2, 3, 4], 2, 4)
+    @example([1, 2, 3, 4], 2, 2)
+    @example([1, 2, 3, 4], 3, 3)
+    @example([1, 2, 3, 4], 3, 1)
+    def test_slice_list(self, x, y, z):
+        source_code = &#34;&#34;&#34;
+def validator(x: List[int], y: int, z: int) -&gt; List[int]:
+    return x[y:z]
+            &#34;&#34;&#34;
+        try:
+            exp = x[y:z]
+        except IndexError:
+            exp = None
+        try:
+            ret = eval_uplc_value(source_code, x, y, z)
+        except:
+            ret = None
+        self.assertEqual(
+            ret,
+            [PlutusInteger(x) for x in exp] if exp is not None else exp,
+            &#34;list slice returned wrong value&#34;,
+        )</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_ops.OpTest.test_slice_list_full"><code class="name flex">
+<span>def <span class="ident">test_slice_list_full</span></span>(<span>self) ‑> None</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    @given(x=st.lists(st.integers(), max_size=20))
+    @example([0])
+    @example([1, 2, 3, 4])
+    @example([1, 2, 3, 4])
+    @example([1, 2, 3, 4])
+    @example([1, 2, 3, 4])
+    @example([1, 2, 3, 4])
+    def test_slice_list_full(self, x):
+        source_code = &#34;&#34;&#34;
+def validator(x: List[int]) -&gt; List[int]:
+    return x[:]
+            &#34;&#34;&#34;
+        try:
+            exp = x[:]
+        except IndexError:
+            exp = None
+        try:
+            ret = eval_uplc_value(source_code, x)
+        except:
+            ret = None
+        self.assertEqual(
+            ret,
+            [PlutusInteger(x) for x in exp] if exp is not None else exp,
+            &#34;list slice returned wrong value&#34;,
+        )</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_ops.OpTest.test_slice_list_lower"><code class="name flex">
+<span>def <span class="ident">test_slice_list_lower</span></span>(<span>self) ‑> None</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    @given(x=st.lists(st.integers(), max_size=20), y=st.integers())
+    @example([0], -2)
+    @example([1, 2, 3, 4], 1)
+    @example([1, 2, 3, 4], 2)
+    @example([1, 2, 3, 4], 2)
+    @example([1, 2, 3, 4], 3)
+    @example([1, 2, 3, 4], 3)
+    def test_slice_list_lower(self, x, y):
+        source_code = &#34;&#34;&#34;
+def validator(x: List[int], y: int) -&gt; List[int]:
+    return x[y:]
+            &#34;&#34;&#34;
+        try:
+            exp = x[y:]
+        except IndexError:
+            exp = None
+        try:
+            ret = eval_uplc_value(source_code, x, y)
+        except:
+            ret = None
+        self.assertEqual(
+            ret,
+            [PlutusInteger(x) for x in exp] if exp is not None else exp,
+            &#34;list slice returned wrong value&#34;,
+        )</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_ops.OpTest.test_slice_list_upper"><code class="name flex">
+<span>def <span class="ident">test_slice_list_upper</span></span>(<span>self) ‑> None</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    @given(x=st.lists(st.integers(), max_size=20), y=st.integers())
+    @example([0], 0)
+    @example([1, 2, 3, 4], 2)
+    @example([1, 2, 3, 4], 4)
+    @example([1, 2, 3, 4], 2)
+    @example([1, 2, 3, 4], 3)
+    @example([1, 2, 3, 4], 1)
+    def test_slice_list_upper(self, x, y):
+        source_code = &#34;&#34;&#34;
+def validator(x: List[int], y: int) -&gt; List[int]:
+    return x[:y]
+            &#34;&#34;&#34;
+        try:
+            exp = x[:y]
+        except IndexError:
+            exp = None
+        try:
+            ret = eval_uplc_value(source_code, x, y)
+        except:
+            ret = None
+        self.assertEqual(
+            ret,
+            [PlutusInteger(x) for x in exp] if exp is not None else exp,
+            &#34;list slice returned wrong value&#34;,
+        )</code></pre>
+</details>
+</dd>
 <dt id="opshin.tests.test_ops.OpTest.test_sub_int"><code class="name flex">
 <span>def <span class="ident">test_sub_int</span></span>(<span>self) ‑> None</span>
 </code></dt>
@@ -2252,9 +2887,10 @@ setTimeout(() => input.focus(), 100);
 <ul>
 <li>
 <h4><code><a title="opshin.tests.test_ops.OpTest" href="#opshin.tests.test_ops.OpTest">OpTest</a></code></h4>
-<ul class="two-column">
+<ul class="">
 <li><code><a title="opshin.tests.test_ops.OpTest.test_add_bytes" href="#opshin.tests.test_ops.OpTest.test_add_bytes">test_add_bytes</a></code></li>
 <li><code><a title="opshin.tests.test_ops.OpTest.test_add_int" href="#opshin.tests.test_ops.OpTest.test_add_int">test_add_int</a></code></li>
+<li><code><a title="opshin.tests.test_ops.OpTest.test_add_list" href="#opshin.tests.test_ops.OpTest.test_add_list">test_add_list</a></code></li>
 <li><code><a title="opshin.tests.test_ops.OpTest.test_add_str" href="#opshin.tests.test_ops.OpTest.test_add_str">test_add_str</a></code></li>
 <li><code><a title="opshin.tests.test_ops.OpTest.test_and_bool" href="#opshin.tests.test_ops.OpTest.test_and_bool">test_and_bool</a></code></li>
 <li><code><a title="opshin.tests.test_ops.OpTest.test_div_int" href="#opshin.tests.test_ops.OpTest.test_div_int">test_div_int</a></code></li>
@@ -2290,6 +2926,13 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="opshin.tests.test_ops.OpTest.test_or_bool" href="#opshin.tests.test_ops.OpTest.test_or_bool">test_or_bool</a></code></li>
 <li><code><a title="opshin.tests.test_ops.OpTest.test_pow_int" href="#opshin.tests.test_ops.OpTest.test_pow_int">test_pow_int</a></code></li>
 <li><code><a title="opshin.tests.test_ops.OpTest.test_slice_bytes" href="#opshin.tests.test_ops.OpTest.test_slice_bytes">test_slice_bytes</a></code></li>
+<li><code><a title="opshin.tests.test_ops.OpTest.test_slice_bytes_full" href="#opshin.tests.test_ops.OpTest.test_slice_bytes_full">test_slice_bytes_full</a></code></li>
+<li><code><a title="opshin.tests.test_ops.OpTest.test_slice_bytes_lower" href="#opshin.tests.test_ops.OpTest.test_slice_bytes_lower">test_slice_bytes_lower</a></code></li>
+<li><code><a title="opshin.tests.test_ops.OpTest.test_slice_bytes_upper" href="#opshin.tests.test_ops.OpTest.test_slice_bytes_upper">test_slice_bytes_upper</a></code></li>
+<li><code><a title="opshin.tests.test_ops.OpTest.test_slice_list" href="#opshin.tests.test_ops.OpTest.test_slice_list">test_slice_list</a></code></li>
+<li><code><a title="opshin.tests.test_ops.OpTest.test_slice_list_full" href="#opshin.tests.test_ops.OpTest.test_slice_list_full">test_slice_list_full</a></code></li>
+<li><code><a title="opshin.tests.test_ops.OpTest.test_slice_list_lower" href="#opshin.tests.test_ops.OpTest.test_slice_list_lower">test_slice_list_lower</a></code></li>
+<li><code><a title="opshin.tests.test_ops.OpTest.test_slice_list_upper" href="#opshin.tests.test_ops.OpTest.test_slice_list_upper">test_slice_list_upper</a></code></li>
 <li><code><a title="opshin.tests.test_ops.OpTest.test_sub_int" href="#opshin.tests.test_ops.OpTest.test_sub_int">test_sub_int</a></code></li>
 <li><code><a title="opshin.tests.test_ops.OpTest.test_usub_int" href="#opshin.tests.test_ops.OpTest.test_usub_int">test_usub_int</a></code></li>
 </ul>

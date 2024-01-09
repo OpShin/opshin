@@ -175,7 +175,7 @@ def validator(x: int) -&gt; str:
             i_unicode = None
         try:
             ret = eval_uplc_value(source_code, i)
-        except Exception as e:
+        except:
             ret = None
         self.assertEqual(ret, i_unicode, &#34;chr returned wrong value&#34;)
 
@@ -194,7 +194,7 @@ def validator(x: int) -&gt; str:
     @given(
         xs=st.one_of(
             st.builds(lambda x: str(x), st.integers()),
-            st.from_regex(r&#34;\A(?!\s).*(?&lt;!\s)\Z&#34;),
+            st.from_regex(r&#34;\A(?!\s).*(?&lt;!\s)\Z&#34;, fullmatch=True),
         )
     )
     @example(&#34;&#34;)
@@ -615,7 +615,7 @@ def validator(x: int) -&gt; str:
             i_unicode = None
         try:
             ret = eval_uplc_value(source_code, i)
-        except Exception as e:
+        except:
             ret = None
         self.assertEqual(ret, i_unicode, &#34;chr returned wrong value&#34;)
 
@@ -634,7 +634,7 @@ def validator(x: int) -&gt; str:
     @given(
         xs=st.one_of(
             st.builds(lambda x: str(x), st.integers()),
-            st.from_regex(r&#34;\A(?!\s).*(?&lt;!\s)\Z&#34;),
+            st.from_regex(r&#34;\A(?!\s).*(?&lt;!\s)\Z&#34;, fullmatch=True),
         )
     )
     @example(&#34;&#34;)
@@ -1215,7 +1215,7 @@ def validator(x: int) -&gt; str:
             i_unicode = None
         try:
             ret = eval_uplc_value(source_code, i)
-        except Exception as e:
+        except:
             ret = None
         self.assertEqual(ret, i_unicode, &#34;chr returned wrong value&#34;)</code></pre>
 </details>
@@ -1306,7 +1306,7 @@ def validator(x: int) -&gt; int:
 <pre><code class="python">    @given(
         xs=st.one_of(
             st.builds(lambda x: str(x), st.integers()),
-            st.from_regex(r&#34;\A(?!\s).*(?&lt;!\s)\Z&#34;),
+            st.from_regex(r&#34;\A(?!\s).*(?&lt;!\s)\Z&#34;, fullmatch=True),
         )
     )
     @example(&#34;&#34;)

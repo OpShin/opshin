@@ -68,7 +68,11 @@ fill="currentColor" class="octo-body"></path>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">import typing
+<pre><code class="python">from _ast import Name, Store, ClassDef, FunctionDef, Load
+from collections import defaultdict
+from copy import copy, deepcopy
+
+import typing
 
 import ast
 from dataclasses import dataclass
@@ -224,19 +228,146 @@ def make_pattern(structure: plt.AST) -&gt; plt.Pattern:
         AdHocPattern = type(
             f&#34;AdHocPattern_{sha256(structure_serialized.encode()).digest().hex()}&#34;,
             (plt.Pattern,),
-            {&#34;compose&#34;: lambda self: structure},
+            {&#34;compose&#34;: lambda self: deepcopy(structure)},
         )
         AdHocPattern = dataclass(AdHocPattern)
 
         _patterns_cached[structure_serialized] = AdHocPattern()
-    return _patterns_cached[structure_serialized]
+    return deepcopy(_patterns_cached[structure_serialized])
 
 
 def patternize(method):
     def wrapped(*args, **kwargs):
         return make_pattern(method(*args, **kwargs))
 
-    return wrapped</code></pre>
+    return wrapped
+
+
+def force_params(lmd: plt.Lambda) -&gt; plt.Lambda:
+    if isinstance(lmd, plt.Lambda):
+        return plt.Lambda(
+            lmd.vars, plt.Let([(v, plt.Force(plt.Var(v))) for v in lmd.vars], lmd.term)
+        )
+    if isinstance(lmd, plt.Pattern):
+        return make_pattern(force_params(lmd.compose()))
+
+
+class NameWriteCollector(CompilingNodeVisitor):
+    step = &#34;Collecting variables that are written&#34;
+
+    def __init__(self):
+        self.written = defaultdict(int)
+
+    def visit_Name(self, node: Name) -&gt; None:
+        if isinstance(node.ctx, Store):
+            self.written[node.id] += 1
+
+    def visit_ClassDef(self, node: ClassDef):
+        # ignore the content (i.e. attribute names) of class definitions
+        self.written[node.name] += 1
+        pass
+
+    def visit_FunctionDef(self, node: FunctionDef):
+        # ignore the type hints of function arguments
+        self.written[node.name] += 1
+        for a in node.args.args:
+            self.written[a.arg] += 1
+        for s in node.body:
+            self.visit(s)
+
+
+def written_vars(node):
+    &#34;&#34;&#34;
+    Returns all variable names written to in this node
+    &#34;&#34;&#34;
+    collector = NameWriteCollector()
+    collector.visit(node)
+    return sorted(collector.written.keys())
+
+
+class NameReadCollector(CompilingNodeVisitor):
+    step = &#34;Collecting variables that are read&#34;
+
+    def __init__(self):
+        self.read = defaultdict(int)
+
+    def visit_AnnAssign(self, node) -&gt; None:
+        # ignore annotations of variables
+        self.visit(node.value)
+        self.visit(node.target)
+
+    def visit_FunctionDef(self, node) -&gt; None:
+        # ignore annotations of paramters and return
+        self.visit(node.args)
+        for b in node.body:
+            self.visit(b)
+
+    def visit_Name(self, node: Name) -&gt; None:
+        if isinstance(node.ctx, Load):
+            self.read[node.id] += 1
+
+    def visit_ClassDef(self, node: ClassDef):
+        # ignore the content (i.e. attribute names) of class definitions
+        pass
+
+    def visit_FunctionDef(self, node: FunctionDef):
+        # ignore the type hints of function arguments
+        for s in node.body:
+            self.visit(s)
+
+
+def read_vars(node):
+    &#34;&#34;&#34;
+    Returns all variable names read to in this node
+    &#34;&#34;&#34;
+    collector = NameReadCollector()
+    collector.visit(node)
+    return sorted(collector.read.keys())
+
+
+def all_vars(node):
+    return sorted(set(read_vars(node) + written_vars(node)))
+
+
+def externally_bound_vars(node: FunctionDef):
+    &#34;&#34;&#34;A superset of the variables bound from an outer scope&#34;&#34;&#34;
+    return sorted(set(read_vars(node)) - (set(written_vars(node)) - {node.name}))
+
+
+def opshin_name_scheme_compatible_varname(n: str):
+    return f&#34;1{n}&#34;
+
+
+def OVar(name: str):
+    return plt.Var(opshin_name_scheme_compatible_varname(name))
+
+
+def OLambda(names: typing.List[str], term: plt.AST):
+    return plt.Lambda([opshin_name_scheme_compatible_varname(x) for x in names], term)
+
+
+def OLet(bindings: typing.List[typing.Tuple[str, plt.AST]], term: plt.AST):
+    return plt.Let(
+        [(opshin_name_scheme_compatible_varname(n), t) for n, t in bindings], term
+    )
+
+
+def SafeLambda(vars: typing.List[str], term: plt.AST) -&gt; plt.Lambda:
+    if not vars:
+        return plt.Lambda([&#34;0_&#34;], term)
+    return plt.Lambda(vars, term)
+
+
+def SafeOLambda(vars: typing.List[str], term: plt.AST) -&gt; plt.Lambda:
+    if not vars:
+        return OLambda([&#34;0_&#34;], term)
+    return OLambda(vars, term)
+
+
+def SafeApply(term: plt.AST, *vars: typing.List[plt.AST]) -&gt; plt.Apply:
+    if not vars:
+        return plt.Apply(term, plt.Delay(plt.Unit()))
+    return plt.Apply(term, *vars)</code></pre>
 </details>
 </section>
 <section>
@@ -246,6 +377,105 @@ def patternize(method):
 <section>
 <h2 class="section-title" id="header-functions">Functions</h2>
 <dl>
+<dt id="opshin.util.OLambda"><code class="name flex">
+<span>def <span class="ident">OLambda</span></span>(<span>names: List[str], term: pluthon.pluthon_ast.AST)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def OLambda(names: typing.List[str], term: plt.AST):
+    return plt.Lambda([opshin_name_scheme_compatible_varname(x) for x in names], term)</code></pre>
+</details>
+</dd>
+<dt id="opshin.util.OLet"><code class="name flex">
+<span>def <span class="ident">OLet</span></span>(<span>bindings: List[Tuple[str, pluthon.pluthon_ast.AST]], term: pluthon.pluthon_ast.AST)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def OLet(bindings: typing.List[typing.Tuple[str, plt.AST]], term: plt.AST):
+    return plt.Let(
+        [(opshin_name_scheme_compatible_varname(n), t) for n, t in bindings], term
+    )</code></pre>
+</details>
+</dd>
+<dt id="opshin.util.OVar"><code class="name flex">
+<span>def <span class="ident">OVar</span></span>(<span>name: str)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def OVar(name: str):
+    return plt.Var(opshin_name_scheme_compatible_varname(name))</code></pre>
+</details>
+</dd>
+<dt id="opshin.util.SafeApply"><code class="name flex">
+<span>def <span class="ident">SafeApply</span></span>(<span>term: pluthon.pluthon_ast.AST, *vars: List[pluthon.pluthon_ast.AST]) ‑> pluthon.pluthon_ast.Apply</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def SafeApply(term: plt.AST, *vars: typing.List[plt.AST]) -&gt; plt.Apply:
+    if not vars:
+        return plt.Apply(term, plt.Delay(plt.Unit()))
+    return plt.Apply(term, *vars)</code></pre>
+</details>
+</dd>
+<dt id="opshin.util.SafeLambda"><code class="name flex">
+<span>def <span class="ident">SafeLambda</span></span>(<span>vars: List[str], term: pluthon.pluthon_ast.AST) ‑> pluthon.pluthon_ast.Lambda</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def SafeLambda(vars: typing.List[str], term: plt.AST) -&gt; plt.Lambda:
+    if not vars:
+        return plt.Lambda([&#34;0_&#34;], term)
+    return plt.Lambda(vars, term)</code></pre>
+</details>
+</dd>
+<dt id="opshin.util.SafeOLambda"><code class="name flex">
+<span>def <span class="ident">SafeOLambda</span></span>(<span>vars: List[str], term: pluthon.pluthon_ast.AST) ‑> pluthon.pluthon_ast.Lambda</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def SafeOLambda(vars: typing.List[str], term: plt.AST) -&gt; plt.Lambda:
+    if not vars:
+        return OLambda([&#34;0_&#34;], term)
+    return OLambda(vars, term)</code></pre>
+</details>
+</dd>
+<dt id="opshin.util.all_vars"><code class="name flex">
+<span>def <span class="ident">all_vars</span></span>(<span>node)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def all_vars(node):
+    return sorted(set(read_vars(node) + written_vars(node)))</code></pre>
+</details>
+</dd>
 <dt id="opshin.util.custom_fix_missing_locations"><code class="name flex">
 <span>def <span class="ident">custom_fix_missing_locations</span></span>(<span>node, parent=None)</span>
 </code></dt>
@@ -359,6 +589,38 @@ def patternize(method):
     return len(xs) == len(set(xs))</code></pre>
 </details>
 </dd>
+<dt id="opshin.util.externally_bound_vars"><code class="name flex">
+<span>def <span class="ident">externally_bound_vars</span></span>(<span>node: ast.FunctionDef)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>A superset of the variables bound from an outer scope</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def externally_bound_vars(node: FunctionDef):
+    &#34;&#34;&#34;A superset of the variables bound from an outer scope&#34;&#34;&#34;
+    return sorted(set(read_vars(node)) - (set(written_vars(node)) - {node.name}))</code></pre>
+</details>
+</dd>
+<dt id="opshin.util.force_params"><code class="name flex">
+<span>def <span class="ident">force_params</span></span>(<span>lmd: pluthon.pluthon_ast.Lambda) ‑> pluthon.pluthon_ast.Lambda</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def force_params(lmd: plt.Lambda) -&gt; plt.Lambda:
+    if isinstance(lmd, plt.Lambda):
+        return plt.Lambda(
+            lmd.vars, plt.Let([(v, plt.Force(plt.Var(v))) for v in lmd.vars], lmd.term)
+        )
+    if isinstance(lmd, plt.Pattern):
+        return make_pattern(force_params(lmd.compose()))</code></pre>
+</details>
+</dd>
 <dt id="opshin.util.make_pattern"><code class="name flex">
 <span>def <span class="ident">make_pattern</span></span>(<span>structure: pluthon.pluthon_ast.AST) ‑> pluthon.pluthon_ast.Pattern</span>
 </code></dt>
@@ -380,12 +642,25 @@ def patternize(method):
         AdHocPattern = type(
             f&#34;AdHocPattern_{sha256(structure_serialized.encode()).digest().hex()}&#34;,
             (plt.Pattern,),
-            {&#34;compose&#34;: lambda self: structure},
+            {&#34;compose&#34;: lambda self: deepcopy(structure)},
         )
         AdHocPattern = dataclass(AdHocPattern)
 
         _patterns_cached[structure_serialized] = AdHocPattern()
-    return _patterns_cached[structure_serialized]</code></pre>
+    return deepcopy(_patterns_cached[structure_serialized])</code></pre>
+</details>
+</dd>
+<dt id="opshin.util.opshin_name_scheme_compatible_varname"><code class="name flex">
+<span>def <span class="ident">opshin_name_scheme_compatible_varname</span></span>(<span>n: str)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def opshin_name_scheme_compatible_varname(n: str):
+    return f&#34;1{n}&#34;</code></pre>
 </details>
 </dd>
 <dt id="opshin.util.patternize"><code class="name flex">
@@ -402,6 +677,42 @@ def patternize(method):
         return make_pattern(method(*args, **kwargs))
 
     return wrapped</code></pre>
+</details>
+</dd>
+<dt id="opshin.util.read_vars"><code class="name flex">
+<span>def <span class="ident">read_vars</span></span>(<span>node)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Returns all variable names read to in this node</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def read_vars(node):
+    &#34;&#34;&#34;
+    Returns all variable names read to in this node
+    &#34;&#34;&#34;
+    collector = NameReadCollector()
+    collector.visit(node)
+    return sorted(collector.read.keys())</code></pre>
+</details>
+</dd>
+<dt id="opshin.util.written_vars"><code class="name flex">
+<span>def <span class="ident">written_vars</span></span>(<span>node)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Returns all variable names written to in this node</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def written_vars(node):
+    &#34;&#34;&#34;
+    Returns all variable names written to in this node
+    &#34;&#34;&#34;
+    collector = NameWriteCollector()
+    collector.visit(node)
+    return sorted(collector.written.keys())</code></pre>
 </details>
 </dd>
 </dl>
@@ -490,11 +801,11 @@ just a single node.</p>
 <li><a title="opshin.optimize.optimize_remove_comments.OptimizeRemoveDeadconstants" href="optimize/optimize_remove_comments.html#opshin.optimize.optimize_remove_comments.OptimizeRemoveDeadconstants">OptimizeRemoveDeadconstants</a></li>
 <li><a title="opshin.optimize.optimize_remove_deadvars.OptimizeRemoveDeadvars" href="optimize/optimize_remove_deadvars.html#opshin.optimize.optimize_remove_deadvars.OptimizeRemoveDeadvars">OptimizeRemoveDeadvars</a></li>
 <li><a title="opshin.optimize.optimize_remove_pass.OptimizeRemovePass" href="optimize/optimize_remove_pass.html#opshin.optimize.optimize_remove_pass.OptimizeRemovePass">OptimizeRemovePass</a></li>
-<li><a title="opshin.optimize.optimize_varlen.OptimizeVarlen" href="optimize/optimize_varlen.html#opshin.optimize.optimize_varlen.OptimizeVarlen">OptimizeVarlen</a></li>
 <li><a title="opshin.rewrite.rewrite_augassign.RewriteAugAssign" href="rewrite/rewrite_augassign.html#opshin.rewrite.rewrite_augassign.RewriteAugAssign">RewriteAugAssign</a></li>
 <li><a title="opshin.rewrite.rewrite_cast_condition.RewriteConditions" href="rewrite/rewrite_cast_condition.html#opshin.rewrite.rewrite_cast_condition.RewriteConditions">RewriteConditions</a></li>
 <li><a title="opshin.rewrite.rewrite_comparison_chaining.RewriteComparisonChaining" href="rewrite/rewrite_comparison_chaining.html#opshin.rewrite.rewrite_comparison_chaining.RewriteComparisonChaining">RewriteComparisonChaining</a></li>
 <li><a title="opshin.rewrite.rewrite_forbidden_overwrites.RewriteForbiddenOverwrites" href="rewrite/rewrite_forbidden_overwrites.html#opshin.rewrite.rewrite_forbidden_overwrites.RewriteForbiddenOverwrites">RewriteForbiddenOverwrites</a></li>
+<li><a title="opshin.rewrite.rewrite_forbidden_return.RewriteForbiddenReturn" href="rewrite/rewrite_forbidden_return.html#opshin.rewrite.rewrite_forbidden_return.RewriteForbiddenReturn">RewriteForbiddenReturn</a></li>
 <li><a title="opshin.rewrite.rewrite_import.RewriteImport" href="rewrite/rewrite_import.html#opshin.rewrite.rewrite_import.RewriteImport">RewriteImport</a></li>
 <li><a title="opshin.rewrite.rewrite_import.RewriteLocation" href="rewrite/rewrite_import.html#opshin.rewrite.rewrite_import.RewriteLocation">RewriteLocation</a></li>
 <li><a title="opshin.rewrite.rewrite_import_dataclasses.RewriteImportDataclasses" href="rewrite/rewrite_import_dataclasses.html#opshin.rewrite.rewrite_import_dataclasses.RewriteImportDataclasses">RewriteImportDataclasses</a></li>
@@ -594,8 +905,9 @@ allows modifications.</p></div>
 <li><a title="opshin.optimize.optimize_const_folding.ShallowNameDefCollector" href="optimize/optimize_const_folding.html#opshin.optimize.optimize_const_folding.ShallowNameDefCollector">ShallowNameDefCollector</a></li>
 <li><a title="opshin.optimize.optimize_remove_deadvars.NameLoadCollector" href="optimize/optimize_remove_deadvars.html#opshin.optimize.optimize_remove_deadvars.NameLoadCollector">NameLoadCollector</a></li>
 <li><a title="opshin.optimize.optimize_remove_deadvars.SafeOperationVisitor" href="optimize/optimize_remove_deadvars.html#opshin.optimize.optimize_remove_deadvars.SafeOperationVisitor">SafeOperationVisitor</a></li>
-<li><a title="opshin.optimize.optimize_varlen.NameCollector" href="optimize/optimize_varlen.html#opshin.optimize.optimize_varlen.NameCollector">NameCollector</a></li>
 <li><a title="opshin.rewrite.rewrite_scoping.ShallowNameDefCollector" href="rewrite/rewrite_scoping.html#opshin.rewrite.rewrite_scoping.ShallowNameDefCollector">ShallowNameDefCollector</a></li>
+<li><a title="opshin.util.NameReadCollector" href="#opshin.util.NameReadCollector">NameReadCollector</a></li>
+<li><a title="opshin.util.NameWriteCollector" href="#opshin.util.NameWriteCollector">NameWriteCollector</a></li>
 </ul>
 <h3>Class variables</h3>
 <dl>
@@ -626,6 +938,270 @@ allows modifications.</p></div>
         if isinstance(e, CompilerError):
             raise e
         raise CompilerError(e, node, self.step)</code></pre>
+</details>
+</dd>
+</dl>
+</dd>
+<dt id="opshin.util.NameReadCollector"><code class="flex name class">
+<span>class <span class="ident">NameReadCollector</span></span>
+</code></dt>
+<dd>
+<div class="desc"><p>A node visitor base class that walks the abstract syntax tree and calls a
+visitor function for every node found.
+This function may return a value
+which is forwarded by the <code>visit</code> method.</p>
+<p>This class is meant to be subclassed, with the subclass adding visitor
+methods.</p>
+<p>Per default the visitor functions for the nodes are <code>'visit_'</code> +
+class name of the node.
+So a <code>TryFinally</code> node visit function would
+be <code>visit_TryFinally</code>.
+This behavior can be changed by overriding
+the <code>visit</code> method.
+If no visitor function exists for a node
+(return value <code>None</code>) the <code>generic_visit</code> visitor is used instead.</p>
+<p>Don't use the <code>NodeVisitor</code> if you want to apply changes to nodes during
+traversing.
+For this a special visitor exists (<code>NodeTransformer</code>) that
+allows modifications.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class NameReadCollector(CompilingNodeVisitor):
+    step = &#34;Collecting variables that are read&#34;
+
+    def __init__(self):
+        self.read = defaultdict(int)
+
+    def visit_AnnAssign(self, node) -&gt; None:
+        # ignore annotations of variables
+        self.visit(node.value)
+        self.visit(node.target)
+
+    def visit_FunctionDef(self, node) -&gt; None:
+        # ignore annotations of paramters and return
+        self.visit(node.args)
+        for b in node.body:
+            self.visit(b)
+
+    def visit_Name(self, node: Name) -&gt; None:
+        if isinstance(node.ctx, Load):
+            self.read[node.id] += 1
+
+    def visit_ClassDef(self, node: ClassDef):
+        # ignore the content (i.e. attribute names) of class definitions
+        pass
+
+    def visit_FunctionDef(self, node: FunctionDef):
+        # ignore the type hints of function arguments
+        for s in node.body:
+            self.visit(s)</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li><a title="opshin.util.CompilingNodeVisitor" href="#opshin.util.CompilingNodeVisitor">CompilingNodeVisitor</a></li>
+<li><a title="opshin.util.TypedNodeVisitor" href="#opshin.util.TypedNodeVisitor">TypedNodeVisitor</a></li>
+<li>ast.NodeVisitor</li>
+</ul>
+<h3>Class variables</h3>
+<dl>
+<dt id="opshin.util.NameReadCollector.step"><code class="name">var <span class="ident">step</span></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+</dl>
+<h3>Methods</h3>
+<dl>
+<dt id="opshin.util.NameReadCollector.visit"><code class="name flex">
+<span>def <span class="ident">visit</span></span>(<span>self, node)</span>
+</code></dt>
+<dd>
+<p class="inheritance">
+<em>Inherited from:</em>
+<code><a title="opshin.util.CompilingNodeVisitor" href="#opshin.util.CompilingNodeVisitor">CompilingNodeVisitor</a></code>.<code><a title="opshin.util.CompilingNodeVisitor.visit" href="#opshin.util.CompilingNodeVisitor.visit">visit</a></code>
+</p>
+<div class="desc inherited"><p>Visit a node.</p></div>
+</dd>
+<dt id="opshin.util.NameReadCollector.visit_AnnAssign"><code class="name flex">
+<span>def <span class="ident">visit_AnnAssign</span></span>(<span>self, node) ‑> None</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def visit_AnnAssign(self, node) -&gt; None:
+    # ignore annotations of variables
+    self.visit(node.value)
+    self.visit(node.target)</code></pre>
+</details>
+</dd>
+<dt id="opshin.util.NameReadCollector.visit_ClassDef"><code class="name flex">
+<span>def <span class="ident">visit_ClassDef</span></span>(<span>self, node: ast.ClassDef)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def visit_ClassDef(self, node: ClassDef):
+    # ignore the content (i.e. attribute names) of class definitions
+    pass</code></pre>
+</details>
+</dd>
+<dt id="opshin.util.NameReadCollector.visit_FunctionDef"><code class="name flex">
+<span>def <span class="ident">visit_FunctionDef</span></span>(<span>self, node: ast.FunctionDef)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def visit_FunctionDef(self, node: FunctionDef):
+    # ignore the type hints of function arguments
+    for s in node.body:
+        self.visit(s)</code></pre>
+</details>
+</dd>
+<dt id="opshin.util.NameReadCollector.visit_Name"><code class="name flex">
+<span>def <span class="ident">visit_Name</span></span>(<span>self, node: ast.Name) ‑> None</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def visit_Name(self, node: Name) -&gt; None:
+    if isinstance(node.ctx, Load):
+        self.read[node.id] += 1</code></pre>
+</details>
+</dd>
+</dl>
+</dd>
+<dt id="opshin.util.NameWriteCollector"><code class="flex name class">
+<span>class <span class="ident">NameWriteCollector</span></span>
+</code></dt>
+<dd>
+<div class="desc"><p>A node visitor base class that walks the abstract syntax tree and calls a
+visitor function for every node found.
+This function may return a value
+which is forwarded by the <code>visit</code> method.</p>
+<p>This class is meant to be subclassed, with the subclass adding visitor
+methods.</p>
+<p>Per default the visitor functions for the nodes are <code>'visit_'</code> +
+class name of the node.
+So a <code>TryFinally</code> node visit function would
+be <code>visit_TryFinally</code>.
+This behavior can be changed by overriding
+the <code>visit</code> method.
+If no visitor function exists for a node
+(return value <code>None</code>) the <code>generic_visit</code> visitor is used instead.</p>
+<p>Don't use the <code>NodeVisitor</code> if you want to apply changes to nodes during
+traversing.
+For this a special visitor exists (<code>NodeTransformer</code>) that
+allows modifications.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class NameWriteCollector(CompilingNodeVisitor):
+    step = &#34;Collecting variables that are written&#34;
+
+    def __init__(self):
+        self.written = defaultdict(int)
+
+    def visit_Name(self, node: Name) -&gt; None:
+        if isinstance(node.ctx, Store):
+            self.written[node.id] += 1
+
+    def visit_ClassDef(self, node: ClassDef):
+        # ignore the content (i.e. attribute names) of class definitions
+        self.written[node.name] += 1
+        pass
+
+    def visit_FunctionDef(self, node: FunctionDef):
+        # ignore the type hints of function arguments
+        self.written[node.name] += 1
+        for a in node.args.args:
+            self.written[a.arg] += 1
+        for s in node.body:
+            self.visit(s)</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li><a title="opshin.util.CompilingNodeVisitor" href="#opshin.util.CompilingNodeVisitor">CompilingNodeVisitor</a></li>
+<li><a title="opshin.util.TypedNodeVisitor" href="#opshin.util.TypedNodeVisitor">TypedNodeVisitor</a></li>
+<li>ast.NodeVisitor</li>
+</ul>
+<h3>Class variables</h3>
+<dl>
+<dt id="opshin.util.NameWriteCollector.step"><code class="name">var <span class="ident">step</span></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+</dl>
+<h3>Methods</h3>
+<dl>
+<dt id="opshin.util.NameWriteCollector.visit"><code class="name flex">
+<span>def <span class="ident">visit</span></span>(<span>self, node)</span>
+</code></dt>
+<dd>
+<p class="inheritance">
+<em>Inherited from:</em>
+<code><a title="opshin.util.CompilingNodeVisitor" href="#opshin.util.CompilingNodeVisitor">CompilingNodeVisitor</a></code>.<code><a title="opshin.util.CompilingNodeVisitor.visit" href="#opshin.util.CompilingNodeVisitor.visit">visit</a></code>
+</p>
+<div class="desc inherited"><p>Visit a node.</p></div>
+</dd>
+<dt id="opshin.util.NameWriteCollector.visit_ClassDef"><code class="name flex">
+<span>def <span class="ident">visit_ClassDef</span></span>(<span>self, node: ast.ClassDef)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def visit_ClassDef(self, node: ClassDef):
+    # ignore the content (i.e. attribute names) of class definitions
+    self.written[node.name] += 1
+    pass</code></pre>
+</details>
+</dd>
+<dt id="opshin.util.NameWriteCollector.visit_FunctionDef"><code class="name flex">
+<span>def <span class="ident">visit_FunctionDef</span></span>(<span>self, node: ast.FunctionDef)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def visit_FunctionDef(self, node: FunctionDef):
+    # ignore the type hints of function arguments
+    self.written[node.name] += 1
+    for a in node.args.args:
+        self.written[a.arg] += 1
+    for s in node.body:
+        self.visit(s)</code></pre>
+</details>
+</dd>
+<dt id="opshin.util.NameWriteCollector.visit_Name"><code class="name flex">
+<span>def <span class="ident">visit_Name</span></span>(<span>self, node: ast.Name) ‑> None</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def visit_Name(self, node: Name) -&gt; None:
+    if isinstance(node.ctx, Store):
+        self.written[node.id] += 1</code></pre>
 </details>
 </dd>
 </dl>
@@ -784,6 +1360,7 @@ allows modifications.</p></div>
 </ul>
 <h3>Subclasses</h3>
 <ul class="hlist">
+<li><a title="opshin.type_inference.ReturnExtractor" href="type_inference.html#opshin.type_inference.ReturnExtractor">ReturnExtractor</a></li>
 <li><a title="opshin.type_inference.TypeCheckVisitor" href="type_inference.html#opshin.type_inference.TypeCheckVisitor">TypeCheckVisitor</a></li>
 <li><a title="opshin.util.CompilingNodeVisitor" href="#opshin.util.CompilingNodeVisitor">CompilingNodeVisitor</a></li>
 </ul>
@@ -879,13 +1456,25 @@ setTimeout(() => input.focus(), 100);
 </li>
 <li><h3><a href="#header-functions">Functions</a></h3>
 <ul class="">
+<li><code><a title="opshin.util.OLambda" href="#opshin.util.OLambda">OLambda</a></code></li>
+<li><code><a title="opshin.util.OLet" href="#opshin.util.OLet">OLet</a></code></li>
+<li><code><a title="opshin.util.OVar" href="#opshin.util.OVar">OVar</a></code></li>
+<li><code><a title="opshin.util.SafeApply" href="#opshin.util.SafeApply">SafeApply</a></code></li>
+<li><code><a title="opshin.util.SafeLambda" href="#opshin.util.SafeLambda">SafeLambda</a></code></li>
+<li><code><a title="opshin.util.SafeOLambda" href="#opshin.util.SafeOLambda">SafeOLambda</a></code></li>
+<li><code><a title="opshin.util.all_vars" href="#opshin.util.all_vars">all_vars</a></code></li>
 <li><code><a title="opshin.util.custom_fix_missing_locations" href="#opshin.util.custom_fix_missing_locations">custom_fix_missing_locations</a></code></li>
 <li><code><a title="opshin.util.data_from_json" href="#opshin.util.data_from_json">data_from_json</a></code></li>
 <li><code><a title="opshin.util.datum_to_cbor" href="#opshin.util.datum_to_cbor">datum_to_cbor</a></code></li>
 <li><code><a title="opshin.util.datum_to_json" href="#opshin.util.datum_to_json">datum_to_json</a></code></li>
 <li><code><a title="opshin.util.distinct" href="#opshin.util.distinct">distinct</a></code></li>
+<li><code><a title="opshin.util.externally_bound_vars" href="#opshin.util.externally_bound_vars">externally_bound_vars</a></code></li>
+<li><code><a title="opshin.util.force_params" href="#opshin.util.force_params">force_params</a></code></li>
 <li><code><a title="opshin.util.make_pattern" href="#opshin.util.make_pattern">make_pattern</a></code></li>
+<li><code><a title="opshin.util.opshin_name_scheme_compatible_varname" href="#opshin.util.opshin_name_scheme_compatible_varname">opshin_name_scheme_compatible_varname</a></code></li>
 <li><code><a title="opshin.util.patternize" href="#opshin.util.patternize">patternize</a></code></li>
+<li><code><a title="opshin.util.read_vars" href="#opshin.util.read_vars">read_vars</a></code></li>
+<li><code><a title="opshin.util.written_vars" href="#opshin.util.written_vars">written_vars</a></code></li>
 </ul>
 </li>
 <li><h3><a href="#header-classes">Classes</a></h3>
@@ -905,6 +1494,27 @@ setTimeout(() => input.focus(), 100);
 <ul class="">
 <li><code><a title="opshin.util.CompilingNodeVisitor.step" href="#opshin.util.CompilingNodeVisitor.step">step</a></code></li>
 <li><code><a title="opshin.util.CompilingNodeVisitor.visit" href="#opshin.util.CompilingNodeVisitor.visit">visit</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="opshin.util.NameReadCollector" href="#opshin.util.NameReadCollector">NameReadCollector</a></code></h4>
+<ul class="two-column">
+<li><code><a title="opshin.util.NameReadCollector.step" href="#opshin.util.NameReadCollector.step">step</a></code></li>
+<li><code><a title="opshin.util.NameReadCollector.visit" href="#opshin.util.NameReadCollector.visit">visit</a></code></li>
+<li><code><a title="opshin.util.NameReadCollector.visit_AnnAssign" href="#opshin.util.NameReadCollector.visit_AnnAssign">visit_AnnAssign</a></code></li>
+<li><code><a title="opshin.util.NameReadCollector.visit_ClassDef" href="#opshin.util.NameReadCollector.visit_ClassDef">visit_ClassDef</a></code></li>
+<li><code><a title="opshin.util.NameReadCollector.visit_FunctionDef" href="#opshin.util.NameReadCollector.visit_FunctionDef">visit_FunctionDef</a></code></li>
+<li><code><a title="opshin.util.NameReadCollector.visit_Name" href="#opshin.util.NameReadCollector.visit_Name">visit_Name</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="opshin.util.NameWriteCollector" href="#opshin.util.NameWriteCollector">NameWriteCollector</a></code></h4>
+<ul class="">
+<li><code><a title="opshin.util.NameWriteCollector.step" href="#opshin.util.NameWriteCollector.step">step</a></code></li>
+<li><code><a title="opshin.util.NameWriteCollector.visit" href="#opshin.util.NameWriteCollector.visit">visit</a></code></li>
+<li><code><a title="opshin.util.NameWriteCollector.visit_ClassDef" href="#opshin.util.NameWriteCollector.visit_ClassDef">visit_ClassDef</a></code></li>
+<li><code><a title="opshin.util.NameWriteCollector.visit_FunctionDef" href="#opshin.util.NameWriteCollector.visit_FunctionDef">visit_FunctionDef</a></code></li>
+<li><code><a title="opshin.util.NameWriteCollector.visit_Name" href="#opshin.util.NameWriteCollector.visit_Name">visit_Name</a></code></li>
 </ul>
 </li>
 <li>

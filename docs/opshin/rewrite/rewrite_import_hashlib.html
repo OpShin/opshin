@@ -69,7 +69,7 @@ fill="currentColor" class="octo-body"></path>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">from typing import Optional
-from enum import Enum
+from enum import Enum, auto
 
 from ..util import CompilingNodeTransformer
 from ..typed_ast import *
@@ -101,9 +101,9 @@ HashInstanceType = InstanceType(HashType())
 
 
 class PythonHashlib(Enum):
-    sha256 = plt.Lambda([&#34;x&#34;, &#34;_&#34;], plt.Lambda([&#34;_&#34;], plt.Sha2_256(plt.Var(&#34;x&#34;))))
-    sha3_256 = plt.Lambda([&#34;x&#34;, &#34;_&#34;], plt.Lambda([&#34;_&#34;], plt.Sha3_256(plt.Var(&#34;x&#34;))))
-    blake2b = plt.Lambda([&#34;x&#34;, &#34;_&#34;], plt.Lambda([&#34;_&#34;], plt.Blake2b_256(plt.Var(&#34;x&#34;))))
+    sha256 = auto()
+    sha3_256 = auto()
+    blake2b = auto()
 
 
 PythonHashlibTypes = {
@@ -124,6 +124,18 @@ PythonHashlibTypes = {
             frozenlist([ByteStringInstanceType]),
             HashInstanceType,
         )
+    ),
+}
+
+PythonHashlibImpls = {
+    PythonHashlib.sha256: force_params(
+        plt.Lambda([&#34;x&#34;], plt.Lambda([&#34;_&#34;], plt.Sha2_256(plt.Var(&#34;x&#34;))))
+    ),
+    PythonHashlib.sha3_256: force_params(
+        plt.Lambda([&#34;x&#34;], plt.Lambda([&#34;_&#34;], plt.Sha3_256(plt.Var(&#34;x&#34;))))
+    ),
+    PythonHashlib.blake2b: force_params(
+        plt.Lambda([&#34;x&#34;], plt.Lambda([&#34;_&#34;], plt.Blake2b_256(plt.Var(&#34;x&#34;))))
     ),
 }
 
@@ -150,9 +162,7 @@ class RewriteImportHashlib(CompilingNodeTransformer):
             additional_assigns.append(
                 TypedAssign(
                     targets=[TypedName(id=imported_name, typ=typ, ctx=Store())],
-                    value=RawPlutoExpr(
-                        typ=typ, expr=plt.Lambda([&#34;_&#34;], imported_fun.value)
-                    ),
+                    value=RawPlutoExpr(typ=typ, expr=PythonHashlibImpls[imported_fun]),
                 )
             )
         return additional_assigns</code></pre>
@@ -238,6 +248,26 @@ class HashType(ClassType):
     raise NotImplementedError(&#34;HashType only has attribute &#39;digest&#39;&#34;)</code></pre>
 </details>
 </dd>
+<dt id="opshin.rewrite.rewrite_import_hashlib.HashType.binop"><code class="name flex">
+<span>def <span class="ident">binop</span></span>(<span>self, binop: ast.operator, other: ast.AST) ‑> pluthon.pluthon_ast.AST</span>
+</code></dt>
+<dd>
+<p class="inheritance">
+<em>Inherited from:</em>
+<code><a title="opshin.types.ClassType" href="../types.html#opshin.types.ClassType">ClassType</a></code>.<code><a title="opshin.types.ClassType.binop" href="../types.html#opshin.types.ClassType.binop">binop</a></code>
+</p>
+<div class="desc inherited"><p>Implements a binary operation between self and other</p></div>
+</dd>
+<dt id="opshin.rewrite.rewrite_import_hashlib.HashType.binop_type"><code class="name flex">
+<span>def <span class="ident">binop_type</span></span>(<span>self, binop: ast.operator, other: <a title="opshin.types.Type" href="../types.html#opshin.types.Type">Type</a>) ‑> <a title="opshin.types.Type" href="../types.html#opshin.types.Type">Type</a></span>
+</code></dt>
+<dd>
+<p class="inheritance">
+<em>Inherited from:</em>
+<code><a title="opshin.types.ClassType" href="../types.html#opshin.types.ClassType">ClassType</a></code>.<code><a title="opshin.types.ClassType.binop_type" href="../types.html#opshin.types.ClassType.binop_type">binop_type</a></code>
+</p>
+<div class="desc inherited"><p>Type of a binary operation between self and other.</p></div>
+</dd>
 <dt id="opshin.rewrite.rewrite_import_hashlib.HashType.cmp"><code class="name flex">
 <span>def <span class="ident">cmp</span></span>(<span>self, op: ast.cmpop, o: <a title="opshin.types.Type" href="../types.html#opshin.types.Type">Type</a>) ‑> pluthon.pluthon_ast.AST</span>
 </code></dt>
@@ -293,52 +323,18 @@ For anything but record …</p></div>
 </dd>
 <dt id="opshin.rewrite.rewrite_import_hashlib.PythonHashlib"><code class="flex name class">
 <span>class <span class="ident">PythonHashlib</span></span>
-<span>(</span><span>*args, **kwds)</span>
+<span>(</span><span>value, names=None, *, module=None, qualname=None, type=None, start=1)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Create a collection of name/value pairs.</p>
-<p>Example enumeration:</p>
-<pre><code class="language-python-repl">&gt;&gt;&gt; class Color(Enum):
-...     RED = 1
-...     BLUE = 2
-...     GREEN = 3
-</code></pre>
-<p>Access them by:</p>
-<ul>
-<li>attribute access::</li>
-</ul>
-<pre><code class="language-python-repl">&gt;&gt;&gt; Color.RED
-&lt;Color.RED: 1&gt;
-</code></pre>
-<ul>
-<li>value lookup:</li>
-</ul>
-<pre><code class="language-python-repl">&gt;&gt;&gt; Color(1)
-&lt;Color.RED: 1&gt;
-</code></pre>
-<ul>
-<li>name lookup:</li>
-</ul>
-<pre><code class="language-python-repl">&gt;&gt;&gt; Color['RED']
-&lt;Color.RED: 1&gt;
-</code></pre>
-<p>Enumerations can be iterated over, and know how many members they have:</p>
-<pre><code class="language-python-repl">&gt;&gt;&gt; len(Color)
-3
-</code></pre>
-<pre><code class="language-python-repl">&gt;&gt;&gt; list(Color)
-[&lt;Color.RED: 1&gt;, &lt;Color.BLUE: 2&gt;, &lt;Color.GREEN: 3&gt;]
-</code></pre>
-<p>Methods can be added to enumerations, and members can have their own
-attributes &ndash; see the documentation for details.</p></div>
+<div class="desc"><p>An enumeration.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">class PythonHashlib(Enum):
-    sha256 = plt.Lambda([&#34;x&#34;, &#34;_&#34;], plt.Lambda([&#34;_&#34;], plt.Sha2_256(plt.Var(&#34;x&#34;))))
-    sha3_256 = plt.Lambda([&#34;x&#34;, &#34;_&#34;], plt.Lambda([&#34;_&#34;], plt.Sha3_256(plt.Var(&#34;x&#34;))))
-    blake2b = plt.Lambda([&#34;x&#34;, &#34;_&#34;], plt.Lambda([&#34;_&#34;], plt.Blake2b_256(plt.Var(&#34;x&#34;))))</code></pre>
+    sha256 = auto()
+    sha3_256 = auto()
+    blake2b = auto()</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -417,9 +413,7 @@ just a single node.</p>
             additional_assigns.append(
                 TypedAssign(
                     targets=[TypedName(id=imported_name, typ=typ, ctx=Store())],
-                    value=RawPlutoExpr(
-                        typ=typ, expr=plt.Lambda([&#34;_&#34;], imported_fun.value)
-                    ),
+                    value=RawPlutoExpr(typ=typ, expr=PythonHashlibImpls[imported_fun]),
                 )
             )
         return additional_assigns</code></pre>
@@ -480,9 +474,7 @@ just a single node.</p>
         additional_assigns.append(
             TypedAssign(
                 targets=[TypedName(id=imported_name, typ=typ, ctx=Store())],
-                value=RawPlutoExpr(
-                    typ=typ, expr=plt.Lambda([&#34;_&#34;], imported_fun.value)
-                ),
+                value=RawPlutoExpr(typ=typ, expr=PythonHashlibImpls[imported_fun]),
             )
         )
     return additional_assigns</code></pre>
@@ -564,6 +556,8 @@ setTimeout(() => input.focus(), 100);
 <ul class="">
 <li><code><a title="opshin.rewrite.rewrite_import_hashlib.HashType.attribute" href="#opshin.rewrite.rewrite_import_hashlib.HashType.attribute">attribute</a></code></li>
 <li><code><a title="opshin.rewrite.rewrite_import_hashlib.HashType.attribute_type" href="#opshin.rewrite.rewrite_import_hashlib.HashType.attribute_type">attribute_type</a></code></li>
+<li><code><a title="opshin.rewrite.rewrite_import_hashlib.HashType.binop" href="../types.html#opshin.rewrite.rewrite_import_hashlib.HashType.binop">binop</a></code></li>
+<li><code><a title="opshin.rewrite.rewrite_import_hashlib.HashType.binop_type" href="../types.html#opshin.rewrite.rewrite_import_hashlib.HashType.binop_type">binop_type</a></code></li>
 <li><code><a title="opshin.rewrite.rewrite_import_hashlib.HashType.cmp" href="../types.html#opshin.rewrite.rewrite_import_hashlib.HashType.cmp">cmp</a></code></li>
 <li><code><a title="opshin.rewrite.rewrite_import_hashlib.HashType.constr" href="../types.html#opshin.rewrite.rewrite_import_hashlib.HashType.constr">constr</a></code></li>
 <li><code><a title="opshin.rewrite.rewrite_import_hashlib.HashType.constr_type" href="../types.html#opshin.rewrite.rewrite_import_hashlib.HashType.constr_type">constr_type</a></code></li>

@@ -223,6 +223,72 @@ def validator(x: bytes, y: int, z: int) -> bytes:
         self.assertEqual(ret, exp, "byte slice returned wrong value")
 
     @given(x=st.binary(), y=st.integers())
+    @example(b"\x00", -2)
+    @example(b"1234", 1)
+    @example(b"1234", 2)
+    @example(b"1234", 2)
+    @example(b"1234", 3)
+    @example(b"1234", 3)
+    def test_slice_bytes_lower(self, x, y):
+        source_code = """
+def validator(x: bytes, y: int) -> bytes:
+    return x[y:]
+            """
+        try:
+            exp = x[y:]
+        except IndexError:
+            exp = None
+        try:
+            ret = eval_uplc_value(source_code, x, y)
+        except:
+            ret = None
+        self.assertEqual(ret, exp, "byte slice returned wrong value")
+
+    @given(x=st.binary(), y=st.integers())
+    @example(b"\x00", 0)
+    @example(b"1234", 2)
+    @example(b"1234", 4)
+    @example(b"1234", 2)
+    @example(b"1234", 3)
+    @example(b"1234", 1)
+    def test_slice_bytes_upper(self, x, y):
+        source_code = """
+def validator(x: bytes, y: int) -> bytes:
+    return x[:y]
+            """
+        try:
+            exp = x[:y]
+        except IndexError:
+            exp = None
+        try:
+            ret = eval_uplc_value(source_code, x, y)
+        except:
+            ret = None
+        self.assertEqual(ret, exp, "byte slice returned wrong value")
+
+    @given(x=st.binary())
+    @example(b"\x00")
+    @example(b"1234")
+    @example(b"1234")
+    @example(b"1234")
+    @example(b"1234")
+    @example(b"1234")
+    def test_slice_bytes_full(self, x):
+        source_code = """
+def validator(x: bytes) -> bytes:
+    return x[:]
+            """
+        try:
+            exp = x[:]
+        except IndexError:
+            exp = None
+        try:
+            ret = eval_uplc_value(source_code, x)
+        except:
+            ret = None
+        self.assertEqual(ret, exp, "byte slice returned wrong value")
+
+    @given(x=st.binary(), y=st.integers())
     @example(b"1234", 0)
     @example(b"1234", 1)
     @example(b"1234", -1)
@@ -259,6 +325,110 @@ def validator(x: List[int], y: int) -> int:
         except Exception as e:
             ret = None
         self.assertEqual(ret, exp, "list index returned wrong value")
+
+    @given(x=st.lists(st.integers(), max_size=20), y=st.integers(), z=st.integers())
+    @example([0], -2, 0)
+    @example([1, 2, 3, 4], 1, 2)
+    @example([1, 2, 3, 4], 2, 4)
+    @example([1, 2, 3, 4], 2, 2)
+    @example([1, 2, 3, 4], 3, 3)
+    @example([1, 2, 3, 4], 3, 1)
+    def test_slice_list(self, x, y, z):
+        source_code = """
+def validator(x: List[int], y: int, z: int) -> List[int]:
+    return x[y:z]
+            """
+        try:
+            exp = x[y:z]
+        except IndexError:
+            exp = None
+        try:
+            ret = eval_uplc_value(source_code, x, y, z)
+        except:
+            ret = None
+        self.assertEqual(
+            ret,
+            [PlutusInteger(x) for x in exp] if exp is not None else exp,
+            "list slice returned wrong value",
+        )
+
+    @given(x=st.lists(st.integers(), max_size=20), y=st.integers())
+    @example([0], -2)
+    @example([1, 2, 3, 4], 1)
+    @example([1, 2, 3, 4], 2)
+    @example([1, 2, 3, 4], 2)
+    @example([1, 2, 3, 4], 3)
+    @example([1, 2, 3, 4], 3)
+    def test_slice_list_lower(self, x, y):
+        source_code = """
+def validator(x: List[int], y: int) -> List[int]:
+    return x[y:]
+            """
+        try:
+            exp = x[y:]
+        except IndexError:
+            exp = None
+        try:
+            ret = eval_uplc_value(source_code, x, y)
+        except:
+            ret = None
+        self.assertEqual(
+            ret,
+            [PlutusInteger(x) for x in exp] if exp is not None else exp,
+            "list slice returned wrong value",
+        )
+
+    @given(x=st.lists(st.integers(), max_size=20), y=st.integers())
+    @example([0], 0)
+    @example([1, 2, 3, 4], 2)
+    @example([1, 2, 3, 4], 4)
+    @example([1, 2, 3, 4], 2)
+    @example([1, 2, 3, 4], 3)
+    @example([1, 2, 3, 4], 1)
+    def test_slice_list_upper(self, x, y):
+        source_code = """
+def validator(x: List[int], y: int) -> List[int]:
+    return x[:y]
+            """
+        try:
+            exp = x[:y]
+        except IndexError:
+            exp = None
+        try:
+            ret = eval_uplc_value(source_code, x, y)
+        except:
+            ret = None
+        self.assertEqual(
+            ret,
+            [PlutusInteger(x) for x in exp] if exp is not None else exp,
+            "list slice returned wrong value",
+        )
+
+    @given(x=st.lists(st.integers(), max_size=20))
+    @example([0])
+    @example([1, 2, 3, 4])
+    @example([1, 2, 3, 4])
+    @example([1, 2, 3, 4])
+    @example([1, 2, 3, 4])
+    @example([1, 2, 3, 4])
+    def test_slice_list_full(self, x):
+        source_code = """
+def validator(x: List[int]) -> List[int]:
+    return x[:]
+            """
+        try:
+            exp = x[:]
+        except IndexError:
+            exp = None
+        try:
+            ret = eval_uplc_value(source_code, x)
+        except:
+            ret = None
+        self.assertEqual(
+            ret,
+            [PlutusInteger(x) for x in exp] if exp is not None else exp,
+            "list slice returned wrong value",
+        )
 
     @given(xs=st.lists(st.integers()), y=st.integers())
     @example(xs=[0, 1], y=-1)
@@ -353,6 +523,21 @@ def validator(x: bytes, y: int) -> bytes:
             """
         ret = eval_uplc_value(source_code, x, y)
         self.assertEqual(ret, x * y, "* returned wrong value")
+
+    @given(
+        xs=st.lists(st.integers(), max_size=20), ys=st.lists(st.integers(), max_size=20)
+    )
+    def test_add_list(self, xs, ys):
+        source_code = """
+def validator(x: List[int], y: List[int]) -> List[int]:
+    return x + y
+            """
+        ret = eval_uplc_value(source_code, xs, ys)
+        self.assertEqual(
+            ret,
+            [PlutusInteger(x) for x in xs] + [PlutusInteger(y) for y in ys],
+            "+ returned wrong value",
+        )
 
     @given(x=st.integers())
     def test_fmt_int(self, x):

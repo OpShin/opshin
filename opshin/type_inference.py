@@ -11,10 +11,8 @@ security into the Smart Contract by checking type correctness.
 
 [1]: https://legacy.python.org/workshops/2000-01/proceedings/papers/aycock/aycock.html
 """
-import typing
-from collections import defaultdict
+import re
 
-from copy import copy
 from pycardano import PlutusData
 
 from .typed_ast import *
@@ -27,16 +25,15 @@ from .rewrite.rewrite_cast_condition import SPECIAL_BOOL
 _LOGGER = logging.getLogger(__name__)
 
 
-INITIAL_SCOPE = dict(
-    {
-        # class annotations
-        "bytes": ByteStringType(),
-        "int": IntegerType(),
-        "bool": BoolType(),
-        "str": StringType(),
-        "Anything": AnyType(),
-    }
-)
+INITIAL_SCOPE = {
+    # class annotations
+    "bytes": ByteStringType(),
+    "bytearray": ByteStringType(),
+    "int": IntegerType(),
+    "bool": BoolType(),
+    "str": StringType(),
+    "Anything": AnyType(),
+}
 
 INITIAL_SCOPE.update(
     {
@@ -50,6 +47,7 @@ INITIAL_SCOPE.update(
 def record_from_plutusdata(c: PlutusData):
     return Record(
         name=c.__class__.__name__,
+        orig_name=c.__class__.__name__,
         constructor=c.CONSTR_ID,
         fields=frozenlist([(k, constant_type(v)) for k, v in c.__dict__.items()]),
     )
@@ -89,69 +87,27 @@ def constant_type(c):
     raise NotImplementedError(f"Type {type(c)} not supported")
 
 
-BinOpTypeMap = {
-    Add: {
-        IntegerInstanceType: {
-            IntegerInstanceType: IntegerInstanceType,
-        },
-        ByteStringInstanceType: {
-            ByteStringInstanceType: ByteStringInstanceType,
-        },
-        StringInstanceType: {
-            StringInstanceType: StringInstanceType,
-        },
-    },
-    Sub: {
-        IntegerInstanceType: {
-            IntegerInstanceType: IntegerInstanceType,
-        }
-    },
-    Mult: {
-        IntegerInstanceType: {
-            IntegerInstanceType: IntegerInstanceType,
-            ByteStringInstanceType: ByteStringInstanceType,
-            StringInstanceType: StringInstanceType,
-        },
-        StringInstanceType: {
-            IntegerInstanceType: StringInstanceType,
-        },
-        ByteStringInstanceType: {
-            IntegerInstanceType: ByteStringInstanceType,
-        },
-    },
-    FloorDiv: {
-        IntegerInstanceType: {
-            IntegerInstanceType: IntegerInstanceType,
-        }
-    },
-    Mod: {
-        IntegerInstanceType: {
-            IntegerInstanceType: IntegerInstanceType,
-        }
-    },
-    Pow: {
-        IntegerInstanceType: {
-            IntegerInstanceType: IntegerInstanceType,
-        }
-    },
-}
-
-
 TypeMap = typing.Dict[str, Type]
 TypeMapPair = typing.Tuple[TypeMap, TypeMap]
 
 
 def union_types(*ts: Type):
-    ts = list(set(ts))
+    ts = OrderedSet(ts)
+    # If all types are the same, just return the type
     if len(ts) == 1:
         return ts[0]
+    # If there is a type that is compatible with all other types, choose the maximum
+    for t in ts:
+        if all(t >= tp for tp in ts):
+            return t
     assert ts, "Union must combine multiple classes"
     ts = [t if isinstance(t, UnionType) else UnionType(frozenlist([t])) for t in ts]
-    assert all(
-        isinstance(e, UnionType) and all(isinstance(e2, RecordType) for e2 in e.typs)
-        for e in ts
-    ), "Union must combine multiple PlutusData classes"
-    union_set = set()
+    for e in ts:
+        for e2 in e.typs:
+            assert isinstance(
+                e2, RecordType
+            ), f"Union must combine multiple PlutusData classes but found {e2.__class__.__name__}"
+    union_set = OrderedSet()
     for t in ts:
         union_set.update(t.typs)
     assert distinct(
@@ -161,12 +117,12 @@ def union_types(*ts: Type):
 
 
 def intersection_types(*ts: Type):
-    ts = list(set(ts))
+    ts = OrderedSet(ts)
     if len(ts) == 1:
         return ts[0]
     ts = [t if isinstance(t, UnionType) else UnionType(frozenlist([t])) for t in ts]
     assert ts, "Must have at least one type to intersect"
-    intersection_set = set(ts[0].typs)
+    intersection_set = OrderedSet(ts[0].typs)
     for t in ts[1:]:
         intersection_set.intersection_update(t.typs)
     return UnionType(frozenlist(intersection_set))
@@ -187,9 +143,9 @@ class TypeCheckVisitor(TypedNodeVisitor):
         return getattr(node, "typechecks", ({}, {}))
 
     def visit_Call(self, node: Call) -> TypeMapPair:
-        if isinstance(node.func, Name) and node.func.id == SPECIAL_BOOL:
+        if isinstance(node.func, Name) and node.func.orig_id == SPECIAL_BOOL:
             return self.visit(node.args[0])
-        if not (isinstance(node.func, Name) and node.func.id == "isinstance"):
+        if not (isinstance(node.func, Name) and node.func.orig_id == "isinstance"):
             return ({}, {})
         # special case for Union
         assert isinstance(
@@ -261,7 +217,7 @@ class TypeCheckVisitor(TypedNodeVisitor):
 
 
 def merge_scope(s1: typing.Dict[str, Type], s2: typing.Dict[str, Type]):
-    keys = set(s1.keys()).union(s2.keys())
+    keys = OrderedSet(s1.keys()).union(s2.keys())
     merged = {}
     for k in keys:
         if k not in s1.keys():
@@ -270,11 +226,9 @@ def merge_scope(s1: typing.Dict[str, Type], s2: typing.Dict[str, Type]):
             merged[k] = s1[k]
         else:
             try:
-                assert (
-                    isinstance(s1[k], InstanceType) and isinstance(s2[k], InstanceType)
-                ) or s1[k] == s2[
-                    k
-                ], "Can only merge instance types or same types into one"
+                assert isinstance(s1[k], InstanceType) and isinstance(
+                    s2[k], InstanceType
+                ), "Can only merge instance types"
                 merged[k] = InstanceType(union_types(s1[k].typ, s2[k].typ))
             except AssertionError as e:
                 raise AssertionError(
@@ -298,7 +252,9 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         for scope in reversed(self.scopes):
             if name in scope:
                 return scope[name]
-        raise TypeInferenceError(f"Variable {name} not initialized at access")
+        raise TypeInferenceError(
+            f"Variable {map_to_orig_name(name)} not initialized at access"
+        )
 
     def enter_scope(self):
         self.scopes.append({})
@@ -312,7 +268,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                 # the specified type is broader, we pass on this
                 return
             raise TypeInferenceError(
-                f"Type {self.scopes[-1][name]} of variable {name} in local scope does not match inferred type {typ}"
+                f"Type {self.scopes[-1][name]} of variable {map_to_orig_name(name)} in local scope does not match inferred type {typ}"
             )
         self.scopes[-1][name] = typ
 
@@ -334,18 +290,18 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             if isinstance(v_t, ClassType):
                 return v_t
             raise TypeInferenceError(
-                f"Class name {ann.id} not initialized before annotating variable"
+                f"Class name {ann.orig_id} not initialized before annotating variable"
             )
         if isinstance(ann, Subscript):
             assert isinstance(
                 ann.value, Name
             ), "Only Union, Dict and List are allowed as Generic types"
-            if ann.value.id == "Union":
+            if ann.value.orig_id == "Union":
                 ann_types = frozenlist(
                     [self.type_from_annotation(e) for e in ann.slice.elts]
                 )
                 return union_types(*ann_types)
-            if ann.value.id == "List":
+            if ann.value.orig_id == "List":
                 ann_type = self.type_from_annotation(ann.slice)
                 assert isinstance(
                     ann_type, ClassType
@@ -354,7 +310,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                     ann_type, TupleType
                 ), "List can currently not hold tuples"
                 return ListType(InstanceType(ann_type))
-            if ann.value.id == "Dict":
+            if ann.value.orig_id == "Dict":
                 assert isinstance(ann.slice, Tuple), "Dict must combine two classes"
                 assert len(ann.slice.elts) == 2, "Dict must combine two classes"
                 ann_types = self.type_from_annotation(
@@ -367,7 +323,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                     isinstance(e, TupleType) for e in ann_types
                 ), "Dict can currently not hold tuples"
                 return DictType(*(InstanceType(a) for a in ann_types))
-            if ann.value.id == "Tuple":
+            if ann.value.orig_id == "Tuple":
                 assert isinstance(
                     ann.slice, Tuple
                 ), "Tuple must combine several classes"
@@ -454,8 +410,8 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             assert isinstance(
                 t, Name
             ), "Can only assign to variable names, no type deconstruction"
-            # Overwrite previous type -> this will only affect following statements
-            self.set_variable_type(t.id, typed_ass.value.typ, force=True)
+            # Check compatability to previous types -> variable can be bound in a function before and needs to maintain type
+            self.set_variable_type(t.id, typed_ass.value.typ)
         typed_ass.targets = [self.visit(t) for t in node.targets]
         return typed_ass
 
@@ -466,9 +422,8 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         assert isinstance(
             node.target, Name
         ), "Can only assign to variable names, no type deconstruction"
-        self.set_variable_type(
-            node.target.id, InstanceType(typed_ass.annotation), force=True
-        )
+        # Check compatability to previous types -> variable can be bound in a function before and needs to maintain type
+        self.set_variable_type(node.target.id, InstanceType(typed_ass.annotation))
         typed_ass.target = self.visit(node.target)
         assert (
             typed_ass.value.typ >= InstanceType(typed_ass.annotation)
@@ -587,7 +542,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         tfd = copy(node)
         wraps_builtin = (
             all(
-                isinstance(o, Name) and o.id == "wraps_builtin"
+                isinstance(o, Name) and o.orig_id == "wraps_builtin"
                 for o in node.decorator_list
             )
             and node.decorator_list
@@ -600,6 +555,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         functyp = FunctionType(
             frozenlist([t.typ for t in tfd.args.args]),
             InstanceType(self.type_from_annotation(tfd.returns)),
+            externally_bound_vars(node),
         )
         tfd.typ = InstanceType(functyp)
         if wraps_builtin:
@@ -610,14 +566,8 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             self.set_variable_type(node.name, tfd.typ)
             tfd.body = self.visit_sequence(node.body)
             # Check that return type and annotated return type match
-            if not isinstance(node.body[-1], Return):
-                assert (
-                    functyp.rettyp >= NoneInstanceType
-                ), f"Function '{node.name}' has no return statement but is supposed to return not-None value"
-            else:
-                assert (
-                    functyp.rettyp >= tfd.body[-1].typ
-                ), f"Function '{node.name}' annotated return type does not match actual return type"
+            rets_extractor = ReturnExtractor(functyp.rettyp)
+            rets_extractor.check_fulfills(tfd)
 
         self.exit_scope()
         # We need the function type outside for usage
@@ -640,15 +590,8 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         tb = copy(node)
         tb.left = self.visit(node.left)
         tb.right = self.visit(node.right)
-        outcome_typ_map = BinOpTypeMap.get(type(node.op)).get(tb.left.typ)
-        assert (
-            outcome_typ_map is not None
-        ), f"Operation {node.op} not defined for {tb.left.typ}"
-        outcome_typ = outcome_typ_map.get(tb.right.typ)
-        assert (
-            outcome_typ is not None
-        ), f"Operation {node.op} not defined for types {tb.left.typ} and {tb.right.typ}"
-        tb.typ = outcome_typ
+        binop_fun_typ: FunctionType = tb.left.typ.binop_type(tb.op, tb.right.typ)
+        tb.typ = binop_fun_typ.rettyp
         return tb
 
     def visit_BoolOp(self, node: BoolOp) -> TypedBoolOp:
@@ -694,7 +637,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
     def visit_Subscript(self, node: Subscript) -> TypedSubscript:
         ts = copy(node)
         # special case: Subscript of Union / Dict / List and atomic types
-        if isinstance(ts.value, Name) and ts.value.id in [
+        if isinstance(ts.value, Name) and ts.value.orig_id in [
             "Union",
             "Dict",
             "List",
@@ -728,9 +671,29 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                     f"Could not infer type of subscript of typ {ts.value.typ.typ.__class__}"
                 )
         elif isinstance(ts.value.typ.typ, ListType):
-            ts.typ = ts.value.typ.typ.typ
-            ts.slice = self.visit(node.slice)
-            assert ts.slice.typ == IntegerInstanceType, "List indices must be integers"
+            if not isinstance(ts.slice, Slice):
+                ts.typ = ts.value.typ.typ.typ
+                ts.slice = self.visit(node.slice)
+                assert (
+                    ts.slice.typ == IntegerInstanceType
+                ), "List indices must be integers"
+            else:
+                ts.typ = ts.value.typ
+                if ts.slice.lower is None:
+                    ts.slice.lower = Constant(0)
+                ts.slice.lower = self.visit(node.slice.lower)
+                assert (
+                    ts.slice.lower.typ == IntegerInstanceType
+                ), "lower slice indices for lists must be integers"
+                if ts.slice.upper is None:
+                    ts.slice.upper = Call(
+                        func=Name(id="len", ctx=Load()), args=[ts.value], keywords=[]
+                    )
+                    ts.slice.upper.func.orig_id = "len"
+                ts.slice.upper = self.visit(node.slice.upper)
+                assert (
+                    ts.slice.upper.typ == IntegerInstanceType
+                ), "upper slice indices for lists must be integers"
         elif isinstance(ts.value.typ.typ, ByteStringType):
             if not isinstance(ts.slice, Slice):
                 ts.typ = IntegerInstanceType
@@ -738,7 +701,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                 assert (
                     ts.slice.typ == IntegerInstanceType
                 ), "bytes indices must be integers"
-            elif isinstance(ts.slice, Slice):
+            else:
                 ts.typ = ByteStringInstanceType
                 if ts.slice.lower is None:
                     ts.slice.lower = Constant(0)
@@ -750,16 +713,12 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                     ts.slice.upper = Call(
                         func=Name(id="len", ctx=Load()), args=[ts.value], keywords=[]
                     )
+                    ts.slice.upper.func.orig_id = "len"
                 ts.slice.upper = self.visit(node.slice.upper)
                 assert (
                     ts.slice.upper.typ == IntegerInstanceType
                 ), "upper slice indices for bytes must be integers"
-            else:
-                raise TypeInferenceError(
-                    f"Could not infer type of subscript of typ {ts.value.typ.__class__}"
-                )
         elif isinstance(ts.value.typ.typ, DictType):
-            # TODO could be implemented with potentially just erroring. It might be desired to avoid this though.
             if not isinstance(ts.slice, Slice):
                 ts.slice = self.visit(node.slice)
                 assert (
@@ -781,7 +740,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         tc = copy(node)
         tc.args = [self.visit(a) for a in node.args]
         # might be isinstance
-        if isinstance(tc.func, Name) and tc.func.id == "isinstance":
+        if isinstance(tc.func, Name) and tc.func.orig_id == "isinstance":
             target_class = tc.args[1].typ
             if (
                 isinstance(tc.args[0].typ, InstanceType)
@@ -884,9 +843,17 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         elif node_cp.orelse.typ >= node_cp.body.typ:
             node_cp.typ = node_cp.orelse.typ
         else:
-            raise TypeInferenceError(
-                "Branches of if-expression must return compatible types"
-            )
+            try:
+                assert isinstance(node_cp.body.typ, InstanceType) and isinstance(
+                    node_cp.orelse.typ, InstanceType
+                )
+                node_cp.typ = InstanceType(
+                    union_types(node_cp.body.typ.typ, node_cp.orelse.typ.typ)
+                )
+            except AssertionError:
+                raise TypeInferenceError(
+                    "Branches of if-expression must return compatible types."
+                )
         return node_cp
 
     def visit_comprehension(self, g: comprehension) -> typedcomprehension:
@@ -960,6 +927,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
 
 class RecordReader(NodeVisitor):
     name: str
+    orig_name: str
     constructor: int
     attributes: typing.List[typing.Tuple[str, Type]]
     _type_inferencer: AggressiveTypeInferencer
@@ -973,7 +941,7 @@ class RecordReader(NodeVisitor):
     def extract(cls, c: ClassDef, type_inferencer: AggressiveTypeInferencer) -> Record:
         f = cls(type_inferencer)
         f.visit(c)
-        return Record(f.name, f.constructor, frozenlist(f.attributes))
+        return Record(f.name, f.orig_name, f.constructor, frozenlist(f.attributes))
 
     def visit_AnnAssign(self, node: AnnAssign) -> None:
         assert isinstance(
@@ -1005,6 +973,7 @@ class RecordReader(NodeVisitor):
 
     def visit_ClassDef(self, node: ClassDef) -> None:
         self.name = node.name
+        self.orig_name = node.orig_name
         for s in node.body:
             self.visit(s)
 
@@ -1038,3 +1007,56 @@ class RecordReader(NodeVisitor):
 
 def typed_ast(ast: AST):
     return AggressiveTypeInferencer().visit(ast)
+
+
+def map_to_orig_name(name: str):
+    return re.sub(r"_\d+$", "", name)
+
+
+class ReturnExtractor(TypedNodeVisitor):
+    """
+    Utility to check that all paths end in Return statements with the proper type
+
+    Returns whether there is no remaining path
+    """
+
+    def __init__(self, func_rettyp: Type):
+        self.func_rettyp = func_rettyp
+
+    def visit_sequence(self, nodes: typing.List[TypedAST]) -> bool:
+        all_paths_covered = False
+        for node in nodes:
+            all_paths_covered = self.visit(node)
+            if all_paths_covered:
+                break
+        return all_paths_covered
+
+    def visit_If(self, node: If) -> bool:
+        return self.visit_sequence(node.body) and self.visit_sequence(node.orelse)
+
+    def visit_For(self, node: For) -> bool:
+        # The body simply has to be checked but has no influence on whether all paths are covered
+        # because it might never be visited
+        self.visit_sequence(node.body)
+        # the else path is always visited
+        return self.visit_sequence(node.orelse)
+
+    def visit_While(self, node: For) -> bool:
+        # The body simply has to be checked but has no influence on whether all paths are covered
+        # because it might never be visited
+        self.visit_sequence(node.body)
+        # the else path is always visited
+        return self.visit_sequence(node.orelse)
+
+    def visit_Return(self, node: Return) -> bool:
+        assert (
+            self.func_rettyp >= node.typ
+        ), f"Function '{node.name}' annotated return type does not match actual return type"
+        return True
+
+    def check_fulfills(self, node: FunctionDef):
+        all_paths_covered = self.visit_sequence(node.body)
+        if not all_paths_covered:
+            assert (
+                self.func_rettyp >= NoneInstanceType
+            ), f"Function '{node.name}' has no return statement but is supposed to return not-None value"

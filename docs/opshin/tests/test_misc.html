@@ -68,13 +68,13 @@ fill="currentColor" class="octo-body"></path>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">import sys
+<pre><code class="python">import os
+
+import sys
 
 import subprocess
 
-import json
 import tempfile
-import xml.etree.ElementTree
 
 import unittest
 
@@ -85,11 +85,10 @@ from hypothesis import given
 from hypothesis import strategies as st
 from parameterized import parameterized
 
-import pluthon
 from uplc import ast as uplc, eval as uplc_eval
 
 from . import PLUTUS_VM_PROFILE
-from .. import compiler, prelude, builder, Purpose, PlutusContract
+from .. import prelude, builder, Purpose, PlutusContract
 from .utils import eval_uplc_value, Unit, eval_uplc
 from ..bridge import wraps_builtin
 
@@ -99,6 +98,13 @@ hypothesis.settings.load_profile(PLUTUS_VM_PROFILE)
 from ..ledger.api_v2 import *
 from pycardano import RawPlutusData
 from cbor2 import CBORTag
+
+ALL_EXAMPLES = [
+    os.path.join(root, f)
+    for root, dirs, files in os.walk(&#34;examples&#34;)
+    for f in files
+    if f.endswith(&#34;.py&#34;) and not f.startswith(&#34;broken&#34;) and not f.startswith(&#34;extract&#34;)
+]
 
 
 def fib(n):
@@ -130,7 +136,16 @@ class MiscTest(unittest.TestCase):
         input_file = &#34;examples/smart_contracts/assert_sum.py&#34;
         with open(input_file) as fp:
             source_code = fp.read()
-        ret = eval_uplc(source_code, 20, 22, Unit())
+        ret = eval_uplc(
+            source_code,
+            20,
+            22,
+            uplc.data_from_cbor(
+                bytes.fromhex(
+                    &#34;d8799fd8799f9fd8799fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffd8799fd8799fd87a9f581cdbe769758f26efb21f008dc097bb194cffc622acc37fcefc5372eee3ffd87a80ffa140a1401a00989680d87a9f5820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dffd87a80ffffff809fd8799fd8799fd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd87a80ffa140a14000d87980d87a80ffffa140a14000a140a1400080a0d8799fd8799fd87980d87a80ffd8799fd87b80d87a80ffff80a1d87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffd87980a15820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd8799f5820746957f0eb57f2b11119684e611a98f373afea93473fefbb7632d579af2f6259ffffd87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffff&#34;
+                )
+            ),
+        )
         self.assertEqual(ret, uplc.PlutusConstr(0, []))
 
     @unittest.expectedFailure
@@ -155,12 +170,49 @@ class MiscTest(unittest.TestCase):
         a=st.integers(min_value=-10, max_value=10),
         b=st.integers(min_value=0, max_value=10),
     )
-    def test_mult_while(self, a: int, b: int):
-        input_file = &#34;examples/mult_while.py&#34;
+    def test_mult_for(self, a: int, b: int):
+        input_file = &#34;examples/mult_for.py&#34;
         with open(input_file) as fp:
             source_code = fp.read()
         ret = eval_uplc_value(source_code, a, b)
         self.assertEqual(ret, a * b)
+
+    @given(
+        a=st.integers(min_value=-10, max_value=10),
+        b=st.integers(min_value=0, max_value=10),
+    )
+    def test_mult_for_return(self, a: int, b: int):
+        source_code = &#34;&#34;&#34;
+def validator(a: int, b: int) -&gt; int:
+    c = 0
+    i = 0
+    for i in range(b):
+        c += a
+        if i == 1:
+            return c
+    return c
+&#34;&#34;&#34;
+        ret = eval_uplc_value(source_code, a, b)
+        self.assertEqual(ret, a * min(b, 2))
+
+    @given(
+        a=st.integers(min_value=-10, max_value=10),
+        b=st.integers(min_value=0, max_value=10),
+    )
+    def test_mult_while_return(self, a: int, b: int):
+        source_code = &#34;&#34;&#34;
+def validator(a: int, b: int) -&gt; int:
+    c = 0
+    i = 0
+    while i &lt; b:
+        c += a
+        i += 1
+        if i == 2:
+            return c
+    return c
+&#34;&#34;&#34;
+        ret = eval_uplc_value(source_code, a, b)
+        self.assertEqual(ret, a * min(2, b))
 
     @given(
         a=st.integers(),
@@ -295,7 +347,23 @@ class MiscTest(unittest.TestCase):
             ),
         )
 
-    def test_recursion(self):
+    def test_recursion_simple(self):
+        source_code = &#34;&#34;&#34;
+def validator(_: None) -&gt; int:
+    def a(n: int) -&gt; int:
+      if n == 0:
+        res = 0
+      else:
+        res = a(n-1)
+      return res
+    return a(1)
+        &#34;&#34;&#34;
+        ret = eval_uplc_value(source_code, Unit())
+        self.assertEqual(0, ret)
+
+    @unittest.expectedFailure
+    def test_recursion_illegal(self):
+        # this is now an illegal retyping because read variables dont match
         source_code = &#34;&#34;&#34;
 def validator(_: None) -&gt; int:
     def a(n: int) -&gt; int:
@@ -311,6 +379,89 @@ def validator(_: None) -&gt; int:
         &#34;&#34;&#34;
         ret = eval_uplc_value(source_code, Unit())
         self.assertEqual(100, ret)
+
+    def test_recursion_legal(self):
+        source_code = &#34;&#34;&#34;
+def validator(_: None) -&gt; int:
+    def a(n: int) -&gt; int:
+      if n == 0:
+        res = 0
+      else:
+        res = a(n-1)
+      return res
+    b = a
+    def a(n: int) -&gt; int:
+      a
+      if 1 == n:
+        pass
+      return 100
+    return b(1)
+        &#34;&#34;&#34;
+        ret = eval_uplc_value(source_code, Unit())
+        self.assertEqual(100, ret)
+
+    @unittest.expectedFailure
+    def test_uninitialized_access(self):
+        source_code = &#34;&#34;&#34;
+def validator(_: None) -&gt; int:
+    b = 1
+    def a(n: int) -&gt; int:
+      b += 1
+      if b == 2:
+        return 0
+      else:
+        return a(n-1)
+    return a(1)
+        &#34;&#34;&#34;
+        builder._compile(source_code)
+
+    @unittest.expectedFailure
+    def test_illegal_bind(self):
+        source_code = &#34;&#34;&#34;
+def validator(_: None) -&gt; int:
+    b = 1
+    def a(n: int) -&gt; int:
+      if n == 0:
+        return 100
+      if b == 2:
+        return 0
+      b = 2
+      return a(n-1)
+    return a(2)
+        &#34;&#34;&#34;
+        builder._compile(source_code)
+
+    @unittest.expectedFailure
+    def test_type_reassignment_function_bound(self):
+        # changing the type of a variable should be disallowed if the variable is bound by a function
+        # it can be ok if the types can be merged (resulting in union type inside the function) but
+        # generally should be disallowed
+        source_code = &#34;&#34;&#34;
+def validator(_: None) -&gt; int:
+    b = 1
+    def a(n: int) -&gt; int:
+      return b
+    b = b&#39;&#39;
+    return a(1)
+        &#34;&#34;&#34;
+        builder._compile(source_code)
+
+    @unittest.expectedFailure
+    def test_illegal_function_retype(self):
+        source_code = &#34;&#34;&#34;
+def validator(_: None) -&gt; int:
+    def a(n: int) -&gt; int:
+      if n == 0:
+        res = 0
+      else:
+        res = a(n-1)
+      return res
+    b = a
+    def a() -&gt; int:
+      return 100
+    return b(1)
+        &#34;&#34;&#34;
+        builder._compile(source_code)
 
     def test_datum_cast(self):
         input_file = &#34;examples/datum_cast.py&#34;
@@ -413,6 +564,45 @@ def validator(_: None) -&gt; int:
         )
         ret = eval_uplc_value(source_code, d)
         self.assertFalse(bool(ret))
+
+    def test_removedeadvar_noissue(self):
+        source_code = &#34;&#34;&#34;
+from opshin.prelude import *
+def validator(x: Token) -&gt; bool:
+    b = 4
+    a = b
+    return True
+        &#34;&#34;&#34;
+        ret = eval_uplc_value(source_code, Unit())
+        self.assertEqual(ret, True)
+
+    def test_removedeadvar_noissue2(self):
+        source_code = &#34;&#34;&#34;
+from opshin.prelude import *
+def validator(x: Token) -&gt; bool:
+    def foo(x: Token) -&gt; bool:
+        b = 4
+        a = b
+        return True
+    return foo(x)
+        &#34;&#34;&#34;
+        ret = eval_uplc_value(source_code, Unit())
+        self.assertEqual(ret, True)
+
+    def test_removedeadvar_noissue3(self):
+        source_code = &#34;&#34;&#34;
+from opshin.prelude import *
+
+def foo(x: Token) -&gt; bool:
+    b = 4
+    a = b
+    return True
+
+def validator(x: Token) -&gt; bool:
+    return foo(x)
+        &#34;&#34;&#34;
+        ret = eval_uplc_value(source_code, Unit())
+        self.assertEqual(ret, True)
 
     @unittest.expectedFailure
     def test_overopt_removedeadvar(self):
@@ -1167,12 +1357,32 @@ def validator(_: None) -&gt; int:
         code_src = code.dumps()
         self.assertIn(f&#34;(con integer {2**10})&#34;, code_src)
 
-    def test_constant_folding_ignore_reassignment(self):
+    def test_reassign_builtin(self):
         source_code = &#34;&#34;&#34;
-from opshin.prelude import *
+b = int
+def validator(_: None) -&gt; int:
+    def int(a) -&gt; b:
+        return 2
+    return int(5)
+&#34;&#34;&#34;
+        res = eval_uplc_value(source_code, Unit())
+        self.assertEqual(res, 2)
 
+    @unittest.expectedFailure
+    def test_reassign_builtin_invalid_type(self):
+        source_code = &#34;&#34;&#34;
 def validator(_: None) -&gt; int:
     def int(a) -&gt; int:
+        return 2
+    return int(5)
+&#34;&#34;&#34;
+        builder._compile(source_code)
+
+    def test_constant_folding_ignore_reassignment(self):
+        source_code = &#34;&#34;&#34;
+b = int
+def validator(_: None) -&gt; int:
+    def int(a) -&gt; b:
         return 2
     return int(5)
 &#34;&#34;&#34;
@@ -1312,6 +1522,33 @@ def validator(x: bytes, y: bytes) -&gt; bytes:
 &#34;&#34;&#34;
         res = eval_uplc_value(source_code, x, y)
         self.assertEqual(res, x + y)
+
+    def test_trace_order(self):
+        # TODO can become a proper test once uplc is upgraded to &gt;=1.0.0
+        source_code = &#34;&#34;&#34;
+from opshin.std.builtins import *
+def validator() -&gt; None:
+    print(&#34;test&#34;)
+    print(&#34;hi&#34;)
+    print(&#34;there&#34;)
+    return None
+&#34;&#34;&#34;
+        eval_uplc(source_code, PlutusData())
+
+    def test_print_empty(self):
+        # TODO can become a proper test once uplc is upgraded to &gt;=1.0.0
+        source_code = &#34;&#34;&#34;
+from opshin.std.builtins import *
+def validator() -&gt; None:
+    print()
+    print()
+    print()
+    print()
+    print()
+    print()
+    return None
+&#34;&#34;&#34;
+        eval_uplc(source_code, PlutusData())
 
     @hypothesis.given(st.integers())
     def test_cast_bool_ite(self, x):
@@ -1821,7 +2058,7 @@ def validator(x: Union[A, B], y: int) -&gt; bool:
         )
 
     @hypothesis.given(a_or_b)
-    def test_retype_if(self, x):
+    def test_uniontype_if(self, x):
         source_code = &#34;&#34;&#34;
 from dataclasses import dataclass
 from typing import Dict, List, Union
@@ -1902,6 +2139,7 @@ def validator(x: Union[A, B]):
 &#34;&#34;&#34;
         builder._compile(source_code)
 
+    @unittest.expectedFailure
     @hypothesis.given(a_or_b)
     def test_retype_while(self, x):
         source_code = &#34;&#34;&#34;
@@ -1978,6 +2216,18 @@ def validator(x: Union[A, B]) -&gt; int:
 &#34;&#34;&#34;
         builder._compile(source_code)
 
+    @unittest.expectedFailure
+    def test_retype_while_wrong_after_iter(self):
+        source_code = &#34;&#34;&#34;
+def validator(x: int) -&gt; bytes:
+    while True:
+        x += 1
+        x = b&#39;&#39;
+    return x
+&#34;&#34;&#34;
+        builder._compile(source_code)
+
+    @unittest.expectedFailure
     def test_retype(self):
         source_code = &#34;&#34;&#34;
 def validator(x: int) -&gt; str:
@@ -1987,6 +2237,7 @@ def validator(x: int) -&gt; str:
         res = eval_uplc_value(source_code, 1)
         self.assertEqual(res, b&#34;hello&#34;)
 
+    @unittest.expectedFailure
     def test_retype_if_primitives(self):
         source_code = &#34;&#34;&#34;
 def validator(x: int) -&gt; str:
@@ -2140,6 +2391,8 @@ def validator(
 &#34;&#34;&#34;
         eval_uplc(source_code, bytearray(b&#34;hello&#34;))
 
+    # TODO enable when pycardano version is fixed s.t. import of ByteString works
+    @unittest.expectedFailure
     def test_ByteString_alternative(self):
         source_code = &#34;&#34;&#34;
 def validator(
@@ -2246,8 +2499,8 @@ def validator(
 &#34;&#34;&#34;
         builder._compile(source_code)
 
-    def test_compilation_deterministic_local(self):
-        input_file = &#34;examples/smart_contracts/assert_sum.py&#34;
+    @parameterized.expand(ALL_EXAMPLES)
+    def test_compilation_deterministic_local(self, input_file):
         with open(input_file) as fp:
             source_code = fp.read()
         code = builder._compile(source_code)
@@ -2255,15 +2508,15 @@ def validator(
             code_2 = builder._compile(source_code)
             self.assertEqual(code.dumps(), code_2.dumps())
 
-    def test_compilation_deterministic_external(self):
-        input_file = &#34;examples/smart_contracts/assert_sum.py&#34;
+    @parameterized.expand(ALL_EXAMPLES)
+    def test_compilation_deterministic_external(self, input_file):
         code = subprocess.run(
             [
                 sys.executable,
                 &#34;-m&#34;,
                 &#34;opshin&#34;,
                 &#34;compile&#34;,
-                &#34;spending&#34;,
+                &#34;any&#34;,
                 input_file,
             ],
             capture_output=True,
@@ -2275,12 +2528,172 @@ def validator(
                     &#34;-m&#34;,
                     &#34;opshin&#34;,
                     &#34;compile&#34;,
-                    &#34;spending&#34;,
+                    &#34;any&#34;,
                     input_file,
                 ],
                 capture_output=True,
             )
-            self.assertEqual(code.stdout, code_2.stdout)</code></pre>
+            self.assertEqual(code.stdout, code_2.stdout)
+
+    @unittest.expectedFailure
+    def test_return_illegal(self):
+        # this is now an illegal retyping because read variables dont match
+        source_code = &#34;&#34;&#34;
+return 1
+def validator(_: None) -&gt; int:
+    return 0
+        &#34;&#34;&#34;
+        builder._compile(source_code)
+
+    def test_return_in_loop(self):
+        source_code = &#34;&#34;&#34;
+def validator(_: None) -&gt; int:
+    i = 0
+    while i &lt; 10:
+        i += 1
+        if i == 5:
+          return i
+    return 0
+        &#34;&#34;&#34;
+        res = eval_uplc_value(source_code, Unit())
+        self.assertEqual(res, 5, &#34;Invalid return break&#34;)
+
+    def test_return_in_for(self):
+        source_code = &#34;&#34;&#34;
+def validator(_: None) -&gt; int:
+    i = 0
+    for i in range(10):
+        i += 1
+        if i == 5:
+          return i
+    return 0
+        &#34;&#34;&#34;
+        res = eval_uplc_value(source_code, Unit())
+        self.assertEqual(res, 5, &#34;Invalid return break&#34;)
+
+    def test_return_in_if(self):
+        source_code = &#34;&#34;&#34;
+def validator(_: None) -&gt; int:
+    i = 0
+    if i == 1:
+        return 0
+    else:
+        return 1
+        &#34;&#34;&#34;
+        res = eval_uplc_value(source_code, Unit())
+        self.assertEqual(res, 1, &#34;Invalid return&#34;)
+
+    @unittest.expectedFailure
+    def test_return_in_if_same_type(self):
+        source_code = &#34;&#34;&#34;
+def validator(_: None) -&gt; str:
+    i = 0
+    if i == 1:
+        return &#34;a&#34;
+    else:
+        return 1
+        &#34;&#34;&#34;
+        builder._compile(source_code)
+
+    def test_isinstance_cast_if(self):
+        source_code = &#34;&#34;&#34;
+from dataclasses import dataclass
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
+
+@dataclass()
+class A(PlutusData):
+    CONSTR_ID = 0
+    foo: int
+
+@dataclass()
+class B(PlutusData):
+    CONSTR_ID = 1
+    foobar: int
+    bar: int
+
+def validator(_: None) -&gt; Union[A, B]:
+    x = 0
+    if x == 1:
+        return A(1)
+    else:
+        return B(2, 1)
+&#34;&#34;&#34;
+        res = eval_uplc(source_code, Unit())
+        self.assertEqual(
+            res,
+            uplc.PlutusConstr(1, [uplc.PlutusInteger(2), uplc.PlutusInteger(1)]),
+            &#34;Invalid return&#34;,
+        )
+
+    @unittest.expectedFailure
+    def test_return_in_if_missing_return(self):
+        source_code = &#34;&#34;&#34;
+def validator(_: None) -&gt; str:
+    i = 0
+    if i == 1:
+        return &#34;a&#34;
+    else:
+        pass
+        &#34;&#34;&#34;
+        builder._compile(source_code)
+
+    def test_different_return_types_anything(self):
+        source_code = &#34;&#34;&#34;
+from opshin.prelude import *
+
+def validator(a: int) -&gt; Anything:
+    if a &gt; 0:
+        return b&#34;&#34;
+    else:
+        return 0
+&#34;&#34;&#34;
+        res = eval_uplc(source_code, 1)
+        self.assertEqual(res, uplc.PlutusByteString(b&#34;&#34;))
+        res = eval_uplc(source_code, -1)
+        self.assertEqual(res, uplc.PlutusInteger(0))
+
+    @unittest.expectedFailure
+    def test_different_return_types_while_loop(self):
+        source_code = &#34;&#34;&#34;
+def validator(a: int) -&gt; str:
+    while a &gt; 0:
+        return b&#34;&#34;
+    return 0
+&#34;&#34;&#34;
+        builder.compile(source_code)
+
+    @unittest.expectedFailure
+    def test_different_return_types_for_loop(self):
+        source_code = &#34;&#34;&#34;
+def validator(a: int) -&gt; str:
+    for i in range(a):
+        return b&#34;&#34;
+    return 0
+&#34;&#34;&#34;
+        builder.compile(source_code)
+
+    def test_return_else_loop_while(self):
+        source_code = &#34;&#34;&#34;
+def validator(a: int) -&gt; int:
+    while a &gt; 0:
+        a -= 1
+    else:
+        return 0
+&#34;&#34;&#34;
+        res = eval_uplc_value(source_code, 1)
+        self.assertEqual(res, 0, &#34;Invalid return&#34;)
+
+    def test_return_else_loop_for(self):
+        source_code = &#34;&#34;&#34;
+def validator(a: int) -&gt; int:
+    for _ in range(a):
+        a -= 1
+    else:
+        return 0
+&#34;&#34;&#34;
+        res = eval_uplc_value(source_code, 1)
+        self.assertEqual(res, 0, &#34;Invalid return&#34;)</code></pre>
 </details>
 </section>
 <section>
@@ -2424,7 +2837,16 @@ not have a method with the specified name.</p></div>
         input_file = &#34;examples/smart_contracts/assert_sum.py&#34;
         with open(input_file) as fp:
             source_code = fp.read()
-        ret = eval_uplc(source_code, 20, 22, Unit())
+        ret = eval_uplc(
+            source_code,
+            20,
+            22,
+            uplc.data_from_cbor(
+                bytes.fromhex(
+                    &#34;d8799fd8799f9fd8799fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffd8799fd8799fd87a9f581cdbe769758f26efb21f008dc097bb194cffc622acc37fcefc5372eee3ffd87a80ffa140a1401a00989680d87a9f5820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dffd87a80ffffff809fd8799fd8799fd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd87a80ffa140a14000d87980d87a80ffffa140a14000a140a1400080a0d8799fd8799fd87980d87a80ffd8799fd87b80d87a80ffff80a1d87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffd87980a15820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd8799f5820746957f0eb57f2b11119684e611a98f373afea93473fefbb7632d579af2f6259ffffd87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffff&#34;
+                )
+            ),
+        )
         self.assertEqual(ret, uplc.PlutusConstr(0, []))
 
     @unittest.expectedFailure
@@ -2449,12 +2871,49 @@ not have a method with the specified name.</p></div>
         a=st.integers(min_value=-10, max_value=10),
         b=st.integers(min_value=0, max_value=10),
     )
-    def test_mult_while(self, a: int, b: int):
-        input_file = &#34;examples/mult_while.py&#34;
+    def test_mult_for(self, a: int, b: int):
+        input_file = &#34;examples/mult_for.py&#34;
         with open(input_file) as fp:
             source_code = fp.read()
         ret = eval_uplc_value(source_code, a, b)
         self.assertEqual(ret, a * b)
+
+    @given(
+        a=st.integers(min_value=-10, max_value=10),
+        b=st.integers(min_value=0, max_value=10),
+    )
+    def test_mult_for_return(self, a: int, b: int):
+        source_code = &#34;&#34;&#34;
+def validator(a: int, b: int) -&gt; int:
+    c = 0
+    i = 0
+    for i in range(b):
+        c += a
+        if i == 1:
+            return c
+    return c
+&#34;&#34;&#34;
+        ret = eval_uplc_value(source_code, a, b)
+        self.assertEqual(ret, a * min(b, 2))
+
+    @given(
+        a=st.integers(min_value=-10, max_value=10),
+        b=st.integers(min_value=0, max_value=10),
+    )
+    def test_mult_while_return(self, a: int, b: int):
+        source_code = &#34;&#34;&#34;
+def validator(a: int, b: int) -&gt; int:
+    c = 0
+    i = 0
+    while i &lt; b:
+        c += a
+        i += 1
+        if i == 2:
+            return c
+    return c
+&#34;&#34;&#34;
+        ret = eval_uplc_value(source_code, a, b)
+        self.assertEqual(ret, a * min(2, b))
 
     @given(
         a=st.integers(),
@@ -2589,7 +3048,23 @@ not have a method with the specified name.</p></div>
             ),
         )
 
-    def test_recursion(self):
+    def test_recursion_simple(self):
+        source_code = &#34;&#34;&#34;
+def validator(_: None) -&gt; int:
+    def a(n: int) -&gt; int:
+      if n == 0:
+        res = 0
+      else:
+        res = a(n-1)
+      return res
+    return a(1)
+        &#34;&#34;&#34;
+        ret = eval_uplc_value(source_code, Unit())
+        self.assertEqual(0, ret)
+
+    @unittest.expectedFailure
+    def test_recursion_illegal(self):
+        # this is now an illegal retyping because read variables dont match
         source_code = &#34;&#34;&#34;
 def validator(_: None) -&gt; int:
     def a(n: int) -&gt; int:
@@ -2605,6 +3080,89 @@ def validator(_: None) -&gt; int:
         &#34;&#34;&#34;
         ret = eval_uplc_value(source_code, Unit())
         self.assertEqual(100, ret)
+
+    def test_recursion_legal(self):
+        source_code = &#34;&#34;&#34;
+def validator(_: None) -&gt; int:
+    def a(n: int) -&gt; int:
+      if n == 0:
+        res = 0
+      else:
+        res = a(n-1)
+      return res
+    b = a
+    def a(n: int) -&gt; int:
+      a
+      if 1 == n:
+        pass
+      return 100
+    return b(1)
+        &#34;&#34;&#34;
+        ret = eval_uplc_value(source_code, Unit())
+        self.assertEqual(100, ret)
+
+    @unittest.expectedFailure
+    def test_uninitialized_access(self):
+        source_code = &#34;&#34;&#34;
+def validator(_: None) -&gt; int:
+    b = 1
+    def a(n: int) -&gt; int:
+      b += 1
+      if b == 2:
+        return 0
+      else:
+        return a(n-1)
+    return a(1)
+        &#34;&#34;&#34;
+        builder._compile(source_code)
+
+    @unittest.expectedFailure
+    def test_illegal_bind(self):
+        source_code = &#34;&#34;&#34;
+def validator(_: None) -&gt; int:
+    b = 1
+    def a(n: int) -&gt; int:
+      if n == 0:
+        return 100
+      if b == 2:
+        return 0
+      b = 2
+      return a(n-1)
+    return a(2)
+        &#34;&#34;&#34;
+        builder._compile(source_code)
+
+    @unittest.expectedFailure
+    def test_type_reassignment_function_bound(self):
+        # changing the type of a variable should be disallowed if the variable is bound by a function
+        # it can be ok if the types can be merged (resulting in union type inside the function) but
+        # generally should be disallowed
+        source_code = &#34;&#34;&#34;
+def validator(_: None) -&gt; int:
+    b = 1
+    def a(n: int) -&gt; int:
+      return b
+    b = b&#39;&#39;
+    return a(1)
+        &#34;&#34;&#34;
+        builder._compile(source_code)
+
+    @unittest.expectedFailure
+    def test_illegal_function_retype(self):
+        source_code = &#34;&#34;&#34;
+def validator(_: None) -&gt; int:
+    def a(n: int) -&gt; int:
+      if n == 0:
+        res = 0
+      else:
+        res = a(n-1)
+      return res
+    b = a
+    def a() -&gt; int:
+      return 100
+    return b(1)
+        &#34;&#34;&#34;
+        builder._compile(source_code)
 
     def test_datum_cast(self):
         input_file = &#34;examples/datum_cast.py&#34;
@@ -2707,6 +3265,45 @@ def validator(_: None) -&gt; int:
         )
         ret = eval_uplc_value(source_code, d)
         self.assertFalse(bool(ret))
+
+    def test_removedeadvar_noissue(self):
+        source_code = &#34;&#34;&#34;
+from opshin.prelude import *
+def validator(x: Token) -&gt; bool:
+    b = 4
+    a = b
+    return True
+        &#34;&#34;&#34;
+        ret = eval_uplc_value(source_code, Unit())
+        self.assertEqual(ret, True)
+
+    def test_removedeadvar_noissue2(self):
+        source_code = &#34;&#34;&#34;
+from opshin.prelude import *
+def validator(x: Token) -&gt; bool:
+    def foo(x: Token) -&gt; bool:
+        b = 4
+        a = b
+        return True
+    return foo(x)
+        &#34;&#34;&#34;
+        ret = eval_uplc_value(source_code, Unit())
+        self.assertEqual(ret, True)
+
+    def test_removedeadvar_noissue3(self):
+        source_code = &#34;&#34;&#34;
+from opshin.prelude import *
+
+def foo(x: Token) -&gt; bool:
+    b = 4
+    a = b
+    return True
+
+def validator(x: Token) -&gt; bool:
+    return foo(x)
+        &#34;&#34;&#34;
+        ret = eval_uplc_value(source_code, Unit())
+        self.assertEqual(ret, True)
 
     @unittest.expectedFailure
     def test_overopt_removedeadvar(self):
@@ -3461,12 +4058,32 @@ def validator(_: None) -&gt; int:
         code_src = code.dumps()
         self.assertIn(f&#34;(con integer {2**10})&#34;, code_src)
 
-    def test_constant_folding_ignore_reassignment(self):
+    def test_reassign_builtin(self):
         source_code = &#34;&#34;&#34;
-from opshin.prelude import *
+b = int
+def validator(_: None) -&gt; int:
+    def int(a) -&gt; b:
+        return 2
+    return int(5)
+&#34;&#34;&#34;
+        res = eval_uplc_value(source_code, Unit())
+        self.assertEqual(res, 2)
 
+    @unittest.expectedFailure
+    def test_reassign_builtin_invalid_type(self):
+        source_code = &#34;&#34;&#34;
 def validator(_: None) -&gt; int:
     def int(a) -&gt; int:
+        return 2
+    return int(5)
+&#34;&#34;&#34;
+        builder._compile(source_code)
+
+    def test_constant_folding_ignore_reassignment(self):
+        source_code = &#34;&#34;&#34;
+b = int
+def validator(_: None) -&gt; int:
+    def int(a) -&gt; b:
         return 2
     return int(5)
 &#34;&#34;&#34;
@@ -3606,6 +4223,33 @@ def validator(x: bytes, y: bytes) -&gt; bytes:
 &#34;&#34;&#34;
         res = eval_uplc_value(source_code, x, y)
         self.assertEqual(res, x + y)
+
+    def test_trace_order(self):
+        # TODO can become a proper test once uplc is upgraded to &gt;=1.0.0
+        source_code = &#34;&#34;&#34;
+from opshin.std.builtins import *
+def validator() -&gt; None:
+    print(&#34;test&#34;)
+    print(&#34;hi&#34;)
+    print(&#34;there&#34;)
+    return None
+&#34;&#34;&#34;
+        eval_uplc(source_code, PlutusData())
+
+    def test_print_empty(self):
+        # TODO can become a proper test once uplc is upgraded to &gt;=1.0.0
+        source_code = &#34;&#34;&#34;
+from opshin.std.builtins import *
+def validator() -&gt; None:
+    print()
+    print()
+    print()
+    print()
+    print()
+    print()
+    return None
+&#34;&#34;&#34;
+        eval_uplc(source_code, PlutusData())
 
     @hypothesis.given(st.integers())
     def test_cast_bool_ite(self, x):
@@ -4115,7 +4759,7 @@ def validator(x: Union[A, B], y: int) -&gt; bool:
         )
 
     @hypothesis.given(a_or_b)
-    def test_retype_if(self, x):
+    def test_uniontype_if(self, x):
         source_code = &#34;&#34;&#34;
 from dataclasses import dataclass
 from typing import Dict, List, Union
@@ -4196,6 +4840,7 @@ def validator(x: Union[A, B]):
 &#34;&#34;&#34;
         builder._compile(source_code)
 
+    @unittest.expectedFailure
     @hypothesis.given(a_or_b)
     def test_retype_while(self, x):
         source_code = &#34;&#34;&#34;
@@ -4272,6 +4917,18 @@ def validator(x: Union[A, B]) -&gt; int:
 &#34;&#34;&#34;
         builder._compile(source_code)
 
+    @unittest.expectedFailure
+    def test_retype_while_wrong_after_iter(self):
+        source_code = &#34;&#34;&#34;
+def validator(x: int) -&gt; bytes:
+    while True:
+        x += 1
+        x = b&#39;&#39;
+    return x
+&#34;&#34;&#34;
+        builder._compile(source_code)
+
+    @unittest.expectedFailure
     def test_retype(self):
         source_code = &#34;&#34;&#34;
 def validator(x: int) -&gt; str:
@@ -4281,6 +4938,7 @@ def validator(x: int) -&gt; str:
         res = eval_uplc_value(source_code, 1)
         self.assertEqual(res, b&#34;hello&#34;)
 
+    @unittest.expectedFailure
     def test_retype_if_primitives(self):
         source_code = &#34;&#34;&#34;
 def validator(x: int) -&gt; str:
@@ -4434,6 +5092,8 @@ def validator(
 &#34;&#34;&#34;
         eval_uplc(source_code, bytearray(b&#34;hello&#34;))
 
+    # TODO enable when pycardano version is fixed s.t. import of ByteString works
+    @unittest.expectedFailure
     def test_ByteString_alternative(self):
         source_code = &#34;&#34;&#34;
 def validator(
@@ -4540,8 +5200,8 @@ def validator(
 &#34;&#34;&#34;
         builder._compile(source_code)
 
-    def test_compilation_deterministic_local(self):
-        input_file = &#34;examples/smart_contracts/assert_sum.py&#34;
+    @parameterized.expand(ALL_EXAMPLES)
+    def test_compilation_deterministic_local(self, input_file):
         with open(input_file) as fp:
             source_code = fp.read()
         code = builder._compile(source_code)
@@ -4549,15 +5209,15 @@ def validator(
             code_2 = builder._compile(source_code)
             self.assertEqual(code.dumps(), code_2.dumps())
 
-    def test_compilation_deterministic_external(self):
-        input_file = &#34;examples/smart_contracts/assert_sum.py&#34;
+    @parameterized.expand(ALL_EXAMPLES)
+    def test_compilation_deterministic_external(self, input_file):
         code = subprocess.run(
             [
                 sys.executable,
                 &#34;-m&#34;,
                 &#34;opshin&#34;,
                 &#34;compile&#34;,
-                &#34;spending&#34;,
+                &#34;any&#34;,
                 input_file,
             ],
             capture_output=True,
@@ -4569,12 +5229,172 @@ def validator(
                     &#34;-m&#34;,
                     &#34;opshin&#34;,
                     &#34;compile&#34;,
-                    &#34;spending&#34;,
+                    &#34;any&#34;,
                     input_file,
                 ],
                 capture_output=True,
             )
-            self.assertEqual(code.stdout, code_2.stdout)</code></pre>
+            self.assertEqual(code.stdout, code_2.stdout)
+
+    @unittest.expectedFailure
+    def test_return_illegal(self):
+        # this is now an illegal retyping because read variables dont match
+        source_code = &#34;&#34;&#34;
+return 1
+def validator(_: None) -&gt; int:
+    return 0
+        &#34;&#34;&#34;
+        builder._compile(source_code)
+
+    def test_return_in_loop(self):
+        source_code = &#34;&#34;&#34;
+def validator(_: None) -&gt; int:
+    i = 0
+    while i &lt; 10:
+        i += 1
+        if i == 5:
+          return i
+    return 0
+        &#34;&#34;&#34;
+        res = eval_uplc_value(source_code, Unit())
+        self.assertEqual(res, 5, &#34;Invalid return break&#34;)
+
+    def test_return_in_for(self):
+        source_code = &#34;&#34;&#34;
+def validator(_: None) -&gt; int:
+    i = 0
+    for i in range(10):
+        i += 1
+        if i == 5:
+          return i
+    return 0
+        &#34;&#34;&#34;
+        res = eval_uplc_value(source_code, Unit())
+        self.assertEqual(res, 5, &#34;Invalid return break&#34;)
+
+    def test_return_in_if(self):
+        source_code = &#34;&#34;&#34;
+def validator(_: None) -&gt; int:
+    i = 0
+    if i == 1:
+        return 0
+    else:
+        return 1
+        &#34;&#34;&#34;
+        res = eval_uplc_value(source_code, Unit())
+        self.assertEqual(res, 1, &#34;Invalid return&#34;)
+
+    @unittest.expectedFailure
+    def test_return_in_if_same_type(self):
+        source_code = &#34;&#34;&#34;
+def validator(_: None) -&gt; str:
+    i = 0
+    if i == 1:
+        return &#34;a&#34;
+    else:
+        return 1
+        &#34;&#34;&#34;
+        builder._compile(source_code)
+
+    def test_isinstance_cast_if(self):
+        source_code = &#34;&#34;&#34;
+from dataclasses import dataclass
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
+
+@dataclass()
+class A(PlutusData):
+    CONSTR_ID = 0
+    foo: int
+
+@dataclass()
+class B(PlutusData):
+    CONSTR_ID = 1
+    foobar: int
+    bar: int
+
+def validator(_: None) -&gt; Union[A, B]:
+    x = 0
+    if x == 1:
+        return A(1)
+    else:
+        return B(2, 1)
+&#34;&#34;&#34;
+        res = eval_uplc(source_code, Unit())
+        self.assertEqual(
+            res,
+            uplc.PlutusConstr(1, [uplc.PlutusInteger(2), uplc.PlutusInteger(1)]),
+            &#34;Invalid return&#34;,
+        )
+
+    @unittest.expectedFailure
+    def test_return_in_if_missing_return(self):
+        source_code = &#34;&#34;&#34;
+def validator(_: None) -&gt; str:
+    i = 0
+    if i == 1:
+        return &#34;a&#34;
+    else:
+        pass
+        &#34;&#34;&#34;
+        builder._compile(source_code)
+
+    def test_different_return_types_anything(self):
+        source_code = &#34;&#34;&#34;
+from opshin.prelude import *
+
+def validator(a: int) -&gt; Anything:
+    if a &gt; 0:
+        return b&#34;&#34;
+    else:
+        return 0
+&#34;&#34;&#34;
+        res = eval_uplc(source_code, 1)
+        self.assertEqual(res, uplc.PlutusByteString(b&#34;&#34;))
+        res = eval_uplc(source_code, -1)
+        self.assertEqual(res, uplc.PlutusInteger(0))
+
+    @unittest.expectedFailure
+    def test_different_return_types_while_loop(self):
+        source_code = &#34;&#34;&#34;
+def validator(a: int) -&gt; str:
+    while a &gt; 0:
+        return b&#34;&#34;
+    return 0
+&#34;&#34;&#34;
+        builder.compile(source_code)
+
+    @unittest.expectedFailure
+    def test_different_return_types_for_loop(self):
+        source_code = &#34;&#34;&#34;
+def validator(a: int) -&gt; str:
+    for i in range(a):
+        return b&#34;&#34;
+    return 0
+&#34;&#34;&#34;
+        builder.compile(source_code)
+
+    def test_return_else_loop_while(self):
+        source_code = &#34;&#34;&#34;
+def validator(a: int) -&gt; int:
+    while a &gt; 0:
+        a -= 1
+    else:
+        return 0
+&#34;&#34;&#34;
+        res = eval_uplc_value(source_code, 1)
+        self.assertEqual(res, 0, &#34;Invalid return&#34;)
+
+    def test_return_else_loop_for(self):
+        source_code = &#34;&#34;&#34;
+def validator(a: int) -&gt; int:
+    for _ in range(a):
+        a -= 1
+    else:
+        return 0
+&#34;&#34;&#34;
+        res = eval_uplc_value(source_code, 1)
+        self.assertEqual(res, 0, &#34;Invalid return&#34;)</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -4582,6 +5402,14 @@ def validator(
 </ul>
 <h3>Class variables</h3>
 <dl>
+<dt id="opshin.tests.test_misc.MiscTest.test_compilation_deterministic_external"><code class="name">var <span class="ident">test_compilation_deterministic_external</span></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_compilation_deterministic_local"><code class="name">var <span class="ident">test_compilation_deterministic_local</span></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
 <dt id="opshin.tests.test_misc.MiscTest.test_script_context_str_format"><code class="name">var <span class="ident">test_script_context_str_format</span></code></dt>
 <dd>
 <div class="desc"></div>
@@ -4598,7 +5426,8 @@ def validator(
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">    def test_ByteString_alternative(self):
+<pre><code class="python">    @unittest.expectedFailure
+    def test_ByteString_alternative(self):
         source_code = &#34;&#34;&#34;
 def validator(
     d: ByteString,
@@ -4682,7 +5511,16 @@ def test_assert_sum_contract_fail(self):
     input_file = &#34;examples/smart_contracts/assert_sum.py&#34;
     with open(input_file) as fp:
         source_code = fp.read()
-    ret = eval_uplc(source_code, 20, 22, Unit())
+    ret = eval_uplc(
+        source_code,
+        20,
+        22,
+        uplc.data_from_cbor(
+            bytes.fromhex(
+                &#34;d8799fd8799f9fd8799fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffd8799fd8799fd87a9f581cdbe769758f26efb21f008dc097bb194cffc622acc37fcefc5372eee3ffd87a80ffa140a1401a00989680d87a9f5820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dffd87a80ffffff809fd8799fd8799fd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd87a80ffa140a14000d87980d87a80ffffa140a14000a140a1400080a0d8799fd8799fd87980d87a80ffd8799fd87b80d87a80ffff80a1d87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffd87980a15820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd8799f5820746957f0eb57f2b11119684e611a98f373afea93473fefbb7632d579af2f6259ffffd87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffff&#34;
+            )
+        ),
+    )
     self.assertEqual(ret, uplc.PlutusConstr(0, []))</code></pre>
 </details>
 </dd>
@@ -4890,8 +5728,8 @@ def validator({param_string}) -&gt; bool:
         self.assertEqual(bool(res), eval(eval_string))</code></pre>
 </details>
 </dd>
-<dt id="opshin.tests.test_misc.MiscTest.test_compilation_deterministic_external"><code class="name flex">
-<span>def <span class="ident">test_compilation_deterministic_external</span></span>(<span>self)</span>
+<dt id="opshin.tests.test_misc.MiscTest.test_compilation_deterministic_external_00_examples_dict_datum_py"><code class="name flex">
+<span>def <span class="ident">test_compilation_deterministic_external_00_examples_dict_datum_py</span></span>(<span>*a, **kw)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -4899,36 +5737,13 @@ def validator({param_string}) -&gt; bool:
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def test_compilation_deterministic_external(self):
-    input_file = &#34;examples/smart_contracts/assert_sum.py&#34;
-    code = subprocess.run(
-        [
-            sys.executable,
-            &#34;-m&#34;,
-            &#34;opshin&#34;,
-            &#34;compile&#34;,
-            &#34;spending&#34;,
-            input_file,
-        ],
-        capture_output=True,
-    )
-    for i in range(10):
-        code_2 = subprocess.run(
-            [
-                sys.executable,
-                &#34;-m&#34;,
-                &#34;opshin&#34;,
-                &#34;compile&#34;,
-                &#34;spending&#34;,
-                input_file,
-            ],
-            capture_output=True,
-        )
-        self.assertEqual(code.stdout, code_2.stdout)</code></pre>
+<pre><code class="python">@wraps(func)
+def standalone_func(*a, **kw):
+    return func(*(a + p.args), **p.kwargs, **kw)</code></pre>
 </details>
 </dd>
-<dt id="opshin.tests.test_misc.MiscTest.test_compilation_deterministic_local"><code class="name flex">
-<span>def <span class="ident">test_compilation_deterministic_local</span></span>(<span>self)</span>
+<dt id="opshin.tests.test_misc.MiscTest.test_compilation_deterministic_external_01_examples_inspect_script_context_py"><code class="name flex">
+<span>def <span class="ident">test_compilation_deterministic_external_01_examples_inspect_script_context_py</span></span>(<span>*a, **kw)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -4936,14 +5751,597 @@ def validator({param_string}) -&gt; bool:
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def test_compilation_deterministic_local(self):
-    input_file = &#34;examples/smart_contracts/assert_sum.py&#34;
-    with open(input_file) as fp:
-        source_code = fp.read()
-    code = builder._compile(source_code)
-    for i in range(10):
-        code_2 = builder._compile(source_code)
-        self.assertEqual(code.dumps(), code_2.dumps())</code></pre>
+<pre><code class="python">@wraps(func)
+def standalone_func(*a, **kw):
+    return func(*(a + p.args), **p.kwargs, **kw)</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_compilation_deterministic_external_02_examples_datum_cast_py"><code class="name flex">
+<span>def <span class="ident">test_compilation_deterministic_external_02_examples_datum_cast_py</span></span>(<span>*a, **kw)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@wraps(func)
+def standalone_func(*a, **kw):
+    return func(*(a + p.args), **p.kwargs, **kw)</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_compilation_deterministic_external_03_examples_sum_py"><code class="name flex">
+<span>def <span class="ident">test_compilation_deterministic_external_03_examples_sum_py</span></span>(<span>*a, **kw)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@wraps(func)
+def standalone_func(*a, **kw):
+    return func(*(a + p.args), **p.kwargs, **kw)</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_compilation_deterministic_external_04_examples_complex_datum_py"><code class="name flex">
+<span>def <span class="ident">test_compilation_deterministic_external_04_examples_complex_datum_py</span></span>(<span>*a, **kw)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@wraps(func)
+def standalone_func(*a, **kw):
+    return func(*(a + p.args), **p.kwargs, **kw)</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_compilation_deterministic_external_05_examples_list_datum_py"><code class="name flex">
+<span>def <span class="ident">test_compilation_deterministic_external_05_examples_list_datum_py</span></span>(<span>*a, **kw)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@wraps(func)
+def standalone_func(*a, **kw):
+    return func(*(a + p.args), **p.kwargs, **kw)</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_compilation_deterministic_external_06_examples_hello_world_py"><code class="name flex">
+<span>def <span class="ident">test_compilation_deterministic_external_06_examples_hello_world_py</span></span>(<span>*a, **kw)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@wraps(func)
+def standalone_func(*a, **kw):
+    return func(*(a + p.args), **p.kwargs, **kw)</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_compilation_deterministic_external_07_examples_mult_for_py"><code class="name flex">
+<span>def <span class="ident">test_compilation_deterministic_external_07_examples_mult_for_py</span></span>(<span>*a, **kw)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@wraps(func)
+def standalone_func(*a, **kw):
+    return func(*(a + p.args), **p.kwargs, **kw)</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_compilation_deterministic_external_08_examples_list_comprehensions_py"><code class="name flex">
+<span>def <span class="ident">test_compilation_deterministic_external_08_examples_list_comprehensions_py</span></span>(<span>*a, **kw)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@wraps(func)
+def standalone_func(*a, **kw):
+    return func(*(a + p.args), **p.kwargs, **kw)</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_compilation_deterministic_external_09_examples_fib_rec_py"><code class="name flex">
+<span>def <span class="ident">test_compilation_deterministic_external_09_examples_fib_rec_py</span></span>(<span>*a, **kw)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@wraps(func)
+def standalone_func(*a, **kw):
+    return func(*(a + p.args), **p.kwargs, **kw)</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_compilation_deterministic_external_10_examples_showcase_py"><code class="name flex">
+<span>def <span class="ident">test_compilation_deterministic_external_10_examples_showcase_py</span></span>(<span>*a, **kw)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@wraps(func)
+def standalone_func(*a, **kw):
+    return func(*(a + p.args), **p.kwargs, **kw)</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_compilation_deterministic_external_11_examples_fib_iter_py"><code class="name flex">
+<span>def <span class="ident">test_compilation_deterministic_external_11_examples_fib_iter_py</span></span>(<span>*a, **kw)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@wraps(func)
+def standalone_func(*a, **kw):
+    return func(*(a + p.args), **p.kwargs, **kw)</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_compilation_deterministic_external_12_examples_mult_while_py"><code class="name flex">
+<span>def <span class="ident">test_compilation_deterministic_external_12_examples_mult_while_py</span></span>(<span>*a, **kw)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@wraps(func)
+def standalone_func(*a, **kw):
+    return func(*(a + p.args), **p.kwargs, **kw)</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_compilation_deterministic_external_13_examples_smart_contracts_dual_use_py"><code class="name flex">
+<span>def <span class="ident">test_compilation_deterministic_external_13_examples_smart_contracts_dual_use_py</span></span>(<span>*a, **kw)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@wraps(func)
+def standalone_func(*a, **kw):
+    return func(*(a + p.args), **p.kwargs, **kw)</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_compilation_deterministic_external_14_examples_smart_contracts_simple_script_py"><code class="name flex">
+<span>def <span class="ident">test_compilation_deterministic_external_14_examples_smart_contracts_simple_script_py</span></span>(<span>*a, **kw)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@wraps(func)
+def standalone_func(*a, **kw):
+    return func(*(a + p.args), **p.kwargs, **kw)</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_compilation_deterministic_external_15_examples_smart_contracts_parameterized_py"><code class="name flex">
+<span>def <span class="ident">test_compilation_deterministic_external_15_examples_smart_contracts_parameterized_py</span></span>(<span>*a, **kw)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@wraps(func)
+def standalone_func(*a, **kw):
+    return func(*(a + p.args), **p.kwargs, **kw)</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_compilation_deterministic_external_16_examples_smart_contracts_gift_py"><code class="name flex">
+<span>def <span class="ident">test_compilation_deterministic_external_16_examples_smart_contracts_gift_py</span></span>(<span>*a, **kw)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@wraps(func)
+def standalone_func(*a, **kw):
+    return func(*(a + p.args), **p.kwargs, **kw)</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_compilation_deterministic_external_17_examples_smart_contracts_wrapped_token_py"><code class="name flex">
+<span>def <span class="ident">test_compilation_deterministic_external_17_examples_smart_contracts_wrapped_token_py</span></span>(<span>*a, **kw)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@wraps(func)
+def standalone_func(*a, **kw):
+    return func(*(a + p.args), **p.kwargs, **kw)</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_compilation_deterministic_external_18_examples_smart_contracts_always_true_py"><code class="name flex">
+<span>def <span class="ident">test_compilation_deterministic_external_18_examples_smart_contracts_always_true_py</span></span>(<span>*a, **kw)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@wraps(func)
+def standalone_func(*a, **kw):
+    return func(*(a + p.args), **p.kwargs, **kw)</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_compilation_deterministic_external_19_examples_smart_contracts_micropayments_py"><code class="name flex">
+<span>def <span class="ident">test_compilation_deterministic_external_19_examples_smart_contracts_micropayments_py</span></span>(<span>*a, **kw)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@wraps(func)
+def standalone_func(*a, **kw):
+    return func(*(a + p.args), **p.kwargs, **kw)</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_compilation_deterministic_external_20_examples_smart_contracts_marketplace_py"><code class="name flex">
+<span>def <span class="ident">test_compilation_deterministic_external_20_examples_smart_contracts_marketplace_py</span></span>(<span>*a, **kw)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@wraps(func)
+def standalone_func(*a, **kw):
+    return func(*(a + p.args), **p.kwargs, **kw)</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_compilation_deterministic_external_21_examples_smart_contracts_assert_sum_py"><code class="name flex">
+<span>def <span class="ident">test_compilation_deterministic_external_21_examples_smart_contracts_assert_sum_py</span></span>(<span>*a, **kw)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@wraps(func)
+def standalone_func(*a, **kw):
+    return func(*(a + p.args), **p.kwargs, **kw)</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_compilation_deterministic_local_00_examples_dict_datum_py"><code class="name flex">
+<span>def <span class="ident">test_compilation_deterministic_local_00_examples_dict_datum_py</span></span>(<span>*a, **kw)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@wraps(func)
+def standalone_func(*a, **kw):
+    return func(*(a + p.args), **p.kwargs, **kw)</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_compilation_deterministic_local_01_examples_inspect_script_context_py"><code class="name flex">
+<span>def <span class="ident">test_compilation_deterministic_local_01_examples_inspect_script_context_py</span></span>(<span>*a, **kw)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@wraps(func)
+def standalone_func(*a, **kw):
+    return func(*(a + p.args), **p.kwargs, **kw)</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_compilation_deterministic_local_02_examples_datum_cast_py"><code class="name flex">
+<span>def <span class="ident">test_compilation_deterministic_local_02_examples_datum_cast_py</span></span>(<span>*a, **kw)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@wraps(func)
+def standalone_func(*a, **kw):
+    return func(*(a + p.args), **p.kwargs, **kw)</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_compilation_deterministic_local_03_examples_sum_py"><code class="name flex">
+<span>def <span class="ident">test_compilation_deterministic_local_03_examples_sum_py</span></span>(<span>*a, **kw)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@wraps(func)
+def standalone_func(*a, **kw):
+    return func(*(a + p.args), **p.kwargs, **kw)</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_compilation_deterministic_local_04_examples_complex_datum_py"><code class="name flex">
+<span>def <span class="ident">test_compilation_deterministic_local_04_examples_complex_datum_py</span></span>(<span>*a, **kw)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@wraps(func)
+def standalone_func(*a, **kw):
+    return func(*(a + p.args), **p.kwargs, **kw)</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_compilation_deterministic_local_05_examples_list_datum_py"><code class="name flex">
+<span>def <span class="ident">test_compilation_deterministic_local_05_examples_list_datum_py</span></span>(<span>*a, **kw)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@wraps(func)
+def standalone_func(*a, **kw):
+    return func(*(a + p.args), **p.kwargs, **kw)</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_compilation_deterministic_local_06_examples_hello_world_py"><code class="name flex">
+<span>def <span class="ident">test_compilation_deterministic_local_06_examples_hello_world_py</span></span>(<span>*a, **kw)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@wraps(func)
+def standalone_func(*a, **kw):
+    return func(*(a + p.args), **p.kwargs, **kw)</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_compilation_deterministic_local_07_examples_mult_for_py"><code class="name flex">
+<span>def <span class="ident">test_compilation_deterministic_local_07_examples_mult_for_py</span></span>(<span>*a, **kw)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@wraps(func)
+def standalone_func(*a, **kw):
+    return func(*(a + p.args), **p.kwargs, **kw)</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_compilation_deterministic_local_08_examples_list_comprehensions_py"><code class="name flex">
+<span>def <span class="ident">test_compilation_deterministic_local_08_examples_list_comprehensions_py</span></span>(<span>*a, **kw)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@wraps(func)
+def standalone_func(*a, **kw):
+    return func(*(a + p.args), **p.kwargs, **kw)</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_compilation_deterministic_local_09_examples_fib_rec_py"><code class="name flex">
+<span>def <span class="ident">test_compilation_deterministic_local_09_examples_fib_rec_py</span></span>(<span>*a, **kw)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@wraps(func)
+def standalone_func(*a, **kw):
+    return func(*(a + p.args), **p.kwargs, **kw)</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_compilation_deterministic_local_10_examples_showcase_py"><code class="name flex">
+<span>def <span class="ident">test_compilation_deterministic_local_10_examples_showcase_py</span></span>(<span>*a, **kw)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@wraps(func)
+def standalone_func(*a, **kw):
+    return func(*(a + p.args), **p.kwargs, **kw)</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_compilation_deterministic_local_11_examples_fib_iter_py"><code class="name flex">
+<span>def <span class="ident">test_compilation_deterministic_local_11_examples_fib_iter_py</span></span>(<span>*a, **kw)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@wraps(func)
+def standalone_func(*a, **kw):
+    return func(*(a + p.args), **p.kwargs, **kw)</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_compilation_deterministic_local_12_examples_mult_while_py"><code class="name flex">
+<span>def <span class="ident">test_compilation_deterministic_local_12_examples_mult_while_py</span></span>(<span>*a, **kw)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@wraps(func)
+def standalone_func(*a, **kw):
+    return func(*(a + p.args), **p.kwargs, **kw)</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_compilation_deterministic_local_13_examples_smart_contracts_dual_use_py"><code class="name flex">
+<span>def <span class="ident">test_compilation_deterministic_local_13_examples_smart_contracts_dual_use_py</span></span>(<span>*a, **kw)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@wraps(func)
+def standalone_func(*a, **kw):
+    return func(*(a + p.args), **p.kwargs, **kw)</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_compilation_deterministic_local_14_examples_smart_contracts_simple_script_py"><code class="name flex">
+<span>def <span class="ident">test_compilation_deterministic_local_14_examples_smart_contracts_simple_script_py</span></span>(<span>*a, **kw)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@wraps(func)
+def standalone_func(*a, **kw):
+    return func(*(a + p.args), **p.kwargs, **kw)</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_compilation_deterministic_local_15_examples_smart_contracts_parameterized_py"><code class="name flex">
+<span>def <span class="ident">test_compilation_deterministic_local_15_examples_smart_contracts_parameterized_py</span></span>(<span>*a, **kw)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@wraps(func)
+def standalone_func(*a, **kw):
+    return func(*(a + p.args), **p.kwargs, **kw)</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_compilation_deterministic_local_16_examples_smart_contracts_gift_py"><code class="name flex">
+<span>def <span class="ident">test_compilation_deterministic_local_16_examples_smart_contracts_gift_py</span></span>(<span>*a, **kw)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@wraps(func)
+def standalone_func(*a, **kw):
+    return func(*(a + p.args), **p.kwargs, **kw)</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_compilation_deterministic_local_17_examples_smart_contracts_wrapped_token_py"><code class="name flex">
+<span>def <span class="ident">test_compilation_deterministic_local_17_examples_smart_contracts_wrapped_token_py</span></span>(<span>*a, **kw)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@wraps(func)
+def standalone_func(*a, **kw):
+    return func(*(a + p.args), **p.kwargs, **kw)</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_compilation_deterministic_local_18_examples_smart_contracts_always_true_py"><code class="name flex">
+<span>def <span class="ident">test_compilation_deterministic_local_18_examples_smart_contracts_always_true_py</span></span>(<span>*a, **kw)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@wraps(func)
+def standalone_func(*a, **kw):
+    return func(*(a + p.args), **p.kwargs, **kw)</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_compilation_deterministic_local_19_examples_smart_contracts_micropayments_py"><code class="name flex">
+<span>def <span class="ident">test_compilation_deterministic_local_19_examples_smart_contracts_micropayments_py</span></span>(<span>*a, **kw)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@wraps(func)
+def standalone_func(*a, **kw):
+    return func(*(a + p.args), **p.kwargs, **kw)</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_compilation_deterministic_local_20_examples_smart_contracts_marketplace_py"><code class="name flex">
+<span>def <span class="ident">test_compilation_deterministic_local_20_examples_smart_contracts_marketplace_py</span></span>(<span>*a, **kw)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@wraps(func)
+def standalone_func(*a, **kw):
+    return func(*(a + p.args), **p.kwargs, **kw)</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_compilation_deterministic_local_21_examples_smart_contracts_assert_sum_py"><code class="name flex">
+<span>def <span class="ident">test_compilation_deterministic_local_21_examples_smart_contracts_assert_sum_py</span></span>(<span>*a, **kw)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@wraps(func)
+def standalone_func(*a, **kw):
+    return func(*(a + p.args), **p.kwargs, **kw)</code></pre>
 </details>
 </dd>
 <dt id="opshin.tests.test_misc.MiscTest.test_complex_datum_correct_vals"><code class="name flex">
@@ -5222,10 +6620,9 @@ def validator(_: None) -&gt; int:
 </summary>
 <pre><code class="python">    def test_constant_folding_ignore_reassignment(self):
         source_code = &#34;&#34;&#34;
-from opshin.prelude import *
-
+b = int
 def validator(_: None) -&gt; int:
-    def int(a) -&gt; int:
+    def int(a) -&gt; b:
         return 2
     return int(5)
 &#34;&#34;&#34;
@@ -5593,6 +6990,71 @@ def validator(xs: Dict[bytes, Dict[bytes, int]]) -&gt; int:
         )</code></pre>
 </details>
 </dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_different_return_types_anything"><code class="name flex">
+<span>def <span class="ident">test_different_return_types_anything</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    def test_different_return_types_anything(self):
+        source_code = &#34;&#34;&#34;
+from opshin.prelude import *
+
+def validator(a: int) -&gt; Anything:
+    if a &gt; 0:
+        return b&#34;&#34;
+    else:
+        return 0
+&#34;&#34;&#34;
+        res = eval_uplc(source_code, 1)
+        self.assertEqual(res, uplc.PlutusByteString(b&#34;&#34;))
+        res = eval_uplc(source_code, -1)
+        self.assertEqual(res, uplc.PlutusInteger(0))</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_different_return_types_for_loop"><code class="name flex">
+<span>def <span class="ident">test_different_return_types_for_loop</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    @unittest.expectedFailure
+    def test_different_return_types_for_loop(self):
+        source_code = &#34;&#34;&#34;
+def validator(a: int) -&gt; str:
+    for i in range(a):
+        return b&#34;&#34;
+    return 0
+&#34;&#34;&#34;
+        builder.compile(source_code)</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_different_return_types_while_loop"><code class="name flex">
+<span>def <span class="ident">test_different_return_types_while_loop</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    @unittest.expectedFailure
+    def test_different_return_types_while_loop(self):
+        source_code = &#34;&#34;&#34;
+def validator(a: int) -&gt; str:
+    while a &gt; 0:
+        return b&#34;&#34;
+    return 0
+&#34;&#34;&#34;
+        builder.compile(source_code)</code></pre>
+</details>
+</dd>
 <dt id="opshin.tests.test_misc.MiscTest.test_double_import_deep"><code class="name flex">
 <span>def <span class="ident">test_double_import_deep</span></span>(<span>self)</span>
 </code></dt>
@@ -5934,6 +7396,59 @@ def validator(x: Union[A, B]):
         k = &#34;hello&#34;
     return k
 &#34;&#34;&#34;
+        builder._compile(source_code)</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_illegal_bind"><code class="name flex">
+<span>def <span class="ident">test_illegal_bind</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    @unittest.expectedFailure
+    def test_illegal_bind(self):
+        source_code = &#34;&#34;&#34;
+def validator(_: None) -&gt; int:
+    b = 1
+    def a(n: int) -&gt; int:
+      if n == 0:
+        return 100
+      if b == 2:
+        return 0
+      b = 2
+      return a(n-1)
+    return a(2)
+        &#34;&#34;&#34;
+        builder._compile(source_code)</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_illegal_function_retype"><code class="name flex">
+<span>def <span class="ident">test_illegal_function_retype</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    @unittest.expectedFailure
+    def test_illegal_function_retype(self):
+        source_code = &#34;&#34;&#34;
+def validator(_: None) -&gt; int:
+    def a(n: int) -&gt; int:
+      if n == 0:
+        res = 0
+      else:
+        res = a(n-1)
+      return res
+    b = a
+    def a() -&gt; int:
+      return 100
+    return b(1)
+        &#34;&#34;&#34;
         builder._compile(source_code)</code></pre>
 </details>
 </dd>
@@ -6356,7 +7871,7 @@ def validator(x: Union[A, B]) -&gt; int:
 </details>
 </dd>
 <dt id="opshin.tests.test_misc.MiscTest.test_isinstance_cast_if"><code class="name flex">
-<span>def <span class="ident">test_isinstance_cast_if</span></span>(<span>self) ‑> None</span>
+<span>def <span class="ident">test_isinstance_cast_if</span></span>(<span>self)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -6364,8 +7879,7 @@ def validator(x: Union[A, B]) -&gt; int:
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">    @hypothesis.given(a_or_b)
-    def test_isinstance_cast_if(self, x):
+<pre><code class="python">    def test_isinstance_cast_if(self):
         source_code = &#34;&#34;&#34;
 from dataclasses import dataclass
 from typing import Dict, List, Union
@@ -6382,15 +7896,19 @@ class B(PlutusData):
     foobar: int
     bar: int
 
-def validator(x: Union[A, B]) -&gt; int:
-    if isinstance(x, A):
-        k = x.foo
-    elif isinstance(x, B):
-        k = x.bar
-    return k
+def validator(_: None) -&gt; Union[A, B]:
+    x = 0
+    if x == 1:
+        return A(1)
+    else:
+        return B(2, 1)
 &#34;&#34;&#34;
-        res = eval_uplc_value(source_code, x)
-        self.assertEqual(res, x.foo if isinstance(x, A) else x.bar)</code></pre>
+        res = eval_uplc(source_code, Unit())
+        self.assertEqual(
+            res,
+            uplc.PlutusConstr(1, [uplc.PlutusInteger(2), uplc.PlutusInteger(1)]),
+            &#34;Invalid return&#34;,
+        )</code></pre>
 </details>
 </dd>
 <dt id="opshin.tests.test_misc.MiscTest.test_isinstance_cast_ifexpr"><code class="name flex">
@@ -6734,8 +8252,8 @@ def test_mult_for(self, a: int, b: int):
     self.assertEqual(ret, a * b)</code></pre>
 </details>
 </dd>
-<dt id="opshin.tests.test_misc.MiscTest.test_mult_while"><code class="name flex">
-<span>def <span class="ident">test_mult_while</span></span>(<span>self) ‑> None</span>
+<dt id="opshin.tests.test_misc.MiscTest.test_mult_for_return"><code class="name flex">
+<span>def <span class="ident">test_mult_for_return</span></span>(<span>self) ‑> None</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -6743,16 +8261,52 @@ def test_mult_for(self, a: int, b: int):
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">@given(
-    a=st.integers(min_value=-10, max_value=10),
-    b=st.integers(min_value=0, max_value=10),
-)
-def test_mult_while(self, a: int, b: int):
-    input_file = &#34;examples/mult_while.py&#34;
-    with open(input_file) as fp:
-        source_code = fp.read()
-    ret = eval_uplc_value(source_code, a, b)
-    self.assertEqual(ret, a * b)</code></pre>
+<pre><code class="python">    @given(
+        a=st.integers(min_value=-10, max_value=10),
+        b=st.integers(min_value=0, max_value=10),
+    )
+    def test_mult_for_return(self, a: int, b: int):
+        source_code = &#34;&#34;&#34;
+def validator(a: int, b: int) -&gt; int:
+    c = 0
+    i = 0
+    for i in range(b):
+        c += a
+        if i == 1:
+            return c
+    return c
+&#34;&#34;&#34;
+        ret = eval_uplc_value(source_code, a, b)
+        self.assertEqual(ret, a * min(b, 2))</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_mult_while_return"><code class="name flex">
+<span>def <span class="ident">test_mult_while_return</span></span>(<span>self) ‑> None</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    @given(
+        a=st.integers(min_value=-10, max_value=10),
+        b=st.integers(min_value=0, max_value=10),
+    )
+    def test_mult_while_return(self, a: int, b: int):
+        source_code = &#34;&#34;&#34;
+def validator(a: int, b: int) -&gt; int:
+    c = 0
+    i = 0
+    while i &lt; b:
+        c += a
+        i += 1
+        if i == 2:
+            return c
+    return c
+&#34;&#34;&#34;
+        ret = eval_uplc_value(source_code, a, b)
+        self.assertEqual(ret, a * min(2, b))</code></pre>
 </details>
 </dd>
 <dt id="opshin.tests.test_misc.MiscTest.test_nested_deconstruction"><code class="name flex">
@@ -6944,8 +8498,8 @@ def validator(x: Token) -&gt; bool:
     builder._compile(source_code, force_three_params=True)</code></pre>
 </details>
 </dd>
-<dt id="opshin.tests.test_misc.MiscTest.test_recursion"><code class="name flex">
-<span>def <span class="ident">test_recursion</span></span>(<span>self)</span>
+<dt id="opshin.tests.test_misc.MiscTest.test_print_empty"><code class="name flex">
+<span>def <span class="ident">test_print_empty</span></span>(<span>self)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -6953,7 +8507,75 @@ def validator(x: Token) -&gt; bool:
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">    def test_recursion(self):
+<pre><code class="python">    def test_print_empty(self):
+        # TODO can become a proper test once uplc is upgraded to &gt;=1.0.0
+        source_code = &#34;&#34;&#34;
+from opshin.std.builtins import *
+def validator() -&gt; None:
+    print()
+    print()
+    print()
+    print()
+    print()
+    print()
+    return None
+&#34;&#34;&#34;
+        eval_uplc(source_code, PlutusData())</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_reassign_builtin"><code class="name flex">
+<span>def <span class="ident">test_reassign_builtin</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    def test_reassign_builtin(self):
+        source_code = &#34;&#34;&#34;
+b = int
+def validator(_: None) -&gt; int:
+    def int(a) -&gt; b:
+        return 2
+    return int(5)
+&#34;&#34;&#34;
+        res = eval_uplc_value(source_code, Unit())
+        self.assertEqual(res, 2)</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_reassign_builtin_invalid_type"><code class="name flex">
+<span>def <span class="ident">test_reassign_builtin_invalid_type</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    @unittest.expectedFailure
+    def test_reassign_builtin_invalid_type(self):
+        source_code = &#34;&#34;&#34;
+def validator(_: None) -&gt; int:
+    def int(a) -&gt; int:
+        return 2
+    return int(5)
+&#34;&#34;&#34;
+        builder._compile(source_code)</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_recursion_illegal"><code class="name flex">
+<span>def <span class="ident">test_recursion_illegal</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    @unittest.expectedFailure
+    def test_recursion_illegal(self):
+        # this is now an illegal retyping because read variables dont match
         source_code = &#34;&#34;&#34;
 def validator(_: None) -&gt; int:
     def a(n: int) -&gt; int:
@@ -6969,6 +8591,60 @@ def validator(_: None) -&gt; int:
         &#34;&#34;&#34;
         ret = eval_uplc_value(source_code, Unit())
         self.assertEqual(100, ret)</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_recursion_legal"><code class="name flex">
+<span>def <span class="ident">test_recursion_legal</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    def test_recursion_legal(self):
+        source_code = &#34;&#34;&#34;
+def validator(_: None) -&gt; int:
+    def a(n: int) -&gt; int:
+      if n == 0:
+        res = 0
+      else:
+        res = a(n-1)
+      return res
+    b = a
+    def a(n: int) -&gt; int:
+      a
+      if 1 == n:
+        pass
+      return 100
+    return b(1)
+        &#34;&#34;&#34;
+        ret = eval_uplc_value(source_code, Unit())
+        self.assertEqual(100, ret)</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_recursion_simple"><code class="name flex">
+<span>def <span class="ident">test_recursion_simple</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    def test_recursion_simple(self):
+        source_code = &#34;&#34;&#34;
+def validator(_: None) -&gt; int:
+    def a(n: int) -&gt; int:
+      if n == 0:
+        res = 0
+      else:
+        res = a(n-1)
+      return res
+    return a(1)
+        &#34;&#34;&#34;
+        ret = eval_uplc_value(source_code, Unit())
+        self.assertEqual(0, ret)</code></pre>
 </details>
 </dd>
 <dt id="opshin.tests.test_misc.MiscTest.test_redefine_constr"><code class="name flex">
@@ -7022,6 +8698,75 @@ def validator(x: None) -&gt; bytes:
         self.assertEqual(ret, bytes([2, 3]), &#34;Re-assignment of global variable failed&#34;)</code></pre>
 </details>
 </dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_removedeadvar_noissue"><code class="name flex">
+<span>def <span class="ident">test_removedeadvar_noissue</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    def test_removedeadvar_noissue(self):
+        source_code = &#34;&#34;&#34;
+from opshin.prelude import *
+def validator(x: Token) -&gt; bool:
+    b = 4
+    a = b
+    return True
+        &#34;&#34;&#34;
+        ret = eval_uplc_value(source_code, Unit())
+        self.assertEqual(ret, True)</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_removedeadvar_noissue2"><code class="name flex">
+<span>def <span class="ident">test_removedeadvar_noissue2</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    def test_removedeadvar_noissue2(self):
+        source_code = &#34;&#34;&#34;
+from opshin.prelude import *
+def validator(x: Token) -&gt; bool:
+    def foo(x: Token) -&gt; bool:
+        b = 4
+        a = b
+        return True
+    return foo(x)
+        &#34;&#34;&#34;
+        ret = eval_uplc_value(source_code, Unit())
+        self.assertEqual(ret, True)</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_removedeadvar_noissue3"><code class="name flex">
+<span>def <span class="ident">test_removedeadvar_noissue3</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    def test_removedeadvar_noissue3(self):
+        source_code = &#34;&#34;&#34;
+from opshin.prelude import *
+
+def foo(x: Token) -&gt; bool:
+    b = 4
+    a = b
+    return True
+
+def validator(x: Token) -&gt; bool:
+    return foo(x)
+        &#34;&#34;&#34;
+        ret = eval_uplc_value(source_code, Unit())
+        self.assertEqual(ret, True)</code></pre>
+</details>
+</dd>
 <dt id="opshin.tests.test_misc.MiscTest.test_return_anything"><code class="name flex">
 <span>def <span class="ident">test_return_anything</span></span>(<span>self)</span>
 </code></dt>
@@ -7042,6 +8787,180 @@ def validator() -&gt; Anything:
         self.assertEqual(res, uplc.PlutusByteString(b&#34;&#34;))</code></pre>
 </details>
 </dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_return_else_loop_for"><code class="name flex">
+<span>def <span class="ident">test_return_else_loop_for</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    def test_return_else_loop_for(self):
+        source_code = &#34;&#34;&#34;
+def validator(a: int) -&gt; int:
+    for _ in range(a):
+        a -= 1
+    else:
+        return 0
+&#34;&#34;&#34;
+        res = eval_uplc_value(source_code, 1)
+        self.assertEqual(res, 0, &#34;Invalid return&#34;)</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_return_else_loop_while"><code class="name flex">
+<span>def <span class="ident">test_return_else_loop_while</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    def test_return_else_loop_while(self):
+        source_code = &#34;&#34;&#34;
+def validator(a: int) -&gt; int:
+    while a &gt; 0:
+        a -= 1
+    else:
+        return 0
+&#34;&#34;&#34;
+        res = eval_uplc_value(source_code, 1)
+        self.assertEqual(res, 0, &#34;Invalid return&#34;)</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_return_illegal"><code class="name flex">
+<span>def <span class="ident">test_return_illegal</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    @unittest.expectedFailure
+    def test_return_illegal(self):
+        # this is now an illegal retyping because read variables dont match
+        source_code = &#34;&#34;&#34;
+return 1
+def validator(_: None) -&gt; int:
+    return 0
+        &#34;&#34;&#34;
+        builder._compile(source_code)</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_return_in_for"><code class="name flex">
+<span>def <span class="ident">test_return_in_for</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    def test_return_in_for(self):
+        source_code = &#34;&#34;&#34;
+def validator(_: None) -&gt; int:
+    i = 0
+    for i in range(10):
+        i += 1
+        if i == 5:
+          return i
+    return 0
+        &#34;&#34;&#34;
+        res = eval_uplc_value(source_code, Unit())
+        self.assertEqual(res, 5, &#34;Invalid return break&#34;)</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_return_in_if"><code class="name flex">
+<span>def <span class="ident">test_return_in_if</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    def test_return_in_if(self):
+        source_code = &#34;&#34;&#34;
+def validator(_: None) -&gt; int:
+    i = 0
+    if i == 1:
+        return 0
+    else:
+        return 1
+        &#34;&#34;&#34;
+        res = eval_uplc_value(source_code, Unit())
+        self.assertEqual(res, 1, &#34;Invalid return&#34;)</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_return_in_if_missing_return"><code class="name flex">
+<span>def <span class="ident">test_return_in_if_missing_return</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    @unittest.expectedFailure
+    def test_return_in_if_missing_return(self):
+        source_code = &#34;&#34;&#34;
+def validator(_: None) -&gt; str:
+    i = 0
+    if i == 1:
+        return &#34;a&#34;
+    else:
+        pass
+        &#34;&#34;&#34;
+        builder._compile(source_code)</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_return_in_if_same_type"><code class="name flex">
+<span>def <span class="ident">test_return_in_if_same_type</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    @unittest.expectedFailure
+    def test_return_in_if_same_type(self):
+        source_code = &#34;&#34;&#34;
+def validator(_: None) -&gt; str:
+    i = 0
+    if i == 1:
+        return &#34;a&#34;
+    else:
+        return 1
+        &#34;&#34;&#34;
+        builder._compile(source_code)</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_return_in_loop"><code class="name flex">
+<span>def <span class="ident">test_return_in_loop</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    def test_return_in_loop(self):
+        source_code = &#34;&#34;&#34;
+def validator(_: None) -&gt; int:
+    i = 0
+    while i &lt; 10:
+        i += 1
+        if i == 5:
+          return i
+    return 0
+        &#34;&#34;&#34;
+        res = eval_uplc_value(source_code, Unit())
+        self.assertEqual(res, 5, &#34;Invalid return break&#34;)</code></pre>
+</details>
+</dd>
 <dt id="opshin.tests.test_misc.MiscTest.test_retype"><code class="name flex">
 <span>def <span class="ident">test_retype</span></span>(<span>self)</span>
 </code></dt>
@@ -7051,7 +8970,8 @@ def validator() -&gt; Anything:
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">    def test_retype(self):
+<pre><code class="python">    @unittest.expectedFailure
+    def test_retype(self):
         source_code = &#34;&#34;&#34;
 def validator(x: int) -&gt; str:
     x = &#34;hello&#34;
@@ -7059,44 +8979,6 @@ def validator(x: int) -&gt; str:
 &#34;&#34;&#34;
         res = eval_uplc_value(source_code, 1)
         self.assertEqual(res, b&#34;hello&#34;)</code></pre>
-</details>
-</dd>
-<dt id="opshin.tests.test_misc.MiscTest.test_retype_if"><code class="name flex">
-<span>def <span class="ident">test_retype_if</span></span>(<span>self) ‑> None</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">    @hypothesis.given(a_or_b)
-    def test_retype_if(self, x):
-        source_code = &#34;&#34;&#34;
-from dataclasses import dataclass
-from typing import Dict, List, Union
-from pycardano import Datum as Anything, PlutusData
-
-@dataclass()
-class A(PlutusData):
-    CONSTR_ID = 0
-    foo: int
-
-@dataclass()
-class B(PlutusData):
-    CONSTR_ID = 1
-    foobar: int
-    bar: int
-
-def validator(x: Union[A, B]) -&gt; Union[A, B]:
-    if isinstance(x, A):
-        k = B(x.foo, 1)
-    else:
-        k = A(x.bar)
-    return k
-&#34;&#34;&#34;
-        res = uplc.plutus_cbor_dumps(eval_uplc(source_code, x))
-        self.assertEqual(res, (B(x.foo, 1) if isinstance(x, A) else A(x.bar)).to_cbor())</code></pre>
 </details>
 </dd>
 <dt id="opshin.tests.test_misc.MiscTest.test_retype_if_branch_correct"><code class="name flex">
@@ -7143,7 +9025,8 @@ def validator(x: Union[A, B]) -&gt; int:
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">    def test_retype_if_primitives(self):
+<pre><code class="python">    @unittest.expectedFailure
+    def test_retype_if_primitives(self):
         source_code = &#34;&#34;&#34;
 def validator(x: int) -&gt; str:
     if True:
@@ -7165,7 +9048,8 @@ def validator(x: int) -&gt; str:
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">    @hypothesis.given(a_or_b)
+<pre><code class="python">    @unittest.expectedFailure
+    @hypothesis.given(a_or_b)
     def test_retype_while(self, x):
         source_code = &#34;&#34;&#34;
 from dataclasses import dataclass
@@ -7223,6 +9107,27 @@ def validator(x: Union[A, B]) -&gt; int:
     while False:
         x = B(0, 1)
     return x.foobar
+&#34;&#34;&#34;
+        builder._compile(source_code)</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_retype_while_wrong_after_iter"><code class="name flex">
+<span>def <span class="ident">test_retype_while_wrong_after_iter</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    @unittest.expectedFailure
+    def test_retype_while_wrong_after_iter(self):
+        source_code = &#34;&#34;&#34;
+def validator(x: int) -&gt; bytes:
+    while True:
+        x += 1
+        x = b&#39;&#39;
+    return x
 &#34;&#34;&#34;
         builder._compile(source_code)</code></pre>
 </details>
@@ -7308,6 +9213,53 @@ def test_sum(self, a: int, b: int):
         source_code = fp.read()
     ret = eval_uplc_value(source_code, a, b)
     self.assertEqual(ret, a + b)</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_trace_order"><code class="name flex">
+<span>def <span class="ident">test_trace_order</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    def test_trace_order(self):
+        # TODO can become a proper test once uplc is upgraded to &gt;=1.0.0
+        source_code = &#34;&#34;&#34;
+from opshin.std.builtins import *
+def validator() -&gt; None:
+    print(&#34;test&#34;)
+    print(&#34;hi&#34;)
+    print(&#34;there&#34;)
+    return None
+&#34;&#34;&#34;
+        eval_uplc(source_code, PlutusData())</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_type_reassignment_function_bound"><code class="name flex">
+<span>def <span class="ident">test_type_reassignment_function_bound</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    @unittest.expectedFailure
+    def test_type_reassignment_function_bound(self):
+        # changing the type of a variable should be disallowed if the variable is bound by a function
+        # it can be ok if the types can be merged (resulting in union type inside the function) but
+        # generally should be disallowed
+        source_code = &#34;&#34;&#34;
+def validator(_: None) -&gt; int:
+    b = 1
+    def a(n: int) -&gt; int:
+      return b
+    b = b&#39;&#39;
+    return a(1)
+        &#34;&#34;&#34;
+        builder._compile(source_code)</code></pre>
 </details>
 </dd>
 <dt id="opshin.tests.test_misc.MiscTest.test_typecast_anything_int"><code class="name flex">
@@ -7425,6 +9377,31 @@ def validator(x: int) -&gt; str:
     b: str = x
     return b
 &#34;&#34;&#34;
+        builder._compile(source_code)</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_uninitialized_access"><code class="name flex">
+<span>def <span class="ident">test_uninitialized_access</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    @unittest.expectedFailure
+    def test_uninitialized_access(self):
+        source_code = &#34;&#34;&#34;
+def validator(_: None) -&gt; int:
+    b = 1
+    def a(n: int) -&gt; int:
+      b += 1
+      if b == 2:
+        return 0
+      else:
+        return a(n-1)
+    return a(1)
+        &#34;&#34;&#34;
         builder._compile(source_code)</code></pre>
 </details>
 </dd>
@@ -7677,6 +9654,44 @@ def validator(x: Union[A, B]) -&gt; Anything:
             source_code, uplc.PlutusConstr(0, [uplc.PlutusByteString(b&#34;&#34;)])
         )
         self.assertEqual(ret, b&#34;&#34;)</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_uniontype_if"><code class="name flex">
+<span>def <span class="ident">test_uniontype_if</span></span>(<span>self) ‑> None</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    @hypothesis.given(a_or_b)
+    def test_uniontype_if(self, x):
+        source_code = &#34;&#34;&#34;
+from dataclasses import dataclass
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
+
+@dataclass()
+class A(PlutusData):
+    CONSTR_ID = 0
+    foo: int
+
+@dataclass()
+class B(PlutusData):
+    CONSTR_ID = 1
+    foobar: int
+    bar: int
+
+def validator(x: Union[A, B]) -&gt; Union[A, B]:
+    if isinstance(x, A):
+        k = B(x.foo, 1)
+    else:
+        k = A(x.bar)
+    return k
+&#34;&#34;&#34;
+        res = uplc.plutus_cbor_dumps(eval_uplc(source_code, x))
+        self.assertEqual(res, (B(x.foo, 1) if isinstance(x, A) else A(x.bar)).to_cbor())</code></pre>
 </details>
 </dd>
 <dt id="opshin.tests.test_misc.MiscTest.test_uplc_builtin"><code class="name flex">
@@ -8080,7 +10095,51 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_cast_bool_while" href="#opshin.tests.test_misc.MiscTest.test_cast_bool_while">test_cast_bool_while</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_comparison_chaining" href="#opshin.tests.test_misc.MiscTest.test_comparison_chaining">test_comparison_chaining</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_compilation_deterministic_external" href="#opshin.tests.test_misc.MiscTest.test_compilation_deterministic_external">test_compilation_deterministic_external</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_compilation_deterministic_external_00_examples_dict_datum_py" href="#opshin.tests.test_misc.MiscTest.test_compilation_deterministic_external_00_examples_dict_datum_py">test_compilation_deterministic_external_00_examples_dict_datum_py</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_compilation_deterministic_external_01_examples_inspect_script_context_py" href="#opshin.tests.test_misc.MiscTest.test_compilation_deterministic_external_01_examples_inspect_script_context_py">test_compilation_deterministic_external_01_examples_inspect_script_context_py</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_compilation_deterministic_external_02_examples_datum_cast_py" href="#opshin.tests.test_misc.MiscTest.test_compilation_deterministic_external_02_examples_datum_cast_py">test_compilation_deterministic_external_02_examples_datum_cast_py</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_compilation_deterministic_external_03_examples_sum_py" href="#opshin.tests.test_misc.MiscTest.test_compilation_deterministic_external_03_examples_sum_py">test_compilation_deterministic_external_03_examples_sum_py</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_compilation_deterministic_external_04_examples_complex_datum_py" href="#opshin.tests.test_misc.MiscTest.test_compilation_deterministic_external_04_examples_complex_datum_py">test_compilation_deterministic_external_04_examples_complex_datum_py</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_compilation_deterministic_external_05_examples_list_datum_py" href="#opshin.tests.test_misc.MiscTest.test_compilation_deterministic_external_05_examples_list_datum_py">test_compilation_deterministic_external_05_examples_list_datum_py</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_compilation_deterministic_external_06_examples_hello_world_py" href="#opshin.tests.test_misc.MiscTest.test_compilation_deterministic_external_06_examples_hello_world_py">test_compilation_deterministic_external_06_examples_hello_world_py</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_compilation_deterministic_external_07_examples_mult_for_py" href="#opshin.tests.test_misc.MiscTest.test_compilation_deterministic_external_07_examples_mult_for_py">test_compilation_deterministic_external_07_examples_mult_for_py</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_compilation_deterministic_external_08_examples_list_comprehensions_py" href="#opshin.tests.test_misc.MiscTest.test_compilation_deterministic_external_08_examples_list_comprehensions_py">test_compilation_deterministic_external_08_examples_list_comprehensions_py</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_compilation_deterministic_external_09_examples_fib_rec_py" href="#opshin.tests.test_misc.MiscTest.test_compilation_deterministic_external_09_examples_fib_rec_py">test_compilation_deterministic_external_09_examples_fib_rec_py</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_compilation_deterministic_external_10_examples_showcase_py" href="#opshin.tests.test_misc.MiscTest.test_compilation_deterministic_external_10_examples_showcase_py">test_compilation_deterministic_external_10_examples_showcase_py</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_compilation_deterministic_external_11_examples_fib_iter_py" href="#opshin.tests.test_misc.MiscTest.test_compilation_deterministic_external_11_examples_fib_iter_py">test_compilation_deterministic_external_11_examples_fib_iter_py</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_compilation_deterministic_external_12_examples_mult_while_py" href="#opshin.tests.test_misc.MiscTest.test_compilation_deterministic_external_12_examples_mult_while_py">test_compilation_deterministic_external_12_examples_mult_while_py</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_compilation_deterministic_external_13_examples_smart_contracts_dual_use_py" href="#opshin.tests.test_misc.MiscTest.test_compilation_deterministic_external_13_examples_smart_contracts_dual_use_py">test_compilation_deterministic_external_13_examples_smart_contracts_dual_use_py</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_compilation_deterministic_external_14_examples_smart_contracts_simple_script_py" href="#opshin.tests.test_misc.MiscTest.test_compilation_deterministic_external_14_examples_smart_contracts_simple_script_py">test_compilation_deterministic_external_14_examples_smart_contracts_simple_script_py</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_compilation_deterministic_external_15_examples_smart_contracts_parameterized_py" href="#opshin.tests.test_misc.MiscTest.test_compilation_deterministic_external_15_examples_smart_contracts_parameterized_py">test_compilation_deterministic_external_15_examples_smart_contracts_parameterized_py</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_compilation_deterministic_external_16_examples_smart_contracts_gift_py" href="#opshin.tests.test_misc.MiscTest.test_compilation_deterministic_external_16_examples_smart_contracts_gift_py">test_compilation_deterministic_external_16_examples_smart_contracts_gift_py</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_compilation_deterministic_external_17_examples_smart_contracts_wrapped_token_py" href="#opshin.tests.test_misc.MiscTest.test_compilation_deterministic_external_17_examples_smart_contracts_wrapped_token_py">test_compilation_deterministic_external_17_examples_smart_contracts_wrapped_token_py</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_compilation_deterministic_external_18_examples_smart_contracts_always_true_py" href="#opshin.tests.test_misc.MiscTest.test_compilation_deterministic_external_18_examples_smart_contracts_always_true_py">test_compilation_deterministic_external_18_examples_smart_contracts_always_true_py</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_compilation_deterministic_external_19_examples_smart_contracts_micropayments_py" href="#opshin.tests.test_misc.MiscTest.test_compilation_deterministic_external_19_examples_smart_contracts_micropayments_py">test_compilation_deterministic_external_19_examples_smart_contracts_micropayments_py</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_compilation_deterministic_external_20_examples_smart_contracts_marketplace_py" href="#opshin.tests.test_misc.MiscTest.test_compilation_deterministic_external_20_examples_smart_contracts_marketplace_py">test_compilation_deterministic_external_20_examples_smart_contracts_marketplace_py</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_compilation_deterministic_external_21_examples_smart_contracts_assert_sum_py" href="#opshin.tests.test_misc.MiscTest.test_compilation_deterministic_external_21_examples_smart_contracts_assert_sum_py">test_compilation_deterministic_external_21_examples_smart_contracts_assert_sum_py</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_compilation_deterministic_local" href="#opshin.tests.test_misc.MiscTest.test_compilation_deterministic_local">test_compilation_deterministic_local</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_compilation_deterministic_local_00_examples_dict_datum_py" href="#opshin.tests.test_misc.MiscTest.test_compilation_deterministic_local_00_examples_dict_datum_py">test_compilation_deterministic_local_00_examples_dict_datum_py</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_compilation_deterministic_local_01_examples_inspect_script_context_py" href="#opshin.tests.test_misc.MiscTest.test_compilation_deterministic_local_01_examples_inspect_script_context_py">test_compilation_deterministic_local_01_examples_inspect_script_context_py</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_compilation_deterministic_local_02_examples_datum_cast_py" href="#opshin.tests.test_misc.MiscTest.test_compilation_deterministic_local_02_examples_datum_cast_py">test_compilation_deterministic_local_02_examples_datum_cast_py</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_compilation_deterministic_local_03_examples_sum_py" href="#opshin.tests.test_misc.MiscTest.test_compilation_deterministic_local_03_examples_sum_py">test_compilation_deterministic_local_03_examples_sum_py</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_compilation_deterministic_local_04_examples_complex_datum_py" href="#opshin.tests.test_misc.MiscTest.test_compilation_deterministic_local_04_examples_complex_datum_py">test_compilation_deterministic_local_04_examples_complex_datum_py</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_compilation_deterministic_local_05_examples_list_datum_py" href="#opshin.tests.test_misc.MiscTest.test_compilation_deterministic_local_05_examples_list_datum_py">test_compilation_deterministic_local_05_examples_list_datum_py</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_compilation_deterministic_local_06_examples_hello_world_py" href="#opshin.tests.test_misc.MiscTest.test_compilation_deterministic_local_06_examples_hello_world_py">test_compilation_deterministic_local_06_examples_hello_world_py</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_compilation_deterministic_local_07_examples_mult_for_py" href="#opshin.tests.test_misc.MiscTest.test_compilation_deterministic_local_07_examples_mult_for_py">test_compilation_deterministic_local_07_examples_mult_for_py</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_compilation_deterministic_local_08_examples_list_comprehensions_py" href="#opshin.tests.test_misc.MiscTest.test_compilation_deterministic_local_08_examples_list_comprehensions_py">test_compilation_deterministic_local_08_examples_list_comprehensions_py</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_compilation_deterministic_local_09_examples_fib_rec_py" href="#opshin.tests.test_misc.MiscTest.test_compilation_deterministic_local_09_examples_fib_rec_py">test_compilation_deterministic_local_09_examples_fib_rec_py</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_compilation_deterministic_local_10_examples_showcase_py" href="#opshin.tests.test_misc.MiscTest.test_compilation_deterministic_local_10_examples_showcase_py">test_compilation_deterministic_local_10_examples_showcase_py</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_compilation_deterministic_local_11_examples_fib_iter_py" href="#opshin.tests.test_misc.MiscTest.test_compilation_deterministic_local_11_examples_fib_iter_py">test_compilation_deterministic_local_11_examples_fib_iter_py</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_compilation_deterministic_local_12_examples_mult_while_py" href="#opshin.tests.test_misc.MiscTest.test_compilation_deterministic_local_12_examples_mult_while_py">test_compilation_deterministic_local_12_examples_mult_while_py</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_compilation_deterministic_local_13_examples_smart_contracts_dual_use_py" href="#opshin.tests.test_misc.MiscTest.test_compilation_deterministic_local_13_examples_smart_contracts_dual_use_py">test_compilation_deterministic_local_13_examples_smart_contracts_dual_use_py</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_compilation_deterministic_local_14_examples_smart_contracts_simple_script_py" href="#opshin.tests.test_misc.MiscTest.test_compilation_deterministic_local_14_examples_smart_contracts_simple_script_py">test_compilation_deterministic_local_14_examples_smart_contracts_simple_script_py</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_compilation_deterministic_local_15_examples_smart_contracts_parameterized_py" href="#opshin.tests.test_misc.MiscTest.test_compilation_deterministic_local_15_examples_smart_contracts_parameterized_py">test_compilation_deterministic_local_15_examples_smart_contracts_parameterized_py</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_compilation_deterministic_local_16_examples_smart_contracts_gift_py" href="#opshin.tests.test_misc.MiscTest.test_compilation_deterministic_local_16_examples_smart_contracts_gift_py">test_compilation_deterministic_local_16_examples_smart_contracts_gift_py</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_compilation_deterministic_local_17_examples_smart_contracts_wrapped_token_py" href="#opshin.tests.test_misc.MiscTest.test_compilation_deterministic_local_17_examples_smart_contracts_wrapped_token_py">test_compilation_deterministic_local_17_examples_smart_contracts_wrapped_token_py</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_compilation_deterministic_local_18_examples_smart_contracts_always_true_py" href="#opshin.tests.test_misc.MiscTest.test_compilation_deterministic_local_18_examples_smart_contracts_always_true_py">test_compilation_deterministic_local_18_examples_smart_contracts_always_true_py</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_compilation_deterministic_local_19_examples_smart_contracts_micropayments_py" href="#opshin.tests.test_misc.MiscTest.test_compilation_deterministic_local_19_examples_smart_contracts_micropayments_py">test_compilation_deterministic_local_19_examples_smart_contracts_micropayments_py</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_compilation_deterministic_local_20_examples_smart_contracts_marketplace_py" href="#opshin.tests.test_misc.MiscTest.test_compilation_deterministic_local_20_examples_smart_contracts_marketplace_py">test_compilation_deterministic_local_20_examples_smart_contracts_marketplace_py</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_compilation_deterministic_local_21_examples_smart_contracts_assert_sum_py" href="#opshin.tests.test_misc.MiscTest.test_compilation_deterministic_local_21_examples_smart_contracts_assert_sum_py">test_compilation_deterministic_local_21_examples_smart_contracts_assert_sum_py</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_complex_datum_correct_vals" href="#opshin.tests.test_misc.MiscTest.test_complex_datum_correct_vals">test_complex_datum_correct_vals</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_complex_isinstance_cast_if" href="#opshin.tests.test_misc.MiscTest.test_complex_isinstance_cast_if">test_complex_isinstance_cast_if</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_constant_folding" href="#opshin.tests.test_misc.MiscTest.test_constant_folding">test_constant_folding</a></code></li>
@@ -8106,6 +10165,9 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_dict_datum_wrong" href="#opshin.tests.test_misc.MiscTest.test_dict_datum_wrong">test_dict_datum_wrong</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_dict_expr_not_const" href="#opshin.tests.test_misc.MiscTest.test_dict_expr_not_const">test_dict_expr_not_const</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_dict_items_values_deconstr" href="#opshin.tests.test_misc.MiscTest.test_dict_items_values_deconstr">test_dict_items_values_deconstr</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_different_return_types_anything" href="#opshin.tests.test_misc.MiscTest.test_different_return_types_anything">test_different_return_types_anything</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_different_return_types_for_loop" href="#opshin.tests.test_misc.MiscTest.test_different_return_types_for_loop">test_different_return_types_for_loop</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_different_return_types_while_loop" href="#opshin.tests.test_misc.MiscTest.test_different_return_types_while_loop">test_different_return_types_while_loop</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_double_import_deep" href="#opshin.tests.test_misc.MiscTest.test_double_import_deep">test_double_import_deep</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_double_import_direct" href="#opshin.tests.test_misc.MiscTest.test_double_import_direct">test_double_import_direct</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_double_import_offset" href="#opshin.tests.test_misc.MiscTest.test_double_import_offset">test_double_import_offset</a></code></li>
@@ -8118,6 +10180,8 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_gift_contract_succeed" href="#opshin.tests.test_misc.MiscTest.test_gift_contract_succeed">test_gift_contract_succeed</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_hello_world" href="#opshin.tests.test_misc.MiscTest.test_hello_world">test_hello_world</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_if_no_retype_no_plutusdata" href="#opshin.tests.test_misc.MiscTest.test_if_no_retype_no_plutusdata">test_if_no_retype_no_plutusdata</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_illegal_bind" href="#opshin.tests.test_misc.MiscTest.test_illegal_bind">test_illegal_bind</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_illegal_function_retype" href="#opshin.tests.test_misc.MiscTest.test_illegal_function_retype">test_illegal_function_retype</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_in_list" href="#opshin.tests.test_misc.MiscTest.test_in_list">test_in_list</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_inner_outer_state_functions" href="#opshin.tests.test_misc.MiscTest.test_inner_outer_state_functions">test_inner_outer_state_functions</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_inner_outer_state_functions_nonglobal" href="#opshin.tests.test_misc.MiscTest.test_inner_outer_state_functions_nonglobal">test_inner_outer_state_functions_nonglobal</a></code></li>
@@ -8144,7 +10208,8 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_marketplace_compile" href="#opshin.tests.test_misc.MiscTest.test_marketplace_compile">test_marketplace_compile</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_marketplace_compile_fail" href="#opshin.tests.test_misc.MiscTest.test_marketplace_compile_fail">test_marketplace_compile_fail</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_mult_for" href="#opshin.tests.test_misc.MiscTest.test_mult_for">test_mult_for</a></code></li>
-<li><code><a title="opshin.tests.test_misc.MiscTest.test_mult_while" href="#opshin.tests.test_misc.MiscTest.test_mult_while">test_mult_while</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_mult_for_return" href="#opshin.tests.test_misc.MiscTest.test_mult_for_return">test_mult_for_return</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_mult_while_return" href="#opshin.tests.test_misc.MiscTest.test_mult_while_return">test_mult_while_return</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_nested_deconstruction" href="#opshin.tests.test_misc.MiscTest.test_nested_deconstruction">test_nested_deconstruction</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_no_parameter_annotation" href="#opshin.tests.test_misc.MiscTest.test_no_parameter_annotation">test_no_parameter_annotation</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_no_return_annotation" href="#opshin.tests.test_misc.MiscTest.test_no_return_annotation">test_no_return_annotation</a></code></li>
@@ -8154,34 +10219,54 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_outer_state_change_functions" href="#opshin.tests.test_misc.MiscTest.test_outer_state_change_functions">test_outer_state_change_functions</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_overopt_removedeadvar" href="#opshin.tests.test_misc.MiscTest.test_overopt_removedeadvar">test_overopt_removedeadvar</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_parameterized_compile" href="#opshin.tests.test_misc.MiscTest.test_parameterized_compile">test_parameterized_compile</a></code></li>
-<li><code><a title="opshin.tests.test_misc.MiscTest.test_recursion" href="#opshin.tests.test_misc.MiscTest.test_recursion">test_recursion</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_print_empty" href="#opshin.tests.test_misc.MiscTest.test_print_empty">test_print_empty</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_reassign_builtin" href="#opshin.tests.test_misc.MiscTest.test_reassign_builtin">test_reassign_builtin</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_reassign_builtin_invalid_type" href="#opshin.tests.test_misc.MiscTest.test_reassign_builtin_invalid_type">test_reassign_builtin_invalid_type</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_recursion_illegal" href="#opshin.tests.test_misc.MiscTest.test_recursion_illegal">test_recursion_illegal</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_recursion_legal" href="#opshin.tests.test_misc.MiscTest.test_recursion_legal">test_recursion_legal</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_recursion_simple" href="#opshin.tests.test_misc.MiscTest.test_recursion_simple">test_recursion_simple</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_redefine_constr" href="#opshin.tests.test_misc.MiscTest.test_redefine_constr">test_redefine_constr</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_redefine_poly_constr" href="#opshin.tests.test_misc.MiscTest.test_redefine_poly_constr">test_redefine_poly_constr</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_removedeadvar_noissue" href="#opshin.tests.test_misc.MiscTest.test_removedeadvar_noissue">test_removedeadvar_noissue</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_removedeadvar_noissue2" href="#opshin.tests.test_misc.MiscTest.test_removedeadvar_noissue2">test_removedeadvar_noissue2</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_removedeadvar_noissue3" href="#opshin.tests.test_misc.MiscTest.test_removedeadvar_noissue3">test_removedeadvar_noissue3</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_return_anything" href="#opshin.tests.test_misc.MiscTest.test_return_anything">test_return_anything</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_return_else_loop_for" href="#opshin.tests.test_misc.MiscTest.test_return_else_loop_for">test_return_else_loop_for</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_return_else_loop_while" href="#opshin.tests.test_misc.MiscTest.test_return_else_loop_while">test_return_else_loop_while</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_return_illegal" href="#opshin.tests.test_misc.MiscTest.test_return_illegal">test_return_illegal</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_return_in_for" href="#opshin.tests.test_misc.MiscTest.test_return_in_for">test_return_in_for</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_return_in_if" href="#opshin.tests.test_misc.MiscTest.test_return_in_if">test_return_in_if</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_return_in_if_missing_return" href="#opshin.tests.test_misc.MiscTest.test_return_in_if_missing_return">test_return_in_if_missing_return</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_return_in_if_same_type" href="#opshin.tests.test_misc.MiscTest.test_return_in_if_same_type">test_return_in_if_same_type</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_return_in_loop" href="#opshin.tests.test_misc.MiscTest.test_return_in_loop">test_return_in_loop</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_retype" href="#opshin.tests.test_misc.MiscTest.test_retype">test_retype</a></code></li>
-<li><code><a title="opshin.tests.test_misc.MiscTest.test_retype_if" href="#opshin.tests.test_misc.MiscTest.test_retype_if">test_retype_if</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_retype_if_branch_correct" href="#opshin.tests.test_misc.MiscTest.test_retype_if_branch_correct">test_retype_if_branch_correct</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_retype_if_primitives" href="#opshin.tests.test_misc.MiscTest.test_retype_if_primitives">test_retype_if_primitives</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_retype_while" href="#opshin.tests.test_misc.MiscTest.test_retype_while">test_retype_while</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_retype_while_branch_correct" href="#opshin.tests.test_misc.MiscTest.test_retype_while_branch_correct">test_retype_while_branch_correct</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_retype_while_wrong_after_iter" href="#opshin.tests.test_misc.MiscTest.test_retype_while_wrong_after_iter">test_retype_while_wrong_after_iter</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_script_context_str_format" href="#opshin.tests.test_misc.MiscTest.test_script_context_str_format">test_script_context_str_format</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_script_context_str_format_0_d8799fd8799f9fd8799fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffd8799fd8799fd87a9f581cdbe769758f26efb21f008dc097bb194cffc622acc37fcefc5372eee3ffd87a80ffa140a1401a00989680d87a9f5820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dffd87a80ffffff809fd8799fd8799fd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd87a80ffa140a14000d87980d87a80ffffa140a14000a140a1400080a0d8799fd8799fd87980d87a80ffd8799fd87b80d87a80ffff80a1d87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffd87980a15820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd8799f5820746957f0eb57f2b11119684e611a98f373afea93473fefbb7632d579af2f6259ffffd87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffff" href="#opshin.tests.test_misc.MiscTest.test_script_context_str_format_0_d8799fd8799f9fd8799fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffd8799fd8799fd87a9f581cdbe769758f26efb21f008dc097bb194cffc622acc37fcefc5372eee3ffd87a80ffa140a1401a00989680d87a9f5820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dffd87a80ffffff809fd8799fd8799fd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd87a80ffa140a14000d87980d87a80ffffa140a14000a140a1400080a0d8799fd8799fd87980d87a80ffd8799fd87b80d87a80ffff80a1d87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffd87980a15820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd8799f5820746957f0eb57f2b11119684e611a98f373afea93473fefbb7632d579af2f6259ffffd87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffff">test_script_context_str_format_0_d8799fd8799f9fd8799fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffd8799fd8799fd87a9f581cdbe769758f26efb21f008dc097bb194cffc622acc37fcefc5372eee3ffd87a80ffa140a1401a00989680d87a9f5820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dffd87a80ffffff809fd8799fd8799fd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd87a80ffa140a14000d87980d87a80ffffa140a14000a140a1400080a0d8799fd8799fd87980d87a80ffd8799fd87b80d87a80ffff80a1d87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffd87980a15820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd8799f5820746957f0eb57f2b11119684e611a98f373afea93473fefbb7632d579af2f6259ffffd87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffff</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_script_context_str_format_1_d8799fd8799f9fd8799fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffd8799fd8799fd87a9f581cdbe769758f26efb21f008dc097bb194cffc622acc37fcefc5372eee3ffd87a80ffa140a1401a00989680d87a9f5820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dffd87a80ffffff809fd8799fd8799fd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd87a80ffa140a14000d87980d87a80ffffa140a14000a140a1400080a0d8799fd8799fd87a9f1b000001836ac117d8ffd87a80ffd8799fd87b80d87a80ffff80a1d87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffd87980a15820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd8799f5820797a1e1720b63621c6b185088184cb8e23af6e46b55bd83e7a91024c823a6c2affffd87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffff" href="#opshin.tests.test_misc.MiscTest.test_script_context_str_format_1_d8799fd8799f9fd8799fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffd8799fd8799fd87a9f581cdbe769758f26efb21f008dc097bb194cffc622acc37fcefc5372eee3ffd87a80ffa140a1401a00989680d87a9f5820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dffd87a80ffffff809fd8799fd8799fd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd87a80ffa140a14000d87980d87a80ffffa140a14000a140a1400080a0d8799fd8799fd87a9f1b000001836ac117d8ffd87a80ffd8799fd87b80d87a80ffff80a1d87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffd87980a15820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd8799f5820797a1e1720b63621c6b185088184cb8e23af6e46b55bd83e7a91024c823a6c2affffd87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffff">test_script_context_str_format_1_d8799fd8799f9fd8799fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffd8799fd8799fd87a9f581cdbe769758f26efb21f008dc097bb194cffc622acc37fcefc5372eee3ffd87a80ffa140a1401a00989680d87a9f5820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dffd87a80ffffff809fd8799fd8799fd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd87a80ffa140a14000d87980d87a80ffffa140a14000a140a1400080a0d8799fd8799fd87a9f1b000001836ac117d8ffd87a80ffd8799fd87b80d87a80ffff80a1d87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffd87980a15820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd8799f5820797a1e1720b63621c6b185088184cb8e23af6e46b55bd83e7a91024c823a6c2affffd87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffff</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_script_context_str_format_2_d8799fd8799f9fd8799fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffd8799fd8799fd87a9f581cdbe769758f26efb21f008dc097bb194cffc622acc37fcefc5372eee3ffd87a80ffa140a1401a00989680d87a9f5820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dffd87a80ffffff809fd8799fd8799fd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd87a80ffa140a14000d87980d87a80ffd8799fd8799fd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd87a80ffa140a1401a000f4240d87980d87a80ffffa140a14000a140a1400080a0d8799fd8799fd87a9f1b000001836ac117d8ffd87a80ffd8799fd87b80d87a80ffff9f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffa1d87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffd87980a15820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd8799f5820c17c32f6433ae22c2acaebfb796bbfaee3993ff7ebb58a2bac6b4a3bdd2f6d28ffffd87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffff" href="#opshin.tests.test_misc.MiscTest.test_script_context_str_format_2_d8799fd8799f9fd8799fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffd8799fd8799fd87a9f581cdbe769758f26efb21f008dc097bb194cffc622acc37fcefc5372eee3ffd87a80ffa140a1401a00989680d87a9f5820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dffd87a80ffffff809fd8799fd8799fd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd87a80ffa140a14000d87980d87a80ffd8799fd8799fd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd87a80ffa140a1401a000f4240d87980d87a80ffffa140a14000a140a1400080a0d8799fd8799fd87a9f1b000001836ac117d8ffd87a80ffd8799fd87b80d87a80ffff9f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffa1d87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffd87980a15820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd8799f5820c17c32f6433ae22c2acaebfb796bbfaee3993ff7ebb58a2bac6b4a3bdd2f6d28ffffd87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffff">test_script_context_str_format_2_d8799fd8799f9fd8799fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffd8799fd8799fd87a9f581cdbe769758f26efb21f008dc097bb194cffc622acc37fcefc5372eee3ffd87a80ffa140a1401a00989680d87a9f5820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dffd87a80ffffff809fd8799fd8799fd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd87a80ffa140a14000d87980d87a80ffd8799fd8799fd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd87a80ffa140a1401a000f4240d87980d87a80ffffa140a14000a140a1400080a0d8799fd8799fd87a9f1b000001836ac117d8ffd87a80ffd8799fd87b80d87a80ffff9f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffa1d87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffd87980a15820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd8799f5820c17c32f6433ae22c2acaebfb796bbfaee3993ff7ebb58a2bac6b4a3bdd2f6d28ffffd87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffff</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_showcase" href="#opshin.tests.test_misc.MiscTest.test_showcase">test_showcase</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_sum" href="#opshin.tests.test_misc.MiscTest.test_sum">test_sum</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_trace_order" href="#opshin.tests.test_misc.MiscTest.test_trace_order">test_trace_order</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_type_reassignment_function_bound" href="#opshin.tests.test_misc.MiscTest.test_type_reassignment_function_bound">test_type_reassignment_function_bound</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_typecast_anything_int" href="#opshin.tests.test_misc.MiscTest.test_typecast_anything_int">test_typecast_anything_int</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_typecast_anything_int_anything" href="#opshin.tests.test_misc.MiscTest.test_typecast_anything_int_anything">test_typecast_anything_int_anything</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_typecast_int_anything" href="#opshin.tests.test_misc.MiscTest.test_typecast_int_anything">test_typecast_int_anything</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_typecast_int_anything_int" href="#opshin.tests.test_misc.MiscTest.test_typecast_int_anything_int">test_typecast_int_anything_int</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_typecast_int_int" href="#opshin.tests.test_misc.MiscTest.test_typecast_int_int">test_typecast_int_int</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_typecast_int_str" href="#opshin.tests.test_misc.MiscTest.test_typecast_int_str">test_typecast_int_str</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_uninitialized_access" href="#opshin.tests.test_misc.MiscTest.test_uninitialized_access">test_uninitialized_access</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_union_type_all_records_same_constr" href="#opshin.tests.test_misc.MiscTest.test_union_type_all_records_same_constr">test_union_type_all_records_same_constr</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_union_type_attr_access_all_records" href="#opshin.tests.test_misc.MiscTest.test_union_type_attr_access_all_records">test_union_type_attr_access_all_records</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_union_type_attr_access_all_records_diff_pos" href="#opshin.tests.test_misc.MiscTest.test_union_type_attr_access_all_records_diff_pos">test_union_type_attr_access_all_records_diff_pos</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_union_type_attr_access_all_records_same_constr" href="#opshin.tests.test_misc.MiscTest.test_union_type_attr_access_all_records_same_constr">test_union_type_attr_access_all_records_same_constr</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_union_type_attr_access_maximum_type" href="#opshin.tests.test_misc.MiscTest.test_union_type_attr_access_maximum_type">test_union_type_attr_access_maximum_type</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_union_type_attr_anytype" href="#opshin.tests.test_misc.MiscTest.test_union_type_attr_anytype">test_union_type_attr_anytype</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_uniontype_if" href="#opshin.tests.test_misc.MiscTest.test_uniontype_if">test_uniontype_if</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_uplc_builtin" href="#opshin.tests.test_misc.MiscTest.test_uplc_builtin">test_uplc_builtin</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_warn_bytestring" href="#opshin.tests.test_misc.MiscTest.test_warn_bytestring">test_warn_bytestring</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_while_no_retype_no_plutusdata" href="#opshin.tests.test_misc.MiscTest.test_while_no_retype_no_plutusdata">test_while_no_retype_no_plutusdata</a></code></li>
