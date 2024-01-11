@@ -417,8 +417,16 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
 
     def visit_AnnAssign(self, node: AnnAssign) -> TypedAnnAssign:
         typed_ass = copy(node)
-        typed_ass.value: TypedExpression = self.visit(node.value)
         typed_ass.annotation = self.type_from_annotation(node.annotation)
+        if isinstance(typed_ass.annotation, ListType) and (
+            (isinstance(node.value, Constant) and node.value.value == [])
+            or (isinstance(node.value, List) and node.value.elts == [])
+        ):
+            # Empty lists are only allowed in annotated assignments
+            typed_ass.value: TypedExpression = copy(node.value)
+            typed_ass.value.typ = InstanceType(typed_ass.annotation)
+        else:
+            typed_ass.value: TypedExpression = self.visit(node.value)
         assert isinstance(
             node.target, Name
         ), "Can only assign to variable names, no type deconstruction"
