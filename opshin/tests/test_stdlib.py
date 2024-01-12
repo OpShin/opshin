@@ -47,7 +47,7 @@ def validator(x: Dict[int, bytes], y: int) -> bytes:
         self.assertEqual(ret, exp, "dict[] returned wrong value")
 
     @given(st.data())
-    def test_list_index(self, data):
+    def test_list_index_int(self, data):
         source_code = """
 def validator(x: List[int], z: int) -> int:
     return x.index(z)
@@ -58,6 +58,49 @@ def validator(x: List[int], z: int) -> int:
             if len(xs) > 0
             else st.integers()
         )
+        try:
+            ret = eval_uplc_value(source_code, xs, z)
+        except RuntimeError as e:
+            ret = None
+        try:
+            exp = xs.index(z)
+        except ValueError:
+            exp = None
+        self.assertEqual(ret, exp, "list.index returned wrong value")
+
+    @given(st.data())
+    def test_list_index_bytes(self, data):
+        source_code = """
+def validator(x: List[bytes], z: bytes) -> int:
+    return x.index(z)
+            """
+        xs = data.draw(st.lists(st.binary()))
+        z = data.draw(
+            st.one_of(st.sampled_from(xs), st.binary()) if len(xs) > 0 else st.binary()
+        )
+        try:
+            ret = eval_uplc_value(source_code, xs, z)
+        except RuntimeError as e:
+            ret = None
+        try:
+            exp = xs.index(z)
+        except ValueError:
+            exp = None
+        self.assertEqual(ret, exp, "list.index returned wrong value")
+
+    @given(st.data())
+    def test_list_index_data(self, data):
+        source_code = """
+from opshin.prelude import *
+
+def validator(x: List[Token], z: Token) -> int:
+    return x.index(z)
+            """
+        from opshin.prelude import Token
+
+        tokens = st.builds(Token, st.binary(), st.binary())
+        xs = data.draw(st.lists(tokens))
+        z = data.draw(st.one_of(st.sampled_from(xs), tokens) if len(xs) > 0 else tokens)
         try:
             ret = eval_uplc_value(source_code, xs, z)
         except RuntimeError as e:

@@ -864,8 +864,10 @@ class ListType(ClassType):
                                     OVar("xs"),
                                     plt.TraceError("Did not find element in list"),
                                     plt.Ite(
-                                        plt.EqualsInteger(
-                                            OVar("x"), plt.HeadList(OVar("xs"))
+                                        plt.Apply(
+                                            self.typ.cmp(Eq(), self.typ),
+                                            OVar("x"),
+                                            plt.HeadList(OVar("xs")),
                                         ),
                                         OVar("a"),
                                         plt.Apply(
