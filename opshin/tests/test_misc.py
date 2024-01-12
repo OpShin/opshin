@@ -2624,3 +2624,30 @@ def validator(a: int) -> int:
 """
         res = eval_uplc_value(source_code, 1)
         self.assertEqual(res, 0, "Invalid return")
+
+    def test_empty_list_int(self):
+        source_code = """
+def validator(_: None) -> List[int]:
+    a: List[int] = []
+    return a + [1]
+"""
+        res = eval_uplc_value(source_code, Unit())
+        self.assertEqual(res, [uplc.PlutusInteger(1)])
+
+    def test_empty_list_data(self):
+        source_code = """
+from opshin.prelude import *
+
+def validator(_: None) -> List[Token]:
+    a: List[Token] = []
+    return a + [Token(b"", b"")]
+"""
+        res = eval_uplc_value(source_code, Unit())
+        self.assertEqual(
+            res,
+            [
+                uplc.PlutusConstr(
+                    0, [uplc.PlutusByteString(b""), uplc.PlutusByteString(b"")]
+                )
+            ],
+        )
