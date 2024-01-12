@@ -843,6 +843,48 @@ class ListType(ClassType):
     def __ge__(self, other):
         return isinstance(other, ListType) and self.typ >= other.typ
 
+    def attribute_type(self, attr) -> "Type":
+        if attr == "index":
+            return InstanceType(
+                FunctionType(frozenlist([self.typ]), IntegerInstanceType)
+            )
+        super().attribute_type(attr)
+
+    def attribute(self, attr) -> plt.AST:
+        if attr == "index":
+            return OLambda(
+                ["self", "x"],
+                OLet(
+                    [("x", plt.Force(OVar("x")))],
+                    plt.Apply(
+                        plt.RecFun(
+                            OLambda(
+                                ["index", "xs", "a"],
+                                plt.IteNullList(
+                                    OVar("xs"),
+                                    plt.TraceError("Did not find element in list"),
+                                    plt.Ite(
+                                        plt.EqualsInteger(
+                                            OVar("x"), plt.HeadList(OVar("xs"))
+                                        ),
+                                        OVar("a"),
+                                        plt.Apply(
+                                            OVar("index"),
+                                            OVar("index"),
+                                            plt.TailList(OVar("xs")),
+                                            plt.AddInteger(OVar("a"), plt.Integer(1)),
+                                        ),
+                                    ),
+                                ),
+                            ),
+                        ),
+                        OVar("self"),
+                        plt.Integer(0),
+                    ),
+                ),
+            )
+        super().attribute(attr)
+
     def stringify(self, recursive: bool = False) -> plt.AST:
         return OLambda(
             ["self"],
