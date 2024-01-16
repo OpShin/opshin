@@ -977,6 +977,57 @@ class PlutoCompiler(CompilingNodeTransformer):
                 empty_list_con,
             )
 
+    def visit_DictComp(self, node: TypedDictComp) -> plt.AST:
+        assert len(node.generators) == 1, "Currently only one generator supported"
+        gen = node.generators[0]
+        assert isinstance(gen.iter.typ, InstanceType), "Only lists are valid generators"
+        assert isinstance(gen.iter.typ.typ, ListType), "Only lists are valid generators"
+        assert isinstance(
+            gen.target, Name
+        ), "Can only assign value to singleton element"
+        lst = self.visit(gen.iter)
+        ifs = None
+        for ifexpr in gen.ifs:
+            if ifs is None:
+                ifs = self.visit(ifexpr)
+            else:
+                ifs = plt.And(ifs, self.visit(ifexpr))
+        map_fun = OLambda(
+            ["x"],
+            plt.Let(
+                [(gen.target.id, plt.Delay(OVar("x")))],
+                plt.MkPairData(
+                    transform_output_map(node.key.typ)(
+                        self.visit(node.key),
+                    ),
+                    transform_output_map(node.value.typ)(
+                        self.visit(node.value),
+                    ),
+                ),
+            ),
+        )
+        empty_list_con = plt.EmptyDataPairList()
+        if ifs is not None:
+            filter_fun = OLambda(
+                ["x"],
+                plt.Let(
+                    [(gen.target.id, plt.Delay(OVar("x")))],
+                    ifs,
+                ),
+            )
+            return plt.MapFilterList(
+                lst,
+                filter_fun,
+                map_fun,
+                empty_list_con,
+            )
+        else:
+            return plt.MapList(
+                lst,
+                map_fun,
+                empty_list_con,
+            )
+
     def visit_FormattedValue(self, node: TypedFormattedValue) -> plt.AST:
         return plt.Apply(
             node.value.typ.stringify(),
