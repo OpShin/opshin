@@ -658,6 +658,30 @@ def validator(_: None) -> SomeOutputDatum:
             "List comprehension incorrectly evaluated",
         )
 
+    def test_dict_comprehension_even(self):
+        input_file = "examples/dict_comprehensions.py"
+        with open(input_file) as fp:
+            source_code = fp.read()
+        ret = eval_uplc_value(source_code, 8, 1)
+        ret = {x.value: y.value for x, y in ret.items()}
+        self.assertEqual(
+            ret,
+            {x: x * x for x in range(8) if x % 2 == 0},
+            "Dict comprehension incorrectly evaluated",
+        )
+
+    def test_dict_comprehension_all(self):
+        input_file = "examples/dict_comprehensions.py"
+        with open(input_file) as fp:
+            source_code = fp.read()
+        ret = eval_uplc_value(source_code, 8, 0)
+        ret = {x.value: y.value for x, y in ret.items()}
+        self.assertEqual(
+            ret,
+            {x: x * x for x in range(8)},
+            "Dict comprehension incorrectly evaluated",
+        )
+
     @hypothesis.given(some_output)
     def test_union_type_attr_access_all_records(self, x):
         source_code = """
