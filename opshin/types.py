@@ -168,6 +168,30 @@ class AnyType(ClassType):
             and not isinstance(other, PolymorphicFunctionType)
         )
 
+    def cmp(self, op: cmpop, o: "Type") -> plt.AST:
+        """The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second the comparison."""
+        # this will reject comparisons that will always be false - most likely due to faults during programming
+        if (
+            (isinstance(o, RecordType))
+            or isinstance(o, UnionType)
+            or isinstance(o, AnyType)
+        ):
+            # Note that comparison with Record and UnionType is actually fine because both are Data
+            if isinstance(op, Eq):
+                return plt.BuiltIn(uplc.BuiltInFun.EqualsData)
+            if isinstance(op, NotEq):
+                return OLambda(
+                    ["x", "y"],
+                    plt.Not(
+                        plt.Apply(
+                            plt.BuiltIn(uplc.BuiltInFun.EqualsData),
+                            OVar("x"),
+                            OVar("y"),
+                        )
+                    ),
+                )
+        return super().cmp(op, o)
+
     def stringify(self, recursive: bool = False) -> plt.AST:
         _LOGGER.warning(
             "Serializing AnyType will result in RawPlutusData (CBOR representation) to be printed without additional type information. Annotate types where possible to avoid this warning."
@@ -448,9 +472,16 @@ class RecordType(ClassType):
         """The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second the comparison."""
         # this will reject comparisons that will always be false - most likely due to faults during programming
         if (
-            isinstance(o, RecordType)
-            and (self.record >= o.record or o.record >= self.record)
-        ) or (isinstance(o, UnionType) and any(self >= o or self >= o for o in o.typs)):
+            (
+                isinstance(o, RecordType)
+                and (self.record >= o.record or o.record >= self.record)
+            )
+            or (
+                isinstance(o, UnionType) and any(self >= o or self >= o for o in o.typs)
+            )
+            or isinstance(o, AnyType)
+        ):
+            # Note that comparison with AnyType is actually fine because both are Data
             if isinstance(op, Eq):
                 return plt.BuiltIn(uplc.BuiltInFun.EqualsData)
             if isinstance(op, NotEq):

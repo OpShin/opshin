@@ -462,7 +462,7 @@ def validator(x: bytes, y: bytes) -> bool:
         self.assertEqual(ret, x == y, "bytes eq returned wrong value")
 
     @given(x=st.integers(), y=st.integers())
-    def test_eq_bytes(self, x, y):
+    def test_eq_int(self, x, y):
         source_code = """
 def validator(x: int, y: int) -> bool:
     return x == y
@@ -487,6 +487,17 @@ def validator(x: bool, y: bool) -> bool:
             """
         ret = eval_uplc_value(source_code, x, y)
         self.assertEqual(ret, x == y, "bool eq returned wrong value")
+
+    @given(x=uplc_data, y=uplc_data)
+    def test_eq_data(self, x, y):
+        source_code = """
+from opshin.prelude import *
+
+def validator(x: Anything, y: Anything) -> bool:
+    return x == y
+            """
+        ret = eval_uplc_value(source_code, x, y)
+        self.assertEqual(ret, x == y, "any eq returned wrong value")
 
     @given(x=st.integers(min_value=0, max_value=150), y=st.text())
     def test_mul_int_str(self, x, y):
