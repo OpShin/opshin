@@ -904,6 +904,21 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         typed_listcomp.typ = InstanceType(ListType(typed_listcomp.elt.typ))
         return typed_listcomp
 
+    def visit_DictComp(self, node: DictComp) -> TypedDictComp:
+        typed_dictcomp = copy(node)
+        # inside the comprehension is a seperate scope
+        self.enter_scope()
+        # first evaluate generators for assigned variables
+        typed_dictcomp.generators = [self.visit(s) for s in node.generators]
+        # then evaluate elements
+        typed_dictcomp.key = self.visit(node.key)
+        typed_dictcomp.value = self.visit(node.value)
+        self.exit_scope()
+        typed_dictcomp.typ = InstanceType(
+            DictType(typed_dictcomp.key.typ, typed_dictcomp.value.typ)
+        )
+        return typed_dictcomp
+
     def visit_FormattedValue(self, node: FormattedValue) -> TypedFormattedValue:
         typed_node = copy(node)
         typed_node.value = self.visit(node.value)

@@ -118,8 +118,14 @@ class typedcomprehension(typedexpr, comprehension):
 
 
 class TypedListComp(typedexpr, ListComp):
-    generators: typing.List[typedcomprehension]
     elt: typedexpr
+    generators: typing.List[typedcomprehension]
+
+
+class TypedDictComp(typedexpr, DictComp):
+    key: typedexpr
+    value: typedexpr
+    generators: typing.List[typedcomprehension]
 
 
 class TypedFormattedValue(typedexpr, FormattedValue):
