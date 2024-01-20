@@ -180,6 +180,19 @@ def validator(x: int, y: int) -> int:
         ret = eval_uplc_value(source_code, x, y)
         self.assertEqual(ret, x**y, "** returned wrong value")
 
+    @given(x=st.integers(), y=st.integers(min_value=-20, max_value=-1))
+    def test_neg_pow_int(self, x, y):
+        source_code = """
+def validator(x: int, y: int) -> int:
+    return x ** y
+            """
+        try:
+            eval_uplc_value(source_code, x, y)
+            fail = True
+        except Exception:
+            fail = False
+        self.assertFalse(fail, "** worked with negative exponent")
+
     @given(x=st.binary(), y=st.binary())
     def test_add_bytes(self, x, y):
         source_code = """

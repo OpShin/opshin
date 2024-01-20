@@ -1482,7 +1482,15 @@ class IntegerType(AtomicType):
             elif isinstance(binop, Mod):
                 return plt.ModInteger
             elif isinstance(binop, Pow):
-                return PowImpl
+                return lambda x, y: OLet(
+                    [("y", y)],
+                    plt.Ite(
+                        plt.LessThanInteger(OVar("y"), plt.Integer(0)),
+                        plt.TraceError("Negative exponentiation is not supported"),
+                        PowImpl(x, OVar("y")),
+                    ),
+                )
+
         if isinstance(binop, Mult):
             if other.typ == IntegerInstanceType:
                 return plt.MultiplyInteger
