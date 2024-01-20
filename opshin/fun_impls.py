@@ -312,37 +312,52 @@ class PythonBuiltIn(Enum):
     len = "len"
     max = OLambda(
         ["xs"],
-        plt.FoldList(
-            plt.TailList(OVar("xs")),
-            OLambda(
-                ["x", "a"],
-                plt.IfThenElse(
-                    plt.LessThanInteger(OVar("a"), OVar("x")),
-                    OVar("x"),
-                    OVar("a"),
+        plt.IteNullList(
+            OVar("xs"),
+            plt.TraceError("ValueError: max() arg is an empty sequence"),
+            plt.FoldList(
+                plt.TailList(OVar("xs")),
+                OLambda(
+                    ["x", "a"],
+                    plt.IfThenElse(
+                        plt.LessThanInteger(OVar("a"), OVar("x")),
+                        OVar("x"),
+                        OVar("a"),
+                    ),
                 ),
+                plt.HeadList(OVar("xs")),
             ),
-            plt.HeadList(OVar("xs")),
         ),
     )
     min = OLambda(
         ["xs"],
-        plt.FoldList(
-            plt.TailList(OVar("xs")),
-            OLambda(
-                ["x", "a"],
-                plt.IfThenElse(
-                    plt.LessThanInteger(OVar("a"), OVar("x")),
-                    OVar("a"),
-                    OVar("x"),
+        plt.IteNullList(
+            OVar("xs"),
+            plt.TraceError("ValueError: min() arg is an empty sequence"),
+            plt.FoldList(
+                plt.TailList(OVar("xs")),
+                OLambda(
+                    ["x", "a"],
+                    plt.IfThenElse(
+                        plt.LessThanInteger(OVar("a"), OVar("x")),
+                        OVar("a"),
+                        OVar("x"),
+                    ),
                 ),
+                plt.HeadList(OVar("xs")),
             ),
-            plt.HeadList(OVar("xs")),
         ),
     )
     print = "print"
     # NOTE: only correctly defined for positive y
-    pow = OLambda(["x", "y"], PowImpl(OVar("x"), OVar("y")))
+    pow = OLambda(
+        ["x", "y"],
+        plt.Ite(
+            plt.LessThanInteger(OVar("y"), plt.Integer(0)),
+            plt.TraceError("Negative exponentiation is not supported"),
+            PowImpl(OVar("x"), OVar("y")),
+        ),
+    )
     oct = OLambda(
         ["x"],
         plt.DecodeUtf8(

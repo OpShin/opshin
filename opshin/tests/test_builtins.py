@@ -268,6 +268,19 @@ def validator(x: int, y: int) -> int:
             ret = None
         self.assertEqual(ret, exp, "pow returned wrong value")
 
+    @given(x=st.integers(), y=st.integers(min_value=-20, max_value=-1))
+    def test_neg_pow(self, x: int, y: int):
+        source_code = """
+def validator(x: int, y: int) -> int:
+    return pow(x, y) % 10000000000
+        """
+        try:
+            eval_uplc_value(source_code, x, y)
+            fail = True
+        except Exception:
+            fail = False
+        self.assertFalse(fail, "pow worked on negative exponent")
+
     @given(x=st.integers())
     @example(0)
     @example(-1)
