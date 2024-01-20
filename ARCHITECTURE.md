@@ -27,6 +27,15 @@ The reason for this is that the validator is executed on-chain and we want to sa
 You should definitely check values that represent a continuing, chained state of the protocol (to prevent halting the protocol by providing a too large state)
 This is especially relevant when the state may be modified by anyone rather than only the owner of the state (i.e. a user that stakes funds).
 The script context never needs to be checked - it can not be controlled by anyone but the protocol.
+
+## Known deviations from Python semantics
+
+The following deviations from Python semantics are known and code that involves them is not automatically rejected by the compiler:
+
+- `isinstance` does only check the constructor id of the Data object, not the number or type of data fields
+- `int(...)` does not automatically trim preceding and trailing space characters. `int("  123  ")` will fail.
+- `pow(x, y)` and `x ** y` do not work and fail when `y` is negative (floats are not supported in opshin)
+- `x <= y <= z` (and all other chained comparisons) will evaluate `y` twice (the official semantic is to execute it only once). Note that this has practically no effect because the only side-effects in OpShin are traces/print statements.
  
 ## Architecture
 
