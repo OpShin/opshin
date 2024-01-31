@@ -72,7 +72,7 @@ def constant_type(c):
         ), "Constant lists must contain elements of a single type only"
         return InstanceType(ListType(first_typ))
     if isinstance(c, dict):
-        assert len(c) > 0, "Lists must be non-empty"
+        assert len(c) > 0, "Dicts must be non-empty"
         first_key_typ = constant_type(next(iter(c.keys())))
         first_value_typ = constant_type(next(iter(c.values())))
         assert all(
@@ -421,6 +421,17 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         if isinstance(typed_ass.annotation, ListType) and (
             (isinstance(node.value, Constant) and node.value.value == [])
             or (isinstance(node.value, List) and node.value.elts == [])
+        ):
+            # Empty lists are only allowed in annotated assignments
+            typed_ass.value: TypedExpression = copy(node.value)
+            typed_ass.value.typ = InstanceType(typed_ass.annotation)
+        elif isinstance(typed_ass.annotation, DictType) and (
+            (isinstance(node.value, Constant) and node.value.value == {})
+            or (
+                isinstance(node.value, Dict)
+                and node.value.keys == []
+                and node.value.values == []
+            )
         ):
             # Empty lists are only allowed in annotated assignments
             typed_ass.value: TypedExpression = copy(node.value)
@@ -1074,7 +1085,7 @@ class ReturnExtractor(TypedNodeVisitor):
     def visit_Return(self, node: Return) -> bool:
         assert (
             self.func_rettyp >= node.typ
-        ), f"Function '{node.name}' annotated return type does not match actual return type"
+        ), f"Function annotated return type does not match actual return type"
         return True
 
     def check_fulfills(self, node: FunctionDef):

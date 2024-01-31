@@ -2675,3 +2675,43 @@ def validator(_: None) -> List[Token]:
                 )
             ],
         )
+
+    def test_empty_list_int_constant_folding(self):
+        source_code = """
+def validator(_: None) -> List[int]:
+    a: List[int] = []
+    return a
+"""
+        res = eval_uplc_value(source_code, Unit(), constant_folding=True)
+        self.assertEqual(res, [])
+
+    def test_empty_dict_int_int(self):
+        source_code = """
+def validator(_: None) -> Dict[int, int]:
+    a: Dict[int, int] = {}
+    return a
+"""
+        res = eval_uplc_value(source_code, Unit())
+        self.assertEqual(res, {})
+
+    def test_empty_dict_int_int_constant_folding(self):
+        source_code = """
+def validator(_: None) -> Dict[int, int]:
+    a: Dict[int, int] = {}
+    return a
+"""
+        res = eval_uplc_value(source_code, Unit(), constant_folding=True)
+        self.assertEqual(res, {})
+
+    def test_empty_dict_displaced_constant_folding(self):
+        source_code = """
+from typing import Dict, List, Union
+
+VAR: Dict[bytes, int] = {}
+
+def validator(b: Dict[int, Dict[bytes, int]]) -> Dict[bytes, int]:
+    a = b.get(0, VAR)
+    return a
+        """
+        res = eval_uplc_value(source_code, {1: {b"": 0}}, constant_folding=True)
+        self.assertEqual(res, {})
