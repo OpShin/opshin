@@ -852,3 +852,29 @@ def validator(x: Anything) -> str:
             self.assertEqual(
                 ret, exp, "raw cbor string formatting returned wrong value"
             )
+
+    @given(x=st.text())
+    def test_not_string(self, x):
+        source_code = """
+def validator(x: str) -> bool:
+    return not x
+            """
+        ret = eval_uplc_value(source_code, x.encode("utf8"))
+        self.assertEqual(bool(ret), not x, "not returned wrong value")
+
+    @given(x=st.binary())
+    def test_not_bytes(self, x):
+        source_code = """
+def validator(x: bytes) -> bool:
+    return not x
+            """
+        ret = eval_uplc_value(source_code, x)
+        self.assertEqual(bool(ret), not x, "not returned wrong value")
+
+    def test_not_unit(self):
+        source_code = """
+def validator(x: None) -> bool:
+    return not x
+            """
+        ret = eval_uplc_value(source_code, uplc.BuiltinUnit())
+        self.assertEqual(bool(ret), not None, "not returned wrong value")

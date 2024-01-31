@@ -1669,6 +1669,18 @@ class StringType(AtomicType):
             if other.typ == IntegerInstanceType:
                 return StrIntMulImpl
 
+    def _unop_return_type(self, unop: unaryop) -> "Type":
+        if isinstance(unop, Not):
+            return BoolType()
+        return super()._unop_return_type(unop)
+
+    def _unop_fun(self, unop: unaryop) -> Callable[[plt.AST], plt.AST]:
+        if isinstance(unop, Not):
+            return lambda x: plt.EqualsInteger(
+                plt.LengthOfByteString(plt.EncodeUtf8(x)), plt.Integer(0)
+            )
+        return super()._unop_fun(unop)
+
 
 @dataclass(frozen=True, unsafe_hash=True)
 class ByteStringType(AtomicType):
@@ -2010,6 +2022,18 @@ class ByteStringType(AtomicType):
             if other.typ == IntegerInstanceType:
                 return ByteStrIntMulImpl
 
+    def _unop_return_type(self, unop: unaryop) -> "Type":
+        if isinstance(unop, Not):
+            return BoolType()
+        return super()._unop_return_type(unop)
+
+    def _unop_fun(self, unop: unaryop) -> Callable[[plt.AST], plt.AST]:
+        if isinstance(unop, Not):
+            return lambda x: plt.EqualsInteger(
+                plt.LengthOfByteString(x), plt.Integer(0)
+            )
+        return super()._unop_fun(unop)
+
 
 @dataclass(frozen=True, unsafe_hash=True)
 class BoolType(AtomicType):
@@ -2068,6 +2092,16 @@ class UnitType(AtomicType):
 
     def stringify(self, recursive: bool = False) -> plt.AST:
         return OLambda(["self"], plt.Text("None"))
+
+    def _unop_return_type(self, unop: unaryop) -> "Type":
+        if isinstance(unop, Not):
+            return BoolType()
+        return super()._unop_return_type(unop)
+
+    def _unop_fun(self, unop: unaryop) -> Callable[[plt.AST], plt.AST]:
+        if isinstance(unop, Not):
+            return lambda x: plt.Bool(True)
+        return super()._unop_fun(unop)
 
 
 IntegerInstanceType = InstanceType(IntegerType())
