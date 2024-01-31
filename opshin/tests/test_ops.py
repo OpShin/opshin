@@ -112,6 +112,24 @@ def validator(x: int) -> int:
         ret = eval_uplc_value(source_code, x)
         self.assertEqual(ret, -x, "not returned wrong value")
 
+    @given(x=st.integers())
+    def test_uadd_int(self, x):
+        source_code = """
+def validator(x: int) -> int:
+    return +x
+            """
+        ret = eval_uplc_value(source_code, x)
+        self.assertEqual(ret, +x, "not returned wrong value")
+
+    @given(x=st.integers())
+    def test_not_int(self, x):
+        source_code = """
+def validator(x: int) -> bool:
+    return not x
+            """
+        ret = eval_uplc_value(source_code, x)
+        self.assertEqual(bool(ret), not x, "not returned wrong value")
+
     @given(x=st.integers(), y=st.integers())
     def test_add_int(self, x, y):
         source_code = """
@@ -465,6 +483,15 @@ def validator(x: List[bytes], y: bytes) -> bool:
         ret = eval_uplc_value(source_code, xs, y)
         self.assertEqual(ret, y in xs, "list in returned wrong value")
 
+    @given(x=st.lists(st.integers()))
+    def test_not_list(self, x):
+        source_code = """
+def validator(x: List[int]) -> bool:
+    return not x
+            """
+        ret = eval_uplc_value(source_code, x)
+        self.assertEqual(bool(ret), not x, "not returned wrong value")
+
     @given(x=st.binary(), y=st.binary())
     def test_eq_bytes(self, x, y):
         source_code = """
@@ -758,6 +785,32 @@ def validator(x: List[int]) -> str:
         self.assertEqual(
             ret, exp, "integer list string formatting returned wrong value"
         )
+
+    @given(x=st.dictionaries(st.integers(), st.integers()))
+    def test_not_dict(self, x):
+        source_code = """
+def validator(x: Dict[int, int]) -> bool:
+    return not x
+            """
+        ret = eval_uplc_value(source_code, x)
+        self.assertEqual(bool(ret), not x, "not returned wrong value")
+
+    @given(xs=st.dictionaries(st.integers(), st.integers()), y=st.integers())
+    def test_index_dict(self, xs, y):
+        source_code = """
+from typing import Dict, List, Union
+def validator(x: Dict[int, int], y: int) -> int:
+    return x[y]
+            """
+        try:
+            exp = xs[y]
+        except KeyError:
+            exp = None
+        try:
+            ret = eval_uplc_value(source_code, xs, y)
+        except Exception as e:
+            ret = None
+        self.assertEqual(ret, exp, "list index returned wrong value")
 
     @given(xs=st.dictionaries(formattable_text, st.integers()))
     @example(dict())

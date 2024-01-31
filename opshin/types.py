@@ -1616,7 +1616,7 @@ class IntegerType(AtomicType):
         if isinstance(unop, UAdd):
             return lambda x: x
         if isinstance(unop, Not):
-            return lambda x: plt.NotEqualsInteger(x, plt.Integer(0))
+            return lambda x: plt.EqualsInteger(x, plt.Integer(0))
         return super()._unop_fun(unop)
 
 
