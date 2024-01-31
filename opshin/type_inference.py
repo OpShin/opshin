@@ -425,6 +425,17 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             # Empty lists are only allowed in annotated assignments
             typed_ass.value: TypedExpression = copy(node.value)
             typed_ass.value.typ = InstanceType(typed_ass.annotation)
+        elif isinstance(typed_ass.annotation, DictType) and (
+            (isinstance(node.value, Constant) and node.value.value == {})
+            or (
+                isinstance(node.value, Dict)
+                and node.value.keys == []
+                and node.value.values == []
+            )
+        ):
+            # Empty lists are only allowed in annotated assignments
+            typed_ass.value: TypedExpression = copy(node.value)
+            typed_ass.value.typ = InstanceType(typed_ass.annotation)
         else:
             typed_ass.value: TypedExpression = self.visit(node.value)
         assert isinstance(

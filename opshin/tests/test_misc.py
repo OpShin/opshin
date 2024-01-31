@@ -2675,3 +2675,12 @@ def validator(_: None) -> List[Token]:
                 )
             ],
         )
+
+    def test_empty_dict_int_int(self):
+        source_code = """
+def validator(_: None) -> Dict[int, int]:
+    a: Dict[int, int] = {}
+    return a
+"""
+        res = eval_uplc_value(source_code, Unit())
+        self.assertEqual(res, {})
