@@ -152,7 +152,7 @@ def constant_type(c):
         ), &#34;Constant lists must contain elements of a single type only&#34;
         return InstanceType(ListType(first_typ))
     if isinstance(c, dict):
-        assert len(c) &gt; 0, &#34;Lists must be non-empty&#34;
+        assert len(c) &gt; 0, &#34;Dicts must be non-empty&#34;
         first_key_typ = constant_type(next(iter(c.keys())))
         first_value_typ = constant_type(next(iter(c.values())))
         assert all(
@@ -497,8 +497,27 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
 
     def visit_AnnAssign(self, node: AnnAssign) -&gt; TypedAnnAssign:
         typed_ass = copy(node)
-        typed_ass.value: TypedExpression = self.visit(node.value)
         typed_ass.annotation = self.type_from_annotation(node.annotation)
+        if isinstance(typed_ass.annotation, ListType) and (
+            (isinstance(node.value, Constant) and node.value.value == [])
+            or (isinstance(node.value, List) and node.value.elts == [])
+        ):
+            # Empty lists are only allowed in annotated assignments
+            typed_ass.value: TypedExpression = copy(node.value)
+            typed_ass.value.typ = InstanceType(typed_ass.annotation)
+        elif isinstance(typed_ass.annotation, DictType) and (
+            (isinstance(node.value, Constant) and node.value.value == {})
+            or (
+                isinstance(node.value, Dict)
+                and node.value.keys == []
+                and node.value.values == []
+            )
+        ):
+            # Empty lists are only allowed in annotated assignments
+            typed_ass.value: TypedExpression = copy(node.value)
+            typed_ass.value.typ = InstanceType(typed_ass.annotation)
+        else:
+            typed_ass.value: TypedExpression = self.visit(node.value)
         assert isinstance(
             node.target, Name
         ), &#34;Can only assign to variable names, no type deconstruction&#34;
@@ -711,7 +730,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
     def visit_UnaryOp(self, node: UnaryOp) -&gt; TypedUnaryOp:
         tu = copy(node)
         tu.operand = self.visit(node.operand)
-        tu.typ = tu.operand.typ
+        tu.typ = tu.operand.typ.typ.unop_type(node.op).rettyp
         return tu
 
     def visit_Subscript(self, node: Subscript) -&gt; TypedSubscript:
@@ -976,6 +995,21 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         typed_listcomp.typ = InstanceType(ListType(typed_listcomp.elt.typ))
         return typed_listcomp
 
+    def visit_DictComp(self, node: DictComp) -&gt; TypedDictComp:
+        typed_dictcomp = copy(node)
+        # inside the comprehension is a seperate scope
+        self.enter_scope()
+        # first evaluate generators for assigned variables
+        typed_dictcomp.generators = [self.visit(s) for s in node.generators]
+        # then evaluate elements
+        typed_dictcomp.key = self.visit(node.key)
+        typed_dictcomp.value = self.visit(node.value)
+        self.exit_scope()
+        typed_dictcomp.typ = InstanceType(
+            DictType(typed_dictcomp.key.typ, typed_dictcomp.value.typ)
+        )
+        return typed_dictcomp
+
     def visit_FormattedValue(self, node: FormattedValue) -&gt; TypedFormattedValue:
         typed_node = copy(node)
         typed_node.value = self.visit(node.value)
@@ -1131,7 +1165,7 @@ class ReturnExtractor(TypedNodeVisitor):
     def visit_Return(self, node: Return) -&gt; bool:
         assert (
             self.func_rettyp &gt;= node.typ
-        ), f&#34;Function &#39;{node.name}&#39; annotated return type does not match actual return type&#34;
+        ), f&#34;Function annotated return type does not match actual return type&#34;
         return True
 
     def check_fulfills(self, node: FunctionDef):
@@ -1177,7 +1211,7 @@ class ReturnExtractor(TypedNodeVisitor):
         ), &#34;Constant lists must contain elements of a single type only&#34;
         return InstanceType(ListType(first_typ))
     if isinstance(c, dict):
-        assert len(c) &gt; 0, &#34;Lists must be non-empty&#34;
+        assert len(c) &gt; 0, &#34;Dicts must be non-empty&#34;
         first_key_typ = constant_type(next(iter(c.keys())))
         first_value_typ = constant_type(next(iter(c.values())))
         assert all(
@@ -1542,8 +1576,27 @@ just a single node.</p>
 
     def visit_AnnAssign(self, node: AnnAssign) -&gt; TypedAnnAssign:
         typed_ass = copy(node)
-        typed_ass.value: TypedExpression = self.visit(node.value)
         typed_ass.annotation = self.type_from_annotation(node.annotation)
+        if isinstance(typed_ass.annotation, ListType) and (
+            (isinstance(node.value, Constant) and node.value.value == [])
+            or (isinstance(node.value, List) and node.value.elts == [])
+        ):
+            # Empty lists are only allowed in annotated assignments
+            typed_ass.value: TypedExpression = copy(node.value)
+            typed_ass.value.typ = InstanceType(typed_ass.annotation)
+        elif isinstance(typed_ass.annotation, DictType) and (
+            (isinstance(node.value, Constant) and node.value.value == {})
+            or (
+                isinstance(node.value, Dict)
+                and node.value.keys == []
+                and node.value.values == []
+            )
+        ):
+            # Empty lists are only allowed in annotated assignments
+            typed_ass.value: TypedExpression = copy(node.value)
+            typed_ass.value.typ = InstanceType(typed_ass.annotation)
+        else:
+            typed_ass.value: TypedExpression = self.visit(node.value)
         assert isinstance(
             node.target, Name
         ), &#34;Can only assign to variable names, no type deconstruction&#34;
@@ -1756,7 +1809,7 @@ just a single node.</p>
     def visit_UnaryOp(self, node: UnaryOp) -&gt; TypedUnaryOp:
         tu = copy(node)
         tu.operand = self.visit(node.operand)
-        tu.typ = tu.operand.typ
+        tu.typ = tu.operand.typ.typ.unop_type(node.op).rettyp
         return tu
 
     def visit_Subscript(self, node: Subscript) -&gt; TypedSubscript:
@@ -2021,6 +2074,21 @@ just a single node.</p>
         typed_listcomp.typ = InstanceType(ListType(typed_listcomp.elt.typ))
         return typed_listcomp
 
+    def visit_DictComp(self, node: DictComp) -&gt; TypedDictComp:
+        typed_dictcomp = copy(node)
+        # inside the comprehension is a seperate scope
+        self.enter_scope()
+        # first evaluate generators for assigned variables
+        typed_dictcomp.generators = [self.visit(s) for s in node.generators]
+        # then evaluate elements
+        typed_dictcomp.key = self.visit(node.key)
+        typed_dictcomp.value = self.visit(node.value)
+        self.exit_scope()
+        typed_dictcomp.typ = InstanceType(
+            DictType(typed_dictcomp.key.typ, typed_dictcomp.value.typ)
+        )
+        return typed_dictcomp
+
     def visit_FormattedValue(self, node: FormattedValue) -&gt; TypedFormattedValue:
         typed_node = copy(node)
         typed_node.value = self.visit(node.value)
@@ -2257,8 +2325,27 @@ just a single node.</p>
 </summary>
 <pre><code class="python">def visit_AnnAssign(self, node: AnnAssign) -&gt; TypedAnnAssign:
     typed_ass = copy(node)
-    typed_ass.value: TypedExpression = self.visit(node.value)
     typed_ass.annotation = self.type_from_annotation(node.annotation)
+    if isinstance(typed_ass.annotation, ListType) and (
+        (isinstance(node.value, Constant) and node.value.value == [])
+        or (isinstance(node.value, List) and node.value.elts == [])
+    ):
+        # Empty lists are only allowed in annotated assignments
+        typed_ass.value: TypedExpression = copy(node.value)
+        typed_ass.value.typ = InstanceType(typed_ass.annotation)
+    elif isinstance(typed_ass.annotation, DictType) and (
+        (isinstance(node.value, Constant) and node.value.value == {})
+        or (
+            isinstance(node.value, Dict)
+            and node.value.keys == []
+            and node.value.values == []
+        )
+    ):
+        # Empty lists are only allowed in annotated assignments
+        typed_ass.value: TypedExpression = copy(node.value)
+        typed_ass.value.typ = InstanceType(typed_ass.annotation)
+    else:
+        typed_ass.value: TypedExpression = self.visit(node.value)
     assert isinstance(
         node.target, Name
     ), &#34;Can only assign to variable names, no type deconstruction&#34;
@@ -2540,6 +2627,31 @@ just a single node.</p>
     ), &#34;All values must have the same type&#34;
     tt.typ = InstanceType(DictType(k_typ, v_typ))
     return tt</code></pre>
+</details>
+</dd>
+<dt id="opshin.type_inference.AggressiveTypeInferencer.visit_DictComp"><code class="name flex">
+<span>def <span class="ident">visit_DictComp</span></span>(<span>self, node: ast.DictComp) ‑> <a title="opshin.typed_ast.TypedDictComp" href="typed_ast.html#opshin.typed_ast.TypedDictComp">TypedDictComp</a></span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def visit_DictComp(self, node: DictComp) -&gt; TypedDictComp:
+    typed_dictcomp = copy(node)
+    # inside the comprehension is a seperate scope
+    self.enter_scope()
+    # first evaluate generators for assigned variables
+    typed_dictcomp.generators = [self.visit(s) for s in node.generators]
+    # then evaluate elements
+    typed_dictcomp.key = self.visit(node.key)
+    typed_dictcomp.value = self.visit(node.value)
+    self.exit_scope()
+    typed_dictcomp.typ = InstanceType(
+        DictType(typed_dictcomp.key.typ, typed_dictcomp.value.typ)
+    )
+    return typed_dictcomp</code></pre>
 </details>
 </dd>
 <dt id="opshin.type_inference.AggressiveTypeInferencer.visit_Expr"><code class="name flex">
@@ -3030,7 +3142,7 @@ just a single node.</p>
 <pre><code class="python">def visit_UnaryOp(self, node: UnaryOp) -&gt; TypedUnaryOp:
     tu = copy(node)
     tu.operand = self.visit(node.operand)
-    tu.typ = tu.operand.typ
+    tu.typ = tu.operand.typ.typ.unop_type(node.op).rettyp
     return tu</code></pre>
 </details>
 </dd>
@@ -3490,7 +3602,7 @@ def extract(cls, c: ClassDef, type_inferencer: AggressiveTypeInferencer) -&gt; R
     def visit_Return(self, node: Return) -&gt; bool:
         assert (
             self.func_rettyp &gt;= node.typ
-        ), f&#34;Function &#39;{node.name}&#39; annotated return type does not match actual return type&#34;
+        ), f&#34;Function annotated return type does not match actual return type&#34;
         return True
 
     def check_fulfills(self, node: FunctionDef):
@@ -3576,7 +3688,7 @@ def extract(cls, c: ClassDef, type_inferencer: AggressiveTypeInferencer) -&gt; R
 <pre><code class="python">def visit_Return(self, node: Return) -&gt; bool:
     assert (
         self.func_rettyp &gt;= node.typ
-    ), f&#34;Function &#39;{node.name}&#39; annotated return type does not match actual return type&#34;
+    ), f&#34;Function annotated return type does not match actual return type&#34;
     return True</code></pre>
 </details>
 </dd>
@@ -3956,6 +4068,7 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="opshin.type_inference.AggressiveTypeInferencer.visit_Compare" href="#opshin.type_inference.AggressiveTypeInferencer.visit_Compare">visit_Compare</a></code></li>
 <li><code><a title="opshin.type_inference.AggressiveTypeInferencer.visit_Constant" href="#opshin.type_inference.AggressiveTypeInferencer.visit_Constant">visit_Constant</a></code></li>
 <li><code><a title="opshin.type_inference.AggressiveTypeInferencer.visit_Dict" href="#opshin.type_inference.AggressiveTypeInferencer.visit_Dict">visit_Dict</a></code></li>
+<li><code><a title="opshin.type_inference.AggressiveTypeInferencer.visit_DictComp" href="#opshin.type_inference.AggressiveTypeInferencer.visit_DictComp">visit_DictComp</a></code></li>
 <li><code><a title="opshin.type_inference.AggressiveTypeInferencer.visit_Expr" href="#opshin.type_inference.AggressiveTypeInferencer.visit_Expr">visit_Expr</a></code></li>
 <li><code><a title="opshin.type_inference.AggressiveTypeInferencer.visit_For" href="#opshin.type_inference.AggressiveTypeInferencer.visit_For">visit_For</a></code></li>
 <li><code><a title="opshin.type_inference.AggressiveTypeInferencer.visit_FormattedValue" href="#opshin.type_inference.AggressiveTypeInferencer.visit_FormattedValue">visit_FormattedValue</a></code></li>

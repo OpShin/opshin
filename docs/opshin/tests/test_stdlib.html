@@ -116,6 +116,28 @@ def validator(x: Dict[int, bytes], y: int) -&gt; bytes:
             exp = None
         self.assertEqual(ret, exp, &#34;dict[] returned wrong value&#34;)
 
+    @given(st.data())
+    def test_list_index(self, data):
+        source_code = &#34;&#34;&#34;
+def validator(x: List[int], z: int) -&gt; int:
+    return x.index(z)
+            &#34;&#34;&#34;
+        xs = data.draw(st.lists(st.integers()))
+        z = data.draw(
+            st.one_of(st.sampled_from(xs), st.integers())
+            if len(xs) &gt; 0
+            else st.integers()
+        )
+        try:
+            ret = eval_uplc_value(source_code, xs, z)
+        except RuntimeError as e:
+            ret = None
+        try:
+            exp = xs.index(z)
+        except ValueError:
+            exp = None
+        self.assertEqual(ret, exp, &#34;list.index returned wrong value&#34;)
+
     @given(xs=st.dictionaries(st.integers(), st.binary()))
     def test_dict_keys(self, xs):
         source_code = &#34;&#34;&#34;
@@ -383,6 +405,28 @@ def validator(x: Dict[int, bytes], y: int) -&gt; bytes:
         except KeyError:
             exp = None
         self.assertEqual(ret, exp, &#34;dict[] returned wrong value&#34;)
+
+    @given(st.data())
+    def test_list_index(self, data):
+        source_code = &#34;&#34;&#34;
+def validator(x: List[int], z: int) -&gt; int:
+    return x.index(z)
+            &#34;&#34;&#34;
+        xs = data.draw(st.lists(st.integers()))
+        z = data.draw(
+            st.one_of(st.sampled_from(xs), st.integers())
+            if len(xs) &gt; 0
+            else st.integers()
+        )
+        try:
+            ret = eval_uplc_value(source_code, xs, z)
+        except RuntimeError as e:
+            ret = None
+        try:
+            exp = xs.index(z)
+        except ValueError:
+            exp = None
+        self.assertEqual(ret, exp, &#34;list.index returned wrong value&#34;)
 
     @given(xs=st.dictionaries(st.integers(), st.binary()))
     def test_dict_keys(self, xs):
@@ -856,6 +900,38 @@ def validator(x: Dict[int, bytes]) -&gt; List[bytes]:
         self.assertEqual(ret, list(xs.values()), &#34;dict.keys returned wrong value&#34;)</code></pre>
 </details>
 </dd>
+<dt id="opshin.tests.test_stdlib.StdlibTest.test_list_index"><code class="name flex">
+<span>def <span class="ident">test_list_index</span></span>(<span>self) ‑> None</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    @given(st.data())
+    def test_list_index(self, data):
+        source_code = &#34;&#34;&#34;
+def validator(x: List[int], z: int) -&gt; int:
+    return x.index(z)
+            &#34;&#34;&#34;
+        xs = data.draw(st.lists(st.integers()))
+        z = data.draw(
+            st.one_of(st.sampled_from(xs), st.integers())
+            if len(xs) &gt; 0
+            else st.integers()
+        )
+        try:
+            ret = eval_uplc_value(source_code, xs, z)
+        except RuntimeError as e:
+            ret = None
+        try:
+            exp = xs.index(z)
+        except ValueError:
+            exp = None
+        self.assertEqual(ret, exp, &#34;list.index returned wrong value&#34;)</code></pre>
+</details>
+</dd>
 <dt id="opshin.tests.test_stdlib.StdlibTest.test_plutusdata_to_cbor"><code class="name flex">
 <span>def <span class="ident">test_plutusdata_to_cbor</span></span>(<span>self) ‑> None</span>
 </code></dt>
@@ -1045,6 +1121,7 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="opshin.tests.test_stdlib.StdlibTest.test_dict_keys" href="#opshin.tests.test_stdlib.StdlibTest.test_dict_keys">test_dict_keys</a></code></li>
 <li><code><a title="opshin.tests.test_stdlib.StdlibTest.test_dict_subscript" href="#opshin.tests.test_stdlib.StdlibTest.test_dict_subscript">test_dict_subscript</a></code></li>
 <li><code><a title="opshin.tests.test_stdlib.StdlibTest.test_dict_values" href="#opshin.tests.test_stdlib.StdlibTest.test_dict_values">test_dict_values</a></code></li>
+<li><code><a title="opshin.tests.test_stdlib.StdlibTest.test_list_index" href="#opshin.tests.test_stdlib.StdlibTest.test_list_index">test_list_index</a></code></li>
 <li><code><a title="opshin.tests.test_stdlib.StdlibTest.test_plutusdata_to_cbor" href="#opshin.tests.test_stdlib.StdlibTest.test_plutusdata_to_cbor">test_plutusdata_to_cbor</a></code></li>
 <li><code><a title="opshin.tests.test_stdlib.StdlibTest.test_str_encode" href="#opshin.tests.test_stdlib.StdlibTest.test_str_encode">test_str_encode</a></code></li>
 <li><code><a title="opshin.tests.test_stdlib.StdlibTest.test_union_to_cbor" href="#opshin.tests.test_stdlib.StdlibTest.test_union_to_cbor">test_union_to_cbor</a></code></li>

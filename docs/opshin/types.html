@@ -177,6 +177,40 @@ class Type:
             f&#34;{type(self).__name__} can not be used with operation {binop.__class__.__name__}&#34;
         )
 
+    def unop_type(self, unop: unaryop) -&gt; &#34;Type&#34;:
+        &#34;&#34;&#34;
+        Type of a unary operation on self.
+        &#34;&#34;&#34;
+        return FunctionType(
+            [InstanceType(self)],
+            InstanceType(self._unop_return_type(unop)),
+        )
+
+    def _unop_return_type(self, unop: unaryop) -&gt; &#34;Type&#34;:
+        &#34;&#34;&#34;
+        Return the type of a binary operation between self and other
+        &#34;&#34;&#34;
+        raise NotImplementedError(
+            f&#34;{type(self).__name__} does not implement {unop.__class__.__name__}&#34;
+        )
+
+    def unop(self, unop: unaryop) -&gt; plt.AST:
+        &#34;&#34;&#34;
+        Implements a unary operation on self
+        &#34;&#34;&#34;
+        return OLambda(
+            [&#34;self&#34;],
+            self._unop_fun(unop)(OVar(&#34;self&#34;)),
+        )
+
+    def _unop_fun(self, unop: unaryop) -&gt; Callable[[plt.AST], plt.AST]:
+        &#34;&#34;&#34;
+        Returns a unary function that implements the unary operation on self.
+        &#34;&#34;&#34;
+        raise NotImplementedError(
+            f&#34;{type(self).__name__} can not be used with operation {unop.__class__.__name__}&#34;
+        )
+
 
 @dataclass(frozen=True, unsafe_hash=True)
 class Record:
@@ -237,6 +271,30 @@ class AnyType(ClassType):
             and not isinstance(other, FunctionType)
             and not isinstance(other, PolymorphicFunctionType)
         )
+
+    def cmp(self, op: cmpop, o: &#34;Type&#34;) -&gt; plt.AST:
+        &#34;&#34;&#34;The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second the comparison.&#34;&#34;&#34;
+        # this will reject comparisons that will always be false - most likely due to faults during programming
+        if (
+            (isinstance(o, RecordType))
+            or isinstance(o, UnionType)
+            or isinstance(o, AnyType)
+        ):
+            # Note that comparison with Record and UnionType is actually fine because both are Data
+            if isinstance(op, Eq):
+                return plt.BuiltIn(uplc.BuiltInFun.EqualsData)
+            if isinstance(op, NotEq):
+                return OLambda(
+                    [&#34;x&#34;, &#34;y&#34;],
+                    plt.Not(
+                        plt.Apply(
+                            plt.BuiltIn(uplc.BuiltInFun.EqualsData),
+                            OVar(&#34;x&#34;),
+                            OVar(&#34;y&#34;),
+                        )
+                    ),
+                )
+        return super().cmp(op, o)
 
     def stringify(self, recursive: bool = False) -&gt; plt.AST:
         _LOGGER.warning(
@@ -518,9 +576,16 @@ class RecordType(ClassType):
         &#34;&#34;&#34;The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second the comparison.&#34;&#34;&#34;
         # this will reject comparisons that will always be false - most likely due to faults during programming
         if (
-            isinstance(o, RecordType)
-            and (self.record &gt;= o.record or o.record &gt;= self.record)
-        ) or (isinstance(o, UnionType) and any(self &gt;= o or self &gt;= o for o in o.typs)):
+            (
+                isinstance(o, RecordType)
+                and (self.record &gt;= o.record or o.record &gt;= self.record)
+            )
+            or (
+                isinstance(o, UnionType) and any(self &gt;= o or self &gt;= o for o in o.typs)
+            )
+            or isinstance(o, AnyType)
+        ):
+            # Note that comparison with AnyType is actually fine because both are Data
             if isinstance(op, Eq):
                 return plt.BuiltIn(uplc.BuiltInFun.EqualsData)
             if isinstance(op, NotEq):
@@ -913,6 +978,48 @@ class ListType(ClassType):
     def __ge__(self, other):
         return isinstance(other, ListType) and self.typ &gt;= other.typ
 
+    def attribute_type(self, attr) -&gt; &#34;Type&#34;:
+        if attr == &#34;index&#34;:
+            return InstanceType(
+                FunctionType(frozenlist([self.typ]), IntegerInstanceType)
+            )
+        super().attribute_type(attr)
+
+    def attribute(self, attr) -&gt; plt.AST:
+        if attr == &#34;index&#34;:
+            return OLambda(
+                [&#34;self&#34;, &#34;x&#34;],
+                OLet(
+                    [(&#34;x&#34;, plt.Force(OVar(&#34;x&#34;)))],
+                    plt.Apply(
+                        plt.RecFun(
+                            OLambda(
+                                [&#34;index&#34;, &#34;xs&#34;, &#34;a&#34;],
+                                plt.IteNullList(
+                                    OVar(&#34;xs&#34;),
+                                    plt.TraceError(&#34;Did not find element in list&#34;),
+                                    plt.Ite(
+                                        plt.EqualsInteger(
+                                            OVar(&#34;x&#34;), plt.HeadList(OVar(&#34;xs&#34;))
+                                        ),
+                                        OVar(&#34;a&#34;),
+                                        plt.Apply(
+                                            OVar(&#34;index&#34;),
+                                            OVar(&#34;index&#34;),
+                                            plt.TailList(OVar(&#34;xs&#34;)),
+                                            plt.AddInteger(OVar(&#34;a&#34;), plt.Integer(1)),
+                                        ),
+                                    ),
+                                ),
+                            ),
+                        ),
+                        OVar(&#34;self&#34;),
+                        plt.Integer(0),
+                    ),
+                ),
+            )
+        super().attribute(attr)
+
     def stringify(self, recursive: bool = False) -&gt; plt.AST:
         return OLambda(
             [&#34;self&#34;],
@@ -996,6 +1103,16 @@ class ListType(ClassType):
                 other.typ.typ, ListType
             ):
                 return plt.AppendList
+
+    def _unop_return_type(self, unop: unaryop) -&gt; &#34;Type&#34;:
+        if isinstance(unop, Not):
+            return BoolType()
+        return super()._unop_return_type(unop)
+
+    def _unop_fun(self, unop: unaryop) -&gt; Callable[[plt.AST], plt.AST]:
+        if isinstance(unop, Not):
+            return lambda x: plt.IteNullList(x, plt.Bool(True), plt.Bool(False))
+        return super()._unop_fun(unop)
 
 
 @dataclass(frozen=True, unsafe_hash=True)
@@ -1284,6 +1401,16 @@ class DictType(ClassType):
         )
         return OLambda([&#34;self&#34;], mapped_attrs)
 
+    def _unop_return_type(self, unop: unaryop) -&gt; &#34;Type&#34;:
+        if isinstance(unop, Not):
+            return BoolType()
+        return super()._unop_return_type(unop)
+
+    def _unop_fun(self, unop: unaryop) -&gt; Callable[[plt.AST], plt.AST]:
+        if isinstance(unop, Not):
+            return lambda x: plt.IteNullList(x, plt.Bool(True), plt.Bool(False))
+        return super()._unop_fun(unop)
+
 
 @dataclass(frozen=True, unsafe_hash=True)
 class FunctionType(ClassType):
@@ -1344,6 +1471,12 @@ class InstanceType(Type):
 
     def binop(self, binop: operator, other: AST) -&gt; plt.AST:
         return self.typ.binop(binop, other)
+
+    def unop_type(self, unop: unaryop) -&gt; &#34;Type&#34;:
+        return self.typ.unop_type(unop)
+
+    def unop(self, unop: unaryop) -&gt; plt.AST:
+        return self.typ.unop(unop)
 
 
 @dataclass(frozen=True, unsafe_hash=True)
@@ -1521,7 +1654,15 @@ class IntegerType(AtomicType):
             elif isinstance(binop, Mod):
                 return plt.ModInteger
             elif isinstance(binop, Pow):
-                return PowImpl
+                return lambda x, y: OLet(
+                    [(&#34;y&#34;, y)],
+                    plt.Ite(
+                        plt.LessThanInteger(OVar(&#34;y&#34;), plt.Integer(0)),
+                        plt.TraceError(&#34;Negative exponentiation is not supported&#34;),
+                        PowImpl(x, OVar(&#34;y&#34;)),
+                    ),
+                )
+
         if isinstance(binop, Mult):
             if other.typ == IntegerInstanceType:
                 return plt.MultiplyInteger
@@ -1529,6 +1670,24 @@ class IntegerType(AtomicType):
                 return lambda x, y: ByteStrIntMulImpl(y, x)
             elif other.typ == StringInstanceType:
                 return lambda x, y: StrIntMulImpl(y, x)
+
+    def _unop_return_type(self, unop: unaryop) -&gt; &#34;Type&#34;:
+        if isinstance(unop, USub):
+            return IntegerType()
+        elif isinstance(unop, UAdd):
+            return IntegerType()
+        elif isinstance(unop, Not):
+            return BoolType()
+        return super()._unop_return_type(unop)
+
+    def _unop_fun(self, unop: unaryop) -&gt; Callable[[plt.AST], plt.AST]:
+        if isinstance(unop, USub):
+            return lambda x: plt.SubtractInteger(plt.Integer(0), x)
+        if isinstance(unop, UAdd):
+            return lambda x: x
+        if isinstance(unop, Not):
+            return lambda x: plt.EqualsInteger(x, plt.Integer(0))
+        return super()._unop_fun(unop)
 
 
 @dataclass(frozen=True, unsafe_hash=True)
@@ -1579,6 +1738,18 @@ class StringType(AtomicType):
         if isinstance(binop, Mult):
             if other.typ == IntegerInstanceType:
                 return StrIntMulImpl
+
+    def _unop_return_type(self, unop: unaryop) -&gt; &#34;Type&#34;:
+        if isinstance(unop, Not):
+            return BoolType()
+        return super()._unop_return_type(unop)
+
+    def _unop_fun(self, unop: unaryop) -&gt; Callable[[plt.AST], plt.AST]:
+        if isinstance(unop, Not):
+            return lambda x: plt.EqualsInteger(
+                plt.LengthOfByteString(plt.EncodeUtf8(x)), plt.Integer(0)
+            )
+        return super()._unop_fun(unop)
 
 
 @dataclass(frozen=True, unsafe_hash=True)
@@ -1921,6 +2092,18 @@ class ByteStringType(AtomicType):
             if other.typ == IntegerInstanceType:
                 return ByteStrIntMulImpl
 
+    def _unop_return_type(self, unop: unaryop) -&gt; &#34;Type&#34;:
+        if isinstance(unop, Not):
+            return BoolType()
+        return super()._unop_return_type(unop)
+
+    def _unop_fun(self, unop: unaryop) -&gt; Callable[[plt.AST], plt.AST]:
+        if isinstance(unop, Not):
+            return lambda x: plt.EqualsInteger(
+                plt.LengthOfByteString(x), plt.Integer(0)
+            )
+        return super()._unop_fun(unop)
+
 
 @dataclass(frozen=True, unsafe_hash=True)
 class BoolType(AtomicType):
@@ -1956,6 +2139,16 @@ class BoolType(AtomicType):
             ),
         )
 
+    def _unop_return_type(self, unop: unaryop) -&gt; &#34;Type&#34;:
+        if isinstance(unop, Not):
+            return BoolType()
+        return super()._unop_return_type(unop)
+
+    def _unop_fun(self, unop: unaryop) -&gt; Callable[[plt.AST], plt.AST]:
+        if isinstance(unop, Not):
+            return plt.Not
+        return super()._unop_fun(unop)
+
 
 @dataclass(frozen=True, unsafe_hash=True)
 class UnitType(AtomicType):
@@ -1969,6 +2162,16 @@ class UnitType(AtomicType):
 
     def stringify(self, recursive: bool = False) -&gt; plt.AST:
         return OLambda([&#34;self&#34;], plt.Text(&#34;None&#34;))
+
+    def _unop_return_type(self, unop: unaryop) -&gt; &#34;Type&#34;:
+        if isinstance(unop, Not):
+            return BoolType()
+        return super()._unop_return_type(unop)
+
+    def _unop_fun(self, unop: unaryop) -&gt; Callable[[plt.AST], plt.AST]:
+        if isinstance(unop, Not):
+            return lambda x: plt.Bool(True)
+        return super()._unop_fun(unop)
 
 
 IntegerInstanceType = InstanceType(IntegerType())
@@ -2824,6 +3027,30 @@ class AnyType(ClassType):
             and not isinstance(other, PolymorphicFunctionType)
         )
 
+    def cmp(self, op: cmpop, o: &#34;Type&#34;) -&gt; plt.AST:
+        &#34;&#34;&#34;The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second the comparison.&#34;&#34;&#34;
+        # this will reject comparisons that will always be false - most likely due to faults during programming
+        if (
+            (isinstance(o, RecordType))
+            or isinstance(o, UnionType)
+            or isinstance(o, AnyType)
+        ):
+            # Note that comparison with Record and UnionType is actually fine because both are Data
+            if isinstance(op, Eq):
+                return plt.BuiltIn(uplc.BuiltInFun.EqualsData)
+            if isinstance(op, NotEq):
+                return OLambda(
+                    [&#34;x&#34;, &#34;y&#34;],
+                    plt.Not(
+                        plt.Apply(
+                            plt.BuiltIn(uplc.BuiltInFun.EqualsData),
+                            OVar(&#34;x&#34;),
+                            OVar(&#34;y&#34;),
+                        )
+                    ),
+                )
+        return super().cmp(op, o)
+
     def stringify(self, recursive: bool = False) -&gt; plt.AST:
         _LOGGER.warning(
             &#34;Serializing AnyType will result in RawPlutusData (CBOR representation) to be printed without additional type information. Annotate types where possible to avoid this warning.&#34;
@@ -3101,6 +3328,34 @@ class AnyType(ClassType):
 <code><a title="opshin.types.ClassType" href="#opshin.types.ClassType">ClassType</a></code>.<code><a title="opshin.types.ClassType.cmp" href="#opshin.types.ClassType.cmp">cmp</a></code>
 </p>
 <div class="desc inherited"><p>The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second …</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def cmp(self, op: cmpop, o: &#34;Type&#34;) -&gt; plt.AST:
+    &#34;&#34;&#34;The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second the comparison.&#34;&#34;&#34;
+    # this will reject comparisons that will always be false - most likely due to faults during programming
+    if (
+        (isinstance(o, RecordType))
+        or isinstance(o, UnionType)
+        or isinstance(o, AnyType)
+    ):
+        # Note that comparison with Record and UnionType is actually fine because both are Data
+        if isinstance(op, Eq):
+            return plt.BuiltIn(uplc.BuiltInFun.EqualsData)
+        if isinstance(op, NotEq):
+            return OLambda(
+                [&#34;x&#34;, &#34;y&#34;],
+                plt.Not(
+                    plt.Apply(
+                        plt.BuiltIn(uplc.BuiltInFun.EqualsData),
+                        OVar(&#34;x&#34;),
+                        OVar(&#34;y&#34;),
+                    )
+                ),
+            )
+    return super().cmp(op, o)</code></pre>
+</details>
 </dd>
 <dt id="opshin.types.AnyType.constr"><code class="name flex">
 <span>def <span class="ident">constr</span></span>(<span>self) ‑> pluthon.pluthon_ast.AST</span>
@@ -3348,6 +3603,26 @@ For anything but record …</p></div>
     )</code></pre>
 </details>
 </dd>
+<dt id="opshin.types.AnyType.unop"><code class="name flex">
+<span>def <span class="ident">unop</span></span>(<span>self, unop: ast.unaryop) ‑> pluthon.pluthon_ast.AST</span>
+</code></dt>
+<dd>
+<p class="inheritance">
+<em>Inherited from:</em>
+<code><a title="opshin.types.ClassType" href="#opshin.types.ClassType">ClassType</a></code>.<code><a title="opshin.types.ClassType.unop" href="#opshin.types.ClassType.unop">unop</a></code>
+</p>
+<div class="desc inherited"><p>Implements a unary operation on self</p></div>
+</dd>
+<dt id="opshin.types.AnyType.unop_type"><code class="name flex">
+<span>def <span class="ident">unop_type</span></span>(<span>self, unop: ast.unaryop) ‑> <a title="opshin.types.Type" href="#opshin.types.Type">Type</a></span>
+</code></dt>
+<dd>
+<p class="inheritance">
+<em>Inherited from:</em>
+<code><a title="opshin.types.ClassType" href="#opshin.types.ClassType">ClassType</a></code>.<code><a title="opshin.types.ClassType.unop_type" href="#opshin.types.ClassType.unop_type">unop_type</a></code>
+</p>
+<div class="desc inherited"><p>Type of a unary operation on self.</p></div>
+</dd>
 </dl>
 </dd>
 <dt id="opshin.types.AtomicType"><code class="flex name class">
@@ -3470,6 +3745,26 @@ For anything but record …</p></div>
 <code><a title="opshin.types.ClassType" href="#opshin.types.ClassType">ClassType</a></code>.<code><a title="opshin.types.ClassType.stringify" href="#opshin.types.ClassType.stringify">stringify</a></code>
 </p>
 <div class="desc inherited"><p>Returns a stringified version of the object …</p></div>
+</dd>
+<dt id="opshin.types.AtomicType.unop"><code class="name flex">
+<span>def <span class="ident">unop</span></span>(<span>self, unop: ast.unaryop) ‑> pluthon.pluthon_ast.AST</span>
+</code></dt>
+<dd>
+<p class="inheritance">
+<em>Inherited from:</em>
+<code><a title="opshin.types.ClassType" href="#opshin.types.ClassType">ClassType</a></code>.<code><a title="opshin.types.ClassType.unop" href="#opshin.types.ClassType.unop">unop</a></code>
+</p>
+<div class="desc inherited"><p>Implements a unary operation on self</p></div>
+</dd>
+<dt id="opshin.types.AtomicType.unop_type"><code class="name flex">
+<span>def <span class="ident">unop_type</span></span>(<span>self, unop: ast.unaryop) ‑> <a title="opshin.types.Type" href="#opshin.types.Type">Type</a></span>
+</code></dt>
+<dd>
+<p class="inheritance">
+<em>Inherited from:</em>
+<code><a title="opshin.types.ClassType" href="#opshin.types.ClassType">ClassType</a></code>.<code><a title="opshin.types.ClassType.unop_type" href="#opshin.types.ClassType.unop_type">unop_type</a></code>
+</p>
+<div class="desc inherited"><p>Type of a unary operation on self.</p></div>
 </dd>
 </dl>
 </dd>
@@ -3649,7 +3944,17 @@ class BoolType(AtomicType):
                 plt.Text(&#34;True&#34;),
                 plt.Text(&#34;False&#34;),
             ),
-        )</code></pre>
+        )
+
+    def _unop_return_type(self, unop: unaryop) -&gt; &#34;Type&#34;:
+        if isinstance(unop, Not):
+            return BoolType()
+        return super()._unop_return_type(unop)
+
+    def _unop_fun(self, unop: unaryop) -&gt; Callable[[plt.AST], plt.AST]:
+        if isinstance(unop, Not):
+            return plt.Not
+        return super()._unop_fun(unop)</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -3793,6 +4098,26 @@ For anything but record …</p></div>
         ),
     )</code></pre>
 </details>
+</dd>
+<dt id="opshin.types.BoolType.unop"><code class="name flex">
+<span>def <span class="ident">unop</span></span>(<span>self, unop: ast.unaryop) ‑> pluthon.pluthon_ast.AST</span>
+</code></dt>
+<dd>
+<p class="inheritance">
+<em>Inherited from:</em>
+<code><a title="opshin.types.AtomicType" href="#opshin.types.AtomicType">AtomicType</a></code>.<code><a title="opshin.types.AtomicType.unop" href="#opshin.types.AtomicType.unop">unop</a></code>
+</p>
+<div class="desc inherited"><p>Implements a unary operation on self</p></div>
+</dd>
+<dt id="opshin.types.BoolType.unop_type"><code class="name flex">
+<span>def <span class="ident">unop_type</span></span>(<span>self, unop: ast.unaryop) ‑> <a title="opshin.types.Type" href="#opshin.types.Type">Type</a></span>
+</code></dt>
+<dd>
+<p class="inheritance">
+<em>Inherited from:</em>
+<code><a title="opshin.types.AtomicType" href="#opshin.types.AtomicType">AtomicType</a></code>.<code><a title="opshin.types.AtomicType.unop_type" href="#opshin.types.AtomicType.unop_type">unop_type</a></code>
+</p>
+<div class="desc inherited"><p>Type of a unary operation on self.</p></div>
 </dd>
 </dl>
 </dd>
@@ -4143,7 +4468,19 @@ class ByteStringType(AtomicType):
                 return plt.AppendByteString
         if isinstance(binop, Mult):
             if other.typ == IntegerInstanceType:
-                return ByteStrIntMulImpl</code></pre>
+                return ByteStrIntMulImpl
+
+    def _unop_return_type(self, unop: unaryop) -&gt; &#34;Type&#34;:
+        if isinstance(unop, Not):
+            return BoolType()
+        return super()._unop_return_type(unop)
+
+    def _unop_fun(self, unop: unaryop) -&gt; Callable[[plt.AST], plt.AST]:
+        if isinstance(unop, Not):
+            return lambda x: plt.EqualsInteger(
+                plt.LengthOfByteString(x), plt.Integer(0)
+            )
+        return super()._unop_fun(unop)</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -4585,6 +4922,26 @@ For anything but record …</p></div>
     )</code></pre>
 </details>
 </dd>
+<dt id="opshin.types.ByteStringType.unop"><code class="name flex">
+<span>def <span class="ident">unop</span></span>(<span>self, unop: ast.unaryop) ‑> pluthon.pluthon_ast.AST</span>
+</code></dt>
+<dd>
+<p class="inheritance">
+<em>Inherited from:</em>
+<code><a title="opshin.types.AtomicType" href="#opshin.types.AtomicType">AtomicType</a></code>.<code><a title="opshin.types.AtomicType.unop" href="#opshin.types.AtomicType.unop">unop</a></code>
+</p>
+<div class="desc inherited"><p>Implements a unary operation on self</p></div>
+</dd>
+<dt id="opshin.types.ByteStringType.unop_type"><code class="name flex">
+<span>def <span class="ident">unop_type</span></span>(<span>self, unop: ast.unaryop) ‑> <a title="opshin.types.Type" href="#opshin.types.Type">Type</a></span>
+</code></dt>
+<dd>
+<p class="inheritance">
+<em>Inherited from:</em>
+<code><a title="opshin.types.AtomicType" href="#opshin.types.AtomicType">AtomicType</a></code>.<code><a title="opshin.types.AtomicType.unop_type" href="#opshin.types.AtomicType.unop_type">unop_type</a></code>
+</p>
+<div class="desc inherited"><p>Type of a unary operation on self.</p></div>
+</dd>
 </dl>
 </dd>
 <dt id="opshin.types.BytesImpl"><code class="flex name class">
@@ -4861,6 +5218,26 @@ For anything but record types and union types, this is the identity function.</p
 <code><a title="opshin.types.Type" href="#opshin.types.Type">Type</a></code>.<code><a title="opshin.types.Type.stringify" href="#opshin.types.Type.stringify">stringify</a></code>
 </p>
 <div class="desc inherited"><p>Returns a stringified version of the object …</p></div>
+</dd>
+<dt id="opshin.types.ClassType.unop"><code class="name flex">
+<span>def <span class="ident">unop</span></span>(<span>self, unop: ast.unaryop) ‑> pluthon.pluthon_ast.AST</span>
+</code></dt>
+<dd>
+<p class="inheritance">
+<em>Inherited from:</em>
+<code><a title="opshin.types.Type" href="#opshin.types.Type">Type</a></code>.<code><a title="opshin.types.Type.unop" href="#opshin.types.Type.unop">unop</a></code>
+</p>
+<div class="desc inherited"><p>Implements a unary operation on self</p></div>
+</dd>
+<dt id="opshin.types.ClassType.unop_type"><code class="name flex">
+<span>def <span class="ident">unop_type</span></span>(<span>self, unop: ast.unaryop) ‑> <a title="opshin.types.Type" href="#opshin.types.Type">Type</a></span>
+</code></dt>
+<dd>
+<p class="inheritance">
+<em>Inherited from:</em>
+<code><a title="opshin.types.Type" href="#opshin.types.Type">Type</a></code>.<code><a title="opshin.types.Type.unop_type" href="#opshin.types.Type.unop_type">unop_type</a></code>
+</p>
+<div class="desc inherited"><p>Type of a unary operation on self.</p></div>
 </dd>
 </dl>
 </dd>
@@ -5158,7 +5535,17 @@ class DictType(ClassType):
             ),
             plt.EmptyDataPairList(),
         )
-        return OLambda([&#34;self&#34;], mapped_attrs)</code></pre>
+        return OLambda([&#34;self&#34;], mapped_attrs)
+
+    def _unop_return_type(self, unop: unaryop) -&gt; &#34;Type&#34;:
+        if isinstance(unop, Not):
+            return BoolType()
+        return super()._unop_return_type(unop)
+
+    def _unop_fun(self, unop: unaryop) -&gt; Callable[[plt.AST], plt.AST]:
+        if isinstance(unop, Not):
+            return lambda x: plt.IteNullList(x, plt.Bool(True), plt.Bool(False))
+        return super()._unop_fun(unop)</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -5559,6 +5946,26 @@ For anything but record …</p></div>
     )</code></pre>
 </details>
 </dd>
+<dt id="opshin.types.DictType.unop"><code class="name flex">
+<span>def <span class="ident">unop</span></span>(<span>self, unop: ast.unaryop) ‑> pluthon.pluthon_ast.AST</span>
+</code></dt>
+<dd>
+<p class="inheritance">
+<em>Inherited from:</em>
+<code><a title="opshin.types.ClassType" href="#opshin.types.ClassType">ClassType</a></code>.<code><a title="opshin.types.ClassType.unop" href="#opshin.types.ClassType.unop">unop</a></code>
+</p>
+<div class="desc inherited"><p>Implements a unary operation on self</p></div>
+</dd>
+<dt id="opshin.types.DictType.unop_type"><code class="name flex">
+<span>def <span class="ident">unop_type</span></span>(<span>self, unop: ast.unaryop) ‑> <a title="opshin.types.Type" href="#opshin.types.Type">Type</a></span>
+</code></dt>
+<dd>
+<p class="inheritance">
+<em>Inherited from:</em>
+<code><a title="opshin.types.ClassType" href="#opshin.types.ClassType">ClassType</a></code>.<code><a title="opshin.types.ClassType.unop_type" href="#opshin.types.ClassType.unop_type">unop_type</a></code>
+</p>
+<div class="desc inherited"><p>Type of a unary operation on self.</p></div>
+</dd>
 </dl>
 </dd>
 <dt id="opshin.types.FunctionType"><code class="flex name class">
@@ -5713,6 +6120,26 @@ For anything but record …</p></div>
     return OLambda([&#34;x&#34;], plt.Text(&#34;&lt;function&gt;&#34;))</code></pre>
 </details>
 </dd>
+<dt id="opshin.types.FunctionType.unop"><code class="name flex">
+<span>def <span class="ident">unop</span></span>(<span>self, unop: ast.unaryop) ‑> pluthon.pluthon_ast.AST</span>
+</code></dt>
+<dd>
+<p class="inheritance">
+<em>Inherited from:</em>
+<code><a title="opshin.types.ClassType" href="#opshin.types.ClassType">ClassType</a></code>.<code><a title="opshin.types.ClassType.unop" href="#opshin.types.ClassType.unop">unop</a></code>
+</p>
+<div class="desc inherited"><p>Implements a unary operation on self</p></div>
+</dd>
+<dt id="opshin.types.FunctionType.unop_type"><code class="name flex">
+<span>def <span class="ident">unop_type</span></span>(<span>self, unop: ast.unaryop) ‑> <a title="opshin.types.Type" href="#opshin.types.Type">Type</a></span>
+</code></dt>
+<dd>
+<p class="inheritance">
+<em>Inherited from:</em>
+<code><a title="opshin.types.ClassType" href="#opshin.types.ClassType">ClassType</a></code>.<code><a title="opshin.types.ClassType.unop_type" href="#opshin.types.ClassType.unop_type">unop_type</a></code>
+</p>
+<div class="desc inherited"><p>Type of a unary operation on self.</p></div>
+</dd>
 </dl>
 </dd>
 <dt id="opshin.types.InaccessibleType"><code class="flex name class">
@@ -5827,6 +6254,26 @@ For anything but record …</p></div>
 </p>
 <div class="desc inherited"><p>Returns a stringified version of the object …</p></div>
 </dd>
+<dt id="opshin.types.InaccessibleType.unop"><code class="name flex">
+<span>def <span class="ident">unop</span></span>(<span>self, unop: ast.unaryop) ‑> pluthon.pluthon_ast.AST</span>
+</code></dt>
+<dd>
+<p class="inheritance">
+<em>Inherited from:</em>
+<code><a title="opshin.types.ClassType" href="#opshin.types.ClassType">ClassType</a></code>.<code><a title="opshin.types.ClassType.unop" href="#opshin.types.ClassType.unop">unop</a></code>
+</p>
+<div class="desc inherited"><p>Implements a unary operation on self</p></div>
+</dd>
+<dt id="opshin.types.InaccessibleType.unop_type"><code class="name flex">
+<span>def <span class="ident">unop_type</span></span>(<span>self, unop: ast.unaryop) ‑> <a title="opshin.types.Type" href="#opshin.types.Type">Type</a></span>
+</code></dt>
+<dd>
+<p class="inheritance">
+<em>Inherited from:</em>
+<code><a title="opshin.types.ClassType" href="#opshin.types.ClassType">ClassType</a></code>.<code><a title="opshin.types.ClassType.unop_type" href="#opshin.types.ClassType.unop_type">unop_type</a></code>
+</p>
+<div class="desc inherited"><p>Type of a unary operation on self.</p></div>
+</dd>
 </dl>
 </dd>
 <dt id="opshin.types.InstanceType"><code class="flex name class">
@@ -5874,7 +6321,13 @@ class InstanceType(Type):
         return self.typ.binop_type(binop, other)
 
     def binop(self, binop: operator, other: AST) -&gt; plt.AST:
-        return self.typ.binop(binop, other)</code></pre>
+        return self.typ.binop(binop, other)
+
+    def unop_type(self, unop: unaryop) -&gt; &#34;Type&#34;:
+        return self.typ.unop_type(unop)
+
+    def unop(self, unop: unaryop) -&gt; plt.AST:
+        return self.typ.unop(unop)</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -6047,6 +6500,40 @@ class InstanceType(Type):
 </summary>
 <pre><code class="python">def stringify(self, recursive: bool = False) -&gt; plt.AST:
     return self.typ.stringify(recursive=recursive)</code></pre>
+</details>
+</dd>
+<dt id="opshin.types.InstanceType.unop"><code class="name flex">
+<span>def <span class="ident">unop</span></span>(<span>self, unop: ast.unaryop) ‑> pluthon.pluthon_ast.AST</span>
+</code></dt>
+<dd>
+<p class="inheritance">
+<em>Inherited from:</em>
+<code><a title="opshin.types.Type" href="#opshin.types.Type">Type</a></code>.<code><a title="opshin.types.Type.unop" href="#opshin.types.Type.unop">unop</a></code>
+</p>
+<div class="desc inherited"><p>Implements a unary operation on self</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def unop(self, unop: unaryop) -&gt; plt.AST:
+    return self.typ.unop(unop)</code></pre>
+</details>
+</dd>
+<dt id="opshin.types.InstanceType.unop_type"><code class="name flex">
+<span>def <span class="ident">unop_type</span></span>(<span>self, unop: ast.unaryop) ‑> <a title="opshin.types.Type" href="#opshin.types.Type">Type</a></span>
+</code></dt>
+<dd>
+<p class="inheritance">
+<em>Inherited from:</em>
+<code><a title="opshin.types.Type" href="#opshin.types.Type">Type</a></code>.<code><a title="opshin.types.Type.unop_type" href="#opshin.types.Type.unop_type">unop_type</a></code>
+</p>
+<div class="desc inherited"><p>Type of a unary operation on self.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def unop_type(self, unop: unaryop) -&gt; &#34;Type&#34;:
+    return self.typ.unop_type(unop)</code></pre>
 </details>
 </dd>
 </dl>
@@ -6576,14 +7063,40 @@ class IntegerType(AtomicType):
             elif isinstance(binop, Mod):
                 return plt.ModInteger
             elif isinstance(binop, Pow):
-                return PowImpl
+                return lambda x, y: OLet(
+                    [(&#34;y&#34;, y)],
+                    plt.Ite(
+                        plt.LessThanInteger(OVar(&#34;y&#34;), plt.Integer(0)),
+                        plt.TraceError(&#34;Negative exponentiation is not supported&#34;),
+                        PowImpl(x, OVar(&#34;y&#34;)),
+                    ),
+                )
+
         if isinstance(binop, Mult):
             if other.typ == IntegerInstanceType:
                 return plt.MultiplyInteger
             elif other.typ == ByteStringInstanceType:
                 return lambda x, y: ByteStrIntMulImpl(y, x)
             elif other.typ == StringInstanceType:
-                return lambda x, y: StrIntMulImpl(y, x)</code></pre>
+                return lambda x, y: StrIntMulImpl(y, x)
+
+    def _unop_return_type(self, unop: unaryop) -&gt; &#34;Type&#34;:
+        if isinstance(unop, USub):
+            return IntegerType()
+        elif isinstance(unop, UAdd):
+            return IntegerType()
+        elif isinstance(unop, Not):
+            return BoolType()
+        return super()._unop_return_type(unop)
+
+    def _unop_fun(self, unop: unaryop) -&gt; Callable[[plt.AST], plt.AST]:
+        if isinstance(unop, USub):
+            return lambda x: plt.SubtractInteger(plt.Integer(0), x)
+        if isinstance(unop, UAdd):
+            return lambda x: x
+        if isinstance(unop, Not):
+            return lambda x: plt.EqualsInteger(x, plt.Integer(0))
+        return super()._unop_fun(unop)</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -6838,6 +7351,26 @@ For anything but record …</p></div>
     )</code></pre>
 </details>
 </dd>
+<dt id="opshin.types.IntegerType.unop"><code class="name flex">
+<span>def <span class="ident">unop</span></span>(<span>self, unop: ast.unaryop) ‑> pluthon.pluthon_ast.AST</span>
+</code></dt>
+<dd>
+<p class="inheritance">
+<em>Inherited from:</em>
+<code><a title="opshin.types.AtomicType" href="#opshin.types.AtomicType">AtomicType</a></code>.<code><a title="opshin.types.AtomicType.unop" href="#opshin.types.AtomicType.unop">unop</a></code>
+</p>
+<div class="desc inherited"><p>Implements a unary operation on self</p></div>
+</dd>
+<dt id="opshin.types.IntegerType.unop_type"><code class="name flex">
+<span>def <span class="ident">unop_type</span></span>(<span>self, unop: ast.unaryop) ‑> <a title="opshin.types.Type" href="#opshin.types.Type">Type</a></span>
+</code></dt>
+<dd>
+<p class="inheritance">
+<em>Inherited from:</em>
+<code><a title="opshin.types.AtomicType" href="#opshin.types.AtomicType">AtomicType</a></code>.<code><a title="opshin.types.AtomicType.unop_type" href="#opshin.types.AtomicType.unop_type">unop_type</a></code>
+</p>
+<div class="desc inherited"><p>Type of a unary operation on self.</p></div>
+</dd>
 </dl>
 </dd>
 <dt id="opshin.types.ListType"><code class="flex name class">
@@ -6856,6 +7389,48 @@ class ListType(ClassType):
 
     def __ge__(self, other):
         return isinstance(other, ListType) and self.typ &gt;= other.typ
+
+    def attribute_type(self, attr) -&gt; &#34;Type&#34;:
+        if attr == &#34;index&#34;:
+            return InstanceType(
+                FunctionType(frozenlist([self.typ]), IntegerInstanceType)
+            )
+        super().attribute_type(attr)
+
+    def attribute(self, attr) -&gt; plt.AST:
+        if attr == &#34;index&#34;:
+            return OLambda(
+                [&#34;self&#34;, &#34;x&#34;],
+                OLet(
+                    [(&#34;x&#34;, plt.Force(OVar(&#34;x&#34;)))],
+                    plt.Apply(
+                        plt.RecFun(
+                            OLambda(
+                                [&#34;index&#34;, &#34;xs&#34;, &#34;a&#34;],
+                                plt.IteNullList(
+                                    OVar(&#34;xs&#34;),
+                                    plt.TraceError(&#34;Did not find element in list&#34;),
+                                    plt.Ite(
+                                        plt.EqualsInteger(
+                                            OVar(&#34;x&#34;), plt.HeadList(OVar(&#34;xs&#34;))
+                                        ),
+                                        OVar(&#34;a&#34;),
+                                        plt.Apply(
+                                            OVar(&#34;index&#34;),
+                                            OVar(&#34;index&#34;),
+                                            plt.TailList(OVar(&#34;xs&#34;)),
+                                            plt.AddInteger(OVar(&#34;a&#34;), plt.Integer(1)),
+                                        ),
+                                    ),
+                                ),
+                            ),
+                        ),
+                        OVar(&#34;self&#34;),
+                        plt.Integer(0),
+                    ),
+                ),
+            )
+        super().attribute(attr)
 
     def stringify(self, recursive: bool = False) -&gt; plt.AST:
         return OLambda(
@@ -6939,7 +7514,17 @@ class ListType(ClassType):
             if isinstance(other.typ, InstanceType) and isinstance(
                 other.typ.typ, ListType
             ):
-                return plt.AppendList</code></pre>
+                return plt.AppendList
+
+    def _unop_return_type(self, unop: unaryop) -&gt; &#34;Type&#34;:
+        if isinstance(unop, Not):
+            return BoolType()
+        return super()._unop_return_type(unop)
+
+    def _unop_fun(self, unop: unaryop) -&gt; Callable[[plt.AST], plt.AST]:
+        if isinstance(unop, Not):
+            return lambda x: plt.IteNullList(x, plt.Bool(True), plt.Bool(False))
+        return super()._unop_fun(unop)</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -6964,6 +7549,45 @@ class ListType(ClassType):
 <code><a title="opshin.types.ClassType" href="#opshin.types.ClassType">ClassType</a></code>.<code><a title="opshin.types.ClassType.attribute" href="#opshin.types.ClassType.attribute">attribute</a></code>
 </p>
 <div class="desc inherited"><p>The attributes of this class. Needs to be a lambda that expects as first argument the object itself</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def attribute(self, attr) -&gt; plt.AST:
+    if attr == &#34;index&#34;:
+        return OLambda(
+            [&#34;self&#34;, &#34;x&#34;],
+            OLet(
+                [(&#34;x&#34;, plt.Force(OVar(&#34;x&#34;)))],
+                plt.Apply(
+                    plt.RecFun(
+                        OLambda(
+                            [&#34;index&#34;, &#34;xs&#34;, &#34;a&#34;],
+                            plt.IteNullList(
+                                OVar(&#34;xs&#34;),
+                                plt.TraceError(&#34;Did not find element in list&#34;),
+                                plt.Ite(
+                                    plt.EqualsInteger(
+                                        OVar(&#34;x&#34;), plt.HeadList(OVar(&#34;xs&#34;))
+                                    ),
+                                    OVar(&#34;a&#34;),
+                                    plt.Apply(
+                                        OVar(&#34;index&#34;),
+                                        OVar(&#34;index&#34;),
+                                        plt.TailList(OVar(&#34;xs&#34;)),
+                                        plt.AddInteger(OVar(&#34;a&#34;), plt.Integer(1)),
+                                    ),
+                                ),
+                            ),
+                        ),
+                    ),
+                    OVar(&#34;self&#34;),
+                    plt.Integer(0),
+                ),
+            ),
+        )
+    super().attribute(attr)</code></pre>
+</details>
 </dd>
 <dt id="opshin.types.ListType.attribute_type"><code class="name flex">
 <span>def <span class="ident">attribute_type</span></span>(<span>self, attr) ‑> <a title="opshin.types.Type" href="#opshin.types.Type">Type</a></span>
@@ -6974,6 +7598,17 @@ class ListType(ClassType):
 <code><a title="opshin.types.ClassType" href="#opshin.types.ClassType">ClassType</a></code>.<code><a title="opshin.types.ClassType.attribute_type" href="#opshin.types.ClassType.attribute_type">attribute_type</a></code>
 </p>
 <div class="desc inherited"><p>The types of the named attributes of this class</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def attribute_type(self, attr) -&gt; &#34;Type&#34;:
+    if attr == &#34;index&#34;:
+        return InstanceType(
+            FunctionType(frozenlist([self.typ]), IntegerInstanceType)
+        )
+    super().attribute_type(attr)</code></pre>
+</details>
 </dd>
 <dt id="opshin.types.ListType.binop"><code class="name flex">
 <span>def <span class="ident">binop</span></span>(<span>self, binop: ast.operator, other: ast.AST) ‑> pluthon.pluthon_ast.AST</span>
@@ -7118,6 +7753,26 @@ For anything but record …</p></div>
         ),
     )</code></pre>
 </details>
+</dd>
+<dt id="opshin.types.ListType.unop"><code class="name flex">
+<span>def <span class="ident">unop</span></span>(<span>self, unop: ast.unaryop) ‑> pluthon.pluthon_ast.AST</span>
+</code></dt>
+<dd>
+<p class="inheritance">
+<em>Inherited from:</em>
+<code><a title="opshin.types.ClassType" href="#opshin.types.ClassType">ClassType</a></code>.<code><a title="opshin.types.ClassType.unop" href="#opshin.types.ClassType.unop">unop</a></code>
+</p>
+<div class="desc inherited"><p>Implements a unary operation on self</p></div>
+</dd>
+<dt id="opshin.types.ListType.unop_type"><code class="name flex">
+<span>def <span class="ident">unop_type</span></span>(<span>self, unop: ast.unaryop) ‑> <a title="opshin.types.Type" href="#opshin.types.Type">Type</a></span>
+</code></dt>
+<dd>
+<p class="inheritance">
+<em>Inherited from:</em>
+<code><a title="opshin.types.ClassType" href="#opshin.types.ClassType">ClassType</a></code>.<code><a title="opshin.types.ClassType.unop_type" href="#opshin.types.ClassType.unop_type">unop_type</a></code>
+</p>
+<div class="desc inherited"><p>Type of a unary operation on self.</p></div>
 </dd>
 </dl>
 </dd>
@@ -7290,6 +7945,26 @@ For anything but record …</p></div>
         plt.ConcatString(plt.Text(&#34;(&#34;), tuple_content, plt.Text(&#34;)&#34;)),
     )</code></pre>
 </details>
+</dd>
+<dt id="opshin.types.PairType.unop"><code class="name flex">
+<span>def <span class="ident">unop</span></span>(<span>self, unop: ast.unaryop) ‑> pluthon.pluthon_ast.AST</span>
+</code></dt>
+<dd>
+<p class="inheritance">
+<em>Inherited from:</em>
+<code><a title="opshin.types.ClassType" href="#opshin.types.ClassType">ClassType</a></code>.<code><a title="opshin.types.ClassType.unop" href="#opshin.types.ClassType.unop">unop</a></code>
+</p>
+<div class="desc inherited"><p>Implements a unary operation on self</p></div>
+</dd>
+<dt id="opshin.types.PairType.unop_type"><code class="name flex">
+<span>def <span class="ident">unop_type</span></span>(<span>self, unop: ast.unaryop) ‑> <a title="opshin.types.Type" href="#opshin.types.Type">Type</a></span>
+</code></dt>
+<dd>
+<p class="inheritance">
+<em>Inherited from:</em>
+<code><a title="opshin.types.ClassType" href="#opshin.types.ClassType">ClassType</a></code>.<code><a title="opshin.types.ClassType.unop_type" href="#opshin.types.ClassType.unop_type">unop_type</a></code>
+</p>
+<div class="desc inherited"><p>Type of a unary operation on self.</p></div>
 </dd>
 </dl>
 </dd>
@@ -7484,6 +8159,26 @@ class PolymorphicFunctionInstanceType(InstanceType):
 </p>
 <div class="desc inherited"><p>Returns a stringified version of the object …</p></div>
 </dd>
+<dt id="opshin.types.PolymorphicFunctionInstanceType.unop"><code class="name flex">
+<span>def <span class="ident">unop</span></span>(<span>self, unop: ast.unaryop) ‑> pluthon.pluthon_ast.AST</span>
+</code></dt>
+<dd>
+<p class="inheritance">
+<em>Inherited from:</em>
+<code><a title="opshin.types.InstanceType" href="#opshin.types.InstanceType">InstanceType</a></code>.<code><a title="opshin.types.InstanceType.unop" href="#opshin.types.InstanceType.unop">unop</a></code>
+</p>
+<div class="desc inherited"><p>Implements a unary operation on self</p></div>
+</dd>
+<dt id="opshin.types.PolymorphicFunctionInstanceType.unop_type"><code class="name flex">
+<span>def <span class="ident">unop_type</span></span>(<span>self, unop: ast.unaryop) ‑> <a title="opshin.types.Type" href="#opshin.types.Type">Type</a></span>
+</code></dt>
+<dd>
+<p class="inheritance">
+<em>Inherited from:</em>
+<code><a title="opshin.types.InstanceType" href="#opshin.types.InstanceType">InstanceType</a></code>.<code><a title="opshin.types.InstanceType.unop_type" href="#opshin.types.InstanceType.unop_type">unop_type</a></code>
+</p>
+<div class="desc inherited"><p>Type of a unary operation on self.</p></div>
+</dd>
 </dl>
 </dd>
 <dt id="opshin.types.PolymorphicFunctionType"><code class="flex name class">
@@ -7606,6 +8301,26 @@ For anything but record …</p></div>
 <code><a title="opshin.types.ClassType" href="#opshin.types.ClassType">ClassType</a></code>.<code><a title="opshin.types.ClassType.stringify" href="#opshin.types.ClassType.stringify">stringify</a></code>
 </p>
 <div class="desc inherited"><p>Returns a stringified version of the object …</p></div>
+</dd>
+<dt id="opshin.types.PolymorphicFunctionType.unop"><code class="name flex">
+<span>def <span class="ident">unop</span></span>(<span>self, unop: ast.unaryop) ‑> pluthon.pluthon_ast.AST</span>
+</code></dt>
+<dd>
+<p class="inheritance">
+<em>Inherited from:</em>
+<code><a title="opshin.types.ClassType" href="#opshin.types.ClassType">ClassType</a></code>.<code><a title="opshin.types.ClassType.unop" href="#opshin.types.ClassType.unop">unop</a></code>
+</p>
+<div class="desc inherited"><p>Implements a unary operation on self</p></div>
+</dd>
+<dt id="opshin.types.PolymorphicFunctionType.unop_type"><code class="name flex">
+<span>def <span class="ident">unop_type</span></span>(<span>self, unop: ast.unaryop) ‑> <a title="opshin.types.Type" href="#opshin.types.Type">Type</a></span>
+</code></dt>
+<dd>
+<p class="inheritance">
+<em>Inherited from:</em>
+<code><a title="opshin.types.ClassType" href="#opshin.types.ClassType">ClassType</a></code>.<code><a title="opshin.types.ClassType.unop_type" href="#opshin.types.ClassType.unop_type">unop_type</a></code>
+</p>
+<div class="desc inherited"><p>Type of a unary operation on self.</p></div>
 </dd>
 </dl>
 </dd>
@@ -7739,9 +8454,16 @@ class RecordType(ClassType):
         &#34;&#34;&#34;The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second the comparison.&#34;&#34;&#34;
         # this will reject comparisons that will always be false - most likely due to faults during programming
         if (
-            isinstance(o, RecordType)
-            and (self.record &gt;= o.record or o.record &gt;= self.record)
-        ) or (isinstance(o, UnionType) and any(self &gt;= o or self &gt;= o for o in o.typs)):
+            (
+                isinstance(o, RecordType)
+                and (self.record &gt;= o.record or o.record &gt;= self.record)
+            )
+            or (
+                isinstance(o, UnionType) and any(self &gt;= o or self &gt;= o for o in o.typs)
+            )
+            or isinstance(o, AnyType)
+        ):
+            # Note that comparison with AnyType is actually fine because both are Data
             if isinstance(op, Eq):
                 return plt.BuiltIn(uplc.BuiltInFun.EqualsData)
             if isinstance(op, NotEq):
@@ -7971,9 +8693,16 @@ class RecordType(ClassType):
     &#34;&#34;&#34;The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second the comparison.&#34;&#34;&#34;
     # this will reject comparisons that will always be false - most likely due to faults during programming
     if (
-        isinstance(o, RecordType)
-        and (self.record &gt;= o.record or o.record &gt;= self.record)
-    ) or (isinstance(o, UnionType) and any(self &gt;= o or self &gt;= o for o in o.typs)):
+        (
+            isinstance(o, RecordType)
+            and (self.record &gt;= o.record or o.record &gt;= self.record)
+        )
+        or (
+            isinstance(o, UnionType) and any(self &gt;= o or self &gt;= o for o in o.typs)
+        )
+        or isinstance(o, AnyType)
+    ):
+        # Note that comparison with AnyType is actually fine because both are Data
         if isinstance(op, Eq):
             return plt.BuiltIn(uplc.BuiltInFun.EqualsData)
         if isinstance(op, NotEq):
@@ -8154,6 +8883,26 @@ For anything but record …</p></div>
     )</code></pre>
 </details>
 </dd>
+<dt id="opshin.types.RecordType.unop"><code class="name flex">
+<span>def <span class="ident">unop</span></span>(<span>self, unop: ast.unaryop) ‑> pluthon.pluthon_ast.AST</span>
+</code></dt>
+<dd>
+<p class="inheritance">
+<em>Inherited from:</em>
+<code><a title="opshin.types.ClassType" href="#opshin.types.ClassType">ClassType</a></code>.<code><a title="opshin.types.ClassType.unop" href="#opshin.types.ClassType.unop">unop</a></code>
+</p>
+<div class="desc inherited"><p>Implements a unary operation on self</p></div>
+</dd>
+<dt id="opshin.types.RecordType.unop_type"><code class="name flex">
+<span>def <span class="ident">unop_type</span></span>(<span>self, unop: ast.unaryop) ‑> <a title="opshin.types.Type" href="#opshin.types.Type">Type</a></span>
+</code></dt>
+<dd>
+<p class="inheritance">
+<em>Inherited from:</em>
+<code><a title="opshin.types.ClassType" href="#opshin.types.ClassType">ClassType</a></code>.<code><a title="opshin.types.ClassType.unop_type" href="#opshin.types.ClassType.unop_type">unop_type</a></code>
+</p>
+<div class="desc inherited"><p>Type of a unary operation on self.</p></div>
+</dd>
 </dl>
 </dd>
 <dt id="opshin.types.StrImpl"><code class="flex name class">
@@ -8277,7 +9026,19 @@ class StringType(AtomicType):
                 return plt.AppendString
         if isinstance(binop, Mult):
             if other.typ == IntegerInstanceType:
-                return StrIntMulImpl</code></pre>
+                return StrIntMulImpl
+
+    def _unop_return_type(self, unop: unaryop) -&gt; &#34;Type&#34;:
+        if isinstance(unop, Not):
+            return BoolType()
+        return super()._unop_return_type(unop)
+
+    def _unop_fun(self, unop: unaryop) -&gt; Callable[[plt.AST], plt.AST]:
+        if isinstance(unop, Not):
+            return lambda x: plt.EqualsInteger(
+                plt.LengthOfByteString(plt.EncodeUtf8(x)), plt.Integer(0)
+            )
+        return super()._unop_fun(unop)</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -8427,6 +9188,26 @@ For anything but record …</p></div>
     else:
         return OLambda([&#34;self&#34;], OVar(&#34;self&#34;))</code></pre>
 </details>
+</dd>
+<dt id="opshin.types.StringType.unop"><code class="name flex">
+<span>def <span class="ident">unop</span></span>(<span>self, unop: ast.unaryop) ‑> pluthon.pluthon_ast.AST</span>
+</code></dt>
+<dd>
+<p class="inheritance">
+<em>Inherited from:</em>
+<code><a title="opshin.types.AtomicType" href="#opshin.types.AtomicType">AtomicType</a></code>.<code><a title="opshin.types.AtomicType.unop" href="#opshin.types.AtomicType.unop">unop</a></code>
+</p>
+<div class="desc inherited"><p>Implements a unary operation on self</p></div>
+</dd>
+<dt id="opshin.types.StringType.unop_type"><code class="name flex">
+<span>def <span class="ident">unop_type</span></span>(<span>self, unop: ast.unaryop) ‑> <a title="opshin.types.Type" href="#opshin.types.Type">Type</a></span>
+</code></dt>
+<dd>
+<p class="inheritance">
+<em>Inherited from:</em>
+<code><a title="opshin.types.AtomicType" href="#opshin.types.AtomicType">AtomicType</a></code>.<code><a title="opshin.types.AtomicType.unop_type" href="#opshin.types.AtomicType.unop_type">unop_type</a></code>
+</p>
+<div class="desc inherited"><p>Type of a unary operation on self.</p></div>
 </dd>
 </dl>
 </dd>
@@ -8634,6 +9415,26 @@ For anything but record …</p></div>
     )</code></pre>
 </details>
 </dd>
+<dt id="opshin.types.TupleType.unop"><code class="name flex">
+<span>def <span class="ident">unop</span></span>(<span>self, unop: ast.unaryop) ‑> pluthon.pluthon_ast.AST</span>
+</code></dt>
+<dd>
+<p class="inheritance">
+<em>Inherited from:</em>
+<code><a title="opshin.types.ClassType" href="#opshin.types.ClassType">ClassType</a></code>.<code><a title="opshin.types.ClassType.unop" href="#opshin.types.ClassType.unop">unop</a></code>
+</p>
+<div class="desc inherited"><p>Implements a unary operation on self</p></div>
+</dd>
+<dt id="opshin.types.TupleType.unop_type"><code class="name flex">
+<span>def <span class="ident">unop_type</span></span>(<span>self, unop: ast.unaryop) ‑> <a title="opshin.types.Type" href="#opshin.types.Type">Type</a></span>
+</code></dt>
+<dd>
+<p class="inheritance">
+<em>Inherited from:</em>
+<code><a title="opshin.types.ClassType" href="#opshin.types.ClassType">ClassType</a></code>.<code><a title="opshin.types.ClassType.unop_type" href="#opshin.types.ClassType.unop_type">unop_type</a></code>
+</p>
+<div class="desc inherited"><p>Type of a unary operation on self.</p></div>
+</dd>
 </dl>
 </dd>
 <dt id="opshin.types.Type"><code class="flex name class">
@@ -8733,6 +9534,40 @@ For anything but record …</p></div>
         &#34;&#34;&#34;
         raise NotImplementedError(
             f&#34;{type(self).__name__} can not be used with operation {binop.__class__.__name__}&#34;
+        )
+
+    def unop_type(self, unop: unaryop) -&gt; &#34;Type&#34;:
+        &#34;&#34;&#34;
+        Type of a unary operation on self.
+        &#34;&#34;&#34;
+        return FunctionType(
+            [InstanceType(self)],
+            InstanceType(self._unop_return_type(unop)),
+        )
+
+    def _unop_return_type(self, unop: unaryop) -&gt; &#34;Type&#34;:
+        &#34;&#34;&#34;
+        Return the type of a binary operation between self and other
+        &#34;&#34;&#34;
+        raise NotImplementedError(
+            f&#34;{type(self).__name__} does not implement {unop.__class__.__name__}&#34;
+        )
+
+    def unop(self, unop: unaryop) -&gt; plt.AST:
+        &#34;&#34;&#34;
+        Implements a unary operation on self
+        &#34;&#34;&#34;
+        return OLambda(
+            [&#34;self&#34;],
+            self._unop_fun(unop)(OVar(&#34;self&#34;)),
+        )
+
+    def _unop_fun(self, unop: unaryop) -&gt; Callable[[plt.AST], plt.AST]:
+        &#34;&#34;&#34;
+        Returns a unary function that implements the unary operation on self.
+        &#34;&#34;&#34;
+        raise NotImplementedError(
+            f&#34;{type(self).__name__} can not be used with operation {unop.__class__.__name__}&#34;
         )</code></pre>
 </details>
 <h3>Subclasses</h3>
@@ -8891,6 +9726,44 @@ For anything but record …</p></div>
     The recursive parameter informs the method whether it was invoked recursively from another invokation
     &#34;&#34;&#34;
     raise NotImplementedError(f&#34;{type(self).__name__} can not be stringified&#34;)</code></pre>
+</details>
+</dd>
+<dt id="opshin.types.Type.unop"><code class="name flex">
+<span>def <span class="ident">unop</span></span>(<span>self, unop: ast.unaryop) ‑> pluthon.pluthon_ast.AST</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Implements a unary operation on self</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def unop(self, unop: unaryop) -&gt; plt.AST:
+    &#34;&#34;&#34;
+    Implements a unary operation on self
+    &#34;&#34;&#34;
+    return OLambda(
+        [&#34;self&#34;],
+        self._unop_fun(unop)(OVar(&#34;self&#34;)),
+    )</code></pre>
+</details>
+</dd>
+<dt id="opshin.types.Type.unop_type"><code class="name flex">
+<span>def <span class="ident">unop_type</span></span>(<span>self, unop: ast.unaryop) ‑> <a title="opshin.types.Type" href="#opshin.types.Type">Type</a></span>
+</code></dt>
+<dd>
+<div class="desc"><p>Type of a unary operation on self.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def unop_type(self, unop: unaryop) -&gt; &#34;Type&#34;:
+    &#34;&#34;&#34;
+    Type of a unary operation on self.
+    &#34;&#34;&#34;
+    return FunctionType(
+        [InstanceType(self)],
+        InstanceType(self._unop_return_type(unop)),
+    )</code></pre>
 </details>
 </dd>
 </dl>
@@ -9418,6 +10291,26 @@ For anything but record …</p></div>
     )</code></pre>
 </details>
 </dd>
+<dt id="opshin.types.UnionType.unop"><code class="name flex">
+<span>def <span class="ident">unop</span></span>(<span>self, unop: ast.unaryop) ‑> pluthon.pluthon_ast.AST</span>
+</code></dt>
+<dd>
+<p class="inheritance">
+<em>Inherited from:</em>
+<code><a title="opshin.types.ClassType" href="#opshin.types.ClassType">ClassType</a></code>.<code><a title="opshin.types.ClassType.unop" href="#opshin.types.ClassType.unop">unop</a></code>
+</p>
+<div class="desc inherited"><p>Implements a unary operation on self</p></div>
+</dd>
+<dt id="opshin.types.UnionType.unop_type"><code class="name flex">
+<span>def <span class="ident">unop_type</span></span>(<span>self, unop: ast.unaryop) ‑> <a title="opshin.types.Type" href="#opshin.types.Type">Type</a></span>
+</code></dt>
+<dd>
+<p class="inheritance">
+<em>Inherited from:</em>
+<code><a title="opshin.types.ClassType" href="#opshin.types.ClassType">ClassType</a></code>.<code><a title="opshin.types.ClassType.unop_type" href="#opshin.types.ClassType.unop_type">unop_type</a></code>
+</p>
+<div class="desc inherited"><p>Type of a unary operation on self.</p></div>
+</dd>
 </dl>
 </dd>
 <dt id="opshin.types.UnitType"><code class="flex name class">
@@ -9440,7 +10333,17 @@ class UnitType(AtomicType):
         return super().cmp(op, o)
 
     def stringify(self, recursive: bool = False) -&gt; plt.AST:
-        return OLambda([&#34;self&#34;], plt.Text(&#34;None&#34;))</code></pre>
+        return OLambda([&#34;self&#34;], plt.Text(&#34;None&#34;))
+
+    def _unop_return_type(self, unop: unaryop) -&gt; &#34;Type&#34;:
+        if isinstance(unop, Not):
+            return BoolType()
+        return super()._unop_return_type(unop)
+
+    def _unop_fun(self, unop: unaryop) -&gt; Callable[[plt.AST], plt.AST]:
+        if isinstance(unop, Not):
+            return lambda x: plt.Bool(True)
+        return super()._unop_fun(unop)</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -9560,6 +10463,26 @@ For anything but record …</p></div>
     return OLambda([&#34;self&#34;], plt.Text(&#34;None&#34;))</code></pre>
 </details>
 </dd>
+<dt id="opshin.types.UnitType.unop"><code class="name flex">
+<span>def <span class="ident">unop</span></span>(<span>self, unop: ast.unaryop) ‑> pluthon.pluthon_ast.AST</span>
+</code></dt>
+<dd>
+<p class="inheritance">
+<em>Inherited from:</em>
+<code><a title="opshin.types.AtomicType" href="#opshin.types.AtomicType">AtomicType</a></code>.<code><a title="opshin.types.AtomicType.unop" href="#opshin.types.AtomicType.unop">unop</a></code>
+</p>
+<div class="desc inherited"><p>Implements a unary operation on self</p></div>
+</dd>
+<dt id="opshin.types.UnitType.unop_type"><code class="name flex">
+<span>def <span class="ident">unop_type</span></span>(<span>self, unop: ast.unaryop) ‑> <a title="opshin.types.Type" href="#opshin.types.Type">Type</a></span>
+</code></dt>
+<dd>
+<p class="inheritance">
+<em>Inherited from:</em>
+<code><a title="opshin.types.AtomicType" href="#opshin.types.AtomicType">AtomicType</a></code>.<code><a title="opshin.types.AtomicType.unop_type" href="#opshin.types.AtomicType.unop_type">unop_type</a></code>
+</p>
+<div class="desc inherited"><p>Type of a unary operation on self.</p></div>
+</dd>
 </dl>
 </dd>
 </dl>
@@ -9654,6 +10577,8 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="opshin.types.AnyType.constr_type" href="#opshin.types.AnyType.constr_type">constr_type</a></code></li>
 <li><code><a title="opshin.types.AnyType.copy_only_attributes" href="#opshin.types.AnyType.copy_only_attributes">copy_only_attributes</a></code></li>
 <li><code><a title="opshin.types.AnyType.stringify" href="#opshin.types.AnyType.stringify">stringify</a></code></li>
+<li><code><a title="opshin.types.AnyType.unop" href="#opshin.types.AnyType.unop">unop</a></code></li>
+<li><code><a title="opshin.types.AnyType.unop_type" href="#opshin.types.AnyType.unop_type">unop_type</a></code></li>
 </ul>
 </li>
 <li>
@@ -9668,6 +10593,8 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="opshin.types.AtomicType.constr_type" href="#opshin.types.AtomicType.constr_type">constr_type</a></code></li>
 <li><code><a title="opshin.types.AtomicType.copy_only_attributes" href="#opshin.types.AtomicType.copy_only_attributes">copy_only_attributes</a></code></li>
 <li><code><a title="opshin.types.AtomicType.stringify" href="#opshin.types.AtomicType.stringify">stringify</a></code></li>
+<li><code><a title="opshin.types.AtomicType.unop" href="#opshin.types.AtomicType.unop">unop</a></code></li>
+<li><code><a title="opshin.types.AtomicType.unop_type" href="#opshin.types.AtomicType.unop_type">unop_type</a></code></li>
 </ul>
 </li>
 <li>
@@ -9689,6 +10616,8 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="opshin.types.BoolType.constr_type" href="#opshin.types.BoolType.constr_type">constr_type</a></code></li>
 <li><code><a title="opshin.types.BoolType.copy_only_attributes" href="#opshin.types.BoolType.copy_only_attributes">copy_only_attributes</a></code></li>
 <li><code><a title="opshin.types.BoolType.stringify" href="#opshin.types.BoolType.stringify">stringify</a></code></li>
+<li><code><a title="opshin.types.BoolType.unop" href="#opshin.types.BoolType.unop">unop</a></code></li>
+<li><code><a title="opshin.types.BoolType.unop_type" href="#opshin.types.BoolType.unop_type">unop_type</a></code></li>
 </ul>
 </li>
 <li>
@@ -9703,6 +10632,8 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="opshin.types.ByteStringType.constr_type" href="#opshin.types.ByteStringType.constr_type">constr_type</a></code></li>
 <li><code><a title="opshin.types.ByteStringType.copy_only_attributes" href="#opshin.types.ByteStringType.copy_only_attributes">copy_only_attributes</a></code></li>
 <li><code><a title="opshin.types.ByteStringType.stringify" href="#opshin.types.ByteStringType.stringify">stringify</a></code></li>
+<li><code><a title="opshin.types.ByteStringType.unop" href="#opshin.types.ByteStringType.unop">unop</a></code></li>
+<li><code><a title="opshin.types.ByteStringType.unop_type" href="#opshin.types.ByteStringType.unop_type">unop_type</a></code></li>
 </ul>
 </li>
 <li>
@@ -9724,6 +10655,8 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="opshin.types.ClassType.constr_type" href="#opshin.types.ClassType.constr_type">constr_type</a></code></li>
 <li><code><a title="opshin.types.ClassType.copy_only_attributes" href="#opshin.types.ClassType.copy_only_attributes">copy_only_attributes</a></code></li>
 <li><code><a title="opshin.types.ClassType.stringify" href="#opshin.types.ClassType.stringify">stringify</a></code></li>
+<li><code><a title="opshin.types.ClassType.unop" href="#opshin.types.ClassType.unop">unop</a></code></li>
+<li><code><a title="opshin.types.ClassType.unop_type" href="#opshin.types.ClassType.unop_type">unop_type</a></code></li>
 </ul>
 </li>
 <li>
@@ -9739,6 +10672,8 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="opshin.types.DictType.copy_only_attributes" href="#opshin.types.DictType.copy_only_attributes">copy_only_attributes</a></code></li>
 <li><code><a title="opshin.types.DictType.key_typ" href="#opshin.types.DictType.key_typ">key_typ</a></code></li>
 <li><code><a title="opshin.types.DictType.stringify" href="#opshin.types.DictType.stringify">stringify</a></code></li>
+<li><code><a title="opshin.types.DictType.unop" href="#opshin.types.DictType.unop">unop</a></code></li>
+<li><code><a title="opshin.types.DictType.unop_type" href="#opshin.types.DictType.unop_type">unop_type</a></code></li>
 <li><code><a title="opshin.types.DictType.value_typ" href="#opshin.types.DictType.value_typ">value_typ</a></code></li>
 </ul>
 </li>
@@ -9757,6 +10692,8 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="opshin.types.FunctionType.copy_only_attributes" href="#opshin.types.FunctionType.copy_only_attributes">copy_only_attributes</a></code></li>
 <li><code><a title="opshin.types.FunctionType.rettyp" href="#opshin.types.FunctionType.rettyp">rettyp</a></code></li>
 <li><code><a title="opshin.types.FunctionType.stringify" href="#opshin.types.FunctionType.stringify">stringify</a></code></li>
+<li><code><a title="opshin.types.FunctionType.unop" href="#opshin.types.FunctionType.unop">unop</a></code></li>
+<li><code><a title="opshin.types.FunctionType.unop_type" href="#opshin.types.FunctionType.unop_type">unop_type</a></code></li>
 </ul>
 </li>
 <li>
@@ -9771,6 +10708,8 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="opshin.types.InaccessibleType.constr_type" href="#opshin.types.InaccessibleType.constr_type">constr_type</a></code></li>
 <li><code><a title="opshin.types.InaccessibleType.copy_only_attributes" href="#opshin.types.InaccessibleType.copy_only_attributes">copy_only_attributes</a></code></li>
 <li><code><a title="opshin.types.InaccessibleType.stringify" href="#opshin.types.InaccessibleType.stringify">stringify</a></code></li>
+<li><code><a title="opshin.types.InaccessibleType.unop" href="#opshin.types.InaccessibleType.unop">unop</a></code></li>
+<li><code><a title="opshin.types.InaccessibleType.unop_type" href="#opshin.types.InaccessibleType.unop_type">unop_type</a></code></li>
 </ul>
 </li>
 <li>
@@ -9786,6 +10725,8 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="opshin.types.InstanceType.copy_only_attributes" href="#opshin.types.InstanceType.copy_only_attributes">copy_only_attributes</a></code></li>
 <li><code><a title="opshin.types.InstanceType.stringify" href="#opshin.types.InstanceType.stringify">stringify</a></code></li>
 <li><code><a title="opshin.types.InstanceType.typ" href="#opshin.types.InstanceType.typ">typ</a></code></li>
+<li><code><a title="opshin.types.InstanceType.unop" href="#opshin.types.InstanceType.unop">unop</a></code></li>
+<li><code><a title="opshin.types.InstanceType.unop_type" href="#opshin.types.InstanceType.unop_type">unop_type</a></code></li>
 </ul>
 </li>
 <li>
@@ -9807,6 +10748,8 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="opshin.types.IntegerType.constr_type" href="#opshin.types.IntegerType.constr_type">constr_type</a></code></li>
 <li><code><a title="opshin.types.IntegerType.copy_only_attributes" href="#opshin.types.IntegerType.copy_only_attributes">copy_only_attributes</a></code></li>
 <li><code><a title="opshin.types.IntegerType.stringify" href="#opshin.types.IntegerType.stringify">stringify</a></code></li>
+<li><code><a title="opshin.types.IntegerType.unop" href="#opshin.types.IntegerType.unop">unop</a></code></li>
+<li><code><a title="opshin.types.IntegerType.unop_type" href="#opshin.types.IntegerType.unop_type">unop_type</a></code></li>
 </ul>
 </li>
 <li>
@@ -9822,6 +10765,8 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="opshin.types.ListType.copy_only_attributes" href="#opshin.types.ListType.copy_only_attributes">copy_only_attributes</a></code></li>
 <li><code><a title="opshin.types.ListType.stringify" href="#opshin.types.ListType.stringify">stringify</a></code></li>
 <li><code><a title="opshin.types.ListType.typ" href="#opshin.types.ListType.typ">typ</a></code></li>
+<li><code><a title="opshin.types.ListType.unop" href="#opshin.types.ListType.unop">unop</a></code></li>
+<li><code><a title="opshin.types.ListType.unop_type" href="#opshin.types.ListType.unop_type">unop_type</a></code></li>
 </ul>
 </li>
 <li>
@@ -9838,6 +10783,8 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="opshin.types.PairType.l_typ" href="#opshin.types.PairType.l_typ">l_typ</a></code></li>
 <li><code><a title="opshin.types.PairType.r_typ" href="#opshin.types.PairType.r_typ">r_typ</a></code></li>
 <li><code><a title="opshin.types.PairType.stringify" href="#opshin.types.PairType.stringify">stringify</a></code></li>
+<li><code><a title="opshin.types.PairType.unop" href="#opshin.types.PairType.unop">unop</a></code></li>
+<li><code><a title="opshin.types.PairType.unop_type" href="#opshin.types.PairType.unop_type">unop_type</a></code></li>
 </ul>
 </li>
 <li>
@@ -9861,6 +10808,8 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="opshin.types.PolymorphicFunctionInstanceType.polymorphic_function" href="#opshin.types.PolymorphicFunctionInstanceType.polymorphic_function">polymorphic_function</a></code></li>
 <li><code><a title="opshin.types.PolymorphicFunctionInstanceType.stringify" href="#opshin.types.PolymorphicFunctionInstanceType.stringify">stringify</a></code></li>
 <li><code><a title="opshin.types.PolymorphicFunctionInstanceType.typ" href="#opshin.types.PolymorphicFunctionInstanceType.typ">typ</a></code></li>
+<li><code><a title="opshin.types.PolymorphicFunctionInstanceType.unop" href="#opshin.types.PolymorphicFunctionInstanceType.unop">unop</a></code></li>
+<li><code><a title="opshin.types.PolymorphicFunctionInstanceType.unop_type" href="#opshin.types.PolymorphicFunctionInstanceType.unop_type">unop_type</a></code></li>
 </ul>
 </li>
 <li>
@@ -9876,6 +10825,8 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="opshin.types.PolymorphicFunctionType.copy_only_attributes" href="#opshin.types.PolymorphicFunctionType.copy_only_attributes">copy_only_attributes</a></code></li>
 <li><code><a title="opshin.types.PolymorphicFunctionType.polymorphic_function" href="#opshin.types.PolymorphicFunctionType.polymorphic_function">polymorphic_function</a></code></li>
 <li><code><a title="opshin.types.PolymorphicFunctionType.stringify" href="#opshin.types.PolymorphicFunctionType.stringify">stringify</a></code></li>
+<li><code><a title="opshin.types.PolymorphicFunctionType.unop" href="#opshin.types.PolymorphicFunctionType.unop">unop</a></code></li>
+<li><code><a title="opshin.types.PolymorphicFunctionType.unop_type" href="#opshin.types.PolymorphicFunctionType.unop_type">unop_type</a></code></li>
 </ul>
 </li>
 <li>
@@ -9900,6 +10851,8 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="opshin.types.RecordType.copy_only_attributes" href="#opshin.types.RecordType.copy_only_attributes">copy_only_attributes</a></code></li>
 <li><code><a title="opshin.types.RecordType.record" href="#opshin.types.RecordType.record">record</a></code></li>
 <li><code><a title="opshin.types.RecordType.stringify" href="#opshin.types.RecordType.stringify">stringify</a></code></li>
+<li><code><a title="opshin.types.RecordType.unop" href="#opshin.types.RecordType.unop">unop</a></code></li>
+<li><code><a title="opshin.types.RecordType.unop_type" href="#opshin.types.RecordType.unop_type">unop_type</a></code></li>
 </ul>
 </li>
 <li>
@@ -9921,6 +10874,8 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="opshin.types.StringType.constr_type" href="#opshin.types.StringType.constr_type">constr_type</a></code></li>
 <li><code><a title="opshin.types.StringType.copy_only_attributes" href="#opshin.types.StringType.copy_only_attributes">copy_only_attributes</a></code></li>
 <li><code><a title="opshin.types.StringType.stringify" href="#opshin.types.StringType.stringify">stringify</a></code></li>
+<li><code><a title="opshin.types.StringType.unop" href="#opshin.types.StringType.unop">unop</a></code></li>
+<li><code><a title="opshin.types.StringType.unop_type" href="#opshin.types.StringType.unop_type">unop_type</a></code></li>
 </ul>
 </li>
 <li>
@@ -9936,6 +10891,8 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="opshin.types.TupleType.copy_only_attributes" href="#opshin.types.TupleType.copy_only_attributes">copy_only_attributes</a></code></li>
 <li><code><a title="opshin.types.TupleType.stringify" href="#opshin.types.TupleType.stringify">stringify</a></code></li>
 <li><code><a title="opshin.types.TupleType.typs" href="#opshin.types.TupleType.typs">typs</a></code></li>
+<li><code><a title="opshin.types.TupleType.unop" href="#opshin.types.TupleType.unop">unop</a></code></li>
+<li><code><a title="opshin.types.TupleType.unop_type" href="#opshin.types.TupleType.unop_type">unop_type</a></code></li>
 </ul>
 </li>
 <li>
@@ -9950,6 +10907,8 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="opshin.types.Type.constr_type" href="#opshin.types.Type.constr_type">constr_type</a></code></li>
 <li><code><a title="opshin.types.Type.copy_only_attributes" href="#opshin.types.Type.copy_only_attributes">copy_only_attributes</a></code></li>
 <li><code><a title="opshin.types.Type.stringify" href="#opshin.types.Type.stringify">stringify</a></code></li>
+<li><code><a title="opshin.types.Type.unop" href="#opshin.types.Type.unop">unop</a></code></li>
+<li><code><a title="opshin.types.Type.unop_type" href="#opshin.types.Type.unop_type">unop_type</a></code></li>
 </ul>
 </li>
 <li>
@@ -9968,6 +10927,8 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="opshin.types.UnionType.copy_only_attributes" href="#opshin.types.UnionType.copy_only_attributes">copy_only_attributes</a></code></li>
 <li><code><a title="opshin.types.UnionType.stringify" href="#opshin.types.UnionType.stringify">stringify</a></code></li>
 <li><code><a title="opshin.types.UnionType.typs" href="#opshin.types.UnionType.typs">typs</a></code></li>
+<li><code><a title="opshin.types.UnionType.unop" href="#opshin.types.UnionType.unop">unop</a></code></li>
+<li><code><a title="opshin.types.UnionType.unop_type" href="#opshin.types.UnionType.unop_type">unop_type</a></code></li>
 </ul>
 </li>
 <li>
@@ -9982,6 +10943,8 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="opshin.types.UnitType.constr_type" href="#opshin.types.UnitType.constr_type">constr_type</a></code></li>
 <li><code><a title="opshin.types.UnitType.copy_only_attributes" href="#opshin.types.UnitType.copy_only_attributes">copy_only_attributes</a></code></li>
 <li><code><a title="opshin.types.UnitType.stringify" href="#opshin.types.UnitType.stringify">stringify</a></code></li>
+<li><code><a title="opshin.types.UnitType.unop" href="#opshin.types.UnitType.unop">unop</a></code></li>
+<li><code><a title="opshin.types.UnitType.unop_type" href="#opshin.types.UnitType.unop_type">unop_type</a></code></li>
 </ul>
 </li>
 </ul>

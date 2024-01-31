@@ -76,6 +76,8 @@ from .optimize.optimize_remove_comments import OptimizeRemoveDeadconstants
 from .rewrite.rewrite_augassign import RewriteAugAssign
 from .rewrite.rewrite_cast_condition import RewriteConditions
 from .rewrite.rewrite_comparison_chaining import RewriteComparisonChaining
+from .rewrite.rewrite_empty_dicts import RewriteEmptyDicts
+from .rewrite.rewrite_empty_lists import RewriteEmptyLists
 from .rewrite.rewrite_forbidden_overwrites import RewriteForbiddenOverwrites
 from .rewrite.rewrite_forbidden_return import RewriteForbiddenReturn
 from .rewrite.rewrite_import import RewriteImport
@@ -111,11 +113,6 @@ _LOGGER = logging.getLogger(__name__)
 BoolOpMap = {
     And: plt.And,
     Or: plt.Or,
-}
-
-UnaryOpMap = {
-    Not: {BoolInstanceType: plt.Not},
-    USub: {IntegerInstanceType: lambda x: plt.SubtractInteger(plt.Integer(0), x)},
 }
 
 
@@ -276,13 +273,11 @@ class PlutoCompiler(CompilingNodeTransformer):
         return ops
 
     def visit_UnaryOp(self, node: TypedUnaryOp) -&gt; plt.AST:
-        opmap = UnaryOpMap.get(type(node.op))
-        assert opmap is not None, f&#34;Operator {type(node.op)} is not supported&#34;
-        op = opmap.get(node.operand.typ)
-        assert (
-            op is not None
-        ), f&#34;Operator {type(node.op)} is not supported for type {node.operand.typ}&#34;
-        return op(self.visit(node.operand))
+        op = node.operand.typ.unop(node.op)
+        return plt.Apply(
+            op,
+            self.visit(node.operand),
+        )
 
     def visit_Compare(self, node: TypedCompare) -&gt; plt.AST:
         assert len(node.ops) == 1, &#34;Only single comparisons are supported&#34;
@@ -1046,6 +1041,57 @@ class PlutoCompiler(CompilingNodeTransformer):
                 empty_list_con,
             )
 
+    def visit_DictComp(self, node: TypedDictComp) -&gt; plt.AST:
+        assert len(node.generators) == 1, &#34;Currently only one generator supported&#34;
+        gen = node.generators[0]
+        assert isinstance(gen.iter.typ, InstanceType), &#34;Only lists are valid generators&#34;
+        assert isinstance(gen.iter.typ.typ, ListType), &#34;Only lists are valid generators&#34;
+        assert isinstance(
+            gen.target, Name
+        ), &#34;Can only assign value to singleton element&#34;
+        lst = self.visit(gen.iter)
+        ifs = None
+        for ifexpr in gen.ifs:
+            if ifs is None:
+                ifs = self.visit(ifexpr)
+            else:
+                ifs = plt.And(ifs, self.visit(ifexpr))
+        map_fun = OLambda(
+            [&#34;x&#34;],
+            plt.Let(
+                [(gen.target.id, plt.Delay(OVar(&#34;x&#34;)))],
+                plt.MkPairData(
+                    transform_output_map(node.key.typ)(
+                        self.visit(node.key),
+                    ),
+                    transform_output_map(node.value.typ)(
+                        self.visit(node.value),
+                    ),
+                ),
+            ),
+        )
+        empty_list_con = plt.EmptyDataPairList()
+        if ifs is not None:
+            filter_fun = OLambda(
+                [&#34;x&#34;],
+                plt.Let(
+                    [(gen.target.id, plt.Delay(OVar(&#34;x&#34;)))],
+                    ifs,
+                ),
+            )
+            return plt.MapFilterList(
+                lst,
+                filter_fun,
+                map_fun,
+                empty_list_con,
+            )
+        else:
+            return plt.MapList(
+                lst,
+                map_fun,
+                empty_list_con,
+            )
+
     def visit_FormattedValue(self, node: TypedFormattedValue) -&gt; plt.AST:
         return plt.Apply(
             node.value.typ.stringify(),
@@ -1095,6 +1141,8 @@ def compile(
         # The type inference needs to be run after complex python operations were rewritten
         AggressiveTypeInferencer(allow_isinstance_anything),
         # Rewrites that circumvent the type inference or use its results
+        RewriteEmptyLists(),
+        RewriteEmptyDicts(),
         RewriteImportUPLCBuiltins(),
         RewriteInjectBuiltinsConstr(),
         RewriteRemoveTypeStuff(),
@@ -1166,6 +1214,8 @@ def compile(
         # The type inference needs to be run after complex python operations were rewritten
         AggressiveTypeInferencer(allow_isinstance_anything),
         # Rewrites that circumvent the type inference or use its results
+        RewriteEmptyLists(),
+        RewriteEmptyDicts(),
         RewriteImportUPLCBuiltins(),
         RewriteInjectBuiltinsConstr(),
         RewriteRemoveTypeStuff(),
@@ -1443,13 +1493,11 @@ allows modifications.</p></div>
         return ops
 
     def visit_UnaryOp(self, node: TypedUnaryOp) -&gt; plt.AST:
-        opmap = UnaryOpMap.get(type(node.op))
-        assert opmap is not None, f&#34;Operator {type(node.op)} is not supported&#34;
-        op = opmap.get(node.operand.typ)
-        assert (
-            op is not None
-        ), f&#34;Operator {type(node.op)} is not supported for type {node.operand.typ}&#34;
-        return op(self.visit(node.operand))
+        op = node.operand.typ.unop(node.op)
+        return plt.Apply(
+            op,
+            self.visit(node.operand),
+        )
 
     def visit_Compare(self, node: TypedCompare) -&gt; plt.AST:
         assert len(node.ops) == 1, &#34;Only single comparisons are supported&#34;
@@ -2192,6 +2240,57 @@ allows modifications.</p></div>
             ),
         )
         empty_list_con = empty_list(node.elt.typ)
+        if ifs is not None:
+            filter_fun = OLambda(
+                [&#34;x&#34;],
+                plt.Let(
+                    [(gen.target.id, plt.Delay(OVar(&#34;x&#34;)))],
+                    ifs,
+                ),
+            )
+            return plt.MapFilterList(
+                lst,
+                filter_fun,
+                map_fun,
+                empty_list_con,
+            )
+        else:
+            return plt.MapList(
+                lst,
+                map_fun,
+                empty_list_con,
+            )
+
+    def visit_DictComp(self, node: TypedDictComp) -&gt; plt.AST:
+        assert len(node.generators) == 1, &#34;Currently only one generator supported&#34;
+        gen = node.generators[0]
+        assert isinstance(gen.iter.typ, InstanceType), &#34;Only lists are valid generators&#34;
+        assert isinstance(gen.iter.typ.typ, ListType), &#34;Only lists are valid generators&#34;
+        assert isinstance(
+            gen.target, Name
+        ), &#34;Can only assign value to singleton element&#34;
+        lst = self.visit(gen.iter)
+        ifs = None
+        for ifexpr in gen.ifs:
+            if ifs is None:
+                ifs = self.visit(ifexpr)
+            else:
+                ifs = plt.And(ifs, self.visit(ifexpr))
+        map_fun = OLambda(
+            [&#34;x&#34;],
+            plt.Let(
+                [(gen.target.id, plt.Delay(OVar(&#34;x&#34;)))],
+                plt.MkPairData(
+                    transform_output_map(node.key.typ)(
+                        self.visit(node.key),
+                    ),
+                    transform_output_map(node.value.typ)(
+                        self.visit(node.value),
+                    ),
+                ),
+            ),
+        )
+        empty_list_con = plt.EmptyDataPairList()
         if ifs is not None:
             filter_fun = OLambda(
                 [&#34;x&#34;],
@@ -2547,6 +2646,67 @@ allows modifications.</p></div>
             l,
         )
     return l</code></pre>
+</details>
+</dd>
+<dt id="opshin.compiler.PlutoCompiler.visit_DictComp"><code class="name flex">
+<span>def <span class="ident">visit_DictComp</span></span>(<span>self, node: <a title="opshin.typed_ast.TypedDictComp" href="typed_ast.html#opshin.typed_ast.TypedDictComp">TypedDictComp</a>) ‑> pluthon.pluthon_ast.AST</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def visit_DictComp(self, node: TypedDictComp) -&gt; plt.AST:
+    assert len(node.generators) == 1, &#34;Currently only one generator supported&#34;
+    gen = node.generators[0]
+    assert isinstance(gen.iter.typ, InstanceType), &#34;Only lists are valid generators&#34;
+    assert isinstance(gen.iter.typ.typ, ListType), &#34;Only lists are valid generators&#34;
+    assert isinstance(
+        gen.target, Name
+    ), &#34;Can only assign value to singleton element&#34;
+    lst = self.visit(gen.iter)
+    ifs = None
+    for ifexpr in gen.ifs:
+        if ifs is None:
+            ifs = self.visit(ifexpr)
+        else:
+            ifs = plt.And(ifs, self.visit(ifexpr))
+    map_fun = OLambda(
+        [&#34;x&#34;],
+        plt.Let(
+            [(gen.target.id, plt.Delay(OVar(&#34;x&#34;)))],
+            plt.MkPairData(
+                transform_output_map(node.key.typ)(
+                    self.visit(node.key),
+                ),
+                transform_output_map(node.value.typ)(
+                    self.visit(node.value),
+                ),
+            ),
+        ),
+    )
+    empty_list_con = plt.EmptyDataPairList()
+    if ifs is not None:
+        filter_fun = OLambda(
+            [&#34;x&#34;],
+            plt.Let(
+                [(gen.target.id, plt.Delay(OVar(&#34;x&#34;)))],
+                ifs,
+            ),
+        )
+        return plt.MapFilterList(
+            lst,
+            filter_fun,
+            map_fun,
+            empty_list_con,
+        )
+    else:
+        return plt.MapList(
+            lst,
+            map_fun,
+            empty_list_con,
+        )</code></pre>
 </details>
 </dd>
 <dt id="opshin.compiler.PlutoCompiler.visit_Expr"><code class="name flex">
@@ -3312,13 +3472,11 @@ allows modifications.</p></div>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def visit_UnaryOp(self, node: TypedUnaryOp) -&gt; plt.AST:
-    opmap = UnaryOpMap.get(type(node.op))
-    assert opmap is not None, f&#34;Operator {type(node.op)} is not supported&#34;
-    op = opmap.get(node.operand.typ)
-    assert (
-        op is not None
-    ), f&#34;Operator {type(node.op)} is not supported for type {node.operand.typ}&#34;
-    return op(self.visit(node.operand))</code></pre>
+    op = node.operand.typ.unop(node.op)
+    return plt.Apply(
+        op,
+        self.visit(node.operand),
+    )</code></pre>
 </details>
 </dd>
 <dt id="opshin.compiler.PlutoCompiler.visit_While"><code class="name flex">
@@ -3491,6 +3649,7 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="opshin.compiler.PlutoCompiler.visit_Compare" href="#opshin.compiler.PlutoCompiler.visit_Compare">visit_Compare</a></code></li>
 <li><code><a title="opshin.compiler.PlutoCompiler.visit_Constant" href="#opshin.compiler.PlutoCompiler.visit_Constant">visit_Constant</a></code></li>
 <li><code><a title="opshin.compiler.PlutoCompiler.visit_Dict" href="#opshin.compiler.PlutoCompiler.visit_Dict">visit_Dict</a></code></li>
+<li><code><a title="opshin.compiler.PlutoCompiler.visit_DictComp" href="#opshin.compiler.PlutoCompiler.visit_DictComp">visit_DictComp</a></code></li>
 <li><code><a title="opshin.compiler.PlutoCompiler.visit_Expr" href="#opshin.compiler.PlutoCompiler.visit_Expr">visit_Expr</a></code></li>
 <li><code><a title="opshin.compiler.PlutoCompiler.visit_For" href="#opshin.compiler.PlutoCompiler.visit_For">visit_For</a></code></li>
 <li><code><a title="opshin.compiler.PlutoCompiler.visit_FormattedValue" href="#opshin.compiler.PlutoCompiler.visit_FormattedValue">visit_FormattedValue</a></code></li>

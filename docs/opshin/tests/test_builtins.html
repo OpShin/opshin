@@ -338,6 +338,19 @@ def validator(x: int, y: int) -&gt; int:
             ret = None
         self.assertEqual(ret, exp, &#34;pow returned wrong value&#34;)
 
+    @given(x=st.integers(), y=st.integers(min_value=-20, max_value=-1))
+    def test_neg_pow(self, x: int, y: int):
+        source_code = &#34;&#34;&#34;
+def validator(x: int, y: int) -&gt; int:
+    return pow(x, y) % 10000000000
+        &#34;&#34;&#34;
+        try:
+            eval_uplc_value(source_code, x, y)
+            fail = True
+        except Exception:
+            fail = False
+        self.assertFalse(fail, &#34;pow worked on negative exponent&#34;)
+
     @given(x=st.integers())
     @example(0)
     @example(-1)
@@ -777,6 +790,19 @@ def validator(x: int, y: int) -&gt; int:
         except:
             ret = None
         self.assertEqual(ret, exp, &#34;pow returned wrong value&#34;)
+
+    @given(x=st.integers(), y=st.integers(min_value=-20, max_value=-1))
+    def test_neg_pow(self, x: int, y: int):
+        source_code = &#34;&#34;&#34;
+def validator(x: int, y: int) -&gt; int:
+    return pow(x, y) % 10000000000
+        &#34;&#34;&#34;
+        try:
+            eval_uplc_value(source_code, x, y)
+            fail = True
+        except Exception:
+            fail = False
+        self.assertFalse(fail, &#34;pow worked on negative exponent&#34;)
 
     @given(x=st.integers())
     @example(0)
@@ -1463,6 +1489,29 @@ def validator(x: List[int]) -&gt; int:
         self.assertEqual(ret, exp, &#34;min returned wrong value&#34;)</code></pre>
 </details>
 </dd>
+<dt id="opshin.tests.test_builtins.BuiltinTest.test_neg_pow"><code class="name flex">
+<span>def <span class="ident">test_neg_pow</span></span>(<span>self) ‑> None</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    @given(x=st.integers(), y=st.integers(min_value=-20, max_value=-1))
+    def test_neg_pow(self, x: int, y: int):
+        source_code = &#34;&#34;&#34;
+def validator(x: int, y: int) -&gt; int:
+    return pow(x, y) % 10000000000
+        &#34;&#34;&#34;
+        try:
+            eval_uplc_value(source_code, x, y)
+            fail = True
+        except Exception:
+            fail = False
+        self.assertFalse(fail, &#34;pow worked on negative exponent&#34;)</code></pre>
+</details>
+</dd>
 <dt id="opshin.tests.test_builtins.BuiltinTest.test_oct"><code class="name flex">
 <span>def <span class="ident">test_oct</span></span>(<span>self) ‑> None</span>
 </code></dt>
@@ -1729,6 +1778,7 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="opshin.tests.test_builtins.BuiltinTest.test_len_tuples" href="#opshin.tests.test_builtins.BuiltinTest.test_len_tuples">test_len_tuples</a></code></li>
 <li><code><a title="opshin.tests.test_builtins.BuiltinTest.test_max" href="#opshin.tests.test_builtins.BuiltinTest.test_max">test_max</a></code></li>
 <li><code><a title="opshin.tests.test_builtins.BuiltinTest.test_min" href="#opshin.tests.test_builtins.BuiltinTest.test_min">test_min</a></code></li>
+<li><code><a title="opshin.tests.test_builtins.BuiltinTest.test_neg_pow" href="#opshin.tests.test_builtins.BuiltinTest.test_neg_pow">test_neg_pow</a></code></li>
 <li><code><a title="opshin.tests.test_builtins.BuiltinTest.test_oct" href="#opshin.tests.test_builtins.BuiltinTest.test_oct">test_oct</a></code></li>
 <li><code><a title="opshin.tests.test_builtins.BuiltinTest.test_pow" href="#opshin.tests.test_builtins.BuiltinTest.test_pow">test_pow</a></code></li>
 <li><code><a title="opshin.tests.test_builtins.BuiltinTest.test_print_compile" href="#opshin.tests.test_builtins.BuiltinTest.test_print_compile">test_print_compile</a></code></li>

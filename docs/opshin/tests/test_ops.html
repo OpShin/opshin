@@ -182,6 +182,24 @@ def validator(x: int) -&gt; int:
         ret = eval_uplc_value(source_code, x)
         self.assertEqual(ret, -x, &#34;not returned wrong value&#34;)
 
+    @given(x=st.integers())
+    def test_uadd_int(self, x):
+        source_code = &#34;&#34;&#34;
+def validator(x: int) -&gt; int:
+    return +x
+            &#34;&#34;&#34;
+        ret = eval_uplc_value(source_code, x)
+        self.assertEqual(ret, +x, &#34;not returned wrong value&#34;)
+
+    @given(x=st.integers())
+    def test_not_int(self, x):
+        source_code = &#34;&#34;&#34;
+def validator(x: int) -&gt; bool:
+    return not x
+            &#34;&#34;&#34;
+        ret = eval_uplc_value(source_code, x)
+        self.assertEqual(bool(ret), not x, &#34;not returned wrong value&#34;)
+
     @given(x=st.integers(), y=st.integers())
     def test_add_int(self, x, y):
         source_code = &#34;&#34;&#34;
@@ -249,6 +267,19 @@ def validator(x: int, y: int) -&gt; int:
             &#34;&#34;&#34;
         ret = eval_uplc_value(source_code, x, y)
         self.assertEqual(ret, x**y, &#34;** returned wrong value&#34;)
+
+    @given(x=st.integers(), y=st.integers(min_value=-20, max_value=-1))
+    def test_neg_pow_int(self, x, y):
+        source_code = &#34;&#34;&#34;
+def validator(x: int, y: int) -&gt; int:
+    return x ** y
+            &#34;&#34;&#34;
+        try:
+            eval_uplc_value(source_code, x, y)
+            fail = True
+        except Exception:
+            fail = False
+        self.assertFalse(fail, &#34;** worked with negative exponent&#34;)
 
     @given(x=st.binary(), y=st.binary())
     def test_add_bytes(self, x, y):
@@ -522,6 +553,15 @@ def validator(x: List[bytes], y: bytes) -&gt; bool:
         ret = eval_uplc_value(source_code, xs, y)
         self.assertEqual(ret, y in xs, &#34;list in returned wrong value&#34;)
 
+    @given(x=st.lists(st.integers()))
+    def test_not_list(self, x):
+        source_code = &#34;&#34;&#34;
+def validator(x: List[int]) -&gt; bool:
+    return not x
+            &#34;&#34;&#34;
+        ret = eval_uplc_value(source_code, x)
+        self.assertEqual(bool(ret), not x, &#34;not returned wrong value&#34;)
+
     @given(x=st.binary(), y=st.binary())
     def test_eq_bytes(self, x, y):
         source_code = &#34;&#34;&#34;
@@ -532,7 +572,7 @@ def validator(x: bytes, y: bytes) -&gt; bool:
         self.assertEqual(ret, x == y, &#34;bytes eq returned wrong value&#34;)
 
     @given(x=st.integers(), y=st.integers())
-    def test_eq_bytes(self, x, y):
+    def test_eq_int(self, x, y):
         source_code = &#34;&#34;&#34;
 def validator(x: int, y: int) -&gt; bool:
     return x == y
@@ -557,6 +597,17 @@ def validator(x: bool, y: bool) -&gt; bool:
             &#34;&#34;&#34;
         ret = eval_uplc_value(source_code, x, y)
         self.assertEqual(ret, x == y, &#34;bool eq returned wrong value&#34;)
+
+    @given(x=uplc_data, y=uplc_data)
+    def test_eq_data(self, x, y):
+        source_code = &#34;&#34;&#34;
+from opshin.prelude import *
+
+def validator(x: Anything, y: Anything) -&gt; bool:
+    return x == y
+            &#34;&#34;&#34;
+        ret = eval_uplc_value(source_code, x, y)
+        self.assertEqual(ret, x == y, &#34;any eq returned wrong value&#34;)
 
     @given(x=st.integers(min_value=0, max_value=150), y=st.text())
     def test_mul_int_str(self, x, y):
@@ -805,6 +856,32 @@ def validator(x: List[int]) -&gt; str:
             ret, exp, &#34;integer list string formatting returned wrong value&#34;
         )
 
+    @given(x=st.dictionaries(st.integers(), st.integers()))
+    def test_not_dict(self, x):
+        source_code = &#34;&#34;&#34;
+def validator(x: Dict[int, int]) -&gt; bool:
+    return not x
+            &#34;&#34;&#34;
+        ret = eval_uplc_value(source_code, x)
+        self.assertEqual(bool(ret), not x, &#34;not returned wrong value&#34;)
+
+    @given(xs=st.dictionaries(st.integers(), st.integers()), y=st.integers())
+    def test_index_dict(self, xs, y):
+        source_code = &#34;&#34;&#34;
+from typing import Dict, List, Union
+def validator(x: Dict[int, int], y: int) -&gt; int:
+    return x[y]
+            &#34;&#34;&#34;
+        try:
+            exp = xs[y]
+        except KeyError:
+            exp = None
+        try:
+            ret = eval_uplc_value(source_code, xs, y)
+        except Exception as e:
+            ret = None
+        self.assertEqual(ret, exp, &#34;list index returned wrong value&#34;)
+
     @given(xs=st.dictionaries(formattable_text, st.integers()))
     @example(dict())
     @example({&#34;&#34;: 0})
@@ -844,7 +921,33 @@ def validator(x: Anything) -&gt; str:
         else:
             self.assertEqual(
                 ret, exp, &#34;raw cbor string formatting returned wrong value&#34;
-            )</code></pre>
+            )
+
+    @given(x=st.text())
+    def test_not_string(self, x):
+        source_code = &#34;&#34;&#34;
+def validator(x: str) -&gt; bool:
+    return not x
+            &#34;&#34;&#34;
+        ret = eval_uplc_value(source_code, x.encode(&#34;utf8&#34;))
+        self.assertEqual(bool(ret), not x, &#34;not returned wrong value&#34;)
+
+    @given(x=st.binary())
+    def test_not_bytes(self, x):
+        source_code = &#34;&#34;&#34;
+def validator(x: bytes) -&gt; bool:
+    return not x
+            &#34;&#34;&#34;
+        ret = eval_uplc_value(source_code, x)
+        self.assertEqual(bool(ret), not x, &#34;not returned wrong value&#34;)
+
+    def test_not_unit(self):
+        source_code = &#34;&#34;&#34;
+def validator(x: None) -&gt; bool:
+    return not x
+            &#34;&#34;&#34;
+        ret = eval_uplc_value(source_code, uplc.BuiltinUnit())
+        self.assertEqual(bool(ret), not None, &#34;not returned wrong value&#34;)</code></pre>
 </details>
 </section>
 <section>
@@ -977,6 +1080,24 @@ def validator(x: int) -&gt; int:
         ret = eval_uplc_value(source_code, x)
         self.assertEqual(ret, -x, &#34;not returned wrong value&#34;)
 
+    @given(x=st.integers())
+    def test_uadd_int(self, x):
+        source_code = &#34;&#34;&#34;
+def validator(x: int) -&gt; int:
+    return +x
+            &#34;&#34;&#34;
+        ret = eval_uplc_value(source_code, x)
+        self.assertEqual(ret, +x, &#34;not returned wrong value&#34;)
+
+    @given(x=st.integers())
+    def test_not_int(self, x):
+        source_code = &#34;&#34;&#34;
+def validator(x: int) -&gt; bool:
+    return not x
+            &#34;&#34;&#34;
+        ret = eval_uplc_value(source_code, x)
+        self.assertEqual(bool(ret), not x, &#34;not returned wrong value&#34;)
+
     @given(x=st.integers(), y=st.integers())
     def test_add_int(self, x, y):
         source_code = &#34;&#34;&#34;
@@ -1044,6 +1165,19 @@ def validator(x: int, y: int) -&gt; int:
             &#34;&#34;&#34;
         ret = eval_uplc_value(source_code, x, y)
         self.assertEqual(ret, x**y, &#34;** returned wrong value&#34;)
+
+    @given(x=st.integers(), y=st.integers(min_value=-20, max_value=-1))
+    def test_neg_pow_int(self, x, y):
+        source_code = &#34;&#34;&#34;
+def validator(x: int, y: int) -&gt; int:
+    return x ** y
+            &#34;&#34;&#34;
+        try:
+            eval_uplc_value(source_code, x, y)
+            fail = True
+        except Exception:
+            fail = False
+        self.assertFalse(fail, &#34;** worked with negative exponent&#34;)
 
     @given(x=st.binary(), y=st.binary())
     def test_add_bytes(self, x, y):
@@ -1317,6 +1451,15 @@ def validator(x: List[bytes], y: bytes) -&gt; bool:
         ret = eval_uplc_value(source_code, xs, y)
         self.assertEqual(ret, y in xs, &#34;list in returned wrong value&#34;)
 
+    @given(x=st.lists(st.integers()))
+    def test_not_list(self, x):
+        source_code = &#34;&#34;&#34;
+def validator(x: List[int]) -&gt; bool:
+    return not x
+            &#34;&#34;&#34;
+        ret = eval_uplc_value(source_code, x)
+        self.assertEqual(bool(ret), not x, &#34;not returned wrong value&#34;)
+
     @given(x=st.binary(), y=st.binary())
     def test_eq_bytes(self, x, y):
         source_code = &#34;&#34;&#34;
@@ -1327,7 +1470,7 @@ def validator(x: bytes, y: bytes) -&gt; bool:
         self.assertEqual(ret, x == y, &#34;bytes eq returned wrong value&#34;)
 
     @given(x=st.integers(), y=st.integers())
-    def test_eq_bytes(self, x, y):
+    def test_eq_int(self, x, y):
         source_code = &#34;&#34;&#34;
 def validator(x: int, y: int) -&gt; bool:
     return x == y
@@ -1352,6 +1495,17 @@ def validator(x: bool, y: bool) -&gt; bool:
             &#34;&#34;&#34;
         ret = eval_uplc_value(source_code, x, y)
         self.assertEqual(ret, x == y, &#34;bool eq returned wrong value&#34;)
+
+    @given(x=uplc_data, y=uplc_data)
+    def test_eq_data(self, x, y):
+        source_code = &#34;&#34;&#34;
+from opshin.prelude import *
+
+def validator(x: Anything, y: Anything) -&gt; bool:
+    return x == y
+            &#34;&#34;&#34;
+        ret = eval_uplc_value(source_code, x, y)
+        self.assertEqual(ret, x == y, &#34;any eq returned wrong value&#34;)
 
     @given(x=st.integers(min_value=0, max_value=150), y=st.text())
     def test_mul_int_str(self, x, y):
@@ -1600,6 +1754,32 @@ def validator(x: List[int]) -&gt; str:
             ret, exp, &#34;integer list string formatting returned wrong value&#34;
         )
 
+    @given(x=st.dictionaries(st.integers(), st.integers()))
+    def test_not_dict(self, x):
+        source_code = &#34;&#34;&#34;
+def validator(x: Dict[int, int]) -&gt; bool:
+    return not x
+            &#34;&#34;&#34;
+        ret = eval_uplc_value(source_code, x)
+        self.assertEqual(bool(ret), not x, &#34;not returned wrong value&#34;)
+
+    @given(xs=st.dictionaries(st.integers(), st.integers()), y=st.integers())
+    def test_index_dict(self, xs, y):
+        source_code = &#34;&#34;&#34;
+from typing import Dict, List, Union
+def validator(x: Dict[int, int], y: int) -&gt; int:
+    return x[y]
+            &#34;&#34;&#34;
+        try:
+            exp = xs[y]
+        except KeyError:
+            exp = None
+        try:
+            ret = eval_uplc_value(source_code, xs, y)
+        except Exception as e:
+            ret = None
+        self.assertEqual(ret, exp, &#34;list index returned wrong value&#34;)
+
     @given(xs=st.dictionaries(formattable_text, st.integers()))
     @example(dict())
     @example({&#34;&#34;: 0})
@@ -1639,7 +1819,33 @@ def validator(x: Anything) -&gt; str:
         else:
             self.assertEqual(
                 ret, exp, &#34;raw cbor string formatting returned wrong value&#34;
-            )</code></pre>
+            )
+
+    @given(x=st.text())
+    def test_not_string(self, x):
+        source_code = &#34;&#34;&#34;
+def validator(x: str) -&gt; bool:
+    return not x
+            &#34;&#34;&#34;
+        ret = eval_uplc_value(source_code, x.encode(&#34;utf8&#34;))
+        self.assertEqual(bool(ret), not x, &#34;not returned wrong value&#34;)
+
+    @given(x=st.binary())
+    def test_not_bytes(self, x):
+        source_code = &#34;&#34;&#34;
+def validator(x: bytes) -&gt; bool:
+    return not x
+            &#34;&#34;&#34;
+        ret = eval_uplc_value(source_code, x)
+        self.assertEqual(bool(ret), not x, &#34;not returned wrong value&#34;)
+
+    def test_not_unit(self):
+        source_code = &#34;&#34;&#34;
+def validator(x: None) -&gt; bool:
+    return not x
+            &#34;&#34;&#34;
+        ret = eval_uplc_value(source_code, uplc.BuiltinUnit())
+        self.assertEqual(bool(ret), not None, &#34;not returned wrong value&#34;)</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -1804,8 +2010,48 @@ def validator(x: bool, y: bool) -&gt; bool:
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">    @given(x=st.integers(), y=st.integers())
+<pre><code class="python">    @given(x=st.binary(), y=st.binary())
     def test_eq_bytes(self, x, y):
+        source_code = &#34;&#34;&#34;
+def validator(x: bytes, y: bytes) -&gt; bool:
+    return x == y
+            &#34;&#34;&#34;
+        ret = eval_uplc_value(source_code, x, y)
+        self.assertEqual(ret, x == y, &#34;bytes eq returned wrong value&#34;)</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_ops.OpTest.test_eq_data"><code class="name flex">
+<span>def <span class="ident">test_eq_data</span></span>(<span>self) ‑> None</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    @given(x=uplc_data, y=uplc_data)
+    def test_eq_data(self, x, y):
+        source_code = &#34;&#34;&#34;
+from opshin.prelude import *
+
+def validator(x: Anything, y: Anything) -&gt; bool:
+    return x == y
+            &#34;&#34;&#34;
+        ret = eval_uplc_value(source_code, x, y)
+        self.assertEqual(ret, x == y, &#34;any eq returned wrong value&#34;)</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_ops.OpTest.test_eq_int"><code class="name flex">
+<span>def <span class="ident">test_eq_int</span></span>(<span>self) ‑> None</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    @given(x=st.integers(), y=st.integers())
+    def test_eq_int(self, x, y):
         source_code = &#34;&#34;&#34;
 def validator(x: int, y: int) -&gt; bool:
     return x == y
@@ -2291,6 +2537,33 @@ def validator(x: bytes, y: int) -&gt; int:
         self.assertEqual(ret, exp, &#34;byte index returned wrong value&#34;)</code></pre>
 </details>
 </dd>
+<dt id="opshin.tests.test_ops.OpTest.test_index_dict"><code class="name flex">
+<span>def <span class="ident">test_index_dict</span></span>(<span>self) ‑> None</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    @given(xs=st.dictionaries(st.integers(), st.integers()), y=st.integers())
+    def test_index_dict(self, xs, y):
+        source_code = &#34;&#34;&#34;
+from typing import Dict, List, Union
+def validator(x: Dict[int, int], y: int) -&gt; int:
+    return x[y]
+            &#34;&#34;&#34;
+        try:
+            exp = xs[y]
+        except KeyError:
+            exp = None
+        try:
+            ret = eval_uplc_value(source_code, xs, y)
+        except Exception as e:
+            ret = None
+        self.assertEqual(ret, exp, &#34;list index returned wrong value&#34;)</code></pre>
+</details>
+</dd>
 <dt id="opshin.tests.test_ops.OpTest.test_index_list"><code class="name flex">
 <span>def <span class="ident">test_index_list</span></span>(<span>self) ‑> None</span>
 </code></dt>
@@ -2441,6 +2714,29 @@ def validator(x: str, y: int) -&gt; str:
         self.assertEqual(ret.decode(&#34;utf8&#34;), x * y, &#34;* returned wrong value&#34;)</code></pre>
 </details>
 </dd>
+<dt id="opshin.tests.test_ops.OpTest.test_neg_pow_int"><code class="name flex">
+<span>def <span class="ident">test_neg_pow_int</span></span>(<span>self) ‑> None</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    @given(x=st.integers(), y=st.integers(min_value=-20, max_value=-1))
+    def test_neg_pow_int(self, x, y):
+        source_code = &#34;&#34;&#34;
+def validator(x: int, y: int) -&gt; int:
+    return x ** y
+            &#34;&#34;&#34;
+        try:
+            eval_uplc_value(source_code, x, y)
+            fail = True
+        except Exception:
+            fail = False
+        self.assertFalse(fail, &#34;** worked with negative exponent&#34;)</code></pre>
+</details>
+</dd>
 <dt id="opshin.tests.test_ops.OpTest.test_not_bool"><code class="name flex">
 <span>def <span class="ident">test_not_bool</span></span>(<span>self) ‑> None</span>
 </code></dt>
@@ -2458,6 +2754,119 @@ def validator(x: bool) -&gt; bool:
             &#34;&#34;&#34;
         ret = eval_uplc_value(source_code, x)
         self.assertEqual(bool(ret), not x, &#34;not returned wrong value&#34;)</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_ops.OpTest.test_not_bytes"><code class="name flex">
+<span>def <span class="ident">test_not_bytes</span></span>(<span>self) ‑> None</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    @given(x=st.binary())
+    def test_not_bytes(self, x):
+        source_code = &#34;&#34;&#34;
+def validator(x: bytes) -&gt; bool:
+    return not x
+            &#34;&#34;&#34;
+        ret = eval_uplc_value(source_code, x)
+        self.assertEqual(bool(ret), not x, &#34;not returned wrong value&#34;)</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_ops.OpTest.test_not_dict"><code class="name flex">
+<span>def <span class="ident">test_not_dict</span></span>(<span>self) ‑> None</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    @given(x=st.dictionaries(st.integers(), st.integers()))
+    def test_not_dict(self, x):
+        source_code = &#34;&#34;&#34;
+def validator(x: Dict[int, int]) -&gt; bool:
+    return not x
+            &#34;&#34;&#34;
+        ret = eval_uplc_value(source_code, x)
+        self.assertEqual(bool(ret), not x, &#34;not returned wrong value&#34;)</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_ops.OpTest.test_not_int"><code class="name flex">
+<span>def <span class="ident">test_not_int</span></span>(<span>self) ‑> None</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    @given(x=st.integers())
+    def test_not_int(self, x):
+        source_code = &#34;&#34;&#34;
+def validator(x: int) -&gt; bool:
+    return not x
+            &#34;&#34;&#34;
+        ret = eval_uplc_value(source_code, x)
+        self.assertEqual(bool(ret), not x, &#34;not returned wrong value&#34;)</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_ops.OpTest.test_not_list"><code class="name flex">
+<span>def <span class="ident">test_not_list</span></span>(<span>self) ‑> None</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    @given(x=st.lists(st.integers()))
+    def test_not_list(self, x):
+        source_code = &#34;&#34;&#34;
+def validator(x: List[int]) -&gt; bool:
+    return not x
+            &#34;&#34;&#34;
+        ret = eval_uplc_value(source_code, x)
+        self.assertEqual(bool(ret), not x, &#34;not returned wrong value&#34;)</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_ops.OpTest.test_not_string"><code class="name flex">
+<span>def <span class="ident">test_not_string</span></span>(<span>self) ‑> None</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    @given(x=st.text())
+    def test_not_string(self, x):
+        source_code = &#34;&#34;&#34;
+def validator(x: str) -&gt; bool:
+    return not x
+            &#34;&#34;&#34;
+        ret = eval_uplc_value(source_code, x.encode(&#34;utf8&#34;))
+        self.assertEqual(bool(ret), not x, &#34;not returned wrong value&#34;)</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_ops.OpTest.test_not_unit"><code class="name flex">
+<span>def <span class="ident">test_not_unit</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    def test_not_unit(self):
+        source_code = &#34;&#34;&#34;
+def validator(x: None) -&gt; bool:
+    return not x
+            &#34;&#34;&#34;
+        ret = eval_uplc_value(source_code, uplc.BuiltinUnit())
+        self.assertEqual(bool(ret), not None, &#34;not returned wrong value&#34;)</code></pre>
 </details>
 </dd>
 <dt id="opshin.tests.test_ops.OpTest.test_or_bool"><code class="name flex">
@@ -2789,6 +3198,25 @@ def validator(x: int, y: int) -&gt; int:
         self.assertEqual(ret, x - y, &#34;- returned wrong value&#34;)</code></pre>
 </details>
 </dd>
+<dt id="opshin.tests.test_ops.OpTest.test_uadd_int"><code class="name flex">
+<span>def <span class="ident">test_uadd_int</span></span>(<span>self) ‑> None</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    @given(x=st.integers())
+    def test_uadd_int(self, x):
+        source_code = &#34;&#34;&#34;
+def validator(x: int) -&gt; int:
+    return +x
+            &#34;&#34;&#34;
+        ret = eval_uplc_value(source_code, x)
+        self.assertEqual(ret, +x, &#34;not returned wrong value&#34;)</code></pre>
+</details>
+</dd>
 <dt id="opshin.tests.test_ops.OpTest.test_usub_int"><code class="name flex">
 <span>def <span class="ident">test_usub_int</span></span>(<span>self) ‑> None</span>
 </code></dt>
@@ -2896,6 +3324,8 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="opshin.tests.test_ops.OpTest.test_div_int" href="#opshin.tests.test_ops.OpTest.test_div_int">test_div_int</a></code></li>
 <li><code><a title="opshin.tests.test_ops.OpTest.test_eq_bool" href="#opshin.tests.test_ops.OpTest.test_eq_bool">test_eq_bool</a></code></li>
 <li><code><a title="opshin.tests.test_ops.OpTest.test_eq_bytes" href="#opshin.tests.test_ops.OpTest.test_eq_bytes">test_eq_bytes</a></code></li>
+<li><code><a title="opshin.tests.test_ops.OpTest.test_eq_data" href="#opshin.tests.test_ops.OpTest.test_eq_data">test_eq_data</a></code></li>
+<li><code><a title="opshin.tests.test_ops.OpTest.test_eq_int" href="#opshin.tests.test_ops.OpTest.test_eq_int">test_eq_int</a></code></li>
 <li><code><a title="opshin.tests.test_ops.OpTest.test_eq_str" href="#opshin.tests.test_ops.OpTest.test_eq_str">test_eq_str</a></code></li>
 <li><code><a title="opshin.tests.test_ops.OpTest.test_fmt_any" href="#opshin.tests.test_ops.OpTest.test_fmt_any">test_fmt_any</a></code></li>
 <li><code><a title="opshin.tests.test_ops.OpTest.test_fmt_bool" href="#opshin.tests.test_ops.OpTest.test_fmt_bool">test_fmt_bool</a></code></li>
@@ -2915,6 +3345,7 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="opshin.tests.test_ops.OpTest.test_in_list_bytes" href="#opshin.tests.test_ops.OpTest.test_in_list_bytes">test_in_list_bytes</a></code></li>
 <li><code><a title="opshin.tests.test_ops.OpTest.test_in_list_int" href="#opshin.tests.test_ops.OpTest.test_in_list_int">test_in_list_int</a></code></li>
 <li><code><a title="opshin.tests.test_ops.OpTest.test_index_bytes" href="#opshin.tests.test_ops.OpTest.test_index_bytes">test_index_bytes</a></code></li>
+<li><code><a title="opshin.tests.test_ops.OpTest.test_index_dict" href="#opshin.tests.test_ops.OpTest.test_index_dict">test_index_dict</a></code></li>
 <li><code><a title="opshin.tests.test_ops.OpTest.test_index_list" href="#opshin.tests.test_ops.OpTest.test_index_list">test_index_list</a></code></li>
 <li><code><a title="opshin.tests.test_ops.OpTest.test_mod_int" href="#opshin.tests.test_ops.OpTest.test_mod_int">test_mod_int</a></code></li>
 <li><code><a title="opshin.tests.test_ops.OpTest.test_mul_bytes_int" href="#opshin.tests.test_ops.OpTest.test_mul_bytes_int">test_mul_bytes_int</a></code></li>
@@ -2922,7 +3353,14 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="opshin.tests.test_ops.OpTest.test_mul_int_bytes" href="#opshin.tests.test_ops.OpTest.test_mul_int_bytes">test_mul_int_bytes</a></code></li>
 <li><code><a title="opshin.tests.test_ops.OpTest.test_mul_int_str" href="#opshin.tests.test_ops.OpTest.test_mul_int_str">test_mul_int_str</a></code></li>
 <li><code><a title="opshin.tests.test_ops.OpTest.test_mul_str_int" href="#opshin.tests.test_ops.OpTest.test_mul_str_int">test_mul_str_int</a></code></li>
+<li><code><a title="opshin.tests.test_ops.OpTest.test_neg_pow_int" href="#opshin.tests.test_ops.OpTest.test_neg_pow_int">test_neg_pow_int</a></code></li>
 <li><code><a title="opshin.tests.test_ops.OpTest.test_not_bool" href="#opshin.tests.test_ops.OpTest.test_not_bool">test_not_bool</a></code></li>
+<li><code><a title="opshin.tests.test_ops.OpTest.test_not_bytes" href="#opshin.tests.test_ops.OpTest.test_not_bytes">test_not_bytes</a></code></li>
+<li><code><a title="opshin.tests.test_ops.OpTest.test_not_dict" href="#opshin.tests.test_ops.OpTest.test_not_dict">test_not_dict</a></code></li>
+<li><code><a title="opshin.tests.test_ops.OpTest.test_not_int" href="#opshin.tests.test_ops.OpTest.test_not_int">test_not_int</a></code></li>
+<li><code><a title="opshin.tests.test_ops.OpTest.test_not_list" href="#opshin.tests.test_ops.OpTest.test_not_list">test_not_list</a></code></li>
+<li><code><a title="opshin.tests.test_ops.OpTest.test_not_string" href="#opshin.tests.test_ops.OpTest.test_not_string">test_not_string</a></code></li>
+<li><code><a title="opshin.tests.test_ops.OpTest.test_not_unit" href="#opshin.tests.test_ops.OpTest.test_not_unit">test_not_unit</a></code></li>
 <li><code><a title="opshin.tests.test_ops.OpTest.test_or_bool" href="#opshin.tests.test_ops.OpTest.test_or_bool">test_or_bool</a></code></li>
 <li><code><a title="opshin.tests.test_ops.OpTest.test_pow_int" href="#opshin.tests.test_ops.OpTest.test_pow_int">test_pow_int</a></code></li>
 <li><code><a title="opshin.tests.test_ops.OpTest.test_slice_bytes" href="#opshin.tests.test_ops.OpTest.test_slice_bytes">test_slice_bytes</a></code></li>
@@ -2934,6 +3372,7 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="opshin.tests.test_ops.OpTest.test_slice_list_lower" href="#opshin.tests.test_ops.OpTest.test_slice_list_lower">test_slice_list_lower</a></code></li>
 <li><code><a title="opshin.tests.test_ops.OpTest.test_slice_list_upper" href="#opshin.tests.test_ops.OpTest.test_slice_list_upper">test_slice_list_upper</a></code></li>
 <li><code><a title="opshin.tests.test_ops.OpTest.test_sub_int" href="#opshin.tests.test_ops.OpTest.test_sub_int">test_sub_int</a></code></li>
+<li><code><a title="opshin.tests.test_ops.OpTest.test_uadd_int" href="#opshin.tests.test_ops.OpTest.test_uadd_int">test_uadd_int</a></code></li>
 <li><code><a title="opshin.tests.test_ops.OpTest.test_usub_int" href="#opshin.tests.test_ops.OpTest.test_usub_int">test_usub_int</a></code></li>
 </ul>
 </li>

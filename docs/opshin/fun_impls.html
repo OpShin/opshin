@@ -382,37 +382,52 @@ class PythonBuiltIn(Enum):
     len = &#34;len&#34;
     max = OLambda(
         [&#34;xs&#34;],
-        plt.FoldList(
-            plt.TailList(OVar(&#34;xs&#34;)),
-            OLambda(
-                [&#34;x&#34;, &#34;a&#34;],
-                plt.IfThenElse(
-                    plt.LessThanInteger(OVar(&#34;a&#34;), OVar(&#34;x&#34;)),
-                    OVar(&#34;x&#34;),
-                    OVar(&#34;a&#34;),
+        plt.IteNullList(
+            OVar(&#34;xs&#34;),
+            plt.TraceError(&#34;ValueError: max() arg is an empty sequence&#34;),
+            plt.FoldList(
+                plt.TailList(OVar(&#34;xs&#34;)),
+                OLambda(
+                    [&#34;x&#34;, &#34;a&#34;],
+                    plt.IfThenElse(
+                        plt.LessThanInteger(OVar(&#34;a&#34;), OVar(&#34;x&#34;)),
+                        OVar(&#34;x&#34;),
+                        OVar(&#34;a&#34;),
+                    ),
                 ),
+                plt.HeadList(OVar(&#34;xs&#34;)),
             ),
-            plt.HeadList(OVar(&#34;xs&#34;)),
         ),
     )
     min = OLambda(
         [&#34;xs&#34;],
-        plt.FoldList(
-            plt.TailList(OVar(&#34;xs&#34;)),
-            OLambda(
-                [&#34;x&#34;, &#34;a&#34;],
-                plt.IfThenElse(
-                    plt.LessThanInteger(OVar(&#34;a&#34;), OVar(&#34;x&#34;)),
-                    OVar(&#34;a&#34;),
-                    OVar(&#34;x&#34;),
+        plt.IteNullList(
+            OVar(&#34;xs&#34;),
+            plt.TraceError(&#34;ValueError: min() arg is an empty sequence&#34;),
+            plt.FoldList(
+                plt.TailList(OVar(&#34;xs&#34;)),
+                OLambda(
+                    [&#34;x&#34;, &#34;a&#34;],
+                    plt.IfThenElse(
+                        plt.LessThanInteger(OVar(&#34;a&#34;), OVar(&#34;x&#34;)),
+                        OVar(&#34;a&#34;),
+                        OVar(&#34;x&#34;),
+                    ),
                 ),
+                plt.HeadList(OVar(&#34;xs&#34;)),
             ),
-            plt.HeadList(OVar(&#34;xs&#34;)),
         ),
     )
     print = &#34;print&#34;
     # NOTE: only correctly defined for positive y
-    pow = OLambda([&#34;x&#34;, &#34;y&#34;], PowImpl(OVar(&#34;x&#34;), OVar(&#34;y&#34;)))
+    pow = OLambda(
+        [&#34;x&#34;, &#34;y&#34;],
+        plt.Ite(
+            plt.LessThanInteger(OVar(&#34;y&#34;), plt.Integer(0)),
+            plt.TraceError(&#34;Negative exponentiation is not supported&#34;),
+            PowImpl(OVar(&#34;x&#34;), OVar(&#34;y&#34;)),
+        ),
+    )
     oct = OLambda(
         [&#34;x&#34;],
         plt.DecodeUtf8(
@@ -996,37 +1011,52 @@ PythonBuiltInTypes = {
     len = &#34;len&#34;
     max = OLambda(
         [&#34;xs&#34;],
-        plt.FoldList(
-            plt.TailList(OVar(&#34;xs&#34;)),
-            OLambda(
-                [&#34;x&#34;, &#34;a&#34;],
-                plt.IfThenElse(
-                    plt.LessThanInteger(OVar(&#34;a&#34;), OVar(&#34;x&#34;)),
-                    OVar(&#34;x&#34;),
-                    OVar(&#34;a&#34;),
+        plt.IteNullList(
+            OVar(&#34;xs&#34;),
+            plt.TraceError(&#34;ValueError: max() arg is an empty sequence&#34;),
+            plt.FoldList(
+                plt.TailList(OVar(&#34;xs&#34;)),
+                OLambda(
+                    [&#34;x&#34;, &#34;a&#34;],
+                    plt.IfThenElse(
+                        plt.LessThanInteger(OVar(&#34;a&#34;), OVar(&#34;x&#34;)),
+                        OVar(&#34;x&#34;),
+                        OVar(&#34;a&#34;),
+                    ),
                 ),
+                plt.HeadList(OVar(&#34;xs&#34;)),
             ),
-            plt.HeadList(OVar(&#34;xs&#34;)),
         ),
     )
     min = OLambda(
         [&#34;xs&#34;],
-        plt.FoldList(
-            plt.TailList(OVar(&#34;xs&#34;)),
-            OLambda(
-                [&#34;x&#34;, &#34;a&#34;],
-                plt.IfThenElse(
-                    plt.LessThanInteger(OVar(&#34;a&#34;), OVar(&#34;x&#34;)),
-                    OVar(&#34;a&#34;),
-                    OVar(&#34;x&#34;),
+        plt.IteNullList(
+            OVar(&#34;xs&#34;),
+            plt.TraceError(&#34;ValueError: min() arg is an empty sequence&#34;),
+            plt.FoldList(
+                plt.TailList(OVar(&#34;xs&#34;)),
+                OLambda(
+                    [&#34;x&#34;, &#34;a&#34;],
+                    plt.IfThenElse(
+                        plt.LessThanInteger(OVar(&#34;a&#34;), OVar(&#34;x&#34;)),
+                        OVar(&#34;a&#34;),
+                        OVar(&#34;x&#34;),
+                    ),
                 ),
+                plt.HeadList(OVar(&#34;xs&#34;)),
             ),
-            plt.HeadList(OVar(&#34;xs&#34;)),
         ),
     )
     print = &#34;print&#34;
     # NOTE: only correctly defined for positive y
-    pow = OLambda([&#34;x&#34;, &#34;y&#34;], PowImpl(OVar(&#34;x&#34;), OVar(&#34;y&#34;)))
+    pow = OLambda(
+        [&#34;x&#34;, &#34;y&#34;],
+        plt.Ite(
+            plt.LessThanInteger(OVar(&#34;y&#34;), plt.Integer(0)),
+            plt.TraceError(&#34;Negative exponentiation is not supported&#34;),
+            PowImpl(OVar(&#34;x&#34;), OVar(&#34;y&#34;)),
+        ),
+    )
     oct = OLambda(
         [&#34;x&#34;],
         plt.DecodeUtf8(
