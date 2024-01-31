@@ -46,6 +46,28 @@ def validator(x: Dict[int, bytes], y: int) -> bytes:
             exp = None
         self.assertEqual(ret, exp, "dict[] returned wrong value")
 
+    @given(st.data())
+    def test_list_index(self, data):
+        source_code = """
+def validator(x: List[int], z: int) -> int:
+    return x.index(z)
+            """
+        xs = data.draw(st.lists(st.integers()))
+        z = data.draw(
+            st.one_of(st.sampled_from(xs), st.integers())
+            if len(xs) > 0
+            else st.integers()
+        )
+        try:
+            ret = eval_uplc_value(source_code, xs, z)
+        except RuntimeError as e:
+            ret = None
+        try:
+            exp = xs.index(z)
+        except ValueError:
+            exp = None
+        self.assertEqual(ret, exp, "list.index returned wrong value")
+
     @given(xs=st.dictionaries(st.integers(), st.binary()))
     def test_dict_keys(self, xs):
         source_code = """
