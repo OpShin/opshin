@@ -650,7 +650,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
     def visit_UnaryOp(self, node: UnaryOp) -> TypedUnaryOp:
         tu = copy(node)
         tu.operand = self.visit(node.operand)
-        tu.typ = tu.operand.typ
+        tu.typ = tu.operand.typ.typ.unop_type(node.op).rettyp
         return tu
 
     def visit_Subscript(self, node: Subscript) -> TypedSubscript:
