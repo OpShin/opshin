@@ -2705,7 +2705,7 @@ def validator(_: None) -> Dict[int, int]:
 
     def test_empty_dict_displaced_constant_folding(self):
         source_code = """
-from opshin.prelude import *
+from typing import Dict, List, Union
 
 VAR: Dict[bytes, int] = {}
 
