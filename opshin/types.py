@@ -1034,6 +1034,16 @@ class ListType(ClassType):
             ):
                 return plt.AppendList
 
+    def _unop_return_type(self, unop: unaryop) -> "Type":
+        if isinstance(unop, Not):
+            return BoolType()
+        return super()._unop_return_type(unop)
+
+    def _unop_fun(self, unop: unaryop) -> Callable[[plt.AST], plt.AST]:
+        if isinstance(unop, Not):
+            return lambda x: plt.IteNullList(x, plt.Bool(True), plt.Bool(False))
+        return super()._unop_fun(unop)
+
 
 @dataclass(frozen=True, unsafe_hash=True)
 class DictType(ClassType):
@@ -1321,6 +1331,16 @@ class DictType(ClassType):
         )
         return OLambda(["self"], mapped_attrs)
 
+    def _unop_return_type(self, unop: unaryop) -> "Type":
+        if isinstance(unop, Not):
+            return BoolType()
+        return super()._unop_return_type(unop)
+
+    def _unop_fun(self, unop: unaryop) -> Callable[[plt.AST], plt.AST]:
+        if isinstance(unop, Not):
+            return lambda x: plt.IteNullList(x, plt.Bool(True), plt.Bool(False))
+        return super()._unop_fun(unop)
+
 
 @dataclass(frozen=True, unsafe_hash=True)
 class FunctionType(ClassType):
@@ -1381,6 +1401,12 @@ class InstanceType(Type):
 
     def binop(self, binop: operator, other: AST) -> plt.AST:
         return self.typ.binop(binop, other)
+
+    def unop_type(self, unop: unaryop) -> "Type":
+        return self.typ.unop_type(unop)
+
+    def unop(self, unop: unaryop) -> plt.AST:
+        return self.typ.unop(unop)
 
 
 @dataclass(frozen=True, unsafe_hash=True)

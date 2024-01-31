@@ -203,10 +203,10 @@ class PlutoCompiler(CompilingNodeTransformer):
         return ops
 
     def visit_UnaryOp(self, node: TypedUnaryOp) -> plt.AST:
-        op = node.left.typ.unop(node.op)
+        op = node.operand.typ.unop(node.op)
         return plt.Apply(
             op,
-            self.visit(node.left),
+            self.visit(node.operand),
         )
 
     def visit_Compare(self, node: TypedCompare) -> plt.AST:
