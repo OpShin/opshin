@@ -45,11 +45,6 @@ BoolOpMap = {
     Or: plt.Or,
 }
 
-UnaryOpMap = {
-    Not: {BoolInstanceType: plt.Not},
-    USub: {IntegerInstanceType: lambda x: plt.SubtractInteger(plt.Integer(0), x)},
-}
-
 
 def rec_constant_map_data(c):
     if isinstance(c, bool):
@@ -208,13 +203,11 @@ class PlutoCompiler(CompilingNodeTransformer):
         return ops
 
     def visit_UnaryOp(self, node: TypedUnaryOp) -> plt.AST:
-        opmap = UnaryOpMap.get(type(node.op))
-        assert opmap is not None, f"Operator {type(node.op)} is not supported"
-        op = opmap.get(node.operand.typ)
-        assert (
-            op is not None
-        ), f"Operator {type(node.op)} is not supported for type {node.operand.typ}"
-        return op(self.visit(node.operand))
+        op = node.left.typ.unop(node.op)
+        return plt.Apply(
+            op,
+            self.visit(node.left),
+        )
 
     def visit_Compare(self, node: TypedCompare) -> plt.AST:
         assert len(node.ops) == 1, "Only single comparisons are supported"

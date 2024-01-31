@@ -107,6 +107,40 @@ class Type:
             f"{type(self).__name__} can not be used with operation {binop.__class__.__name__}"
         )
 
+    def unop_type(self, unop: unaryop) -> "Type":
+        """
+        Type of a unary operation on self.
+        """
+        return FunctionType(
+            [InstanceType(self)],
+            InstanceType(self._unop_return_type(unop)),
+        )
+
+    def _unop_return_type(self, unop: unaryop) -> "Type":
+        """
+        Return the type of a binary operation between self and other
+        """
+        raise NotImplementedError(
+            f"{type(self).__name__} does not implement {unop.__class__.__name__}"
+        )
+
+    def unop(self, unop: unaryop) -> plt.AST:
+        """
+        Implements a unary operation on self
+        """
+        return OLambda(
+            ["self"],
+            self._unop_fun(unop)(OVar("self")),
+        )
+
+    def _unop_fun(self, unop: unaryop) -> Callable[[plt.AST], plt.AST]:
+        """
+        Returns a unary function that implements the unary operation on self.
+        """
+        raise NotImplementedError(
+            f"{type(self).__name__} can not be used with operation {unop.__class__.__name__}"
+        )
+
 
 @dataclass(frozen=True, unsafe_hash=True)
 class Record:
@@ -1541,6 +1575,24 @@ class IntegerType(AtomicType):
             elif other.typ == StringInstanceType:
                 return lambda x, y: StrIntMulImpl(y, x)
 
+    def _unop_return_type(self, unop: unaryop) -> "Type":
+        if isinstance(unop, USub):
+            return IntegerType()
+        elif isinstance(unop, UAdd):
+            return IntegerType()
+        elif isinstance(unop, Not):
+            return BoolType()
+        return super()._unop_return_type(unop)
+
+    def _unop_fun(self, unop: unaryop) -> Callable[[plt.AST], plt.AST]:
+        if isinstance(unop, USub):
+            return lambda x: plt.SubtractInteger(plt.Integer(0), x)
+        if isinstance(unop, UAdd):
+            return lambda x: x
+        if isinstance(unop, Not):
+            return lambda x: plt.NotEqualsInteger(x, plt.Integer(0))
+        return super()._unop_fun(unop)
+
 
 @dataclass(frozen=True, unsafe_hash=True)
 class StringType(AtomicType):
@@ -1966,6 +2018,16 @@ class BoolType(AtomicType):
                 plt.Text("False"),
             ),
         )
+
+    def _unop_return_type(self, unop: unaryop) -> "Type":
+        if isinstance(unop, Not):
+            return BoolType()
+        return super()._unop_return_type(unop)
+
+    def _unop_fun(self, unop: unaryop) -> Callable[[plt.AST], plt.AST]:
+        if isinstance(unop, Not):
+            return plt.Not
+        return super()._unop_fun(unop)
 
 
 @dataclass(frozen=True, unsafe_hash=True)
