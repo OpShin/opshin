@@ -337,7 +337,7 @@ class OptimizeConstantFolding(CompilingNodeTransformer):
         if any(
             isinstance(node_eval, t)
             for t in ACCEPTED_ATOMIC_TYPES + [list, dict, PlutusData]
-        ):
+        ) and not (node_eval == [] or node_eval == {}):
             new_node = Constant(node_eval, None)
             copy_location(new_node, node)
             return new_node
