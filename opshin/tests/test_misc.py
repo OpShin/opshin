@@ -2702,3 +2702,16 @@ def validator(_: None) -> Dict[int, int]:
 """
         res = eval_uplc_value(source_code, Unit(), constant_folding=True)
         self.assertEqual(res, {})
+
+    def test_empty_dict_displaced_constant_folding(self):
+        source_code = """
+from opshin.prelude import *
+
+VAR: Dict[bytes, int] = {}
+
+def validator(b: Dict[int, Dict[bytes, int]]) -> Dict[bytes, int]:
+    a = b.get(0, VAR)
+    return a
+        """
+        res = eval_uplc_value(source_code, {1: {b"": 0}}, constant_folding=True)
+        self.assertEqual(res, {})

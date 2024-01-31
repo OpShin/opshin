@@ -72,7 +72,7 @@ def constant_type(c):
         ), "Constant lists must contain elements of a single type only"
         return InstanceType(ListType(first_typ))
     if isinstance(c, dict):
-        assert len(c) > 0, "Lists must be non-empty"
+        assert len(c) > 0, "Dicts must be non-empty"
         first_key_typ = constant_type(next(iter(c.keys())))
         first_value_typ = constant_type(next(iter(c.values())))
         assert all(
@@ -1085,7 +1085,7 @@ class ReturnExtractor(TypedNodeVisitor):
     def visit_Return(self, node: Return) -> bool:
         assert (
             self.func_rettyp >= node.typ
-        ), f"Function '{node.name}' annotated return type does not match actual return type"
+        ), f"Function annotated return type does not match actual return type"
         return True
 
     def check_fulfills(self, node: FunctionDef):
