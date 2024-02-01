@@ -165,6 +165,14 @@ class Record:
 @dataclass(frozen=True, unsafe_hash=True)
 class ClassType(Type):
     def __ge__(self, other):
+        """
+        Returns whether other can be substituted for this type.
+        In other words this returns whether the interface of this type is a subset of the interface of other.
+        Note that this is usually <= and not >=, but this needs to be fixed later.
+        Produces a partial order on types.
+        The top element is the most generic type and can not substitute for anything.
+        The bottom element is the most specific type and can be substituted for anything.
+        """
         raise NotImplementedError("Comparison between raw classtypes impossible")
 
     def copy_only_attributes(self) -> plt.AST:
@@ -730,7 +738,7 @@ class UnionType(ClassType):
 
     def __ge__(self, other):
         if isinstance(other, UnionType):
-            return all(any(t >= ot for ot in other.typs) for t in self.typs)
+            return all(self >= ot for ot in other.typs)
         return any(t >= other for t in self.typs)
 
     def cmp(self, op: cmpop, o: "Type") -> plt.AST:

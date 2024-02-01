@@ -801,10 +801,11 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             assert len(tc.args) == len(
                 functyp.argtyps
             ), f"Signature of function does not match number of arguments. Expected {len(functyp.argtyps)} arguments with these types: {functyp.argtyps} but got {len(tc.args)} arguments."
-            # all arguments need to be supertypes of the given type
-            assert all(
-                ap >= a.typ for a, ap in zip(tc.args, functyp.argtyps)
-            ), f"Signature of function does not match arguments. Expected {len(functyp.argtyps)} arguments with these types: {functyp.argtyps} but got {[a.typ for a in tc.args]}."
+            # all arguments need to be subtypes of the parameter type
+            for i, (a, ap) in enumerate(zip(tc.args, functyp.argtyps)):
+                assert (
+                    ap >= a.typ
+                ), f"Signature of function does not match arguments in argument {i}. Expected this type: {ap} but got {a.typ}."
             tc.typ = functyp.rettyp
             return tc
         raise TypeInferenceError("Could not infer type of call")
