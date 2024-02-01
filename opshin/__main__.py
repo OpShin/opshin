@@ -219,7 +219,7 @@ def perform_command(args):
                     param = plutus_data_from_cbor(c[1], param_bytes)
                 except Exception as e:
                     raise ValueError(
-                        f"Invalid parameter for contract passed at position {i}, expected type {c.__name__}."
+                        f"Invalid parameter for contract passed at position {i}, expected type {c[1].__name__}."
                     ) from e
             parsed_params.append(param)
         onchain_params, param_types = check_params(
