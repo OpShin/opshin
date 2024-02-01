@@ -8,9 +8,14 @@ def test_union_type_order():
     abc = UnionType([A, B, C])
     ab = UnionType([A, B])
     a = A
+    c = C
 
     assert a >= a
     assert ab >= a
     assert not a >= ab
     assert abc >= ab
     assert not ab >= abc
+    assert not c >= a
+    assert not a >= c
+    assert abc >= c
+    assert not ab >= c
