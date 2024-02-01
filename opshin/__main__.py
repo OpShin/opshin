@@ -88,13 +88,13 @@ def plutus_data_from_cbor(annotation: typing.Type, x: bytes):
             return None
         if isinstance(annotation, typing._GenericAlias):
             # Annotation is a List or Dict
-            if annotation._name == "List":
+            if annotation.__origin__ == list:
                 annotation_ann = annotation.__dict__["__args__"][0]
                 return [
                     plutus_data_from_cbor(annotation_ann, cbor2.dumps(k))
                     for k in cbor2.loads(x)
                 ]
-            if annotation._name == "Dict":
+            if annotation.__origin__ == dict:
                 annotation_key, annotation_val = annotation.__dict__["__args__"]
                 return {
                     plutus_data_from_cbor(
@@ -102,6 +102,15 @@ def plutus_data_from_cbor(annotation: typing.Type, x: bytes):
                     ): plutus_data_from_cbor(annotation_val, v)
                     for k, v in cbor2.loads(x).items()
                 }
+            if annotation.__origin__ == typing.Union:
+                for ann in annotation.__dict__["__args__"]:
+                    try:
+                        return plutus_data_from_cbor(ann, x)
+                    except ValueError:
+                        pass
+                raise ValueError(
+                    f"Could not find matching type for {x.hex()} in {annotation}"
+                )
         if issubclass(annotation, pycardano.PlutusData):
             return annotation.from_cbor(x)
     except (KeyError, ValueError):
