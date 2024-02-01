@@ -106,7 +106,7 @@ def plutus_data_from_cbor(annotation: typing.Type, x: bytes):
                 for ann in annotation.__dict__["__args__"]:
                     try:
                         return plutus_data_from_cbor(ann, x)
-                    except ValueError:
+                    except pycardano.DeserializeException:
                         pass
                 raise ValueError(
                     f"Could not find matching type for {x.hex()} in {annotation}"
