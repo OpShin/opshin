@@ -27,6 +27,22 @@ def test_unsigned_int_from_bytes_big(b: bytes):
     ), "Invalid from bytes"
 
 
+@hypothesis.given(hst.integers())
+@hypothesis.example(1000)
+def test_bytes_big_from_unsigned_int(b: int):
+    try:
+        res = oc_math.bytes_big_from_unsigned_int(b)
+    except AssertionError:
+        res = None
+    try:
+        exp = b.to_bytes(
+            max(1, (b.bit_length() + 7) // 8), byteorder="big", signed=False
+        )
+    except OverflowError:
+        exp = None
+    assert res == exp, "Invalid to bytes"
+
+
 @hypothesis.given(hst.integers(), hst.integers())
 def test_ceil(a: int, b: int):
     hypothesis.assume(b != 0)

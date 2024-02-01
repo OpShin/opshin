@@ -19,6 +19,18 @@ def unsigned_int_from_bytes_big(b: bytes) -> int:
     return acc
 
 
+def bytes_big_from_unsigned_int(b: int) -> bytes:
+    """Converts an integer into the corresponding bytestring, big/network byteorder, unsigned"""
+    assert b >= 0
+    if b == 0:
+        return b"\x00"
+    acc = b""
+    while b > 0:
+        acc = bytes([b % 256]) + acc
+        b //= 256
+    return acc
+
+
 def ceil(a: int, b: int):
     """Returns a divided by b rounded towards positive infinity"""
     return (a + b - 1) // b if b > 0 else (a + b + 1) // b
