@@ -1356,6 +1356,9 @@ class FunctionType(ClassType):
     rettyp: Type
     # A map from external variable names to their types when the function is defined
     bound_vars: typing.Dict[str, Type] = dataclasses.field(default_factory=frozendict)
+    # Whether and under which name the function binds itself
+    # The type of this variable is "self"
+    bind_self: typing.Optional[str] = None
 
     def __post_init__(self):
         object.__setattr__(self, "argtyps", frozenlist(self.argtyps))
@@ -1368,6 +1371,7 @@ class FunctionType(ClassType):
             and all(a >= oa for a, oa in zip(self.argtyps, other.argtyps))
             and self.bound_vars.keys() == other.bound_vars.keys()
             and all(sbv >= other.bound_vars[k] for k, sbv in self.bound_vars.items())
+            and self.bind_self == other.bind_self
             and other.rettyp >= self.rettyp
         )
 

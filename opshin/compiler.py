@@ -434,11 +434,13 @@ class PlutoCompiler(CompilingNodeTransformer):
                     node.func.typ.typ.argtyps
                 )
             )
+            bind_self = None
         else:
             assert isinstance(node.func.typ, InstanceType) and isinstance(
                 node.func.typ.typ, FunctionType
             )
             func_plt = self.visit(node.func)
+            bind_self = node.func.typ.typ.bind_self
         bound_vs = self.function_bound_vars[node.func.typ.typ]
         args = []
         for a, t in zip(node.args, node.func.typ.typ.argtyps):
@@ -457,6 +459,7 @@ class PlutoCompiler(CompilingNodeTransformer):
             [(f"p{i}", a) for i, a in enumerate(args)],
             SafeApply(
                 func_plt,
+                *([plt.Var(bind_self)] if bind_self is not None else []),
                 *[plt.Var(n) for n in bound_vs],
                 *[plt.Delay(OVar(f"p{i}")) for i in range(len(args))],
             ),
@@ -470,6 +473,8 @@ class PlutoCompiler(CompilingNodeTransformer):
         else:
             ret_val = plt.Unit()
         read_vs = self.function_bound_vars[node.typ.typ]
+        if node.typ.typ.bind_self is not None:
+            read_vs.insert(0, node.typ.typ.bind_self)
         self.current_function_typ.append(node.typ.typ)
         compiled_body = self.visit_sequence(body)(ret_val)
         self.current_function_typ.pop()
