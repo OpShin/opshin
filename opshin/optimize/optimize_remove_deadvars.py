@@ -6,7 +6,7 @@ from ordered_set import OrderedSet
 
 from ..util import CompilingNodeVisitor, CompilingNodeTransformer
 from ..type_inference import INITIAL_SCOPE
-from ..typed_ast import TypedAnnAssign
+from ..typed_ast import TypedAnnAssign, TypedFunctionDef, TypedClassDef, TypedName
 
 """
 Removes assignments to variables that are never read
@@ -19,15 +19,15 @@ class NameLoadCollector(CompilingNodeVisitor):
     def __init__(self):
         self.loaded = defaultdict(int)
 
-    def visit_Name(self, node: Name) -> None:
+    def visit_Name(self, node: TypedName) -> None:
         if isinstance(node.ctx, Load):
             self.loaded[node.id] += 1
 
-    def visit_ClassDef(self, node: ClassDef):
+    def visit_ClassDef(self, node: TypedClassDef):
         # ignore the content (i.e. attribute names) of class definitions
         pass
 
-    def visit_FunctionDef(self, node: FunctionDef):
+    def visit_FunctionDef(self, node: TypedFunctionDef):
         # ignore the type hints of function arguments
         for s in node.body:
             self.visit(s)
