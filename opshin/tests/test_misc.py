@@ -2833,7 +2833,7 @@ def validator(x: bool) -> int:
     else:
         y = A(0) if x else B(0)
         def foo() -> int:
-            print(y.foo if isinstance(y, A) else y.bar)
+            print(y)
             return 2
     y = A(0)
     return foo()
@@ -2857,8 +2857,8 @@ def validator(x: bool) -> None:
         a = b
     return a(x)
         """
-        res_true = eval_uplc_value(source_code, 1)
-        res_false = eval_uplc_value(source_code, 0)
+        res_true = eval_uplc(source_code, 1)
+        res_false = eval_uplc(source_code, 0)
 
     def test_print_reassign(self):
         source_code = """
@@ -2868,6 +2868,19 @@ from dataclasses import dataclass
 
 def validator(x: bool) -> None:
     a = print
+    return a(x)
+        """
+        res_true = eval_uplc(source_code, 1)
+        res_false = eval_uplc(source_code, 0)
+
+    def test_str_constr_reassign(self):
+        source_code = """
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
+from dataclasses import dataclass
+
+def validator(x: bool) -> str:
+    a = str
     return a(x)
         """
         res_true = eval_uplc_value(source_code, 1)

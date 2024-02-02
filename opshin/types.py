@@ -2487,6 +2487,12 @@ class PolymorphicFunctionType(ClassType):
 
     polymorphic_function: PolymorphicFunction
 
+    def __ge__(self, other):
+        return (
+            isinstance(other, PolymorphicFunctionType)
+            and self.polymorphic_function == other.polymorphic_function
+        )
+
 
 @dataclass(frozen=True, unsafe_hash=True)
 class PolymorphicFunctionInstanceType(InstanceType):
