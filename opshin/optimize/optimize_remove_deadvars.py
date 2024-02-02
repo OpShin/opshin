@@ -31,6 +31,10 @@ class NameLoadCollector(CompilingNodeVisitor):
         # ignore the type hints of function arguments
         for s in node.body:
             self.visit(s)
+        for v in node.typ.typ.bound_vars.keys():
+            self.loaded[v] += 1
+        if node.typ.typ.bind_self is not None:
+            self.loaded[node.typ.typ.bind_self] += 1
 
 
 class SafeOperationVisitor(CompilingNodeVisitor):
