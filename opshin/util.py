@@ -228,7 +228,6 @@ class NameReadCollector(CompilingNodeVisitor):
 
     def visit_FunctionDef(self, node) -> None:
         # ignore annotations of paramters and return
-        self.visit(node.args)
         for b in node.body:
             self.visit(b)
 
@@ -239,11 +238,6 @@ class NameReadCollector(CompilingNodeVisitor):
     def visit_ClassDef(self, node: ClassDef):
         # ignore the content (i.e. attribute names) of class definitions
         pass
-
-    def visit_FunctionDef(self, node: FunctionDef):
-        # ignore the type hints of function arguments
-        for s in node.body:
-            self.visit(s)
 
 
 def read_vars(node):
@@ -261,7 +255,7 @@ def all_vars(node):
 
 def externally_bound_vars(node: FunctionDef):
     """A superset of the variables bound from an outer scope"""
-    return sorted(set(read_vars(node)) - (set(written_vars(node)) - {node.name}))
+    return sorted(set(read_vars(node)) - set(written_vars(node)) - {"isinstance"})
 
 
 def opshin_name_scheme_compatible_varname(n: str):

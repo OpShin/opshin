@@ -2776,3 +2776,112 @@ def validator(x: Union[A, B, C]) -> int:
     return fun(x)
         """
         builder._compile(source_code)
+
+    @unittest.expectedFailure
+    def test_merge_function_same_capture_different_type(self):
+        source_code = """
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
+from dataclasses import dataclass
+
+@dataclass()
+class A(PlutusData):
+    CONSTR_ID = 0
+    foo: int
+
+@dataclass()
+class B(PlutusData):
+    CONSTR_ID = 1
+    bar: int
+
+def validator(x: bool) -> int:
+    if x:
+        y = A(0)
+        def foo() -> int:
+            return y.foo
+    else:
+        y = B(0)
+        def foo() -> int:
+            return y.bar
+    y = A(0)
+    return foo()
+        """
+        builder._compile(source_code)
+
+    def test_merge_function_same_capture_same_type(self):
+        source_code = """
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
+from dataclasses import dataclass
+
+@dataclass()
+class A(PlutusData):
+    CONSTR_ID = 0
+    foo: int
+
+@dataclass()
+class B(PlutusData):
+    CONSTR_ID = 1
+    bar: int
+
+def validator(x: bool) -> int:
+    if x:
+        y = A(0)
+        def foo() -> int:
+            print(2)
+            return y.foo
+    else:
+        y = A(0) if x else B(0)
+        def foo() -> int:
+            print(y)
+            return 2
+    y = A(0)
+    return foo()
+        """
+        res_true = eval_uplc_value(source_code, 1)
+        res_false = eval_uplc_value(source_code, 0)
+        self.assertEqual(res_true, 0)
+        self.assertEqual(res_false, 2)
+
+    def test_merge_print(self):
+        source_code = """
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
+from dataclasses import dataclass
+
+def validator(x: bool) -> None:
+    if x:
+        a = print
+    else:
+        b = print
+        a = b
+    return a(x)
+        """
+        res_true = eval_uplc(source_code, 1)
+        res_false = eval_uplc(source_code, 0)
+
+    def test_print_reassign(self):
+        source_code = """
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
+from dataclasses import dataclass
+
+def validator(x: bool) -> None:
+    a = print
+    return a(x)
+        """
+        res_true = eval_uplc(source_code, 1)
+        res_false = eval_uplc(source_code, 0)
+
+    def test_str_constr_reassign(self):
+        source_code = """
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
+from dataclasses import dataclass
+
+def validator(x: bool) -> str:
+    a = str
+    return a(x)
+        """
+        res_true = eval_uplc_value(source_code, 1)
+        res_false = eval_uplc_value(source_code, 0)

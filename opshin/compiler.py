@@ -25,7 +25,7 @@ from .rewrite.rewrite_scoping import RewriteScoping
 from .rewrite.rewrite_subscript38 import RewriteSubscript38
 from .rewrite.rewrite_tuple_assign import RewriteTupleAssign
 from .optimize.optimize_remove_pass import OptimizeRemovePass
-from .optimize.optimize_remove_deadvars import OptimizeRemoveDeadvars
+from .optimize.optimize_remove_deadvars import OptimizeRemoveDeadvars, NameLoadCollector
 from .type_inference import *
 from .util import (
     CompilingNodeTransformer,
@@ -136,27 +136,6 @@ def wrap_validator_double_function(x: plt.AST, pass_through: int = 0):
 CallAST = typing.Callable[[plt.AST], plt.AST]
 
 
-class FunctionBoundVarsCollector(NodeVisitor):
-    def __init__(self):
-        self.functions_bound_vars: typing.Dict[
-            FunctionType, typing.List[str]
-        ] = defaultdict(list)
-
-    def visit_FunctionDef(self, node: FunctionDef) -> None:
-        self.functions_bound_vars[node.typ.typ] = sorted(
-            set(self.functions_bound_vars[node.typ.typ] + externally_bound_vars(node))
-        )
-        self.generic_visit(node)
-
-
-def extract_function_bound_vars(
-    node: AST,
-) -> typing.Dict[FunctionType, typing.List[str]]:
-    e = FunctionBoundVarsCollector()
-    e.visit(node)
-    return e.functions_bound_vars
-
-
 class PlutoCompiler(CompilingNodeTransformer):
     """
     Expects a TypedAST and returns UPLC/Pluto like code
@@ -170,9 +149,6 @@ class PlutoCompiler(CompilingNodeTransformer):
         self.validator_function_name = validator_function_name
         # marked knowledge during compilation
         self.current_function_typ: typing.List[FunctionType] = []
-        self.function_bound_vars: typing.Dict[
-            FunctionType, typing.List[str]
-        ] = defaultdict(list)
 
     def visit_sequence(self, node_seq: typing.List[typedstmt]) -> CallAST:
         def g(s: plt.AST):
@@ -223,7 +199,6 @@ class PlutoCompiler(CompilingNodeTransformer):
 
     def visit_Module(self, node: TypedModule) -> plt.AST:
         # extract actually read variables by each function
-        self.function_bound_vars = extract_function_bound_vars(node)
         if self.validator_function_name is not None:
             # for validators find main function
             # TODO can use more sophisiticated procedure here i.e. functions marked by comment
@@ -292,7 +267,9 @@ class PlutoCompiler(CompilingNodeTransformer):
                 ]
             )
             self.current_function_typ.append(FunctionType([], InstanceType(AnyType())))
-            all_vs = sorted(set(all_vars(node)))
+            name_load_visitor = NameLoadCollector()
+            name_load_visitor.visit(node)
+            all_vs = sorted(set(all_vars(node)) | set(name_load_visitor.loaded.keys()))
 
             # write all variables that are ever read
             # once at the beginning so that we can always access them (only potentially causing a nameerror at runtime)
@@ -324,7 +301,9 @@ class PlutoCompiler(CompilingNodeTransformer):
                     "The contract can not always detect if it was passed three or two parameters on-chain."
                 )
         else:
-            all_vs = sorted(set(all_vars(node)))
+            name_load_visitor = NameLoadCollector()
+            name_load_visitor.visit(node)
+            all_vs = sorted(set(all_vars(node)) | set(name_load_visitor.loaded.keys()))
 
             body = node.body
             # write all variables that are ever read
@@ -434,12 +413,14 @@ class PlutoCompiler(CompilingNodeTransformer):
                     node.func.typ.typ.argtyps
                 )
             )
+            bind_self = None
         else:
             assert isinstance(node.func.typ, InstanceType) and isinstance(
                 node.func.typ.typ, FunctionType
             )
             func_plt = self.visit(node.func)
-        bound_vs = self.function_bound_vars[node.func.typ.typ]
+            bind_self = node.func.typ.typ.bind_self
+        bound_vs = sorted(list(node.func.typ.typ.bound_vars.keys()))
         args = []
         for a, t in zip(node.args, node.func.typ.typ.argtyps):
             assert isinstance(t, InstanceType)
@@ -457,6 +438,7 @@ class PlutoCompiler(CompilingNodeTransformer):
             [(f"p{i}", a) for i, a in enumerate(args)],
             SafeApply(
                 func_plt,
+                *([plt.Var(bind_self)] if bind_self is not None else []),
                 *[plt.Var(n) for n in bound_vs],
                 *[plt.Delay(OVar(f"p{i}")) for i in range(len(args))],
             ),
@@ -469,7 +451,9 @@ class PlutoCompiler(CompilingNodeTransformer):
             ret_val = plt.ConstrData(plt.Integer(0), plt.EmptyDataList())
         else:
             ret_val = plt.Unit()
-        read_vs = self.function_bound_vars[node.typ.typ]
+        read_vs = sorted(list(node.typ.typ.bound_vars.keys()))
+        if node.typ.typ.bind_self is not None:
+            read_vs.insert(0, node.typ.typ.bind_self)
         self.current_function_typ.append(node.typ.typ)
         compiled_body = self.visit_sequence(body)(ret_val)
         self.current_function_typ.pop()

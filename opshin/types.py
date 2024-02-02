@@ -1354,18 +1354,24 @@ class DictType(ClassType):
 class FunctionType(ClassType):
     argtyps: typing.List[Type]
     rettyp: Type
-    bound_vars: typing.List[str] = dataclasses.field(default_factory=frozenlist)
+    # A map from external variable names to their types when the function is defined
+    bound_vars: typing.Dict[str, Type] = dataclasses.field(default_factory=frozendict)
+    # Whether and under which name the function binds itself
+    # The type of this variable is "self"
+    bind_self: typing.Optional[str] = None
 
     def __post_init__(self):
         object.__setattr__(self, "argtyps", frozenlist(self.argtyps))
-        object.__setattr__(self, "bound_vars", frozenlist(self.bound_vars))
+        object.__setattr__(self, "bound_vars", frozendict(self.bound_vars))
 
     def __ge__(self, other):
         return (
             isinstance(other, FunctionType)
             and len(self.argtyps) == len(other.argtyps)
             and all(a >= oa for a, oa in zip(self.argtyps, other.argtyps))
-            and self.bound_vars == other.bound_vars
+            and self.bound_vars.keys() == other.bound_vars.keys()
+            and all(sbv >= other.bound_vars[k] for k, sbv in self.bound_vars.items())
+            and self.bind_self == other.bind_self
             and other.rettyp >= self.rettyp
         )
 
@@ -2484,6 +2490,12 @@ class PolymorphicFunctionType(ClassType):
     """A special type of builtin that may act differently on different parameters"""
 
     polymorphic_function: PolymorphicFunction
+
+    def __ge__(self, other):
+        return (
+            isinstance(other, PolymorphicFunctionType)
+            and self.polymorphic_function == other.polymorphic_function
+        )
 
 
 @dataclass(frozen=True, unsafe_hash=True)
