@@ -441,7 +441,7 @@ class PlutoCompiler(CompilingNodeTransformer):
             )
             func_plt = self.visit(node.func)
             bind_self = node.func.typ.typ.bind_self
-        bound_vs = self.function_bound_vars[node.func.typ.typ]
+        bound_vs = sorted(list(node.func.typ.typ.bound_vars.keys()))
         args = []
         for a, t in zip(node.args, node.func.typ.typ.argtyps):
             assert isinstance(t, InstanceType)
@@ -472,7 +472,7 @@ class PlutoCompiler(CompilingNodeTransformer):
             ret_val = plt.ConstrData(plt.Integer(0), plt.EmptyDataList())
         else:
             ret_val = plt.Unit()
-        read_vs = self.function_bound_vars[node.typ.typ]
+        read_vs = sorted(list(node.typ.typ.bound_vars.keys()))
         if node.typ.typ.bind_self is not None:
             read_vs.insert(0, node.typ.typ.bind_self)
         self.current_function_typ.append(node.typ.typ)

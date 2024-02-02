@@ -228,7 +228,6 @@ class NameReadCollector(CompilingNodeVisitor):
 
     def visit_FunctionDef(self, node) -> None:
         # ignore annotations of paramters and return
-        self.visit(node.args)
         for b in node.body:
             self.visit(b)
 
@@ -239,11 +238,6 @@ class NameReadCollector(CompilingNodeVisitor):
     def visit_ClassDef(self, node: ClassDef):
         # ignore the content (i.e. attribute names) of class definitions
         pass
-
-    def visit_FunctionDef(self, node: FunctionDef):
-        # ignore the type hints of function arguments
-        for s in node.body:
-            self.visit(s)
 
 
 def read_vars(node):

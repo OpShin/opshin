@@ -575,7 +575,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             frozenlist([t.typ for t in tfd.args.args]),
             InstanceType(self.type_from_annotation(tfd.returns)),
             bound_vars={v: self.variable_type(v) for v in externally_bound_vars(node)},
-            bind_self=node.name if node.name in read_vars(node.body) else None,
+            bind_self=node.name if node.name in read_vars(node) else None,
         )
         tfd.typ = InstanceType(functyp)
         if wraps_builtin:
