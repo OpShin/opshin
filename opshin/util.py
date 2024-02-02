@@ -261,7 +261,9 @@ def all_vars(node):
 
 def externally_bound_vars(node: FunctionDef):
     """A superset of the variables bound from an outer scope"""
-    return sorted(set(read_vars(node)) - (set(written_vars(node)) - {node.name}))
+    return sorted(
+        set(read_vars(node)) - (set(written_vars(node)) - {node.name}) - {"isinstance"}
+    )
 
 
 def opshin_name_scheme_compatible_varname(n: str):
