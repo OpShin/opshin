@@ -2776,3 +2776,34 @@ def validator(x: Union[A, B, C]) -> int:
     return fun(x)
         """
         builder._compile(source_code)
+
+    @unittest.expectedFailure
+    def test_merge_function_same_capture_different_type(self):
+        source_code = """
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
+from dataclasses import dataclass
+
+@dataclass()
+class A(PlutusData):
+    CONSTR_ID = 0
+    foo: int
+
+@dataclass()
+class B(PlutusData):
+    CONSTR_ID = 1
+    bar: int
+
+def validator(x: bool) -> int:
+    if x:
+        y = A(0)
+        def foo() -> int:
+            return y.foo
+    else:
+        y = B(0)
+        def foo() -> int:
+            return y.bar
+    y = A(0)
+    return foo()
+        """
+        builder._compile(source_code)
