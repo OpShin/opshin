@@ -2888,47 +2888,74 @@ def validator(x: bool) -> str:
         res_true = eval_uplc_value(source_code, 1)
         res_false = eval_uplc_value(source_code, 0)
 
-@unittest.expectedFailure
-def test_class_attribute_access():
-    source_code = """
-from dataclasses import dataclass
-from pycardano import Datum as Anything, PlutusData
-from typing import Dict, List, Union
+    @unittest.expectedFailure
+    def test_class_attribute_access(self):
+        source_code = """
+    from dataclasses import dataclass
+    from pycardano import Datum as Anything, PlutusData
+    from typing import Dict, List, Union
 
-@dataclass
-class A(PlutusData):
-    CONSTR_ID = 0
-    a: int
-    b: bytes
-    d: List[int]
+    @dataclass
+    class A(PlutusData):
+        CONSTR_ID = 0
+        a: int
+        b: bytes
+        d: List[int]
 
-def validator(_: None) -> int:
-    return A.CONSTR_ID
-"""
-    builder._compile(source_code)
+    def validator(_: None) -> int:
+        return A.CONSTR_ID
+    """
+        builder._compile(source_code)
 
-def test_constr_id_access():
-    source_code = """
-from dataclasses import dataclass
-from pycardano import Datum as Anything, PlutusData
-from typing import Dict, List, Union
+    def test_constr_id_access():
+        source_code = """
+    from dataclasses import dataclass
+    from pycardano import Datum as Anything, PlutusData
+    from typing import Dict, List, Union
 
-@dataclass
-class A(PlutusData):
-    CONSTR_ID = 15
-    a: int
-    b: bytes
-    d: List[int]
+    @dataclass
+    class A(PlutusData):
+        CONSTR_ID = 15
+        a: int
+        b: bytes
+        d: List[int]
 
-def validator(_: None) -> int:
-    return A(0, b"", [1,2]).CONSTR_ID
-"""
-    res = eval_uplc_value(source_code, Unit())
+    def validator(_: None) -> int:
+        return A(0, b"", [1,2]).CONSTR_ID
+    """
+        res = eval_uplc_value(source_code, Unit())
 
-    assert 15 == res
+        assert 15 == res
 
+    def test_id_map_equals_pycardano(self):
+        @dataclass
+        class A(PlutusData):
+            CONSTR_ID = 0
+            a: int
+            b: bytes
+            d: List[int]
 
-def test_id_map_equals_pycardano():
+        @dataclass
+        class C(PlutusData):
+            z: Anything
+
+        @dataclass
+        class B(PlutusData):
+            a: int
+            c: A
+            d: Dict[bytes, C]
+            e: Union[A, C]
+
+        source_code = """
+    from dataclasses import dataclass
+    from pycardano import Datum as Anything, PlutusData
+    from typing import Dict, List, Union
+
+    @dataclass
+    class Nothing(PlutusData):
+        CONSTR_ID = 0
+        
+
     @dataclass
     class A(PlutusData):
         CONSTR_ID = 0
@@ -2947,37 +2974,11 @@ def test_id_map_equals_pycardano():
         d: Dict[bytes, C]
         e: Union[A, C]
 
-    source_code = """
-from dataclasses import dataclass
-from pycardano import Datum as Anything, PlutusData
-from typing import Dict, List, Union
+    def validator(_: None) -> int:
+        return B(1, A(1, b"", [1, 2]), {b"": C(Nothing())}, C(Nothing())).CONSTR_ID
+    """
+        res = eval_uplc_value(source_code, Unit())
 
-@dataclass
-class Nothing(PlutusData):
-    CONSTR_ID = 0
-    
-
-@dataclass
-class A(PlutusData):
-    CONSTR_ID = 0
-    a: int
-    b: bytes
-    d: List[int]
-
-@dataclass
-class C(PlutusData):
-    z: Anything
-
-@dataclass
-class B(PlutusData):
-    a: int
-    c: A
-    d: Dict[bytes, C]
-    e: Union[A, C]
-
-def validator(_: None) -> int:
-    return B(1, A(1, b"", [1, 2]), {b"": C(Nothing())}, C(Nothing())).CONSTR_ID
-"""
-    res = eval_uplc_value(source_code, Unit())
-
-    assert B.CONSTR_ID == res
+        self.assertEqual(
+            B.CONSTR_ID, res, "Invalid constr id generation (does not match pycardano)"
+        )
