@@ -298,7 +298,6 @@ class NameReadCollector(CompilingNodeVisitor):
 
     def visit_FunctionDef(self, node) -&gt; None:
         # ignore annotations of paramters and return
-        self.visit(node.args)
         for b in node.body:
             self.visit(b)
 
@@ -309,11 +308,6 @@ class NameReadCollector(CompilingNodeVisitor):
     def visit_ClassDef(self, node: ClassDef):
         # ignore the content (i.e. attribute names) of class definitions
         pass
-
-    def visit_FunctionDef(self, node: FunctionDef):
-        # ignore the type hints of function arguments
-        for s in node.body:
-            self.visit(s)
 
 
 def read_vars(node):
@@ -331,7 +325,7 @@ def all_vars(node):
 
 def externally_bound_vars(node: FunctionDef):
     &#34;&#34;&#34;A superset of the variables bound from an outer scope&#34;&#34;&#34;
-    return sorted(set(read_vars(node)) - (set(written_vars(node)) - {node.name}))
+    return sorted(set(read_vars(node)) - set(written_vars(node)) - {&#34;isinstance&#34;})
 
 
 def opshin_name_scheme_compatible_varname(n: str):
@@ -600,7 +594,7 @@ def SafeApply(term: plt.AST, *vars: typing.List[plt.AST]) -&gt; plt.Apply:
 </summary>
 <pre><code class="python">def externally_bound_vars(node: FunctionDef):
     &#34;&#34;&#34;A superset of the variables bound from an outer scope&#34;&#34;&#34;
-    return sorted(set(read_vars(node)) - (set(written_vars(node)) - {node.name}))</code></pre>
+    return sorted(set(read_vars(node)) - set(written_vars(node)) - {&#34;isinstance&#34;})</code></pre>
 </details>
 </dd>
 <dt id="opshin.util.force_params"><code class="name flex">
@@ -983,7 +977,6 @@ allows modifications.</p></div>
 
     def visit_FunctionDef(self, node) -&gt; None:
         # ignore annotations of paramters and return
-        self.visit(node.args)
         for b in node.body:
             self.visit(b)
 
@@ -993,12 +986,7 @@ allows modifications.</p></div>
 
     def visit_ClassDef(self, node: ClassDef):
         # ignore the content (i.e. attribute names) of class definitions
-        pass
-
-    def visit_FunctionDef(self, node: FunctionDef):
-        # ignore the type hints of function arguments
-        for s in node.body:
-            self.visit(s)</code></pre>
+        pass</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -1055,7 +1043,7 @@ allows modifications.</p></div>
 </details>
 </dd>
 <dt id="opshin.util.NameReadCollector.visit_FunctionDef"><code class="name flex">
-<span>def <span class="ident">visit_FunctionDef</span></span>(<span>self, node: ast.FunctionDef)</span>
+<span>def <span class="ident">visit_FunctionDef</span></span>(<span>self, node) ‑> None</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -1063,10 +1051,10 @@ allows modifications.</p></div>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def visit_FunctionDef(self, node: FunctionDef):
-    # ignore the type hints of function arguments
-    for s in node.body:
-        self.visit(s)</code></pre>
+<pre><code class="python">def visit_FunctionDef(self, node) -&gt; None:
+    # ignore annotations of paramters and return
+    for b in node.body:
+        self.visit(b)</code></pre>
 </details>
 </dd>
 <dt id="opshin.util.NameReadCollector.visit_Name"><code class="name flex">

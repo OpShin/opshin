@@ -654,7 +654,8 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         functyp = FunctionType(
             frozenlist([t.typ for t in tfd.args.args]),
             InstanceType(self.type_from_annotation(tfd.returns)),
-            externally_bound_vars(node),
+            bound_vars={v: self.variable_type(v) for v in externally_bound_vars(node)},
+            bind_self=node.name if node.name in read_vars(node) else None,
         )
         tfd.typ = InstanceType(functyp)
         if wraps_builtin:
@@ -881,10 +882,11 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             assert len(tc.args) == len(
                 functyp.argtyps
             ), f&#34;Signature of function does not match number of arguments. Expected {len(functyp.argtyps)} arguments with these types: {functyp.argtyps} but got {len(tc.args)} arguments.&#34;
-            # all arguments need to be supertypes of the given type
-            assert all(
-                ap &gt;= a.typ for a, ap in zip(tc.args, functyp.argtyps)
-            ), f&#34;Signature of function does not match arguments. Expected {len(functyp.argtyps)} arguments with these types: {functyp.argtyps} but got {[a.typ for a in tc.args]}.&#34;
+            # all arguments need to be subtypes of the parameter type
+            for i, (a, ap) in enumerate(zip(tc.args, functyp.argtyps)):
+                assert (
+                    ap &gt;= a.typ
+                ), f&#34;Signature of function does not match arguments in argument {i}. Expected this type: {ap} but got {a.typ}.&#34;
             tc.typ = functyp.rettyp
             return tc
         raise TypeInferenceError(&#34;Could not infer type of call&#34;)
@@ -1733,7 +1735,8 @@ just a single node.</p>
         functyp = FunctionType(
             frozenlist([t.typ for t in tfd.args.args]),
             InstanceType(self.type_from_annotation(tfd.returns)),
-            externally_bound_vars(node),
+            bound_vars={v: self.variable_type(v) for v in externally_bound_vars(node)},
+            bind_self=node.name if node.name in read_vars(node) else None,
         )
         tfd.typ = InstanceType(functyp)
         if wraps_builtin:
@@ -1960,10 +1963,11 @@ just a single node.</p>
             assert len(tc.args) == len(
                 functyp.argtyps
             ), f&#34;Signature of function does not match number of arguments. Expected {len(functyp.argtyps)} arguments with these types: {functyp.argtyps} but got {len(tc.args)} arguments.&#34;
-            # all arguments need to be supertypes of the given type
-            assert all(
-                ap &gt;= a.typ for a, ap in zip(tc.args, functyp.argtyps)
-            ), f&#34;Signature of function does not match arguments. Expected {len(functyp.argtyps)} arguments with these types: {functyp.argtyps} but got {[a.typ for a in tc.args]}.&#34;
+            # all arguments need to be subtypes of the parameter type
+            for i, (a, ap) in enumerate(zip(tc.args, functyp.argtyps)):
+                assert (
+                    ap &gt;= a.typ
+                ), f&#34;Signature of function does not match arguments in argument {i}. Expected this type: {ap} but got {a.typ}.&#34;
             tc.typ = functyp.rettyp
             return tc
         raise TypeInferenceError(&#34;Could not infer type of call&#34;)
@@ -2541,10 +2545,11 @@ just a single node.</p>
         assert len(tc.args) == len(
             functyp.argtyps
         ), f&#34;Signature of function does not match number of arguments. Expected {len(functyp.argtyps)} arguments with these types: {functyp.argtyps} but got {len(tc.args)} arguments.&#34;
-        # all arguments need to be supertypes of the given type
-        assert all(
-            ap &gt;= a.typ for a, ap in zip(tc.args, functyp.argtyps)
-        ), f&#34;Signature of function does not match arguments. Expected {len(functyp.argtyps)} arguments with these types: {functyp.argtyps} but got {[a.typ for a in tc.args]}.&#34;
+        # all arguments need to be subtypes of the parameter type
+        for i, (a, ap) in enumerate(zip(tc.args, functyp.argtyps)):
+            assert (
+                ap &gt;= a.typ
+            ), f&#34;Signature of function does not match arguments in argument {i}. Expected this type: {ap} but got {a.typ}.&#34;
         tc.typ = functyp.rettyp
         return tc
     raise TypeInferenceError(&#34;Could not infer type of call&#34;)</code></pre>
@@ -2758,7 +2763,8 @@ just a single node.</p>
     functyp = FunctionType(
         frozenlist([t.typ for t in tfd.args.args]),
         InstanceType(self.type_from_annotation(tfd.returns)),
-        externally_bound_vars(node),
+        bound_vars={v: self.variable_type(v) for v in externally_bound_vars(node)},
+        bind_self=node.name if node.name in read_vars(node) else None,
     )
     tfd.typ = InstanceType(functyp)
     if wraps_builtin:

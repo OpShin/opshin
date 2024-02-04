@@ -97,6 +97,22 @@ def test_unsigned_int_from_bytes_big(b: bytes):
     ), &#34;Invalid from bytes&#34;
 
 
+@hypothesis.given(hst.integers())
+@hypothesis.example(1000)
+def test_bytes_big_from_unsigned_int(b: int):
+    try:
+        res = oc_math.bytes_big_from_unsigned_int(b)
+    except AssertionError:
+        res = None
+    try:
+        exp = b.to_bytes(
+            max(1, (b.bit_length() + 7) // 8), byteorder=&#34;big&#34;, signed=False
+        )
+    except OverflowError:
+        exp = None
+    assert res == exp, &#34;Invalid to bytes&#34;
+
+
 @hypothesis.given(hst.integers(), hst.integers())
 def test_ceil(a: int, b: int):
     hypothesis.assume(b != 0)
@@ -116,6 +132,31 @@ def test_floor(a: int, b: int):
 <section>
 <h2 class="section-title" id="header-functions">Functions</h2>
 <dl>
+<dt id="opshin.tests.test_std.test_math.test_bytes_big_from_unsigned_int"><code class="name flex">
+<span>def <span class="ident">test_bytes_big_from_unsigned_int</span></span>(<span>) ‑> None</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@hypothesis.given(hst.integers())
+@hypothesis.example(1000)
+def test_bytes_big_from_unsigned_int(b: int):
+    try:
+        res = oc_math.bytes_big_from_unsigned_int(b)
+    except AssertionError:
+        res = None
+    try:
+        exp = b.to_bytes(
+            max(1, (b.bit_length() + 7) // 8), byteorder=&#34;big&#34;, signed=False
+        )
+    except OverflowError:
+        exp = None
+    assert res == exp, &#34;Invalid to bytes&#34;</code></pre>
+</details>
+</dd>
 <dt id="opshin.tests.test_std.test_math.test_ceil"><code class="name flex">
 <span>def <span class="ident">test_ceil</span></span>(<span>) ‑> None</span>
 </code></dt>
@@ -261,6 +302,7 @@ setTimeout(() => input.focus(), 100);
 </li>
 <li><h3><a href="#header-functions">Functions</a></h3>
 <ul class="">
+<li><code><a title="opshin.tests.test_std.test_math.test_bytes_big_from_unsigned_int" href="#opshin.tests.test_std.test_math.test_bytes_big_from_unsigned_int">test_bytes_big_from_unsigned_int</a></code></li>
 <li><code><a title="opshin.tests.test_std.test_math.test_ceil" href="#opshin.tests.test_std.test_math.test_ceil">test_ceil</a></code></li>
 <li><code><a title="opshin.tests.test_std.test_math.test_floor" href="#opshin.tests.test_std.test_math.test_floor">test_floor</a></code></li>
 <li><code><a title="opshin.tests.test_std.test_math.test_gcd" href="#opshin.tests.test_std.test_math.test_gcd">test_gcd</a></code></li>

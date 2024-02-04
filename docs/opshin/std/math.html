@@ -90,6 +90,18 @@ def unsigned_int_from_bytes_big(b: bytes) -&gt; int:
     return acc
 
 
+def bytes_big_from_unsigned_int(b: int) -&gt; bytes:
+    &#34;&#34;&#34;Converts an integer into the corresponding bytestring, big/network byteorder, unsigned&#34;&#34;&#34;
+    assert b &gt;= 0
+    if b == 0:
+        return b&#34;\x00&#34;
+    acc = b&#34;&#34;
+    while b &gt; 0:
+        acc = bytes([b % 256]) + acc
+        b //= 256
+    return acc
+
+
 def ceil(a: int, b: int):
     &#34;&#34;&#34;Returns a divided by b rounded towards positive infinity&#34;&#34;&#34;
     return (a + b - 1) // b if b &gt; 0 else (a + b + 1) // b
@@ -107,6 +119,27 @@ def floor(a: int, b: int):
 <section>
 <h2 class="section-title" id="header-functions">Functions</h2>
 <dl>
+<dt id="opshin.std.math.bytes_big_from_unsigned_int"><code class="name flex">
+<span>def <span class="ident">bytes_big_from_unsigned_int</span></span>(<span>b: int) ‑> bytes</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Converts an integer into the corresponding bytestring, big/network byteorder, unsigned</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def bytes_big_from_unsigned_int(b: int) -&gt; bytes:
+    &#34;&#34;&#34;Converts an integer into the corresponding bytestring, big/network byteorder, unsigned&#34;&#34;&#34;
+    assert b &gt;= 0
+    if b == 0:
+        return b&#34;\x00&#34;
+    acc = b&#34;&#34;
+    while b &gt; 0:
+        acc = bytes([b % 256]) + acc
+        b //= 256
+    return acc</code></pre>
+</details>
+</dd>
 <dt id="opshin.std.math.ceil"><code class="name flex">
 <span>def <span class="ident">ceil</span></span>(<span>a: int, b: int)</span>
 </code></dt>
@@ -251,6 +284,7 @@ setTimeout(() => input.focus(), 100);
 </li>
 <li><h3><a href="#header-functions">Functions</a></h3>
 <ul class="">
+<li><code><a title="opshin.std.math.bytes_big_from_unsigned_int" href="#opshin.std.math.bytes_big_from_unsigned_int">bytes_big_from_unsigned_int</a></code></li>
 <li><code><a title="opshin.std.math.ceil" href="#opshin.std.math.ceil">ceil</a></code></li>
 <li><code><a title="opshin.std.math.floor" href="#opshin.std.math.floor">floor</a></code></li>
 <li><code><a title="opshin.std.math.gcd" href="#opshin.std.math.gcd">gcd</a></code></li>

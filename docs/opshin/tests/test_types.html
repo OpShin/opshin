@@ -6,7 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
 <meta name="generator" content="pdoc 0.10.0" />
 <link rel="icon" href="https://raw.githubusercontent.com/OpShin/opshin/dev/docs/opshin_32.png" sizes="32x32" type="image/png">
-<title>opshin.tests API documentation</title>
+<title>opshin.tests.test_types API documentation</title>
 <meta name="description" content="" />
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/sanitize.min.css" integrity="sha256-PK9q560IAAa6WVRRh76LtCaI8pjTJ2z11v0miyNNjrs=" crossorigin>
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/typography.min.css" integrity="sha256-7l/o7C8jubJiy74VsKTidCy1yBkRtiUGbVkYBylBqUg=" crossorigin>
@@ -61,66 +61,138 @@ fill="currentColor" class="octo-body"></path>
 </a>
 <article id="content">
 <header>
-<h1 class="title">Module <code>opshin.tests</code></h1>
+<h1 class="title">Module <code>opshin.tests.test_types</code></h1>
 </header>
 <section id="section-intro">
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">import datetime
-import hypothesis
+<pre><code class="python">from ..types import *
 
-PLUTUS_VM_PROFILE = &#34;plutus_vm&#34;
-hypothesis.settings.register_profile(
-    PLUTUS_VM_PROFILE, deadline=datetime.timedelta(seconds=1)
-)</code></pre>
+
+def test_record_type_order():
+    A = RecordType(Record(&#34;A&#34;, &#34;A&#34;, 0, [(&#34;foo&#34;, IntegerInstanceType)]))
+    B = RecordType(Record(&#34;B&#34;, &#34;B&#34;, 1, [(&#34;bar&#34;, IntegerInstanceType)]))
+    C = RecordType(Record(&#34;C&#34;, &#34;C&#34;, 2, [(&#34;baz&#34;, IntegerInstanceType)]))
+    a = A
+    b = B
+    c = C
+
+    assert a &gt;= a
+    assert not a &gt;= b
+    assert not b &gt;= a
+    assert not a &gt;= c
+    assert not c &gt;= a
+    assert not b &gt;= c
+    assert not c &gt;= b
+
+    A = RecordType(Record(&#34;A&#34;, &#34;A&#34;, 0, [(&#34;foo&#34;, IntegerInstanceType)]))
+    B = RecordType(
+        Record(
+            &#34;B&#34;, &#34;B&#34;, 0, [(&#34;foo&#34;, IntegerInstanceType), (&#34;bar&#34;, IntegerInstanceType)]
+        )
+    )
+    C = RecordType(Record(&#34;C&#34;, &#34;C&#34;, 0, [(&#34;foo&#34;, InstanceType(AnyType()))]))
+    assert not A &gt;= B
+    assert not C &gt;= B
+    assert C &gt;= A
+
+
+def test_union_type_order():
+    A = RecordType(Record(&#34;A&#34;, &#34;A&#34;, 0, [(&#34;foo&#34;, IntegerInstanceType)]))
+    B = RecordType(Record(&#34;B&#34;, &#34;B&#34;, 1, [(&#34;bar&#34;, IntegerInstanceType)]))
+    C = RecordType(Record(&#34;C&#34;, &#34;C&#34;, 2, [(&#34;baz&#34;, IntegerInstanceType)]))
+    abc = UnionType([A, B, C])
+    ab = UnionType([A, B])
+    a = A
+    c = C
+
+    assert a &gt;= a
+    assert ab &gt;= a
+    assert not a &gt;= ab
+    assert abc &gt;= ab
+    assert not ab &gt;= abc
+    assert not c &gt;= a
+    assert not a &gt;= c
+    assert abc &gt;= c
+    assert not ab &gt;= c</code></pre>
 </details>
 </section>
 <section>
-<h2 class="section-title" id="header-submodules">Sub-modules</h2>
+</section>
+<section>
+</section>
+<section>
+<h2 class="section-title" id="header-functions">Functions</h2>
 <dl>
-<dt><code class="name"><a title="opshin.tests.test_builtins" href="test_builtins.html">opshin.tests.test_builtins</a></code></dt>
+<dt id="opshin.tests.test_types.test_record_type_order"><code class="name flex">
+<span>def <span class="ident">test_record_type_order</span></span>(<span>)</span>
+</code></dt>
 <dd>
 <div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def test_record_type_order():
+    A = RecordType(Record(&#34;A&#34;, &#34;A&#34;, 0, [(&#34;foo&#34;, IntegerInstanceType)]))
+    B = RecordType(Record(&#34;B&#34;, &#34;B&#34;, 1, [(&#34;bar&#34;, IntegerInstanceType)]))
+    C = RecordType(Record(&#34;C&#34;, &#34;C&#34;, 2, [(&#34;baz&#34;, IntegerInstanceType)]))
+    a = A
+    b = B
+    c = C
+
+    assert a &gt;= a
+    assert not a &gt;= b
+    assert not b &gt;= a
+    assert not a &gt;= c
+    assert not c &gt;= a
+    assert not b &gt;= c
+    assert not c &gt;= b
+
+    A = RecordType(Record(&#34;A&#34;, &#34;A&#34;, 0, [(&#34;foo&#34;, IntegerInstanceType)]))
+    B = RecordType(
+        Record(
+            &#34;B&#34;, &#34;B&#34;, 0, [(&#34;foo&#34;, IntegerInstanceType), (&#34;bar&#34;, IntegerInstanceType)]
+        )
+    )
+    C = RecordType(Record(&#34;C&#34;, &#34;C&#34;, 0, [(&#34;foo&#34;, InstanceType(AnyType()))]))
+    assert not A &gt;= B
+    assert not C &gt;= B
+    assert C &gt;= A</code></pre>
+</details>
 </dd>
-<dt><code class="name"><a title="opshin.tests.test_hashlib" href="test_hashlib.html">opshin.tests.test_hashlib</a></code></dt>
+<dt id="opshin.tests.test_types.test_union_type_order"><code class="name flex">
+<span>def <span class="ident">test_union_type_order</span></span>(<span>)</span>
+</code></dt>
 <dd>
 <div class="desc"></div>
-</dd>
-<dt><code class="name"><a title="opshin.tests.test_ledger" href="test_ledger/index.html">opshin.tests.test_ledger</a></code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-<dt><code class="name"><a title="opshin.tests.test_misc" href="test_misc.html">opshin.tests.test_misc</a></code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-<dt><code class="name"><a title="opshin.tests.test_ops" href="test_ops.html">opshin.tests.test_ops</a></code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-<dt><code class="name"><a title="opshin.tests.test_std" href="test_std/index.html">opshin.tests.test_std</a></code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-<dt><code class="name"><a title="opshin.tests.test_stdlib" href="test_stdlib.html">opshin.tests.test_stdlib</a></code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-<dt><code class="name"><a title="opshin.tests.test_types" href="test_types.html">opshin.tests.test_types</a></code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-<dt><code class="name"><a title="opshin.tests.utils" href="utils.html">opshin.tests.utils</a></code></dt>
-<dd>
-<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def test_union_type_order():
+    A = RecordType(Record(&#34;A&#34;, &#34;A&#34;, 0, [(&#34;foo&#34;, IntegerInstanceType)]))
+    B = RecordType(Record(&#34;B&#34;, &#34;B&#34;, 1, [(&#34;bar&#34;, IntegerInstanceType)]))
+    C = RecordType(Record(&#34;C&#34;, &#34;C&#34;, 2, [(&#34;baz&#34;, IntegerInstanceType)]))
+    abc = UnionType([A, B, C])
+    ab = UnionType([A, B])
+    a = A
+    c = C
+
+    assert a &gt;= a
+    assert ab &gt;= a
+    assert not a &gt;= ab
+    assert abc &gt;= ab
+    assert not ab &gt;= abc
+    assert not c &gt;= a
+    assert not a &gt;= c
+    assert abc &gt;= c
+    assert not ab &gt;= c</code></pre>
+</details>
 </dd>
 </dl>
-</section>
-<section>
-</section>
-<section>
 </section>
 <section>
 </section>
@@ -186,20 +258,13 @@ setTimeout(() => input.focus(), 100);
 <ul id="index">
 <li><h3>Super-module</h3>
 <ul>
-<li><code><a title="opshin" href="../index.html">opshin</a></code></li>
+<li><code><a title="opshin.tests" href="index.html">opshin.tests</a></code></li>
 </ul>
 </li>
-<li><h3><a href="#header-submodules">Sub-modules</a></h3>
-<ul>
-<li><code><a title="opshin.tests.test_builtins" href="test_builtins.html">opshin.tests.test_builtins</a></code></li>
-<li><code><a title="opshin.tests.test_hashlib" href="test_hashlib.html">opshin.tests.test_hashlib</a></code></li>
-<li><code><a title="opshin.tests.test_ledger" href="test_ledger/index.html">opshin.tests.test_ledger</a></code></li>
-<li><code><a title="opshin.tests.test_misc" href="test_misc.html">opshin.tests.test_misc</a></code></li>
-<li><code><a title="opshin.tests.test_ops" href="test_ops.html">opshin.tests.test_ops</a></code></li>
-<li><code><a title="opshin.tests.test_std" href="test_std/index.html">opshin.tests.test_std</a></code></li>
-<li><code><a title="opshin.tests.test_stdlib" href="test_stdlib.html">opshin.tests.test_stdlib</a></code></li>
-<li><code><a title="opshin.tests.test_types" href="test_types.html">opshin.tests.test_types</a></code></li>
-<li><code><a title="opshin.tests.utils" href="utils.html">opshin.tests.utils</a></code></li>
+<li><h3><a href="#header-functions">Functions</a></h3>
+<ul class="">
+<li><code><a title="opshin.tests.test_types.test_record_type_order" href="#opshin.tests.test_types.test_record_type_order">test_record_type_order</a></code></li>
+<li><code><a title="opshin.tests.test_types.test_union_type_order" href="#opshin.tests.test_types.test_union_type_order">test_union_type_order</a></code></li>
 </ul>
 </li>
 </ul>

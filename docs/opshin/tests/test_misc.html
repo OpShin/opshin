@@ -2784,7 +2784,177 @@ def validator(b: Dict[int, Dict[bytes, int]]) -&gt; Dict[bytes, int]:
     return a
         &#34;&#34;&#34;
         res = eval_uplc_value(source_code, {1: {b&#34;&#34;: 0}}, constant_folding=True)
-        self.assertEqual(res, {})</code></pre>
+        self.assertEqual(res, {})
+
+    def test_union_subset_call(self):
+        source_code = &#34;&#34;&#34;
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
+from dataclasses import dataclass
+
+@dataclass()
+class A(PlutusData):
+    CONSTR_ID = 0
+    foo: int
+
+@dataclass()
+class B(PlutusData):
+    CONSTR_ID = 1
+    bar: int
+
+@dataclass()
+class C(PlutusData):
+    CONSTR_ID = 2
+    foobar: int
+
+def fun(x: Union[A, B, C]) -&gt; int:
+    return 0
+
+
+def validator(x: Union[A, B]) -&gt; int:
+    return fun(x)
+        &#34;&#34;&#34;
+        builder._compile(source_code)
+
+    @unittest.expectedFailure
+    def test_union_superset_call(self):
+        source_code = &#34;&#34;&#34;
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
+from dataclasses import dataclass
+
+@dataclass()
+class A(PlutusData):
+    CONSTR_ID = 0
+    foo: int
+
+@dataclass()
+class B(PlutusData):
+    CONSTR_ID = 1
+    bar: int
+
+@dataclass()
+class C(PlutusData):
+    CONSTR_ID = 2
+    foobar: int
+
+def fun(x: Union[A, B]) -&gt; int:
+    return 0
+
+
+def validator(x: Union[A, B, C]) -&gt; int:
+    return fun(x)
+        &#34;&#34;&#34;
+        builder._compile(source_code)
+
+    @unittest.expectedFailure
+    def test_merge_function_same_capture_different_type(self):
+        source_code = &#34;&#34;&#34;
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
+from dataclasses import dataclass
+
+@dataclass()
+class A(PlutusData):
+    CONSTR_ID = 0
+    foo: int
+
+@dataclass()
+class B(PlutusData):
+    CONSTR_ID = 1
+    bar: int
+
+def validator(x: bool) -&gt; int:
+    if x:
+        y = A(0)
+        def foo() -&gt; int:
+            return y.foo
+    else:
+        y = B(0)
+        def foo() -&gt; int:
+            return y.bar
+    y = A(0)
+    return foo()
+        &#34;&#34;&#34;
+        builder._compile(source_code)
+
+    def test_merge_function_same_capture_same_type(self):
+        source_code = &#34;&#34;&#34;
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
+from dataclasses import dataclass
+
+@dataclass()
+class A(PlutusData):
+    CONSTR_ID = 0
+    foo: int
+
+@dataclass()
+class B(PlutusData):
+    CONSTR_ID = 1
+    bar: int
+
+def validator(x: bool) -&gt; int:
+    if x:
+        y = A(0)
+        def foo() -&gt; int:
+            print(2)
+            return y.foo
+    else:
+        y = A(0) if x else B(0)
+        def foo() -&gt; int:
+            print(y)
+            return 2
+    y = A(0)
+    return foo()
+        &#34;&#34;&#34;
+        res_true = eval_uplc_value(source_code, 1)
+        res_false = eval_uplc_value(source_code, 0)
+        self.assertEqual(res_true, 0)
+        self.assertEqual(res_false, 2)
+
+    def test_merge_print(self):
+        source_code = &#34;&#34;&#34;
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
+from dataclasses import dataclass
+
+def validator(x: bool) -&gt; None:
+    if x:
+        a = print
+    else:
+        b = print
+        a = b
+    return a(x)
+        &#34;&#34;&#34;
+        res_true = eval_uplc(source_code, 1)
+        res_false = eval_uplc(source_code, 0)
+
+    def test_print_reassign(self):
+        source_code = &#34;&#34;&#34;
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
+from dataclasses import dataclass
+
+def validator(x: bool) -&gt; None:
+    a = print
+    return a(x)
+        &#34;&#34;&#34;
+        res_true = eval_uplc(source_code, 1)
+        res_false = eval_uplc(source_code, 0)
+
+    def test_str_constr_reassign(self):
+        source_code = &#34;&#34;&#34;
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
+from dataclasses import dataclass
+
+def validator(x: bool) -&gt; str:
+    a = str
+    return a(x)
+        &#34;&#34;&#34;
+        res_true = eval_uplc_value(source_code, 1)
+        res_false = eval_uplc_value(source_code, 0)</code></pre>
 </details>
 </section>
 <section>
@@ -5576,7 +5746,177 @@ def validator(b: Dict[int, Dict[bytes, int]]) -&gt; Dict[bytes, int]:
     return a
         &#34;&#34;&#34;
         res = eval_uplc_value(source_code, {1: {b&#34;&#34;: 0}}, constant_folding=True)
-        self.assertEqual(res, {})</code></pre>
+        self.assertEqual(res, {})
+
+    def test_union_subset_call(self):
+        source_code = &#34;&#34;&#34;
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
+from dataclasses import dataclass
+
+@dataclass()
+class A(PlutusData):
+    CONSTR_ID = 0
+    foo: int
+
+@dataclass()
+class B(PlutusData):
+    CONSTR_ID = 1
+    bar: int
+
+@dataclass()
+class C(PlutusData):
+    CONSTR_ID = 2
+    foobar: int
+
+def fun(x: Union[A, B, C]) -&gt; int:
+    return 0
+
+
+def validator(x: Union[A, B]) -&gt; int:
+    return fun(x)
+        &#34;&#34;&#34;
+        builder._compile(source_code)
+
+    @unittest.expectedFailure
+    def test_union_superset_call(self):
+        source_code = &#34;&#34;&#34;
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
+from dataclasses import dataclass
+
+@dataclass()
+class A(PlutusData):
+    CONSTR_ID = 0
+    foo: int
+
+@dataclass()
+class B(PlutusData):
+    CONSTR_ID = 1
+    bar: int
+
+@dataclass()
+class C(PlutusData):
+    CONSTR_ID = 2
+    foobar: int
+
+def fun(x: Union[A, B]) -&gt; int:
+    return 0
+
+
+def validator(x: Union[A, B, C]) -&gt; int:
+    return fun(x)
+        &#34;&#34;&#34;
+        builder._compile(source_code)
+
+    @unittest.expectedFailure
+    def test_merge_function_same_capture_different_type(self):
+        source_code = &#34;&#34;&#34;
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
+from dataclasses import dataclass
+
+@dataclass()
+class A(PlutusData):
+    CONSTR_ID = 0
+    foo: int
+
+@dataclass()
+class B(PlutusData):
+    CONSTR_ID = 1
+    bar: int
+
+def validator(x: bool) -&gt; int:
+    if x:
+        y = A(0)
+        def foo() -&gt; int:
+            return y.foo
+    else:
+        y = B(0)
+        def foo() -&gt; int:
+            return y.bar
+    y = A(0)
+    return foo()
+        &#34;&#34;&#34;
+        builder._compile(source_code)
+
+    def test_merge_function_same_capture_same_type(self):
+        source_code = &#34;&#34;&#34;
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
+from dataclasses import dataclass
+
+@dataclass()
+class A(PlutusData):
+    CONSTR_ID = 0
+    foo: int
+
+@dataclass()
+class B(PlutusData):
+    CONSTR_ID = 1
+    bar: int
+
+def validator(x: bool) -&gt; int:
+    if x:
+        y = A(0)
+        def foo() -&gt; int:
+            print(2)
+            return y.foo
+    else:
+        y = A(0) if x else B(0)
+        def foo() -&gt; int:
+            print(y)
+            return 2
+    y = A(0)
+    return foo()
+        &#34;&#34;&#34;
+        res_true = eval_uplc_value(source_code, 1)
+        res_false = eval_uplc_value(source_code, 0)
+        self.assertEqual(res_true, 0)
+        self.assertEqual(res_false, 2)
+
+    def test_merge_print(self):
+        source_code = &#34;&#34;&#34;
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
+from dataclasses import dataclass
+
+def validator(x: bool) -&gt; None:
+    if x:
+        a = print
+    else:
+        b = print
+        a = b
+    return a(x)
+        &#34;&#34;&#34;
+        res_true = eval_uplc(source_code, 1)
+        res_false = eval_uplc(source_code, 0)
+
+    def test_print_reassign(self):
+        source_code = &#34;&#34;&#34;
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
+from dataclasses import dataclass
+
+def validator(x: bool) -&gt; None:
+    a = print
+    return a(x)
+        &#34;&#34;&#34;
+        res_true = eval_uplc(source_code, 1)
+        res_false = eval_uplc(source_code, 0)
+
+    def test_str_constr_reassign(self):
+        source_code = &#34;&#34;&#34;
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
+from dataclasses import dataclass
+
+def validator(x: bool) -&gt; str:
+    a = str
+    return a(x)
+        &#34;&#34;&#34;
+        res_true = eval_uplc_value(source_code, 1)
+        res_false = eval_uplc_value(source_code, 0)</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -8612,6 +8952,119 @@ def test_marketplace_compile_fail(self):
     builder._compile(source_code, force_three_params=True)</code></pre>
 </details>
 </dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_merge_function_same_capture_different_type"><code class="name flex">
+<span>def <span class="ident">test_merge_function_same_capture_different_type</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    @unittest.expectedFailure
+    def test_merge_function_same_capture_different_type(self):
+        source_code = &#34;&#34;&#34;
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
+from dataclasses import dataclass
+
+@dataclass()
+class A(PlutusData):
+    CONSTR_ID = 0
+    foo: int
+
+@dataclass()
+class B(PlutusData):
+    CONSTR_ID = 1
+    bar: int
+
+def validator(x: bool) -&gt; int:
+    if x:
+        y = A(0)
+        def foo() -&gt; int:
+            return y.foo
+    else:
+        y = B(0)
+        def foo() -&gt; int:
+            return y.bar
+    y = A(0)
+    return foo()
+        &#34;&#34;&#34;
+        builder._compile(source_code)</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_merge_function_same_capture_same_type"><code class="name flex">
+<span>def <span class="ident">test_merge_function_same_capture_same_type</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    def test_merge_function_same_capture_same_type(self):
+        source_code = &#34;&#34;&#34;
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
+from dataclasses import dataclass
+
+@dataclass()
+class A(PlutusData):
+    CONSTR_ID = 0
+    foo: int
+
+@dataclass()
+class B(PlutusData):
+    CONSTR_ID = 1
+    bar: int
+
+def validator(x: bool) -&gt; int:
+    if x:
+        y = A(0)
+        def foo() -&gt; int:
+            print(2)
+            return y.foo
+    else:
+        y = A(0) if x else B(0)
+        def foo() -&gt; int:
+            print(y)
+            return 2
+    y = A(0)
+    return foo()
+        &#34;&#34;&#34;
+        res_true = eval_uplc_value(source_code, 1)
+        res_false = eval_uplc_value(source_code, 0)
+        self.assertEqual(res_true, 0)
+        self.assertEqual(res_false, 2)</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_merge_print"><code class="name flex">
+<span>def <span class="ident">test_merge_print</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    def test_merge_print(self):
+        source_code = &#34;&#34;&#34;
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
+from dataclasses import dataclass
+
+def validator(x: bool) -&gt; None:
+    if x:
+        a = print
+    else:
+        b = print
+        a = b
+    return a(x)
+        &#34;&#34;&#34;
+        res_true = eval_uplc(source_code, 1)
+        res_false = eval_uplc(source_code, 0)</code></pre>
+</details>
+</dd>
 <dt id="opshin.tests.test_misc.MiscTest.test_mult_for"><code class="name flex">
 <span>def <span class="ident">test_mult_for</span></span>(<span>self) ‑> None</span>
 </code></dt>
@@ -8902,6 +9355,29 @@ def validator() -&gt; None:
     return None
 &#34;&#34;&#34;
         eval_uplc(source_code, PlutusData())</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_print_reassign"><code class="name flex">
+<span>def <span class="ident">test_print_reassign</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    def test_print_reassign(self):
+        source_code = &#34;&#34;&#34;
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
+from dataclasses import dataclass
+
+def validator(x: bool) -&gt; None:
+    a = print
+    return a(x)
+        &#34;&#34;&#34;
+        res_true = eval_uplc(source_code, 1)
+        res_false = eval_uplc(source_code, 0)</code></pre>
 </details>
 </dd>
 <dt id="opshin.tests.test_misc.MiscTest.test_reassign_builtin"><code class="name flex">
@@ -9575,6 +10051,29 @@ def standalone_func(*a, **kw):
     )</code></pre>
 </details>
 </dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_str_constr_reassign"><code class="name flex">
+<span>def <span class="ident">test_str_constr_reassign</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    def test_str_constr_reassign(self):
+        source_code = &#34;&#34;&#34;
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
+from dataclasses import dataclass
+
+def validator(x: bool) -&gt; str:
+    a = str
+    return a(x)
+        &#34;&#34;&#34;
+        res_true = eval_uplc_value(source_code, 1)
+        res_false = eval_uplc_value(source_code, 0)</code></pre>
+</details>
+</dd>
 <dt id="opshin.tests.test_misc.MiscTest.test_sum"><code class="name flex">
 <span>def <span class="ident">test_sum</span></span>(<span>self) ‑> None</span>
 </code></dt>
@@ -9782,6 +10281,87 @@ def validator(_: None) -&gt; int:
       else:
         return a(n-1)
     return a(1)
+        &#34;&#34;&#34;
+        builder._compile(source_code)</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_union_subset_call"><code class="name flex">
+<span>def <span class="ident">test_union_subset_call</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    def test_union_subset_call(self):
+        source_code = &#34;&#34;&#34;
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
+from dataclasses import dataclass
+
+@dataclass()
+class A(PlutusData):
+    CONSTR_ID = 0
+    foo: int
+
+@dataclass()
+class B(PlutusData):
+    CONSTR_ID = 1
+    bar: int
+
+@dataclass()
+class C(PlutusData):
+    CONSTR_ID = 2
+    foobar: int
+
+def fun(x: Union[A, B, C]) -&gt; int:
+    return 0
+
+
+def validator(x: Union[A, B]) -&gt; int:
+    return fun(x)
+        &#34;&#34;&#34;
+        builder._compile(source_code)</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_union_superset_call"><code class="name flex">
+<span>def <span class="ident">test_union_superset_call</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    @unittest.expectedFailure
+    def test_union_superset_call(self):
+        source_code = &#34;&#34;&#34;
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
+from dataclasses import dataclass
+
+@dataclass()
+class A(PlutusData):
+    CONSTR_ID = 0
+    foo: int
+
+@dataclass()
+class B(PlutusData):
+    CONSTR_ID = 1
+    bar: int
+
+@dataclass()
+class C(PlutusData):
+    CONSTR_ID = 2
+    foobar: int
+
+def fun(x: Union[A, B]) -&gt; int:
+    return 0
+
+
+def validator(x: Union[A, B, C]) -&gt; int:
+    return fun(x)
         &#34;&#34;&#34;
         builder._compile(source_code)</code></pre>
 </details>
@@ -10598,6 +11178,9 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_list_expr_not_const" href="#opshin.tests.test_misc.MiscTest.test_list_expr_not_const">test_list_expr_not_const</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_marketplace_compile" href="#opshin.tests.test_misc.MiscTest.test_marketplace_compile">test_marketplace_compile</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_marketplace_compile_fail" href="#opshin.tests.test_misc.MiscTest.test_marketplace_compile_fail">test_marketplace_compile_fail</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_merge_function_same_capture_different_type" href="#opshin.tests.test_misc.MiscTest.test_merge_function_same_capture_different_type">test_merge_function_same_capture_different_type</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_merge_function_same_capture_same_type" href="#opshin.tests.test_misc.MiscTest.test_merge_function_same_capture_same_type">test_merge_function_same_capture_same_type</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_merge_print" href="#opshin.tests.test_misc.MiscTest.test_merge_print">test_merge_print</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_mult_for" href="#opshin.tests.test_misc.MiscTest.test_mult_for">test_mult_for</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_mult_for_return" href="#opshin.tests.test_misc.MiscTest.test_mult_for_return">test_mult_for_return</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_mult_while_return" href="#opshin.tests.test_misc.MiscTest.test_mult_while_return">test_mult_while_return</a></code></li>
@@ -10611,6 +11194,7 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_overopt_removedeadvar" href="#opshin.tests.test_misc.MiscTest.test_overopt_removedeadvar">test_overopt_removedeadvar</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_parameterized_compile" href="#opshin.tests.test_misc.MiscTest.test_parameterized_compile">test_parameterized_compile</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_print_empty" href="#opshin.tests.test_misc.MiscTest.test_print_empty">test_print_empty</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_print_reassign" href="#opshin.tests.test_misc.MiscTest.test_print_reassign">test_print_reassign</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_reassign_builtin" href="#opshin.tests.test_misc.MiscTest.test_reassign_builtin">test_reassign_builtin</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_reassign_builtin_invalid_type" href="#opshin.tests.test_misc.MiscTest.test_reassign_builtin_invalid_type">test_reassign_builtin_invalid_type</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_recursion_illegal" href="#opshin.tests.test_misc.MiscTest.test_recursion_illegal">test_recursion_illegal</a></code></li>
@@ -10641,6 +11225,7 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_script_context_str_format_1_d8799fd8799f9fd8799fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffd8799fd8799fd87a9f581cdbe769758f26efb21f008dc097bb194cffc622acc37fcefc5372eee3ffd87a80ffa140a1401a00989680d87a9f5820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dffd87a80ffffff809fd8799fd8799fd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd87a80ffa140a14000d87980d87a80ffffa140a14000a140a1400080a0d8799fd8799fd87a9f1b000001836ac117d8ffd87a80ffd8799fd87b80d87a80ffff80a1d87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffd87980a15820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd8799f5820797a1e1720b63621c6b185088184cb8e23af6e46b55bd83e7a91024c823a6c2affffd87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffff" href="#opshin.tests.test_misc.MiscTest.test_script_context_str_format_1_d8799fd8799f9fd8799fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffd8799fd8799fd87a9f581cdbe769758f26efb21f008dc097bb194cffc622acc37fcefc5372eee3ffd87a80ffa140a1401a00989680d87a9f5820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dffd87a80ffffff809fd8799fd8799fd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd87a80ffa140a14000d87980d87a80ffffa140a14000a140a1400080a0d8799fd8799fd87a9f1b000001836ac117d8ffd87a80ffd8799fd87b80d87a80ffff80a1d87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffd87980a15820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd8799f5820797a1e1720b63621c6b185088184cb8e23af6e46b55bd83e7a91024c823a6c2affffd87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffff">test_script_context_str_format_1_d8799fd8799f9fd8799fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffd8799fd8799fd87a9f581cdbe769758f26efb21f008dc097bb194cffc622acc37fcefc5372eee3ffd87a80ffa140a1401a00989680d87a9f5820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dffd87a80ffffff809fd8799fd8799fd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd87a80ffa140a14000d87980d87a80ffffa140a14000a140a1400080a0d8799fd8799fd87a9f1b000001836ac117d8ffd87a80ffd8799fd87b80d87a80ffff80a1d87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffd87980a15820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd8799f5820797a1e1720b63621c6b185088184cb8e23af6e46b55bd83e7a91024c823a6c2affffd87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffff</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_script_context_str_format_2_d8799fd8799f9fd8799fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffd8799fd8799fd87a9f581cdbe769758f26efb21f008dc097bb194cffc622acc37fcefc5372eee3ffd87a80ffa140a1401a00989680d87a9f5820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dffd87a80ffffff809fd8799fd8799fd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd87a80ffa140a14000d87980d87a80ffd8799fd8799fd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd87a80ffa140a1401a000f4240d87980d87a80ffffa140a14000a140a1400080a0d8799fd8799fd87a9f1b000001836ac117d8ffd87a80ffd8799fd87b80d87a80ffff9f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffa1d87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffd87980a15820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd8799f5820c17c32f6433ae22c2acaebfb796bbfaee3993ff7ebb58a2bac6b4a3bdd2f6d28ffffd87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffff" href="#opshin.tests.test_misc.MiscTest.test_script_context_str_format_2_d8799fd8799f9fd8799fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffd8799fd8799fd87a9f581cdbe769758f26efb21f008dc097bb194cffc622acc37fcefc5372eee3ffd87a80ffa140a1401a00989680d87a9f5820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dffd87a80ffffff809fd8799fd8799fd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd87a80ffa140a14000d87980d87a80ffd8799fd8799fd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd87a80ffa140a1401a000f4240d87980d87a80ffffa140a14000a140a1400080a0d8799fd8799fd87a9f1b000001836ac117d8ffd87a80ffd8799fd87b80d87a80ffff9f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffa1d87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffd87980a15820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd8799f5820c17c32f6433ae22c2acaebfb796bbfaee3993ff7ebb58a2bac6b4a3bdd2f6d28ffffd87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffff">test_script_context_str_format_2_d8799fd8799f9fd8799fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffd8799fd8799fd87a9f581cdbe769758f26efb21f008dc097bb194cffc622acc37fcefc5372eee3ffd87a80ffa140a1401a00989680d87a9f5820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dffd87a80ffffff809fd8799fd8799fd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd87a80ffa140a14000d87980d87a80ffd8799fd8799fd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd87a80ffa140a1401a000f4240d87980d87a80ffffa140a14000a140a1400080a0d8799fd8799fd87a9f1b000001836ac117d8ffd87a80ffd8799fd87b80d87a80ffff9f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffa1d87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffd87980a15820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd8799f5820c17c32f6433ae22c2acaebfb796bbfaee3993ff7ebb58a2bac6b4a3bdd2f6d28ffffd87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffff</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_showcase" href="#opshin.tests.test_misc.MiscTest.test_showcase">test_showcase</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_str_constr_reassign" href="#opshin.tests.test_misc.MiscTest.test_str_constr_reassign">test_str_constr_reassign</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_sum" href="#opshin.tests.test_misc.MiscTest.test_sum">test_sum</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_trace_order" href="#opshin.tests.test_misc.MiscTest.test_trace_order">test_trace_order</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_type_reassignment_function_bound" href="#opshin.tests.test_misc.MiscTest.test_type_reassignment_function_bound">test_type_reassignment_function_bound</a></code></li>
@@ -10651,6 +11236,8 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_typecast_int_int" href="#opshin.tests.test_misc.MiscTest.test_typecast_int_int">test_typecast_int_int</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_typecast_int_str" href="#opshin.tests.test_misc.MiscTest.test_typecast_int_str">test_typecast_int_str</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_uninitialized_access" href="#opshin.tests.test_misc.MiscTest.test_uninitialized_access">test_uninitialized_access</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_union_subset_call" href="#opshin.tests.test_misc.MiscTest.test_union_subset_call">test_union_subset_call</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_union_superset_call" href="#opshin.tests.test_misc.MiscTest.test_union_superset_call">test_union_superset_call</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_union_type_all_records_same_constr" href="#opshin.tests.test_misc.MiscTest.test_union_type_all_records_same_constr">test_union_type_all_records_same_constr</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_union_type_attr_access_all_records" href="#opshin.tests.test_misc.MiscTest.test_union_type_attr_access_all_records">test_union_type_attr_access_all_records</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_union_type_attr_access_all_records_diff_pos" href="#opshin.tests.test_misc.MiscTest.test_union_type_attr_access_all_records_diff_pos">test_union_type_attr_access_all_records_diff_pos</a></code></li>

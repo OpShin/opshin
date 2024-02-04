@@ -76,7 +76,7 @@ from ordered_set import OrderedSet
 
 from ..util import CompilingNodeVisitor, CompilingNodeTransformer
 from ..type_inference import INITIAL_SCOPE
-from ..typed_ast import TypedAnnAssign
+from ..typed_ast import TypedAnnAssign, TypedFunctionDef, TypedClassDef, TypedName
 
 &#34;&#34;&#34;
 Removes assignments to variables that are never read
@@ -89,18 +89,22 @@ class NameLoadCollector(CompilingNodeVisitor):
     def __init__(self):
         self.loaded = defaultdict(int)
 
-    def visit_Name(self, node: Name) -&gt; None:
+    def visit_Name(self, node: TypedName) -&gt; None:
         if isinstance(node.ctx, Load):
             self.loaded[node.id] += 1
 
-    def visit_ClassDef(self, node: ClassDef):
+    def visit_ClassDef(self, node: TypedClassDef):
         # ignore the content (i.e. attribute names) of class definitions
         pass
 
-    def visit_FunctionDef(self, node: FunctionDef):
+    def visit_FunctionDef(self, node: TypedFunctionDef):
         # ignore the type hints of function arguments
         for s in node.body:
             self.visit(s)
+        for v in node.typ.typ.bound_vars.keys():
+            self.loaded[v] += 1
+        if node.typ.typ.bind_self is not None:
+            self.loaded[node.typ.typ.bind_self] += 1
 
 
 class SafeOperationVisitor(CompilingNodeVisitor):
@@ -305,18 +309,22 @@ allows modifications.</p></div>
     def __init__(self):
         self.loaded = defaultdict(int)
 
-    def visit_Name(self, node: Name) -&gt; None:
+    def visit_Name(self, node: TypedName) -&gt; None:
         if isinstance(node.ctx, Load):
             self.loaded[node.id] += 1
 
-    def visit_ClassDef(self, node: ClassDef):
+    def visit_ClassDef(self, node: TypedClassDef):
         # ignore the content (i.e. attribute names) of class definitions
         pass
 
-    def visit_FunctionDef(self, node: FunctionDef):
+    def visit_FunctionDef(self, node: TypedFunctionDef):
         # ignore the type hints of function arguments
         for s in node.body:
-            self.visit(s)</code></pre>
+            self.visit(s)
+        for v in node.typ.typ.bound_vars.keys():
+            self.loaded[v] += 1
+        if node.typ.typ.bind_self is not None:
+            self.loaded[node.typ.typ.bind_self] += 1</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -344,7 +352,7 @@ allows modifications.</p></div>
 <div class="desc inherited"><p>Visit a node.</p></div>
 </dd>
 <dt id="opshin.optimize.optimize_remove_deadvars.NameLoadCollector.visit_ClassDef"><code class="name flex">
-<span>def <span class="ident">visit_ClassDef</span></span>(<span>self, node: ast.ClassDef)</span>
+<span>def <span class="ident">visit_ClassDef</span></span>(<span>self, node: <a title="opshin.typed_ast.TypedClassDef" href="../typed_ast.html#opshin.typed_ast.TypedClassDef">TypedClassDef</a>)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -352,13 +360,13 @@ allows modifications.</p></div>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def visit_ClassDef(self, node: ClassDef):
+<pre><code class="python">def visit_ClassDef(self, node: TypedClassDef):
     # ignore the content (i.e. attribute names) of class definitions
     pass</code></pre>
 </details>
 </dd>
 <dt id="opshin.optimize.optimize_remove_deadvars.NameLoadCollector.visit_FunctionDef"><code class="name flex">
-<span>def <span class="ident">visit_FunctionDef</span></span>(<span>self, node: ast.FunctionDef)</span>
+<span>def <span class="ident">visit_FunctionDef</span></span>(<span>self, node: <a title="opshin.typed_ast.TypedFunctionDef" href="../typed_ast.html#opshin.typed_ast.TypedFunctionDef">TypedFunctionDef</a>)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -366,14 +374,18 @@ allows modifications.</p></div>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def visit_FunctionDef(self, node: FunctionDef):
+<pre><code class="python">def visit_FunctionDef(self, node: TypedFunctionDef):
     # ignore the type hints of function arguments
     for s in node.body:
-        self.visit(s)</code></pre>
+        self.visit(s)
+    for v in node.typ.typ.bound_vars.keys():
+        self.loaded[v] += 1
+    if node.typ.typ.bind_self is not None:
+        self.loaded[node.typ.typ.bind_self] += 1</code></pre>
 </details>
 </dd>
 <dt id="opshin.optimize.optimize_remove_deadvars.NameLoadCollector.visit_Name"><code class="name flex">
-<span>def <span class="ident">visit_Name</span></span>(<span>self, node: ast.Name) ‑> None</span>
+<span>def <span class="ident">visit_Name</span></span>(<span>self, node: <a title="opshin.typed_ast.TypedName" href="../typed_ast.html#opshin.typed_ast.TypedName">TypedName</a>) ‑> None</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -381,7 +393,7 @@ allows modifications.</p></div>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def visit_Name(self, node: Name) -&gt; None:
+<pre><code class="python">def visit_Name(self, node: TypedName) -&gt; None:
     if isinstance(node.ctx, Load):
         self.loaded[node.id] += 1</code></pre>
 </details>
