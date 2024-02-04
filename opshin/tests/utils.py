@@ -1,4 +1,5 @@
 import dataclasses
+import functools
 import typing
 
 import pycardano
