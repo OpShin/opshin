@@ -4,6 +4,7 @@ from opshin.prelude import *
 
 @dataclass
 class D2(PlutusData):
+    CONSTR_ID = 0
     list_field: List[DatumHash]
 
 

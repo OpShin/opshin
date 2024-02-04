@@ -32,6 +32,7 @@ class NoHash(PlutusData):
 # inspired by https://github.com/MuesliSwapTeam/muesliswap-cardano-pool-contracts/blob/main/dex/src/MuesliSwapPools/BatchOrder/Types.hs
 @dataclass
 class BatchOrder(PlutusData):
+    CONSTR_ID = 0
     sender: Address
     receiver: Address
     # If some property might be ommited, just Union with Nothing and check for the instance at runtime!

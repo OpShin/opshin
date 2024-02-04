@@ -5,6 +5,7 @@ from opshin.prelude import *
 # inspired by https://github.com/MuesliSwapTeam/muesliswap-cardano-pool-contracts/blob/main/dex/src/MuesliSwapPools/BatchOrder/Types.hs
 @dataclass
 class BatchOrder(PlutusData):
+    CONSTR_ID = 0
     sender: Address
     receiver: Address
     receiver_datum_hash: Union[Nothing, SomeDatumHash]

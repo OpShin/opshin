@@ -4,6 +4,7 @@ from opshin.prelude import *
 
 @dataclass
 class Empty(PlutusData):
+    CONSTR_ID = 0
     pass
 
 

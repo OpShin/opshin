@@ -4,6 +4,7 @@ from opshin.prelude import *
 
 @dataclass
 class Listing(PlutusData):
+    CONSTR_ID = 0
     # Price of the listing in lovelace
     price: int
     # the owner of the listed object
