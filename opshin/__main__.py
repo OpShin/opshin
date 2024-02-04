@@ -13,7 +13,7 @@ import typing
 import ast
 
 import pycardano
-from pycardano import PlutusData
+from pycardano import PlutusData, RawPlutusData
 
 import pluthon
 import uplc
@@ -311,7 +311,15 @@ Note that opshin errors may be overly restrictive as they aim to prevent code wi
     # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
     for d in map(
         data_from_json,
-        map(json.loads, (PlutusData.to_json(p) for p in parsed_params)),
+        map(
+            json.loads,
+            (
+                RawPlutusData(p).to_json()
+                if not isinstance(p, PlutusData)
+                else p.to_json()
+                for p in parsed_params
+            ),
+        ),
     ):
         code = uplc.ast.Apply(code, d)
     code = uplc.ast.Program((1, 0, 0), code)
