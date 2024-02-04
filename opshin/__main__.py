@@ -42,6 +42,40 @@ class Command(enum.Enum):
     lint = "lint"
 
 
+def parse_uplc_param(param: str):
+    if param.startswith("{"):
+        try:
+            return uplc.ast.data_from_json_dict(json.loads(param))
+        except json.JSONDecodeError as e:
+            raise ValueError(
+                f"Invalid parameter for contract passed, expected json value, got {param}"
+            ) from e
+    else:
+        try:
+            return uplc.ast.data_from_cbor(bytes.fromhex(param))
+        except ValueError as e:
+            raise ValueError(
+                "Expected hexadecimal CBOR representation of plutus datum but could not transform hex string to bytes."
+            ) from e
+
+
+def parse_plutus_param(annotation, param: str):
+    if param.startswith("{"):
+        try:
+            return plutus_data_from_json(annotation, json.loads(param))
+        except json.JSONDecodeError as e:
+            raise ValueError(
+                f"Invalid parameter for contract passed, expected json value, got {param}"
+            ) from e
+    else:
+        try:
+            return plutus_data_from_cbor(annotation, bytes.fromhex(param))
+        except ValueError as e:
+            raise ValueError(
+                "Expected hexadecimal CBOR representation of plutus datum but could not transform hex string to bytes."
+            ) from e
+
+
 def plutus_data_from_json(annotation: typing.Type, x: dict):
     try:
         if annotation == int:
@@ -63,6 +97,15 @@ def plutus_data_from_json(annotation: typing.Type, x: dict):
                     ): plutus_data_from_json(annotation_val, d["v"])
                     for d in x["map"]
                 }
+            if annotation.__origin__ == typing.Union:
+                for ann in annotation.__dict__["__args__"]:
+                    try:
+                        return plutus_data_from_json(ann, x)
+                    except pycardano.DeserializeException:
+                        pass
+                raise ValueError(
+                    f"Could not find matching type for {x} in {annotation}"
+                )
             if annotation == pycardano.Datum:
                 if "int" in x:
                     return int(x["int"])
@@ -72,6 +115,17 @@ def plutus_data_from_json(annotation: typing.Type, x: dict):
                     return pycardano.RawCBOR(
                         uplc.ast.plutus_cbor_dumps(uplc.ast.data_from_json_dict(x))
                     )
+                if "list" in x:
+                    return [
+                        plutus_data_from_json(pycardano.Datum, k) for k in x["list"]
+                    ]
+                if "map" in x:
+                    return {
+                        plutus_data_from_json(
+                            pycardano.Datum, d["k"]
+                        ): plutus_data_from_json(pycardano.Datum, d["v"])
+                        for d in x["map"]
+                    }
         if issubclass(annotation, pycardano.PlutusData):
             return annotation.from_dict(x)
     except (KeyError, ValueError):
@@ -190,6 +244,7 @@ def perform_command(args):
     if purpose == Purpose.lib:
         assert not args.args, "Can not pass arguments to a library"
         parsed_params = []
+        uplc_params = []
     else:
         try:
             argspec = inspect.signature(sc.validator)
@@ -203,33 +258,11 @@ def perform_command(args):
         ]
         return_annotation = argspec.return_annotation or prelude.Anything
         parsed_params = []
+        uplc_params = []
         for i, (c, a) in enumerate(zip(annotations, args.args)):
-            if a[0] == "{":
-                try:
-                    param_json = json.loads(a)
-                except Exception as e:
-                    raise ValueError(
-                        f'Invalid parameter for contract passed at position {i}, expected json value, got "{a}". Did you correctly encode the value as json and wrap it in quotes?'
-                    ) from e
-                try:
-                    param = plutus_data_from_json(c[1], param_json)
-                except Exception as e:
-                    raise ValueError(
-                        f"Invalid parameter for contract passed at position {i}, expected type {c.__name__}."
-                    ) from e
-            else:
-                try:
-                    param_bytes = bytes.fromhex(a)
-                except Exception as e:
-                    raise ValueError(
-                        "Expected hexadecimal CBOR representation of plutus datum but could not transform hex string to bytes."
-                    ) from e
-                try:
-                    param = plutus_data_from_cbor(c[1], param_bytes)
-                except Exception as e:
-                    raise ValueError(
-                        f"Invalid parameter for contract passed at position {i}, expected type {c[1].__name__}."
-                    ) from e
+            uplc_param = parse_uplc_param(a)
+            uplc_params.append(uplc_param)
+            param = parse_plutus_param(c[1], a)
             parsed_params.append(param)
         onchain_params, param_types = check_params(
             command,
@@ -309,18 +342,7 @@ Note that opshin errors may be overly restrictive as they aim to prevent code wi
     # apply parameters from the command line to the contract (instantiates parameterized contract!)
     code = code.term
     # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
-    for d in map(
-        data_from_json,
-        map(
-            json.loads,
-            (
-                RawPlutusData(p).to_json()
-                if not isinstance(p, PlutusData)
-                else p.to_json()
-                for p in parsed_params
-            ),
-        ),
-    ):
+    for d in uplc_params:
         code = uplc.ast.Apply(code, d)
     code = uplc.ast.Program((1, 0, 0), code)
 
