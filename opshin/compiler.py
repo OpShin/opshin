@@ -855,7 +855,7 @@ class PlutoCompiler(CompilingNodeTransformer):
 
     def visit_Attribute(self, node: TypedAttribute) -> plt.AST:
         assert isinstance(
-            node.typ, InstanceType
+            node.value.typ, InstanceType
         ), "Can only access attributes of instances"
         obj = self.visit(node.value)
         attr = node.value.typ.attribute(node.attr)
