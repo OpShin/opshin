@@ -141,6 +141,12 @@ class Type:
             f"{type(self).__name__} can not be used with operation {unop.__class__.__name__}"
         )
 
+    def id_map(self, skip_constructor: bool = False) -> str:
+        """
+        Returns a map from the constructor id to a descriptive typestring
+        """
+        raise NotImplementedError(f"Type {type(self).__name__} does not have a id map")
+
 
 @dataclass(frozen=True, unsafe_hash=True)
 class Record:
@@ -186,6 +192,9 @@ class ClassType(Type):
 @dataclass(frozen=True, unsafe_hash=True)
 class AnyType(ClassType):
     """The top element in the partial order on types (excluding FunctionTypes, which do not compare to anything)"""
+
+    def id_map(self, skip_constructor: bool = False) -> str:
+        return "any"
 
     def attribute_type(self, attr: str) -> Type:
         """The types of the named attributes of this class"""
@@ -447,6 +456,17 @@ class AtomicType(ClassType):
 class RecordType(ClassType):
     record: Record
 
+    def id_map(self, skip_constructor: bool = False) -> str:
+        return (
+            "cons["
+            + self.record.orig_name
+            + "]("
+            + (str(self.record.constructor) if not skip_constructor else "_")
+            + ";"
+            + ",".join(name + ":" + type.id_map() for name, type in self.record.fields)
+            + ")"
+        )
+
     def constr_type(self) -> "InstanceType":
         return InstanceType(
             FunctionType(
@@ -642,6 +662,9 @@ class UnionType(ClassType):
 
     def __post_init__(self):
         object.__setattr__(self, "typs", frozenlist(self.typs))
+
+    def id_map(self, skip_constructor: bool = False) -> str:
+        return "union<" + ",".join(t.id_map() for t in self.typs) + ">"
 
     def attribute_type(self, attr) -> "Type":
         if attr == "CONSTR_ID":
@@ -916,6 +939,9 @@ class ListType(ClassType):
     def __ge__(self, other):
         return isinstance(other, ListType) and self.typ >= other.typ
 
+    def id_map(self, skip_constructor: bool = False) -> str:
+        return "list<" + self.typ.id_map() + ">"
+
     def attribute_type(self, attr) -> "Type":
         if attr == "index":
             return InstanceType(
@@ -1057,6 +1083,9 @@ class ListType(ClassType):
 class DictType(ClassType):
     key_typ: Type
     value_typ: Type
+
+    def id_map(self, skip_constructor: bool = False) -> str:
+        return "map<" + self.key_typ.id_map() + "," + self.value_typ.id_map() + ">"
 
     def attribute_type(self, attr) -> "Type":
         if attr == "get":
@@ -1425,6 +1454,9 @@ class InstanceType(Type):
 
 @dataclass(frozen=True, unsafe_hash=True)
 class IntegerType(AtomicType):
+    def id_map(self, skip_constructor: bool = False) -> str:
+        return "int"
+
     def constr_type(self) -> InstanceType:
         return InstanceType(PolymorphicFunctionType(IntImpl()))
 
@@ -1698,6 +1730,9 @@ class StringType(AtomicType):
 
 @dataclass(frozen=True, unsafe_hash=True)
 class ByteStringType(AtomicType):
+    def id_map(self, skip_constructor: bool = False) -> str:
+        return "bytes"
+
     def constr_type(self) -> InstanceType:
         return InstanceType(PolymorphicFunctionType(BytesImpl()))
 
