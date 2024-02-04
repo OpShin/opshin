@@ -1412,6 +1412,9 @@ class FunctionType(ClassType):
 class InstanceType(Type):
     typ: ClassType
 
+    def id_map(self, skip_constructor: bool = False) -> str:
+        return self.typ.id_map(skip_constructor=skip_constructor)
+
     def constr_type(self) -> FunctionType:
         raise TypeInferenceError(f"Can not construct an instance {self}")
 

@@ -978,7 +978,9 @@ class RecordReader(NodeVisitor):
         f = cls(type_inferencer)
         f.visit(c)
         if f.constructor is None:
-            det_string = Record(f.name, f.orig_name, 0, frozenlist(f.attributes))
+            det_string = RecordType(
+                Record(f.name, f.orig_name, 0, frozenlist(f.attributes))
+            ).id_map(skip_constructor=True)
             det_hash = sha256(str(det_string).encode("utf8")).hexdigest()
             f.constructor = int(det_hash, 16) % 2**32
         return Record(f.name, f.orig_name, f.constructor, frozenlist(f.attributes))
