@@ -330,7 +330,7 @@ Note that opshin errors may be overly restrictive as they aim to prevent code wi
                 start_line + 1,
                 pos_in_line,
                 source_lines,
-            )
+            ),
             # we remove chaining so that users to not see the internal trace back,
         )
         err.orig_err = c.orig_err

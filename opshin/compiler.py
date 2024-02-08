@@ -867,9 +867,11 @@ class PlutoCompiler(CompilingNodeTransformer):
             x,
             plt.Apply(
                 plt.Error(),
-                plt.Trace(self.visit(node.msg), plt.Unit())
-                if node.msg is not None
-                else plt.Unit(),
+                (
+                    plt.Trace(self.visit(node.msg), plt.Unit())
+                    if node.msg is not None
+                    else plt.Unit()
+                ),
             ),
         )
 

@@ -1,4 +1,5 @@
 """ Bridging tools between uplc and opshin """
+
 from functools import wraps
 
 import re

@@ -120,9 +120,11 @@ def validator(x: B) -> None:
         [
             uplc.PlutusList(
                 [
-                    uplc.PlutusInteger(x)
-                    if isinstance(x, int)
-                    else uplc.PlutusByteString(x)
+                    (
+                        uplc.PlutusInteger(x)
+                        if isinstance(x, int)
+                        else uplc.PlutusByteString(x)
+                    )
                     for x in foobar
                 ]
             ),
@@ -167,11 +169,15 @@ def validator(x: B) -> None:
         [
             uplc.PlutusMap(
                 {
-                    uplc.PlutusInteger(x)
-                    if isinstance(x, int)
-                    else uplc.PlutusByteString(x): uplc.PlutusInteger(y)
-                    if isinstance(y, int)
-                    else uplc.PlutusByteString(y)
+                    (
+                        uplc.PlutusInteger(x)
+                        if isinstance(x, int)
+                        else uplc.PlutusByteString(x)
+                    ): (
+                        uplc.PlutusInteger(y)
+                        if isinstance(y, int)
+                        else uplc.PlutusByteString(y)
+                    )
                     for x, y in zip(keys, values)
                 },
             ),

@@ -925,7 +925,7 @@ class PlutoCompiler(CompilingNodeTransformer):
 
     def visit_Attribute(self, node: TypedAttribute) -&gt; plt.AST:
         assert isinstance(
-            node.typ, InstanceType
+            node.value.typ, InstanceType
         ), &#34;Can only access attributes of instances&#34;
         obj = self.visit(node.value)
         attr = node.value.typ.attribute(node.attr)
@@ -937,9 +937,11 @@ class PlutoCompiler(CompilingNodeTransformer):
             x,
             plt.Apply(
                 plt.Error(),
-                plt.Trace(self.visit(node.msg), plt.Unit())
-                if node.msg is not None
-                else plt.Unit(),
+                (
+                    plt.Trace(self.visit(node.msg), plt.Unit())
+                    if node.msg is not None
+                    else plt.Unit()
+                ),
             ),
         )
 
@@ -2071,7 +2073,7 @@ def compile(
 
     def visit_Attribute(self, node: TypedAttribute) -&gt; plt.AST:
         assert isinstance(
-            node.typ, InstanceType
+            node.value.typ, InstanceType
         ), &#34;Can only access attributes of instances&#34;
         obj = self.visit(node.value)
         attr = node.value.typ.attribute(node.attr)
@@ -2083,9 +2085,11 @@ def compile(
             x,
             plt.Apply(
                 plt.Error(),
-                plt.Trace(self.visit(node.msg), plt.Unit())
-                if node.msg is not None
-                else plt.Unit(),
+                (
+                    plt.Trace(self.visit(node.msg), plt.Unit())
+                    if node.msg is not None
+                    else plt.Unit()
+                ),
             ),
         )
 
@@ -2329,9 +2333,11 @@ def compile(
         x,
         plt.Apply(
             plt.Error(),
-            plt.Trace(self.visit(node.msg), plt.Unit())
-            if node.msg is not None
-            else plt.Unit(),
+            (
+                plt.Trace(self.visit(node.msg), plt.Unit())
+                if node.msg is not None
+                else plt.Unit()
+            ),
         ),
     )</code></pre>
 </details>
@@ -2375,7 +2381,7 @@ def compile(
 </summary>
 <pre><code class="python">def visit_Attribute(self, node: TypedAttribute) -&gt; plt.AST:
     assert isinstance(
-        node.typ, InstanceType
+        node.value.typ, InstanceType
     ), &#34;Can only access attributes of instances&#34;
     obj = self.visit(node.value)
     attr = node.value.typ.attribute(node.attr)

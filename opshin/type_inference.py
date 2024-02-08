@@ -11,6 +11,7 @@ security into the Smart Contract by checking type correctness.
 
 [1]: https://legacy.python.org/workshops/2000-01/proceedings/papers/aycock/aycock.html
 """
+
 import re
 
 from pycardano import PlutusData

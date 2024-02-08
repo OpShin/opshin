@@ -36,9 +36,9 @@ class PlutusContract:
     contract: PlutusV2Script
     datum_type: Optional[typing.Tuple[str, typing.Type[Datum]]] = None
     redeemer_type: Optional[typing.Tuple[str, typing.Type[Datum]]] = None
-    parameter_types: typing.List[
-        typing.Tuple[str, typing.Type[Datum]]
-    ] = dataclasses.field(default_factory=list)
+    parameter_types: typing.List[typing.Tuple[str, typing.Type[Datum]]] = (
+        dataclasses.field(default_factory=list)
+    )
     purpose: typing.Iterable[Purpose] = (Purpose.any,)
     version: Optional[str] = "1.0.0"
     title: str = "validator"
@@ -112,13 +112,17 @@ class PlutusContract:
                         if self.datum_type is not None
                         else {}
                     ),
-                    "redeemer": {
-                        "title": self.redeemer_type[0],
-                        "purpose": {"oneOf": [PURPOSE_MAP[p] for p in self.purpose]},
-                        "schema": to_plutus_schema(self.redeemer_type[1]),
-                    }
-                    if self.redeemer_type is not None
-                    else {},
+                    "redeemer": (
+                        {
+                            "title": self.redeemer_type[0],
+                            "purpose": {
+                                "oneOf": [PURPOSE_MAP[p] for p in self.purpose]
+                            },
+                            "schema": to_plutus_schema(self.redeemer_type[1]),
+                        }
+                        if self.redeemer_type is not None
+                        else {}
+                    ),
                     **(
                         {
                             "parameters": [
@@ -335,9 +339,11 @@ def to_plutus_schema(cls: typing.Type[Datum]) -> dict:
         }
     elif hasattr(cls, "__origin__") and cls.__origin__ is Union:
         return {
-            "anyOf": [to_plutus_schema(t) for t in cls.__args__]
-            if hasattr(cls, "__args__")
-            else []
+            "anyOf": (
+                [to_plutus_schema(t) for t in cls.__args__]
+                if hasattr(cls, "__args__")
+                else []
+            )
         }
     elif issubclass(cls, PlutusData):
         fields = []
@@ -427,9 +433,11 @@ def _apply_parameters(script: uplc.ast.Program, *args: pycardano.Datum):
     for d in args:
         code = uplc.ast.Apply(
             code,
-            uplc.ast.data_from_cbor(datum_to_cbor(d))
-            if not isinstance(d, uplc_ast.Constant)
-            else d,
+            (
+                uplc.ast.data_from_cbor(datum_to_cbor(d))
+                if not isinstance(d, uplc_ast.Constant)
+                else d
+            ),
         )
     code = uplc.ast.Program((1, 0, 0), code)
     return code

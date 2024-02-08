@@ -2,6 +2,7 @@
 A special libary that gives direct access to UPLC built-ins
 It is valid code and parts of it may be copied if not all built-ins are required by the user.
 """
+
 from opshin.bridge import wraps_builtin
 from pycardano import Datum as Anything, PlutusData
 from typing import Dict, List, Union

@@ -3,6 +3,7 @@ An implementation of fractions in opshin
 This does not maintain smallest possible notation invariants for the sake of efficiency
 - the user has full control over when to normalize the fractions and should do so using norm_fraction
 """
+
 from dataclasses import dataclass
 from pycardano import Datum as Anything, PlutusData
 from typing import Dict, List, Union
