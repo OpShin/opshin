@@ -1,6 +1,7 @@
 import copy
 import dataclasses
 import enum
+import functools
 import json
 import types
 import typing
@@ -203,9 +204,9 @@ def compile(
     return plt_code
 
 
-def _compile(
+@functools.lru_cache(maxsize=32)
+def _static_compile(
     source_code: str,
-    *args: typing.Union[pycardano.Datum, uplc_ast.Constant],
     contract_file: str = "<unknown>",
     force_three_params=False,
     validator_function_name="validator",
@@ -229,7 +230,34 @@ def _compile(
         constant_folding=constant_folding,
         allow_isinstance_anything=allow_isinstance_anything,
     )
+    return code
 
+
+def _compile(
+    source_code: str,
+    *args: typing.Union[pycardano.Datum, uplc_ast.Constant],
+    contract_file: str = "<unknown>",
+    force_three_params=False,
+    validator_function_name="validator",
+    optimize_patterns=True,
+    remove_dead_code=True,
+    constant_folding=False,
+    allow_isinstance_anything=False,
+):
+    """
+    Expects a python module and returns the build artifacts from compiling it
+    """
+
+    code = _static_compile(
+        source_code,
+        contract_file=contract_file,
+        force_three_params=force_three_params,
+        validator_function_name=validator_function_name,
+        optimize_patterns=optimize_patterns,
+        remove_dead_code=remove_dead_code,
+        constant_folding=constant_folding,
+        allow_isinstance_anything=allow_isinstance_anything,
+    )
     code = _apply_parameters(code, *args)
     return code
 
