@@ -2,6 +2,7 @@
 The PlutusV2 ledger API.
 All classes involved in defining the ScriptContext passed by the node.
 """
+
 from dataclasses import dataclass
 from typing import Dict, List, Union
 
