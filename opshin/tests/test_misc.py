@@ -2886,10 +2886,9 @@ def validator(x: bool) -> str:
         res_true = eval_uplc_value(source_code, 1)
         res_false = eval_uplc_value(source_code, 0)
 
-
-@unittest.expectedFailure
-def test_class_attribute_access():
-    source_code = """
+    @unittest.expectedFailure
+    def test_class_attribute_access(self):
+        source_code = """
 from dataclasses import dataclass
 from pycardano import Datum as Anything, PlutusData
 from typing import Dict, List, Union
@@ -2903,12 +2902,11 @@ class A(PlutusData):
 
 def validator(_: None) -> int:
     return A.CONSTR_ID
-"""
-    builder._compile(source_code)
+    """
+        builder._compile(source_code)
 
-
-def test_constr_id_access():
-    source_code = """
+    def test_constr_id_access(self):
+        source_code = """
 from dataclasses import dataclass
 from pycardano import Datum as Anything, PlutusData
 from typing import Dict, List, Union
@@ -2922,7 +2920,7 @@ class A(PlutusData):
 
 def validator(_: None) -> int:
     return A(0, b"", [1,2]).CONSTR_ID
-"""
-    res = eval_uplc_value(source_code, Unit())
+    """
+        res = eval_uplc_value(source_code, Unit())
 
-    assert 15 == res
+        self.assertEqual(15, res, "Invalid constr id")
