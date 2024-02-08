@@ -2954,7 +2954,46 @@ def validator(x: bool) -&gt; str:
     return a(x)
         &#34;&#34;&#34;
         res_true = eval_uplc_value(source_code, 1)
-        res_false = eval_uplc_value(source_code, 0)</code></pre>
+        res_false = eval_uplc_value(source_code, 0)
+
+    @unittest.expectedFailure
+    def test_class_attribute_access(self):
+        source_code = &#34;&#34;&#34;
+from dataclasses import dataclass
+from pycardano import Datum as Anything, PlutusData
+from typing import Dict, List, Union
+
+@dataclass
+class A(PlutusData):
+    CONSTR_ID = 15
+    a: int
+    b: bytes
+    d: List[int]
+
+def validator(_: None) -&gt; int:
+    return A.CONSTR_ID
+    &#34;&#34;&#34;
+        builder._compile(source_code)
+
+    def test_constr_id_access(self):
+        source_code = &#34;&#34;&#34;
+from dataclasses import dataclass
+from pycardano import Datum as Anything, PlutusData
+from typing import Dict, List, Union
+
+@dataclass
+class A(PlutusData):
+    CONSTR_ID = 15
+    a: int
+    b: bytes
+    d: List[int]
+
+def validator(_: None) -&gt; int:
+    return A(0, b&#34;&#34;, [1,2]).CONSTR_ID
+    &#34;&#34;&#34;
+        res = eval_uplc_value(source_code, Unit())
+
+        self.assertEqual(15, res, &#34;Invalid constr id&#34;)</code></pre>
 </details>
 </section>
 <section>
@@ -5916,7 +5955,46 @@ def validator(x: bool) -&gt; str:
     return a(x)
         &#34;&#34;&#34;
         res_true = eval_uplc_value(source_code, 1)
-        res_false = eval_uplc_value(source_code, 0)</code></pre>
+        res_false = eval_uplc_value(source_code, 0)
+
+    @unittest.expectedFailure
+    def test_class_attribute_access(self):
+        source_code = &#34;&#34;&#34;
+from dataclasses import dataclass
+from pycardano import Datum as Anything, PlutusData
+from typing import Dict, List, Union
+
+@dataclass
+class A(PlutusData):
+    CONSTR_ID = 15
+    a: int
+    b: bytes
+    d: List[int]
+
+def validator(_: None) -&gt; int:
+    return A.CONSTR_ID
+    &#34;&#34;&#34;
+        builder._compile(source_code)
+
+    def test_constr_id_access(self):
+        source_code = &#34;&#34;&#34;
+from dataclasses import dataclass
+from pycardano import Datum as Anything, PlutusData
+from typing import Dict, List, Union
+
+@dataclass
+class A(PlutusData):
+    CONSTR_ID = 15
+    a: int
+    b: bytes
+    d: List[int]
+
+def validator(_: None) -&gt; int:
+    return A(0, b&#34;&#34;, [1,2]).CONSTR_ID
+    &#34;&#34;&#34;
+        res = eval_uplc_value(source_code, Unit())
+
+        self.assertEqual(15, res, &#34;Invalid constr id&#34;)</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -6201,6 +6279,35 @@ def validator(x: int) -&gt; bool:
 &#34;&#34;&#34;
         res = eval_uplc_value(source_code, x)
         self.assertEqual(bool(res), bool(x))</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_class_attribute_access"><code class="name flex">
+<span>def <span class="ident">test_class_attribute_access</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    @unittest.expectedFailure
+    def test_class_attribute_access(self):
+        source_code = &#34;&#34;&#34;
+from dataclasses import dataclass
+from pycardano import Datum as Anything, PlutusData
+from typing import Dict, List, Union
+
+@dataclass
+class A(PlutusData):
+    CONSTR_ID = 15
+    a: int
+    b: bytes
+    d: List[int]
+
+def validator(_: None) -&gt; int:
+    return A.CONSTR_ID
+    &#34;&#34;&#34;
+        builder._compile(source_code)</code></pre>
 </details>
 </dd>
 <dt id="opshin.tests.test_misc.MiscTest.test_comparison_chaining"><code class="name flex">
@@ -7385,6 +7492,36 @@ def validator(_: None) -&gt; int:
     return a
 &#34;&#34;&#34;
         eval_uplc(source_code, Unit(), constant_folding=True)</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_constr_id_access"><code class="name flex">
+<span>def <span class="ident">test_constr_id_access</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    def test_constr_id_access(self):
+        source_code = &#34;&#34;&#34;
+from dataclasses import dataclass
+from pycardano import Datum as Anything, PlutusData
+from typing import Dict, List, Union
+
+@dataclass
+class A(PlutusData):
+    CONSTR_ID = 15
+    a: int
+    b: bytes
+    d: List[int]
+
+def validator(_: None) -&gt; int:
+    return A(0, b&#34;&#34;, [1,2]).CONSTR_ID
+    &#34;&#34;&#34;
+        res = eval_uplc_value(source_code, Unit())
+
+        self.assertEqual(15, res, &#34;Invalid constr id&#34;)</code></pre>
 </details>
 </dd>
 <dt id="opshin.tests.test_misc.MiscTest.test_datum_cast"><code class="name flex">
@@ -11054,6 +11191,7 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_cast_bool_ite" href="#opshin.tests.test_misc.MiscTest.test_cast_bool_ite">test_cast_bool_ite</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_cast_bool_ite_expr" href="#opshin.tests.test_misc.MiscTest.test_cast_bool_ite_expr">test_cast_bool_ite_expr</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_cast_bool_while" href="#opshin.tests.test_misc.MiscTest.test_cast_bool_while">test_cast_bool_while</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_class_attribute_access" href="#opshin.tests.test_misc.MiscTest.test_class_attribute_access">test_class_attribute_access</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_comparison_chaining" href="#opshin.tests.test_misc.MiscTest.test_comparison_chaining">test_comparison_chaining</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_compilation_deterministic_external" href="#opshin.tests.test_misc.MiscTest.test_compilation_deterministic_external">test_compilation_deterministic_external</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_compilation_deterministic_external_00_examples_dict_datum_py" href="#opshin.tests.test_misc.MiscTest.test_compilation_deterministic_external_00_examples_dict_datum_py">test_compilation_deterministic_external_00_examples_dict_datum_py</a></code></li>
@@ -11123,6 +11261,7 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_constant_folding_scoping" href="#opshin.tests.test_misc.MiscTest.test_constant_folding_scoping">test_constant_folding_scoping</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_constant_folding_user_def" href="#opshin.tests.test_misc.MiscTest.test_constant_folding_user_def">test_constant_folding_user_def</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_constant_folding_while" href="#opshin.tests.test_misc.MiscTest.test_constant_folding_while">test_constant_folding_while</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_constr_id_access" href="#opshin.tests.test_misc.MiscTest.test_constr_id_access">test_constr_id_access</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_datum_cast" href="#opshin.tests.test_misc.MiscTest.test_datum_cast">test_datum_cast</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_dict_comprehension_all" href="#opshin.tests.test_misc.MiscTest.test_dict_comprehension_all">test_dict_comprehension_all</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_dict_comprehension_even" href="#opshin.tests.test_misc.MiscTest.test_dict_comprehension_even">test_dict_comprehension_even</a></code></li>

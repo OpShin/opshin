@@ -71,6 +71,7 @@ fill="currentColor" class="octo-body"></path>
 <pre><code class="python">import copy
 import dataclasses
 import enum
+import functools
 import json
 import types
 import typing
@@ -105,9 +106,9 @@ class PlutusContract:
     contract: PlutusV2Script
     datum_type: Optional[typing.Tuple[str, typing.Type[Datum]]] = None
     redeemer_type: Optional[typing.Tuple[str, typing.Type[Datum]]] = None
-    parameter_types: typing.List[
-        typing.Tuple[str, typing.Type[Datum]]
-    ] = dataclasses.field(default_factory=list)
+    parameter_types: typing.List[typing.Tuple[str, typing.Type[Datum]]] = (
+        dataclasses.field(default_factory=list)
+    )
     purpose: typing.Iterable[Purpose] = (Purpose.any,)
     version: Optional[str] = &#34;1.0.0&#34;
     title: str = &#34;validator&#34;
@@ -181,13 +182,17 @@ class PlutusContract:
                         if self.datum_type is not None
                         else {}
                     ),
-                    &#34;redeemer&#34;: {
-                        &#34;title&#34;: self.redeemer_type[0],
-                        &#34;purpose&#34;: {&#34;oneOf&#34;: [PURPOSE_MAP[p] for p in self.purpose]},
-                        &#34;schema&#34;: to_plutus_schema(self.redeemer_type[1]),
-                    }
-                    if self.redeemer_type is not None
-                    else {},
+                    &#34;redeemer&#34;: (
+                        {
+                            &#34;title&#34;: self.redeemer_type[0],
+                            &#34;purpose&#34;: {
+                                &#34;oneOf&#34;: [PURPOSE_MAP[p] for p in self.purpose]
+                            },
+                            &#34;schema&#34;: to_plutus_schema(self.redeemer_type[1]),
+                        }
+                        if self.redeemer_type is not None
+                        else {}
+                    ),
                     **(
                         {
                             &#34;parameters&#34;: [
@@ -273,9 +278,9 @@ def compile(
     return plt_code
 
 
-def _compile(
+@functools.lru_cache(maxsize=32)
+def _static_compile(
     source_code: str,
-    *args: typing.Union[pycardano.Datum, uplc_ast.Constant],
     contract_file: str = &#34;&lt;unknown&gt;&#34;,
     force_three_params=False,
     validator_function_name=&#34;validator&#34;,
@@ -299,7 +304,34 @@ def _compile(
         constant_folding=constant_folding,
         allow_isinstance_anything=allow_isinstance_anything,
     )
+    return code
 
+
+def _compile(
+    source_code: str,
+    *args: typing.Union[pycardano.Datum, uplc_ast.Constant],
+    contract_file: str = &#34;&lt;unknown&gt;&#34;,
+    force_three_params=False,
+    validator_function_name=&#34;validator&#34;,
+    optimize_patterns=True,
+    remove_dead_code=True,
+    constant_folding=False,
+    allow_isinstance_anything=False,
+):
+    &#34;&#34;&#34;
+    Expects a python module and returns the build artifacts from compiling it
+    &#34;&#34;&#34;
+
+    code = _static_compile(
+        source_code,
+        contract_file=contract_file,
+        force_three_params=force_three_params,
+        validator_function_name=validator_function_name,
+        optimize_patterns=optimize_patterns,
+        remove_dead_code=remove_dead_code,
+        constant_folding=constant_folding,
+        allow_isinstance_anything=allow_isinstance_anything,
+    )
     code = _apply_parameters(code, *args)
     return code
 
@@ -377,9 +409,11 @@ def to_plutus_schema(cls: typing.Type[Datum]) -&gt; dict:
         }
     elif hasattr(cls, &#34;__origin__&#34;) and cls.__origin__ is Union:
         return {
-            &#34;anyOf&#34;: [to_plutus_schema(t) for t in cls.__args__]
-            if hasattr(cls, &#34;__args__&#34;)
-            else []
+            &#34;anyOf&#34;: (
+                [to_plutus_schema(t) for t in cls.__args__]
+                if hasattr(cls, &#34;__args__&#34;)
+                else []
+            )
         }
     elif issubclass(cls, PlutusData):
         fields = []
@@ -469,9 +503,11 @@ def _apply_parameters(script: uplc.ast.Program, *args: pycardano.Datum):
     for d in args:
         code = uplc.ast.Apply(
             code,
-            uplc.ast.data_from_cbor(datum_to_cbor(d))
-            if not isinstance(d, uplc_ast.Constant)
-            else d,
+            (
+                uplc.ast.data_from_cbor(datum_to_cbor(d))
+                if not isinstance(d, uplc_ast.Constant)
+                else d
+            ),
         )
     code = uplc.ast.Program((1, 0, 0), code)
     return code
@@ -891,9 +927,11 @@ Reference of the core structure:
         }
     elif hasattr(cls, &#34;__origin__&#34;) and cls.__origin__ is Union:
         return {
-            &#34;anyOf&#34;: [to_plutus_schema(t) for t in cls.__args__]
-            if hasattr(cls, &#34;__args__&#34;)
-            else []
+            &#34;anyOf&#34;: (
+                [to_plutus_schema(t) for t in cls.__args__]
+                if hasattr(cls, &#34;__args__&#34;)
+                else []
+            )
         }
     elif issubclass(cls, PlutusData):
         fields = []
@@ -939,9 +977,9 @@ class PlutusContract:
     contract: PlutusV2Script
     datum_type: Optional[typing.Tuple[str, typing.Type[Datum]]] = None
     redeemer_type: Optional[typing.Tuple[str, typing.Type[Datum]]] = None
-    parameter_types: typing.List[
-        typing.Tuple[str, typing.Type[Datum]]
-    ] = dataclasses.field(default_factory=list)
+    parameter_types: typing.List[typing.Tuple[str, typing.Type[Datum]]] = (
+        dataclasses.field(default_factory=list)
+    )
     purpose: typing.Iterable[Purpose] = (Purpose.any,)
     version: Optional[str] = &#34;1.0.0&#34;
     title: str = &#34;validator&#34;
@@ -1015,13 +1053,17 @@ class PlutusContract:
                         if self.datum_type is not None
                         else {}
                     ),
-                    &#34;redeemer&#34;: {
-                        &#34;title&#34;: self.redeemer_type[0],
-                        &#34;purpose&#34;: {&#34;oneOf&#34;: [PURPOSE_MAP[p] for p in self.purpose]},
-                        &#34;schema&#34;: to_plutus_schema(self.redeemer_type[1]),
-                    }
-                    if self.redeemer_type is not None
-                    else {},
+                    &#34;redeemer&#34;: (
+                        {
+                            &#34;title&#34;: self.redeemer_type[0],
+                            &#34;purpose&#34;: {
+                                &#34;oneOf&#34;: [PURPOSE_MAP[p] for p in self.purpose]
+                            },
+                            &#34;schema&#34;: to_plutus_schema(self.redeemer_type[1]),
+                        }
+                        if self.redeemer_type is not None
+                        else {}
+                    ),
                     **(
                         {
                             &#34;parameters&#34;: [
@@ -1163,13 +1205,17 @@ def blueprint(self):
                     if self.datum_type is not None
                     else {}
                 ),
-                &#34;redeemer&#34;: {
-                    &#34;title&#34;: self.redeemer_type[0],
-                    &#34;purpose&#34;: {&#34;oneOf&#34;: [PURPOSE_MAP[p] for p in self.purpose]},
-                    &#34;schema&#34;: to_plutus_schema(self.redeemer_type[1]),
-                }
-                if self.redeemer_type is not None
-                else {},
+                &#34;redeemer&#34;: (
+                    {
+                        &#34;title&#34;: self.redeemer_type[0],
+                        &#34;purpose&#34;: {
+                            &#34;oneOf&#34;: [PURPOSE_MAP[p] for p in self.purpose]
+                        },
+                        &#34;schema&#34;: to_plutus_schema(self.redeemer_type[1]),
+                    }
+                    if self.redeemer_type is not None
+                    else {}
+                ),
                 **(
                     {
                         &#34;parameters&#34;: [
