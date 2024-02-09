@@ -70,6 +70,7 @@ fill="currentColor" class="octo-body"></path>
 </summary>
 <pre><code class="python">import os
 
+import pycardano
 import sys
 
 import subprocess
@@ -83,6 +84,7 @@ import frozenlist2
 import hypothesis
 from hypothesis import given
 from hypothesis import strategies as st
+from opshin import IndefiniteList
 from parameterized import parameterized
 
 from uplc import ast as uplc, eval as uplc_eval
@@ -96,7 +98,7 @@ hypothesis.settings.load_profile(PLUTUS_VM_PROFILE)
 
 # these imports are required to eval the result of script context dumps
 from ..ledger.api_v2 import *
-from pycardano import RawPlutusData
+from pycardano import RawPlutusData, RawCBOR
 from cbor2 import CBORTag
 
 ALL_EXAMPLES = [
@@ -844,11 +846,7 @@ def validator(x: Union[A, B, C, D]) -&gt; Union[SomeOutputDatumHash, SomeOutputD
         x = (
             A(x)
             if isinstance(x, SomeOutputDatumHash)
-            else B(x)
-            if y == 1
-            else C(0, x)
-            if y == 2
-            else D(0, 0, x)
+            else B(x) if y == 1 else C(0, x) if y == 2 else D(0, 0, x)
         )
 
         ret = eval_uplc(source_code, x)
@@ -2965,7 +2963,7 @@ from typing import Dict, List, Union
 
 @dataclass
 class A(PlutusData):
-    CONSTR_ID = 15
+    CONSTR_ID = 0
     a: int
     b: bytes
     d: List[int]
@@ -2993,7 +2991,63 @@ def validator(_: None) -&gt; int:
     &#34;&#34;&#34;
         res = eval_uplc_value(source_code, Unit())
 
-        self.assertEqual(15, res, &#34;Invalid constr id&#34;)</code></pre>
+        self.assertEqual(15, res, &#34;Invalid constr id&#34;)
+
+    def test_id_map_equals_pycardano(self):
+        @dataclass
+        class A(PlutusData):
+            CONSTR_ID = 0
+            a: int
+            b: bytes
+            d: List[int]
+
+        @dataclass
+        class C(PlutusData):
+            z: Anything
+
+        @dataclass
+        class B(PlutusData):
+            a: int
+            c: A
+            d: Dict[bytes, C]
+            e: Union[A, C]
+
+        source_code = &#34;&#34;&#34;
+from dataclasses import dataclass
+from pycardano import Datum as Anything, PlutusData
+from typing import Dict, List, Union
+
+@dataclass
+class Nothing(PlutusData):
+    CONSTR_ID = 0
+    
+
+@dataclass
+class A(PlutusData):
+    CONSTR_ID = 0
+    a: int
+    b: bytes
+    d: List[int]
+
+@dataclass
+class C(PlutusData):
+    z: Anything
+
+@dataclass
+class B(PlutusData):
+    a: int
+    c: A
+    d: Dict[bytes, C]
+    e: Union[A, C]
+
+def validator(_: None) -&gt; int:
+    return B(1, A(1, b&#34;&#34;, [1, 2]), {b&#34;&#34;: C(Nothing())}, C(Nothing())).CONSTR_ID
+    &#34;&#34;&#34;
+        res = eval_uplc_value(source_code, Unit())
+
+        self.assertEqual(
+            B.CONSTR_ID, res, &#34;Invalid constr id generation (does not match pycardano)&#34;
+        )</code></pre>
 </details>
 </section>
 <section>
@@ -3047,7 +3101,7 @@ class A(PlutusData):
 </ul>
 <h3>Class variables</h3>
 <dl>
-<dt id="opshin.tests.test_misc.A.CONSTR_ID"><code class="name">var <span class="ident">CONSTR_ID</span> : ClassVar[int]</code></dt>
+<dt id="opshin.tests.test_misc.A.CONSTR_ID"><code class="name">var <span class="ident">CONSTR_ID</span></code></dt>
 <dd>
 <div class="desc"></div>
 </dd>
@@ -3081,7 +3135,7 @@ class B(PlutusData):
 </ul>
 <h3>Class variables</h3>
 <dl>
-<dt id="opshin.tests.test_misc.B.CONSTR_ID"><code class="name">var <span class="ident">CONSTR_ID</span> : ClassVar[int]</code></dt>
+<dt id="opshin.tests.test_misc.B.CONSTR_ID"><code class="name">var <span class="ident">CONSTR_ID</span></code></dt>
 <dd>
 <div class="desc"></div>
 </dd>
@@ -3845,11 +3899,7 @@ def validator(x: Union[A, B, C, D]) -&gt; Union[SomeOutputDatumHash, SomeOutputD
         x = (
             A(x)
             if isinstance(x, SomeOutputDatumHash)
-            else B(x)
-            if y == 1
-            else C(0, x)
-            if y == 2
-            else D(0, 0, x)
+            else B(x) if y == 1 else C(0, x) if y == 2 else D(0, 0, x)
         )
 
         ret = eval_uplc(source_code, x)
@@ -5966,7 +6016,7 @@ from typing import Dict, List, Union
 
 @dataclass
 class A(PlutusData):
-    CONSTR_ID = 15
+    CONSTR_ID = 0
     a: int
     b: bytes
     d: List[int]
@@ -5994,7 +6044,63 @@ def validator(_: None) -&gt; int:
     &#34;&#34;&#34;
         res = eval_uplc_value(source_code, Unit())
 
-        self.assertEqual(15, res, &#34;Invalid constr id&#34;)</code></pre>
+        self.assertEqual(15, res, &#34;Invalid constr id&#34;)
+
+    def test_id_map_equals_pycardano(self):
+        @dataclass
+        class A(PlutusData):
+            CONSTR_ID = 0
+            a: int
+            b: bytes
+            d: List[int]
+
+        @dataclass
+        class C(PlutusData):
+            z: Anything
+
+        @dataclass
+        class B(PlutusData):
+            a: int
+            c: A
+            d: Dict[bytes, C]
+            e: Union[A, C]
+
+        source_code = &#34;&#34;&#34;
+from dataclasses import dataclass
+from pycardano import Datum as Anything, PlutusData
+from typing import Dict, List, Union
+
+@dataclass
+class Nothing(PlutusData):
+    CONSTR_ID = 0
+    
+
+@dataclass
+class A(PlutusData):
+    CONSTR_ID = 0
+    a: int
+    b: bytes
+    d: List[int]
+
+@dataclass
+class C(PlutusData):
+    z: Anything
+
+@dataclass
+class B(PlutusData):
+    a: int
+    c: A
+    d: Dict[bytes, C]
+    e: Union[A, C]
+
+def validator(_: None) -&gt; int:
+    return B(1, A(1, b&#34;&#34;, [1, 2]), {b&#34;&#34;: C(Nothing())}, C(Nothing())).CONSTR_ID
+    &#34;&#34;&#34;
+        res = eval_uplc_value(source_code, Unit())
+
+        self.assertEqual(
+            B.CONSTR_ID, res, &#34;Invalid constr id generation (does not match pycardano)&#34;
+        )</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -6299,7 +6405,7 @@ from typing import Dict, List, Union
 
 @dataclass
 class A(PlutusData):
-    CONSTR_ID = 15
+    CONSTR_ID = 0
     a: int
     b: bytes
     d: List[int]
@@ -8218,6 +8324,72 @@ def test_gift_contract_fail(self):
     with open(input_file) as fp:
         source_code = fp.read()
     ret = eval_uplc(source_code, Unit())</code></pre>
+</details>
+</dd>
+<dt id="opshin.tests.test_misc.MiscTest.test_id_map_equals_pycardano"><code class="name flex">
+<span>def <span class="ident">test_id_map_equals_pycardano</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    def test_id_map_equals_pycardano(self):
+        @dataclass
+        class A(PlutusData):
+            CONSTR_ID = 0
+            a: int
+            b: bytes
+            d: List[int]
+
+        @dataclass
+        class C(PlutusData):
+            z: Anything
+
+        @dataclass
+        class B(PlutusData):
+            a: int
+            c: A
+            d: Dict[bytes, C]
+            e: Union[A, C]
+
+        source_code = &#34;&#34;&#34;
+from dataclasses import dataclass
+from pycardano import Datum as Anything, PlutusData
+from typing import Dict, List, Union
+
+@dataclass
+class Nothing(PlutusData):
+    CONSTR_ID = 0
+    
+
+@dataclass
+class A(PlutusData):
+    CONSTR_ID = 0
+    a: int
+    b: bytes
+    d: List[int]
+
+@dataclass
+class C(PlutusData):
+    z: Anything
+
+@dataclass
+class B(PlutusData):
+    a: int
+    c: A
+    d: Dict[bytes, C]
+    e: Union[A, C]
+
+def validator(_: None) -&gt; int:
+    return B(1, A(1, b&#34;&#34;, [1, 2]), {b&#34;&#34;: C(Nothing())}, C(Nothing())).CONSTR_ID
+    &#34;&#34;&#34;
+        res = eval_uplc_value(source_code, Unit())
+
+        self.assertEqual(
+            B.CONSTR_ID, res, &#34;Invalid constr id generation (does not match pycardano)&#34;
+        )</code></pre>
 </details>
 </dd>
 <dt id="opshin.tests.test_misc.MiscTest.test_if_no_retype_no_plutusdata"><code class="name flex">
@@ -10644,11 +10816,7 @@ def validator(x: Union[A, B, C, D]) -&gt; Union[SomeOutputDatumHash, SomeOutputD
         x = (
             A(x)
             if isinstance(x, SomeOutputDatumHash)
-            else B(x)
-            if y == 1
-            else C(0, x)
-            if y == 2
-            else D(0, 0, x)
+            else B(x) if y == 1 else C(0, x) if y == 2 else D(0, 0, x)
         )
 
         ret = eval_uplc(source_code, x)
@@ -11289,6 +11457,7 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_gift_contract_fail" href="#opshin.tests.test_misc.MiscTest.test_gift_contract_fail">test_gift_contract_fail</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_gift_contract_succeed" href="#opshin.tests.test_misc.MiscTest.test_gift_contract_succeed">test_gift_contract_succeed</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_hello_world" href="#opshin.tests.test_misc.MiscTest.test_hello_world">test_hello_world</a></code></li>
+<li><code><a title="opshin.tests.test_misc.MiscTest.test_id_map_equals_pycardano" href="#opshin.tests.test_misc.MiscTest.test_id_map_equals_pycardano">test_id_map_equals_pycardano</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_if_no_retype_no_plutusdata" href="#opshin.tests.test_misc.MiscTest.test_if_no_retype_no_plutusdata">test_if_no_retype_no_plutusdata</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_illegal_bind" href="#opshin.tests.test_misc.MiscTest.test_illegal_bind">test_illegal_bind</a></code></li>
 <li><code><a title="opshin.tests.test_misc.MiscTest.test_illegal_function_retype" href="#opshin.tests.test_misc.MiscTest.test_illegal_function_retype">test_illegal_function_retype</a></code></li>

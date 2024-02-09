@@ -211,6 +211,12 @@ class Type:
             f&#34;{type(self).__name__} can not be used with operation {unop.__class__.__name__}&#34;
         )
 
+    def id_map(self, skip_constructor: bool = False) -&gt; str:
+        &#34;&#34;&#34;
+        Returns a map from the constructor id to a descriptive typestring
+        &#34;&#34;&#34;
+        raise NotImplementedError(f&#34;Type {type(self).__name__} does not have a id map&#34;)
+
 
 @dataclass(frozen=True, unsafe_hash=True)
 class Record:
@@ -256,6 +262,9 @@ class ClassType(Type):
 @dataclass(frozen=True, unsafe_hash=True)
 class AnyType(ClassType):
     &#34;&#34;&#34;The top element in the partial order on types (excluding FunctionTypes, which do not compare to anything)&#34;&#34;&#34;
+
+    def id_map(self, skip_constructor: bool = False) -&gt; str:
+        return &#34;any&#34;
 
     def attribute_type(self, attr: str) -&gt; Type:
         &#34;&#34;&#34;The types of the named attributes of this class&#34;&#34;&#34;
@@ -517,6 +526,17 @@ class AtomicType(ClassType):
 class RecordType(ClassType):
     record: Record
 
+    def id_map(self, skip_constructor: bool = False) -&gt; str:
+        return (
+            &#34;cons[&#34;
+            + self.record.orig_name
+            + &#34;](&#34;
+            + (str(self.record.constructor) if not skip_constructor else &#34;_&#34;)
+            + &#34;;&#34;
+            + &#34;,&#34;.join(name + &#34;:&#34; + type.id_map() for name, type in self.record.fields)
+            + &#34;)&#34;
+        )
+
     def constr_type(self) -&gt; &#34;InstanceType&#34;:
         return InstanceType(
             FunctionType(
@@ -712,6 +732,9 @@ class UnionType(ClassType):
 
     def __post_init__(self):
         object.__setattr__(self, &#34;typs&#34;, frozenlist(self.typs))
+
+    def id_map(self, skip_constructor: bool = False) -&gt; str:
+        return &#34;union&lt;&#34; + &#34;,&#34;.join(t.id_map() for t in self.typs) + &#34;&gt;&#34;
 
     def attribute_type(self, attr) -&gt; &#34;Type&#34;:
         if attr == &#34;CONSTR_ID&#34;:
@@ -986,6 +1009,9 @@ class ListType(ClassType):
     def __ge__(self, other):
         return isinstance(other, ListType) and self.typ &gt;= other.typ
 
+    def id_map(self, skip_constructor: bool = False) -&gt; str:
+        return &#34;list&lt;&#34; + self.typ.id_map() + &#34;&gt;&#34;
+
     def attribute_type(self, attr) -&gt; &#34;Type&#34;:
         if attr == &#34;index&#34;:
             return InstanceType(
@@ -1127,6 +1153,9 @@ class ListType(ClassType):
 class DictType(ClassType):
     key_typ: Type
     value_typ: Type
+
+    def id_map(self, skip_constructor: bool = False) -&gt; str:
+        return &#34;map&lt;&#34; + self.key_typ.id_map() + &#34;,&#34; + self.value_typ.id_map() + &#34;&gt;&#34;
 
     def attribute_type(self, attr) -&gt; &#34;Type&#34;:
         if attr == &#34;get&#34;:
@@ -1453,6 +1482,9 @@ class FunctionType(ClassType):
 class InstanceType(Type):
     typ: ClassType
 
+    def id_map(self, skip_constructor: bool = False) -&gt; str:
+        return self.typ.id_map(skip_constructor=skip_constructor)
+
     def constr_type(self) -&gt; FunctionType:
         raise TypeInferenceError(f&#34;Can not construct an instance {self}&#34;)
 
@@ -1495,6 +1527,9 @@ class InstanceType(Type):
 
 @dataclass(frozen=True, unsafe_hash=True)
 class IntegerType(AtomicType):
+    def id_map(self, skip_constructor: bool = False) -&gt; str:
+        return &#34;int&#34;
+
     def constr_type(self) -&gt; InstanceType:
         return InstanceType(PolymorphicFunctionType(IntImpl()))
 
@@ -1768,6 +1803,9 @@ class StringType(AtomicType):
 
 @dataclass(frozen=True, unsafe_hash=True)
 class ByteStringType(AtomicType):
+    def id_map(self, skip_constructor: bool = False) -&gt; str:
+        return &#34;bytes&#34;
+
     def constr_type(self) -&gt; InstanceType:
         return InstanceType(PolymorphicFunctionType(BytesImpl()))
 
@@ -3024,6 +3062,9 @@ def transform_output_map(p: Type):
 class AnyType(ClassType):
     &#34;&#34;&#34;The top element in the partial order on types (excluding FunctionTypes, which do not compare to anything)&#34;&#34;&#34;
 
+    def id_map(self, skip_constructor: bool = False) -&gt; str:
+        return &#34;any&#34;
+
     def attribute_type(self, attr: str) -&gt; Type:
         &#34;&#34;&#34;The types of the named attributes of this class&#34;&#34;&#34;
         if attr == &#34;CONSTR_ID&#34;:
@@ -3408,6 +3449,23 @@ class AnyType(ClassType):
 <div class="desc inherited"><p>Returns a copy of this type with only the declared attributes (mapped to builtin values, thus checking atomic types too).
 For anything but record …</p></div>
 </dd>
+<dt id="opshin.types.AnyType.id_map"><code class="name flex">
+<span>def <span class="ident">id_map</span></span>(<span>self, skip_constructor: bool = False) ‑> str</span>
+</code></dt>
+<dd>
+<p class="inheritance">
+<em>Inherited from:</em>
+<code><a title="opshin.types.ClassType" href="#opshin.types.ClassType">ClassType</a></code>.<code><a title="opshin.types.ClassType.id_map" href="#opshin.types.ClassType.id_map">id_map</a></code>
+</p>
+<div class="desc inherited"><p>Returns a map from the constructor id to a descriptive typestring</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def id_map(self, skip_constructor: bool = False) -&gt; str:
+    return &#34;any&#34;</code></pre>
+</details>
+</dd>
 <dt id="opshin.types.AnyType.stringify"><code class="name flex">
 <span>def <span class="ident">stringify</span></span>(<span>self, recursive: bool = False) ‑> pluthon.pluthon_ast.AST</span>
 </code></dt>
@@ -3756,6 +3814,16 @@ class AtomicType(ClassType):
 <div class="desc inherited"><p>Returns a copy of this type with only the declared attributes (mapped to builtin values, thus checking atomic types too).
 For anything but record …</p></div>
 </dd>
+<dt id="opshin.types.AtomicType.id_map"><code class="name flex">
+<span>def <span class="ident">id_map</span></span>(<span>self, skip_constructor: bool = False) ‑> str</span>
+</code></dt>
+<dd>
+<p class="inheritance">
+<em>Inherited from:</em>
+<code><a title="opshin.types.ClassType" href="#opshin.types.ClassType">ClassType</a></code>.<code><a title="opshin.types.ClassType.id_map" href="#opshin.types.ClassType.id_map">id_map</a></code>
+</p>
+<div class="desc inherited"><p>Returns a map from the constructor id to a descriptive typestring</p></div>
+</dd>
 <dt id="opshin.types.AtomicType.stringify"><code class="name flex">
 <span>def <span class="ident">stringify</span></span>(<span>self, recursive: bool = False) ‑> pluthon.pluthon_ast.AST</span>
 </code></dt>
@@ -4095,6 +4163,16 @@ class BoolType(AtomicType):
 <div class="desc inherited"><p>Returns a copy of this type with only the declared attributes (mapped to builtin values, thus checking atomic types too).
 For anything but record …</p></div>
 </dd>
+<dt id="opshin.types.BoolType.id_map"><code class="name flex">
+<span>def <span class="ident">id_map</span></span>(<span>self, skip_constructor: bool = False) ‑> str</span>
+</code></dt>
+<dd>
+<p class="inheritance">
+<em>Inherited from:</em>
+<code><a title="opshin.types.AtomicType" href="#opshin.types.AtomicType">AtomicType</a></code>.<code><a title="opshin.types.AtomicType.id_map" href="#opshin.types.AtomicType.id_map">id_map</a></code>
+</p>
+<div class="desc inherited"><p>Returns a map from the constructor id to a descriptive typestring</p></div>
+</dd>
 <dt id="opshin.types.BoolType.stringify"><code class="name flex">
 <span>def <span class="ident">stringify</span></span>(<span>self, recursive: bool = False) ‑> pluthon.pluthon_ast.AST</span>
 </code></dt>
@@ -4152,6 +4230,9 @@ For anything but record …</p></div>
 </summary>
 <pre><code class="python">@dataclass(frozen=True, unsafe_hash=True)
 class ByteStringType(AtomicType):
+    def id_map(self, skip_constructor: bool = False) -&gt; str:
+        return &#34;bytes&#34;
+
     def constr_type(self) -&gt; InstanceType:
         return InstanceType(PolymorphicFunctionType(BytesImpl()))
 
@@ -4772,6 +4853,23 @@ class ByteStringType(AtomicType):
 <div class="desc inherited"><p>Returns a copy of this type with only the declared attributes (mapped to builtin values, thus checking atomic types too).
 For anything but record …</p></div>
 </dd>
+<dt id="opshin.types.ByteStringType.id_map"><code class="name flex">
+<span>def <span class="ident">id_map</span></span>(<span>self, skip_constructor: bool = False) ‑> str</span>
+</code></dt>
+<dd>
+<p class="inheritance">
+<em>Inherited from:</em>
+<code><a title="opshin.types.AtomicType" href="#opshin.types.AtomicType">AtomicType</a></code>.<code><a title="opshin.types.AtomicType.id_map" href="#opshin.types.AtomicType.id_map">id_map</a></code>
+</p>
+<div class="desc inherited"><p>Returns a map from the constructor id to a descriptive typestring</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def id_map(self, skip_constructor: bool = False) -&gt; str:
+    return &#34;bytes&#34;</code></pre>
+</details>
+</dd>
 <dt id="opshin.types.ByteStringType.stringify"><code class="name flex">
 <span>def <span class="ident">stringify</span></span>(<span>self, recursive: bool = False) ‑> pluthon.pluthon_ast.AST</span>
 </code></dt>
@@ -5237,6 +5335,16 @@ For anything but record types and union types, this is the identity function.</p
     return OLambda([&#34;self&#34;], OVar(&#34;self&#34;))</code></pre>
 </details>
 </dd>
+<dt id="opshin.types.ClassType.id_map"><code class="name flex">
+<span>def <span class="ident">id_map</span></span>(<span>self, skip_constructor: bool = False) ‑> str</span>
+</code></dt>
+<dd>
+<p class="inheritance">
+<em>Inherited from:</em>
+<code><a title="opshin.types.Type" href="#opshin.types.Type">Type</a></code>.<code><a title="opshin.types.Type.id_map" href="#opshin.types.Type.id_map">id_map</a></code>
+</p>
+<div class="desc inherited"><p>Returns a map from the constructor id to a descriptive typestring</p></div>
+</dd>
 <dt id="opshin.types.ClassType.stringify"><code class="name flex">
 <span>def <span class="ident">stringify</span></span>(<span>self, recursive: bool = False) ‑> pluthon.pluthon_ast.AST</span>
 </code></dt>
@@ -5283,6 +5391,9 @@ For anything but record types and union types, this is the identity function.</p
 class DictType(ClassType):
     key_typ: Type
     value_typ: Type
+
+    def id_map(self, skip_constructor: bool = False) -&gt; str:
+        return &#34;map&lt;&#34; + self.key_typ.id_map() + &#34;,&#34; + self.value_typ.id_map() + &#34;&gt;&#34;
 
     def attribute_type(self, attr) -&gt; &#34;Type&#34;:
         if attr == &#34;get&#34;:
@@ -5899,6 +6010,23 @@ For anything but record …</p></div>
     return OLambda([&#34;self&#34;], mapped_attrs)</code></pre>
 </details>
 </dd>
+<dt id="opshin.types.DictType.id_map"><code class="name flex">
+<span>def <span class="ident">id_map</span></span>(<span>self, skip_constructor: bool = False) ‑> str</span>
+</code></dt>
+<dd>
+<p class="inheritance">
+<em>Inherited from:</em>
+<code><a title="opshin.types.ClassType" href="#opshin.types.ClassType">ClassType</a></code>.<code><a title="opshin.types.ClassType.id_map" href="#opshin.types.ClassType.id_map">id_map</a></code>
+</p>
+<div class="desc inherited"><p>Returns a map from the constructor id to a descriptive typestring</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def id_map(self, skip_constructor: bool = False) -&gt; str:
+    return &#34;map&lt;&#34; + self.key_typ.id_map() + &#34;,&#34; + self.value_typ.id_map() + &#34;&gt;&#34;</code></pre>
+</details>
+</dd>
 <dt id="opshin.types.DictType.stringify"><code class="name flex">
 <span>def <span class="ident">stringify</span></span>(<span>self, recursive: bool = False) ‑> pluthon.pluthon_ast.AST</span>
 </code></dt>
@@ -6141,6 +6269,16 @@ class FunctionType(ClassType):
 <div class="desc inherited"><p>Returns a copy of this type with only the declared attributes (mapped to builtin values, thus checking atomic types too).
 For anything but record …</p></div>
 </dd>
+<dt id="opshin.types.FunctionType.id_map"><code class="name flex">
+<span>def <span class="ident">id_map</span></span>(<span>self, skip_constructor: bool = False) ‑> str</span>
+</code></dt>
+<dd>
+<p class="inheritance">
+<em>Inherited from:</em>
+<code><a title="opshin.types.ClassType" href="#opshin.types.ClassType">ClassType</a></code>.<code><a title="opshin.types.ClassType.id_map" href="#opshin.types.ClassType.id_map">id_map</a></code>
+</p>
+<div class="desc inherited"><p>Returns a map from the constructor id to a descriptive typestring</p></div>
+</dd>
 <dt id="opshin.types.FunctionType.stringify"><code class="name flex">
 <span>def <span class="ident">stringify</span></span>(<span>self, recursive: bool = False) ‑> pluthon.pluthon_ast.AST</span>
 </code></dt>
@@ -6282,6 +6420,16 @@ For anything but record …</p></div>
 <div class="desc inherited"><p>Returns a copy of this type with only the declared attributes (mapped to builtin values, thus checking atomic types too).
 For anything but record …</p></div>
 </dd>
+<dt id="opshin.types.InaccessibleType.id_map"><code class="name flex">
+<span>def <span class="ident">id_map</span></span>(<span>self, skip_constructor: bool = False) ‑> str</span>
+</code></dt>
+<dd>
+<p class="inheritance">
+<em>Inherited from:</em>
+<code><a title="opshin.types.ClassType" href="#opshin.types.ClassType">ClassType</a></code>.<code><a title="opshin.types.ClassType.id_map" href="#opshin.types.ClassType.id_map">id_map</a></code>
+</p>
+<div class="desc inherited"><p>Returns a map from the constructor id to a descriptive typestring</p></div>
+</dd>
 <dt id="opshin.types.InaccessibleType.stringify"><code class="name flex">
 <span>def <span class="ident">stringify</span></span>(<span>self, recursive: bool = False) ‑> pluthon.pluthon_ast.AST</span>
 </code></dt>
@@ -6327,6 +6475,9 @@ For anything but record …</p></div>
 <pre><code class="python">@dataclass(frozen=True, unsafe_hash=True)
 class InstanceType(Type):
     typ: ClassType
+
+    def id_map(self, skip_constructor: bool = False) -&gt; str:
+        return self.typ.id_map(skip_constructor=skip_constructor)
 
     def constr_type(self) -&gt; FunctionType:
         raise TypeInferenceError(f&#34;Can not construct an instance {self}&#34;)
@@ -6521,6 +6672,23 @@ class InstanceType(Type):
 </summary>
 <pre><code class="python">def copy_only_attributes(self) -&gt; plt.AST:
     return self.typ.copy_only_attributes()</code></pre>
+</details>
+</dd>
+<dt id="opshin.types.InstanceType.id_map"><code class="name flex">
+<span>def <span class="ident">id_map</span></span>(<span>self, skip_constructor: bool = False) ‑> str</span>
+</code></dt>
+<dd>
+<p class="inheritance">
+<em>Inherited from:</em>
+<code><a title="opshin.types.Type" href="#opshin.types.Type">Type</a></code>.<code><a title="opshin.types.Type.id_map" href="#opshin.types.Type.id_map">id_map</a></code>
+</p>
+<div class="desc inherited"><p>Returns a map from the constructor id to a descriptive typestring</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def id_map(self, skip_constructor: bool = False) -&gt; str:
+    return self.typ.id_map(skip_constructor=skip_constructor)</code></pre>
 </details>
 </dd>
 <dt id="opshin.types.InstanceType.stringify"><code class="name flex">
@@ -6928,6 +7096,9 @@ class InstanceType(Type):
 </summary>
 <pre><code class="python">@dataclass(frozen=True, unsafe_hash=True)
 class IntegerType(AtomicType):
+    def id_map(self, skip_constructor: bool = False) -&gt; str:
+        return &#34;int&#34;
+
     def constr_type(self) -&gt; InstanceType:
         return InstanceType(PolymorphicFunctionType(IntImpl()))
 
@@ -7309,6 +7480,23 @@ class IntegerType(AtomicType):
 <div class="desc inherited"><p>Returns a copy of this type with only the declared attributes (mapped to builtin values, thus checking atomic types too).
 For anything but record …</p></div>
 </dd>
+<dt id="opshin.types.IntegerType.id_map"><code class="name flex">
+<span>def <span class="ident">id_map</span></span>(<span>self, skip_constructor: bool = False) ‑> str</span>
+</code></dt>
+<dd>
+<p class="inheritance">
+<em>Inherited from:</em>
+<code><a title="opshin.types.AtomicType" href="#opshin.types.AtomicType">AtomicType</a></code>.<code><a title="opshin.types.AtomicType.id_map" href="#opshin.types.AtomicType.id_map">id_map</a></code>
+</p>
+<div class="desc inherited"><p>Returns a map from the constructor id to a descriptive typestring</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def id_map(self, skip_constructor: bool = False) -&gt; str:
+    return &#34;int&#34;</code></pre>
+</details>
+</dd>
 <dt id="opshin.types.IntegerType.stringify"><code class="name flex">
 <span>def <span class="ident">stringify</span></span>(<span>self, recursive: bool = False) ‑> pluthon.pluthon_ast.AST</span>
 </code></dt>
@@ -7427,6 +7615,9 @@ class ListType(ClassType):
 
     def __ge__(self, other):
         return isinstance(other, ListType) and self.typ &gt;= other.typ
+
+    def id_map(self, skip_constructor: bool = False) -&gt; str:
+        return &#34;list&lt;&#34; + self.typ.id_map() + &#34;&gt;&#34;
 
     def attribute_type(self, attr) -&gt; &#34;Type&#34;:
         if attr == &#34;index&#34;:
@@ -7729,6 +7920,23 @@ For anything but record …</p></div>
     return OLambda([&#34;self&#34;], mapped_attrs)</code></pre>
 </details>
 </dd>
+<dt id="opshin.types.ListType.id_map"><code class="name flex">
+<span>def <span class="ident">id_map</span></span>(<span>self, skip_constructor: bool = False) ‑> str</span>
+</code></dt>
+<dd>
+<p class="inheritance">
+<em>Inherited from:</em>
+<code><a title="opshin.types.ClassType" href="#opshin.types.ClassType">ClassType</a></code>.<code><a title="opshin.types.ClassType.id_map" href="#opshin.types.ClassType.id_map">id_map</a></code>
+</p>
+<div class="desc inherited"><p>Returns a map from the constructor id to a descriptive typestring</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def id_map(self, skip_constructor: bool = False) -&gt; str:
+    return &#34;list&lt;&#34; + self.typ.id_map() + &#34;&gt;&#34;</code></pre>
+</details>
+</dd>
 <dt id="opshin.types.ListType.stringify"><code class="name flex">
 <span>def <span class="ident">stringify</span></span>(<span>self, recursive: bool = False) ‑> pluthon.pluthon_ast.AST</span>
 </code></dt>
@@ -7952,6 +8160,16 @@ class PairType(ClassType):
 </p>
 <div class="desc inherited"><p>Returns a copy of this type with only the declared attributes (mapped to builtin values, thus checking atomic types too).
 For anything but record …</p></div>
+</dd>
+<dt id="opshin.types.PairType.id_map"><code class="name flex">
+<span>def <span class="ident">id_map</span></span>(<span>self, skip_constructor: bool = False) ‑> str</span>
+</code></dt>
+<dd>
+<p class="inheritance">
+<em>Inherited from:</em>
+<code><a title="opshin.types.ClassType" href="#opshin.types.ClassType">ClassType</a></code>.<code><a title="opshin.types.ClassType.id_map" href="#opshin.types.ClassType.id_map">id_map</a></code>
+</p>
+<div class="desc inherited"><p>Returns a map from the constructor id to a descriptive typestring</p></div>
 </dd>
 <dt id="opshin.types.PairType.stringify"><code class="name flex">
 <span>def <span class="ident">stringify</span></span>(<span>self, recursive: bool = False) ‑> pluthon.pluthon_ast.AST</span>
@@ -8187,6 +8405,16 @@ class PolymorphicFunctionInstanceType(InstanceType):
 </p>
 <div class="desc inherited"><p>Pluthon function that returns a copy of only the attributes of the object</p></div>
 </dd>
+<dt id="opshin.types.PolymorphicFunctionInstanceType.id_map"><code class="name flex">
+<span>def <span class="ident">id_map</span></span>(<span>self, skip_constructor: bool = False) ‑> str</span>
+</code></dt>
+<dd>
+<p class="inheritance">
+<em>Inherited from:</em>
+<code><a title="opshin.types.InstanceType" href="#opshin.types.InstanceType">InstanceType</a></code>.<code><a title="opshin.types.InstanceType.id_map" href="#opshin.types.InstanceType.id_map">id_map</a></code>
+</p>
+<div class="desc inherited"><p>Returns a map from the constructor id to a descriptive typestring</p></div>
+</dd>
 <dt id="opshin.types.PolymorphicFunctionInstanceType.stringify"><code class="name flex">
 <span>def <span class="ident">stringify</span></span>(<span>self, recursive: bool = False) ‑> pluthon.pluthon_ast.AST</span>
 </code></dt>
@@ -8336,6 +8564,16 @@ class PolymorphicFunctionType(ClassType):
 <div class="desc inherited"><p>Returns a copy of this type with only the declared attributes (mapped to builtin values, thus checking atomic types too).
 For anything but record …</p></div>
 </dd>
+<dt id="opshin.types.PolymorphicFunctionType.id_map"><code class="name flex">
+<span>def <span class="ident">id_map</span></span>(<span>self, skip_constructor: bool = False) ‑> str</span>
+</code></dt>
+<dd>
+<p class="inheritance">
+<em>Inherited from:</em>
+<code><a title="opshin.types.ClassType" href="#opshin.types.ClassType">ClassType</a></code>.<code><a title="opshin.types.ClassType.id_map" href="#opshin.types.ClassType.id_map">id_map</a></code>
+</p>
+<div class="desc inherited"><p>Returns a map from the constructor id to a descriptive typestring</p></div>
+</dd>
 <dt id="opshin.types.PolymorphicFunctionType.stringify"><code class="name flex">
 <span>def <span class="ident">stringify</span></span>(<span>self, recursive: bool = False) ‑> pluthon.pluthon_ast.AST</span>
 </code></dt>
@@ -8430,6 +8668,17 @@ class Record:
 <pre><code class="python">@dataclass(frozen=True, unsafe_hash=True)
 class RecordType(ClassType):
     record: Record
+
+    def id_map(self, skip_constructor: bool = False) -&gt; str:
+        return (
+            &#34;cons[&#34;
+            + self.record.orig_name
+            + &#34;](&#34;
+            + (str(self.record.constructor) if not skip_constructor else &#34;_&#34;)
+            + &#34;;&#34;
+            + &#34;,&#34;.join(name + &#34;:&#34; + type.id_map() for name, type in self.record.fields)
+            + &#34;)&#34;
+        )
 
     def constr_type(self) -&gt; &#34;InstanceType&#34;:
         return InstanceType(
@@ -8884,6 +9133,31 @@ For anything but record …</p></div>
     )</code></pre>
 </details>
 </dd>
+<dt id="opshin.types.RecordType.id_map"><code class="name flex">
+<span>def <span class="ident">id_map</span></span>(<span>self, skip_constructor: bool = False) ‑> str</span>
+</code></dt>
+<dd>
+<p class="inheritance">
+<em>Inherited from:</em>
+<code><a title="opshin.types.ClassType" href="#opshin.types.ClassType">ClassType</a></code>.<code><a title="opshin.types.ClassType.id_map" href="#opshin.types.ClassType.id_map">id_map</a></code>
+</p>
+<div class="desc inherited"><p>Returns a map from the constructor id to a descriptive typestring</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def id_map(self, skip_constructor: bool = False) -&gt; str:
+    return (
+        &#34;cons[&#34;
+        + self.record.orig_name
+        + &#34;](&#34;
+        + (str(self.record.constructor) if not skip_constructor else &#34;_&#34;)
+        + &#34;;&#34;
+        + &#34;,&#34;.join(name + &#34;:&#34; + type.id_map() for name, type in self.record.fields)
+        + &#34;)&#34;
+    )</code></pre>
+</details>
+</dd>
 <dt id="opshin.types.RecordType.stringify"><code class="name flex">
 <span>def <span class="ident">stringify</span></span>(<span>self, recursive: bool = False) ‑> pluthon.pluthon_ast.AST</span>
 </code></dt>
@@ -9209,6 +9483,16 @@ class StringType(AtomicType):
 <div class="desc inherited"><p>Returns a copy of this type with only the declared attributes (mapped to builtin values, thus checking atomic types too).
 For anything but record …</p></div>
 </dd>
+<dt id="opshin.types.StringType.id_map"><code class="name flex">
+<span>def <span class="ident">id_map</span></span>(<span>self, skip_constructor: bool = False) ‑> str</span>
+</code></dt>
+<dd>
+<p class="inheritance">
+<em>Inherited from:</em>
+<code><a title="opshin.types.AtomicType" href="#opshin.types.AtomicType">AtomicType</a></code>.<code><a title="opshin.types.AtomicType.id_map" href="#opshin.types.AtomicType.id_map">id_map</a></code>
+</p>
+<div class="desc inherited"><p>Returns a map from the constructor id to a descriptive typestring</p></div>
+</dd>
 <dt id="opshin.types.StringType.stringify"><code class="name flex">
 <span>def <span class="ident">stringify</span></span>(<span>self, recursive: bool = False) ‑> pluthon.pluthon_ast.AST</span>
 </code></dt>
@@ -9409,6 +9693,16 @@ class TupleType(ClassType):
 </p>
 <div class="desc inherited"><p>Returns a copy of this type with only the declared attributes (mapped to builtin values, thus checking atomic types too).
 For anything but record …</p></div>
+</dd>
+<dt id="opshin.types.TupleType.id_map"><code class="name flex">
+<span>def <span class="ident">id_map</span></span>(<span>self, skip_constructor: bool = False) ‑> str</span>
+</code></dt>
+<dd>
+<p class="inheritance">
+<em>Inherited from:</em>
+<code><a title="opshin.types.ClassType" href="#opshin.types.ClassType">ClassType</a></code>.<code><a title="opshin.types.ClassType.id_map" href="#opshin.types.ClassType.id_map">id_map</a></code>
+</p>
+<div class="desc inherited"><p>Returns a map from the constructor id to a descriptive typestring</p></div>
 </dd>
 <dt id="opshin.types.TupleType.stringify"><code class="name flex">
 <span>def <span class="ident">stringify</span></span>(<span>self, recursive: bool = False) ‑> pluthon.pluthon_ast.AST</span>
@@ -9612,7 +9906,13 @@ For anything but record …</p></div>
         &#34;&#34;&#34;
         raise NotImplementedError(
             f&#34;{type(self).__name__} can not be used with operation {unop.__class__.__name__}&#34;
-        )</code></pre>
+        )
+
+    def id_map(self, skip_constructor: bool = False) -&gt; str:
+        &#34;&#34;&#34;
+        Returns a map from the constructor id to a descriptive typestring
+        &#34;&#34;&#34;
+        raise NotImplementedError(f&#34;Type {type(self).__name__} does not have a id map&#34;)</code></pre>
 </details>
 <h3>Subclasses</h3>
 <ul class="hlist">
@@ -9753,6 +10053,22 @@ For anything but record …</p></div>
     raise NotImplementedError(f&#34;{type(self).__name__} can not be copied&#34;)</code></pre>
 </details>
 </dd>
+<dt id="opshin.types.Type.id_map"><code class="name flex">
+<span>def <span class="ident">id_map</span></span>(<span>self, skip_constructor: bool = False) ‑> str</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Returns a map from the constructor id to a descriptive typestring</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def id_map(self, skip_constructor: bool = False) -&gt; str:
+    &#34;&#34;&#34;
+    Returns a map from the constructor id to a descriptive typestring
+    &#34;&#34;&#34;
+    raise NotImplementedError(f&#34;Type {type(self).__name__} does not have a id map&#34;)</code></pre>
+</details>
+</dd>
 <dt id="opshin.types.Type.stringify"><code class="name flex">
 <span>def <span class="ident">stringify</span></span>(<span>self, recursive: bool = False) ‑> pluthon.pluthon_ast.AST</span>
 </code></dt>
@@ -9848,6 +10164,9 @@ class UnionType(ClassType):
 
     def __post_init__(self):
         object.__setattr__(self, &#34;typs&#34;, frozenlist(self.typs))
+
+    def id_map(self, skip_constructor: bool = False) -&gt; str:
+        return &#34;union&lt;&#34; + &#34;,&#34;.join(t.id_map() for t in self.typs) + &#34;&gt;&#34;
 
     def attribute_type(self, attr) -&gt; &#34;Type&#34;:
         if attr == &#34;CONSTR_ID&#34;:
@@ -10305,6 +10624,23 @@ For anything but record …</p></div>
     )</code></pre>
 </details>
 </dd>
+<dt id="opshin.types.UnionType.id_map"><code class="name flex">
+<span>def <span class="ident">id_map</span></span>(<span>self, skip_constructor: bool = False) ‑> str</span>
+</code></dt>
+<dd>
+<p class="inheritance">
+<em>Inherited from:</em>
+<code><a title="opshin.types.ClassType" href="#opshin.types.ClassType">ClassType</a></code>.<code><a title="opshin.types.ClassType.id_map" href="#opshin.types.ClassType.id_map">id_map</a></code>
+</p>
+<div class="desc inherited"><p>Returns a map from the constructor id to a descriptive typestring</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def id_map(self, skip_constructor: bool = False) -&gt; str:
+    return &#34;union&lt;&#34; + &#34;,&#34;.join(t.id_map() for t in self.typs) + &#34;&gt;&#34;</code></pre>
+</details>
+</dd>
 <dt id="opshin.types.UnionType.stringify"><code class="name flex">
 <span>def <span class="ident">stringify</span></span>(<span>self, recursive: bool = False) ‑> pluthon.pluthon_ast.AST</span>
 </code></dt>
@@ -10490,6 +10826,16 @@ class UnitType(AtomicType):
 <div class="desc inherited"><p>Returns a copy of this type with only the declared attributes (mapped to builtin values, thus checking atomic types too).
 For anything but record …</p></div>
 </dd>
+<dt id="opshin.types.UnitType.id_map"><code class="name flex">
+<span>def <span class="ident">id_map</span></span>(<span>self, skip_constructor: bool = False) ‑> str</span>
+</code></dt>
+<dd>
+<p class="inheritance">
+<em>Inherited from:</em>
+<code><a title="opshin.types.AtomicType" href="#opshin.types.AtomicType">AtomicType</a></code>.<code><a title="opshin.types.AtomicType.id_map" href="#opshin.types.AtomicType.id_map">id_map</a></code>
+</p>
+<div class="desc inherited"><p>Returns a map from the constructor id to a descriptive typestring</p></div>
+</dd>
 <dt id="opshin.types.UnitType.stringify"><code class="name flex">
 <span>def <span class="ident">stringify</span></span>(<span>self, recursive: bool = False) ‑> pluthon.pluthon_ast.AST</span>
 </code></dt>
@@ -10620,6 +10966,7 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="opshin.types.AnyType.constr" href="#opshin.types.AnyType.constr">constr</a></code></li>
 <li><code><a title="opshin.types.AnyType.constr_type" href="#opshin.types.AnyType.constr_type">constr_type</a></code></li>
 <li><code><a title="opshin.types.AnyType.copy_only_attributes" href="#opshin.types.AnyType.copy_only_attributes">copy_only_attributes</a></code></li>
+<li><code><a title="opshin.types.AnyType.id_map" href="#opshin.types.AnyType.id_map">id_map</a></code></li>
 <li><code><a title="opshin.types.AnyType.stringify" href="#opshin.types.AnyType.stringify">stringify</a></code></li>
 <li><code><a title="opshin.types.AnyType.unop" href="#opshin.types.AnyType.unop">unop</a></code></li>
 <li><code><a title="opshin.types.AnyType.unop_type" href="#opshin.types.AnyType.unop_type">unop_type</a></code></li>
@@ -10636,6 +10983,7 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="opshin.types.AtomicType.constr" href="#opshin.types.AtomicType.constr">constr</a></code></li>
 <li><code><a title="opshin.types.AtomicType.constr_type" href="#opshin.types.AtomicType.constr_type">constr_type</a></code></li>
 <li><code><a title="opshin.types.AtomicType.copy_only_attributes" href="#opshin.types.AtomicType.copy_only_attributes">copy_only_attributes</a></code></li>
+<li><code><a title="opshin.types.AtomicType.id_map" href="#opshin.types.AtomicType.id_map">id_map</a></code></li>
 <li><code><a title="opshin.types.AtomicType.stringify" href="#opshin.types.AtomicType.stringify">stringify</a></code></li>
 <li><code><a title="opshin.types.AtomicType.unop" href="#opshin.types.AtomicType.unop">unop</a></code></li>
 <li><code><a title="opshin.types.AtomicType.unop_type" href="#opshin.types.AtomicType.unop_type">unop_type</a></code></li>
@@ -10659,6 +11007,7 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="opshin.types.BoolType.constr" href="#opshin.types.BoolType.constr">constr</a></code></li>
 <li><code><a title="opshin.types.BoolType.constr_type" href="#opshin.types.BoolType.constr_type">constr_type</a></code></li>
 <li><code><a title="opshin.types.BoolType.copy_only_attributes" href="#opshin.types.BoolType.copy_only_attributes">copy_only_attributes</a></code></li>
+<li><code><a title="opshin.types.BoolType.id_map" href="#opshin.types.BoolType.id_map">id_map</a></code></li>
 <li><code><a title="opshin.types.BoolType.stringify" href="#opshin.types.BoolType.stringify">stringify</a></code></li>
 <li><code><a title="opshin.types.BoolType.unop" href="#opshin.types.BoolType.unop">unop</a></code></li>
 <li><code><a title="opshin.types.BoolType.unop_type" href="#opshin.types.BoolType.unop_type">unop_type</a></code></li>
@@ -10675,6 +11024,7 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="opshin.types.ByteStringType.constr" href="#opshin.types.ByteStringType.constr">constr</a></code></li>
 <li><code><a title="opshin.types.ByteStringType.constr_type" href="#opshin.types.ByteStringType.constr_type">constr_type</a></code></li>
 <li><code><a title="opshin.types.ByteStringType.copy_only_attributes" href="#opshin.types.ByteStringType.copy_only_attributes">copy_only_attributes</a></code></li>
+<li><code><a title="opshin.types.ByteStringType.id_map" href="#opshin.types.ByteStringType.id_map">id_map</a></code></li>
 <li><code><a title="opshin.types.ByteStringType.stringify" href="#opshin.types.ByteStringType.stringify">stringify</a></code></li>
 <li><code><a title="opshin.types.ByteStringType.unop" href="#opshin.types.ByteStringType.unop">unop</a></code></li>
 <li><code><a title="opshin.types.ByteStringType.unop_type" href="#opshin.types.ByteStringType.unop_type">unop_type</a></code></li>
@@ -10698,6 +11048,7 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="opshin.types.ClassType.constr" href="#opshin.types.ClassType.constr">constr</a></code></li>
 <li><code><a title="opshin.types.ClassType.constr_type" href="#opshin.types.ClassType.constr_type">constr_type</a></code></li>
 <li><code><a title="opshin.types.ClassType.copy_only_attributes" href="#opshin.types.ClassType.copy_only_attributes">copy_only_attributes</a></code></li>
+<li><code><a title="opshin.types.ClassType.id_map" href="#opshin.types.ClassType.id_map">id_map</a></code></li>
 <li><code><a title="opshin.types.ClassType.stringify" href="#opshin.types.ClassType.stringify">stringify</a></code></li>
 <li><code><a title="opshin.types.ClassType.unop" href="#opshin.types.ClassType.unop">unop</a></code></li>
 <li><code><a title="opshin.types.ClassType.unop_type" href="#opshin.types.ClassType.unop_type">unop_type</a></code></li>
@@ -10714,6 +11065,7 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="opshin.types.DictType.constr" href="#opshin.types.DictType.constr">constr</a></code></li>
 <li><code><a title="opshin.types.DictType.constr_type" href="#opshin.types.DictType.constr_type">constr_type</a></code></li>
 <li><code><a title="opshin.types.DictType.copy_only_attributes" href="#opshin.types.DictType.copy_only_attributes">copy_only_attributes</a></code></li>
+<li><code><a title="opshin.types.DictType.id_map" href="#opshin.types.DictType.id_map">id_map</a></code></li>
 <li><code><a title="opshin.types.DictType.key_typ" href="#opshin.types.DictType.key_typ">key_typ</a></code></li>
 <li><code><a title="opshin.types.DictType.stringify" href="#opshin.types.DictType.stringify">stringify</a></code></li>
 <li><code><a title="opshin.types.DictType.unop" href="#opshin.types.DictType.unop">unop</a></code></li>
@@ -10735,6 +11087,7 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="opshin.types.FunctionType.constr" href="#opshin.types.FunctionType.constr">constr</a></code></li>
 <li><code><a title="opshin.types.FunctionType.constr_type" href="#opshin.types.FunctionType.constr_type">constr_type</a></code></li>
 <li><code><a title="opshin.types.FunctionType.copy_only_attributes" href="#opshin.types.FunctionType.copy_only_attributes">copy_only_attributes</a></code></li>
+<li><code><a title="opshin.types.FunctionType.id_map" href="#opshin.types.FunctionType.id_map">id_map</a></code></li>
 <li><code><a title="opshin.types.FunctionType.rettyp" href="#opshin.types.FunctionType.rettyp">rettyp</a></code></li>
 <li><code><a title="opshin.types.FunctionType.stringify" href="#opshin.types.FunctionType.stringify">stringify</a></code></li>
 <li><code><a title="opshin.types.FunctionType.unop" href="#opshin.types.FunctionType.unop">unop</a></code></li>
@@ -10752,6 +11105,7 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="opshin.types.InaccessibleType.constr" href="#opshin.types.InaccessibleType.constr">constr</a></code></li>
 <li><code><a title="opshin.types.InaccessibleType.constr_type" href="#opshin.types.InaccessibleType.constr_type">constr_type</a></code></li>
 <li><code><a title="opshin.types.InaccessibleType.copy_only_attributes" href="#opshin.types.InaccessibleType.copy_only_attributes">copy_only_attributes</a></code></li>
+<li><code><a title="opshin.types.InaccessibleType.id_map" href="#opshin.types.InaccessibleType.id_map">id_map</a></code></li>
 <li><code><a title="opshin.types.InaccessibleType.stringify" href="#opshin.types.InaccessibleType.stringify">stringify</a></code></li>
 <li><code><a title="opshin.types.InaccessibleType.unop" href="#opshin.types.InaccessibleType.unop">unop</a></code></li>
 <li><code><a title="opshin.types.InaccessibleType.unop_type" href="#opshin.types.InaccessibleType.unop_type">unop_type</a></code></li>
@@ -10768,6 +11122,7 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="opshin.types.InstanceType.constr" href="#opshin.types.InstanceType.constr">constr</a></code></li>
 <li><code><a title="opshin.types.InstanceType.constr_type" href="#opshin.types.InstanceType.constr_type">constr_type</a></code></li>
 <li><code><a title="opshin.types.InstanceType.copy_only_attributes" href="#opshin.types.InstanceType.copy_only_attributes">copy_only_attributes</a></code></li>
+<li><code><a title="opshin.types.InstanceType.id_map" href="#opshin.types.InstanceType.id_map">id_map</a></code></li>
 <li><code><a title="opshin.types.InstanceType.stringify" href="#opshin.types.InstanceType.stringify">stringify</a></code></li>
 <li><code><a title="opshin.types.InstanceType.typ" href="#opshin.types.InstanceType.typ">typ</a></code></li>
 <li><code><a title="opshin.types.InstanceType.unop" href="#opshin.types.InstanceType.unop">unop</a></code></li>
@@ -10792,6 +11147,7 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="opshin.types.IntegerType.constr" href="#opshin.types.IntegerType.constr">constr</a></code></li>
 <li><code><a title="opshin.types.IntegerType.constr_type" href="#opshin.types.IntegerType.constr_type">constr_type</a></code></li>
 <li><code><a title="opshin.types.IntegerType.copy_only_attributes" href="#opshin.types.IntegerType.copy_only_attributes">copy_only_attributes</a></code></li>
+<li><code><a title="opshin.types.IntegerType.id_map" href="#opshin.types.IntegerType.id_map">id_map</a></code></li>
 <li><code><a title="opshin.types.IntegerType.stringify" href="#opshin.types.IntegerType.stringify">stringify</a></code></li>
 <li><code><a title="opshin.types.IntegerType.unop" href="#opshin.types.IntegerType.unop">unop</a></code></li>
 <li><code><a title="opshin.types.IntegerType.unop_type" href="#opshin.types.IntegerType.unop_type">unop_type</a></code></li>
@@ -10808,6 +11164,7 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="opshin.types.ListType.constr" href="#opshin.types.ListType.constr">constr</a></code></li>
 <li><code><a title="opshin.types.ListType.constr_type" href="#opshin.types.ListType.constr_type">constr_type</a></code></li>
 <li><code><a title="opshin.types.ListType.copy_only_attributes" href="#opshin.types.ListType.copy_only_attributes">copy_only_attributes</a></code></li>
+<li><code><a title="opshin.types.ListType.id_map" href="#opshin.types.ListType.id_map">id_map</a></code></li>
 <li><code><a title="opshin.types.ListType.stringify" href="#opshin.types.ListType.stringify">stringify</a></code></li>
 <li><code><a title="opshin.types.ListType.typ" href="#opshin.types.ListType.typ">typ</a></code></li>
 <li><code><a title="opshin.types.ListType.unop" href="#opshin.types.ListType.unop">unop</a></code></li>
@@ -10825,6 +11182,7 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="opshin.types.PairType.constr" href="#opshin.types.PairType.constr">constr</a></code></li>
 <li><code><a title="opshin.types.PairType.constr_type" href="#opshin.types.PairType.constr_type">constr_type</a></code></li>
 <li><code><a title="opshin.types.PairType.copy_only_attributes" href="#opshin.types.PairType.copy_only_attributes">copy_only_attributes</a></code></li>
+<li><code><a title="opshin.types.PairType.id_map" href="#opshin.types.PairType.id_map">id_map</a></code></li>
 <li><code><a title="opshin.types.PairType.l_typ" href="#opshin.types.PairType.l_typ">l_typ</a></code></li>
 <li><code><a title="opshin.types.PairType.r_typ" href="#opshin.types.PairType.r_typ">r_typ</a></code></li>
 <li><code><a title="opshin.types.PairType.stringify" href="#opshin.types.PairType.stringify">stringify</a></code></li>
@@ -10850,6 +11208,7 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="opshin.types.PolymorphicFunctionInstanceType.constr" href="#opshin.types.PolymorphicFunctionInstanceType.constr">constr</a></code></li>
 <li><code><a title="opshin.types.PolymorphicFunctionInstanceType.constr_type" href="#opshin.types.PolymorphicFunctionInstanceType.constr_type">constr_type</a></code></li>
 <li><code><a title="opshin.types.PolymorphicFunctionInstanceType.copy_only_attributes" href="#opshin.types.PolymorphicFunctionInstanceType.copy_only_attributes">copy_only_attributes</a></code></li>
+<li><code><a title="opshin.types.PolymorphicFunctionInstanceType.id_map" href="#opshin.types.PolymorphicFunctionInstanceType.id_map">id_map</a></code></li>
 <li><code><a title="opshin.types.PolymorphicFunctionInstanceType.polymorphic_function" href="#opshin.types.PolymorphicFunctionInstanceType.polymorphic_function">polymorphic_function</a></code></li>
 <li><code><a title="opshin.types.PolymorphicFunctionInstanceType.stringify" href="#opshin.types.PolymorphicFunctionInstanceType.stringify">stringify</a></code></li>
 <li><code><a title="opshin.types.PolymorphicFunctionInstanceType.typ" href="#opshin.types.PolymorphicFunctionInstanceType.typ">typ</a></code></li>
@@ -10868,6 +11227,7 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="opshin.types.PolymorphicFunctionType.constr" href="#opshin.types.PolymorphicFunctionType.constr">constr</a></code></li>
 <li><code><a title="opshin.types.PolymorphicFunctionType.constr_type" href="#opshin.types.PolymorphicFunctionType.constr_type">constr_type</a></code></li>
 <li><code><a title="opshin.types.PolymorphicFunctionType.copy_only_attributes" href="#opshin.types.PolymorphicFunctionType.copy_only_attributes">copy_only_attributes</a></code></li>
+<li><code><a title="opshin.types.PolymorphicFunctionType.id_map" href="#opshin.types.PolymorphicFunctionType.id_map">id_map</a></code></li>
 <li><code><a title="opshin.types.PolymorphicFunctionType.polymorphic_function" href="#opshin.types.PolymorphicFunctionType.polymorphic_function">polymorphic_function</a></code></li>
 <li><code><a title="opshin.types.PolymorphicFunctionType.stringify" href="#opshin.types.PolymorphicFunctionType.stringify">stringify</a></code></li>
 <li><code><a title="opshin.types.PolymorphicFunctionType.unop" href="#opshin.types.PolymorphicFunctionType.unop">unop</a></code></li>
@@ -10894,6 +11254,7 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="opshin.types.RecordType.constr" href="#opshin.types.RecordType.constr">constr</a></code></li>
 <li><code><a title="opshin.types.RecordType.constr_type" href="#opshin.types.RecordType.constr_type">constr_type</a></code></li>
 <li><code><a title="opshin.types.RecordType.copy_only_attributes" href="#opshin.types.RecordType.copy_only_attributes">copy_only_attributes</a></code></li>
+<li><code><a title="opshin.types.RecordType.id_map" href="#opshin.types.RecordType.id_map">id_map</a></code></li>
 <li><code><a title="opshin.types.RecordType.record" href="#opshin.types.RecordType.record">record</a></code></li>
 <li><code><a title="opshin.types.RecordType.stringify" href="#opshin.types.RecordType.stringify">stringify</a></code></li>
 <li><code><a title="opshin.types.RecordType.unop" href="#opshin.types.RecordType.unop">unop</a></code></li>
@@ -10918,6 +11279,7 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="opshin.types.StringType.constr" href="#opshin.types.StringType.constr">constr</a></code></li>
 <li><code><a title="opshin.types.StringType.constr_type" href="#opshin.types.StringType.constr_type">constr_type</a></code></li>
 <li><code><a title="opshin.types.StringType.copy_only_attributes" href="#opshin.types.StringType.copy_only_attributes">copy_only_attributes</a></code></li>
+<li><code><a title="opshin.types.StringType.id_map" href="#opshin.types.StringType.id_map">id_map</a></code></li>
 <li><code><a title="opshin.types.StringType.stringify" href="#opshin.types.StringType.stringify">stringify</a></code></li>
 <li><code><a title="opshin.types.StringType.unop" href="#opshin.types.StringType.unop">unop</a></code></li>
 <li><code><a title="opshin.types.StringType.unop_type" href="#opshin.types.StringType.unop_type">unop_type</a></code></li>
@@ -10934,6 +11296,7 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="opshin.types.TupleType.constr" href="#opshin.types.TupleType.constr">constr</a></code></li>
 <li><code><a title="opshin.types.TupleType.constr_type" href="#opshin.types.TupleType.constr_type">constr_type</a></code></li>
 <li><code><a title="opshin.types.TupleType.copy_only_attributes" href="#opshin.types.TupleType.copy_only_attributes">copy_only_attributes</a></code></li>
+<li><code><a title="opshin.types.TupleType.id_map" href="#opshin.types.TupleType.id_map">id_map</a></code></li>
 <li><code><a title="opshin.types.TupleType.stringify" href="#opshin.types.TupleType.stringify">stringify</a></code></li>
 <li><code><a title="opshin.types.TupleType.typs" href="#opshin.types.TupleType.typs">typs</a></code></li>
 <li><code><a title="opshin.types.TupleType.unop" href="#opshin.types.TupleType.unop">unop</a></code></li>
@@ -10951,6 +11314,7 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="opshin.types.Type.constr" href="#opshin.types.Type.constr">constr</a></code></li>
 <li><code><a title="opshin.types.Type.constr_type" href="#opshin.types.Type.constr_type">constr_type</a></code></li>
 <li><code><a title="opshin.types.Type.copy_only_attributes" href="#opshin.types.Type.copy_only_attributes">copy_only_attributes</a></code></li>
+<li><code><a title="opshin.types.Type.id_map" href="#opshin.types.Type.id_map">id_map</a></code></li>
 <li><code><a title="opshin.types.Type.stringify" href="#opshin.types.Type.stringify">stringify</a></code></li>
 <li><code><a title="opshin.types.Type.unop" href="#opshin.types.Type.unop">unop</a></code></li>
 <li><code><a title="opshin.types.Type.unop_type" href="#opshin.types.Type.unop_type">unop_type</a></code></li>
@@ -10970,6 +11334,7 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="opshin.types.UnionType.constr" href="#opshin.types.UnionType.constr">constr</a></code></li>
 <li><code><a title="opshin.types.UnionType.constr_type" href="#opshin.types.UnionType.constr_type">constr_type</a></code></li>
 <li><code><a title="opshin.types.UnionType.copy_only_attributes" href="#opshin.types.UnionType.copy_only_attributes">copy_only_attributes</a></code></li>
+<li><code><a title="opshin.types.UnionType.id_map" href="#opshin.types.UnionType.id_map">id_map</a></code></li>
 <li><code><a title="opshin.types.UnionType.stringify" href="#opshin.types.UnionType.stringify">stringify</a></code></li>
 <li><code><a title="opshin.types.UnionType.typs" href="#opshin.types.UnionType.typs">typs</a></code></li>
 <li><code><a title="opshin.types.UnionType.unop" href="#opshin.types.UnionType.unop">unop</a></code></li>
@@ -10987,6 +11352,7 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="opshin.types.UnitType.constr" href="#opshin.types.UnitType.constr">constr</a></code></li>
 <li><code><a title="opshin.types.UnitType.constr_type" href="#opshin.types.UnitType.constr_type">constr_type</a></code></li>
 <li><code><a title="opshin.types.UnitType.copy_only_attributes" href="#opshin.types.UnitType.copy_only_attributes">copy_only_attributes</a></code></li>
+<li><code><a title="opshin.types.UnitType.id_map" href="#opshin.types.UnitType.id_map">id_map</a></code></li>
 <li><code><a title="opshin.types.UnitType.stringify" href="#opshin.types.UnitType.stringify">stringify</a></code></li>
 <li><code><a title="opshin.types.UnitType.unop" href="#opshin.types.UnitType.unop">unop</a></code></li>
 <li><code><a title="opshin.types.UnitType.unop_type" href="#opshin.types.UnitType.unop_type">unop_type</a></code></li>

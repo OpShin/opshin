@@ -1045,12 +1045,12 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
 class RecordReader(NodeVisitor):
     name: str
     orig_name: str
-    constructor: int
+    constructor: typing.Optional[int]
     attributes: typing.List[typing.Tuple[str, Type]]
     _type_inferencer: AggressiveTypeInferencer
 
     def __init__(self, type_inferencer: AggressiveTypeInferencer):
-        self.constructor = 0
+        self.constructor = None
         self.attributes = []
         self._type_inferencer = type_inferencer
 
@@ -1058,6 +1058,12 @@ class RecordReader(NodeVisitor):
     def extract(cls, c: ClassDef, type_inferencer: AggressiveTypeInferencer) -&gt; Record:
         f = cls(type_inferencer)
         f.visit(c)
+        if f.constructor is None:
+            det_string = RecordType(
+                Record(f.name, f.orig_name, 0, frozenlist(f.attributes))
+            ).id_map(skip_constructor=True)
+            det_hash = sha256(str(det_string).encode(&#34;utf8&#34;)).hexdigest()
+            f.constructor = int(det_hash, 16) % 2**32
         return Record(f.name, f.orig_name, f.constructor, frozenlist(f.attributes))
 
     def visit_AnnAssign(self, node: AnnAssign) -&gt; None:
@@ -3317,12 +3323,12 @@ allows modifications.</p></div>
 <pre><code class="python">class RecordReader(NodeVisitor):
     name: str
     orig_name: str
-    constructor: int
+    constructor: typing.Optional[int]
     attributes: typing.List[typing.Tuple[str, Type]]
     _type_inferencer: AggressiveTypeInferencer
 
     def __init__(self, type_inferencer: AggressiveTypeInferencer):
-        self.constructor = 0
+        self.constructor = None
         self.attributes = []
         self._type_inferencer = type_inferencer
 
@@ -3330,6 +3336,12 @@ allows modifications.</p></div>
     def extract(cls, c: ClassDef, type_inferencer: AggressiveTypeInferencer) -&gt; Record:
         f = cls(type_inferencer)
         f.visit(c)
+        if f.constructor is None:
+            det_string = RecordType(
+                Record(f.name, f.orig_name, 0, frozenlist(f.attributes))
+            ).id_map(skip_constructor=True)
+            det_hash = sha256(str(det_string).encode(&#34;utf8&#34;)).hexdigest()
+            f.constructor = int(det_hash, 16) % 2**32
         return Record(f.name, f.orig_name, f.constructor, frozenlist(f.attributes))
 
     def visit_AnnAssign(self, node: AnnAssign) -&gt; None:
@@ -3403,7 +3415,7 @@ allows modifications.</p></div>
 <dd>
 <div class="desc"></div>
 </dd>
-<dt id="opshin.type_inference.RecordReader.constructor"><code class="name">var <span class="ident">constructor</span> : int</code></dt>
+<dt id="opshin.type_inference.RecordReader.constructor"><code class="name">var <span class="ident">constructor</span> : Optional[int]</code></dt>
 <dd>
 <div class="desc"></div>
 </dd>
@@ -3431,6 +3443,12 @@ allows modifications.</p></div>
 def extract(cls, c: ClassDef, type_inferencer: AggressiveTypeInferencer) -&gt; Record:
     f = cls(type_inferencer)
     f.visit(c)
+    if f.constructor is None:
+        det_string = RecordType(
+            Record(f.name, f.orig_name, 0, frozenlist(f.attributes))
+        ).id_map(skip_constructor=True)
+        det_hash = sha256(str(det_string).encode(&#34;utf8&#34;)).hexdigest()
+        f.constructor = int(det_hash, 16) % 2**32
     return Record(f.name, f.orig_name, f.constructor, frozenlist(f.attributes))</code></pre>
 </details>
 </dd>

@@ -2326,6 +2326,12 @@ INDEX=[
 "func":1
 },
 {
+"ref":"opshin.tests.test_misc.MiscTest.test_id_map_equals_pycardano",
+"url":8,
+"doc":"",
+"func":1
+},
+{
 "ref":"opshin.tests.test_ops",
 "url":9,
 "doc":""
@@ -4372,6 +4378,12 @@ INDEX=[
 "func":1
 },
 {
+"ref":"opshin.types.FunctionType.id_map",
+"url":24,
+"doc":"Returns a map from the constructor id to a descriptive typestring",
+"func":1
+},
+{
 "ref":"opshin.types.TypeInferenceError",
 "url":24,
 "doc":"Assertion failed."
@@ -4445,6 +4457,12 @@ INDEX=[
 "ref":"opshin.types.Type.unop",
 "url":24,
 "doc":"Implements a unary operation on self",
+"func":1
+},
+{
+"ref":"opshin.types.Type.id_map",
+"url":24,
+"doc":"Returns a map from the constructor id to a descriptive typestring",
 "func":1
 },
 {
@@ -4544,9 +4562,21 @@ INDEX=[
 "func":1
 },
 {
+"ref":"opshin.types.ClassType.id_map",
+"url":24,
+"doc":"Returns a map from the constructor id to a descriptive typestring",
+"func":1
+},
+{
 "ref":"opshin.types.AnyType",
 "url":24,
 "doc":"The top element in the partial order on types (excluding FunctionTypes, which do not compare to anything)"
+},
+{
+"ref":"opshin.types.AnyType.id_map",
+"url":24,
+"doc":"Returns a map from the constructor id to a descriptive typestring",
+"func":1
 },
 {
 "ref":"opshin.types.AnyType.attribute_type",
@@ -4686,6 +4716,12 @@ INDEX=[
 "func":1
 },
 {
+"ref":"opshin.types.AtomicType.id_map",
+"url":24,
+"doc":"Returns a map from the constructor id to a descriptive typestring",
+"func":1
+},
+{
 "ref":"opshin.types.RecordType",
 "url":24,
 "doc":"RecordType(record: opshin.types.Record)"
@@ -4694,6 +4730,12 @@ INDEX=[
 "ref":"opshin.types.RecordType.record",
 "url":24,
 "doc":""
+},
+{
+"ref":"opshin.types.RecordType.id_map",
+"url":24,
+"doc":"Returns a map from the constructor id to a descriptive typestring",
+"func":1
 },
 {
 "ref":"opshin.types.RecordType.constr_type",
@@ -4770,6 +4812,12 @@ INDEX=[
 "ref":"opshin.types.UnionType.typs",
 "url":24,
 "doc":""
+},
+{
+"ref":"opshin.types.UnionType.id_map",
+"url":24,
+"doc":"Returns a map from the constructor id to a descriptive typestring",
+"func":1
 },
 {
 "ref":"opshin.types.UnionType.attribute_type",
@@ -4914,6 +4962,12 @@ INDEX=[
 "func":1
 },
 {
+"ref":"opshin.types.TupleType.id_map",
+"url":24,
+"doc":"Returns a map from the constructor id to a descriptive typestring",
+"func":1
+},
+{
 "ref":"opshin.types.PairType",
 "url":24,
 "doc":"An internal type representing built-in PlutusData pairs"
@@ -4995,6 +5049,12 @@ INDEX=[
 "func":1
 },
 {
+"ref":"opshin.types.PairType.id_map",
+"url":24,
+"doc":"Returns a map from the constructor id to a descriptive typestring",
+"func":1
+},
+{
 "ref":"opshin.types.ListType",
 "url":24,
 "doc":"ListType(typ: opshin.types.Type)"
@@ -5003,6 +5063,12 @@ INDEX=[
 "ref":"opshin.types.ListType.typ",
 "url":24,
 "doc":""
+},
+{
+"ref":"opshin.types.ListType.id_map",
+"url":24,
+"doc":"Returns a map from the constructor id to a descriptive typestring",
+"func":1
 },
 {
 "ref":"opshin.types.ListType.attribute_type",
@@ -5086,6 +5152,12 @@ INDEX=[
 "doc":""
 },
 {
+"ref":"opshin.types.DictType.id_map",
+"url":24,
+"doc":"Returns a map from the constructor id to a descriptive typestring",
+"func":1
+},
+{
 "ref":"opshin.types.DictType.attribute_type",
 "url":24,
 "doc":"The types of the named attributes of this class",
@@ -5162,6 +5234,12 @@ INDEX=[
 "doc":""
 },
 {
+"ref":"opshin.types.InstanceType.id_map",
+"url":24,
+"doc":"Returns a map from the constructor id to a descriptive typestring",
+"func":1
+},
+{
 "ref":"opshin.types.InstanceType.constr_type",
 "url":24,
 "doc":"The type of the constructor for this class",
@@ -5231,6 +5309,12 @@ INDEX=[
 "ref":"opshin.types.IntegerType",
 "url":24,
 "doc":"IntegerType()"
+},
+{
+"ref":"opshin.types.IntegerType.id_map",
+"url":24,
+"doc":"Returns a map from the constructor id to a descriptive typestring",
+"func":1
 },
 {
 "ref":"opshin.types.IntegerType.constr_type",
@@ -5370,9 +5454,21 @@ INDEX=[
 "func":1
 },
 {
+"ref":"opshin.types.StringType.id_map",
+"url":24,
+"doc":"Returns a map from the constructor id to a descriptive typestring",
+"func":1
+},
+{
 "ref":"opshin.types.ByteStringType",
 "url":24,
 "doc":"ByteStringType()"
+},
+{
+"ref":"opshin.types.ByteStringType.id_map",
+"url":24,
+"doc":"Returns a map from the constructor id to a descriptive typestring",
+"func":1
 },
 {
 "ref":"opshin.types.ByteStringType.constr_type",
@@ -5512,6 +5608,12 @@ INDEX=[
 "func":1
 },
 {
+"ref":"opshin.types.BoolType.id_map",
+"url":24,
+"doc":"Returns a map from the constructor id to a descriptive typestring",
+"func":1
+},
+{
 "ref":"opshin.types.UnitType",
 "url":24,
 "doc":"UnitType()"
@@ -5583,6 +5685,12 @@ INDEX=[
 "func":1
 },
 {
+"ref":"opshin.types.UnitType.id_map",
+"url":24,
+"doc":"Returns a map from the constructor id to a descriptive typestring",
+"func":1
+},
+{
 "ref":"opshin.types.InaccessibleType",
 "url":24,
 "doc":"A type that blocks overwriting of a function"
@@ -5651,6 +5759,12 @@ INDEX=[
 "ref":"opshin.types.InaccessibleType.unop",
 "url":24,
 "doc":"Implements a unary operation on self",
+"func":1
+},
+{
+"ref":"opshin.types.InaccessibleType.id_map",
+"url":24,
+"doc":"Returns a map from the constructor id to a descriptive typestring",
 "func":1
 },
 {
@@ -5839,6 +5953,12 @@ INDEX=[
 "func":1
 },
 {
+"ref":"opshin.types.PolymorphicFunctionType.id_map",
+"url":24,
+"doc":"Returns a map from the constructor id to a descriptive typestring",
+"func":1
+},
+{
 "ref":"opshin.types.PolymorphicFunctionInstanceType",
 "url":24,
 "doc":"PolymorphicFunctionInstanceType(typ: opshin.types.FunctionType, polymorphic_function: opshin.types.PolymorphicFunction)"
@@ -5852,6 +5972,12 @@ INDEX=[
 "ref":"opshin.types.PolymorphicFunctionInstanceType.polymorphic_function",
 "url":24,
 "doc":""
+},
+{
+"ref":"opshin.types.PolymorphicFunctionInstanceType.id_map",
+"url":24,
+"doc":"Returns a map from the constructor id to a descriptive typestring",
+"func":1
 },
 {
 "ref":"opshin.types.PolymorphicFunctionInstanceType.constr_type",
@@ -7344,6 +7470,12 @@ INDEX=[
 "ref":"opshin.rewrite.rewrite_import_hashlib.HashType.unop",
 "url":24,
 "doc":"Implements a unary operation on self",
+"func":1
+},
+{
+"ref":"opshin.rewrite.rewrite_import_hashlib.HashType.id_map",
+"url":24,
+"doc":"Returns a map from the constructor id to a descriptive typestring",
 "func":1
 },
 {

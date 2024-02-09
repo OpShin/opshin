@@ -309,6 +309,16 @@ class HashType(ClassType):
 <div class="desc inherited"><p>Returns a copy of this type with only the declared attributes (mapped to builtin values, thus checking atomic types too).
 For anything but record …</p></div>
 </dd>
+<dt id="opshin.rewrite.rewrite_import_hashlib.HashType.id_map"><code class="name flex">
+<span>def <span class="ident">id_map</span></span>(<span>self, skip_constructor: bool = False) ‑> str</span>
+</code></dt>
+<dd>
+<p class="inheritance">
+<em>Inherited from:</em>
+<code><a title="opshin.types.ClassType" href="../types.html#opshin.types.ClassType">ClassType</a></code>.<code><a title="opshin.types.ClassType.id_map" href="../types.html#opshin.types.ClassType.id_map">id_map</a></code>
+</p>
+<div class="desc inherited"><p>Returns a map from the constructor id to a descriptive typestring</p></div>
+</dd>
 <dt id="opshin.rewrite.rewrite_import_hashlib.HashType.stringify"><code class="name flex">
 <span>def <span class="ident">stringify</span></span>(<span>self, recursive: bool = False) ‑> pluthon.pluthon_ast.AST</span>
 </code></dt>
@@ -582,6 +592,7 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="opshin.rewrite.rewrite_import_hashlib.HashType.constr" href="../types.html#opshin.rewrite.rewrite_import_hashlib.HashType.constr">constr</a></code></li>
 <li><code><a title="opshin.rewrite.rewrite_import_hashlib.HashType.constr_type" href="../types.html#opshin.rewrite.rewrite_import_hashlib.HashType.constr_type">constr_type</a></code></li>
 <li><code><a title="opshin.rewrite.rewrite_import_hashlib.HashType.copy_only_attributes" href="../types.html#opshin.rewrite.rewrite_import_hashlib.HashType.copy_only_attributes">copy_only_attributes</a></code></li>
+<li><code><a title="opshin.rewrite.rewrite_import_hashlib.HashType.id_map" href="../types.html#opshin.rewrite.rewrite_import_hashlib.HashType.id_map">id_map</a></code></li>
 <li><code><a title="opshin.rewrite.rewrite_import_hashlib.HashType.stringify" href="../types.html#opshin.rewrite.rewrite_import_hashlib.HashType.stringify">stringify</a></code></li>
 <li><code><a title="opshin.rewrite.rewrite_import_hashlib.HashType.unop" href="../types.html#opshin.rewrite.rewrite_import_hashlib.HashType.unop">unop</a></code></li>
 <li><code><a title="opshin.rewrite.rewrite_import_hashlib.HashType.unop_type" href="../types.html#opshin.rewrite.rewrite_import_hashlib.HashType.unop_type">unop_type</a></code></li>
