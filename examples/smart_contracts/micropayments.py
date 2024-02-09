@@ -10,6 +10,7 @@ This is just an example of a complex contract and should not be used in producti
 
 @dataclass()
 class PaymentChannel(PlutusData):
+    CONSTR_ID = 0
     balance_alice: int
     pubkeyhash_alice: bytes
     balance_bob: int

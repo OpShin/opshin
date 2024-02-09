@@ -832,6 +832,9 @@ def validator(x: Dict[str, int]) -> str:
     @given(x=uplc_data)
     @example(PlutusByteString(b""))
     @example(PlutusConstr(0, [PlutusByteString(b"'")]))
+    @example(
+        PlutusMap({PlutusInteger(1): PlutusMap({}), PlutusInteger(0): PlutusMap({})})
+    )
     def test_fmt_any(self, x):
         x_cbor = uplc.plutus_cbor_dumps(x)
         x_data = pycardano.RawPlutusData(cbor2.loads(x_cbor))
@@ -839,8 +842,8 @@ def validator(x: Dict[str, int]) -> str:
 def validator(x: Anything) -> str:
     return f"{x}"
             """
-        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
-        exp = f"{x_data}"
+        # NOTE: this is technically a deviation from the semantics of pycardano but I expect the pycardano semantics to change soon
+        exp = f"RawPlutusData(data={repr(x_data.data)})"
         ret = eval_uplc_value(source_code, pycardano.RawCBOR(x_cbor)).decode("utf8")
         if "\\'" in ret:
             RawPlutusData = pycardano.RawPlutusData

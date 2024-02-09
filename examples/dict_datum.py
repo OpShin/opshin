@@ -5,11 +5,13 @@ from opshin.prelude import *
 # You need to enable hashing in order to allow the data to be the key of a dict
 @dataclass(unsafe_hash=True)
 class D(PlutusData):
+    CONSTR_ID = 0
     p: bytes
 
 
 @dataclass
 class D2(PlutusData):
+    CONSTR_ID = 0
     dict_field: Dict[D, int]
 
 

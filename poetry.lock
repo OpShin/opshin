@@ -176,6 +176,17 @@ filecache = ["filelock (>=3.8.0)"]
 redis = ["redis (>=2.10.5)"]
 
 [[package]]
+name = "cachetools"
+version = "5.3.2"
+description = "Extensible memoizing collections and decorators"
+optional = false
+python-versions = ">=3.7"
+files = [
+    {file = "cachetools-5.3.2-py3-none-any.whl", hash = "sha256:861f35a13a451f94e301ce2bec7cac63e881232ccce7ed67fab9b5df4d3beaa1"},
+    {file = "cachetools-5.3.2.tar.gz", hash = "sha256:086ee420196f7b2ab9ca2db2520aca326318b68fe5ba8bc4d49cca91add450f2"},
+]
+
+[[package]]
 name = "cbor2"
 version = "5.6.1"
 description = "CBOR (de)serializer with extensive tag support"
@@ -1508,17 +1519,18 @@ files = [
 
 [[package]]
 name = "pycardano"
-version = "0.9.0"
+version = "0.10.0"
 description = "A Cardano library in Python"
 optional = false
 python-versions = ">=3.7,<4.0"
 files = [
-    {file = "pycardano-0.9.0-py3-none-any.whl", hash = "sha256:f4c3405df35a38d999f038c41f2b7f20e8433d9a306e50c3e0398b2a4462c3ed"},
-    {file = "pycardano-0.9.0.tar.gz", hash = "sha256:ab7163b9de7e648b16f024eb22e07896c407c36a59161079ebd05ca5d6657a7d"},
+    {file = "pycardano-0.10.0-py3-none-any.whl", hash = "sha256:13174dca90489e5e2da342c56383c2c46fc2668faf32c9b7f270c0cc6eb8b3ac"},
+    {file = "pycardano-0.10.0.tar.gz", hash = "sha256:b08fd30d764c3a60f0912e4cb8fad6dbe1a15778af7b37bb859a9ded6b44095b"},
 ]
 
 [package.dependencies]
 blockfrost-python = "0.5.3"
+cachetools = ">=5.3.0,<6.0.0"
 cbor2 = ">=5.4.3,<6.0.0"
 cose = "0.9.dev8"
 ECPy = ">=1.2.5,<2.0.0"
@@ -2073,20 +2085,20 @@ files = [
 
 [[package]]
 name = "uplc"
-version = "0.6.8"
+version = "0.6.9"
 description = "Python implementation of untyped plutus language core"
 optional = false
 python-versions = ">=3.8,<3.12"
 files = [
-    {file = "uplc-0.6.8-py3-none-any.whl", hash = "sha256:2f7e0c00a9e1bbb190ad64b923af8b829c4c758a4e81aa7ea7a218280c431bd8"},
-    {file = "uplc-0.6.8.tar.gz", hash = "sha256:0e6a6803c19c7c5a5b0079f7a592c1be5294a87c333cd05f223747fec1d17383"},
+    {file = "uplc-0.6.9-py3-none-any.whl", hash = "sha256:1815aef89ce5f169ef7ebc2ea4090e488fb4d84785a41c16e1114a0a73cea996"},
+    {file = "uplc-0.6.9.tar.gz", hash = "sha256:a4f3990d9a009718e719d33d03e448946b195b0c31d9bd4700df85c13b384616"},
 ]
 
 [package.dependencies]
 cbor2 = ">=5.4.6,<6.0.0"
 frozendict = ">=2.3.8,<3.0.0"
 frozenlist = ">=1.3.3,<2.0.0"
-pycardano = ">=0.9.0,<0.10.0"
+pycardano = ">=0.10.0,<0.11.0"
 python-secp256k1-cardano = ">=0.2.3,<0.3.0"
 rply = ">=0.7.8,<0.8.0"
 
@@ -2259,4 +2271,4 @@ testing = ["big-O", "jaraco.functools", "jaraco.itertools", "more-itertools", "p
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.8, <3.12"
-content-hash = "d653e766f92ed0765da2a7bddf5abd6b352a2f20eb922d976e7b95ec9ca16dac"
+content-hash = "d1aa6344c7ab9fbb2c37679ba0555ce0c2e27e3d8e5b7b37670d3156bb034073"

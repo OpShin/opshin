@@ -4,6 +4,7 @@ from opshin.prelude import *
 
 @dataclass
 class WithdrawDatum(PlutusData):
+    CONSTR_ID = 0
     pubkeyhash: PubKeyHash
 
 

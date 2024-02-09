@@ -1,5 +1,6 @@
 import os
 
+import pycardano
 import sys
 
 import subprocess
@@ -13,6 +14,7 @@ import frozenlist2
 import hypothesis
 from hypothesis import given
 from hypothesis import strategies as st
+from opshin import IndefiniteList
 from parameterized import parameterized
 
 from uplc import ast as uplc, eval as uplc_eval
@@ -26,7 +28,7 @@ hypothesis.settings.load_profile(PLUTUS_VM_PROFILE)
 
 # these imports are required to eval the result of script context dumps
 from ..ledger.api_v2 import *
-from pycardano import RawPlutusData
+from pycardano import RawPlutusData, RawCBOR
 from cbor2 import CBORTag
 
 ALL_EXAMPLES = [
@@ -2891,7 +2893,7 @@ from typing import Dict, List, Union
 
 @dataclass
 class A(PlutusData):
-    CONSTR_ID = 15
+    CONSTR_ID = 0
     a: int
     b: bytes
     d: List[int]
@@ -2920,3 +2922,59 @@ def validator(_: None) -> int:
         res = eval_uplc_value(source_code, Unit())
 
         self.assertEqual(15, res, "Invalid constr id")
+
+    def test_id_map_equals_pycardano(self):
+        @dataclass
+        class A(PlutusData):
+            CONSTR_ID = 0
+            a: int
+            b: bytes
+            d: List[int]
+
+        @dataclass
+        class C(PlutusData):
+            z: Anything
+
+        @dataclass
+        class B(PlutusData):
+            a: int
+            c: A
+            d: Dict[bytes, C]
+            e: Union[A, C]
+
+        source_code = """
+from dataclasses import dataclass
+from pycardano import Datum as Anything, PlutusData
+from typing import Dict, List, Union
+
+@dataclass
+class Nothing(PlutusData):
+    CONSTR_ID = 0
+    
+
+@dataclass
+class A(PlutusData):
+    CONSTR_ID = 0
+    a: int
+    b: bytes
+    d: List[int]
+
+@dataclass
+class C(PlutusData):
+    z: Anything
+
+@dataclass
+class B(PlutusData):
+    a: int
+    c: A
+    d: Dict[bytes, C]
+    e: Union[A, C]
+
+def validator(_: None) -> int:
+    return B(1, A(1, b"", [1, 2]), {b"": C(Nothing())}, C(Nothing())).CONSTR_ID
+    """
+        res = eval_uplc_value(source_code, Unit())
+
+        self.assertEqual(
+            B.CONSTR_ID, res, "Invalid constr id generation (does not match pycardano)"
+        )
