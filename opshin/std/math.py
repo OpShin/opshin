@@ -1,5 +1,7 @@
 """ An implementation of some math operations in opshin """
 
+from opshin.std.builtins import *
+
 
 def gcd(a: int, b: int) -> int:
     while b != 0:
@@ -26,7 +28,7 @@ def bytes_big_from_unsigned_int(b: int) -> bytes:
         return b"\x00"
     acc = b""
     while b > 0:
-        acc = bytes([b % 256]) + acc
+        acc = cons_byte_string(b % 256, acc)
         b //= 256
     return acc
 
