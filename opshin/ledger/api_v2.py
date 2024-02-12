@@ -63,7 +63,7 @@ class TxOutRef(PlutusData):
     CONSTR_ID = 0
 
     id: TxId
-    idx: int
+    index: int
 
 
 # A public key hash, used to identify signatures provided by a wallet
@@ -123,11 +123,11 @@ class StakingPtr(PlutusData):
 
     CONSTR_ID = 1
     # an absolute slot number
-    slot_no: int
+    slot_number: int
     # a transaction index (within that slot)
     tx_index: int
     # a (delegation) certificate index (within that transaction)
-    cert_index: int
+    certificate_index: int
 
 
 # Part of an address that controls who can delegate the stake associated with an address
@@ -462,7 +462,7 @@ class TxInfo(PlutusData):
     fee: Value
     mint: Value
     dcert: List[DCert]
-    wdrl: Dict[StakingCredential, int]
+    withdrawals: Dict[StakingCredential, int]
     valid_range: POSIXTimeRange
     signatories: List[PubKeyHash]
     redeemers: Dict[ScriptPurpose, Redeemer]
