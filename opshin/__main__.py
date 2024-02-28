@@ -258,7 +258,11 @@ def perform_command(args):
             (x.name, x.annotation or prelude.Anything)
             for x in argspec.parameters.values()
         ]
-        return_annotation = argspec.return_annotation or prelude.Anything
+        return_annotation = (
+            argspec.return_annotation
+            if argspec.return_annotation not in (None, argspec.empty)
+            else prelude.Anything
+        )
         parsed_params = []
         uplc_params = []
         for i, (c, a) in enumerate(zip(annotations, args.args)):
