@@ -2984,5 +2984,5 @@ def validator(_: None) -> int:
 def validator(_: None) -> None:
     return
 """
-        res = eval_uplc_value(source_code, Unit())
-        self.assertEqual(res, None, "Invalid return")
+        res = eval_uplc(source_code, Unit())
+        self.assertEqual(res, uplc.PlutusConstr(0, []), "Invalid return")

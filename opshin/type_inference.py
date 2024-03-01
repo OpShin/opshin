@@ -374,6 +374,11 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         tc.typ = constant_type(node.value)
         return tc
 
+    def visit_NoneType(self, node: None) -> TypedConstant:
+        tc = Constant(value=None)
+        tc.typ = constant_type(tc.value)
+        return tc
+
     def visit_Tuple(self, node: Tuple) -> TypedTuple:
         tt = copy(node)
         tt.elts = [self.visit(e) for e in node.elts]
