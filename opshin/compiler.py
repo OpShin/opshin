@@ -645,6 +645,12 @@ class PlutoCompiler(CompilingNodeTransformer):
                 assert (
                     node.slice.typ == IntegerInstanceType
                 ), "Only single element list index access supported"
+                if isinstance(node.slice, Constant) and node.slice.value >= 0:
+                    index = node.slice.value
+                    return plt.ConstantIndexAccessListFast(
+                        self.visit(node.value),
+                        index,
+                    )
                 return OLet(
                     [
                         (
@@ -666,7 +672,7 @@ class PlutoCompiler(CompilingNodeTransformer):
                             ),
                         ),
                     ],
-                    plt.IndexAccessList(OVar("l"), OVar("i")),
+                    plt.IndexAccessListFast(OVar("l"), OVar("i")),
                 )
             else:
                 return OLet(
