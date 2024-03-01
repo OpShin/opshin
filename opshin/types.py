@@ -721,17 +721,14 @@ class UnionType(ClassType):
             if not pos_constrs:
                 pos_decisor = plt.TraceError("Invalid constructor")
             else:
-                pos_decisor = plt.Integer(pos_constrs[-1][0])
+                pos_decisor = plt.ConstantNthFieldFast(OVar("self"), pos_constrs[-1][0])
                 pos_constrs = pos_constrs[:-1]
-            # in case of only a single constructor (i.e. remaining len is 0), we can use constant access
+            # constr is not needed when there is only one position for all constructors
             if not pos_constrs:
                 return OLambda(
                     ["self"],
                     transform_ext_params_map(attr_typ)(
-                        plt.ConstantNthFieldFast(
-                            OVar("self"),
-                            pos_decisor.x,
-                        ),
+                        pos_decisor,
                     ),
                 )
             for pos, constrs in pos_constrs:
@@ -746,18 +743,15 @@ class UnionType(ClassType):
                     )
                 pos_decisor = plt.Ite(
                     constr_check,
-                    plt.Integer(pos),
+                    plt.ConstantNthFieldFast(OVar("self"), pos),
                     pos_decisor,
                 )
             return OLambda(
                 ["self"],
                 transform_ext_params_map(attr_typ)(
-                    plt.NthField(
-                        OVar("self"),
-                        OLet(
-                            [("constr", plt.Constructor(OVar("self")))],
-                            pos_decisor,
-                        ),
+                    OLet(
+                        [("constr", plt.Constructor(OVar("self")))],
+                        pos_decisor,
                     ),
                 ),
             )
