@@ -2978,3 +2978,11 @@ def validator(_: None) -> int:
         self.assertEqual(
             B.CONSTR_ID, res, "Invalid constr id generation (does not match pycardano)"
         )
+
+    def test_empty_return(self):
+        source_code = """
+def validator(_: None) -> None:
+    return
+"""
+        res = eval_uplc_value(source_code, Unit())
+        self.assertEqual(res, None, "Invalid return")
