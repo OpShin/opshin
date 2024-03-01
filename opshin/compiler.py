@@ -666,7 +666,7 @@ class PlutoCompiler(CompilingNodeTransformer):
                             ),
                         ),
                     ],
-                    plt.IndexAccessList(OVar("l"), OVar("i")),
+                    plt.IndexAccessListFast(OVar("l"), OVar("i")),
                 )
             else:
                 return OLet(
