@@ -1384,19 +1384,23 @@ testing = ["pytest", "pytest-benchmark"]
 
 [[package]]
 name = "pluthon"
-version = "0.4.9"
+version = "0.4.10"
 description = "Pluto-like programming language for Cardano Smart Contracts in Python"
 optional = false
 python-versions = ">=3"
-files = [
-    {file = "pluthon-0.4.9-py3-none-any.whl", hash = "sha256:cb57cfcb5a6ee318d69465ed46c171bfffcbc9970b84b5c2a7aeafdf166b4a92"},
-    {file = "pluthon-0.4.9.tar.gz", hash = "sha256:51e47c6507b00e9c7452897e6f16b2fa2754616cad528e8a5dbb752185e9e43a"},
-]
+files = []
+develop = false
 
 [package.dependencies]
 graphlib-backport = {version = ">=1.0.0", markers = "python_version < \"3.9\""}
 ordered-set = ">=4.1.0,<5.0.0"
 uplc = ">=0.6.2,<0.7.0"
+
+[package.source]
+type = "git"
+url = "https://github.com/opshin/pluthon"
+reference = "master"
+resolved_reference = "14987569ca66854a1d9d31176d1a596f6e21b4f7"
 
 [[package]]
 name = "poetry"
@@ -2260,4 +2264,4 @@ testing = ["big-O", "jaraco.functools", "jaraco.itertools", "more-itertools", "p
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.8, <3.12"
-content-hash = "e1d6691d75da09621b140ae728bdba4ac7cce87e16fc53e90eef19643fc4ef2b"
+content-hash = "f8cc85867dcc0d0f2ffdeb3104cca0e7b388f09a32a07352ae00141472354c15"

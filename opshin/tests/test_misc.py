@@ -12,7 +12,7 @@ import unittest
 import frozendict
 import frozenlist2
 import hypothesis
-from hypothesis import given
+from hypothesis import given, example
 from hypothesis import strategies as st
 from opshin import IndefiniteList
 from parameterized import parameterized
@@ -2978,3 +2978,29 @@ def validator(_: None) -> int:
         self.assertEqual(
             B.CONSTR_ID, res, "Invalid constr id generation (does not match pycardano)"
         )
+
+    @given(st.data())
+    def test_constant_index_list(self, data):
+        xs = data.draw(st.lists(st.integers()))
+        y = data.draw(
+            st.one_of(
+                st.integers(min_value=1 - len(xs), max_value=len(xs) - 1), st.integers()
+            )
+            if xs
+            else st.integers()
+        )
+        # test the optimization for list access when the index is known at compile time
+        source_code = f"""
+from typing import Dict, List, Union
+def validator(x: List[int]) -> int:
+    return x[{y}]
+            """
+        try:
+            exp = xs[y]
+        except IndexError:
+            exp = None
+        try:
+            ret = eval_uplc_value(source_code, xs)
+        except Exception as e:
+            ret = None
+        self.assertEqual(ret, exp, "list index returned wrong value")
