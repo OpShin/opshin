@@ -30,7 +30,7 @@ from . import (
 )
 from .util import CompilerError, data_from_json
 from .prelude import ScriptContext
-from compiler_config import *
+from .compiler_config import *
 
 
 class Command(enum.Enum):
@@ -227,9 +227,23 @@ Make sure the validator expects parameters {'datum, ' if purpose == Purpose.spen
     return onchain_params, param_types
 
 
-def perform_command(args, config: CompilationConfig):
+def perform_command(args):
+    # generate the compiler config
+    compiler_config = DEFAULT_CONFIG
+    compiler_config = compiler_config.update(OPT_CONFIGS[args.opt_level])
+    overrides = {}
+    for k in ARGPARSE_ARGS.keys():
+        if getattr(args, f"f{k}"):
+            overrides[k] = getattr(args, f"f{k}")
+    compiler_config = compiler_config.update(CompilationConfig(**overrides))
+
+    # execute the command
     command = Command(args.command)
     purpose = Purpose(args.purpose)
+    if purpose == Purpose.lib:
+        assert (
+            not compiler_config.remove_dead_code
+        ), "Libraries must have dead code removal (-fremove-dead-code) disabled"
     input_file = args.input_file if args.input_file != "-" else sys.stdin
     # read and import the contract
     with open(input_file, "r") as f:
@@ -275,7 +289,7 @@ def perform_command(args, config: CompilationConfig):
             annotations,
             return_annotation,
             parsed_params,
-            config.force_three_params,
+            compiler_config.force_three_params,
         )
 
     if command == Command.eval:
@@ -302,8 +316,7 @@ def perform_command(args, config: CompilationConfig):
             filename=input_file,
             validator_function_name="validator" if purpose != Purpose.lib else None,
             # do not remove dead code when compiling a library - none of the code will be used
-            remove_dead_code=purpose != Purpose.lib,
-            config=config,
+            config=compiler_config,
         )
     except CompilerError as c:
         # Generate nice error message from compiler error
@@ -340,7 +353,7 @@ Note that opshin errors may be overly restrictive as they aim to prevent code wi
     if command == Command.compile_pluto:
         print(code.dumps())
         return
-    code = pluthon.compile(code, optimize_patterns=not args.no_optimize_patterns)
+    code = pluthon.compile(code, optimize_patterns=compiler_config.compress_patterns)
 
     # apply parameters from the command line to the contract (instantiates parameterized contract!)
     code = code.term
@@ -447,34 +460,28 @@ def parse_args():
         help="Modify the recursion limit (necessary for larger UPLC programs)",
         type=int,
     )
-    for k, v in ARGPARSE_KWARGS.items():
-        a.add_argument(f"-f{k.replace('_', '-')}", **v)
-    for i in range(4):
-        a.add_argument(
-            f"-O{i}",
-            action="store_true",
-            help=f"Optimization level {i}.",
-        )
+    for k, v in ARGPARSE_ARGS.items():
+        alts = v.pop("__alts__", [])
+        a.add_argument(f"-f{k.replace('_', '-')}", *alts, **v)
+    a.add_argument(
+        f"-O",
+        type=int,
+        help=f"Optimization level from 0 (no optimization) to 3 (aggressive, potentially semantic affecting optimization). Defaults to 1.",
+        default=1,
+        choices=range(len(OPT_CONFIGS)),
+        dest="opt_level",
+    )
     return a.parse_args()
 
 
 def main():
     args = parse_args()
     sys.setrecursionlimit(args.recursion_limit)
-    compiler_config = DEFAULT_CONFIG
-    for i in range(4):
-        if getattr(args, f"O{i}"):
-            compiler_config = compiler_config.update(OPT_CONFIGS[i])
-    overrides = {}
-    for k in ARGPARSE_KWARGS.keys():
-        if getattr(args, f"f{k}"):
-            overrides[k] = getattr(args, f"f{k}")
-    compiler_config = compiler_config.update(CompilationConfig(**overrides))
     if Command(args.command) != Command.lint:
-        perform_command(args, compiler_config)
+        perform_command(args)
     else:
         try:
-            perform_command(args, compiler_config)
+            perform_command(args)
         except Exception as e:
             error_class_name = e.__class__.__name__
             message = str(e)

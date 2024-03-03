@@ -11,7 +11,7 @@ from pathlib import Path
 
 from pycardano import PlutusV2Script, IndefiniteList, PlutusData, Datum
 
-from . import __version__, compiler
+from . import __version__, compiler, DEFAULT_CONFIG
 
 import uplc.ast
 from uplc import flatten, ast as uplc_ast, eval as uplc_eval
@@ -188,21 +188,14 @@ class PlutusContract:
 def compile(
     program: Module,
     contract_filename: Optional[str] = None,
-    force_three_params=False,
     validator_function_name="validator",
-    remove_dead_code=True,
-    constant_folding=False,
-    allow_isinstance_anything=False,
-    **pluto_kwargs: Any,
+    config=DEFAULT_CONFIG,
 ) -> uplc_ast.Program:
     code = compiler.compile(
         program,
         filename=contract_filename,
-        force_three_params=force_three_params,
         validator_function_name=validator_function_name,
-        remove_dead_code=remove_dead_code,
-        constant_folding=constant_folding,
-        allow_isinstance_anything=allow_isinstance_anything,
+        config=config,
     )
     plt_code = plt_compile(code, **pluto_kwargs)
     return plt_code

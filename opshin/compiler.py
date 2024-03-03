@@ -1029,7 +1029,6 @@ class PlutoCompiler(CompilingNodeTransformer):
 def compile(
     prog: AST,
     filename=None,
-    remove_dead_code=True,
     validator_function_name="validator",
     config=DEFAULT_CONFIG,
 ) -> plt.Program:
@@ -1063,8 +1062,8 @@ def compile(
         RewriteInjectBuiltinsConstr(),
         RewriteRemoveTypeStuff(),
         # Apply optimizations
-        OptimizeRemoveDeadvars() if remove_dead_code else NoOp(),
-        OptimizeRemoveDeadconstants(),
+        OptimizeRemoveDeadvars() if config.remove_dead_code else NoOp(),
+        OptimizeRemoveDeadconstants() if config.remove_dead_code else NoOp(),
         OptimizeRemovePass(),
     ]
     for s in compile_pipeline:
