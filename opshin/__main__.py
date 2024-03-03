@@ -353,7 +353,7 @@ Note that opshin errors may be overly restrictive as they aim to prevent code wi
     if command == Command.compile_pluto:
         print(code.dumps())
         return
-    code = pluthon.compile(code, optimize_patterns=compiler_config.compress_patterns)
+    code = pluthon.compile(code, config=compiler_config)
 
     # apply parameters from the command line to the contract (instantiates parameterized contract!)
     code = code.term

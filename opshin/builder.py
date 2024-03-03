@@ -197,7 +197,7 @@ def compile(
         validator_function_name=validator_function_name,
         config=config,
     )
-    plt_code = plt_compile(code, **pluto_kwargs)
+    plt_code = plt_compile(code, config)
     return plt_code
 
 
@@ -205,12 +205,8 @@ def compile(
 def _static_compile(
     source_code: str,
     contract_file: str = "<unknown>",
-    force_three_params=False,
     validator_function_name="validator",
-    optimize_patterns=True,
-    remove_dead_code=True,
-    constant_folding=False,
-    allow_isinstance_anything=False,
+    config=DEFAULT_CONFIG,
 ):
     """
     Expects a python module and returns the build artifacts from compiling it
@@ -220,12 +216,8 @@ def _static_compile(
     code = compile(
         source_ast,
         contract_filename=contract_file,
-        force_three_params=force_three_params,
         validator_function_name=validator_function_name,
-        optimize_patterns=optimize_patterns,
-        remove_dead_code=remove_dead_code,
-        constant_folding=constant_folding,
-        allow_isinstance_anything=allow_isinstance_anything,
+        config=config,
     )
     return code
 
@@ -234,12 +226,8 @@ def _compile(
     source_code: str,
     *args: typing.Union[pycardano.Datum, uplc_ast.Constant],
     contract_file: str = "<unknown>",
-    force_three_params=False,
     validator_function_name="validator",
-    optimize_patterns=True,
-    remove_dead_code=True,
-    constant_folding=False,
-    allow_isinstance_anything=False,
+    config=DEFAULT_CONFIG,
 ):
     """
     Expects a python module and returns the build artifacts from compiling it
@@ -248,12 +236,8 @@ def _compile(
     code = _static_compile(
         source_code,
         contract_file=contract_file,
-        force_three_params=force_three_params,
         validator_function_name=validator_function_name,
-        optimize_patterns=optimize_patterns,
-        remove_dead_code=remove_dead_code,
-        constant_folding=constant_folding,
-        allow_isinstance_anything=allow_isinstance_anything,
+        config=config,
     )
     code = _apply_parameters(code, *args)
     return code
@@ -262,9 +246,8 @@ def _compile(
 def build(
     contract_file: str,
     *args: typing.Union[pycardano.Datum, uplc_ast.Constant],
-    force_three_params=False,
     validator_function_name="validator",
-    optimize_patterns=True,
+    config=DEFAULT_CONFIG,
 ):
     """
     Expects a python module and returns the build artifacts from compiling it
@@ -275,9 +258,8 @@ def build(
         source_code,
         *args,
         contract_file=contract_file,
-        force_three_params=force_three_params,
         validator_function_name=validator_function_name,
-        optimize_patterns=optimize_patterns,
+        config=config,
     )
     return _build(code)
 
