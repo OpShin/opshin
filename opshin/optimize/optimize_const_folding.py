@@ -19,8 +19,6 @@ from ..type_inference import INITIAL_SCOPE
 Pre-evaluates constant statements
 """
 
-OPSHIN_LOGGER = logging.getLogger(__name__)
-
 ACCEPTED_ATOMIC_TYPES = [
     int,
     str,
