@@ -488,9 +488,28 @@ def main():
     args = parse_args()
     sys.setrecursionlimit(args.recursion_limit)
     if Command(args.command) != Command.lint:
+        OPSHIN_LOG_HANDLER.setFormatter(
+            logging.Formatter(
+                f"%(levelname)s for {args.input_file}:%(lineno)d %(message)s"
+            )
+        )
         perform_command(args)
     else:
         OPSHIN_LOG_HANDLER.stream = sys.stdout
+        if args.output_format_json:
+            OPSHIN_LOG_HANDLER.setFormatter(
+                logging.Formatter(
+                    '{"line":%(lineno)d,"column":%(col_offset)d,"error_class":"%(levelname)s","message":"%(message)s"}'
+                )
+            )
+        else:
+            OPSHIN_LOG_HANDLER.setFormatter(
+                logging.Formatter(
+                    args.input_file
+                    + ":%(lineno)d:%(col_offset)d:%(levelname)s: %(message)s"
+                )
+            )
+
         try:
             perform_command(args)
         except Exception as e:

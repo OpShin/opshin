@@ -21,6 +21,36 @@ OPSHIN_LOG_HANDLER = logging.StreamHandler()
 OPSHIN_LOGGER.addHandler(OPSHIN_LOG_HANDLER)
 
 
+class FileContextFilter(logging.Filter):
+    """
+    This is a filter which injects contextual information into the log.
+
+    The information is about the currently inspected AST node.
+    The information needs to be updated inside the NodeTransformer and NodeVisitor classes.
+    """
+
+    file_name = "unknown"
+    node: ast.AST = None
+
+    def filter(self, record):
+
+        if self.node is None:
+            record.lineno = 1
+            record.col_offset = 0
+            record.end_lineno = 1
+            record.end_col_offset = 0
+        else:
+            record.lineno = self.node.lineno
+            record.col_offset = self.node.col_offset
+            record.end_lineno = self.node.end_lineno
+            record.end_col_offset = self.node.end_col_offset
+        return True
+
+
+OPSHIN_LOG_CONTEXT_FILTER = FileContextFilter()
+OPSHIN_LOG_HANDLER.addFilter(OPSHIN_LOG_CONTEXT_FILTER)
+
+
 def distinct(xs: list):
     """Returns true iff the list consists of distinct elements"""
     return len(xs) == len(set(xs))
@@ -29,6 +59,7 @@ def distinct(xs: list):
 class TypedNodeTransformer(ast.NodeTransformer):
     def visit(self, node):
         """Visit a node."""
+        OPSHIN_LOG_CONTEXT_FILTER.node = node
         node_class_name = node.__class__.__name__
         if node_class_name.startswith("Typed"):
             node_class_name = node_class_name[len("Typed") :]
@@ -40,6 +71,7 @@ class TypedNodeTransformer(ast.NodeTransformer):
 class TypedNodeVisitor(ast.NodeVisitor):
     def visit(self, node):
         """Visit a node."""
+        OPSHIN_LOG_CONTEXT_FILTER.node = node
         node_class_name = node.__class__.__name__
         if node_class_name.startswith("Typed"):
             node_class_name = node_class_name[len("Typed") :]
@@ -59,6 +91,7 @@ class CompilingNodeTransformer(TypedNodeTransformer):
     step = "Node transformation"
 
     def visit(self, node):
+        OPSHIN_LOG_CONTEXT_FILTER.node = node
         try:
             return super().visit(node)
         except Exception as e:
