@@ -321,7 +321,11 @@ class OptimizeConstantFolding(CompilingNodeTransformer):
         if isinstance(node, Constant):
             # prevents unneccessary computations
             return node
-        node_source = unparse(node)
+        try:
+            node_source = unparse(node)
+        except Exception as e:
+            _LOGGER.debug("Error when trying to unparse node: %s", e)
+            return node
         if "print(" in node_source:
             # do not optimize away print statements
             return node
