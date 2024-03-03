@@ -233,8 +233,8 @@ def perform_command(args):
     compiler_config = compiler_config.update(OPT_CONFIGS[args.opt_level])
     overrides = {}
     for k in ARGPARSE_ARGS.keys():
-        if getattr(args, f"f{k}"):
-            overrides[k] = getattr(args, f"f{k}")
+        if getattr(args, k) is not None:
+            overrides[k] = getattr(args, k)
     compiler_config = compiler_config.update(CompilationConfig(**overrides))
 
     # execute the command
@@ -243,7 +243,7 @@ def perform_command(args):
     if purpose == Purpose.lib:
         assert (
             not compiler_config.remove_dead_code
-        ), "Libraries must have dead code removal (-fremove-dead-code) disabled"
+        ), "Libraries must have dead code removal disabled (-fno-remove-dead-code)"
     input_file = args.input_file if args.input_file != "-" else sys.stdin
     # read and import the contract
     with open(input_file, "r") as f:
@@ -408,7 +408,7 @@ Note that opshin errors may be overly restrictive as they aim to prevent code wi
 
 def parse_args():
     a = argparse.ArgumentParser(
-        description="An evaluator and compiler from python into UPLC. Translate imperative programs into functional quasi-assembly."
+        description="An evaluator and compiler from python into UPLC. Translate imperative programs into functional quasi-assembly. Flags allow setting fine-grained compiler options. All flags can be turned off via -fno-<flag>."
     )
     a.add_argument(
         "command",
@@ -462,7 +462,14 @@ def parse_args():
     )
     for k, v in ARGPARSE_ARGS.items():
         alts = v.pop("__alts__", [])
-        a.add_argument(f"-f{k.replace('_', '-')}", *alts, **v)
+        a.add_argument(f"-f{k.replace('_', '-')}", *alts, **v, dest=k, default=None)
+        a.add_argument(
+            f"-fno-{k.replace('_', '-')}",
+            action="store_false",
+            help=argparse.SUPPRESS,
+            dest=k,
+            default=None,
+        )
     a.add_argument(
         f"-O",
         type=int,

@@ -51,7 +51,7 @@ ARGPARSE_ARGS = pluthon.ARGPARSE_ARGS.copy()
 ARGPARSE_ARGS.update(
     {
         "constant_folding": {
-            "__alts__": ["-cf"],
+            "__alts__": ["--cf"],
             "action": "store_true",
             "help": "Enables experimental constant folding, including propagation and code execution.",
         },
@@ -60,7 +60,7 @@ ARGPARSE_ARGS.update(
             "help": "Enables the use of isinstance(x, D) in the contract where x is of type Anything. This is not recommended as it only checks the constructor id and not the actual type of the data.",
         },
         "force_three_params": {
-            "__alts__": ["-ftp"],
+            "__alts__": ["--ftp"],
             "action": "store_true",
             "help": "Enforces that the contract is always called with three virtual parameters on-chain. Enable if the script should support spending and other purposes.",
         },
