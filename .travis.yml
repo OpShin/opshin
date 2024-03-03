@@ -61,7 +61,7 @@ script:
 - >
   for i in $(find opshin/std opshin/ledger -type f -name "*.py" ! -name "*integrity.py"); do
     echo "$i"
-    coverage run -a --source=opshin -m opshin compile lib "$i" > /dev/null || exit
+    coverage run -a --source=opshin -m opshin compile lib "$i" -fno-remove-dead-code > /dev/null || exit
   done
 
 after_success:
