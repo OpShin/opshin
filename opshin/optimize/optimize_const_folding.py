@@ -12,7 +12,7 @@ try:
 except NameError:
     from astunparse import unparse
 
-from ..util import CompilingNodeTransformer, CompilingNodeVisitor
+from ..util import CompilingNodeTransformer, CompilingNodeVisitor, OPSHIN_LOGGER
 from ..type_inference import INITIAL_SCOPE
 
 """
