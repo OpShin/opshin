@@ -30,6 +30,7 @@ from . import (
 )
 from .util import CompilerError, data_from_json
 from .prelude import ScriptContext
+from compiler_config import *
 
 
 class Command(enum.Enum):
@@ -226,12 +227,10 @@ Make sure the validator expects parameters {'datum, ' if purpose == Purpose.spen
     return onchain_params, param_types
 
 
-def perform_command(args):
+def perform_command(args, config: CompilationConfig):
     command = Command(args.command)
     purpose = Purpose(args.purpose)
     input_file = args.input_file if args.input_file != "-" else sys.stdin
-    force_three_params = args.force_three_params
-    constant_folding = args.constant_folding
     # read and import the contract
     with open(input_file, "r") as f:
         source_code = f.read()
@@ -276,7 +275,7 @@ def perform_command(args):
             annotations,
             return_annotation,
             parsed_params,
-            force_three_params,
+            config.force_three_params,
         )
 
     if command == Command.eval:
@@ -301,12 +300,10 @@ def perform_command(args):
         code = compiler.compile(
             source_ast,
             filename=input_file,
-            force_three_params=force_three_params,
             validator_function_name="validator" if purpose != Purpose.lib else None,
-            constant_folding=constant_folding,
             # do not remove dead code when compiling a library - none of the code will be used
             remove_dead_code=purpose != Purpose.lib,
-            allow_isinstance_anything=args.allow_isinstance_anything,
+            config=config,
         )
     except CompilerError as c:
         # Generate nice error message from compiler error
@@ -429,28 +426,6 @@ def parse_args():
         help="The output directory for artefacts of the build command. Defaults to the filename of the compiled contract. of the compiled contract.",
     )
     a.add_argument(
-        "--force-three-params",
-        "--ftp",
-        action="store_true",
-        help="Enforces that the contract is always called with three virtual parameters on-chain. Enable if the script should support spending and other purposes.",
-    )
-    a.add_argument(
-        "--constant-folding",
-        "--cf",
-        action="store_true",
-        help="Enables experimental constant folding, including propagation and code execution.",
-    )
-    a.add_argument(
-        "--allow-isinstance-anything",
-        action="store_true",
-        help="Enables the use of isinstance(x, D) in the contract where x is of type Anything. This is not recommended as it only checks the constructor id and not the actual type of the data.",
-    )
-    a.add_argument(
-        "--no-optimize-patterns",
-        action="store_true",
-        help="Disables the compression of re-occurring code patterns. Can reduce memory and CPU steps but increases the size of the compiled contract.",
-    )
-    a.add_argument(
         "args",
         nargs="*",
         default=[],
@@ -472,17 +447,34 @@ def parse_args():
         help="Modify the recursion limit (necessary for larger UPLC programs)",
         type=int,
     )
+    for k, v in ARGPARSE_KWARGS.items():
+        a.add_argument(f"-f{k.replace('_', '-')}", **v)
+    for i in range(4):
+        a.add_argument(
+            f"-O{i}",
+            action="store_true",
+            help=f"Optimization level {i}.",
+        )
     return a.parse_args()
 
 
 def main():
     args = parse_args()
     sys.setrecursionlimit(args.recursion_limit)
+    compiler_config = DEFAULT_CONFIG
+    for i in range(4):
+        if getattr(args, f"O{i}"):
+            compiler_config = compiler_config.update(OPT_CONFIGS[i])
+    overrides = {}
+    for k in ARGPARSE_KWARGS.keys():
+        if getattr(args, f"f{k}"):
+            overrides[k] = getattr(args, f"f{k}")
+    compiler_config = compiler_config.update(CompilationConfig(**overrides))
     if Command(args.command) != Command.lint:
-        perform_command(args)
+        perform_command(args, compiler_config)
     else:
         try:
-            perform_command(args)
+            perform_command(args, compiler_config)
         except Exception as e:
             error_class_name = e.__class__.__name__
             message = str(e)
