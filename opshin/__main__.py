@@ -466,7 +466,7 @@ def parse_args():
     a.add_argument(
         f"-O",
         type=int,
-        help=f"Optimization level from 0 (no optimization) to 3 (aggressive, potentially semantic affecting optimization). Defaults to 1.",
+        help=f"Optimization level from 0 (no optimization) to 3 (aggressive optimization, removes traces). Defaults to 1.",
         default=1,
         choices=range(len(OPT_CONFIGS)),
         dest="opt_level",
