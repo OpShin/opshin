@@ -37,8 +37,6 @@ from .typed_ast import (
     RawPlutoExpr,
 )
 
-_LOGGER = logging.getLogger(__name__)
-
 
 BoolOpMap = {
     And: plt.And,
@@ -230,7 +228,7 @@ class PlutoCompiler(CompilingNodeTransformer):
                 else:
                     possible_types = [second_last_arg.typ]
                 if any(isinstance(t, UnitType) for t in possible_types):
-                    _LOGGER.warning(
+                    OPSHIN_LOGGER.warning(
                         "The redeemer is annotated to be 'None'. This value is usually encoded in PlutusData with constructor id 0 and no fields. If you want the script to double function as minting and spending script, annotate the second argument with 'NoRedeemer'."
                     )
                 enable_double_func_mint_spend = not any(
@@ -239,7 +237,7 @@ class PlutoCompiler(CompilingNodeTransformer):
                     for t in possible_types
                 )
                 if not enable_double_func_mint_spend:
-                    _LOGGER.warning(
+                    OPSHIN_LOGGER.warning(
                         "The second argument to the validator function potentially has constructor id 0. The validator will not be able to double function as minting script and spending script."
                     )
 
@@ -331,7 +329,7 @@ class PlutoCompiler(CompilingNodeTransformer):
             except ValueError:
                 pass
             else:
-                _LOGGER.warning(
+                OPSHIN_LOGGER.warning(
                     f"The string {node.value} looks like it is supposed to be a hex-encoded bytestring but is actually utf8-encoded. Try using `bytes.fromhex('{node.value.decode()}')` instead."
                 )
         plt_val = plt.UPLCConstant(rec_constant_map(node.value))

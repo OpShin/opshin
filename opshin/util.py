@@ -1,6 +1,7 @@
 from _ast import Name, Store, ClassDef, FunctionDef, Load
 from collections import defaultdict
 from copy import copy, deepcopy
+import logging
 
 import typing
 
@@ -14,6 +15,10 @@ from frozenlist2 import frozenlist
 import uplc.ast as uplc
 import pluthon as plt
 from hashlib import sha256
+
+OPSHIN_LOGGER = logging.getLogger("opshin")
+OPSHIN_LOG_HANDLER = logging.StreamHandler()
+OPSHIN_LOGGER.addHandler(OPSHIN_LOG_HANDLER)
 
 
 def distinct(xs: list):

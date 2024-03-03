@@ -1,7 +1,5 @@
 from .types import *
 
-_LOGGER = logging.getLogger(__name__)
-
 
 class TypedAST(AST):
     typ: Type
