@@ -1,6 +1,7 @@
 import inspect
 
 import argparse
+import logging
 import tempfile
 
 import cbor2
@@ -28,7 +29,7 @@ from . import (
     Purpose,
     PlutusContract,
 )
-from .util import CompilerError, data_from_json
+from .util import CompilerError, data_from_json, OPSHIN_LOG_HANDLER
 from .prelude import ScriptContext
 
 
@@ -227,6 +228,8 @@ Make sure the validator expects parameters {'datum, ' if purpose == Purpose.spen
 
 
 def perform_command(args):
+    if args.verbose:
+        logging.basicConfig(level=logging.DEBUG)
     command = Command(args.command)
     purpose = Purpose(args.purpose)
     input_file = args.input_file if args.input_file != "-" else sys.stdin
@@ -467,6 +470,12 @@ def parse_args():
         version=f"opshin {__version__} {__copyright__}",
     )
     a.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+        help="Enable verbose logging.",
+    )
+    a.add_argument(
         "--recursion-limit",
         default=sys.getrecursionlimit(),
         help="Modify the recursion limit (necessary for larger UPLC programs)",
@@ -479,8 +488,28 @@ def main():
     args = parse_args()
     sys.setrecursionlimit(args.recursion_limit)
     if Command(args.command) != Command.lint:
+        OPSHIN_LOG_HANDLER.setFormatter(
+            logging.Formatter(
+                f"%(levelname)s for {args.input_file}:%(lineno)d %(message)s"
+            )
+        )
         perform_command(args)
     else:
+        OPSHIN_LOG_HANDLER.stream = sys.stdout
+        if args.output_format_json:
+            OPSHIN_LOG_HANDLER.setFormatter(
+                logging.Formatter(
+                    '{"line":%(lineno)d,"column":%(col_offset)d,"error_class":"%(levelname)s","message":"%(message)s"}'
+                )
+            )
+        else:
+            OPSHIN_LOG_HANDLER.setFormatter(
+                logging.Formatter(
+                    args.input_file
+                    + ":%(lineno)d:%(col_offset)d:%(levelname)s: %(message)s"
+                )
+            )
+
         try:
             perform_command(args)
         except Exception as e:

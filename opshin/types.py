@@ -11,8 +11,6 @@ import uplc.ast
 
 from .util import *
 
-_LOGGER = logging.getLogger(__name__)
-
 
 class TypeInferenceError(AssertionError):
     pass
@@ -244,7 +242,7 @@ class AnyType(ClassType):
         return super().cmp(op, o)
 
     def stringify(self, recursive: bool = False) -> plt.AST:
-        _LOGGER.warning(
+        OPSHIN_LOGGER.warning(
             "Serializing AnyType will result in RawPlutusData (CBOR representation) to be printed without additional type information. Annotate types where possible to avoid this warning."
         )
         return OLambda(

@@ -23,8 +23,6 @@ from .rewrite.rewrite_cast_condition import SPECIAL_BOOL
 
 # from frozendict import frozendict
 
-_LOGGER = logging.getLogger(__name__)
-
 
 INITIAL_SCOPE = {
     # class annotations

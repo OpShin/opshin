@@ -12,14 +12,12 @@ try:
 except NameError:
     from astunparse import unparse
 
-from ..util import CompilingNodeTransformer, CompilingNodeVisitor
+from ..util import CompilingNodeTransformer, CompilingNodeVisitor, OPSHIN_LOGGER
 from ..type_inference import INITIAL_SCOPE
 
 """
 Pre-evaluates constant statements
 """
-
-_LOGGER = logging.getLogger(__name__)
 
 ACCEPTED_ATOMIC_TYPES = [
     int,
@@ -227,7 +225,7 @@ class OptimizeConstantFolding(CompilingNodeTransformer):
         try:
             exec(unparse(node), g, l)
         except Exception as e:
-            _LOGGER.debug(e)
+            OPSHIN_LOGGER.debug(e)
         else:
             # the class is defined and added to the globals
             self.scopes_constants[-1].update(l)
@@ -259,7 +257,7 @@ class OptimizeConstantFolding(CompilingNodeTransformer):
                 # we need to pass the global dict as local dict here to make closures possible (rec functions)
                 exec(unparse(node), g, g)
             except Exception as e:
-                _LOGGER.debug(e)
+                OPSHIN_LOGGER.debug(e)
             else:
                 # the class is defined and added to the globals
                 self.scopes_constants[-1][node.name] = g[node.name]
@@ -331,7 +329,7 @@ class OptimizeConstantFolding(CompilingNodeTransformer):
             l = self._constant_vars()
             node_eval = eval(node_source, g, l)
         except Exception as e:
-            _LOGGER.debug(e)
+            OPSHIN_LOGGER.debug(e)
             return node
 
         if any(
