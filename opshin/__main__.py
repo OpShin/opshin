@@ -462,7 +462,14 @@ def parse_args():
     )
     for k, v in ARGPARSE_ARGS.items():
         alts = v.pop("__alts__", [])
-        a.add_argument(f"-f{k.replace('_', '-')}", *alts, **v, dest=k, default=None)
+        a.add_argument(
+            f"-f{k.replace('_', '-')}",
+            *alts,
+            **v,
+            action="store_true",
+            dest=k,
+            default=None,
+        )
         a.add_argument(
             f"-fno-{k.replace('_', '-')}",
             action="store_false",

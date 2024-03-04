@@ -52,20 +52,16 @@ ARGPARSE_ARGS.update(
     {
         "constant_folding": {
             "__alts__": ["--cf"],
-            "action": "store_true",
             "help": "Enables experimental constant folding, including propagation and code execution.",
         },
         "allow_isinstance_anything": {
-            "action": "store_true",
             "help": "Enables the use of isinstance(x, D) in the contract where x is of type Anything. This is not recommended as it only checks the constructor id and not the actual type of the data.",
         },
         "force_three_params": {
             "__alts__": ["--ftp"],
-            "action": "store_true",
             "help": "Enforces that the contract is always called with three virtual parameters on-chain. Enable if the script should support spending and other purposes.",
         },
         "remove_dead_code": {
-            "action": "store_true",
             "help": "Removes dead code and variables from the contract. Should be enabled for non-debugging purposes.",
         },
     }
