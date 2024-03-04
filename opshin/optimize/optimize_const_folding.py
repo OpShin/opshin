@@ -322,7 +322,7 @@ class OptimizeConstantFolding(CompilingNodeTransformer):
         try:
             node_source = unparse(node)
         except Exception as e:
-            _LOGGER.debug("Error when trying to unparse node: %s", e)
+            OPSHIN_LOGGER.debug("Error when trying to unparse node: %s", e)
             return node
         if "print(" in node_source:
             # do not optimize away print statements
@@ -333,7 +333,7 @@ class OptimizeConstantFolding(CompilingNodeTransformer):
             l = self._constant_vars()
             node_eval = eval(node_source, g, l)
         except Exception as e:
-            OPSHIN_LOGGER.debug(e)
+            OPSHIN_LOGGER.debug("Error trying to evaluate node: %s", e)
             return node
 
         if any(
