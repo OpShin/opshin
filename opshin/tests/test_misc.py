@@ -23,6 +23,7 @@ from . import PLUTUS_VM_PROFILE
 from .. import prelude, builder, Purpose, PlutusContract
 from .utils import eval_uplc_value, Unit, eval_uplc
 from ..bridge import wraps_builtin
+from ..compiler_config import OPT_O2_CONFIG, DEFAULT_CONFIG
 
 hypothesis.settings.load_profile(PLUTUS_VM_PROFILE)
 
@@ -30,6 +31,9 @@ hypothesis.settings.load_profile(PLUTUS_VM_PROFILE)
 from ..ledger.api_v2 import *
 from pycardano import RawPlutusData, RawCBOR
 from cbor2 import CBORTag
+
+DEFAULT_CONFIG_FORCE_THREE_PARAMS = DEFAULT_CONFIG.update(force_three_params=True)
+DEFAULT_CONFIG_CONSTANT_FOLDING = DEFAULT_CONFIG.update(constant_folding=True)
 
 ALL_EXAMPLES = [
     os.path.join(root, f)
@@ -77,6 +81,7 @@ class MiscTest(unittest.TestCase):
                     "d8799fd8799f9fd8799fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffd8799fd8799fd87a9f581cdbe769758f26efb21f008dc097bb194cffc622acc37fcefc5372eee3ffd87a80ffa140a1401a00989680d87a9f5820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dffd87a80ffffff809fd8799fd8799fd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd87a80ffa140a14000d87980d87a80ffffa140a14000a140a1400080a0d8799fd8799fd87980d87a80ffd8799fd87b80d87a80ffff80a1d87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffd87980a15820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd8799f5820746957f0eb57f2b11119684e611a98f373afea93473fefbb7632d579af2f6259ffffd87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffff"
                 )
             ),
+            config=DEFAULT_CONFIG.update(OPT_O2_CONFIG),
         )
         self.assertEqual(ret, uplc.PlutusConstr(0, []))
 
@@ -419,14 +424,14 @@ def validator(_: None) -> int:
         input_file = "examples/smart_contracts/wrapped_token.py"
         with open(input_file) as fp:
             source_code = fp.read()
-        builder._compile(source_code, force_three_params=True)
+        builder._compile(source_code, config=DEFAULT_CONFIG_FORCE_THREE_PARAMS)
 
     def test_dual_use_compile(self):
         # TODO devise tests for this
         input_file = "examples/smart_contracts/dual_use.py"
         with open(input_file) as fp:
             source_code = fp.read()
-        builder._compile(source_code, force_three_params=True)
+        builder._compile(source_code, config=DEFAULT_CONFIG_FORCE_THREE_PARAMS)
 
     def test_marketplace_compile(self):
         # TODO devise tests for this
@@ -440,14 +445,14 @@ def validator(_: None) -> int:
         input_file = "examples/smart_contracts/marketplace.py"
         with open(input_file) as fp:
             source_code = fp.read()
-        builder._compile(source_code, force_three_params=True)
+        builder._compile(source_code, config=DEFAULT_CONFIG_FORCE_THREE_PARAMS)
 
     def test_parameterized_compile(self):
         # TODO devise tests for this
         input_file = "examples/smart_contracts/parameterized.py"
         with open(input_file) as fp:
             source_code = fp.read()
-        builder._compile(source_code, force_three_params=True)
+        builder._compile(source_code, config=DEFAULT_CONFIG_FORCE_THREE_PARAMS)
 
     def test_dict_datum(self):
         input_file = "examples/dict_datum.py"
@@ -1098,7 +1103,9 @@ from opshin.prelude import *
 def validator(_: None) -> bytes:
     return bytes.fromhex("0011")
 """
-        res = eval_uplc_value(source_code, Unit(), constant_folding=True)
+        res = eval_uplc_value(
+            source_code, Unit(), config=DEFAULT_CONFIG_CONSTANT_FOLDING
+        )
         self.assertEqual(res, bytes.fromhex("0011"))
 
     @unittest.expectedFailure
@@ -1118,7 +1125,9 @@ from opshin.prelude import *
 def validator(_: None) -> List[int]:
     return list(range(0, 10, 2))
 """
-        code = builder._compile(source_code, Unit(), constant_folding=True)
+        code = builder._compile(
+            source_code, Unit(), config=DEFAULT_CONFIG_CONSTANT_FOLDING
+        )
         self.assertIn("(con list<integer> [0, 2, 4, 6, 8])", code.dumps())
         res = builder.uplc_eval(code)
         self.assertEqual(
@@ -1132,7 +1141,9 @@ from opshin.prelude import *
 def validator(_: None) -> Dict[str, bool]:
     return {"s": True, "m": False}
 """
-        code = builder._compile(source_code, Unit(), constant_folding=True)
+        code = builder._compile(
+            source_code, Unit(), config=DEFAULT_CONFIG_CONSTANT_FOLDING
+        )
         self.assertIn(
             "(con list<pair<data, data>> [[#4173, #01], [#416d, #00]]))", code.dumps()
         )
@@ -1154,7 +1165,7 @@ from opshin.prelude import *
 def validator(_: None) -> Dict[str, List[Dict[bytes, int]]]:
     return {"s": [{b"": 0}, {b"0": 1}]}
 """
-        res = eval_uplc(source_code, Unit(), constant_folding=True)
+        res = eval_uplc(source_code, Unit(), config=DEFAULT_CONFIG_CONSTANT_FOLDING)
         self.assertEqual(
             res,
             uplc.PlutusMap(
@@ -1180,7 +1191,9 @@ from opshin.prelude import *
 def validator(_: None) -> PubKeyCredential:
     return PubKeyCredential(bytes.fromhex("0011"))
 """
-        code = builder._compile(source_code, Unit(), constant_folding=True)
+        code = builder._compile(
+            source_code, Unit(), config=DEFAULT_CONFIG_CONSTANT_FOLDING
+        )
         self.assertIn("(con data #d8799f420011ff)", code.dumps())
         res = uplc_eval(code)
         self.assertEqual(
@@ -1198,7 +1211,9 @@ def fib(i: int) -> int:
 def validator(_: None) -> int:
     return fib(10)
 """
-        code = builder._compile(source_code, Unit(), constant_folding=True)
+        code = builder._compile(
+            source_code, Unit(), config=DEFAULT_CONFIG_CONSTANT_FOLDING
+        )
         self.assertIn("(con integer 55)", code.dumps())
         res = uplc_eval(code)
         self.assertEqual(
@@ -1214,7 +1229,7 @@ def validator(_: None) -> int:
         a = 10
     return a
 """
-        eval_uplc(source_code, Unit(), constant_folding=True)
+        eval_uplc(source_code, Unit(), config=DEFAULT_CONFIG_CONSTANT_FOLDING)
 
     @unittest.expectedFailure
     def test_constant_folding_for(self):
@@ -1224,7 +1239,7 @@ def validator(x: List[int]) -> int:
         a = 10
     return a
 """
-        eval_uplc(source_code, [], constant_folding=True)
+        eval_uplc(source_code, [], config=DEFAULT_CONFIG_CONSTANT_FOLDING)
 
     @unittest.expectedFailure
     def test_constant_folding_for_target(self):
@@ -1234,7 +1249,7 @@ def validator(x: List[int]) -> int:
         a = 10
     return i
 """
-        eval_uplc(source_code, [], constant_folding=True)
+        eval_uplc(source_code, [], config=DEFAULT_CONFIG_CONSTANT_FOLDING)
 
     @unittest.expectedFailure
     def test_constant_folding_while(self):
@@ -1244,7 +1259,7 @@ def validator(_: None) -> int:
         a = 10
     return a
 """
-        eval_uplc(source_code, Unit(), constant_folding=True)
+        eval_uplc(source_code, Unit(), config=DEFAULT_CONFIG_CONSTANT_FOLDING)
 
     @unittest.skip("Fine from a guarantee perspective, but needs better inspection")
     def test_constant_folding_guaranteed_branch(self):
@@ -1257,7 +1272,9 @@ def validator(_: None) -> int:
         b = 2
     return b
 """
-        code = builder._compile(source_code, Unit(), constant_folding=True)
+        code = builder._compile(
+            source_code, Unit(), config=DEFAULT_CONFIG_CONSTANT_FOLDING
+        )
         self.assertIn("(con integer 40)", code.dumps())
 
     @unittest.skip("Fine from a guarantee perspective, but needs better inspection")
@@ -1269,7 +1286,9 @@ def validator(_: None) -> int:
     b = 5 * a
     return b
 """
-        code = builder._compile(source_code, Unit(), constant_folding=True)
+        code = builder._compile(
+            source_code, Unit(), config=DEFAULT_CONFIG_CONSTANT_FOLDING
+        )
         self.assertIn("(con integer 10)", code.dumps())
 
     @unittest.skip("Fine from a guarantee perspective, but needs better inspection")
@@ -1281,7 +1300,9 @@ def validator(_: None) -> int:
     b = 5 * a
     return b
 """
-        code = builder._compile(source_code, Unit(), constant_folding=True)
+        code = builder._compile(
+            source_code, Unit(), config=DEFAULT_CONFIG_CONSTANT_FOLDING
+        )
         self.assertIn("(con integer 10)", code.dumps())
 
     def test_constant_folding_repeated_assign(self):
@@ -1292,7 +1313,7 @@ def validator(i: int) -> int:
         a = 2
     return a
 """
-        code = builder._compile(source_code, constant_folding=True)
+        code = builder._compile(source_code, config=DEFAULT_CONFIG_CONSTANT_FOLDING)
         res = uplc_eval(uplc.Apply(code, uplc.PlutusInteger(0)))
         self.assertEqual(res.value, 4)
         res = uplc_eval(uplc.Apply(code, uplc.PlutusInteger(1)))
@@ -1305,7 +1326,7 @@ from opshin.prelude import *
 def validator(_: None) -> int:
     return 2 ** 10
 """
-        code = builder._compile(source_code, constant_folding=True)
+        code = builder._compile(source_code, config=DEFAULT_CONFIG_CONSTANT_FOLDING)
         code_src = code.dumps()
         self.assertIn(f"(con integer {2**10})", code_src)
 
@@ -1338,7 +1359,9 @@ def validator(_: None) -> int:
         return 2
     return int(5)
 """
-        res = eval_uplc_value(source_code, Unit(), constant_folding=True)
+        res = eval_uplc_value(
+            source_code, Unit(), config=DEFAULT_CONFIG_CONSTANT_FOLDING
+        )
         self.assertEqual(res, 2)
 
     def test_constant_folding_no_print_eval(self):
@@ -1348,7 +1371,7 @@ from opshin.prelude import *
 def validator(_: None) -> None:
     return print("hello")
 """
-        code = builder._compile(source_code, constant_folding=True)
+        code = builder._compile(source_code, config=DEFAULT_CONFIG_CONSTANT_FOLDING)
         code_src = code.dumps()
         self.assertIn(f'(con string "hello")', code_src)
 
@@ -2278,7 +2301,7 @@ def validator(
 """
         # would fail because Address is assigned multiple times and then not constant folded
         # TODO find a better way
-        builder._compile(source_code, constant_folding=True)
+        builder._compile(source_code, config=DEFAULT_CONFIG_CONSTANT_FOLDING)
 
     def test_double_import_direct(self):
         source_code = """
@@ -2305,7 +2328,7 @@ def validator(
 """
         # would fail because Address is assigned multiple times and then not constant folded
         # TODO find a better way
-        builder._compile(source_code, constant_folding=True)
+        builder._compile(source_code, config=DEFAULT_CONFIG_CONSTANT_FOLDING)
 
     def test_double_import_deep(self):
         source_code = """
@@ -2332,7 +2355,7 @@ def validator(
 """
         # would fail because Address is assigned multiple times and then not constant folded
         # TODO find a better way
-        builder._compile(source_code, constant_folding=True)
+        builder._compile(source_code, config=DEFAULT_CONFIG_CONSTANT_FOLDING)
 
     def test_bytearray_alternative(self):
         source_code = """
@@ -2378,7 +2401,7 @@ def validator({param_string}) -> bool:
     def test_wrapping_contract_apply(self):
         # TODO devise tests for this
         input_file = "examples/smart_contracts/wrapped_token.py"
-        contract = builder.build(input_file, force_three_params=True)
+        contract = builder.build(input_file, config=DEFAULT_CONFIG_FORCE_THREE_PARAMS)
         artifacts = PlutusContract(
             contract,
             datum_type=("datum", prelude.Nothing),
@@ -2397,7 +2420,7 @@ def validator({param_string}) -> bool:
 
     def test_wrapping_contract_dump_load(self):
         input_file = "examples/smart_contracts/wrapped_token.py"
-        contract = builder.build(input_file, force_three_params=True)
+        contract = builder.build(input_file, config=DEFAULT_CONFIG_FORCE_THREE_PARAMS)
         artifacts = PlutusContract(
             contract,
             datum_type=("datum", prelude.Nothing),
@@ -2547,7 +2570,7 @@ def validator(_: None) -> str:
         """
         builder._compile(source_code)
 
-    def test_isinstance_cast_if(self):
+    def test_isinstance_cast_if2(self):
         source_code = """
 from dataclasses import dataclass
 from typing import Dict, List, Union
@@ -2613,7 +2636,7 @@ def validator(a: int) -> str:
         return b""
     return 0
 """
-        builder.compile(source_code)
+        builder._compile(source_code)
 
     @unittest.expectedFailure
     def test_different_return_types_for_loop(self):
@@ -2623,7 +2646,7 @@ def validator(a: int) -> str:
         return b""
     return 0
 """
-        builder.compile(source_code)
+        builder._compile(source_code)
 
     def test_return_else_loop_while(self):
         source_code = """
@@ -2680,7 +2703,9 @@ def validator(_: None) -> List[int]:
     a: List[int] = []
     return a
 """
-        res = eval_uplc_value(source_code, Unit(), constant_folding=True)
+        res = eval_uplc_value(
+            source_code, Unit(), config=DEFAULT_CONFIG_CONSTANT_FOLDING
+        )
         self.assertEqual(res, [])
 
     def test_empty_dict_int_int(self):
@@ -2698,7 +2723,9 @@ def validator(_: None) -> Dict[int, int]:
     a: Dict[int, int] = {}
     return a
 """
-        res = eval_uplc_value(source_code, Unit(), constant_folding=True)
+        res = eval_uplc_value(
+            source_code, Unit(), config=DEFAULT_CONFIG_CONSTANT_FOLDING
+        )
         self.assertEqual(res, {})
 
     def test_empty_dict_displaced_constant_folding(self):
@@ -2711,7 +2738,9 @@ def validator(b: Dict[int, Dict[bytes, int]]) -> Dict[bytes, int]:
     a = b.get(0, VAR)
     return a
         """
-        res = eval_uplc_value(source_code, {1: {b"": 0}}, constant_folding=True)
+        res = eval_uplc_value(
+            source_code, {1: {b"": 0}}, config=DEFAULT_CONFIG_CONSTANT_FOLDING
+        )
         self.assertEqual(res, {})
 
     def test_union_subset_call(self):

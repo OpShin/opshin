@@ -1,6 +1,8 @@
 import copy
 
 from uplc.ast import data_from_cbor
+
+from .compiler_config import DEFAULT_CONFIG
 from .optimize.optimize_const_folding import OptimizeConstantFolding
 from .optimize.optimize_remove_comments import OptimizeRemoveDeadconstants
 from .rewrite.rewrite_augassign import RewriteAugAssign
@@ -1025,18 +1027,15 @@ class PlutoCompiler(CompilingNodeTransformer):
 def compile(
     prog: AST,
     filename=None,
-    force_three_params=False,
-    remove_dead_code=True,
-    constant_folding=False,
     validator_function_name="validator",
-    allow_isinstance_anything=False,
+    config=DEFAULT_CONFIG,
 ) -> plt.Program:
     compile_pipeline = [
         # Important to call this one first - it imports all further files
         RewriteImport(filename=filename),
         # Rewrites that simplify the python code
         RewriteForbiddenReturn(),
-        OptimizeConstantFolding() if constant_folding else NoOp(),
+        OptimizeConstantFolding() if config.constant_folding else NoOp(),
         RewriteSubscript38(),
         RewriteAugAssign(),
         RewriteComparisonChaining(),
@@ -1053,7 +1052,7 @@ def compile(
         RewriteOrigName(),
         RewriteScoping(),
         # The type inference needs to be run after complex python operations were rewritten
-        AggressiveTypeInferencer(allow_isinstance_anything),
+        AggressiveTypeInferencer(config.allow_isinstance_anything),
         # Rewrites that circumvent the type inference or use its results
         RewriteEmptyLists(),
         RewriteEmptyDicts(),
@@ -1061,8 +1060,8 @@ def compile(
         RewriteInjectBuiltinsConstr(),
         RewriteRemoveTypeStuff(),
         # Apply optimizations
-        OptimizeRemoveDeadvars() if remove_dead_code else NoOp(),
-        OptimizeRemoveDeadconstants(),
+        OptimizeRemoveDeadvars() if config.remove_dead_code else NoOp(),
+        OptimizeRemoveDeadconstants() if config.remove_dead_code else NoOp(),
         OptimizeRemovePass(),
     ]
     for s in compile_pipeline:
@@ -1071,7 +1070,7 @@ def compile(
 
     # the compiler runs last
     s = PlutoCompiler(
-        force_three_params=force_three_params,
+        force_three_params=config.force_three_params,
         validator_function_name=validator_function_name,
     )
     prog = s.visit(prog)
