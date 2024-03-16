@@ -147,9 +147,11 @@ class TypeCheckVisitor(TypedNodeVisitor):
         if not (isinstance(node.func, Name) and node.func.orig_id == "isinstance"):
             return ({}, {})
         # special case for Union
-        assert isinstance(
-            node.args[0], Name
-        ), "Target 0 of an isinstance cast must be a variable name"
+        if not isinstance(node.args[0], Name):
+            OPSHIN_LOGGER.warning(
+                "Target 0 of an isinstance cast must be a variable name for type casting to work. You can still proceed, but the inferred type of the isinstance cast will not be accurate."
+            )
+            return ({}, {})
         assert isinstance(
             node.args[1], Name
         ), "Target 1 of an isinstance cast must be a class name"
