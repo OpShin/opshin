@@ -70,6 +70,7 @@ uplc_data = st.recursive(
     rec_data_strategies,
     max_leaves=4,
 )
+uplc_data_list = st.builds(lambda x: PlutusList(frozenlist(x)), st.lists(uplc_data))
 
 # TODO fix handling of these strings
 formattable_text = st.from_regex(r"\A((?!['\\])[ -~])*\Z")
@@ -482,6 +483,50 @@ def validator(x: List[bytes], y: bytes) -> bool:
             """
         ret = eval_uplc_value(source_code, xs, y)
         self.assertEqual(ret, y in xs, "list in returned wrong value")
+
+    @given(xs=uplc_data_list, y=uplc_data)
+    def test_in_list_data(self, xs, y):
+        source_code = """
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
+def validator(x: List[Anything], y: Anything) -> bool:
+    return y in x
+            """
+        ret = eval_uplc_value(source_code, xs, y)
+        self.assertEqual(ret, y in xs.value, "list in returned wrong value")
+
+    @given(xs=uplc_data_list, y=uplc_data)
+    def test_not_in_list_data(self, xs, y):
+        source_code = """
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
+def validator(x: List[Anything], y: Anything) -> bool:
+    return y not in x
+            """
+        ret = eval_uplc_value(source_code, xs, y)
+        self.assertEqual(ret, y not in xs.value, "list not in returned wrong value")
+
+    @given(xs=st.lists(st.integers()), y=st.integers())
+    @example(xs=[0, 1], y=-1)
+    @example(xs=[0, 1], y=0)
+    def test_not_in_list_int(self, xs, y):
+        source_code = """
+from typing import Dict, List, Union
+def validator(x: List[int], y: int) -> bool:
+    return y not in x
+            """
+        ret = eval_uplc_value(source_code, xs, y)
+        self.assertEqual(ret, y not in xs, "list not in returned wrong value")
+
+    @given(xs=st.lists(st.binary()), y=st.binary())
+    def test_not_in_list_bytes(self, xs, y):
+        source_code = """
+from typing import Dict, List, Union
+def validator(x: List[bytes], y: bytes) -> bool:
+    return y not in x
+            """
+        ret = eval_uplc_value(source_code, xs, y)
+        self.assertEqual(ret, y not in xs, "list not in returned wrong value")
 
     @given(x=st.lists(st.integers()))
     def test_not_list(self, x):
