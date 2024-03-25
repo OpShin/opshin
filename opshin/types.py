@@ -1687,6 +1687,10 @@ class StringType(AtomicType):
         if isinstance(o, StringType):
             if isinstance(op, Eq):
                 return plt.BuiltIn(uplc.BuiltInFun.EqualsString)
+            if isinstance(op, NotEq):
+                return OLambda(
+                    ["x", "y"], plt.Not(plt.EqualsString(OVar("x"), OVar("y")))
+                )
         return super().cmp(op, o)
 
     def stringify(self, recursive: bool = False) -> plt.AST:

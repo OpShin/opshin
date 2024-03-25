@@ -548,6 +548,33 @@ def validator(x: bool, y: int) -> bool:
         ret = eval_uplc_value(source_code, x, y)
         self.assertEqual(ret, x == y, "bool eq int returned wrong value")
 
+    @given(x=st.text(), y=st.text())
+    def test_neq_str(self, x, y):
+        source_code = """
+def validator(x: str, y: str) -> bool:
+    return x != y
+            """
+        ret = eval_uplc_value(source_code, x.encode(), y.encode())
+        self.assertEqual(ret, x != y, "str neq returned wrong value")
+
+    @given(x=st.integers(), y=st.integers())
+    def test_neq_int(self, x, y):
+        source_code = """
+def validator(x: int, y: int) -> bool:
+    return x != y
+            """
+        ret = eval_uplc_value(source_code, x, y)
+        self.assertEqual(ret, x != y, "int neq returned wrong value")
+
+    @given(x=st.binary(), y=st.binary())
+    def test_neq_bytes(self, x, y):
+        source_code = """
+def validator(x: bytes, y: bytes) -> bool:
+    return x != y
+            """
+        ret = eval_uplc_value(source_code, x, y)
+        self.assertEqual(ret, x != y, "bytes neq returned wrong value")
+
     @given(x=st.booleans(), y=st.booleans())
     def test_neq_bool(self, x, y):
         source_code = """
@@ -565,6 +592,17 @@ def validator(x: bool, y: int) -> bool:
             """
         ret = eval_uplc_value(source_code, x, y)
         self.assertEqual(ret, x != y, "bool neq int returned wrong value")
+
+    @given(x=uplc_data, y=uplc_data)
+    def test_neq_data(self, x, y):
+        source_code = """
+from opshin.prelude import *
+
+def validator(x: Anything, y: Anything) -> bool:
+    return x != y
+            """
+        ret = eval_uplc_value(source_code, x, y)
+        self.assertEqual(ret, x != y, "any neq returned wrong value")
 
     @given(x=st.integers(min_value=0, max_value=150), y=st.text())
     def test_mul_int_str(self, x, y):
