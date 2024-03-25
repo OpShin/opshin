@@ -2104,9 +2104,20 @@ class BoolType(AtomicType):
                         plt.EqualsInteger(OVar("x"), plt.Integer(0)),
                     ),
                 )
+            if isinstance(op, NotEq):
+                return OLambda(
+                    ["y", "x"],
+                    plt.Ite(
+                        OVar("y"),
+                        plt.NotEqualsInteger(OVar("x"), plt.Integer(1)),
+                        plt.NotEqualsInteger(OVar("x"), plt.Integer(0)),
+                    ),
+                )
         if isinstance(o, BoolType):
             if isinstance(op, Eq):
                 return OLambda(["x", "y"], plt.Iff(OVar("x"), OVar("y")))
+            if isinstance(op, NotEq):
+                return OLambda(["x", "y"], plt.Not(plt.Iff(OVar("x"), OVar("y"))))
         return super().cmp(op, o)
 
     def stringify(self, recursive: bool = False) -> plt.AST:

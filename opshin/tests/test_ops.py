@@ -539,6 +539,33 @@ def validator(x: Anything, y: Anything) -> bool:
         ret = eval_uplc_value(source_code, x, y)
         self.assertEqual(ret, x == y, "any eq returned wrong value")
 
+    @given(x=st.booleans(), y=st.integers())
+    def test_eq_bool_int(self, x, y):
+        source_code = """
+def validator(x: bool, y: int) -> bool:
+    return x == y
+            """
+        ret = eval_uplc_value(source_code, x, y)
+        self.assertEqual(ret, x == y, "bool eq int returned wrong value")
+
+    @given(x=st.booleans(), y=st.booleans())
+    def test_neq_bool(self, x, y):
+        source_code = """
+def validator(x: bool, y: bool) -> bool:
+    return x != y
+            """
+        ret = eval_uplc_value(source_code, x, y)
+        self.assertEqual(ret, x != y, "bool neq returned wrong value")
+
+    @given(x=st.booleans(), y=st.integers())
+    def test_neq_bool_int(self, x, y):
+        source_code = """
+def validator(x: bool, y: int) -> bool:
+    return x != y
+            """
+        ret = eval_uplc_value(source_code, x, y)
+        self.assertEqual(ret, x != y, "bool neq int returned wrong value")
+
     @given(x=st.integers(min_value=0, max_value=150), y=st.text())
     def test_mul_int_str(self, x, y):
         source_code = """
