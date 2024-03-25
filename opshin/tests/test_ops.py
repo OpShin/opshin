@@ -70,6 +70,7 @@ uplc_data = st.recursive(
     rec_data_strategies,
     max_leaves=4,
 )
+uplc_data_list = st.builds(lambda x: PlutusList(frozenlist(x)), st.lists(uplc_data))
 
 # TODO fix handling of these strings
 formattable_text = st.from_regex(r"\A((?!['\\])[ -~])*\Z")
@@ -483,6 +484,50 @@ def validator(x: List[bytes], y: bytes) -> bool:
         ret = eval_uplc_value(source_code, xs, y)
         self.assertEqual(ret, y in xs, "list in returned wrong value")
 
+    @given(xs=uplc_data_list, y=uplc_data)
+    def test_in_list_data(self, xs, y):
+        source_code = """
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
+def validator(x: List[Anything], y: Anything) -> bool:
+    return y in x
+            """
+        ret = eval_uplc_value(source_code, xs, y)
+        self.assertEqual(ret, y in xs.value, "list in returned wrong value")
+
+    @given(xs=uplc_data_list, y=uplc_data)
+    def test_not_in_list_data(self, xs, y):
+        source_code = """
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
+def validator(x: List[Anything], y: Anything) -> bool:
+    return y not in x
+            """
+        ret = eval_uplc_value(source_code, xs, y)
+        self.assertEqual(ret, y not in xs.value, "list not in returned wrong value")
+
+    @given(xs=st.lists(st.integers()), y=st.integers())
+    @example(xs=[0, 1], y=-1)
+    @example(xs=[0, 1], y=0)
+    def test_not_in_list_int(self, xs, y):
+        source_code = """
+from typing import Dict, List, Union
+def validator(x: List[int], y: int) -> bool:
+    return y not in x
+            """
+        ret = eval_uplc_value(source_code, xs, y)
+        self.assertEqual(ret, y not in xs, "list not in returned wrong value")
+
+    @given(xs=st.lists(st.binary()), y=st.binary())
+    def test_not_in_list_bytes(self, xs, y):
+        source_code = """
+from typing import Dict, List, Union
+def validator(x: List[bytes], y: bytes) -> bool:
+    return y not in x
+            """
+        ret = eval_uplc_value(source_code, xs, y)
+        self.assertEqual(ret, y not in xs, "list not in returned wrong value")
+
     @given(x=st.lists(st.integers()))
     def test_not_list(self, x):
         source_code = """
@@ -538,6 +583,71 @@ def validator(x: Anything, y: Anything) -> bool:
             """
         ret = eval_uplc_value(source_code, x, y)
         self.assertEqual(ret, x == y, "any eq returned wrong value")
+
+    @given(x=st.booleans(), y=st.integers())
+    def test_eq_bool_int(self, x, y):
+        source_code = """
+def validator(x: bool, y: int) -> bool:
+    return x == y
+            """
+        ret = eval_uplc_value(source_code, x, y)
+        self.assertEqual(ret, x == y, "bool eq int returned wrong value")
+
+    @given(x=st.text(), y=st.text())
+    def test_neq_str(self, x, y):
+        source_code = """
+def validator(x: str, y: str) -> bool:
+    return x != y
+            """
+        ret = eval_uplc_value(source_code, x.encode("utf8"), y.encode("utf8"))
+        self.assertEqual(ret, x != y, "str neq returned wrong value")
+
+    @given(x=st.integers(), y=st.integers())
+    def test_neq_int(self, x, y):
+        source_code = """
+def validator(x: int, y: int) -> bool:
+    return x != y
+            """
+        ret = eval_uplc_value(source_code, x, y)
+        self.assertEqual(ret, x != y, "int neq returned wrong value")
+
+    @given(x=st.binary(), y=st.binary())
+    def test_neq_bytes(self, x, y):
+        source_code = """
+def validator(x: bytes, y: bytes) -> bool:
+    return x != y
+            """
+        ret = eval_uplc_value(source_code, x, y)
+        self.assertEqual(ret, x != y, "bytes neq returned wrong value")
+
+    @given(x=st.booleans(), y=st.booleans())
+    def test_neq_bool(self, x, y):
+        source_code = """
+def validator(x: bool, y: bool) -> bool:
+    return x != y
+            """
+        ret = eval_uplc_value(source_code, x, y)
+        self.assertEqual(ret, x != y, "bool neq returned wrong value")
+
+    @given(x=st.booleans(), y=st.integers())
+    def test_neq_bool_int(self, x, y):
+        source_code = """
+def validator(x: bool, y: int) -> bool:
+    return x != y
+            """
+        ret = eval_uplc_value(source_code, x, y)
+        self.assertEqual(ret, x != y, "bool neq int returned wrong value")
+
+    @given(x=uplc_data, y=uplc_data)
+    def test_neq_data(self, x, y):
+        source_code = """
+from opshin.prelude import *
+
+def validator(x: Anything, y: Anything) -> bool:
+    return x != y
+            """
+        ret = eval_uplc_value(source_code, x, y)
+        self.assertEqual(ret, x != y, "any neq returned wrong value")
 
     @given(x=st.integers(min_value=0, max_value=150), y=st.text())
     def test_mul_int_str(self, x, y):

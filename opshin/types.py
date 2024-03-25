@@ -239,6 +239,69 @@ class AnyType(ClassType):
                         )
                     ),
                 )
+        if (
+            isinstance(o, ListType)
+            and isinstance(o.typ, InstanceType)
+            and (o.typ.typ >= self or self >= o.typ.typ)
+        ):
+            if isinstance(op, In):
+                return OLambda(
+                    ["x", "y"],
+                    plt.EqualsData(
+                        OVar("x"),
+                        plt.FindList(
+                            OVar("y"),
+                            plt.Apply(
+                                plt.BuiltIn(uplc.BuiltInFun.EqualsData),
+                                OVar("x"),
+                            ),
+                            # this simply ensures the default is always unequal to the searched value
+                            plt.ConstrData(
+                                plt.DelayedChooseData(
+                                    OVar("x"),
+                                    plt.AddInteger(
+                                        plt.Constructor(OVar("x")), plt.Integer(1)
+                                    ),
+                                    plt.Integer(0),
+                                    plt.Integer(0),
+                                    plt.Integer(0),
+                                    plt.Integer(0),
+                                ),
+                                plt.MkNilData(plt.Unit()),
+                            ),
+                        ),
+                    ),
+                )
+            if isinstance(op, NotIn):
+                return OLambda(
+                    ["x", "y"],
+                    plt.Not(
+                        plt.EqualsData(
+                            OVar("x"),
+                            plt.FindList(
+                                OVar("y"),
+                                plt.Apply(
+                                    plt.BuiltIn(uplc.BuiltInFun.EqualsData),
+                                    OVar("x"),
+                                ),
+                                # this simply ensures the default is always unequal to the searched value
+                                plt.ConstrData(
+                                    plt.DelayedChooseData(
+                                        OVar("x"),
+                                        plt.AddInteger(
+                                            plt.Constructor(OVar("x")), plt.Integer(1)
+                                        ),
+                                        plt.Integer(0),
+                                        plt.Integer(0),
+                                        plt.Integer(0),
+                                        plt.Integer(0),
+                                    ),
+                                    plt.MkNilData(plt.Unit()),
+                                ),
+                            ),
+                        ),
+                    ),
+                )
         return super().cmp(op, o)
 
     def stringify(self, recursive: bool = False) -> plt.AST:
@@ -581,6 +644,29 @@ class RecordType(ClassType):
                         ),
                     ),
                 )
+            if isinstance(op, NotIn):
+                return OLambda(
+                    ["x", "y"],
+                    plt.Not(
+                        plt.EqualsData(
+                            OVar("x"),
+                            plt.FindList(
+                                OVar("y"),
+                                plt.Apply(
+                                    plt.BuiltIn(uplc.BuiltInFun.EqualsData),
+                                    OVar("x"),
+                                ),
+                                # this simply ensures the default is always unequal to the searched value
+                                plt.ConstrData(
+                                    plt.AddInteger(
+                                        plt.Constructor(OVar("x")), plt.Integer(1)
+                                    ),
+                                    plt.MkNilData(plt.Unit()),
+                                ),
+                            ),
+                        ),
+                    ),
+                )
         return super().cmp(op, o)
 
     def __ge__(self, other):
@@ -805,6 +891,29 @@ class UnionType(ClassType):
                                     plt.Constructor(OVar("x")), plt.Integer(1)
                                 ),
                                 plt.MkNilData(plt.Unit()),
+                            ),
+                        ),
+                    ),
+                )
+            if isinstance(op, NotIn):
+                return OLambda(
+                    ["x", "y"],
+                    plt.Not(
+                        plt.EqualsData(
+                            OVar("x"),
+                            plt.FindList(
+                                OVar("y"),
+                                plt.Apply(
+                                    plt.BuiltIn(uplc.BuiltInFun.EqualsData),
+                                    OVar("x"),
+                                ),
+                                # this simply ensures the default is always unequal to the searched value
+                                plt.ConstrData(
+                                    plt.AddInteger(
+                                        plt.Constructor(OVar("x")), plt.Integer(1)
+                                    ),
+                                    plt.MkNilData(plt.Unit()),
+                                ),
                             ),
                         ),
                     ),
@@ -1532,6 +1641,21 @@ class IntegerType(AtomicType):
                         ),
                     ),
                 )
+            if isinstance(op, NotIn):
+                return OLambda(
+                    ["x", "y"],
+                    plt.NotEqualsInteger(
+                        OVar("x"),
+                        plt.FindList(
+                            OVar("y"),
+                            plt.Apply(
+                                plt.BuiltIn(uplc.BuiltInFun.EqualsInteger), OVar("x")
+                            ),
+                            # this simply ensures the default is always unequal to the searched value
+                            plt.AddInteger(OVar("x"), plt.Integer(1)),
+                        ),
+                    ),
+                )
         return super().cmp(op, o)
 
     def stringify(self, recursive: bool = False) -> plt.AST:
@@ -1687,6 +1811,10 @@ class StringType(AtomicType):
         if isinstance(o, StringType):
             if isinstance(op, Eq):
                 return plt.BuiltIn(uplc.BuiltInFun.EqualsString)
+            if isinstance(op, NotEq):
+                return OLambda(
+                    ["x", "y"], plt.Not(plt.EqualsString(OVar("x"), OVar("y")))
+                )
         return super().cmp(op, o)
 
     def stringify(self, recursive: bool = False) -> plt.AST:
@@ -1897,6 +2025,24 @@ class ByteStringType(AtomicType):
                         ),
                     ),
                 )
+            if isinstance(op, NotIn):
+                return OLambda(
+                    ["x", "y"],
+                    plt.Not(
+                        plt.EqualsByteString(
+                            OVar("x"),
+                            plt.FindList(
+                                OVar("y"),
+                                plt.Apply(
+                                    plt.BuiltIn(uplc.BuiltInFun.EqualsByteString),
+                                    OVar("x"),
+                                ),
+                                # this simply ensures the default is always unequal to the searched value
+                                plt.ConsByteString(plt.Integer(0), OVar("x")),
+                            ),
+                        ),
+                    ),
+                )
         return super().cmp(op, o)
 
     def stringify(self, recursive: bool = False) -> plt.AST:
@@ -2104,9 +2250,20 @@ class BoolType(AtomicType):
                         plt.EqualsInteger(OVar("x"), plt.Integer(0)),
                     ),
                 )
+            if isinstance(op, NotEq):
+                return OLambda(
+                    ["y", "x"],
+                    plt.Ite(
+                        OVar("y"),
+                        plt.NotEqualsInteger(OVar("x"), plt.Integer(1)),
+                        plt.NotEqualsInteger(OVar("x"), plt.Integer(0)),
+                    ),
+                )
         if isinstance(o, BoolType):
             if isinstance(op, Eq):
                 return OLambda(["x", "y"], plt.Iff(OVar("x"), OVar("y")))
+            if isinstance(op, NotEq):
+                return OLambda(["x", "y"], plt.Not(plt.Iff(OVar("x"), OVar("y"))))
         return super().cmp(op, o)
 
     def stringify(self, recursive: bool = False) -> plt.AST:
