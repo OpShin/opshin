@@ -599,7 +599,7 @@ def validator(x: bool, y: int) -> bool:
 def validator(x: str, y: str) -> bool:
     return x != y
             """
-        ret = eval_uplc_value(source_code, x.encode(), y.encode())
+        ret = eval_uplc_value(source_code, x.encode("utf8"), y.encode("utf8"))
         self.assertEqual(ret, x != y, "str neq returned wrong value")
 
     @given(x=st.integers(), y=st.integers())
