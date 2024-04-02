@@ -1321,23 +1321,15 @@ class DictType(ClassType):
                 OLet(
                     [
                         ("hfst", plt.FstPair(OVar("h"))),
-                        (
-                            "found_elem",
-                            plt.FindList(
-                                OVar("t"),
-                                OLambda(
-                                    ["e"],
-                                    plt.EqualsData(
-                                        OVar("hfst"), plt.FstPair(OVar("e"))
-                                    ),
-                                ),
-                                plt.UPLCConstant(uplc.PlutusConstr(-1, [])),
-                            ),
-                        ),
                     ],
-                    plt.EqualsData(
-                        OVar("found_elem"),
-                        plt.UPLCConstant(uplc.PlutusConstr(-1, [])),
+                    plt.Not(
+                        plt.AnyList(
+                            OVar("t"),
+                            OLambda(
+                                ["e"],
+                                plt.EqualsData(OVar("hfst"), plt.FstPair(OVar("e"))),
+                            ),
+                        )
                     ),
                 ),
             ),
