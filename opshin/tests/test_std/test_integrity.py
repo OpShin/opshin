@@ -145,8 +145,12 @@ def validator(x: B) -> None:
 @parameterized.expand(
     [
         [[0, 1, 2], [1, 1, 1]],
+        # check for incorrect type in keys
         [[b"hello", 1], [1, 1]],
+        # check for incorrect type in values
         [[1, 2], [1, b"hello"]],
+        # check for duplicates in keys
+        [[1, 1, 2], [1, 1, 1]],
     ]
 )
 def test_integrity_check_dict(keys, values):
