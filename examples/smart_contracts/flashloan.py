@@ -3,12 +3,18 @@ from opshin.std.fractions import *
 
 
 @dataclass
-class FlashloanState(PlutusData):
+class FlashloanParams(PlutusData):
     CONSTR_ID = 0
     owner: PubKeyHash
-    spent_for: TxOutRef
     loan_token: Token
     loan_fee: Fraction
+
+
+@dataclass
+class FlashloanState(PlutusData):
+    CONSTR_ID = 0
+    params: FlashloanParams
+    spent_for: TxOutRef
 
 
 @dataclass
@@ -31,7 +37,7 @@ def validator(
     tx_info = context.tx_info
     purpose: Spending = context.purpose
     if isinstance(redeemer, FlashWithdraw):
-        assert state.owner in tx_info.signatories, "Only the owner can withdraw"
+        assert state.params.owner in tx_info.signatories, "Only the owner can withdraw"
     elif isinstance(redeemer, FlashLend):
         own_input_info = tx_info.inputs[redeemer.input_index]
         assert (
@@ -42,12 +48,15 @@ def validator(
         assert (
             own_output.address == own_input.address
         ), "Output must be sent back to contract"
-        loan_token = state.loan_token
+        assert own_output.datum == SomeOutputDatum(
+            FlashloanState(state.params, purpose.tx_out_ref)
+        )
+        loan_token = state.params.loan_token
         for pid, name_amount_dict in own_input.value.items():
             for name, amount in name_amount_dict.items():
                 if Token(pid, name) == loan_token:
                     assert ge_fraction(
-                        mul_fraction(Fraction(amount, 1), state.loan_fee),
+                        mul_fraction(Fraction(amount, 1), state.params.loan_fee),
                         Fraction(own_output.value[pid][name], 1),
                     ), "Output must satisfy loan fee"
                 else:
