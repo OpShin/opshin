@@ -249,25 +249,11 @@ class AnyType(ClassType):
                     ["x", "y"],
                     plt.EqualsData(
                         OVar("x"),
-                        plt.FindList(
+                        plt.AnyList(
                             OVar("y"),
                             plt.Apply(
                                 plt.BuiltIn(uplc.BuiltInFun.EqualsData),
                                 OVar("x"),
-                            ),
-                            # this simply ensures the default is always unequal to the searched value
-                            plt.ConstrData(
-                                plt.DelayedChooseData(
-                                    OVar("x"),
-                                    plt.AddInteger(
-                                        plt.Constructor(OVar("x")), plt.Integer(1)
-                                    ),
-                                    plt.Integer(0),
-                                    plt.Integer(0),
-                                    plt.Integer(0),
-                                    plt.Integer(0),
-                                ),
-                                plt.MkNilData(plt.Unit()),
                             ),
                         ),
                     ),
@@ -278,25 +264,11 @@ class AnyType(ClassType):
                     plt.Not(
                         plt.EqualsData(
                             OVar("x"),
-                            plt.FindList(
+                            plt.AnyList(
                                 OVar("y"),
                                 plt.Apply(
                                     plt.BuiltIn(uplc.BuiltInFun.EqualsData),
                                     OVar("x"),
-                                ),
-                                # this simply ensures the default is always unequal to the searched value
-                                plt.ConstrData(
-                                    plt.DelayedChooseData(
-                                        OVar("x"),
-                                        plt.AddInteger(
-                                            plt.Constructor(OVar("x")), plt.Integer(1)
-                                        ),
-                                        plt.Integer(0),
-                                        plt.Integer(0),
-                                        plt.Integer(0),
-                                        plt.Integer(0),
-                                    ),
-                                    plt.MkNilData(plt.Unit()),
                                 ),
                             ),
                         ),
@@ -628,18 +600,11 @@ class RecordType(ClassType):
                     ["x", "y"],
                     plt.EqualsData(
                         OVar("x"),
-                        plt.FindList(
+                        plt.AnyList(
                             OVar("y"),
                             plt.Apply(
                                 plt.BuiltIn(uplc.BuiltInFun.EqualsData),
                                 OVar("x"),
-                            ),
-                            # this simply ensures the default is always unequal to the searched value
-                            plt.ConstrData(
-                                plt.AddInteger(
-                                    plt.Constructor(OVar("x")), plt.Integer(1)
-                                ),
-                                plt.MkNilData(plt.Unit()),
                             ),
                         ),
                     ),
@@ -650,18 +615,11 @@ class RecordType(ClassType):
                     plt.Not(
                         plt.EqualsData(
                             OVar("x"),
-                            plt.FindList(
+                            plt.AnyList(
                                 OVar("y"),
                                 plt.Apply(
                                     plt.BuiltIn(uplc.BuiltInFun.EqualsData),
                                     OVar("x"),
-                                ),
-                                # this simply ensures the default is always unequal to the searched value
-                                plt.ConstrData(
-                                    plt.AddInteger(
-                                        plt.Constructor(OVar("x")), plt.Integer(1)
-                                    ),
-                                    plt.MkNilData(plt.Unit()),
                                 ),
                             ),
                         ),
@@ -879,18 +837,11 @@ class UnionType(ClassType):
                     ["x", "y"],
                     plt.EqualsData(
                         OVar("x"),
-                        plt.FindList(
+                        plt.AnyList(
                             OVar("y"),
                             plt.Apply(
                                 plt.BuiltIn(uplc.BuiltInFun.EqualsData),
                                 OVar("x"),
-                            ),
-                            # this simply ensures the default is always unequal to the searched value
-                            plt.ConstrData(
-                                plt.AddInteger(
-                                    plt.Constructor(OVar("x")), plt.Integer(1)
-                                ),
-                                plt.MkNilData(plt.Unit()),
                             ),
                         ),
                     ),
@@ -901,18 +852,11 @@ class UnionType(ClassType):
                     plt.Not(
                         plt.EqualsData(
                             OVar("x"),
-                            plt.FindList(
+                            plt.AnyList(
                                 OVar("y"),
                                 plt.Apply(
                                     plt.BuiltIn(uplc.BuiltInFun.EqualsData),
                                     OVar("x"),
-                                ),
-                                # this simply ensures the default is always unequal to the searched value
-                                plt.ConstrData(
-                                    plt.AddInteger(
-                                        plt.Constructor(OVar("x")), plt.Integer(1)
-                                    ),
-                                    plt.MkNilData(plt.Unit()),
                                 ),
                             ),
                         ),
@@ -1623,13 +1567,11 @@ class IntegerType(AtomicType):
                     ["x", "y"],
                     plt.EqualsInteger(
                         OVar("x"),
-                        plt.FindList(
+                        plt.AnyList(
                             OVar("y"),
                             plt.Apply(
                                 plt.BuiltIn(uplc.BuiltInFun.EqualsInteger), OVar("x")
                             ),
-                            # this simply ensures the default is always unequal to the searched value
-                            plt.AddInteger(OVar("x"), plt.Integer(1)),
                         ),
                     ),
                 )
@@ -1638,13 +1580,11 @@ class IntegerType(AtomicType):
                     ["x", "y"],
                     plt.NotEqualsInteger(
                         OVar("x"),
-                        plt.FindList(
+                        plt.AnyList(
                             OVar("y"),
                             plt.Apply(
                                 plt.BuiltIn(uplc.BuiltInFun.EqualsInteger), OVar("x")
                             ),
-                            # this simply ensures the default is always unequal to the searched value
-                            plt.AddInteger(OVar("x"), plt.Integer(1)),
                         ),
                     ),
                 )
@@ -2006,14 +1946,12 @@ class ByteStringType(AtomicType):
                     ["x", "y"],
                     plt.EqualsByteString(
                         OVar("x"),
-                        plt.FindList(
+                        plt.AnyList(
                             OVar("y"),
                             plt.Apply(
                                 plt.BuiltIn(uplc.BuiltInFun.EqualsByteString),
                                 OVar("x"),
                             ),
-                            # this simply ensures the default is always unequal to the searched value
-                            plt.ConsByteString(plt.Integer(0), OVar("x")),
                         ),
                     ),
                 )
@@ -2023,14 +1961,12 @@ class ByteStringType(AtomicType):
                     plt.Not(
                         plt.EqualsByteString(
                             OVar("x"),
-                            plt.FindList(
+                            plt.AnyList(
                                 OVar("y"),
                                 plt.Apply(
                                     plt.BuiltIn(uplc.BuiltInFun.EqualsByteString),
                                     OVar("x"),
                                 ),
-                                # this simply ensures the default is always unequal to the searched value
-                                plt.ConsByteString(plt.Integer(0), OVar("x")),
                             ),
                         ),
                     ),
