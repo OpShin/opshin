@@ -247,28 +247,11 @@ class AnyType(ClassType):
             if isinstance(op, In):
                 return OLambda(
                     ["x", "y"],
-                    plt.EqualsData(
-                        OVar("x"),
-                        plt.FindList(
-                            OVar("y"),
-                            plt.Apply(
-                                plt.BuiltIn(uplc.BuiltInFun.EqualsData),
-                                OVar("x"),
-                            ),
-                            # this simply ensures the default is always unequal to the searched value
-                            plt.ConstrData(
-                                plt.DelayedChooseData(
-                                    OVar("x"),
-                                    plt.AddInteger(
-                                        plt.Constructor(OVar("x")), plt.Integer(1)
-                                    ),
-                                    plt.Integer(0),
-                                    plt.Integer(0),
-                                    plt.Integer(0),
-                                    plt.Integer(0),
-                                ),
-                                plt.MkNilData(plt.Unit()),
-                            ),
+                    plt.AnyList(
+                        OVar("y"),
+                        plt.Apply(
+                            plt.BuiltIn(uplc.BuiltInFun.EqualsData),
+                            OVar("x"),
                         ),
                     ),
                 )
@@ -276,28 +259,11 @@ class AnyType(ClassType):
                 return OLambda(
                     ["x", "y"],
                     plt.Not(
-                        plt.EqualsData(
-                            OVar("x"),
-                            plt.FindList(
-                                OVar("y"),
-                                plt.Apply(
-                                    plt.BuiltIn(uplc.BuiltInFun.EqualsData),
-                                    OVar("x"),
-                                ),
-                                # this simply ensures the default is always unequal to the searched value
-                                plt.ConstrData(
-                                    plt.DelayedChooseData(
-                                        OVar("x"),
-                                        plt.AddInteger(
-                                            plt.Constructor(OVar("x")), plt.Integer(1)
-                                        ),
-                                        plt.Integer(0),
-                                        plt.Integer(0),
-                                        plt.Integer(0),
-                                        plt.Integer(0),
-                                    ),
-                                    plt.MkNilData(plt.Unit()),
-                                ),
+                        plt.AnyList(
+                            OVar("y"),
+                            plt.Apply(
+                                plt.BuiltIn(uplc.BuiltInFun.EqualsData),
+                                OVar("x"),
                             ),
                         ),
                     ),
@@ -626,21 +592,11 @@ class RecordType(ClassType):
             if isinstance(op, In):
                 return OLambda(
                     ["x", "y"],
-                    plt.EqualsData(
-                        OVar("x"),
-                        plt.FindList(
-                            OVar("y"),
-                            plt.Apply(
-                                plt.BuiltIn(uplc.BuiltInFun.EqualsData),
-                                OVar("x"),
-                            ),
-                            # this simply ensures the default is always unequal to the searched value
-                            plt.ConstrData(
-                                plt.AddInteger(
-                                    plt.Constructor(OVar("x")), plt.Integer(1)
-                                ),
-                                plt.MkNilData(plt.Unit()),
-                            ),
+                    plt.AnyList(
+                        OVar("y"),
+                        plt.Apply(
+                            plt.BuiltIn(uplc.BuiltInFun.EqualsData),
+                            OVar("x"),
                         ),
                     ),
                 )
@@ -648,21 +604,11 @@ class RecordType(ClassType):
                 return OLambda(
                     ["x", "y"],
                     plt.Not(
-                        plt.EqualsData(
-                            OVar("x"),
-                            plt.FindList(
-                                OVar("y"),
-                                plt.Apply(
-                                    plt.BuiltIn(uplc.BuiltInFun.EqualsData),
-                                    OVar("x"),
-                                ),
-                                # this simply ensures the default is always unequal to the searched value
-                                plt.ConstrData(
-                                    plt.AddInteger(
-                                        plt.Constructor(OVar("x")), plt.Integer(1)
-                                    ),
-                                    plt.MkNilData(plt.Unit()),
-                                ),
+                        plt.AnyList(
+                            OVar("y"),
+                            plt.Apply(
+                                plt.BuiltIn(uplc.BuiltInFun.EqualsData),
+                                OVar("x"),
                             ),
                         ),
                     ),
@@ -877,21 +823,11 @@ class UnionType(ClassType):
             if isinstance(op, In):
                 return OLambda(
                     ["x", "y"],
-                    plt.EqualsData(
-                        OVar("x"),
-                        plt.FindList(
-                            OVar("y"),
-                            plt.Apply(
-                                plt.BuiltIn(uplc.BuiltInFun.EqualsData),
-                                OVar("x"),
-                            ),
-                            # this simply ensures the default is always unequal to the searched value
-                            plt.ConstrData(
-                                plt.AddInteger(
-                                    plt.Constructor(OVar("x")), plt.Integer(1)
-                                ),
-                                plt.MkNilData(plt.Unit()),
-                            ),
+                    plt.AnyList(
+                        OVar("y"),
+                        plt.Apply(
+                            plt.BuiltIn(uplc.BuiltInFun.EqualsData),
+                            OVar("x"),
                         ),
                     ),
                 )
@@ -899,21 +835,11 @@ class UnionType(ClassType):
                 return OLambda(
                     ["x", "y"],
                     plt.Not(
-                        plt.EqualsData(
-                            OVar("x"),
-                            plt.FindList(
-                                OVar("y"),
-                                plt.Apply(
-                                    plt.BuiltIn(uplc.BuiltInFun.EqualsData),
-                                    OVar("x"),
-                                ),
-                                # this simply ensures the default is always unequal to the searched value
-                                plt.ConstrData(
-                                    plt.AddInteger(
-                                        plt.Constructor(OVar("x")), plt.Integer(1)
-                                    ),
-                                    plt.MkNilData(plt.Unit()),
-                                ),
+                        plt.AnyList(
+                            OVar("y"),
+                            plt.Apply(
+                                plt.BuiltIn(uplc.BuiltInFun.EqualsData),
+                                OVar("x"),
                             ),
                         ),
                     ),
@@ -1621,30 +1547,22 @@ class IntegerType(AtomicType):
             if isinstance(op, In):
                 return OLambda(
                     ["x", "y"],
-                    plt.EqualsInteger(
-                        OVar("x"),
-                        plt.FindList(
-                            OVar("y"),
-                            plt.Apply(
-                                plt.BuiltIn(uplc.BuiltInFun.EqualsInteger), OVar("x")
-                            ),
-                            # this simply ensures the default is always unequal to the searched value
-                            plt.AddInteger(OVar("x"), plt.Integer(1)),
+                    plt.AnyList(
+                        OVar("y"),
+                        plt.Apply(
+                            plt.BuiltIn(uplc.BuiltInFun.EqualsInteger), OVar("x")
                         ),
                     ),
                 )
             if isinstance(op, NotIn):
                 return OLambda(
                     ["x", "y"],
-                    plt.NotEqualsInteger(
-                        OVar("x"),
-                        plt.FindList(
+                    plt.Not(
+                        plt.AnyList(
                             OVar("y"),
                             plt.Apply(
                                 plt.BuiltIn(uplc.BuiltInFun.EqualsInteger), OVar("x")
                             ),
-                            # this simply ensures the default is always unequal to the searched value
-                            plt.AddInteger(OVar("x"), plt.Integer(1)),
                         ),
                     ),
                 )
@@ -2004,16 +1922,11 @@ class ByteStringType(AtomicType):
             if isinstance(op, In):
                 return OLambda(
                     ["x", "y"],
-                    plt.EqualsByteString(
-                        OVar("x"),
-                        plt.FindList(
-                            OVar("y"),
-                            plt.Apply(
-                                plt.BuiltIn(uplc.BuiltInFun.EqualsByteString),
-                                OVar("x"),
-                            ),
-                            # this simply ensures the default is always unequal to the searched value
-                            plt.ConsByteString(plt.Integer(0), OVar("x")),
+                    plt.AnyList(
+                        OVar("y"),
+                        plt.Apply(
+                            plt.BuiltIn(uplc.BuiltInFun.EqualsByteString),
+                            OVar("x"),
                         ),
                     ),
                 )
@@ -2021,16 +1934,11 @@ class ByteStringType(AtomicType):
                 return OLambda(
                     ["x", "y"],
                     plt.Not(
-                        plt.EqualsByteString(
-                            OVar("x"),
-                            plt.FindList(
-                                OVar("y"),
-                                plt.Apply(
-                                    plt.BuiltIn(uplc.BuiltInFun.EqualsByteString),
-                                    OVar("x"),
-                                ),
-                                # this simply ensures the default is always unequal to the searched value
-                                plt.ConsByteString(plt.Integer(0), OVar("x")),
+                        plt.AnyList(
+                            OVar("y"),
+                            plt.Apply(
+                                plt.BuiltIn(uplc.BuiltInFun.EqualsByteString),
+                                OVar("x"),
                             ),
                         ),
                     ),
