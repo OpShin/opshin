@@ -103,8 +103,6 @@ from .rewrite.rewrite_cast_condition import SPECIAL_BOOL
 
 # from frozendict import frozendict
 
-_LOGGER = logging.getLogger(__name__)
-
 
 INITIAL_SCOPE = {
     # class annotations
@@ -229,9 +227,11 @@ class TypeCheckVisitor(TypedNodeVisitor):
         if not (isinstance(node.func, Name) and node.func.orig_id == &#34;isinstance&#34;):
             return ({}, {})
         # special case for Union
-        assert isinstance(
-            node.args[0], Name
-        ), &#34;Target 0 of an isinstance cast must be a variable name&#34;
+        if not isinstance(node.args[0], Name):
+            OPSHIN_LOGGER.warning(
+                &#34;Target 0 of an isinstance cast must be a variable name for type casting to work. You can still proceed, but the inferred type of the isinstance cast will not be accurate.&#34;
+            )
+            return ({}, {})
         assert isinstance(
             node.args[1], Name
         ), &#34;Target 1 of an isinstance cast must be a class name&#34;
@@ -452,6 +452,11 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             type(...),
         ], &#34;Float, complex numbers and ellipsis currently not supported&#34;
         tc.typ = constant_type(node.value)
+        return tc
+
+    def visit_NoneType(self, node: None) -&gt; TypedConstant:
+        tc = Constant(value=None)
+        tc.typ = constant_type(tc.value)
         return tc
 
     def visit_Tuple(self, node: Tuple) -&gt; TypedTuple:
@@ -1539,6 +1544,11 @@ just a single node.</p>
             type(...),
         ], &#34;Float, complex numbers and ellipsis currently not supported&#34;
         tc.typ = constant_type(node.value)
+        return tc
+
+    def visit_NoneType(self, node: None) -&gt; TypedConstant:
+        tc = Constant(value=None)
+        tc.typ = constant_type(tc.value)
         return tc
 
     def visit_Tuple(self, node: Tuple) -&gt; TypedTuple:
@@ -2972,6 +2982,21 @@ just a single node.</p>
     return tn</code></pre>
 </details>
 </dd>
+<dt id="opshin.type_inference.AggressiveTypeInferencer.visit_NoneType"><code class="name flex">
+<span>def <span class="ident">visit_NoneType</span></span>(<span>self, node: None) ‑> <a title="opshin.typed_ast.TypedConstant" href="typed_ast.html#opshin.typed_ast.TypedConstant">TypedConstant</a></span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def visit_NoneType(self, node: None) -&gt; TypedConstant:
+    tc = Constant(value=None)
+    tc.typ = constant_type(tc.value)
+    return tc</code></pre>
+</details>
+</dd>
 <dt id="opshin.type_inference.AggressiveTypeInferencer.visit_Pass"><code class="name flex">
 <span>def <span class="ident">visit_Pass</span></span>(<span>self, node: ast.Pass) ‑> <a title="opshin.typed_ast.TypedPass" href="typed_ast.html#opshin.typed_ast.TypedPass">TypedPass</a></span>
 </code></dt>
@@ -3787,9 +3812,11 @@ is True/False respectively</p></div>
         if not (isinstance(node.func, Name) and node.func.orig_id == &#34;isinstance&#34;):
             return ({}, {})
         # special case for Union
-        assert isinstance(
-            node.args[0], Name
-        ), &#34;Target 0 of an isinstance cast must be a variable name&#34;
+        if not isinstance(node.args[0], Name):
+            OPSHIN_LOGGER.warning(
+                &#34;Target 0 of an isinstance cast must be a variable name for type casting to work. You can still proceed, but the inferred type of the isinstance cast will not be accurate.&#34;
+            )
+            return ({}, {})
         assert isinstance(
             node.args[1], Name
         ), &#34;Target 1 of an isinstance cast must be a class name&#34;
@@ -3940,9 +3967,11 @@ is True/False respectively</p></div>
     if not (isinstance(node.func, Name) and node.func.orig_id == &#34;isinstance&#34;):
         return ({}, {})
     # special case for Union
-    assert isinstance(
-        node.args[0], Name
-    ), &#34;Target 0 of an isinstance cast must be a variable name&#34;
+    if not isinstance(node.args[0], Name):
+        OPSHIN_LOGGER.warning(
+            &#34;Target 0 of an isinstance cast must be a variable name for type casting to work. You can still proceed, but the inferred type of the isinstance cast will not be accurate.&#34;
+        )
+        return ({}, {})
     assert isinstance(
         node.args[1], Name
     ), &#34;Target 1 of an isinstance cast must be a class name&#34;
@@ -4106,6 +4135,7 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="opshin.type_inference.AggressiveTypeInferencer.visit_ListComp" href="#opshin.type_inference.AggressiveTypeInferencer.visit_ListComp">visit_ListComp</a></code></li>
 <li><code><a title="opshin.type_inference.AggressiveTypeInferencer.visit_Module" href="#opshin.type_inference.AggressiveTypeInferencer.visit_Module">visit_Module</a></code></li>
 <li><code><a title="opshin.type_inference.AggressiveTypeInferencer.visit_Name" href="#opshin.type_inference.AggressiveTypeInferencer.visit_Name">visit_Name</a></code></li>
+<li><code><a title="opshin.type_inference.AggressiveTypeInferencer.visit_NoneType" href="#opshin.type_inference.AggressiveTypeInferencer.visit_NoneType">visit_NoneType</a></code></li>
 <li><code><a title="opshin.type_inference.AggressiveTypeInferencer.visit_Pass" href="#opshin.type_inference.AggressiveTypeInferencer.visit_Pass">visit_Pass</a></code></li>
 <li><code><a title="opshin.type_inference.AggressiveTypeInferencer.visit_RawPlutoExpr" href="#opshin.type_inference.AggressiveTypeInferencer.visit_RawPlutoExpr">visit_RawPlutoExpr</a></code></li>
 <li><code><a title="opshin.type_inference.AggressiveTypeInferencer.visit_Return" href="#opshin.type_inference.AggressiveTypeInferencer.visit_Return">visit_Return</a></code></li>

@@ -6,7 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
 <meta name="generator" content="pdoc 0.10.0" />
 <link rel="icon" href="https://raw.githubusercontent.com/OpShin/opshin/dev/docs/opshin_32.png" sizes="32x32" type="image/png">
-<title>opshin.tests.utils API documentation</title>
+<title>opshin.compiler_config API documentation</title>
 <meta name="description" content="" />
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/sanitize.min.css" integrity="sha256-PK9q560IAAa6WVRRh76LtCaI8pjTJ2z11v0miyNNjrs=" crossorigin>
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/typography.min.css" integrity="sha256-7l/o7C8jubJiy74VsKTidCy1yBkRtiUGbVkYBylBqUg=" crossorigin>
@@ -61,149 +61,132 @@ fill="currentColor" class="octo-body"></path>
 </a>
 <article id="content">
 <header>
-<h1 class="title">Module <code>opshin.tests.utils</code></h1>
+<h1 class="title">Module <code>opshin.compiler_config</code></h1>
 </header>
 <section id="section-intro">
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">import dataclasses
-import functools
-import typing
+<pre><code class="python">from dataclasses import dataclass
+from typing import Optional
 
-import pycardano
-import uplc.ast as uplc_ast
-from pycardano import PlutusData
-from uplc import eval as uplc_eval
-
-from .. import DEFAULT_CONFIG
-from ..builder import _compile
+import pluthon
 
 
-@dataclasses.dataclass
-class Unit(PlutusData):
-    CONSTR_ID = 0
+@dataclass(frozen=True)
+class CompilationConfig(pluthon.CompilationConfig):
+    constant_folding: Optional[bool] = None
+    allow_isinstance_anything: Optional[bool] = None
+    force_three_params: Optional[bool] = None
+    remove_dead_code: Optional[bool] = None
 
 
-def eval_uplc(
-    source_code: str,
-    *args: typing.Union[pycardano.Datum, uplc_ast.Constant],
-    contract_file: str = &#34;&lt;unknown&gt;&#34;,
-    validator_function_name=&#34;validator&#34;,
-    config=DEFAULT_CONFIG,
-):
-    code = _compile(
-        source_code,
-        *args,
-        contract_file=contract_file,
-        validator_function_name=validator_function_name,
-        config=config,
+# The default configuration for the compiler
+OPT_O0_CONFIG = (
+    CompilationConfig()
+    .update(pluthon.OPT_O0_CONFIG)
+    .update(
+        constant_folding=False,
+        remove_dead_code=False,
     )
-    return uplc_eval(code)
-
-
-def eval_uplc_value(
-    source_code: str,
-    *args: typing.Union[pycardano.Datum, uplc_ast.Constant],
-    contract_file: str = &#34;&lt;unknown&gt;&#34;,
-    validator_function_name=&#34;validator&#34;,
-    config=DEFAULT_CONFIG,
-):
-    return eval_uplc(
-        source_code,
-        *args,
-        contract_file=contract_file,
-        validator_function_name=validator_function_name,
-        config=config,
-    ).value</code></pre>
-</details>
-</section>
-<section>
-</section>
-<section>
-</section>
-<section>
-<h2 class="section-title" id="header-functions">Functions</h2>
-<dl>
-<dt id="opshin.tests.utils.eval_uplc"><code class="name flex">
-<span>def <span class="ident">eval_uplc</span></span>(<span>source_code: str, *args: Union[pycardano.plutus.PlutusData, dict, int, bytes, pycardano.serialization.IndefiniteList, pycardano.serialization.RawCBOR, pycardano.plutus.RawPlutusData, uplc.ast.Constant], contract_file: str = &#x27;&lt;unknown&gt;&#x27;, validator_function_name='validator', config=CompilationConfig(compress_patterns=False, iterative_unfold_patterns=False, constant_index_access_list=True, constant_folding=False, allow_isinstance_anything=False, force_three_params=False, remove_dead_code=True))</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def eval_uplc(
-    source_code: str,
-    *args: typing.Union[pycardano.Datum, uplc_ast.Constant],
-    contract_file: str = &#34;&lt;unknown&gt;&#34;,
-    validator_function_name=&#34;validator&#34;,
-    config=DEFAULT_CONFIG,
-):
-    code = _compile(
-        source_code,
-        *args,
-        contract_file=contract_file,
-        validator_function_name=validator_function_name,
-        config=config,
+)
+OPT_O1_CONFIG = (
+    CompilationConfig()
+    .update(pluthon.OPT_O1_CONFIG)
+    .update(OPT_O0_CONFIG)
+    .update(
+        remove_dead_code=True,
     )
-    return uplc_eval(code)</code></pre>
+)
+OPT_O2_CONFIG = (
+    CompilationConfig()
+    .update(pluthon.OPT_O2_CONFIG)
+    .update(OPT_O1_CONFIG)
+    .update(
+        constant_folding=True,
+    )
+)
+OPT_O3_CONFIG = (
+    CompilationConfig().update(pluthon.OPT_O3_CONFIG).update(OPT_O2_CONFIG).update()
+)
+OPT_CONFIGS = [OPT_O0_CONFIG, OPT_O1_CONFIG, OPT_O2_CONFIG, OPT_O3_CONFIG]
+
+DEFAULT_CONFIG = CompilationConfig(
+    allow_isinstance_anything=False,
+    force_three_params=False,
+).update(OPT_O1_CONFIG)
+
+ARGPARSE_ARGS = pluthon.ARGPARSE_ARGS.copy()
+ARGPARSE_ARGS.update(
+    {
+        &#34;constant_folding&#34;: {
+            &#34;__alts__&#34;: [&#34;--cf&#34;],
+            &#34;help&#34;: &#34;Enables experimental constant folding, including propagation and code execution.&#34;,
+        },
+        &#34;allow_isinstance_anything&#34;: {
+            &#34;help&#34;: &#34;Enables the use of isinstance(x, D) in the contract where x is of type Anything. This is not recommended as it only checks the constructor id and not the actual type of the data.&#34;,
+        },
+        &#34;force_three_params&#34;: {
+            &#34;__alts__&#34;: [&#34;--ftp&#34;],
+            &#34;help&#34;: &#34;Enforces that the contract is always called with three virtual parameters on-chain. Enable if the script should support spending and other purposes.&#34;,
+        },
+        &#34;remove_dead_code&#34;: {
+            &#34;help&#34;: &#34;Removes dead code and variables from the contract. Should be enabled for non-debugging purposes.&#34;,
+        },
+    }
+)
+for k in ARGPARSE_ARGS:
+    assert (
+        k in DEFAULT_CONFIG.__dict__
+    ), f&#34;Key {k} not found in CompilationConfig.__dict__&#34;</code></pre>
 </details>
-</dd>
-<dt id="opshin.tests.utils.eval_uplc_value"><code class="name flex">
-<span>def <span class="ident">eval_uplc_value</span></span>(<span>source_code: str, *args: Union[pycardano.plutus.PlutusData, dict, int, bytes, pycardano.serialization.IndefiniteList, pycardano.serialization.RawCBOR, pycardano.plutus.RawPlutusData, uplc.ast.Constant], contract_file: str = &#x27;&lt;unknown&gt;&#x27;, validator_function_name='validator', config=CompilationConfig(compress_patterns=False, iterative_unfold_patterns=False, constant_index_access_list=True, constant_folding=False, allow_isinstance_anything=False, force_three_params=False, remove_dead_code=True))</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def eval_uplc_value(
-    source_code: str,
-    *args: typing.Union[pycardano.Datum, uplc_ast.Constant],
-    contract_file: str = &#34;&lt;unknown&gt;&#34;,
-    validator_function_name=&#34;validator&#34;,
-    config=DEFAULT_CONFIG,
-):
-    return eval_uplc(
-        source_code,
-        *args,
-        contract_file=contract_file,
-        validator_function_name=validator_function_name,
-        config=config,
-    ).value</code></pre>
-</details>
-</dd>
-</dl>
+</section>
+<section>
+</section>
+<section>
+</section>
+<section>
 </section>
 <section>
 <h2 class="section-title" id="header-classes">Classes</h2>
 <dl>
-<dt id="opshin.tests.utils.Unit"><code class="flex name class">
-<span>class <span class="ident">Unit</span></span>
+<dt id="opshin.compiler_config.CompilationConfig"><code class="flex name class">
+<span>class <span class="ident">CompilationConfig</span></span>
+<span>(</span><span>compress_patterns: Optional[bool] = None, iterative_unfold_patterns: Optional[bool] = None, constant_index_access_list: Optional[bool] = None, constant_folding: Optional[bool] = None, allow_isinstance_anything: Optional[bool] = None, force_three_params: Optional[bool] = None, remove_dead_code: Optional[bool] = None)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Unit()</p></div>
+<div class="desc"><p>CompilationConfig(compress_patterns: Optional[bool] = None, iterative_unfold_patterns: Optional[bool] = None, constant_index_access_list: Optional[bool] = None, constant_folding: Optional[bool] = None, allow_isinstance_anything: Optional[bool] = None, force_three_params: Optional[bool] = None, remove_dead_code: Optional[bool] = None)</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">@dataclasses.dataclass
-class Unit(PlutusData):
-    CONSTR_ID = 0</code></pre>
+<pre><code class="python">@dataclass(frozen=True)
+class CompilationConfig(pluthon.CompilationConfig):
+    constant_folding: Optional[bool] = None
+    allow_isinstance_anything: Optional[bool] = None
+    force_three_params: Optional[bool] = None
+    remove_dead_code: Optional[bool] = None</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
-<li>pycardano.plutus.PlutusData</li>
-<li>pycardano.serialization.ArrayCBORSerializable</li>
-<li>pycardano.serialization.CBORSerializable</li>
+<li>pluthon.compiler_config.CompilationConfig</li>
 </ul>
 <h3>Class variables</h3>
 <dl>
-<dt id="opshin.tests.utils.Unit.CONSTR_ID"><code class="name">var <span class="ident">CONSTR_ID</span></code></dt>
+<dt id="opshin.compiler_config.CompilationConfig.allow_isinstance_anything"><code class="name">var <span class="ident">allow_isinstance_anything</span> : Optional[bool]</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="opshin.compiler_config.CompilationConfig.constant_folding"><code class="name">var <span class="ident">constant_folding</span> : Optional[bool]</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="opshin.compiler_config.CompilationConfig.force_three_params"><code class="name">var <span class="ident">force_three_params</span> : Optional[bool]</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="opshin.compiler_config.CompilationConfig.remove_dead_code"><code class="name">var <span class="ident">remove_dead_code</span> : Optional[bool]</code></dt>
 <dd>
 <div class="desc"></div>
 </dd>
@@ -254,7 +237,7 @@ const query = new URL(window.location).searchParams.get('q');
 if (query)
 search(query);
 function search(query) {
-const url = '../../doc-search.html#' + encodeURIComponent(query);
+const url = '../doc-search.html#' + encodeURIComponent(query);
 new tingle.modal({
 cssClass: ['modal-dialog'],
 onClose: () => {
@@ -273,21 +256,18 @@ setTimeout(() => input.focus(), 100);
 <ul id="index">
 <li><h3>Super-module</h3>
 <ul>
-<li><code><a title="opshin.tests" href="index.html">opshin.tests</a></code></li>
-</ul>
-</li>
-<li><h3><a href="#header-functions">Functions</a></h3>
-<ul class="">
-<li><code><a title="opshin.tests.utils.eval_uplc" href="#opshin.tests.utils.eval_uplc">eval_uplc</a></code></li>
-<li><code><a title="opshin.tests.utils.eval_uplc_value" href="#opshin.tests.utils.eval_uplc_value">eval_uplc_value</a></code></li>
+<li><code><a title="opshin" href="index.html">opshin</a></code></li>
 </ul>
 </li>
 <li><h3><a href="#header-classes">Classes</a></h3>
 <ul>
 <li>
-<h4><code><a title="opshin.tests.utils.Unit" href="#opshin.tests.utils.Unit">Unit</a></code></h4>
+<h4><code><a title="opshin.compiler_config.CompilationConfig" href="#opshin.compiler_config.CompilationConfig">CompilationConfig</a></code></h4>
 <ul class="">
-<li><code><a title="opshin.tests.utils.Unit.CONSTR_ID" href="#opshin.tests.utils.Unit.CONSTR_ID">CONSTR_ID</a></code></li>
+<li><code><a title="opshin.compiler_config.CompilationConfig.allow_isinstance_anything" href="#opshin.compiler_config.CompilationConfig.allow_isinstance_anything">allow_isinstance_anything</a></code></li>
+<li><code><a title="opshin.compiler_config.CompilationConfig.constant_folding" href="#opshin.compiler_config.CompilationConfig.constant_folding">constant_folding</a></code></li>
+<li><code><a title="opshin.compiler_config.CompilationConfig.force_three_params" href="#opshin.compiler_config.CompilationConfig.force_three_params">force_three_params</a></code></li>
+<li><code><a title="opshin.compiler_config.CompilationConfig.remove_dead_code" href="#opshin.compiler_config.CompilationConfig.remove_dead_code">remove_dead_code</a></code></li>
 </ul>
 </li>
 </ul>

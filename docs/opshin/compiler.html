@@ -71,6 +71,8 @@ fill="currentColor" class="octo-body"></path>
 <pre><code class="python">import copy
 
 from uplc.ast import data_from_cbor
+
+from .compiler_config import DEFAULT_CONFIG
 from .optimize.optimize_const_folding import OptimizeConstantFolding
 from .optimize.optimize_remove_comments import OptimizeRemoveDeadconstants
 from .rewrite.rewrite_augassign import RewriteAugAssign
@@ -106,8 +108,6 @@ from .typed_ast import (
     transform_output_map,
     RawPlutoExpr,
 )
-
-_LOGGER = logging.getLogger(__name__)
 
 
 BoolOpMap = {
@@ -300,7 +300,7 @@ class PlutoCompiler(CompilingNodeTransformer):
                 else:
                     possible_types = [second_last_arg.typ]
                 if any(isinstance(t, UnitType) for t in possible_types):
-                    _LOGGER.warning(
+                    OPSHIN_LOGGER.warning(
                         &#34;The redeemer is annotated to be &#39;None&#39;. This value is usually encoded in PlutusData with constructor id 0 and no fields. If you want the script to double function as minting and spending script, annotate the second argument with &#39;NoRedeemer&#39;.&#34;
                     )
                 enable_double_func_mint_spend = not any(
@@ -309,7 +309,7 @@ class PlutoCompiler(CompilingNodeTransformer):
                     for t in possible_types
                 )
                 if not enable_double_func_mint_spend:
-                    _LOGGER.warning(
+                    OPSHIN_LOGGER.warning(
                         &#34;The second argument to the validator function potentially has constructor id 0. The validator will not be able to double function as minting script and spending script.&#34;
                     )
 
@@ -401,7 +401,7 @@ class PlutoCompiler(CompilingNodeTransformer):
             except ValueError:
                 pass
             else:
-                _LOGGER.warning(
+                OPSHIN_LOGGER.warning(
                     f&#34;The string {node.value} looks like it is supposed to be a hex-encoded bytestring but is actually utf8-encoded. Try using `bytes.fromhex(&#39;{node.value.decode()}&#39;)` instead.&#34;
                 )
         plt_val = plt.UPLCConstant(rec_constant_map(node.value))
@@ -1097,18 +1097,15 @@ class PlutoCompiler(CompilingNodeTransformer):
 def compile(
     prog: AST,
     filename=None,
-    force_three_params=False,
-    remove_dead_code=True,
-    constant_folding=False,
     validator_function_name=&#34;validator&#34;,
-    allow_isinstance_anything=False,
+    config=DEFAULT_CONFIG,
 ) -&gt; plt.Program:
     compile_pipeline = [
         # Important to call this one first - it imports all further files
         RewriteImport(filename=filename),
         # Rewrites that simplify the python code
         RewriteForbiddenReturn(),
-        OptimizeConstantFolding() if constant_folding else NoOp(),
+        OptimizeConstantFolding() if config.constant_folding else NoOp(),
         RewriteSubscript38(),
         RewriteAugAssign(),
         RewriteComparisonChaining(),
@@ -1125,7 +1122,7 @@ def compile(
         RewriteOrigName(),
         RewriteScoping(),
         # The type inference needs to be run after complex python operations were rewritten
-        AggressiveTypeInferencer(allow_isinstance_anything),
+        AggressiveTypeInferencer(config.allow_isinstance_anything),
         # Rewrites that circumvent the type inference or use its results
         RewriteEmptyLists(),
         RewriteEmptyDicts(),
@@ -1133,8 +1130,8 @@ def compile(
         RewriteInjectBuiltinsConstr(),
         RewriteRemoveTypeStuff(),
         # Apply optimizations
-        OptimizeRemoveDeadvars() if remove_dead_code else NoOp(),
-        OptimizeRemoveDeadconstants(),
+        OptimizeRemoveDeadvars() if config.remove_dead_code else NoOp(),
+        OptimizeRemoveDeadconstants() if config.remove_dead_code else NoOp(),
         OptimizeRemovePass(),
     ]
     for s in compile_pipeline:
@@ -1143,7 +1140,7 @@ def compile(
 
     # the compiler runs last
     s = PlutoCompiler(
-        force_three_params=force_three_params,
+        force_three_params=config.force_three_params,
         validator_function_name=validator_function_name,
     )
     prog = s.visit(prog)
@@ -1159,7 +1156,7 @@ def compile(
 <h2 class="section-title" id="header-functions">Functions</h2>
 <dl>
 <dt id="opshin.compiler.compile"><code class="name flex">
-<span>def <span class="ident">compile</span></span>(<span>prog: ast.AST, filename=None, force_three_params=False, remove_dead_code=True, constant_folding=False, validator_function_name='validator', allow_isinstance_anything=False) ‑> pluthon.pluthon_ast.Program</span>
+<span>def <span class="ident">compile</span></span>(<span>prog: ast.AST, filename=None, validator_function_name='validator', config=CompilationConfig(compress_patterns=False, iterative_unfold_patterns=False, constant_index_access_list=True, constant_folding=False, allow_isinstance_anything=False, force_three_params=False, remove_dead_code=True)) ‑> pluthon.pluthon_ast.Program</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -1170,18 +1167,15 @@ def compile(
 <pre><code class="python">def compile(
     prog: AST,
     filename=None,
-    force_three_params=False,
-    remove_dead_code=True,
-    constant_folding=False,
     validator_function_name=&#34;validator&#34;,
-    allow_isinstance_anything=False,
+    config=DEFAULT_CONFIG,
 ) -&gt; plt.Program:
     compile_pipeline = [
         # Important to call this one first - it imports all further files
         RewriteImport(filename=filename),
         # Rewrites that simplify the python code
         RewriteForbiddenReturn(),
-        OptimizeConstantFolding() if constant_folding else NoOp(),
+        OptimizeConstantFolding() if config.constant_folding else NoOp(),
         RewriteSubscript38(),
         RewriteAugAssign(),
         RewriteComparisonChaining(),
@@ -1198,7 +1192,7 @@ def compile(
         RewriteOrigName(),
         RewriteScoping(),
         # The type inference needs to be run after complex python operations were rewritten
-        AggressiveTypeInferencer(allow_isinstance_anything),
+        AggressiveTypeInferencer(config.allow_isinstance_anything),
         # Rewrites that circumvent the type inference or use its results
         RewriteEmptyLists(),
         RewriteEmptyDicts(),
@@ -1206,8 +1200,8 @@ def compile(
         RewriteInjectBuiltinsConstr(),
         RewriteRemoveTypeStuff(),
         # Apply optimizations
-        OptimizeRemoveDeadvars() if remove_dead_code else NoOp(),
-        OptimizeRemoveDeadconstants(),
+        OptimizeRemoveDeadvars() if config.remove_dead_code else NoOp(),
+        OptimizeRemoveDeadconstants() if config.remove_dead_code else NoOp(),
         OptimizeRemovePass(),
     ]
     for s in compile_pipeline:
@@ -1216,7 +1210,7 @@ def compile(
 
     # the compiler runs last
     s = PlutoCompiler(
-        force_three_params=force_three_params,
+        force_three_params=config.force_three_params,
         validator_function_name=validator_function_name,
     )
     prog = s.visit(prog)
@@ -1448,7 +1442,7 @@ def compile(
                 else:
                     possible_types = [second_last_arg.typ]
                 if any(isinstance(t, UnitType) for t in possible_types):
-                    _LOGGER.warning(
+                    OPSHIN_LOGGER.warning(
                         &#34;The redeemer is annotated to be &#39;None&#39;. This value is usually encoded in PlutusData with constructor id 0 and no fields. If you want the script to double function as minting and spending script, annotate the second argument with &#39;NoRedeemer&#39;.&#34;
                     )
                 enable_double_func_mint_spend = not any(
@@ -1457,7 +1451,7 @@ def compile(
                     for t in possible_types
                 )
                 if not enable_double_func_mint_spend:
-                    _LOGGER.warning(
+                    OPSHIN_LOGGER.warning(
                         &#34;The second argument to the validator function potentially has constructor id 0. The validator will not be able to double function as minting script and spending script.&#34;
                     )
 
@@ -1549,7 +1543,7 @@ def compile(
             except ValueError:
                 pass
             else:
-                _LOGGER.warning(
+                OPSHIN_LOGGER.warning(
                     f&#34;The string {node.value} looks like it is supposed to be a hex-encoded bytestring but is actually utf8-encoded. Try using `bytes.fromhex(&#39;{node.value.decode()}&#39;)` instead.&#34;
                 )
         plt_val = plt.UPLCConstant(rec_constant_map(node.value))
@@ -2530,7 +2524,7 @@ def compile(
         except ValueError:
             pass
         else:
-            _LOGGER.warning(
+            OPSHIN_LOGGER.warning(
                 f&#34;The string {node.value} looks like it is supposed to be a hex-encoded bytestring but is actually utf8-encoded. Try using `bytes.fromhex(&#39;{node.value.decode()}&#39;)` instead.&#34;
             )
     plt_val = plt.UPLCConstant(rec_constant_map(node.value))
@@ -2944,7 +2938,7 @@ def compile(
             else:
                 possible_types = [second_last_arg.typ]
             if any(isinstance(t, UnitType) for t in possible_types):
-                _LOGGER.warning(
+                OPSHIN_LOGGER.warning(
                     &#34;The redeemer is annotated to be &#39;None&#39;. This value is usually encoded in PlutusData with constructor id 0 and no fields. If you want the script to double function as minting and spending script, annotate the second argument with &#39;NoRedeemer&#39;.&#34;
                 )
             enable_double_func_mint_spend = not any(
@@ -2953,7 +2947,7 @@ def compile(
                 for t in possible_types
             )
             if not enable_double_func_mint_spend:
-                _LOGGER.warning(
+                OPSHIN_LOGGER.warning(
                     &#34;The second argument to the validator function potentially has constructor id 0. The validator will not be able to double function as minting script and spending script.&#34;
                 )
 

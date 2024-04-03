@@ -215,7 +215,9 @@ def validator(x: B) -&gt; None:
 @parameterized.expand(
     [
         [[0, 1, 2], [1, 1, 1]],
+        # check for incorrect type in keys
         [[b&#34;hello&#34;, 1], [1, 1]],
+        # check for incorrect type in values
         [[1, 2], [1, b&#34;hello&#34;]],
     ]
 )

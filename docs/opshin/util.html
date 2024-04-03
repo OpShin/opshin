@@ -71,6 +71,7 @@ fill="currentColor" class="octo-body"></path>
 <pre><code class="python">from _ast import Name, Store, ClassDef, FunctionDef, Load
 from collections import defaultdict
 from copy import copy, deepcopy
+import logging
 
 import typing
 
@@ -85,6 +86,40 @@ import uplc.ast as uplc
 import pluthon as plt
 from hashlib import sha256
 
+OPSHIN_LOGGER = logging.getLogger(&#34;opshin&#34;)
+OPSHIN_LOG_HANDLER = logging.StreamHandler()
+OPSHIN_LOGGER.addHandler(OPSHIN_LOG_HANDLER)
+
+
+class FileContextFilter(logging.Filter):
+    &#34;&#34;&#34;
+    This is a filter which injects contextual information into the log.
+
+    The information is about the currently inspected AST node.
+    The information needs to be updated inside the NodeTransformer and NodeVisitor classes.
+    &#34;&#34;&#34;
+
+    file_name = &#34;unknown&#34;
+    node: ast.AST = None
+
+    def filter(self, record):
+
+        if self.node is None:
+            record.lineno = 1
+            record.col_offset = 0
+            record.end_lineno = 1
+            record.end_col_offset = 0
+        else:
+            record.lineno = self.node.lineno
+            record.col_offset = self.node.col_offset
+            record.end_lineno = self.node.end_lineno
+            record.end_col_offset = self.node.end_col_offset
+        return True
+
+
+OPSHIN_LOG_CONTEXT_FILTER = FileContextFilter()
+OPSHIN_LOG_HANDLER.addFilter(OPSHIN_LOG_CONTEXT_FILTER)
+
 
 def distinct(xs: list):
     &#34;&#34;&#34;Returns true iff the list consists of distinct elements&#34;&#34;&#34;
@@ -94,6 +129,7 @@ def distinct(xs: list):
 class TypedNodeTransformer(ast.NodeTransformer):
     def visit(self, node):
         &#34;&#34;&#34;Visit a node.&#34;&#34;&#34;
+        OPSHIN_LOG_CONTEXT_FILTER.node = node
         node_class_name = node.__class__.__name__
         if node_class_name.startswith(&#34;Typed&#34;):
             node_class_name = node_class_name[len(&#34;Typed&#34;) :]
@@ -105,6 +141,7 @@ class TypedNodeTransformer(ast.NodeTransformer):
 class TypedNodeVisitor(ast.NodeVisitor):
     def visit(self, node):
         &#34;&#34;&#34;Visit a node.&#34;&#34;&#34;
+        OPSHIN_LOG_CONTEXT_FILTER.node = node
         node_class_name = node.__class__.__name__
         if node_class_name.startswith(&#34;Typed&#34;):
             node_class_name = node_class_name[len(&#34;Typed&#34;) :]
@@ -124,6 +161,7 @@ class CompilingNodeTransformer(TypedNodeTransformer):
     step = &#34;Node transformation&#34;
 
     def visit(self, node):
+        OPSHIN_LOG_CONTEXT_FILTER.node = node
         try:
             return super().visit(node)
         except Exception as e:
@@ -775,6 +813,7 @@ just a single node.</p>
     step = &#34;Node transformation&#34;
 
     def visit(self, node):
+        OPSHIN_LOG_CONTEXT_FILTER.node = node
         try:
             return super().visit(node)
         except Exception as e:
@@ -843,6 +882,7 @@ just a single node.</p>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def visit(self, node):
+    OPSHIN_LOG_CONTEXT_FILTER.node = node
     try:
         return super().visit(node)
     except Exception as e:
@@ -934,6 +974,92 @@ allows modifications.</p></div>
         if isinstance(e, CompilerError):
             raise e
         raise CompilerError(e, node, self.step)</code></pre>
+</details>
+</dd>
+</dl>
+</dd>
+<dt id="opshin.util.FileContextFilter"><code class="flex name class">
+<span>class <span class="ident">FileContextFilter</span></span>
+<span>(</span><span>name='')</span>
+</code></dt>
+<dd>
+<div class="desc"><p>This is a filter which injects contextual information into the log.</p>
+<p>The information is about the currently inspected AST node.
+The information needs to be updated inside the NodeTransformer and NodeVisitor classes.</p>
+<p>Initialize a filter.</p>
+<p>Initialize with the name of the logger which, together with its
+children, will have its events allowed through the filter. If no
+name is specified, allow every event.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class FileContextFilter(logging.Filter):
+    &#34;&#34;&#34;
+    This is a filter which injects contextual information into the log.
+
+    The information is about the currently inspected AST node.
+    The information needs to be updated inside the NodeTransformer and NodeVisitor classes.
+    &#34;&#34;&#34;
+
+    file_name = &#34;unknown&#34;
+    node: ast.AST = None
+
+    def filter(self, record):
+
+        if self.node is None:
+            record.lineno = 1
+            record.col_offset = 0
+            record.end_lineno = 1
+            record.end_col_offset = 0
+        else:
+            record.lineno = self.node.lineno
+            record.col_offset = self.node.col_offset
+            record.end_lineno = self.node.end_lineno
+            record.end_col_offset = self.node.end_col_offset
+        return True</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li>logging.Filter</li>
+</ul>
+<h3>Class variables</h3>
+<dl>
+<dt id="opshin.util.FileContextFilter.file_name"><code class="name">var <span class="ident">file_name</span></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="opshin.util.FileContextFilter.node"><code class="name">var <span class="ident">node</span> : ast.AST</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+</dl>
+<h3>Methods</h3>
+<dl>
+<dt id="opshin.util.FileContextFilter.filter"><code class="name flex">
+<span>def <span class="ident">filter</span></span>(<span>self, record)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Determine if the specified record is to be logged.</p>
+<p>Returns True if the record should be logged, or False otherwise.
+If deemed appropriate, the record may be modified in-place.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def filter(self, record):
+
+    if self.node is None:
+        record.lineno = 1
+        record.col_offset = 0
+        record.end_lineno = 1
+        record.end_col_offset = 0
+    else:
+        record.lineno = self.node.lineno
+        record.col_offset = self.node.col_offset
+        record.end_lineno = self.node.end_lineno
+        record.end_col_offset = self.node.end_col_offset
+    return True</code></pre>
 </details>
 </dd>
 </dl>
@@ -1269,6 +1395,7 @@ just a single node.</p>
 <pre><code class="python">class TypedNodeTransformer(ast.NodeTransformer):
     def visit(self, node):
         &#34;&#34;&#34;Visit a node.&#34;&#34;&#34;
+        OPSHIN_LOG_CONTEXT_FILTER.node = node
         node_class_name = node.__class__.__name__
         if node_class_name.startswith(&#34;Typed&#34;):
             node_class_name = node_class_name[len(&#34;Typed&#34;) :]
@@ -1298,6 +1425,7 @@ just a single node.</p>
 </summary>
 <pre><code class="python">def visit(self, node):
     &#34;&#34;&#34;Visit a node.&#34;&#34;&#34;
+    OPSHIN_LOG_CONTEXT_FILTER.node = node
     node_class_name = node.__class__.__name__
     if node_class_name.startswith(&#34;Typed&#34;):
         node_class_name = node_class_name[len(&#34;Typed&#34;) :]
@@ -1337,6 +1465,7 @@ allows modifications.</p></div>
 <pre><code class="python">class TypedNodeVisitor(ast.NodeVisitor):
     def visit(self, node):
         &#34;&#34;&#34;Visit a node.&#34;&#34;&#34;
+        OPSHIN_LOG_CONTEXT_FILTER.node = node
         node_class_name = node.__class__.__name__
         if node_class_name.startswith(&#34;Typed&#34;):
             node_class_name = node_class_name[len(&#34;Typed&#34;) :]
@@ -1367,6 +1496,7 @@ allows modifications.</p></div>
 </summary>
 <pre><code class="python">def visit(self, node):
     &#34;&#34;&#34;Visit a node.&#34;&#34;&#34;
+    OPSHIN_LOG_CONTEXT_FILTER.node = node
     node_class_name = node.__class__.__name__
     if node_class_name.startswith(&#34;Typed&#34;):
         node_class_name = node_class_name[len(&#34;Typed&#34;) :]
@@ -1484,6 +1614,14 @@ setTimeout(() => input.focus(), 100);
 <ul class="">
 <li><code><a title="opshin.util.CompilingNodeVisitor.step" href="#opshin.util.CompilingNodeVisitor.step">step</a></code></li>
 <li><code><a title="opshin.util.CompilingNodeVisitor.visit" href="#opshin.util.CompilingNodeVisitor.visit">visit</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="opshin.util.FileContextFilter" href="#opshin.util.FileContextFilter">FileContextFilter</a></code></h4>
+<ul class="">
+<li><code><a title="opshin.util.FileContextFilter.file_name" href="#opshin.util.FileContextFilter.file_name">file_name</a></code></li>
+<li><code><a title="opshin.util.FileContextFilter.filter" href="#opshin.util.FileContextFilter.filter">filter</a></code></li>
+<li><code><a title="opshin.util.FileContextFilter.node" href="#opshin.util.FileContextFilter.node">node</a></code></li>
 </ul>
 </li>
 <li>

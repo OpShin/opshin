@@ -81,7 +81,7 @@ from pathlib import Path
 
 from pycardano import PlutusV2Script, IndefiniteList, PlutusData, Datum
 
-from . import __version__, compiler
+from . import __version__, compiler, DEFAULT_CONFIG
 
 import uplc.ast
 from uplc import flatten, ast as uplc_ast, eval as uplc_eval
@@ -258,23 +258,16 @@ class PlutusContract:
 def compile(
     program: Module,
     contract_filename: Optional[str] = None,
-    force_three_params=False,
     validator_function_name=&#34;validator&#34;,
-    remove_dead_code=True,
-    constant_folding=False,
-    allow_isinstance_anything=False,
-    **pluto_kwargs: Any,
+    config=DEFAULT_CONFIG,
 ) -&gt; uplc_ast.Program:
     code = compiler.compile(
         program,
         filename=contract_filename,
-        force_three_params=force_three_params,
         validator_function_name=validator_function_name,
-        remove_dead_code=remove_dead_code,
-        constant_folding=constant_folding,
-        allow_isinstance_anything=allow_isinstance_anything,
+        config=config,
     )
-    plt_code = plt_compile(code, **pluto_kwargs)
+    plt_code = plt_compile(code, config)
     return plt_code
 
 
@@ -282,12 +275,8 @@ def compile(
 def _static_compile(
     source_code: str,
     contract_file: str = &#34;&lt;unknown&gt;&#34;,
-    force_three_params=False,
     validator_function_name=&#34;validator&#34;,
-    optimize_patterns=True,
-    remove_dead_code=True,
-    constant_folding=False,
-    allow_isinstance_anything=False,
+    config=DEFAULT_CONFIG,
 ):
     &#34;&#34;&#34;
     Expects a python module and returns the build artifacts from compiling it
@@ -297,12 +286,8 @@ def _static_compile(
     code = compile(
         source_ast,
         contract_filename=contract_file,
-        force_three_params=force_three_params,
         validator_function_name=validator_function_name,
-        optimize_patterns=optimize_patterns,
-        remove_dead_code=remove_dead_code,
-        constant_folding=constant_folding,
-        allow_isinstance_anything=allow_isinstance_anything,
+        config=config,
     )
     return code
 
@@ -311,12 +296,8 @@ def _compile(
     source_code: str,
     *args: typing.Union[pycardano.Datum, uplc_ast.Constant],
     contract_file: str = &#34;&lt;unknown&gt;&#34;,
-    force_three_params=False,
     validator_function_name=&#34;validator&#34;,
-    optimize_patterns=True,
-    remove_dead_code=True,
-    constant_folding=False,
-    allow_isinstance_anything=False,
+    config=DEFAULT_CONFIG,
 ):
     &#34;&#34;&#34;
     Expects a python module and returns the build artifacts from compiling it
@@ -325,12 +306,8 @@ def _compile(
     code = _static_compile(
         source_code,
         contract_file=contract_file,
-        force_three_params=force_three_params,
         validator_function_name=validator_function_name,
-        optimize_patterns=optimize_patterns,
-        remove_dead_code=remove_dead_code,
-        constant_folding=constant_folding,
-        allow_isinstance_anything=allow_isinstance_anything,
+        config=config,
     )
     code = _apply_parameters(code, *args)
     return code
@@ -339,9 +316,8 @@ def _compile(
 def build(
     contract_file: str,
     *args: typing.Union[pycardano.Datum, uplc_ast.Constant],
-    force_three_params=False,
     validator_function_name=&#34;validator&#34;,
-    optimize_patterns=True,
+    config=DEFAULT_CONFIG,
 ):
     &#34;&#34;&#34;
     Expects a python module and returns the build artifacts from compiling it
@@ -352,9 +328,8 @@ def build(
         source_code,
         *args,
         contract_file=contract_file,
-        force_three_params=force_three_params,
         validator_function_name=validator_function_name,
-        optimize_patterns=optimize_patterns,
+        config=config,
     )
     return _build(code)
 
@@ -640,7 +615,7 @@ def load(contract_path: Union[Path, str]) -&gt; PlutusContract:
 </details>
 </dd>
 <dt id="opshin.builder.build"><code class="name flex">
-<span>def <span class="ident">build</span></span>(<span>contract_file: str, *args: Union[pycardano.plutus.PlutusData, dict, int, bytes, pycardano.serialization.IndefiniteList, pycardano.serialization.RawCBOR, pycardano.plutus.RawPlutusData, uplc.ast.Constant], force_three_params=False, validator_function_name='validator', optimize_patterns=True)</span>
+<span>def <span class="ident">build</span></span>(<span>contract_file: str, *args: Union[pycardano.plutus.PlutusData, dict, int, bytes, pycardano.serialization.IndefiniteList, pycardano.serialization.RawCBOR, pycardano.plutus.RawPlutusData, uplc.ast.Constant], validator_function_name='validator', config=CompilationConfig(compress_patterns=False, iterative_unfold_patterns=False, constant_index_access_list=True, constant_folding=False, allow_isinstance_anything=False, force_three_params=False, remove_dead_code=True))</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Expects a python module and returns the build artifacts from compiling it</p></div>
@@ -651,9 +626,8 @@ def load(contract_path: Union[Path, str]) -&gt; PlutusContract:
 <pre><code class="python">def build(
     contract_file: str,
     *args: typing.Union[pycardano.Datum, uplc_ast.Constant],
-    force_three_params=False,
     validator_function_name=&#34;validator&#34;,
-    optimize_patterns=True,
+    config=DEFAULT_CONFIG,
 ):
     &#34;&#34;&#34;
     Expects a python module and returns the build artifacts from compiling it
@@ -664,15 +638,14 @@ def load(contract_path: Union[Path, str]) -&gt; PlutusContract:
         source_code,
         *args,
         contract_file=contract_file,
-        force_three_params=force_three_params,
         validator_function_name=validator_function_name,
-        optimize_patterns=optimize_patterns,
+        config=config,
     )
     return _build(code)</code></pre>
 </details>
 </dd>
 <dt id="opshin.builder.compile"><code class="name flex">
-<span>def <span class="ident">compile</span></span>(<span>program: ast.Module, contract_filename: Optional[str] = None, force_three_params=False, validator_function_name='validator', remove_dead_code=True, constant_folding=False, allow_isinstance_anything=False, **pluto_kwargs: Any) ‑> uplc.ast.Program</span>
+<span>def <span class="ident">compile</span></span>(<span>program: ast.Module, contract_filename: Optional[str] = None, validator_function_name='validator', config=CompilationConfig(compress_patterns=False, iterative_unfold_patterns=False, constant_index_access_list=True, constant_folding=False, allow_isinstance_anything=False, force_three_params=False, remove_dead_code=True)) ‑> uplc.ast.Program</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -683,23 +656,16 @@ def load(contract_path: Union[Path, str]) -&gt; PlutusContract:
 <pre><code class="python">def compile(
     program: Module,
     contract_filename: Optional[str] = None,
-    force_three_params=False,
     validator_function_name=&#34;validator&#34;,
-    remove_dead_code=True,
-    constant_folding=False,
-    allow_isinstance_anything=False,
-    **pluto_kwargs: Any,
+    config=DEFAULT_CONFIG,
 ) -&gt; uplc_ast.Program:
     code = compiler.compile(
         program,
         filename=contract_filename,
-        force_three_params=force_three_params,
         validator_function_name=validator_function_name,
-        remove_dead_code=remove_dead_code,
-        constant_folding=constant_folding,
-        allow_isinstance_anything=allow_isinstance_anything,
+        config=config,
     )
-    plt_code = plt_compile(code, **pluto_kwargs)
+    plt_code = plt_compile(code, config)
     return plt_code</code></pre>
 </details>
 </dd>
@@ -964,10 +930,10 @@ Reference of the core structure:
 <dl>
 <dt id="opshin.builder.PlutusContract"><code class="flex name class">
 <span>class <span class="ident">PlutusContract</span></span>
-<span>(</span><span>contract: pycardano.plutus.PlutusV2Script, datum_type: Optional[Tuple[str, Type[Union[pycardano.plutus.PlutusData, dict, int, bytes, pycardano.serialization.IndefiniteList, pycardano.serialization.RawCBOR, pycardano.plutus.RawPlutusData]]]] = None, redeemer_type: Optional[Tuple[str, Type[Union[pycardano.plutus.PlutusData, dict, int, bytes, pycardano.serialization.IndefiniteList, pycardano.serialization.RawCBOR, pycardano.plutus.RawPlutusData]]]] = None, parameter_types: List[Tuple[str, Type[Union[pycardano.plutus.PlutusData, dict, int, bytes, pycardano.serialization.IndefiniteList, pycardano.serialization.RawCBOR, pycardano.plutus.RawPlutusData]]]] = &lt;factory&gt;, purpose: Iterable[<a title="opshin.builder.Purpose" href="#opshin.builder.Purpose">Purpose</a>] = (&lt;Purpose.any: &#x27;any&#x27;&gt;,), version: Optional[str] = '1.0.0', title: str = 'validator', description: Optional[str] = 'opshin 0.19.1 Smart Contract', license: Optional[str] = None)</span>
+<span>(</span><span>contract: pycardano.plutus.PlutusV2Script, datum_type: Optional[Tuple[str, Type[Union[pycardano.plutus.PlutusData, dict, int, bytes, pycardano.serialization.IndefiniteList, pycardano.serialization.RawCBOR, pycardano.plutus.RawPlutusData]]]] = None, redeemer_type: Optional[Tuple[str, Type[Union[pycardano.plutus.PlutusData, dict, int, bytes, pycardano.serialization.IndefiniteList, pycardano.serialization.RawCBOR, pycardano.plutus.RawPlutusData]]]] = None, parameter_types: List[Tuple[str, Type[Union[pycardano.plutus.PlutusData, dict, int, bytes, pycardano.serialization.IndefiniteList, pycardano.serialization.RawCBOR, pycardano.plutus.RawPlutusData]]]] = &lt;factory&gt;, purpose: Iterable[<a title="opshin.builder.Purpose" href="#opshin.builder.Purpose">Purpose</a>] = (&lt;Purpose.any: &#x27;any&#x27;&gt;,), version: Optional[str] = '1.0.0', title: str = 'validator', description: Optional[str] = 'opshin 0.21.0 Smart Contract', license: Optional[str] = None)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>PlutusContract(contract: pycardano.plutus.PlutusV2Script, datum_type: Optional[Tuple[str, Type[Union[pycardano.plutus.PlutusData, dict, int, bytes, pycardano.serialization.IndefiniteList, pycardano.serialization.RawCBOR, pycardano.plutus.RawPlutusData]]]] = None, redeemer_type: Optional[Tuple[str, Type[Union[pycardano.plutus.PlutusData, dict, int, bytes, pycardano.serialization.IndefiniteList, pycardano.serialization.RawCBOR, pycardano.plutus.RawPlutusData]]]] = None, parameter_types: List[Tuple[str, Type[Union[pycardano.plutus.PlutusData, dict, int, bytes, pycardano.serialization.IndefiniteList, pycardano.serialization.RawCBOR, pycardano.plutus.RawPlutusData]]]] = <factory>, purpose: Iterable[opshin.builder.Purpose] = (<Purpose.any: 'any'>,), version: Optional[str] = '1.0.0', title: str = 'validator', description: Optional[str] = 'opshin 0.19.1 Smart Contract', license: Optional[str] = None)</p></div>
+<div class="desc"><p>PlutusContract(contract: pycardano.plutus.PlutusV2Script, datum_type: Optional[Tuple[str, Type[Union[pycardano.plutus.PlutusData, dict, int, bytes, pycardano.serialization.IndefiniteList, pycardano.serialization.RawCBOR, pycardano.plutus.RawPlutusData]]]] = None, redeemer_type: Optional[Tuple[str, Type[Union[pycardano.plutus.PlutusData, dict, int, bytes, pycardano.serialization.IndefiniteList, pycardano.serialization.RawCBOR, pycardano.plutus.RawPlutusData]]]] = None, parameter_types: List[Tuple[str, Type[Union[pycardano.plutus.PlutusData, dict, int, bytes, pycardano.serialization.IndefiniteList, pycardano.serialization.RawCBOR, pycardano.plutus.RawPlutusData]]]] = <factory>, purpose: Iterable[opshin.builder.Purpose] = (<Purpose.any: 'any'>,), version: Optional[str] = '1.0.0', title: str = 'validator', description: Optional[str] = 'opshin 0.21.0 Smart Contract', license: Optional[str] = None)</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>

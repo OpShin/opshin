@@ -81,8 +81,6 @@ import uplc.ast
 
 from .util import *
 
-_LOGGER = logging.getLogger(__name__)
-
 
 class TypeInferenceError(AssertionError):
     pass
@@ -311,10 +309,39 @@ class AnyType(ClassType):
                         )
                     ),
                 )
+        if (
+            isinstance(o, ListType)
+            and isinstance(o.typ, InstanceType)
+            and (o.typ.typ &gt;= self or self &gt;= o.typ.typ)
+        ):
+            if isinstance(op, In):
+                return OLambda(
+                    [&#34;x&#34;, &#34;y&#34;],
+                    plt.AnyList(
+                        OVar(&#34;y&#34;),
+                        plt.Apply(
+                            plt.BuiltIn(uplc.BuiltInFun.EqualsData),
+                            OVar(&#34;x&#34;),
+                        ),
+                    ),
+                )
+            if isinstance(op, NotIn):
+                return OLambda(
+                    [&#34;x&#34;, &#34;y&#34;],
+                    plt.Not(
+                        plt.AnyList(
+                            OVar(&#34;y&#34;),
+                            plt.Apply(
+                                plt.BuiltIn(uplc.BuiltInFun.EqualsData),
+                                OVar(&#34;x&#34;),
+                            ),
+                        ),
+                    ),
+                )
         return super().cmp(op, o)
 
     def stringify(self, recursive: bool = False) -&gt; plt.AST:
-        _LOGGER.warning(
+        OPSHIN_LOGGER.warning(
             &#34;Serializing AnyType will result in RawPlutusData (CBOR representation) to be printed without additional type information. Annotate types where possible to avoid this warning.&#34;
         )
         return OLambda(
@@ -635,20 +662,23 @@ class RecordType(ClassType):
             if isinstance(op, In):
                 return OLambda(
                     [&#34;x&#34;, &#34;y&#34;],
-                    plt.EqualsData(
-                        OVar(&#34;x&#34;),
-                        plt.FindList(
+                    plt.AnyList(
+                        OVar(&#34;y&#34;),
+                        plt.Apply(
+                            plt.BuiltIn(uplc.BuiltInFun.EqualsData),
+                            OVar(&#34;x&#34;),
+                        ),
+                    ),
+                )
+            if isinstance(op, NotIn):
+                return OLambda(
+                    [&#34;x&#34;, &#34;y&#34;],
+                    plt.Not(
+                        plt.AnyList(
                             OVar(&#34;y&#34;),
                             plt.Apply(
                                 plt.BuiltIn(uplc.BuiltInFun.EqualsData),
                                 OVar(&#34;x&#34;),
-                            ),
-                            # this simply ensures the default is always unequal to the searched value
-                            plt.ConstrData(
-                                plt.AddInteger(
-                                    plt.Constructor(OVar(&#34;x&#34;)), plt.Integer(1)
-                                ),
-                                plt.MkNilData(plt.Unit()),
                             ),
                         ),
                     ),
@@ -863,20 +893,23 @@ class UnionType(ClassType):
             if isinstance(op, In):
                 return OLambda(
                     [&#34;x&#34;, &#34;y&#34;],
-                    plt.EqualsData(
-                        OVar(&#34;x&#34;),
-                        plt.FindList(
+                    plt.AnyList(
+                        OVar(&#34;y&#34;),
+                        plt.Apply(
+                            plt.BuiltIn(uplc.BuiltInFun.EqualsData),
+                            OVar(&#34;x&#34;),
+                        ),
+                    ),
+                )
+            if isinstance(op, NotIn):
+                return OLambda(
+                    [&#34;x&#34;, &#34;y&#34;],
+                    plt.Not(
+                        plt.AnyList(
                             OVar(&#34;y&#34;),
                             plt.Apply(
                                 plt.BuiltIn(uplc.BuiltInFun.EqualsData),
                                 OVar(&#34;x&#34;),
-                            ),
-                            # this simply ensures the default is always unequal to the searched value
-                            plt.ConstrData(
-                                plt.AddInteger(
-                                    plt.Constructor(OVar(&#34;x&#34;)), plt.Integer(1)
-                                ),
-                                plt.MkNilData(plt.Unit()),
                             ),
                         ),
                     ),
@@ -1393,23 +1426,15 @@ class DictType(ClassType):
                 OLet(
                     [
                         (&#34;hfst&#34;, plt.FstPair(OVar(&#34;h&#34;))),
-                        (
-                            &#34;found_elem&#34;,
-                            plt.FindList(
-                                OVar(&#34;t&#34;),
-                                OLambda(
-                                    [&#34;e&#34;],
-                                    plt.EqualsData(
-                                        OVar(&#34;hfst&#34;), plt.FstPair(OVar(&#34;e&#34;))
-                                    ),
-                                ),
-                                plt.UPLCConstant(uplc.PlutusConstr(-1, [])),
-                            ),
-                        ),
                     ],
-                    plt.EqualsData(
-                        OVar(&#34;found_elem&#34;),
-                        plt.UPLCConstant(uplc.PlutusConstr(-1, [])),
+                    plt.Not(
+                        plt.AnyList(
+                            OVar(&#34;t&#34;),
+                            OLambda(
+                                [&#34;e&#34;],
+                                plt.EqualsData(OVar(&#34;hfst&#34;), plt.FstPair(OVar(&#34;e&#34;))),
+                            ),
+                        )
                     ),
                 ),
             ),
@@ -1592,15 +1617,22 @@ class IntegerType(AtomicType):
             if isinstance(op, In):
                 return OLambda(
                     [&#34;x&#34;, &#34;y&#34;],
-                    plt.EqualsInteger(
-                        OVar(&#34;x&#34;),
-                        plt.FindList(
+                    plt.AnyList(
+                        OVar(&#34;y&#34;),
+                        plt.Apply(
+                            plt.BuiltIn(uplc.BuiltInFun.EqualsInteger), OVar(&#34;x&#34;)
+                        ),
+                    ),
+                )
+            if isinstance(op, NotIn):
+                return OLambda(
+                    [&#34;x&#34;, &#34;y&#34;],
+                    plt.Not(
+                        plt.AnyList(
                             OVar(&#34;y&#34;),
                             plt.Apply(
                                 plt.BuiltIn(uplc.BuiltInFun.EqualsInteger), OVar(&#34;x&#34;)
                             ),
-                            # this simply ensures the default is always unequal to the searched value
-                            plt.AddInteger(OVar(&#34;x&#34;), plt.Integer(1)),
                         ),
                     ),
                 )
@@ -1759,6 +1791,10 @@ class StringType(AtomicType):
         if isinstance(o, StringType):
             if isinstance(op, Eq):
                 return plt.BuiltIn(uplc.BuiltInFun.EqualsString)
+            if isinstance(op, NotEq):
+                return OLambda(
+                    [&#34;x&#34;, &#34;y&#34;], plt.Not(plt.EqualsString(OVar(&#34;x&#34;), OVar(&#34;y&#34;)))
+                )
         return super().cmp(op, o)
 
     def stringify(self, recursive: bool = False) -&gt; plt.AST:
@@ -1956,16 +1992,24 @@ class ByteStringType(AtomicType):
             if isinstance(op, In):
                 return OLambda(
                     [&#34;x&#34;, &#34;y&#34;],
-                    plt.EqualsByteString(
-                        OVar(&#34;x&#34;),
-                        plt.FindList(
+                    plt.AnyList(
+                        OVar(&#34;y&#34;),
+                        plt.Apply(
+                            plt.BuiltIn(uplc.BuiltInFun.EqualsByteString),
+                            OVar(&#34;x&#34;),
+                        ),
+                    ),
+                )
+            if isinstance(op, NotIn):
+                return OLambda(
+                    [&#34;x&#34;, &#34;y&#34;],
+                    plt.Not(
+                        plt.AnyList(
                             OVar(&#34;y&#34;),
                             plt.Apply(
                                 plt.BuiltIn(uplc.BuiltInFun.EqualsByteString),
                                 OVar(&#34;x&#34;),
                             ),
-                            # this simply ensures the default is always unequal to the searched value
-                            plt.ConsByteString(plt.Integer(0), OVar(&#34;x&#34;)),
                         ),
                     ),
                 )
@@ -2176,9 +2220,20 @@ class BoolType(AtomicType):
                         plt.EqualsInteger(OVar(&#34;x&#34;), plt.Integer(0)),
                     ),
                 )
+            if isinstance(op, NotEq):
+                return OLambda(
+                    [&#34;y&#34;, &#34;x&#34;],
+                    plt.Ite(
+                        OVar(&#34;y&#34;),
+                        plt.NotEqualsInteger(OVar(&#34;x&#34;), plt.Integer(1)),
+                        plt.NotEqualsInteger(OVar(&#34;x&#34;), plt.Integer(0)),
+                    ),
+                )
         if isinstance(o, BoolType):
             if isinstance(op, Eq):
                 return OLambda([&#34;x&#34;, &#34;y&#34;], plt.Iff(OVar(&#34;x&#34;), OVar(&#34;y&#34;)))
+            if isinstance(op, NotEq):
+                return OLambda([&#34;x&#34;, &#34;y&#34;], plt.Not(plt.Iff(OVar(&#34;x&#34;), OVar(&#34;y&#34;))))
         return super().cmp(op, o)
 
     def stringify(self, recursive: bool = False) -&gt; plt.AST:
@@ -3110,10 +3165,39 @@ class AnyType(ClassType):
                         )
                     ),
                 )
+        if (
+            isinstance(o, ListType)
+            and isinstance(o.typ, InstanceType)
+            and (o.typ.typ &gt;= self or self &gt;= o.typ.typ)
+        ):
+            if isinstance(op, In):
+                return OLambda(
+                    [&#34;x&#34;, &#34;y&#34;],
+                    plt.AnyList(
+                        OVar(&#34;y&#34;),
+                        plt.Apply(
+                            plt.BuiltIn(uplc.BuiltInFun.EqualsData),
+                            OVar(&#34;x&#34;),
+                        ),
+                    ),
+                )
+            if isinstance(op, NotIn):
+                return OLambda(
+                    [&#34;x&#34;, &#34;y&#34;],
+                    plt.Not(
+                        plt.AnyList(
+                            OVar(&#34;y&#34;),
+                            plt.Apply(
+                                plt.BuiltIn(uplc.BuiltInFun.EqualsData),
+                                OVar(&#34;x&#34;),
+                            ),
+                        ),
+                    ),
+                )
         return super().cmp(op, o)
 
     def stringify(self, recursive: bool = False) -&gt; plt.AST:
-        _LOGGER.warning(
+        OPSHIN_LOGGER.warning(
             &#34;Serializing AnyType will result in RawPlutusData (CBOR representation) to be printed without additional type information. Annotate types where possible to avoid this warning.&#34;
         )
         return OLambda(
@@ -3415,6 +3499,35 @@ class AnyType(ClassType):
                     )
                 ),
             )
+    if (
+        isinstance(o, ListType)
+        and isinstance(o.typ, InstanceType)
+        and (o.typ.typ &gt;= self or self &gt;= o.typ.typ)
+    ):
+        if isinstance(op, In):
+            return OLambda(
+                [&#34;x&#34;, &#34;y&#34;],
+                plt.AnyList(
+                    OVar(&#34;y&#34;),
+                    plt.Apply(
+                        plt.BuiltIn(uplc.BuiltInFun.EqualsData),
+                        OVar(&#34;x&#34;),
+                    ),
+                ),
+            )
+        if isinstance(op, NotIn):
+            return OLambda(
+                [&#34;x&#34;, &#34;y&#34;],
+                plt.Not(
+                    plt.AnyList(
+                        OVar(&#34;y&#34;),
+                        plt.Apply(
+                            plt.BuiltIn(uplc.BuiltInFun.EqualsData),
+                            OVar(&#34;x&#34;),
+                        ),
+                    ),
+                ),
+            )
     return super().cmp(op, o)</code></pre>
 </details>
 </dd>
@@ -3480,7 +3593,7 @@ For anything but record …</p></div>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def stringify(self, recursive: bool = False) -&gt; plt.AST:
-    _LOGGER.warning(
+    OPSHIN_LOGGER.warning(
         &#34;Serializing AnyType will result in RawPlutusData (CBOR representation) to be printed without additional type information. Annotate types where possible to avoid this warning.&#34;
     )
     return OLambda(
@@ -4019,9 +4132,20 @@ class BoolType(AtomicType):
                         plt.EqualsInteger(OVar(&#34;x&#34;), plt.Integer(0)),
                     ),
                 )
+            if isinstance(op, NotEq):
+                return OLambda(
+                    [&#34;y&#34;, &#34;x&#34;],
+                    plt.Ite(
+                        OVar(&#34;y&#34;),
+                        plt.NotEqualsInteger(OVar(&#34;x&#34;), plt.Integer(1)),
+                        plt.NotEqualsInteger(OVar(&#34;x&#34;), plt.Integer(0)),
+                    ),
+                )
         if isinstance(o, BoolType):
             if isinstance(op, Eq):
                 return OLambda([&#34;x&#34;, &#34;y&#34;], plt.Iff(OVar(&#34;x&#34;), OVar(&#34;y&#34;)))
+            if isinstance(op, NotEq):
+                return OLambda([&#34;x&#34;, &#34;y&#34;], plt.Not(plt.Iff(OVar(&#34;x&#34;), OVar(&#34;y&#34;))))
         return super().cmp(op, o)
 
     def stringify(self, recursive: bool = False) -&gt; plt.AST:
@@ -4119,9 +4243,20 @@ class BoolType(AtomicType):
                     plt.EqualsInteger(OVar(&#34;x&#34;), plt.Integer(0)),
                 ),
             )
+        if isinstance(op, NotEq):
+            return OLambda(
+                [&#34;y&#34;, &#34;x&#34;],
+                plt.Ite(
+                    OVar(&#34;y&#34;),
+                    plt.NotEqualsInteger(OVar(&#34;x&#34;), plt.Integer(1)),
+                    plt.NotEqualsInteger(OVar(&#34;x&#34;), plt.Integer(0)),
+                ),
+            )
     if isinstance(o, BoolType):
         if isinstance(op, Eq):
             return OLambda([&#34;x&#34;, &#34;y&#34;], plt.Iff(OVar(&#34;x&#34;), OVar(&#34;y&#34;)))
+        if isinstance(op, NotEq):
+            return OLambda([&#34;x&#34;, &#34;y&#34;], plt.Not(plt.Iff(OVar(&#34;x&#34;), OVar(&#34;y&#34;))))
     return super().cmp(op, o)</code></pre>
 </details>
 </dd>
@@ -4383,16 +4518,24 @@ class ByteStringType(AtomicType):
             if isinstance(op, In):
                 return OLambda(
                     [&#34;x&#34;, &#34;y&#34;],
-                    plt.EqualsByteString(
-                        OVar(&#34;x&#34;),
-                        plt.FindList(
+                    plt.AnyList(
+                        OVar(&#34;y&#34;),
+                        plt.Apply(
+                            plt.BuiltIn(uplc.BuiltInFun.EqualsByteString),
+                            OVar(&#34;x&#34;),
+                        ),
+                    ),
+                )
+            if isinstance(op, NotIn):
+                return OLambda(
+                    [&#34;x&#34;, &#34;y&#34;],
+                    plt.Not(
+                        plt.AnyList(
                             OVar(&#34;y&#34;),
                             plt.Apply(
                                 plt.BuiltIn(uplc.BuiltInFun.EqualsByteString),
                                 OVar(&#34;x&#34;),
                             ),
-                            # this simply ensures the default is always unequal to the searched value
-                            plt.ConsByteString(plt.Integer(0), OVar(&#34;x&#34;)),
                         ),
                     ),
                 )
@@ -4799,16 +4942,24 @@ class ByteStringType(AtomicType):
         if isinstance(op, In):
             return OLambda(
                 [&#34;x&#34;, &#34;y&#34;],
-                plt.EqualsByteString(
-                    OVar(&#34;x&#34;),
-                    plt.FindList(
+                plt.AnyList(
+                    OVar(&#34;y&#34;),
+                    plt.Apply(
+                        plt.BuiltIn(uplc.BuiltInFun.EqualsByteString),
+                        OVar(&#34;x&#34;),
+                    ),
+                ),
+            )
+        if isinstance(op, NotIn):
+            return OLambda(
+                [&#34;x&#34;, &#34;y&#34;],
+                plt.Not(
+                    plt.AnyList(
                         OVar(&#34;y&#34;),
                         plt.Apply(
                             plt.BuiltIn(uplc.BuiltInFun.EqualsByteString),
                             OVar(&#34;x&#34;),
                         ),
-                        # this simply ensures the default is always unequal to the searched value
-                        plt.ConsByteString(plt.Integer(0), OVar(&#34;x&#34;)),
                     ),
                 ),
             )
@@ -5631,23 +5782,15 @@ class DictType(ClassType):
                 OLet(
                     [
                         (&#34;hfst&#34;, plt.FstPair(OVar(&#34;h&#34;))),
-                        (
-                            &#34;found_elem&#34;,
-                            plt.FindList(
-                                OVar(&#34;t&#34;),
-                                OLambda(
-                                    [&#34;e&#34;],
-                                    plt.EqualsData(
-                                        OVar(&#34;hfst&#34;), plt.FstPair(OVar(&#34;e&#34;))
-                                    ),
-                                ),
-                                plt.UPLCConstant(uplc.PlutusConstr(-1, [])),
-                            ),
-                        ),
                     ],
-                    plt.EqualsData(
-                        OVar(&#34;found_elem&#34;),
-                        plt.UPLCConstant(uplc.PlutusConstr(-1, [])),
+                    plt.Not(
+                        plt.AnyList(
+                            OVar(&#34;t&#34;),
+                            OLambda(
+                                [&#34;e&#34;],
+                                plt.EqualsData(OVar(&#34;hfst&#34;), plt.FstPair(OVar(&#34;e&#34;))),
+                            ),
+                        )
                     ),
                 ),
             ),
@@ -5964,23 +6107,15 @@ For anything but record …</p></div>
             OLet(
                 [
                     (&#34;hfst&#34;, plt.FstPair(OVar(&#34;h&#34;))),
-                    (
-                        &#34;found_elem&#34;,
-                        plt.FindList(
-                            OVar(&#34;t&#34;),
-                            OLambda(
-                                [&#34;e&#34;],
-                                plt.EqualsData(
-                                    OVar(&#34;hfst&#34;), plt.FstPair(OVar(&#34;e&#34;))
-                                ),
-                            ),
-                            plt.UPLCConstant(uplc.PlutusConstr(-1, [])),
-                        ),
-                    ),
                 ],
-                plt.EqualsData(
-                    OVar(&#34;found_elem&#34;),
-                    plt.UPLCConstant(uplc.PlutusConstr(-1, [])),
+                plt.Not(
+                    plt.AnyList(
+                        OVar(&#34;t&#34;),
+                        OLambda(
+                            [&#34;e&#34;],
+                            plt.EqualsData(OVar(&#34;hfst&#34;), plt.FstPair(OVar(&#34;e&#34;))),
+                        ),
+                    )
                 ),
             ),
         ),
@@ -7161,15 +7296,22 @@ class IntegerType(AtomicType):
             if isinstance(op, In):
                 return OLambda(
                     [&#34;x&#34;, &#34;y&#34;],
-                    plt.EqualsInteger(
-                        OVar(&#34;x&#34;),
-                        plt.FindList(
+                    plt.AnyList(
+                        OVar(&#34;y&#34;),
+                        plt.Apply(
+                            plt.BuiltIn(uplc.BuiltInFun.EqualsInteger), OVar(&#34;x&#34;)
+                        ),
+                    ),
+                )
+            if isinstance(op, NotIn):
+                return OLambda(
+                    [&#34;x&#34;, &#34;y&#34;],
+                    plt.Not(
+                        plt.AnyList(
                             OVar(&#34;y&#34;),
                             plt.Apply(
                                 plt.BuiltIn(uplc.BuiltInFun.EqualsInteger), OVar(&#34;x&#34;)
                             ),
-                            # this simply ensures the default is always unequal to the searched value
-                            plt.AddInteger(OVar(&#34;x&#34;), plt.Integer(1)),
                         ),
                     ),
                 )
@@ -7427,15 +7569,22 @@ class IntegerType(AtomicType):
         if isinstance(op, In):
             return OLambda(
                 [&#34;x&#34;, &#34;y&#34;],
-                plt.EqualsInteger(
-                    OVar(&#34;x&#34;),
-                    plt.FindList(
+                plt.AnyList(
+                    OVar(&#34;y&#34;),
+                    plt.Apply(
+                        plt.BuiltIn(uplc.BuiltInFun.EqualsInteger), OVar(&#34;x&#34;)
+                    ),
+                ),
+            )
+        if isinstance(op, NotIn):
+            return OLambda(
+                [&#34;x&#34;, &#34;y&#34;],
+                plt.Not(
+                    plt.AnyList(
                         OVar(&#34;y&#34;),
                         plt.Apply(
                             plt.BuiltIn(uplc.BuiltInFun.EqualsInteger), OVar(&#34;x&#34;)
                         ),
-                        # this simply ensures the default is always unequal to the searched value
-                        plt.AddInteger(OVar(&#34;x&#34;), plt.Integer(1)),
                     ),
                 ),
             )
@@ -8778,20 +8927,23 @@ class RecordType(ClassType):
             if isinstance(op, In):
                 return OLambda(
                     [&#34;x&#34;, &#34;y&#34;],
-                    plt.EqualsData(
-                        OVar(&#34;x&#34;),
-                        plt.FindList(
+                    plt.AnyList(
+                        OVar(&#34;y&#34;),
+                        plt.Apply(
+                            plt.BuiltIn(uplc.BuiltInFun.EqualsData),
+                            OVar(&#34;x&#34;),
+                        ),
+                    ),
+                )
+            if isinstance(op, NotIn):
+                return OLambda(
+                    [&#34;x&#34;, &#34;y&#34;],
+                    plt.Not(
+                        plt.AnyList(
                             OVar(&#34;y&#34;),
                             plt.Apply(
                                 plt.BuiltIn(uplc.BuiltInFun.EqualsData),
                                 OVar(&#34;x&#34;),
-                            ),
-                            # this simply ensures the default is always unequal to the searched value
-                            plt.ConstrData(
-                                plt.AddInteger(
-                                    plt.Constructor(OVar(&#34;x&#34;)), plt.Integer(1)
-                                ),
-                                plt.MkNilData(plt.Unit()),
                             ),
                         ),
                     ),
@@ -9017,20 +9169,23 @@ class RecordType(ClassType):
         if isinstance(op, In):
             return OLambda(
                 [&#34;x&#34;, &#34;y&#34;],
-                plt.EqualsData(
-                    OVar(&#34;x&#34;),
-                    plt.FindList(
+                plt.AnyList(
+                    OVar(&#34;y&#34;),
+                    plt.Apply(
+                        plt.BuiltIn(uplc.BuiltInFun.EqualsData),
+                        OVar(&#34;x&#34;),
+                    ),
+                ),
+            )
+        if isinstance(op, NotIn):
+            return OLambda(
+                [&#34;x&#34;, &#34;y&#34;],
+                plt.Not(
+                    plt.AnyList(
                         OVar(&#34;y&#34;),
                         plt.Apply(
                             plt.BuiltIn(uplc.BuiltInFun.EqualsData),
                             OVar(&#34;x&#34;),
-                        ),
-                        # this simply ensures the default is always unequal to the searched value
-                        plt.ConstrData(
-                            plt.AddInteger(
-                                plt.Constructor(OVar(&#34;x&#34;)), plt.Integer(1)
-                            ),
-                            plt.MkNilData(plt.Unit()),
                         ),
                     ),
                 ),
@@ -9317,6 +9472,10 @@ class StringType(AtomicType):
         if isinstance(o, StringType):
             if isinstance(op, Eq):
                 return plt.BuiltIn(uplc.BuiltInFun.EqualsString)
+            if isinstance(op, NotEq):
+                return OLambda(
+                    [&#34;x&#34;, &#34;y&#34;], plt.Not(plt.EqualsString(OVar(&#34;x&#34;), OVar(&#34;y&#34;)))
+                )
         return super().cmp(op, o)
 
     def stringify(self, recursive: bool = False) -&gt; plt.AST:
@@ -9442,6 +9601,10 @@ class StringType(AtomicType):
     if isinstance(o, StringType):
         if isinstance(op, Eq):
             return plt.BuiltIn(uplc.BuiltInFun.EqualsString)
+        if isinstance(op, NotEq):
+            return OLambda(
+                [&#34;x&#34;, &#34;y&#34;], plt.Not(plt.EqualsString(OVar(&#34;x&#34;), OVar(&#34;y&#34;)))
+            )
     return super().cmp(op, o)</code></pre>
 </details>
 </dd>
@@ -10295,20 +10458,23 @@ class UnionType(ClassType):
             if isinstance(op, In):
                 return OLambda(
                     [&#34;x&#34;, &#34;y&#34;],
-                    plt.EqualsData(
-                        OVar(&#34;x&#34;),
-                        plt.FindList(
+                    plt.AnyList(
+                        OVar(&#34;y&#34;),
+                        plt.Apply(
+                            plt.BuiltIn(uplc.BuiltInFun.EqualsData),
+                            OVar(&#34;x&#34;),
+                        ),
+                    ),
+                )
+            if isinstance(op, NotIn):
+                return OLambda(
+                    [&#34;x&#34;, &#34;y&#34;],
+                    plt.Not(
+                        plt.AnyList(
                             OVar(&#34;y&#34;),
                             plt.Apply(
                                 plt.BuiltIn(uplc.BuiltInFun.EqualsData),
                                 OVar(&#34;x&#34;),
-                            ),
-                            # this simply ensures the default is always unequal to the searched value
-                            plt.ConstrData(
-                                plt.AddInteger(
-                                    plt.Constructor(OVar(&#34;x&#34;)), plt.Integer(1)
-                                ),
-                                plt.MkNilData(plt.Unit()),
                             ),
                         ),
                     ),
@@ -10548,20 +10714,23 @@ class UnionType(ClassType):
         if isinstance(op, In):
             return OLambda(
                 [&#34;x&#34;, &#34;y&#34;],
-                plt.EqualsData(
-                    OVar(&#34;x&#34;),
-                    plt.FindList(
+                plt.AnyList(
+                    OVar(&#34;y&#34;),
+                    plt.Apply(
+                        plt.BuiltIn(uplc.BuiltInFun.EqualsData),
+                        OVar(&#34;x&#34;),
+                    ),
+                ),
+            )
+        if isinstance(op, NotIn):
+            return OLambda(
+                [&#34;x&#34;, &#34;y&#34;],
+                plt.Not(
+                    plt.AnyList(
                         OVar(&#34;y&#34;),
                         plt.Apply(
                             plt.BuiltIn(uplc.BuiltInFun.EqualsData),
                             OVar(&#34;x&#34;),
-                        ),
-                        # this simply ensures the default is always unequal to the searched value
-                        plt.ConstrData(
-                            plt.AddInteger(
-                                plt.Constructor(OVar(&#34;x&#34;)), plt.Integer(1)
-                            ),
-                            plt.MkNilData(plt.Unit()),
                         ),
                     ),
                 ),
