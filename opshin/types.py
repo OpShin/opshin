@@ -247,14 +247,11 @@ class AnyType(ClassType):
             if isinstance(op, In):
                 return OLambda(
                     ["x", "y"],
-                    plt.EqualsData(
-                        OVar("x"),
-                        plt.AnyList(
-                            OVar("y"),
-                            plt.Apply(
-                                plt.BuiltIn(uplc.BuiltInFun.EqualsData),
-                                OVar("x"),
-                            ),
+                    plt.AnyList(
+                        OVar("y"),
+                        plt.Apply(
+                            plt.BuiltIn(uplc.BuiltInFun.EqualsData),
+                            OVar("x"),
                         ),
                     ),
                 )
@@ -262,14 +259,11 @@ class AnyType(ClassType):
                 return OLambda(
                     ["x", "y"],
                     plt.Not(
-                        plt.EqualsData(
-                            OVar("x"),
-                            plt.AnyList(
-                                OVar("y"),
-                                plt.Apply(
-                                    plt.BuiltIn(uplc.BuiltInFun.EqualsData),
-                                    OVar("x"),
-                                ),
+                        plt.AnyList(
+                            OVar("y"),
+                            plt.Apply(
+                                plt.BuiltIn(uplc.BuiltInFun.EqualsData),
+                                OVar("x"),
                             ),
                         ),
                     ),
@@ -598,14 +592,11 @@ class RecordType(ClassType):
             if isinstance(op, In):
                 return OLambda(
                     ["x", "y"],
-                    plt.EqualsData(
-                        OVar("x"),
-                        plt.AnyList(
-                            OVar("y"),
-                            plt.Apply(
-                                plt.BuiltIn(uplc.BuiltInFun.EqualsData),
-                                OVar("x"),
-                            ),
+                    plt.AnyList(
+                        OVar("y"),
+                        plt.Apply(
+                            plt.BuiltIn(uplc.BuiltInFun.EqualsData),
+                            OVar("x"),
                         ),
                     ),
                 )
@@ -613,14 +604,11 @@ class RecordType(ClassType):
                 return OLambda(
                     ["x", "y"],
                     plt.Not(
-                        plt.EqualsData(
-                            OVar("x"),
-                            plt.AnyList(
-                                OVar("y"),
-                                plt.Apply(
-                                    plt.BuiltIn(uplc.BuiltInFun.EqualsData),
-                                    OVar("x"),
-                                ),
+                        plt.AnyList(
+                            OVar("y"),
+                            plt.Apply(
+                                plt.BuiltIn(uplc.BuiltInFun.EqualsData),
+                                OVar("x"),
                             ),
                         ),
                     ),
@@ -835,14 +823,11 @@ class UnionType(ClassType):
             if isinstance(op, In):
                 return OLambda(
                     ["x", "y"],
-                    plt.EqualsData(
-                        OVar("x"),
-                        plt.AnyList(
-                            OVar("y"),
-                            plt.Apply(
-                                plt.BuiltIn(uplc.BuiltInFun.EqualsData),
-                                OVar("x"),
-                            ),
+                    plt.AnyList(
+                        OVar("y"),
+                        plt.Apply(
+                            plt.BuiltIn(uplc.BuiltInFun.EqualsData),
+                            OVar("x"),
                         ),
                     ),
                 )
@@ -850,14 +835,11 @@ class UnionType(ClassType):
                 return OLambda(
                     ["x", "y"],
                     plt.Not(
-                        plt.EqualsData(
-                            OVar("x"),
-                            plt.AnyList(
-                                OVar("y"),
-                                plt.Apply(
-                                    plt.BuiltIn(uplc.BuiltInFun.EqualsData),
-                                    OVar("x"),
-                                ),
+                        plt.AnyList(
+                            OVar("y"),
+                            plt.Apply(
+                                plt.BuiltIn(uplc.BuiltInFun.EqualsData),
+                                OVar("x"),
                             ),
                         ),
                     ),
@@ -1565,21 +1547,17 @@ class IntegerType(AtomicType):
             if isinstance(op, In):
                 return OLambda(
                     ["x", "y"],
-                    plt.EqualsInteger(
-                        OVar("x"),
-                        plt.AnyList(
-                            OVar("y"),
-                            plt.Apply(
-                                plt.BuiltIn(uplc.BuiltInFun.EqualsInteger), OVar("x")
-                            ),
+                    plt.AnyList(
+                        OVar("y"),
+                        plt.Apply(
+                            plt.BuiltIn(uplc.BuiltInFun.EqualsInteger), OVar("x")
                         ),
                     ),
                 )
             if isinstance(op, NotIn):
                 return OLambda(
                     ["x", "y"],
-                    plt.NotEqualsInteger(
-                        OVar("x"),
+                    plt.Not(
                         plt.AnyList(
                             OVar("y"),
                             plt.Apply(
@@ -1944,14 +1922,11 @@ class ByteStringType(AtomicType):
             if isinstance(op, In):
                 return OLambda(
                     ["x", "y"],
-                    plt.EqualsByteString(
-                        OVar("x"),
-                        plt.AnyList(
-                            OVar("y"),
-                            plt.Apply(
-                                plt.BuiltIn(uplc.BuiltInFun.EqualsByteString),
-                                OVar("x"),
-                            ),
+                    plt.AnyList(
+                        OVar("y"),
+                        plt.Apply(
+                            plt.BuiltIn(uplc.BuiltInFun.EqualsByteString),
+                            OVar("x"),
                         ),
                     ),
                 )
@@ -1959,14 +1934,11 @@ class ByteStringType(AtomicType):
                 return OLambda(
                     ["x", "y"],
                     plt.Not(
-                        plt.EqualsByteString(
-                            OVar("x"),
-                            plt.AnyList(
-                                OVar("y"),
-                                plt.Apply(
-                                    plt.BuiltIn(uplc.BuiltInFun.EqualsByteString),
-                                    OVar("x"),
-                                ),
+                        plt.AnyList(
+                            OVar("y"),
+                            plt.Apply(
+                                plt.BuiltIn(uplc.BuiltInFun.EqualsByteString),
+                                OVar("x"),
                             ),
                         ),
                     ),
