@@ -62,3 +62,83 @@ The categories are (in increasing amount of allocated prize):
 | Medium Issues           | 400 - 2000 ADA  | Most of the issues fall in this category. This covers bugs that require larger code base refactorings or additions of entire features that require additional modules.                           | https://github.com/OpShin/opshin/issues/333, https://github.com/OpShin/opshin/issues/301, https://github.com/OpShin/opshin/issues/68 |
 | Major Issues            | 2000 - 4000 ADA | Entirely independent projects or major components of a platform like an additional website, completely overhauled software architecture etc.                                                     | https://github.com/OpShin/opshin/issues/344, https://github.com/OpShin/opshin/issues/346                                             |
 | Security Vulnerabilites | 3000 - 4000 ADA | Newly discovered inconsistencies in the compiler, violations of the Python semantics preservation guarantee and similar issues that could lead to loss of user funds in production environments. | https://github.com/OpShin/opshin/pull/361, https://github.com/OpShin/opshin/pull/298                                                 |
+
+## Report on other Bug Bounty platforms
+
+### Bug Bounties and Issue Resolution in GitCoin
+
+GitCoin's approach to bug bounties and issue resolution reflects its open-source ethos, encouraging collaboration and transparent communication within its community. This structure is designed to maximize the efficiency and effectiveness of resolving bugs and enhancing security, leveraging the global talent pool available in the open-source ecosystem.
+
+#### Bug Bounty Program Structure
+
+The GitCoin Security Bounty Program is explicitly designed to reward researchers and developers who identify and report security vulnerabilities within GitCoin's platform. Participation in the program requires adherence to a set of guidelines aimed at responsible investigation and reporting, including, but not limited to:
+
+-   Utilizing one's own account for testing issues.
+-   Avoiding destructive testing methods such as data destruction or service denial.
+-   Reporting vulnerabilities privately and professionally to GitCoin's engineering team.
+-   Abstaining from public disclosure of vulnerabilities until after GitCoin has addressed the issue.
+
+Eligible reports receive rewards, with the GitCoin team retaining final judgment over the payout details, including the severity and classification of the vulnerability​ (Gitcoin Support)​.
+
+#### Issue Resolution via Bounties
+
+GitCoin streamlines the process of funding and resolving issues through its integration with GitHub and Ethereum blockchain. Issue funders, using the MetaMask browser extension, can create a repository on GitHub, specify the bounty for resolving an issue, and wait for a developer to address the concern. This process culminates in the bounty being held in escrow on the blockchain until the contributor's solution is approved and the funds are released.
+
+The platform supports various project types for bounties, such as Traditional, Contest, and Cooperative, each defining how contributors are rewarded. Permission levels can be set to either allow any developer to start working on an issue or require applications and approvals. The bounty setup process involves specifying the issue details, project type, permission level, and the bounty amount, in addition to setting the expected experience level of the developer and the project's duration​ (Gitcoin)​.
+Decentralization and Open Source Focus
+
+GitCoin's decentralized nature, powered by blockchain technology, ensures that developers receive the majority of the value they create without intermediary deductions. This approach contrasts with centralized platforms like HackerOne, which, while effective in their domain, operate within a traditional corporate structure. GitCoin's method aligns with the principles of open-source development, promoting a community-driven model that rewards contributors directly for their work.
+
+By operating on the Ethereum blockchain and facilitating payments in cryptocurrencies, GitCoin not only accelerates the transaction process but also extends its reach globally, bypassing traditional banking barriers. This inclusivity allows for a broader participation base, leveraging a diverse range of talents and insights to improve software security and development outcomes​ (Gitcoin)​.
+
+In summary, GitCoin's bug bounty and issue resolution framework epitomize the open-source spirit, combining transparency, efficiency, and global inclusivity to foster a safer and more vibrant development ecosystem.
+
+### GitPay
+
+#### Introduction
+GitPay is an innovative platform designed to enhance collaborative software development by connecting project owners with developers through a bounty-based issue resolution system. This approach not only accelerates problem-solving within projects but also provides a financial incentive for contributors. By facilitating the import of issues from Git repositories, GitPay streamlines the process of issue resolution, from submission to payment, fostering a more productive and engaged development community.
+
+#### How GitPay Works
+
+##### Issue Import and Bounty Setup
+- **Project owners import issues** from their Git repositories to GitPay.
+- Owners can **set deadlines and bounties** for each issue, which are then advertised to the GitPay community.
+
+##### Collaboration and Solution Submission
+- **Contributors and freelancers apply** to solve imported issues by sending offers.
+- Project owners **assign tasks** to the most suitable applicants.
+- Once a solution is submitted, the project owner **reviews the work**. If approved, the solution is merged into the project.
+
+##### Payment and Integration
+- **Payment is released** to the contributor once the solution is approved and merged.
+- GitPay supports **payments via Credit Card or PayPal**, ensuring a smooth transfer process to the contributor's bank account.
+- The system is designed to be easily integrated with existing development tools, streamlining the workflow for both project owners and contributors.
+
+##### Benefits of Using GitPay
+
+- Provides an **efficient mechanism** for addressing and solving project issues.
+- **Incentivizes contributors** with financial rewards, attracting a wider pool of talent.
+- **Facilitates collaboration** among developers from various backgrounds.
+- Offers an **alternative revenue stream** for developers and enhances portfolio exposure.
+- **Streamlines payment processing** and integration with development tools.
+
+#### Community Engagement and Support
+
+- GitPay encourages community interaction through its **Slack channel**, allowing for real-time communication and collaboration among users.
+- The platform has already seen significant engagement, with **$7,377 paid in bounties** for 325 tasks to a community of 3,260 users.
+
+#### Conclusion
+
+GitPay represents a compelling solution for project development challenges by leveraging the power of community collaboration and financial incentives. Its user-friendly interface, coupled with the integration of popular payment methods, makes it an attractive option for both project owners seeking to resolve issues and developers looking for new opportunities.
+
+For more information, visit GitPay at [GitPay](https://gitpay.me).
+
+## Lessons learnt
+
+- Usage of an integrated payment system: Both GitCoin and GitPay use integrated payment systems for awarding contributors after their contribution. GitCoin uses Ethereum wallets and GitPay credit cards. Neither of these are applicable for Cardano Wallets at the moment but this could be an interesting follow up topic.
+- Providing a platform for discussion about issues: GitPay provides a dedicated Slack channel for communication about topic resolution. We do offer a discord server next to the option to discuss directly on the GitHub issue, which is more transparent and focused on the problem at hand.
+- Allocation of tasks to developers: GitPay allows bounty writers to directly allocate a task to a contributor. We draw inspiration from this and automatically lock issues for developers upon request.
+
+## Conclusion
+
+In conclusion, the OpShin Bug Bounty Program stands as a pivotal component of our commitment to maintaining a secure and innovative ecosystem. By inviting contributions from the wider community and offering tangible rewards for their efforts, we ensure the continual enhancement of our platform. This approach not only incentivizes skilled individuals to contribute but also fosters a culture of collaboration and open-source development. Drawing inspiration from successful platforms like GitCoin and GitPay, we've tailored our program to meet the unique needs of the OpShin community while embracing best practices such as integrated payment systems and a transparent, discussion-friendly environment. As we move forward, we remain dedicated to refining our Bug Bounty Program, embracing community feedback, and exploring new avenues to make contributing to the OpShin ecosystem even more rewarding. Through this initiative, we are not just fixing issues or adding features; we are building a stronger, more resilient platform that benefits all stakeholders in the OpShin ecosystem.
