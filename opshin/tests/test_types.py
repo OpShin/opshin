@@ -1,4 +1,4 @@
-from ..types import *
+from ..type_impls import *
 
 
 def test_record_type_order():

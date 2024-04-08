@@ -19,7 +19,7 @@ jobs:
       - name: Build and publish to pypi
         uses: JRubics/poetry-publish@v2.0
         with:
-          python_version: "3.8"
+          python_version: "3.10"
           pypi_token: ${{ secrets.PYPI_TOKEN }}
           package_directory: "opshin"
-          ignore_dev_requirements: "yes"
+          poetry_install_options: "--without dev"
