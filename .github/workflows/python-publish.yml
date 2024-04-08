@@ -22,4 +22,4 @@ jobs:
           python_version: "3.10"
           pypi_token: ${{ secrets.PYPI_TOKEN }}
           package_directory: "opshin"
-          ignore_dev_requirements: "yes"
+          poetry_options: "--without dev"
