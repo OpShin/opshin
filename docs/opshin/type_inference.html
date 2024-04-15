@@ -1241,7 +1241,7 @@ class ReturnExtractor(TypedNodeVisitor):
 </details>
 </dd>
 <dt id="opshin.type_inference.intersection_types"><code class="name flex">
-<span>def <span class="ident">intersection_types</span></span>(<span>*ts: <a title="opshin.types.Type" href="types.html#opshin.types.Type">Type</a>)</span>
+<span>def <span class="ident">intersection_types</span></span>(<span>*ts: <a title="opshin.type_impls.Type" href="type_impls.html#opshin.type_impls.Type">Type</a>)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -1275,7 +1275,7 @@ class ReturnExtractor(TypedNodeVisitor):
 </details>
 </dd>
 <dt id="opshin.type_inference.merge_scope"><code class="name flex">
-<span>def <span class="ident">merge_scope</span></span>(<span>s1: Dict[str, <a title="opshin.types.Type" href="types.html#opshin.types.Type">Type</a>], s2: Dict[str, <a title="opshin.types.Type" href="types.html#opshin.types.Type">Type</a>])</span>
+<span>def <span class="ident">merge_scope</span></span>(<span>s1: Dict[str, <a title="opshin.type_impls.Type" href="type_impls.html#opshin.type_impls.Type">Type</a>], s2: Dict[str, <a title="opshin.type_impls.Type" href="type_impls.html#opshin.type_impls.Type">Type</a>])</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -1336,7 +1336,7 @@ class ReturnExtractor(TypedNodeVisitor):
 </details>
 </dd>
 <dt id="opshin.type_inference.union_types"><code class="name flex">
-<span>def <span class="ident">union_types</span></span>(<span>*ts: <a title="opshin.types.Type" href="types.html#opshin.types.Type">Type</a>)</span>
+<span>def <span class="ident">union_types</span></span>(<span>*ts: <a title="opshin.type_impls.Type" href="type_impls.html#opshin.type_impls.Type">Type</a>)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -2200,7 +2200,7 @@ just a single node.</p>
 </details>
 </dd>
 <dt id="opshin.type_inference.AggressiveTypeInferencer.implement_typechecks"><code class="name flex">
-<span>def <span class="ident">implement_typechecks</span></span>(<span>self, typchecks: Dict[str, <a title="opshin.types.Type" href="types.html#opshin.types.Type">Type</a>])</span>
+<span>def <span class="ident">implement_typechecks</span></span>(<span>self, typchecks: Dict[str, <a title="opshin.type_impls.Type" href="type_impls.html#opshin.type_impls.Type">Type</a>])</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -2217,7 +2217,7 @@ just a single node.</p>
 </details>
 </dd>
 <dt id="opshin.type_inference.AggressiveTypeInferencer.set_variable_type"><code class="name flex">
-<span>def <span class="ident">set_variable_type</span></span>(<span>self, name: str, typ: <a title="opshin.types.Type" href="types.html#opshin.types.Type">Type</a>, force=False)</span>
+<span>def <span class="ident">set_variable_type</span></span>(<span>self, name: str, typ: <a title="opshin.type_impls.Type" href="type_impls.html#opshin.type_impls.Type">Type</a>, force=False)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -2307,7 +2307,7 @@ just a single node.</p>
 </details>
 </dd>
 <dt id="opshin.type_inference.AggressiveTypeInferencer.variable_type"><code class="name flex">
-<span>def <span class="ident">variable_type</span></span>(<span>self, name: str) ‑> <a title="opshin.types.Type" href="types.html#opshin.types.Type">Type</a></span>
+<span>def <span class="ident">variable_type</span></span>(<span>self, name: str) ‑> <a title="opshin.type_impls.Type" href="type_impls.html#opshin.type_impls.Type">Type</a></span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -3436,7 +3436,7 @@ allows modifications.</p></div>
 </ul>
 <h3>Class variables</h3>
 <dl>
-<dt id="opshin.type_inference.RecordReader.attributes"><code class="name">var <span class="ident">attributes</span> : List[Tuple[str, <a title="opshin.types.Type" href="types.html#opshin.types.Type">Type</a>]]</code></dt>
+<dt id="opshin.type_inference.RecordReader.attributes"><code class="name">var <span class="ident">attributes</span> : List[Tuple[str, <a title="opshin.type_impls.Type" href="type_impls.html#opshin.type_impls.Type">Type</a>]]</code></dt>
 <dd>
 <div class="desc"></div>
 </dd>
@@ -3456,7 +3456,7 @@ allows modifications.</p></div>
 <h3>Static methods</h3>
 <dl>
 <dt id="opshin.type_inference.RecordReader.extract"><code class="name flex">
-<span>def <span class="ident">extract</span></span>(<span>c: ast.ClassDef, type_inferencer: <a title="opshin.type_inference.AggressiveTypeInferencer" href="#opshin.type_inference.AggressiveTypeInferencer">AggressiveTypeInferencer</a>) ‑> <a title="opshin.types.Record" href="types.html#opshin.types.Record">Record</a></span>
+<span>def <span class="ident">extract</span></span>(<span>c: ast.ClassDef, type_inferencer: <a title="opshin.type_inference.AggressiveTypeInferencer" href="#opshin.type_inference.AggressiveTypeInferencer">AggressiveTypeInferencer</a>) ‑> <a title="opshin.type_impls.Record" href="type_impls.html#opshin.type_impls.Record">Record</a></span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -3605,7 +3605,7 @@ def extract(cls, c: ClassDef, type_inferencer: AggressiveTypeInferencer) -&gt; R
 </dd>
 <dt id="opshin.type_inference.ReturnExtractor"><code class="flex name class">
 <span>class <span class="ident">ReturnExtractor</span></span>
-<span>(</span><span>func_rettyp: <a title="opshin.types.Type" href="types.html#opshin.types.Type">Type</a>)</span>
+<span>(</span><span>func_rettyp: <a title="opshin.type_impls.Type" href="type_impls.html#opshin.type_impls.Type">Type</a>)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Utility to check that all paths end in Return statements with the proper type</p>
@@ -3889,7 +3889,7 @@ is True/False respectively</p></div>
 <h3>Methods</h3>
 <dl>
 <dt id="opshin.type_inference.TypeCheckVisitor.generic_visit"><code class="name flex">
-<span>def <span class="ident">generic_visit</span></span>(<span>self, node: ast.AST) ‑> Tuple[Dict[str, <a title="opshin.types.Type" href="types.html#opshin.types.Type">Type</a>], Dict[str, <a title="opshin.types.Type" href="types.html#opshin.types.Type">Type</a>]]</span>
+<span>def <span class="ident">generic_visit</span></span>(<span>self, node: ast.AST) ‑> Tuple[Dict[str, <a title="opshin.type_impls.Type" href="type_impls.html#opshin.type_impls.Type">Type</a>], Dict[str, <a title="opshin.type_impls.Type" href="type_impls.html#opshin.type_impls.Type">Type</a>]]</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Called if no explicit visitor function exists for a node.</p></div>
@@ -3912,7 +3912,7 @@ is True/False respectively</p></div>
 <div class="desc inherited"><p>Visit a node.</p></div>
 </dd>
 <dt id="opshin.type_inference.TypeCheckVisitor.visit_BoolOp"><code class="name flex">
-<span>def <span class="ident">visit_BoolOp</span></span>(<span>self, node: ast.BoolOp) ‑> <a title="opshin.types.PairType" href="types.html#opshin.types.PairType">PairType</a></span>
+<span>def <span class="ident">visit_BoolOp</span></span>(<span>self, node: ast.BoolOp) ‑> <a title="opshin.type_impls.PairType" href="type_impls.html#opshin.type_impls.PairType">PairType</a></span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -3953,7 +3953,7 @@ is True/False respectively</p></div>
 </details>
 </dd>
 <dt id="opshin.type_inference.TypeCheckVisitor.visit_Call"><code class="name flex">
-<span>def <span class="ident">visit_Call</span></span>(<span>self, node: ast.Call) ‑> Tuple[Dict[str, <a title="opshin.types.Type" href="types.html#opshin.types.Type">Type</a>], Dict[str, <a title="opshin.types.Type" href="types.html#opshin.types.Type">Type</a>]]</span>
+<span>def <span class="ident">visit_Call</span></span>(<span>self, node: ast.Call) ‑> Tuple[Dict[str, <a title="opshin.type_impls.Type" href="type_impls.html#opshin.type_impls.Type">Type</a>], Dict[str, <a title="opshin.type_impls.Type" href="type_impls.html#opshin.type_impls.Type">Type</a>]]</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -4001,7 +4001,7 @@ is True/False respectively</p></div>
 </details>
 </dd>
 <dt id="opshin.type_inference.TypeCheckVisitor.visit_UnaryOp"><code class="name flex">
-<span>def <span class="ident">visit_UnaryOp</span></span>(<span>self, node: ast.UnaryOp) ‑> <a title="opshin.types.PairType" href="types.html#opshin.types.PairType">PairType</a></span>
+<span>def <span class="ident">visit_UnaryOp</span></span>(<span>self, node: ast.UnaryOp) ‑> <a title="opshin.type_impls.PairType" href="type_impls.html#opshin.type_impls.PairType">PairType</a></span>
 </code></dt>
 <dd>
 <div class="desc"></div>

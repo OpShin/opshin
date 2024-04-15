@@ -93,16 +93,16 @@ OPT_O0_CONFIG = (
 )
 OPT_O1_CONFIG = (
     CompilationConfig()
-    .update(pluthon.OPT_O1_CONFIG)
     .update(OPT_O0_CONFIG)
+    .update(pluthon.OPT_O1_CONFIG)
     .update(
         remove_dead_code=True,
     )
 )
 OPT_O2_CONFIG = (
     CompilationConfig()
-    .update(pluthon.OPT_O2_CONFIG)
     .update(OPT_O1_CONFIG)
+    .update(pluthon.OPT_O2_CONFIG)
     .update(
         constant_folding=True,
     )

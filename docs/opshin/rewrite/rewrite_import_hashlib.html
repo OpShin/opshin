@@ -205,8 +205,8 @@ class HashType(ClassType):
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
-<li><a title="opshin.types.ClassType" href="../types.html#opshin.types.ClassType">ClassType</a></li>
-<li><a title="opshin.types.Type" href="../types.html#opshin.types.Type">Type</a></li>
+<li><a title="opshin.type_impls.ClassType" href="../type_impls.html#opshin.type_impls.ClassType">ClassType</a></li>
+<li><a title="opshin.type_impls.Type" href="../type_impls.html#opshin.type_impls.Type">Type</a></li>
 </ul>
 <h3>Methods</h3>
 <dl>
@@ -216,7 +216,7 @@ class HashType(ClassType):
 <dd>
 <p class="inheritance">
 <em>Inherited from:</em>
-<code><a title="opshin.types.ClassType" href="../types.html#opshin.types.ClassType">ClassType</a></code>.<code><a title="opshin.types.ClassType.attribute" href="../types.html#opshin.types.ClassType.attribute">attribute</a></code>
+<code><a title="opshin.type_impls.ClassType" href="../type_impls.html#opshin.type_impls.ClassType">ClassType</a></code>.<code><a title="opshin.type_impls.ClassType.attribute" href="../type_impls.html#opshin.type_impls.ClassType.attribute">attribute</a></code>
 </p>
 <div class="desc inherited"><p>The attributes of this class. Needs to be a lambda that expects as first argument the object itself</p></div>
 <details class="source">
@@ -230,12 +230,12 @@ class HashType(ClassType):
 </details>
 </dd>
 <dt id="opshin.rewrite.rewrite_import_hashlib.HashType.attribute_type"><code class="name flex">
-<span>def <span class="ident">attribute_type</span></span>(<span>self, attr) ‑> <a title="opshin.types.Type" href="../types.html#opshin.types.Type">Type</a></span>
+<span>def <span class="ident">attribute_type</span></span>(<span>self, attr) ‑> <a title="opshin.type_impls.Type" href="../type_impls.html#opshin.type_impls.Type">Type</a></span>
 </code></dt>
 <dd>
 <p class="inheritance">
 <em>Inherited from:</em>
-<code><a title="opshin.types.ClassType" href="../types.html#opshin.types.ClassType">ClassType</a></code>.<code><a title="opshin.types.ClassType.attribute_type" href="../types.html#opshin.types.ClassType.attribute_type">attribute_type</a></code>
+<code><a title="opshin.type_impls.ClassType" href="../type_impls.html#opshin.type_impls.ClassType">ClassType</a></code>.<code><a title="opshin.type_impls.ClassType.attribute_type" href="../type_impls.html#opshin.type_impls.ClassType.attribute_type">attribute_type</a></code>
 </p>
 <div class="desc inherited"><p>The types of the named attributes of this class</p></div>
 <details class="source">
@@ -254,27 +254,27 @@ class HashType(ClassType):
 <dd>
 <p class="inheritance">
 <em>Inherited from:</em>
-<code><a title="opshin.types.ClassType" href="../types.html#opshin.types.ClassType">ClassType</a></code>.<code><a title="opshin.types.ClassType.binop" href="../types.html#opshin.types.ClassType.binop">binop</a></code>
+<code><a title="opshin.type_impls.ClassType" href="../type_impls.html#opshin.type_impls.ClassType">ClassType</a></code>.<code><a title="opshin.type_impls.ClassType.binop" href="../type_impls.html#opshin.type_impls.ClassType.binop">binop</a></code>
 </p>
 <div class="desc inherited"><p>Implements a binary operation between self and other</p></div>
 </dd>
 <dt id="opshin.rewrite.rewrite_import_hashlib.HashType.binop_type"><code class="name flex">
-<span>def <span class="ident">binop_type</span></span>(<span>self, binop: ast.operator, other: <a title="opshin.types.Type" href="../types.html#opshin.types.Type">Type</a>) ‑> <a title="opshin.types.Type" href="../types.html#opshin.types.Type">Type</a></span>
+<span>def <span class="ident">binop_type</span></span>(<span>self, binop: ast.operator, other: <a title="opshin.type_impls.Type" href="../type_impls.html#opshin.type_impls.Type">Type</a>) ‑> <a title="opshin.type_impls.Type" href="../type_impls.html#opshin.type_impls.Type">Type</a></span>
 </code></dt>
 <dd>
 <p class="inheritance">
 <em>Inherited from:</em>
-<code><a title="opshin.types.ClassType" href="../types.html#opshin.types.ClassType">ClassType</a></code>.<code><a title="opshin.types.ClassType.binop_type" href="../types.html#opshin.types.ClassType.binop_type">binop_type</a></code>
+<code><a title="opshin.type_impls.ClassType" href="../type_impls.html#opshin.type_impls.ClassType">ClassType</a></code>.<code><a title="opshin.type_impls.ClassType.binop_type" href="../type_impls.html#opshin.type_impls.ClassType.binop_type">binop_type</a></code>
 </p>
 <div class="desc inherited"><p>Type of a binary operation between self and other.</p></div>
 </dd>
 <dt id="opshin.rewrite.rewrite_import_hashlib.HashType.cmp"><code class="name flex">
-<span>def <span class="ident">cmp</span></span>(<span>self, op: ast.cmpop, o: <a title="opshin.types.Type" href="../types.html#opshin.types.Type">Type</a>) ‑> pluthon.pluthon_ast.AST</span>
+<span>def <span class="ident">cmp</span></span>(<span>self, op: ast.cmpop, o: <a title="opshin.type_impls.Type" href="../type_impls.html#opshin.type_impls.Type">Type</a>) ‑> pluthon.pluthon_ast.AST</span>
 </code></dt>
 <dd>
 <p class="inheritance">
 <em>Inherited from:</em>
-<code><a title="opshin.types.ClassType" href="../types.html#opshin.types.ClassType">ClassType</a></code>.<code><a title="opshin.types.ClassType.cmp" href="../types.html#opshin.types.ClassType.cmp">cmp</a></code>
+<code><a title="opshin.type_impls.ClassType" href="../type_impls.html#opshin.type_impls.ClassType">ClassType</a></code>.<code><a title="opshin.type_impls.ClassType.cmp" href="../type_impls.html#opshin.type_impls.ClassType.cmp">cmp</a></code>
 </p>
 <div class="desc inherited"><p>The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second …</p></div>
 </dd>
@@ -284,17 +284,17 @@ class HashType(ClassType):
 <dd>
 <p class="inheritance">
 <em>Inherited from:</em>
-<code><a title="opshin.types.ClassType" href="../types.html#opshin.types.ClassType">ClassType</a></code>.<code><a title="opshin.types.ClassType.constr" href="../types.html#opshin.types.ClassType.constr">constr</a></code>
+<code><a title="opshin.type_impls.ClassType" href="../type_impls.html#opshin.type_impls.ClassType">ClassType</a></code>.<code><a title="opshin.type_impls.ClassType.constr" href="../type_impls.html#opshin.type_impls.ClassType.constr">constr</a></code>
 </p>
 <div class="desc inherited"><p>The constructor for this class</p></div>
 </dd>
 <dt id="opshin.rewrite.rewrite_import_hashlib.HashType.constr_type"><code class="name flex">
-<span>def <span class="ident">constr_type</span></span>(<span>self) ‑> <a title="opshin.types.InstanceType" href="../types.html#opshin.types.InstanceType">InstanceType</a></span>
+<span>def <span class="ident">constr_type</span></span>(<span>self) ‑> <a title="opshin.type_impls.InstanceType" href="../type_impls.html#opshin.type_impls.InstanceType">InstanceType</a></span>
 </code></dt>
 <dd>
 <p class="inheritance">
 <em>Inherited from:</em>
-<code><a title="opshin.types.ClassType" href="../types.html#opshin.types.ClassType">ClassType</a></code>.<code><a title="opshin.types.ClassType.constr_type" href="../types.html#opshin.types.ClassType.constr_type">constr_type</a></code>
+<code><a title="opshin.type_impls.ClassType" href="../type_impls.html#opshin.type_impls.ClassType">ClassType</a></code>.<code><a title="opshin.type_impls.ClassType.constr_type" href="../type_impls.html#opshin.type_impls.ClassType.constr_type">constr_type</a></code>
 </p>
 <div class="desc inherited"><p>The type of the constructor for this class</p></div>
 </dd>
@@ -304,7 +304,7 @@ class HashType(ClassType):
 <dd>
 <p class="inheritance">
 <em>Inherited from:</em>
-<code><a title="opshin.types.ClassType" href="../types.html#opshin.types.ClassType">ClassType</a></code>.<code><a title="opshin.types.ClassType.copy_only_attributes" href="../types.html#opshin.types.ClassType.copy_only_attributes">copy_only_attributes</a></code>
+<code><a title="opshin.type_impls.ClassType" href="../type_impls.html#opshin.type_impls.ClassType">ClassType</a></code>.<code><a title="opshin.type_impls.ClassType.copy_only_attributes" href="../type_impls.html#opshin.type_impls.ClassType.copy_only_attributes">copy_only_attributes</a></code>
 </p>
 <div class="desc inherited"><p>Returns a copy of this type with only the declared attributes (mapped to builtin values, thus checking atomic types too).
 For anything but record …</p></div>
@@ -315,7 +315,7 @@ For anything but record …</p></div>
 <dd>
 <p class="inheritance">
 <em>Inherited from:</em>
-<code><a title="opshin.types.ClassType" href="../types.html#opshin.types.ClassType">ClassType</a></code>.<code><a title="opshin.types.ClassType.id_map" href="../types.html#opshin.types.ClassType.id_map">id_map</a></code>
+<code><a title="opshin.type_impls.ClassType" href="../type_impls.html#opshin.type_impls.ClassType">ClassType</a></code>.<code><a title="opshin.type_impls.ClassType.id_map" href="../type_impls.html#opshin.type_impls.ClassType.id_map">id_map</a></code>
 </p>
 <div class="desc inherited"><p>Returns a map from the constructor id to a descriptive typestring</p></div>
 </dd>
@@ -325,7 +325,7 @@ For anything but record …</p></div>
 <dd>
 <p class="inheritance">
 <em>Inherited from:</em>
-<code><a title="opshin.types.ClassType" href="../types.html#opshin.types.ClassType">ClassType</a></code>.<code><a title="opshin.types.ClassType.stringify" href="../types.html#opshin.types.ClassType.stringify">stringify</a></code>
+<code><a title="opshin.type_impls.ClassType" href="../type_impls.html#opshin.type_impls.ClassType">ClassType</a></code>.<code><a title="opshin.type_impls.ClassType.stringify" href="../type_impls.html#opshin.type_impls.ClassType.stringify">stringify</a></code>
 </p>
 <div class="desc inherited"><p>Returns a stringified version of the object …</p></div>
 </dd>
@@ -335,17 +335,17 @@ For anything but record …</p></div>
 <dd>
 <p class="inheritance">
 <em>Inherited from:</em>
-<code><a title="opshin.types.ClassType" href="../types.html#opshin.types.ClassType">ClassType</a></code>.<code><a title="opshin.types.ClassType.unop" href="../types.html#opshin.types.ClassType.unop">unop</a></code>
+<code><a title="opshin.type_impls.ClassType" href="../type_impls.html#opshin.type_impls.ClassType">ClassType</a></code>.<code><a title="opshin.type_impls.ClassType.unop" href="../type_impls.html#opshin.type_impls.ClassType.unop">unop</a></code>
 </p>
 <div class="desc inherited"><p>Implements a unary operation on self</p></div>
 </dd>
 <dt id="opshin.rewrite.rewrite_import_hashlib.HashType.unop_type"><code class="name flex">
-<span>def <span class="ident">unop_type</span></span>(<span>self, unop: ast.unaryop) ‑> <a title="opshin.types.Type" href="../types.html#opshin.types.Type">Type</a></span>
+<span>def <span class="ident">unop_type</span></span>(<span>self, unop: ast.unaryop) ‑> <a title="opshin.type_impls.Type" href="../type_impls.html#opshin.type_impls.Type">Type</a></span>
 </code></dt>
 <dd>
 <p class="inheritance">
 <em>Inherited from:</em>
-<code><a title="opshin.types.ClassType" href="../types.html#opshin.types.ClassType">ClassType</a></code>.<code><a title="opshin.types.ClassType.unop_type" href="../types.html#opshin.types.ClassType.unop_type">unop_type</a></code>
+<code><a title="opshin.type_impls.ClassType" href="../type_impls.html#opshin.type_impls.ClassType">ClassType</a></code>.<code><a title="opshin.type_impls.ClassType.unop_type" href="../type_impls.html#opshin.type_impls.ClassType.unop_type">unop_type</a></code>
 </p>
 <div class="desc inherited"><p>Type of a unary operation on self.</p></div>
 </dd>
@@ -586,16 +586,16 @@ setTimeout(() => input.focus(), 100);
 <ul class="">
 <li><code><a title="opshin.rewrite.rewrite_import_hashlib.HashType.attribute" href="#opshin.rewrite.rewrite_import_hashlib.HashType.attribute">attribute</a></code></li>
 <li><code><a title="opshin.rewrite.rewrite_import_hashlib.HashType.attribute_type" href="#opshin.rewrite.rewrite_import_hashlib.HashType.attribute_type">attribute_type</a></code></li>
-<li><code><a title="opshin.rewrite.rewrite_import_hashlib.HashType.binop" href="../types.html#opshin.rewrite.rewrite_import_hashlib.HashType.binop">binop</a></code></li>
-<li><code><a title="opshin.rewrite.rewrite_import_hashlib.HashType.binop_type" href="../types.html#opshin.rewrite.rewrite_import_hashlib.HashType.binop_type">binop_type</a></code></li>
-<li><code><a title="opshin.rewrite.rewrite_import_hashlib.HashType.cmp" href="../types.html#opshin.rewrite.rewrite_import_hashlib.HashType.cmp">cmp</a></code></li>
-<li><code><a title="opshin.rewrite.rewrite_import_hashlib.HashType.constr" href="../types.html#opshin.rewrite.rewrite_import_hashlib.HashType.constr">constr</a></code></li>
-<li><code><a title="opshin.rewrite.rewrite_import_hashlib.HashType.constr_type" href="../types.html#opshin.rewrite.rewrite_import_hashlib.HashType.constr_type">constr_type</a></code></li>
-<li><code><a title="opshin.rewrite.rewrite_import_hashlib.HashType.copy_only_attributes" href="../types.html#opshin.rewrite.rewrite_import_hashlib.HashType.copy_only_attributes">copy_only_attributes</a></code></li>
-<li><code><a title="opshin.rewrite.rewrite_import_hashlib.HashType.id_map" href="../types.html#opshin.rewrite.rewrite_import_hashlib.HashType.id_map">id_map</a></code></li>
-<li><code><a title="opshin.rewrite.rewrite_import_hashlib.HashType.stringify" href="../types.html#opshin.rewrite.rewrite_import_hashlib.HashType.stringify">stringify</a></code></li>
-<li><code><a title="opshin.rewrite.rewrite_import_hashlib.HashType.unop" href="../types.html#opshin.rewrite.rewrite_import_hashlib.HashType.unop">unop</a></code></li>
-<li><code><a title="opshin.rewrite.rewrite_import_hashlib.HashType.unop_type" href="../types.html#opshin.rewrite.rewrite_import_hashlib.HashType.unop_type">unop_type</a></code></li>
+<li><code><a title="opshin.rewrite.rewrite_import_hashlib.HashType.binop" href="../type_impls.html#opshin.rewrite.rewrite_import_hashlib.HashType.binop">binop</a></code></li>
+<li><code><a title="opshin.rewrite.rewrite_import_hashlib.HashType.binop_type" href="../type_impls.html#opshin.rewrite.rewrite_import_hashlib.HashType.binop_type">binop_type</a></code></li>
+<li><code><a title="opshin.rewrite.rewrite_import_hashlib.HashType.cmp" href="../type_impls.html#opshin.rewrite.rewrite_import_hashlib.HashType.cmp">cmp</a></code></li>
+<li><code><a title="opshin.rewrite.rewrite_import_hashlib.HashType.constr" href="../type_impls.html#opshin.rewrite.rewrite_import_hashlib.HashType.constr">constr</a></code></li>
+<li><code><a title="opshin.rewrite.rewrite_import_hashlib.HashType.constr_type" href="../type_impls.html#opshin.rewrite.rewrite_import_hashlib.HashType.constr_type">constr_type</a></code></li>
+<li><code><a title="opshin.rewrite.rewrite_import_hashlib.HashType.copy_only_attributes" href="../type_impls.html#opshin.rewrite.rewrite_import_hashlib.HashType.copy_only_attributes">copy_only_attributes</a></code></li>
+<li><code><a title="opshin.rewrite.rewrite_import_hashlib.HashType.id_map" href="../type_impls.html#opshin.rewrite.rewrite_import_hashlib.HashType.id_map">id_map</a></code></li>
+<li><code><a title="opshin.rewrite.rewrite_import_hashlib.HashType.stringify" href="../type_impls.html#opshin.rewrite.rewrite_import_hashlib.HashType.stringify">stringify</a></code></li>
+<li><code><a title="opshin.rewrite.rewrite_import_hashlib.HashType.unop" href="../type_impls.html#opshin.rewrite.rewrite_import_hashlib.HashType.unop">unop</a></code></li>
+<li><code><a title="opshin.rewrite.rewrite_import_hashlib.HashType.unop_type" href="../type_impls.html#opshin.rewrite.rewrite_import_hashlib.HashType.unop_type">unop_type</a></code></li>
 </ul>
 </li>
 <li>

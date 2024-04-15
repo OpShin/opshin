@@ -127,7 +127,7 @@ def eval_uplc_value(
 <h2 class="section-title" id="header-functions">Functions</h2>
 <dl>
 <dt id="opshin.tests.utils.eval_uplc"><code class="name flex">
-<span>def <span class="ident">eval_uplc</span></span>(<span>source_code: str, *args: Union[pycardano.plutus.PlutusData, dict, int, bytes, pycardano.serialization.IndefiniteList, pycardano.serialization.RawCBOR, pycardano.plutus.RawPlutusData, uplc.ast.Constant], contract_file: str = &#x27;&lt;unknown&gt;&#x27;, validator_function_name='validator', config=CompilationConfig(compress_patterns=False, iterative_unfold_patterns=False, constant_index_access_list=True, constant_folding=False, allow_isinstance_anything=False, force_three_params=False, remove_dead_code=True))</span>
+<span>def <span class="ident">eval_uplc</span></span>(<span>source_code: str, *args: Union[pycardano.plutus.PlutusData, dict, int, bytes, pycardano.serialization.IndefiniteList, pycardano.serialization.RawCBOR, pycardano.plutus.RawPlutusData, uplc.ast.Constant], contract_file: str = &#x27;&lt;unknown&gt;&#x27;, validator_function_name='validator', config=CompilationConfig(compress_patterns=True, iterative_unfold_patterns=False, constant_index_access_list=True, constant_folding=False, allow_isinstance_anything=False, force_three_params=False, remove_dead_code=True))</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -153,7 +153,7 @@ def eval_uplc_value(
 </details>
 </dd>
 <dt id="opshin.tests.utils.eval_uplc_value"><code class="name flex">
-<span>def <span class="ident">eval_uplc_value</span></span>(<span>source_code: str, *args: Union[pycardano.plutus.PlutusData, dict, int, bytes, pycardano.serialization.IndefiniteList, pycardano.serialization.RawCBOR, pycardano.plutus.RawPlutusData, uplc.ast.Constant], contract_file: str = &#x27;&lt;unknown&gt;&#x27;, validator_function_name='validator', config=CompilationConfig(compress_patterns=False, iterative_unfold_patterns=False, constant_index_access_list=True, constant_folding=False, allow_isinstance_anything=False, force_three_params=False, remove_dead_code=True))</span>
+<span>def <span class="ident">eval_uplc_value</span></span>(<span>source_code: str, *args: Union[pycardano.plutus.PlutusData, dict, int, bytes, pycardano.serialization.IndefiniteList, pycardano.serialization.RawCBOR, pycardano.plutus.RawPlutusData, uplc.ast.Constant], contract_file: str = &#x27;&lt;unknown&gt;&#x27;, validator_function_name='validator', config=CompilationConfig(compress_patterns=True, iterative_unfold_patterns=False, constant_index_access_list=True, constant_folding=False, allow_isinstance_anything=False, force_three_params=False, remove_dead_code=True))</span>
 </code></dt>
 <dd>
 <div class="desc"></div>

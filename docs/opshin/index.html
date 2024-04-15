@@ -159,7 +159,10 @@ opshin compile_pluto spending examples/smart_contracts/assert_sum.py
 <h2 id="contributing">Contributing</h2>
 <h3 id="developing-and-technical-documentation">Developing and Technical Documentation</h3>
 <p>Generally, all contributions on the code side are very welcome.
-To get an overview over the architecture and idea behind OpShin, check out <a href="./ARCHITECTURE.md">the Technical Documentation</a>.</p>
+To get an overview over the architecture and idea behind OpShin, check out <a href="./ARCHITECTURE.md">the Technical Documentation</a>.
+A bug bounty has been set up and funded by Project Catalyst, which awards <a href="https://github.com/OpShin/opshin/labels/bug%20bounty">Github issue</a> resolution wiht ADA rewards.
+This is a great opportunity to get involved and earn some ADA.
+Check out the <a href="./BUG_BOUNTY.md">detailed introduction to the bounty program</a> for more information.</p>
 <h3 id="sponsoring">Sponsoring</h3>
 <p>You can sponsor the development of opshin through GitHub or <a href="https://patreon.com/OpShin">Patreon</a> or just by sending ADA. Drop me a message on social media and let me know what it is for.</p>
 <ul>
@@ -193,7 +196,7 @@ src="https://avatars.githubusercontent.com/u/118675270?v=4" width="50" /></a></p
 
 import warnings
 
-__version__ = &#34;0.21.0&#34;
+__version__ = &#34;0.21.1&#34;
 __author__ = &#34;nielstron&#34;
 __author_email__ = &#34;n.muendler@web.de&#34;
 __copyright__ = &#34;Copyright (C) 2023 nielstron&#34;
@@ -257,6 +260,10 @@ You can import modules from there (i.e. the <code>fractions</code> module) with 
 <dd>
 <div class="desc"></div>
 </dd>
+<dt><code class="name"><a title="opshin.type_impls" href="type_impls.html">opshin.type_impls</a></code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
 <dt><code class="name"><a title="opshin.type_inference" href="type_inference.html">opshin.type_inference</a></code></dt>
 <dd>
 <div class="desc"><p>An aggressive type inference based on the work of Aycock [1].
@@ -264,10 +271,6 @@ It only allows a subset of legal python operations which
 allow us to infer the type of …</p></div>
 </dd>
 <dt><code class="name"><a title="opshin.typed_ast" href="typed_ast.html">opshin.typed_ast</a></code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-<dt><code class="name"><a title="opshin.types" href="types.html">opshin.types</a></code></dt>
 <dd>
 <div class="desc"></div>
 </dd>
@@ -373,9 +376,9 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="opshin.rewrite" href="rewrite/index.html">opshin.rewrite</a></code></li>
 <li><code><a title="opshin.std" href="std/index.html">opshin.std</a></code></li>
 <li><code><a title="opshin.tests" href="tests/index.html">opshin.tests</a></code></li>
+<li><code><a title="opshin.type_impls" href="type_impls.html">opshin.type_impls</a></code></li>
 <li><code><a title="opshin.type_inference" href="type_inference.html">opshin.type_inference</a></code></li>
 <li><code><a title="opshin.typed_ast" href="typed_ast.html">opshin.typed_ast</a></code></li>
-<li><code><a title="opshin.types" href="types.html">opshin.types</a></code></li>
 <li><code><a title="opshin.util" href="util.html">opshin.util</a></code></li>
 </ul>
 </li>

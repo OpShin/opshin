@@ -24,7 +24,6 @@ URLS=[
 "opshin/ledger/index.html",
 "opshin/ledger/api_v2.html",
 "opshin/ledger/interval.html",
-"opshin/types.html",
 "opshin/optimize/index.html",
 "opshin/optimize/optimize_remove_pass.html",
 "opshin/util.html",
@@ -49,6 +48,7 @@ URLS=[
 "opshin/rewrite/rewrite_import_plutusdata.html",
 "opshin/rewrite/rewrite_import_uplc_builtins.html",
 "opshin/rewrite/rewrite_import_hashlib.html",
+"opshin/type_impls.html",
 "opshin/rewrite/rewrite_tuple_assign.html",
 "opshin/rewrite/rewrite_comparison_chaining.html",
 "opshin/rewrite/rewrite_forbidden_return.html",
@@ -68,7 +68,7 @@ INDEX=[
 {
 "ref":"opshin",
 "url":0,
-"doc":"    opshin                   > You are building what you want. Why not also build  how you want? This is an implementation of smart contracts for Cardano which are written in a strict subset of valid Python. The general philosophy of this project is to write a compiler that ensure the following: If the program compiles then: 1. it is a valid Python program 2. the output running it with python is the same as running it on-chain.  Why opshin? - 100% valid Python. Leverage the existing tool stack for Python, syntax highlighting, linting, debugging, unit-testing, [property-based testing](https: hypothesis.readthedocs.io/), [verification](https: github.com/marcoeilers/nagini) - Intuitive. Just like Python. - Flexible. Imperative, functional, the way you want it. - Efficient & Secure. Static type inference ensures strict typing and optimized code  Getting Started Check out the [OpShin Book](https: book.opshin.dev) for an introduction to this tool and details into writing smart contracts. This document will just outline the basic usage of the tool.  Installation Install Python 3.8, 3.9, 3.10 or 3.11. Then run   python3 -m pip install opshin    Writing a Smart Contract Check out the [OpShin Book](https: book.opshin.dev) for an introduction to this tool and details into writing smart contracts.  Compiling Write your program in python. You may start with the content of  examples . Arguments to scripts are passed in as Plutus Data objects in JSON notation. You can run any of the following commands    Evaluate script in Python - this can be used to make sure there are no obvious errors opshin eval spending examples/smart_contracts/assert_sum.py \"{\\\"int\\\": 4}\" \"{\\\"int\\\": 38}\" d8799fd8799f9fd8799fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffd8799fd8799fd87a9f581cdbe769758f26efb21f008dc097bb194cffc622acc37fcefc5372eee3ffd87a80ffa140a1401a00989680d87a9f5820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dffd87a80ffffff809fd8799fd8799fd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd87a80ffa140a14000d87980d87a80ffffa140a14000a140a1400080a0d8799fd8799fd87980d87a80ffd8799fd87b80d87a80ffff80a1d87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffd87980a15820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd8799f5820746957f0eb57f2b11119684e611a98f373afea93473fefbb7632d579af2f6259ffffd87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffff  Compile script to 'uplc', the Cardano Smart Contract assembly opshin compile spending examples/smart_contracts/assert_sum.py   Furthermore, you can add a shebang to the first line of the python file to indicate that it represents an opshin smart contract. You can choose from the following options: - a general shebang:  !opshin , which represents  opshin eval any - or a more specific purpose:  !/usr/bin/env -S opshin eval minting By doing so, you can transform your python file to an executable:  chmod +x your_file.py and execute it with  ./your_file.py , which will run  opshin eval any ./your_file.py under the hood.  Deploying The deploy process generates all artifacts required for usage with common libraries like [pycardano](https: github.com/Python-Cardano/pycardano), [lucid](https: github.com/spacebudz/lucid) and the [cardano-cli](https: github.com/input-output-hk/cardano-node).    Automatically generate all artifacts needed for using this contract opshin build spending examples/smart_contracts/assert_sum.py   See the [tutorial by  pycardano ](https: pycardano.readthedocs.io/en/latest/guides/plutus.html) for explanations how to build transactions with  opshin contracts.  API for Smart Contracts The python interface offers a simple API to compile, load, apply parameters and evaluate smart contracts.   from opshin.builder import   Build a validator script from a python file that contains a validator function contract = build(\"path/to/contract.py\")  You can apply parameters to the contract during compilation contract = build(\"path/to/contract.py\", arg1, arg2, arg3)  Store the compilation artifacts in a folder contract.dump(\"path/to/store\")  You can also load a compiled contract from a path contract = load(\"path/to/store\")  And apply parameters after loading a contract contract = contract.apply_parameters(arg1, arg2, arg3)  The artifacts contain the compiled script, the policy ID and the addresses and blueprint contract_addr = contract.mainnet_addr contract_blueprint = contract.blueprint    Debugging artefacts For debugging purposes, you can also run    Compile script to 'uplc', and evaluate the script in UPLC (for debugging purposes) opshin eval_uplc spending examples/smart_contracts/assert_sum.py \"{\\\"int\\\": 4}\" \"{\\\"int\\\": 38}\" d8799fd8799f9fd8799fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffd8799fd8799fd87a9f581cdbe769758f26efb21f008dc097bb194cffc622acc37fcefc5372eee3ffd87a80ffa140a1401a00989680d87a9f5820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dffd87a80ffffff809fd8799fd8799fd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd87a80ffa140a14000d87980d87a80ffffa140a14000a140a1400080a0d8799fd8799fd87980d87a80ffd8799fd87b80d87a80ffff80a1d87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffd87980a15820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd8799f5820746957f0eb57f2b11119684e611a98f373afea93473fefbb7632d579af2f6259ffffd87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffff  Compile script to 'pluto', an intermediate language (for debugging purposes) opshin compile_pluto spending examples/smart_contracts/assert_sum.py    Contributing  Developing and Technical Documentation Generally, all contributions on the code side are very welcome. To get an overview over the architecture and idea behind OpShin, check out [the Technical Documentation](./ARCHITECTURE.md).  Sponsoring You can sponsor the development of opshin through GitHub or [Patreon](https: patreon.com/OpShin) or just by sending ADA. Drop me a message on social media and let me know what it is for. -  Patreon Support OpShin at [Patreon](https: patreon.com/OpShin) to enjoy member benefits! -  GitHub Sponsor the developers of this project through the button \"Sponsor\" next to them -  ADA Donation in ADA can be submitted to  $opshin or  addr1qyz3vgd5xxevjy2rvqevz9n7n7dney8n6hqggp23479fm6vwpj9clsvsf85cd4xc59zjztr5zwpummwckmzr2myjwjns74lhmr .  Supporters             The main sponsor of this project is [Inversion](https: inversion.dev/cardano/). Here is a word from them! > At Inversion, we pride ourselves on our passion for life and our ability to create exceptional software solutions for our clients. Our team of experts, with over a century of cumulative experience, is dedicated to harnessing the power of the Cardano blockchain to bring innovative and scalable decentralized applications to life. We've successfully built applications for NFT management, staking and delegation, chain data monitoring, analytics, and web3 integrations, as well as countless non-blockchain systems. With a focus on security, transparency, and sustainability, our team is excited to contribute to the Cardano ecosystem, pushing the boundaries of decentralized technologies to improve lives worldwide. Trust Inversion to be your go-to partner for robust, effective, and forward-thinking solutions, whether blockchain based, traditional systems, or a mix of the two. They have recently started a podcast, called \"Africa On Chain\", which you can check out here: https: www.youtube.com/@africaonchain"
+"doc":"    opshin                   > You are building what you want. Why not also build  how you want? This is an implementation of smart contracts for Cardano which are written in a strict subset of valid Python. The general philosophy of this project is to write a compiler that ensure the following: If the program compiles then: 1. it is a valid Python program 2. the output running it with python is the same as running it on-chain.  Why opshin? - 100% valid Python. Leverage the existing tool stack for Python, syntax highlighting, linting, debugging, unit-testing, [property-based testing](https: hypothesis.readthedocs.io/), [verification](https: github.com/marcoeilers/nagini) - Intuitive. Just like Python. - Flexible. Imperative, functional, the way you want it. - Efficient & Secure. Static type inference ensures strict typing and optimized code  Getting Started Check out the [OpShin Book](https: book.opshin.dev) for an introduction to this tool and details into writing smart contracts. This document will just outline the basic usage of the tool.  Installation Install Python 3.8, 3.9, 3.10 or 3.11. Then run   python3 -m pip install opshin    Writing a Smart Contract Check out the [OpShin Book](https: book.opshin.dev) for an introduction to this tool and details into writing smart contracts.  Compiling Write your program in python. You may start with the content of  examples . Arguments to scripts are passed in as Plutus Data objects in JSON notation. You can run any of the following commands    Evaluate script in Python - this can be used to make sure there are no obvious errors opshin eval spending examples/smart_contracts/assert_sum.py \"{\\\"int\\\": 4}\" \"{\\\"int\\\": 38}\" d8799fd8799f9fd8799fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffd8799fd8799fd87a9f581cdbe769758f26efb21f008dc097bb194cffc622acc37fcefc5372eee3ffd87a80ffa140a1401a00989680d87a9f5820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dffd87a80ffffff809fd8799fd8799fd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd87a80ffa140a14000d87980d87a80ffffa140a14000a140a1400080a0d8799fd8799fd87980d87a80ffd8799fd87b80d87a80ffff80a1d87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffd87980a15820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd8799f5820746957f0eb57f2b11119684e611a98f373afea93473fefbb7632d579af2f6259ffffd87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffff  Compile script to 'uplc', the Cardano Smart Contract assembly opshin compile spending examples/smart_contracts/assert_sum.py   Furthermore, you can add a shebang to the first line of the python file to indicate that it represents an opshin smart contract. You can choose from the following options: - a general shebang:  !opshin , which represents  opshin eval any - or a more specific purpose:  !/usr/bin/env -S opshin eval minting By doing so, you can transform your python file to an executable:  chmod +x your_file.py and execute it with  ./your_file.py , which will run  opshin eval any ./your_file.py under the hood.  Deploying The deploy process generates all artifacts required for usage with common libraries like [pycardano](https: github.com/Python-Cardano/pycardano), [lucid](https: github.com/spacebudz/lucid) and the [cardano-cli](https: github.com/input-output-hk/cardano-node).    Automatically generate all artifacts needed for using this contract opshin build spending examples/smart_contracts/assert_sum.py   See the [tutorial by  pycardano ](https: pycardano.readthedocs.io/en/latest/guides/plutus.html) for explanations how to build transactions with  opshin contracts.  API for Smart Contracts The python interface offers a simple API to compile, load, apply parameters and evaluate smart contracts.   from opshin.builder import   Build a validator script from a python file that contains a validator function contract = build(\"path/to/contract.py\")  You can apply parameters to the contract during compilation contract = build(\"path/to/contract.py\", arg1, arg2, arg3)  Store the compilation artifacts in a folder contract.dump(\"path/to/store\")  You can also load a compiled contract from a path contract = load(\"path/to/store\")  And apply parameters after loading a contract contract = contract.apply_parameters(arg1, arg2, arg3)  The artifacts contain the compiled script, the policy ID and the addresses and blueprint contract_addr = contract.mainnet_addr contract_blueprint = contract.blueprint    Debugging artefacts For debugging purposes, you can also run    Compile script to 'uplc', and evaluate the script in UPLC (for debugging purposes) opshin eval_uplc spending examples/smart_contracts/assert_sum.py \"{\\\"int\\\": 4}\" \"{\\\"int\\\": 38}\" d8799fd8799f9fd8799fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffd8799fd8799fd87a9f581cdbe769758f26efb21f008dc097bb194cffc622acc37fcefc5372eee3ffd87a80ffa140a1401a00989680d87a9f5820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dffd87a80ffffff809fd8799fd8799fd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd87a80ffa140a14000d87980d87a80ffffa140a14000a140a1400080a0d8799fd8799fd87980d87a80ffd8799fd87b80d87a80ffff80a1d87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffd87980a15820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd8799f5820746957f0eb57f2b11119684e611a98f373afea93473fefbb7632d579af2f6259ffffd87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffff  Compile script to 'pluto', an intermediate language (for debugging purposes) opshin compile_pluto spending examples/smart_contracts/assert_sum.py    Contributing  Developing and Technical Documentation Generally, all contributions on the code side are very welcome. To get an overview over the architecture and idea behind OpShin, check out [the Technical Documentation](./ARCHITECTURE.md). A bug bounty has been set up and funded by Project Catalyst, which awards [Github issue](https: github.com/OpShin/opshin/labels/bug%20bounty) resolution wiht ADA rewards. This is a great opportunity to get involved and earn some ADA. Check out the [detailed introduction to the bounty program](./BUG_BOUNTY.md) for more information.  Sponsoring You can sponsor the development of opshin through GitHub or [Patreon](https: patreon.com/OpShin) or just by sending ADA. Drop me a message on social media and let me know what it is for. -  Patreon Support OpShin at [Patreon](https: patreon.com/OpShin) to enjoy member benefits! -  GitHub Sponsor the developers of this project through the button \"Sponsor\" next to them -  ADA Donation in ADA can be submitted to  $opshin or  addr1qyz3vgd5xxevjy2rvqevz9n7n7dney8n6hqggp23479fm6vwpj9clsvsf85cd4xc59zjztr5zwpummwckmzr2myjwjns74lhmr .  Supporters             The main sponsor of this project is [Inversion](https: inversion.dev/cardano/). Here is a word from them! > At Inversion, we pride ourselves on our passion for life and our ability to create exceptional software solutions for our clients. Our team of experts, with over a century of cumulative experience, is dedicated to harnessing the power of the Cardano blockchain to bring innovative and scalable decentralized applications to life. We've successfully built applications for NFT management, staking and delegation, chain data monitoring, analytics, and web3 integrations, as well as countless non-blockchain systems. With a focus on security, transparency, and sustainability, our team is excited to contribute to the Cardano ecosystem, pushing the boundaries of decentralized technologies to improve lives worldwide. Trust Inversion to be your go-to partner for robust, effective, and forward-thinking solutions, whether blockchain based, traditional systems, or a mix of the two. They have recently started a podcast, called \"Africa On Chain\", which you can check out here: https: www.youtube.com/@africaonchain"
 },
 {
 "ref":"opshin.bridge",
@@ -3525,7 +3525,7 @@ INDEX=[
 {
 "ref":"opshin.builder.PlutusContract",
 "url":21,
-"doc":"PlutusContract(contract: pycardano.plutus.PlutusV2Script, datum_type: Optional[Tuple[str, Type[Union[pycardano.plutus.PlutusData, dict, int, bytes, pycardano.serialization.IndefiniteList, pycardano.serialization.RawCBOR, pycardano.plutus.RawPlutusData  = None, redeemer_type: Optional[Tuple[str, Type[Union[pycardano.plutus.PlutusData, dict, int, bytes, pycardano.serialization.IndefiniteList, pycardano.serialization.RawCBOR, pycardano.plutus.RawPlutusData  = None, parameter_types: List[Tuple[str, Type[Union[pycardano.plutus.PlutusData, dict, int, bytes, pycardano.serialization.IndefiniteList, pycardano.serialization.RawCBOR, pycardano.plutus.RawPlutusData  =  , purpose: Iterable[opshin.builder.Purpose] = ( ,), version: Optional[str] = '1.0.0', title: str = 'validator', description: Optional[str] = 'opshin 0.21.0 Smart Contract', license: Optional[str] = None)"
+"doc":"PlutusContract(contract: pycardano.plutus.PlutusV2Script, datum_type: Optional[Tuple[str, Type[Union[pycardano.plutus.PlutusData, dict, int, bytes, pycardano.serialization.IndefiniteList, pycardano.serialization.RawCBOR, pycardano.plutus.RawPlutusData  = None, redeemer_type: Optional[Tuple[str, Type[Union[pycardano.plutus.PlutusData, dict, int, bytes, pycardano.serialization.IndefiniteList, pycardano.serialization.RawCBOR, pycardano.plutus.RawPlutusData  = None, parameter_types: List[Tuple[str, Type[Union[pycardano.plutus.PlutusData, dict, int, bytes, pycardano.serialization.IndefiniteList, pycardano.serialization.RawCBOR, pycardano.plutus.RawPlutusData  =  , purpose: Iterable[opshin.builder.Purpose] = ( ,), version: Optional[str] = '1.0.0', title: str = 'validator', description: Optional[str] = 'opshin 0.21.1 Smart Contract', license: Optional[str] = None)"
 },
 {
 "ref":"opshin.builder.PlutusContract.contract",
@@ -4391,3246 +4391,1464 @@ INDEX=[
 "func":1
 },
 {
-"ref":"opshin.types",
-"url":25,
-"doc":""
-},
-{
-"ref":"opshin.types.FunctionType",
-"url":25,
-"doc":"FunctionType(argtyps: List[opshin.types.Type], rettyp: opshin.types.Type, bound_vars: Dict[str, opshin.types.Type] =  , bind_self: Optional[str] = None)"
-},
-{
-"ref":"opshin.types.FunctionType.argtyps",
-"url":25,
-"doc":""
-},
-{
-"ref":"opshin.types.FunctionType.rettyp",
-"url":25,
-"doc":""
-},
-{
-"ref":"opshin.types.FunctionType.bound_vars",
-"url":25,
-"doc":""
-},
-{
-"ref":"opshin.types.FunctionType.bind_self",
-"url":25,
-"doc":""
-},
-{
-"ref":"opshin.types.FunctionType.stringify",
-"url":25,
-"doc":"Returns a stringified version of the object The recursive parameter informs the method whether it was invoked recursively from another invokation",
-"func":1
-},
-{
-"ref":"opshin.types.FunctionType.copy_only_attributes",
-"url":25,
-"doc":"Returns a copy of this type with only the declared attributes (mapped to builtin values, thus checking atomic types too). For anything but record types and union types, this is the identity function.",
-"func":1
-},
-{
-"ref":"opshin.types.FunctionType.constr_type",
-"url":25,
-"doc":"The type of the constructor for this class",
-"func":1
-},
-{
-"ref":"opshin.types.FunctionType.constr",
-"url":25,
-"doc":"The constructor for this class",
-"func":1
-},
-{
-"ref":"opshin.types.FunctionType.attribute_type",
-"url":25,
-"doc":"The types of the named attributes of this class",
-"func":1
-},
-{
-"ref":"opshin.types.FunctionType.attribute",
-"url":25,
-"doc":"The attributes of this class. Needs to be a lambda that expects as first argument the object itself",
-"func":1
-},
-{
-"ref":"opshin.types.FunctionType.cmp",
-"url":25,
-"doc":"The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second the comparison.",
-"func":1
-},
-{
-"ref":"opshin.types.FunctionType.binop_type",
-"url":25,
-"doc":"Type of a binary operation between self and other.",
-"func":1
-},
-{
-"ref":"opshin.types.FunctionType.binop",
-"url":25,
-"doc":"Implements a binary operation between self and other",
-"func":1
-},
-{
-"ref":"opshin.types.FunctionType.unop_type",
-"url":25,
-"doc":"Type of a unary operation on self.",
-"func":1
-},
-{
-"ref":"opshin.types.FunctionType.unop",
-"url":25,
-"doc":"Implements a unary operation on self",
-"func":1
-},
-{
-"ref":"opshin.types.FunctionType.id_map",
-"url":25,
-"doc":"Returns a map from the constructor id to a descriptive typestring",
-"func":1
-},
-{
-"ref":"opshin.types.TypeInferenceError",
-"url":25,
-"doc":"Assertion failed."
-},
-{
-"ref":"opshin.types.Type",
-"url":25,
-"doc":""
-},
-{
-"ref":"opshin.types.Type.constr_type",
-"url":25,
-"doc":"The type of the constructor for this class",
-"func":1
-},
-{
-"ref":"opshin.types.Type.constr",
-"url":25,
-"doc":"The constructor for this class",
-"func":1
-},
-{
-"ref":"opshin.types.Type.attribute_type",
-"url":25,
-"doc":"The types of the named attributes of this class",
-"func":1
-},
-{
-"ref":"opshin.types.Type.attribute",
-"url":25,
-"doc":"The attributes of this class. Needs to be a lambda that expects as first argument the object itself",
-"func":1
-},
-{
-"ref":"opshin.types.Type.cmp",
-"url":25,
-"doc":"The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second the comparison.",
-"func":1
-},
-{
-"ref":"opshin.types.Type.stringify",
-"url":25,
-"doc":"Returns a stringified version of the object The recursive parameter informs the method whether it was invoked recursively from another invokation",
-"func":1
-},
-{
-"ref":"opshin.types.Type.copy_only_attributes",
-"url":25,
-"doc":"Pluthon function that returns a copy of only the attributes of the object",
-"func":1
-},
-{
-"ref":"opshin.types.Type.binop_type",
-"url":25,
-"doc":"Type of a binary operation between self and other.",
-"func":1
-},
-{
-"ref":"opshin.types.Type.binop",
-"url":25,
-"doc":"Implements a binary operation between self and other",
-"func":1
-},
-{
-"ref":"opshin.types.Type.unop_type",
-"url":25,
-"doc":"Type of a unary operation on self.",
-"func":1
-},
-{
-"ref":"opshin.types.Type.unop",
-"url":25,
-"doc":"Implements a unary operation on self",
-"func":1
-},
-{
-"ref":"opshin.types.Type.id_map",
-"url":25,
-"doc":"Returns a map from the constructor id to a descriptive typestring",
-"func":1
-},
-{
-"ref":"opshin.types.Record",
-"url":25,
-"doc":"Record(name: str, orig_name: str, constructor: int, fields: Union[List[Tuple[str, opshin.types.Type , frozenlist2.frozenlist])"
-},
-{
-"ref":"opshin.types.Record.name",
-"url":25,
-"doc":""
-},
-{
-"ref":"opshin.types.Record.orig_name",
-"url":25,
-"doc":""
-},
-{
-"ref":"opshin.types.Record.constructor",
-"url":25,
-"doc":""
-},
-{
-"ref":"opshin.types.Record.fields",
-"url":25,
-"doc":""
-},
-{
-"ref":"opshin.types.ClassType",
-"url":25,
-"doc":"ClassType()"
-},
-{
-"ref":"opshin.types.ClassType.copy_only_attributes",
-"url":25,
-"doc":"Returns a copy of this type with only the declared attributes (mapped to builtin values, thus checking atomic types too). For anything but record types and union types, this is the identity function.",
-"func":1
-},
-{
-"ref":"opshin.types.ClassType.constr_type",
-"url":25,
-"doc":"The type of the constructor for this class",
-"func":1
-},
-{
-"ref":"opshin.types.ClassType.constr",
-"url":25,
-"doc":"The constructor for this class",
-"func":1
-},
-{
-"ref":"opshin.types.ClassType.attribute_type",
-"url":25,
-"doc":"The types of the named attributes of this class",
-"func":1
-},
-{
-"ref":"opshin.types.ClassType.attribute",
-"url":25,
-"doc":"The attributes of this class. Needs to be a lambda that expects as first argument the object itself",
-"func":1
-},
-{
-"ref":"opshin.types.ClassType.cmp",
-"url":25,
-"doc":"The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second the comparison.",
-"func":1
-},
-{
-"ref":"opshin.types.ClassType.stringify",
-"url":25,
-"doc":"Returns a stringified version of the object The recursive parameter informs the method whether it was invoked recursively from another invokation",
-"func":1
-},
-{
-"ref":"opshin.types.ClassType.binop_type",
-"url":25,
-"doc":"Type of a binary operation between self and other.",
-"func":1
-},
-{
-"ref":"opshin.types.ClassType.binop",
-"url":25,
-"doc":"Implements a binary operation between self and other",
-"func":1
-},
-{
-"ref":"opshin.types.ClassType.unop_type",
-"url":25,
-"doc":"Type of a unary operation on self.",
-"func":1
-},
-{
-"ref":"opshin.types.ClassType.unop",
-"url":25,
-"doc":"Implements a unary operation on self",
-"func":1
-},
-{
-"ref":"opshin.types.ClassType.id_map",
-"url":25,
-"doc":"Returns a map from the constructor id to a descriptive typestring",
-"func":1
-},
-{
-"ref":"opshin.types.AnyType",
-"url":25,
-"doc":"The top element in the partial order on types (excluding FunctionTypes, which do not compare to anything)"
-},
-{
-"ref":"opshin.types.AnyType.id_map",
-"url":25,
-"doc":"Returns a map from the constructor id to a descriptive typestring",
-"func":1
-},
-{
-"ref":"opshin.types.AnyType.attribute_type",
-"url":25,
-"doc":"The types of the named attributes of this class",
-"func":1
-},
-{
-"ref":"opshin.types.AnyType.attribute",
-"url":25,
-"doc":"The attributes of this class. Need to be a lambda that expects as first argument the object itself",
-"func":1
-},
-{
-"ref":"opshin.types.AnyType.cmp",
-"url":25,
-"doc":"The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second the comparison.",
-"func":1
-},
-{
-"ref":"opshin.types.AnyType.stringify",
-"url":25,
-"doc":"Returns a stringified version of the object The recursive parameter informs the method whether it was invoked recursively from another invokation",
-"func":1
-},
-{
-"ref":"opshin.types.AnyType.copy_only_attributes",
-"url":25,
-"doc":"Returns a copy of this type with only the declared attributes (mapped to builtin values, thus checking atomic types too). For anything but record types and union types, this is the identity function.",
-"func":1
-},
-{
-"ref":"opshin.types.AnyType.constr_type",
-"url":25,
-"doc":"The type of the constructor for this class",
-"func":1
-},
-{
-"ref":"opshin.types.AnyType.constr",
-"url":25,
-"doc":"The constructor for this class",
-"func":1
-},
-{
-"ref":"opshin.types.AnyType.binop_type",
-"url":25,
-"doc":"Type of a binary operation between self and other.",
-"func":1
-},
-{
-"ref":"opshin.types.AnyType.binop",
-"url":25,
-"doc":"Implements a binary operation between self and other",
-"func":1
-},
-{
-"ref":"opshin.types.AnyType.unop_type",
-"url":25,
-"doc":"Type of a unary operation on self.",
-"func":1
-},
-{
-"ref":"opshin.types.AnyType.unop",
-"url":25,
-"doc":"Implements a unary operation on self",
-"func":1
-},
-{
-"ref":"opshin.types.AtomicType",
-"url":25,
-"doc":"AtomicType()"
-},
-{
-"ref":"opshin.types.AtomicType.copy_only_attributes",
-"url":25,
-"doc":"Returns a copy of this type with only the declared attributes (mapped to builtin values, thus checking atomic types too). For anything but record types and union types, this is the identity function.",
-"func":1
-},
-{
-"ref":"opshin.types.AtomicType.constr_type",
-"url":25,
-"doc":"The type of the constructor for this class",
-"func":1
-},
-{
-"ref":"opshin.types.AtomicType.constr",
-"url":25,
-"doc":"The constructor for this class",
-"func":1
-},
-{
-"ref":"opshin.types.AtomicType.attribute_type",
-"url":25,
-"doc":"The types of the named attributes of this class",
-"func":1
-},
-{
-"ref":"opshin.types.AtomicType.attribute",
-"url":25,
-"doc":"The attributes of this class. Needs to be a lambda that expects as first argument the object itself",
-"func":1
-},
-{
-"ref":"opshin.types.AtomicType.cmp",
-"url":25,
-"doc":"The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second the comparison.",
-"func":1
-},
-{
-"ref":"opshin.types.AtomicType.stringify",
-"url":25,
-"doc":"Returns a stringified version of the object The recursive parameter informs the method whether it was invoked recursively from another invokation",
-"func":1
-},
-{
-"ref":"opshin.types.AtomicType.binop_type",
-"url":25,
-"doc":"Type of a binary operation between self and other.",
-"func":1
-},
-{
-"ref":"opshin.types.AtomicType.binop",
-"url":25,
-"doc":"Implements a binary operation between self and other",
-"func":1
-},
-{
-"ref":"opshin.types.AtomicType.unop_type",
-"url":25,
-"doc":"Type of a unary operation on self.",
-"func":1
-},
-{
-"ref":"opshin.types.AtomicType.unop",
-"url":25,
-"doc":"Implements a unary operation on self",
-"func":1
-},
-{
-"ref":"opshin.types.AtomicType.id_map",
-"url":25,
-"doc":"Returns a map from the constructor id to a descriptive typestring",
-"func":1
-},
-{
-"ref":"opshin.types.RecordType",
-"url":25,
-"doc":"RecordType(record: opshin.types.Record)"
-},
-{
-"ref":"opshin.types.RecordType.record",
-"url":25,
-"doc":""
-},
-{
-"ref":"opshin.types.RecordType.id_map",
-"url":25,
-"doc":"Returns a map from the constructor id to a descriptive typestring",
-"func":1
-},
-{
-"ref":"opshin.types.RecordType.constr_type",
-"url":25,
-"doc":"The type of the constructor for this class",
-"func":1
-},
-{
-"ref":"opshin.types.RecordType.constr",
-"url":25,
-"doc":"The constructor for this class",
-"func":1
-},
-{
-"ref":"opshin.types.RecordType.attribute_type",
-"url":25,
-"doc":"The types of the named attributes of this class",
-"func":1
-},
-{
-"ref":"opshin.types.RecordType.attribute",
-"url":25,
-"doc":"The attributes of this class. Need to be a lambda that expects as first argument the object itself",
-"func":1
-},
-{
-"ref":"opshin.types.RecordType.cmp",
-"url":25,
-"doc":"The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second the comparison.",
-"func":1
-},
-{
-"ref":"opshin.types.RecordType.stringify",
-"url":25,
-"doc":"Returns a stringified version of the object",
-"func":1
-},
-{
-"ref":"opshin.types.RecordType.copy_only_attributes",
-"url":25,
-"doc":"Returns a copy of this type with only the declared attributes (mapped to builtin values, thus checking atomic types too). For anything but record types and union types, this is the identity function.",
-"func":1
-},
-{
-"ref":"opshin.types.RecordType.binop_type",
-"url":25,
-"doc":"Type of a binary operation between self and other.",
-"func":1
-},
-{
-"ref":"opshin.types.RecordType.binop",
-"url":25,
-"doc":"Implements a binary operation between self and other",
-"func":1
-},
-{
-"ref":"opshin.types.RecordType.unop_type",
-"url":25,
-"doc":"Type of a unary operation on self.",
-"func":1
-},
-{
-"ref":"opshin.types.RecordType.unop",
-"url":25,
-"doc":"Implements a unary operation on self",
-"func":1
-},
-{
-"ref":"opshin.types.UnionType",
-"url":25,
-"doc":"UnionType(typs: List[opshin.types.RecordType])"
-},
-{
-"ref":"opshin.types.UnionType.typs",
-"url":25,
-"doc":""
-},
-{
-"ref":"opshin.types.UnionType.id_map",
-"url":25,
-"doc":"Returns a map from the constructor id to a descriptive typestring",
-"func":1
-},
-{
-"ref":"opshin.types.UnionType.attribute_type",
-"url":25,
-"doc":"The types of the named attributes of this class",
-"func":1
-},
-{
-"ref":"opshin.types.UnionType.attribute",
-"url":25,
-"doc":"The attributes of this class. Needs to be a lambda that expects as first argument the object itself",
-"func":1
-},
-{
-"ref":"opshin.types.UnionType.cmp",
-"url":25,
-"doc":"The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second the comparison.",
-"func":1
-},
-{
-"ref":"opshin.types.UnionType.stringify",
-"url":25,
-"doc":"Returns a stringified version of the object The recursive parameter informs the method whether it was invoked recursively from another invokation",
-"func":1
-},
-{
-"ref":"opshin.types.UnionType.copy_only_attributes",
-"url":25,
-"doc":"Returns a copy of this type with only the declared attributes (mapped to builtin values, thus checking atomic types too). For anything but record types and union types, this is the identity function.",
-"func":1
-},
-{
-"ref":"opshin.types.UnionType.constr_type",
-"url":25,
-"doc":"The type of the constructor for this class",
-"func":1
-},
-{
-"ref":"opshin.types.UnionType.constr",
-"url":25,
-"doc":"The constructor for this class",
-"func":1
-},
-{
-"ref":"opshin.types.UnionType.binop_type",
-"url":25,
-"doc":"Type of a binary operation between self and other.",
-"func":1
-},
-{
-"ref":"opshin.types.UnionType.binop",
-"url":25,
-"doc":"Implements a binary operation between self and other",
-"func":1
-},
-{
-"ref":"opshin.types.UnionType.unop_type",
-"url":25,
-"doc":"Type of a unary operation on self.",
-"func":1
-},
-{
-"ref":"opshin.types.UnionType.unop",
-"url":25,
-"doc":"Implements a unary operation on self",
-"func":1
-},
-{
-"ref":"opshin.types.TupleType",
-"url":25,
-"doc":"TupleType(typs: List[opshin.types.Type])"
-},
-{
-"ref":"opshin.types.TupleType.typs",
-"url":25,
-"doc":""
-},
-{
-"ref":"opshin.types.TupleType.stringify",
-"url":25,
-"doc":"Returns a stringified version of the object The recursive parameter informs the method whether it was invoked recursively from another invokation",
-"func":1
-},
-{
-"ref":"opshin.types.TupleType.copy_only_attributes",
-"url":25,
-"doc":"Returns a copy of this type with only the declared attributes (mapped to builtin values, thus checking atomic types too). For anything but record types and union types, this is the identity function.",
-"func":1
-},
-{
-"ref":"opshin.types.TupleType.constr_type",
-"url":25,
-"doc":"The type of the constructor for this class",
-"func":1
-},
-{
-"ref":"opshin.types.TupleType.constr",
-"url":25,
-"doc":"The constructor for this class",
-"func":1
-},
-{
-"ref":"opshin.types.TupleType.attribute_type",
-"url":25,
-"doc":"The types of the named attributes of this class",
-"func":1
-},
-{
-"ref":"opshin.types.TupleType.attribute",
-"url":25,
-"doc":"The attributes of this class. Needs to be a lambda that expects as first argument the object itself",
-"func":1
-},
-{
-"ref":"opshin.types.TupleType.cmp",
-"url":25,
-"doc":"The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second the comparison.",
-"func":1
-},
-{
-"ref":"opshin.types.TupleType.binop_type",
-"url":25,
-"doc":"Type of a binary operation between self and other.",
-"func":1
-},
-{
-"ref":"opshin.types.TupleType.binop",
-"url":25,
-"doc":"Implements a binary operation between self and other",
-"func":1
-},
-{
-"ref":"opshin.types.TupleType.unop_type",
-"url":25,
-"doc":"Type of a unary operation on self.",
-"func":1
-},
-{
-"ref":"opshin.types.TupleType.unop",
-"url":25,
-"doc":"Implements a unary operation on self",
-"func":1
-},
-{
-"ref":"opshin.types.TupleType.id_map",
-"url":25,
-"doc":"Returns a map from the constructor id to a descriptive typestring",
-"func":1
-},
-{
-"ref":"opshin.types.PairType",
-"url":25,
-"doc":"An internal type representing built-in PlutusData pairs"
-},
-{
-"ref":"opshin.types.PairType.l_typ",
-"url":25,
-"doc":""
-},
-{
-"ref":"opshin.types.PairType.r_typ",
-"url":25,
-"doc":""
-},
-{
-"ref":"opshin.types.PairType.stringify",
-"url":25,
-"doc":"Returns a stringified version of the object The recursive parameter informs the method whether it was invoked recursively from another invokation",
-"func":1
-},
-{
-"ref":"opshin.types.PairType.copy_only_attributes",
-"url":25,
-"doc":"Returns a copy of this type with only the declared attributes (mapped to builtin values, thus checking atomic types too). For anything but record types and union types, this is the identity function.",
-"func":1
-},
-{
-"ref":"opshin.types.PairType.constr_type",
-"url":25,
-"doc":"The type of the constructor for this class",
-"func":1
-},
-{
-"ref":"opshin.types.PairType.constr",
-"url":25,
-"doc":"The constructor for this class",
-"func":1
-},
-{
-"ref":"opshin.types.PairType.attribute_type",
-"url":25,
-"doc":"The types of the named attributes of this class",
-"func":1
-},
-{
-"ref":"opshin.types.PairType.attribute",
-"url":25,
-"doc":"The attributes of this class. Needs to be a lambda that expects as first argument the object itself",
-"func":1
-},
-{
-"ref":"opshin.types.PairType.cmp",
-"url":25,
-"doc":"The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second the comparison.",
-"func":1
-},
-{
-"ref":"opshin.types.PairType.binop_type",
-"url":25,
-"doc":"Type of a binary operation between self and other.",
-"func":1
-},
-{
-"ref":"opshin.types.PairType.binop",
-"url":25,
-"doc":"Implements a binary operation between self and other",
-"func":1
-},
-{
-"ref":"opshin.types.PairType.unop_type",
-"url":25,
-"doc":"Type of a unary operation on self.",
-"func":1
-},
-{
-"ref":"opshin.types.PairType.unop",
-"url":25,
-"doc":"Implements a unary operation on self",
-"func":1
-},
-{
-"ref":"opshin.types.PairType.id_map",
-"url":25,
-"doc":"Returns a map from the constructor id to a descriptive typestring",
-"func":1
-},
-{
-"ref":"opshin.types.ListType",
-"url":25,
-"doc":"ListType(typ: opshin.types.Type)"
-},
-{
-"ref":"opshin.types.ListType.typ",
-"url":25,
-"doc":""
-},
-{
-"ref":"opshin.types.ListType.id_map",
-"url":25,
-"doc":"Returns a map from the constructor id to a descriptive typestring",
-"func":1
-},
-{
-"ref":"opshin.types.ListType.attribute_type",
-"url":25,
-"doc":"The types of the named attributes of this class",
-"func":1
-},
-{
-"ref":"opshin.types.ListType.attribute",
-"url":25,
-"doc":"The attributes of this class. Needs to be a lambda that expects as first argument the object itself",
-"func":1
-},
-{
-"ref":"opshin.types.ListType.stringify",
-"url":25,
-"doc":"Returns a stringified version of the object The recursive parameter informs the method whether it was invoked recursively from another invokation",
-"func":1
-},
-{
-"ref":"opshin.types.ListType.copy_only_attributes",
-"url":25,
-"doc":"Returns a copy of this type with only the declared attributes (mapped to builtin values, thus checking atomic types too). For anything but record types and union types, this is the identity function.",
-"func":1
-},
-{
-"ref":"opshin.types.ListType.constr_type",
-"url":25,
-"doc":"The type of the constructor for this class",
-"func":1
-},
-{
-"ref":"opshin.types.ListType.constr",
-"url":25,
-"doc":"The constructor for this class",
-"func":1
-},
-{
-"ref":"opshin.types.ListType.cmp",
-"url":25,
-"doc":"The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second the comparison.",
-"func":1
-},
-{
-"ref":"opshin.types.ListType.binop_type",
-"url":25,
-"doc":"Type of a binary operation between self and other.",
-"func":1
-},
-{
-"ref":"opshin.types.ListType.binop",
-"url":25,
-"doc":"Implements a binary operation between self and other",
-"func":1
-},
-{
-"ref":"opshin.types.ListType.unop_type",
-"url":25,
-"doc":"Type of a unary operation on self.",
-"func":1
-},
-{
-"ref":"opshin.types.ListType.unop",
-"url":25,
-"doc":"Implements a unary operation on self",
-"func":1
-},
-{
-"ref":"opshin.types.DictType",
-"url":25,
-"doc":"DictType(key_typ: opshin.types.Type, value_typ: opshin.types.Type)"
-},
-{
-"ref":"opshin.types.DictType.key_typ",
-"url":25,
-"doc":""
-},
-{
-"ref":"opshin.types.DictType.value_typ",
-"url":25,
-"doc":""
-},
-{
-"ref":"opshin.types.DictType.id_map",
-"url":25,
-"doc":"Returns a map from the constructor id to a descriptive typestring",
-"func":1
-},
-{
-"ref":"opshin.types.DictType.attribute_type",
-"url":25,
-"doc":"The types of the named attributes of this class",
-"func":1
-},
-{
-"ref":"opshin.types.DictType.attribute",
-"url":25,
-"doc":"The attributes of this class. Needs to be a lambda that expects as first argument the object itself",
-"func":1
-},
-{
-"ref":"opshin.types.DictType.stringify",
-"url":25,
-"doc":"Returns a stringified version of the object The recursive parameter informs the method whether it was invoked recursively from another invokation",
-"func":1
-},
-{
-"ref":"opshin.types.DictType.copy_only_attributes",
-"url":25,
-"doc":"Returns a copy of this type with only the declared attributes (mapped to builtin values, thus checking atomic types too). For anything but record types and union types, this is the identity function.",
-"func":1
-},
-{
-"ref":"opshin.types.DictType.constr_type",
-"url":25,
-"doc":"The type of the constructor for this class",
-"func":1
-},
-{
-"ref":"opshin.types.DictType.constr",
-"url":25,
-"doc":"The constructor for this class",
-"func":1
-},
-{
-"ref":"opshin.types.DictType.cmp",
-"url":25,
-"doc":"The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second the comparison.",
-"func":1
-},
-{
-"ref":"opshin.types.DictType.binop_type",
-"url":25,
-"doc":"Type of a binary operation between self and other.",
-"func":1
-},
-{
-"ref":"opshin.types.DictType.binop",
-"url":25,
-"doc":"Implements a binary operation between self and other",
-"func":1
-},
-{
-"ref":"opshin.types.DictType.unop_type",
-"url":25,
-"doc":"Type of a unary operation on self.",
-"func":1
-},
-{
-"ref":"opshin.types.DictType.unop",
-"url":25,
-"doc":"Implements a unary operation on self",
-"func":1
-},
-{
-"ref":"opshin.types.InstanceType",
-"url":25,
-"doc":"InstanceType(typ: opshin.types.ClassType)"
-},
-{
-"ref":"opshin.types.InstanceType.typ",
-"url":25,
-"doc":""
-},
-{
-"ref":"opshin.types.InstanceType.id_map",
-"url":25,
-"doc":"Returns a map from the constructor id to a descriptive typestring",
-"func":1
-},
-{
-"ref":"opshin.types.InstanceType.constr_type",
-"url":25,
-"doc":"The type of the constructor for this class",
-"func":1
-},
-{
-"ref":"opshin.types.InstanceType.constr",
-"url":25,
-"doc":"The constructor for this class",
-"func":1
-},
-{
-"ref":"opshin.types.InstanceType.attribute_type",
-"url":25,
-"doc":"The types of the named attributes of this class",
-"func":1
-},
-{
-"ref":"opshin.types.InstanceType.attribute",
-"url":25,
-"doc":"The attributes of this class. Needs to be a lambda that expects as first argument the object itself",
-"func":1
-},
-{
-"ref":"opshin.types.InstanceType.cmp",
-"url":25,
-"doc":"The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second the comparison.",
-"func":1
-},
-{
-"ref":"opshin.types.InstanceType.stringify",
-"url":25,
-"doc":"Returns a stringified version of the object The recursive parameter informs the method whether it was invoked recursively from another invokation",
-"func":1
-},
-{
-"ref":"opshin.types.InstanceType.copy_only_attributes",
-"url":25,
-"doc":"Pluthon function that returns a copy of only the attributes of the object",
-"func":1
-},
-{
-"ref":"opshin.types.InstanceType.binop_type",
-"url":25,
-"doc":"Type of a binary operation between self and other.",
-"func":1
-},
-{
-"ref":"opshin.types.InstanceType.binop",
-"url":25,
-"doc":"Implements a binary operation between self and other",
-"func":1
-},
-{
-"ref":"opshin.types.InstanceType.unop_type",
-"url":25,
-"doc":"Type of a unary operation on self.",
-"func":1
-},
-{
-"ref":"opshin.types.InstanceType.unop",
-"url":25,
-"doc":"Implements a unary operation on self",
-"func":1
-},
-{
-"ref":"opshin.types.IntegerType",
-"url":25,
-"doc":"IntegerType()"
-},
-{
-"ref":"opshin.types.IntegerType.id_map",
-"url":25,
-"doc":"Returns a map from the constructor id to a descriptive typestring",
-"func":1
-},
-{
-"ref":"opshin.types.IntegerType.constr_type",
-"url":25,
-"doc":"The type of the constructor for this class",
-"func":1
-},
-{
-"ref":"opshin.types.IntegerType.cmp",
-"url":25,
-"doc":"The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second the comparison.",
-"func":1
-},
-{
-"ref":"opshin.types.IntegerType.stringify",
-"url":25,
-"doc":"Returns a stringified version of the object The recursive parameter informs the method whether it was invoked recursively from another invokation",
-"func":1
-},
-{
-"ref":"opshin.types.IntegerType.copy_only_attributes",
-"url":25,
-"doc":"Returns a copy of this type with only the declared attributes (mapped to builtin values, thus checking atomic types too). For anything but record types and union types, this is the identity function.",
-"func":1
-},
-{
-"ref":"opshin.types.IntegerType.constr",
-"url":25,
-"doc":"The constructor for this class",
-"func":1
-},
-{
-"ref":"opshin.types.IntegerType.attribute_type",
-"url":25,
-"doc":"The types of the named attributes of this class",
-"func":1
-},
-{
-"ref":"opshin.types.IntegerType.attribute",
-"url":25,
-"doc":"The attributes of this class. Needs to be a lambda that expects as first argument the object itself",
-"func":1
-},
-{
-"ref":"opshin.types.IntegerType.binop_type",
-"url":25,
-"doc":"Type of a binary operation between self and other.",
-"func":1
-},
-{
-"ref":"opshin.types.IntegerType.binop",
-"url":25,
-"doc":"Implements a binary operation between self and other",
-"func":1
-},
-{
-"ref":"opshin.types.IntegerType.unop_type",
-"url":25,
-"doc":"Type of a unary operation on self.",
-"func":1
-},
-{
-"ref":"opshin.types.IntegerType.unop",
-"url":25,
-"doc":"Implements a unary operation on self",
-"func":1
-},
-{
-"ref":"opshin.types.StringType",
-"url":25,
-"doc":"StringType()"
-},
-{
-"ref":"opshin.types.StringType.constr_type",
-"url":25,
-"doc":"The type of the constructor for this class",
-"func":1
-},
-{
-"ref":"opshin.types.StringType.attribute_type",
-"url":25,
-"doc":"The types of the named attributes of this class",
-"func":1
-},
-{
-"ref":"opshin.types.StringType.attribute",
-"url":25,
-"doc":"The attributes of this class. Needs to be a lambda that expects as first argument the object itself",
-"func":1
-},
-{
-"ref":"opshin.types.StringType.cmp",
-"url":25,
-"doc":"The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second the comparison.",
-"func":1
-},
-{
-"ref":"opshin.types.StringType.stringify",
-"url":25,
-"doc":"Returns a stringified version of the object The recursive parameter informs the method whether it was invoked recursively from another invokation",
-"func":1
-},
-{
-"ref":"opshin.types.StringType.copy_only_attributes",
-"url":25,
-"doc":"Returns a copy of this type with only the declared attributes (mapped to builtin values, thus checking atomic types too). For anything but record types and union types, this is the identity function.",
-"func":1
-},
-{
-"ref":"opshin.types.StringType.constr",
-"url":25,
-"doc":"The constructor for this class",
-"func":1
-},
-{
-"ref":"opshin.types.StringType.binop_type",
-"url":25,
-"doc":"Type of a binary operation between self and other.",
-"func":1
-},
-{
-"ref":"opshin.types.StringType.binop",
-"url":25,
-"doc":"Implements a binary operation between self and other",
-"func":1
-},
-{
-"ref":"opshin.types.StringType.unop_type",
-"url":25,
-"doc":"Type of a unary operation on self.",
-"func":1
-},
-{
-"ref":"opshin.types.StringType.unop",
-"url":25,
-"doc":"Implements a unary operation on self",
-"func":1
-},
-{
-"ref":"opshin.types.StringType.id_map",
-"url":25,
-"doc":"Returns a map from the constructor id to a descriptive typestring",
-"func":1
-},
-{
-"ref":"opshin.types.ByteStringType",
-"url":25,
-"doc":"ByteStringType()"
-},
-{
-"ref":"opshin.types.ByteStringType.id_map",
-"url":25,
-"doc":"Returns a map from the constructor id to a descriptive typestring",
-"func":1
-},
-{
-"ref":"opshin.types.ByteStringType.constr_type",
-"url":25,
-"doc":"The type of the constructor for this class",
-"func":1
-},
-{
-"ref":"opshin.types.ByteStringType.attribute_type",
-"url":25,
-"doc":"The types of the named attributes of this class",
-"func":1
-},
-{
-"ref":"opshin.types.ByteStringType.attribute",
-"url":25,
-"doc":"The attributes of this class. Needs to be a lambda that expects as first argument the object itself",
-"func":1
-},
-{
-"ref":"opshin.types.ByteStringType.cmp",
-"url":25,
-"doc":"The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second the comparison.",
-"func":1
-},
-{
-"ref":"opshin.types.ByteStringType.stringify",
-"url":25,
-"doc":"Returns a stringified version of the object The recursive parameter informs the method whether it was invoked recursively from another invokation",
-"func":1
-},
-{
-"ref":"opshin.types.ByteStringType.copy_only_attributes",
-"url":25,
-"doc":"Returns a copy of this type with only the declared attributes (mapped to builtin values, thus checking atomic types too). For anything but record types and union types, this is the identity function.",
-"func":1
-},
-{
-"ref":"opshin.types.ByteStringType.constr",
-"url":25,
-"doc":"The constructor for this class",
-"func":1
-},
-{
-"ref":"opshin.types.ByteStringType.binop_type",
-"url":25,
-"doc":"Type of a binary operation between self and other.",
-"func":1
-},
-{
-"ref":"opshin.types.ByteStringType.binop",
-"url":25,
-"doc":"Implements a binary operation between self and other",
-"func":1
-},
-{
-"ref":"opshin.types.ByteStringType.unop_type",
-"url":25,
-"doc":"Type of a unary operation on self.",
-"func":1
-},
-{
-"ref":"opshin.types.ByteStringType.unop",
-"url":25,
-"doc":"Implements a unary operation on self",
-"func":1
-},
-{
-"ref":"opshin.types.BoolType",
-"url":25,
-"doc":"BoolType()"
-},
-{
-"ref":"opshin.types.BoolType.constr_type",
-"url":25,
-"doc":"The type of the constructor for this class",
-"func":1
-},
-{
-"ref":"opshin.types.BoolType.cmp",
-"url":25,
-"doc":"The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second the comparison.",
-"func":1
-},
-{
-"ref":"opshin.types.BoolType.stringify",
-"url":25,
-"doc":"Returns a stringified version of the object The recursive parameter informs the method whether it was invoked recursively from another invokation",
-"func":1
-},
-{
-"ref":"opshin.types.BoolType.copy_only_attributes",
-"url":25,
-"doc":"Returns a copy of this type with only the declared attributes (mapped to builtin values, thus checking atomic types too). For anything but record types and union types, this is the identity function.",
-"func":1
-},
-{
-"ref":"opshin.types.BoolType.constr",
-"url":25,
-"doc":"The constructor for this class",
-"func":1
-},
-{
-"ref":"opshin.types.BoolType.attribute_type",
-"url":25,
-"doc":"The types of the named attributes of this class",
-"func":1
-},
-{
-"ref":"opshin.types.BoolType.attribute",
-"url":25,
-"doc":"The attributes of this class. Needs to be a lambda that expects as first argument the object itself",
-"func":1
-},
-{
-"ref":"opshin.types.BoolType.binop_type",
-"url":25,
-"doc":"Type of a binary operation between self and other.",
-"func":1
-},
-{
-"ref":"opshin.types.BoolType.binop",
-"url":25,
-"doc":"Implements a binary operation between self and other",
-"func":1
-},
-{
-"ref":"opshin.types.BoolType.unop_type",
-"url":25,
-"doc":"Type of a unary operation on self.",
-"func":1
-},
-{
-"ref":"opshin.types.BoolType.unop",
-"url":25,
-"doc":"Implements a unary operation on self",
-"func":1
-},
-{
-"ref":"opshin.types.BoolType.id_map",
-"url":25,
-"doc":"Returns a map from the constructor id to a descriptive typestring",
-"func":1
-},
-{
-"ref":"opshin.types.UnitType",
-"url":25,
-"doc":"UnitType()"
-},
-{
-"ref":"opshin.types.UnitType.cmp",
-"url":25,
-"doc":"The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second the comparison.",
-"func":1
-},
-{
-"ref":"opshin.types.UnitType.stringify",
-"url":25,
-"doc":"Returns a stringified version of the object The recursive parameter informs the method whether it was invoked recursively from another invokation",
-"func":1
-},
-{
-"ref":"opshin.types.UnitType.copy_only_attributes",
-"url":25,
-"doc":"Returns a copy of this type with only the declared attributes (mapped to builtin values, thus checking atomic types too). For anything but record types and union types, this is the identity function.",
-"func":1
-},
-{
-"ref":"opshin.types.UnitType.constr_type",
-"url":25,
-"doc":"The type of the constructor for this class",
-"func":1
-},
-{
-"ref":"opshin.types.UnitType.constr",
-"url":25,
-"doc":"The constructor for this class",
-"func":1
-},
-{
-"ref":"opshin.types.UnitType.attribute_type",
-"url":25,
-"doc":"The types of the named attributes of this class",
-"func":1
-},
-{
-"ref":"opshin.types.UnitType.attribute",
-"url":25,
-"doc":"The attributes of this class. Needs to be a lambda that expects as first argument the object itself",
-"func":1
-},
-{
-"ref":"opshin.types.UnitType.binop_type",
-"url":25,
-"doc":"Type of a binary operation between self and other.",
-"func":1
-},
-{
-"ref":"opshin.types.UnitType.binop",
-"url":25,
-"doc":"Implements a binary operation between self and other",
-"func":1
-},
-{
-"ref":"opshin.types.UnitType.unop_type",
-"url":25,
-"doc":"Type of a unary operation on self.",
-"func":1
-},
-{
-"ref":"opshin.types.UnitType.unop",
-"url":25,
-"doc":"Implements a unary operation on self",
-"func":1
-},
-{
-"ref":"opshin.types.UnitType.id_map",
-"url":25,
-"doc":"Returns a map from the constructor id to a descriptive typestring",
-"func":1
-},
-{
-"ref":"opshin.types.InaccessibleType",
-"url":25,
-"doc":"A type that blocks overwriting of a function"
-},
-{
-"ref":"opshin.types.InaccessibleType.copy_only_attributes",
-"url":25,
-"doc":"Returns a copy of this type with only the declared attributes (mapped to builtin values, thus checking atomic types too). For anything but record types and union types, this is the identity function.",
-"func":1
-},
-{
-"ref":"opshin.types.InaccessibleType.constr_type",
-"url":25,
-"doc":"The type of the constructor for this class",
-"func":1
-},
-{
-"ref":"opshin.types.InaccessibleType.constr",
-"url":25,
-"doc":"The constructor for this class",
-"func":1
-},
-{
-"ref":"opshin.types.InaccessibleType.attribute_type",
-"url":25,
-"doc":"The types of the named attributes of this class",
-"func":1
-},
-{
-"ref":"opshin.types.InaccessibleType.attribute",
-"url":25,
-"doc":"The attributes of this class. Needs to be a lambda that expects as first argument the object itself",
-"func":1
-},
-{
-"ref":"opshin.types.InaccessibleType.cmp",
-"url":25,
-"doc":"The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second the comparison.",
-"func":1
-},
-{
-"ref":"opshin.types.InaccessibleType.stringify",
-"url":25,
-"doc":"Returns a stringified version of the object The recursive parameter informs the method whether it was invoked recursively from another invokation",
-"func":1
-},
-{
-"ref":"opshin.types.InaccessibleType.binop_type",
-"url":25,
-"doc":"Type of a binary operation between self and other.",
-"func":1
-},
-{
-"ref":"opshin.types.InaccessibleType.binop",
-"url":25,
-"doc":"Implements a binary operation between self and other",
-"func":1
-},
-{
-"ref":"opshin.types.InaccessibleType.unop_type",
-"url":25,
-"doc":"Type of a unary operation on self.",
-"func":1
-},
-{
-"ref":"opshin.types.InaccessibleType.unop",
-"url":25,
-"doc":"Implements a unary operation on self",
-"func":1
-},
-{
-"ref":"opshin.types.InaccessibleType.id_map",
-"url":25,
-"doc":"Returns a map from the constructor id to a descriptive typestring",
-"func":1
-},
-{
-"ref":"opshin.types.repeated_addition",
-"url":25,
-"doc":"",
-"func":1
-},
-{
-"ref":"opshin.types.PowImpl",
-"url":25,
-"doc":"",
-"func":1
-},
-{
-"ref":"opshin.types.ByteStrIntMulImpl",
-"url":25,
-"doc":"",
-"func":1
-},
-{
-"ref":"opshin.types.StrIntMulImpl",
-"url":25,
-"doc":"",
-"func":1
-},
-{
-"ref":"opshin.types.PolymorphicFunction",
-"url":25,
-"doc":""
-},
-{
-"ref":"opshin.types.PolymorphicFunction.type_from_args",
-"url":25,
-"doc":"",
-"func":1
-},
-{
-"ref":"opshin.types.PolymorphicFunction.impl_from_args",
-"url":25,
-"doc":"",
-"func":1
-},
-{
-"ref":"opshin.types.StrImpl",
-"url":25,
-"doc":""
-},
-{
-"ref":"opshin.types.StrImpl.type_from_args",
-"url":25,
-"doc":"",
-"func":1
-},
-{
-"ref":"opshin.types.StrImpl.impl_from_args",
-"url":25,
-"doc":"",
-"func":1
-},
-{
-"ref":"opshin.types.IntImpl",
-"url":25,
-"doc":""
-},
-{
-"ref":"opshin.types.IntImpl.type_from_args",
-"url":25,
-"doc":"",
-"func":1
-},
-{
-"ref":"opshin.types.IntImpl.impl_from_args",
-"url":25,
-"doc":"",
-"func":1
-},
-{
-"ref":"opshin.types.BoolImpl",
-"url":25,
-"doc":""
-},
-{
-"ref":"opshin.types.BoolImpl.type_from_args",
-"url":25,
-"doc":"",
-"func":1
-},
-{
-"ref":"opshin.types.BoolImpl.impl_from_args",
-"url":25,
-"doc":"",
-"func":1
-},
-{
-"ref":"opshin.types.BytesImpl",
-"url":25,
-"doc":""
-},
-{
-"ref":"opshin.types.BytesImpl.type_from_args",
-"url":25,
-"doc":"",
-"func":1
-},
-{
-"ref":"opshin.types.BytesImpl.impl_from_args",
-"url":25,
-"doc":"",
-"func":1
-},
-{
-"ref":"opshin.types.PolymorphicFunctionType",
-"url":25,
-"doc":"A special type of builtin that may act differently on different parameters"
-},
-{
-"ref":"opshin.types.PolymorphicFunctionType.polymorphic_function",
-"url":25,
-"doc":""
-},
-{
-"ref":"opshin.types.PolymorphicFunctionType.copy_only_attributes",
-"url":25,
-"doc":"Returns a copy of this type with only the declared attributes (mapped to builtin values, thus checking atomic types too). For anything but record types and union types, this is the identity function.",
-"func":1
-},
-{
-"ref":"opshin.types.PolymorphicFunctionType.constr_type",
-"url":25,
-"doc":"The type of the constructor for this class",
-"func":1
-},
-{
-"ref":"opshin.types.PolymorphicFunctionType.constr",
-"url":25,
-"doc":"The constructor for this class",
-"func":1
-},
-{
-"ref":"opshin.types.PolymorphicFunctionType.attribute_type",
-"url":25,
-"doc":"The types of the named attributes of this class",
-"func":1
-},
-{
-"ref":"opshin.types.PolymorphicFunctionType.attribute",
-"url":25,
-"doc":"The attributes of this class. Needs to be a lambda that expects as first argument the object itself",
-"func":1
-},
-{
-"ref":"opshin.types.PolymorphicFunctionType.cmp",
-"url":25,
-"doc":"The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second the comparison.",
-"func":1
-},
-{
-"ref":"opshin.types.PolymorphicFunctionType.stringify",
-"url":25,
-"doc":"Returns a stringified version of the object The recursive parameter informs the method whether it was invoked recursively from another invokation",
-"func":1
-},
-{
-"ref":"opshin.types.PolymorphicFunctionType.binop_type",
-"url":25,
-"doc":"Type of a binary operation between self and other.",
-"func":1
-},
-{
-"ref":"opshin.types.PolymorphicFunctionType.binop",
-"url":25,
-"doc":"Implements a binary operation between self and other",
-"func":1
-},
-{
-"ref":"opshin.types.PolymorphicFunctionType.unop_type",
-"url":25,
-"doc":"Type of a unary operation on self.",
-"func":1
-},
-{
-"ref":"opshin.types.PolymorphicFunctionType.unop",
-"url":25,
-"doc":"Implements a unary operation on self",
-"func":1
-},
-{
-"ref":"opshin.types.PolymorphicFunctionType.id_map",
-"url":25,
-"doc":"Returns a map from the constructor id to a descriptive typestring",
-"func":1
-},
-{
-"ref":"opshin.types.PolymorphicFunctionInstanceType",
-"url":25,
-"doc":"PolymorphicFunctionInstanceType(typ: opshin.types.FunctionType, polymorphic_function: opshin.types.PolymorphicFunction)"
-},
-{
-"ref":"opshin.types.PolymorphicFunctionInstanceType.typ",
-"url":25,
-"doc":""
-},
-{
-"ref":"opshin.types.PolymorphicFunctionInstanceType.polymorphic_function",
-"url":25,
-"doc":""
-},
-{
-"ref":"opshin.types.PolymorphicFunctionInstanceType.id_map",
-"url":25,
-"doc":"Returns a map from the constructor id to a descriptive typestring",
-"func":1
-},
-{
-"ref":"opshin.types.PolymorphicFunctionInstanceType.constr_type",
-"url":25,
-"doc":"The type of the constructor for this class",
-"func":1
-},
-{
-"ref":"opshin.types.PolymorphicFunctionInstanceType.constr",
-"url":25,
-"doc":"The constructor for this class",
-"func":1
-},
-{
-"ref":"opshin.types.PolymorphicFunctionInstanceType.attribute_type",
-"url":25,
-"doc":"The types of the named attributes of this class",
-"func":1
-},
-{
-"ref":"opshin.types.PolymorphicFunctionInstanceType.attribute",
-"url":25,
-"doc":"The attributes of this class. Needs to be a lambda that expects as first argument the object itself",
-"func":1
-},
-{
-"ref":"opshin.types.PolymorphicFunctionInstanceType.cmp",
-"url":25,
-"doc":"The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second the comparison.",
-"func":1
-},
-{
-"ref":"opshin.types.PolymorphicFunctionInstanceType.stringify",
-"url":25,
-"doc":"Returns a stringified version of the object The recursive parameter informs the method whether it was invoked recursively from another invokation",
-"func":1
-},
-{
-"ref":"opshin.types.PolymorphicFunctionInstanceType.copy_only_attributes",
-"url":25,
-"doc":"Pluthon function that returns a copy of only the attributes of the object",
-"func":1
-},
-{
-"ref":"opshin.types.PolymorphicFunctionInstanceType.binop_type",
-"url":25,
-"doc":"Type of a binary operation between self and other.",
-"func":1
-},
-{
-"ref":"opshin.types.PolymorphicFunctionInstanceType.binop",
-"url":25,
-"doc":"Implements a binary operation between self and other",
-"func":1
-},
-{
-"ref":"opshin.types.PolymorphicFunctionInstanceType.unop_type",
-"url":25,
-"doc":"Type of a unary operation on self.",
-"func":1
-},
-{
-"ref":"opshin.types.PolymorphicFunctionInstanceType.unop",
-"url":25,
-"doc":"Implements a unary operation on self",
-"func":1
-},
-{
-"ref":"opshin.types.empty_list",
-"url":25,
-"doc":"",
-"func":1
-},
-{
-"ref":"opshin.types.transform_ext_params_map",
-"url":25,
-"doc":"",
-"func":1
-},
-{
-"ref":"opshin.types.transform_output_map",
-"url":25,
-"doc":"",
-"func":1
-},
-{
 "ref":"opshin.optimize",
-"url":26,
+"url":25,
 "doc":""
 },
 {
 "ref":"opshin.optimize.optimize_remove_pass",
-"url":27,
+"url":26,
 "doc":""
 },
 {
 "ref":"opshin.optimize.optimize_remove_pass.OptimizeRemovePass",
-"url":27,
+"url":26,
 "doc":"A :class: NodeVisitor subclass that walks the abstract syntax tree and allows modification of nodes. The  NodeTransformer will walk the AST and use the return value of the visitor methods to replace or remove the old node. If the return value of the visitor method is  None , the node will be removed from its location, otherwise it is replaced with the return value. The return value may be the original node in which case no replacement takes place. Here is an example transformer that rewrites all occurrences of name lookups ( foo ) to  data['foo']  class RewriteName(NodeTransformer): def visit_Name(self, node): return Subscript( value=Name(id='data', ctx=Load( , slice=Constant(value=node.id), ctx=node.ctx ) Keep in mind that if the node you're operating on has child nodes you must either transform the child nodes yourself or call the :meth: generic_visit method for the node first. For nodes that were part of a collection of statements (that applies to all statement nodes), the visitor may also return a list of nodes rather than just a single node. Usually you use the transformer like this node = YourTransformer().visit(node)"
 },
 {
 "ref":"opshin.optimize.optimize_remove_pass.OptimizeRemovePass.step",
-"url":27,
+"url":26,
 "doc":""
 },
 {
 "ref":"opshin.optimize.optimize_remove_pass.OptimizeRemovePass.visit_Pass",
-"url":27,
+"url":26,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.optimize.optimize_remove_pass.OptimizeRemovePass.visit",
-"url":28,
+"url":27,
 "doc":"Visit a node.",
 "func":1
 },
 {
 "ref":"opshin.optimize.optimize_remove_comments",
-"url":29,
+"url":28,
 "doc":""
 },
 {
 "ref":"opshin.optimize.optimize_remove_comments.OptimizeRemoveDeadconstants",
-"url":29,
+"url":28,
 "doc":"A :class: NodeVisitor subclass that walks the abstract syntax tree and allows modification of nodes. The  NodeTransformer will walk the AST and use the return value of the visitor methods to replace or remove the old node. If the return value of the visitor method is  None , the node will be removed from its location, otherwise it is replaced with the return value. The return value may be the original node in which case no replacement takes place. Here is an example transformer that rewrites all occurrences of name lookups ( foo ) to  data['foo']  class RewriteName(NodeTransformer): def visit_Name(self, node): return Subscript( value=Name(id='data', ctx=Load( , slice=Constant(value=node.id), ctx=node.ctx ) Keep in mind that if the node you're operating on has child nodes you must either transform the child nodes yourself or call the :meth: generic_visit method for the node first. For nodes that were part of a collection of statements (that applies to all statement nodes), the visitor may also return a list of nodes rather than just a single node. Usually you use the transformer like this node = YourTransformer().visit(node)"
 },
 {
 "ref":"opshin.optimize.optimize_remove_comments.OptimizeRemoveDeadconstants.step",
-"url":29,
+"url":28,
 "doc":""
 },
 {
 "ref":"opshin.optimize.optimize_remove_comments.OptimizeRemoveDeadconstants.visit_Expr",
-"url":29,
+"url":28,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.optimize.optimize_remove_comments.OptimizeRemoveDeadconstants.visit",
-"url":28,
+"url":27,
 "doc":"Visit a node.",
 "func":1
 },
 {
 "ref":"opshin.optimize.optimize_remove_deadvars",
-"url":30,
+"url":29,
 "doc":""
 },
 {
 "ref":"opshin.optimize.optimize_remove_deadvars.NameLoadCollector",
-"url":30,
+"url":29,
 "doc":"A node visitor base class that walks the abstract syntax tree and calls a visitor function for every node found. This function may return a value which is forwarded by the  visit method. This class is meant to be subclassed, with the subclass adding visitor methods. Per default the visitor functions for the nodes are  'visit_' + class name of the node. So a  TryFinally node visit function would be  visit_TryFinally . This behavior can be changed by overriding the  visit method. If no visitor function exists for a node (return value  None ) the  generic_visit visitor is used instead. Don't use the  NodeVisitor if you want to apply changes to nodes during traversing. For this a special visitor exists ( NodeTransformer ) that allows modifications."
 },
 {
 "ref":"opshin.optimize.optimize_remove_deadvars.NameLoadCollector.step",
-"url":30,
+"url":29,
 "doc":""
 },
 {
 "ref":"opshin.optimize.optimize_remove_deadvars.NameLoadCollector.visit_Name",
-"url":30,
+"url":29,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.optimize.optimize_remove_deadvars.NameLoadCollector.visit_ClassDef",
-"url":30,
+"url":29,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.optimize.optimize_remove_deadvars.NameLoadCollector.visit_FunctionDef",
-"url":30,
+"url":29,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.optimize.optimize_remove_deadvars.NameLoadCollector.visit",
-"url":28,
+"url":27,
 "doc":"Visit a node.",
 "func":1
 },
 {
 "ref":"opshin.optimize.optimize_remove_deadvars.SafeOperationVisitor",
-"url":30,
+"url":29,
 "doc":"A node visitor base class that walks the abstract syntax tree and calls a visitor function for every node found. This function may return a value which is forwarded by the  visit method. This class is meant to be subclassed, with the subclass adding visitor methods. Per default the visitor functions for the nodes are  'visit_' + class name of the node. So a  TryFinally node visit function would be  visit_TryFinally . This behavior can be changed by overriding the  visit method. If no visitor function exists for a node (return value  None ) the  generic_visit visitor is used instead. Don't use the  NodeVisitor if you want to apply changes to nodes during traversing. For this a special visitor exists ( NodeTransformer ) that allows modifications."
 },
 {
 "ref":"opshin.optimize.optimize_remove_deadvars.SafeOperationVisitor.step",
-"url":30,
+"url":29,
 "doc":""
 },
 {
 "ref":"opshin.optimize.optimize_remove_deadvars.SafeOperationVisitor.generic_visit",
-"url":30,
+"url":29,
 "doc":"Called if no explicit visitor function exists for a node.",
 "func":1
 },
 {
 "ref":"opshin.optimize.optimize_remove_deadvars.SafeOperationVisitor.visit_Lambda",
-"url":30,
+"url":29,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.optimize.optimize_remove_deadvars.SafeOperationVisitor.visit_Constant",
-"url":30,
+"url":29,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.optimize.optimize_remove_deadvars.SafeOperationVisitor.visit_RawPlutoExpr",
-"url":30,
+"url":29,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.optimize.optimize_remove_deadvars.SafeOperationVisitor.visit_Name",
-"url":30,
+"url":29,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.optimize.optimize_remove_deadvars.SafeOperationVisitor.visit",
-"url":28,
+"url":27,
 "doc":"Visit a node.",
 "func":1
 },
 {
 "ref":"opshin.optimize.optimize_remove_deadvars.OptimizeRemoveDeadvars",
-"url":30,
+"url":29,
 "doc":"A :class: NodeVisitor subclass that walks the abstract syntax tree and allows modification of nodes. The  NodeTransformer will walk the AST and use the return value of the visitor methods to replace or remove the old node. If the return value of the visitor method is  None , the node will be removed from its location, otherwise it is replaced with the return value. The return value may be the original node in which case no replacement takes place. Here is an example transformer that rewrites all occurrences of name lookups ( foo ) to  data['foo']  class RewriteName(NodeTransformer): def visit_Name(self, node): return Subscript( value=Name(id='data', ctx=Load( , slice=Constant(value=node.id), ctx=node.ctx ) Keep in mind that if the node you're operating on has child nodes you must either transform the child nodes yourself or call the :meth: generic_visit method for the node first. For nodes that were part of a collection of statements (that applies to all statement nodes), the visitor may also return a list of nodes rather than just a single node. Usually you use the transformer like this node = YourTransformer().visit(node)"
 },
 {
 "ref":"opshin.optimize.optimize_remove_deadvars.OptimizeRemoveDeadvars.step",
-"url":30,
+"url":29,
 "doc":""
 },
 {
 "ref":"opshin.optimize.optimize_remove_deadvars.OptimizeRemoveDeadvars.loaded_vars",
-"url":30,
+"url":29,
 "doc":""
 },
 {
 "ref":"opshin.optimize.optimize_remove_deadvars.OptimizeRemoveDeadvars.guaranteed_avail_names",
-"url":30,
+"url":29,
 "doc":""
 },
 {
 "ref":"opshin.optimize.optimize_remove_deadvars.OptimizeRemoveDeadvars.guaranteed",
-"url":30,
+"url":29,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.optimize.optimize_remove_deadvars.OptimizeRemoveDeadvars.enter_scope",
-"url":30,
+"url":29,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.optimize.optimize_remove_deadvars.OptimizeRemoveDeadvars.exit_scope",
-"url":30,
+"url":29,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.optimize.optimize_remove_deadvars.OptimizeRemoveDeadvars.set_guaranteed",
-"url":30,
+"url":29,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.optimize.optimize_remove_deadvars.OptimizeRemoveDeadvars.visit_Module",
-"url":30,
+"url":29,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.optimize.optimize_remove_deadvars.OptimizeRemoveDeadvars.visit_If",
-"url":30,
+"url":29,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.optimize.optimize_remove_deadvars.OptimizeRemoveDeadvars.visit_While",
-"url":30,
+"url":29,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.optimize.optimize_remove_deadvars.OptimizeRemoveDeadvars.visit_For",
-"url":30,
+"url":29,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.optimize.optimize_remove_deadvars.OptimizeRemoveDeadvars.visit_Assign",
-"url":30,
+"url":29,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.optimize.optimize_remove_deadvars.OptimizeRemoveDeadvars.visit_AnnAssign",
-"url":30,
+"url":29,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.optimize.optimize_remove_deadvars.OptimizeRemoveDeadvars.visit_ClassDef",
-"url":30,
+"url":29,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.optimize.optimize_remove_deadvars.OptimizeRemoveDeadvars.visit_FunctionDef",
-"url":30,
+"url":29,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.optimize.optimize_remove_deadvars.OptimizeRemoveDeadvars.visit",
-"url":28,
+"url":27,
 "doc":"Visit a node.",
 "func":1
 },
 {
 "ref":"opshin.optimize.optimize_const_folding",
-"url":31,
+"url":30,
 "doc":""
 },
 {
 "ref":"opshin.optimize.optimize_const_folding.ShallowNameDefCollector",
-"url":31,
+"url":30,
 "doc":"A node visitor base class that walks the abstract syntax tree and calls a visitor function for every node found. This function may return a value which is forwarded by the  visit method. This class is meant to be subclassed, with the subclass adding visitor methods. Per default the visitor functions for the nodes are  'visit_' + class name of the node. So a  TryFinally node visit function would be  visit_TryFinally . This behavior can be changed by overriding the  visit method. If no visitor function exists for a node (return value  None ) the  generic_visit visitor is used instead. Don't use the  NodeVisitor if you want to apply changes to nodes during traversing. For this a special visitor exists ( NodeTransformer ) that allows modifications."
 },
 {
 "ref":"opshin.optimize.optimize_const_folding.ShallowNameDefCollector.step",
-"url":31,
+"url":30,
 "doc":""
 },
 {
 "ref":"opshin.optimize.optimize_const_folding.ShallowNameDefCollector.visit_Name",
-"url":31,
+"url":30,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.optimize.optimize_const_folding.ShallowNameDefCollector.visit_ClassDef",
-"url":31,
+"url":30,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.optimize.optimize_const_folding.ShallowNameDefCollector.visit_FunctionDef",
-"url":31,
+"url":30,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.optimize.optimize_const_folding.ShallowNameDefCollector.visit",
-"url":28,
+"url":27,
 "doc":"Visit a node.",
 "func":1
 },
 {
 "ref":"opshin.optimize.optimize_const_folding.DefinedTimesVisitor",
-"url":31,
+"url":30,
 "doc":"A node visitor base class that walks the abstract syntax tree and calls a visitor function for every node found. This function may return a value which is forwarded by the  visit method. This class is meant to be subclassed, with the subclass adding visitor methods. Per default the visitor functions for the nodes are  'visit_' + class name of the node. So a  TryFinally node visit function would be  visit_TryFinally . This behavior can be changed by overriding the  visit method. If no visitor function exists for a node (return value  None ) the  generic_visit visitor is used instead. Don't use the  NodeVisitor if you want to apply changes to nodes during traversing. For this a special visitor exists ( NodeTransformer ) that allows modifications."
 },
 {
 "ref":"opshin.optimize.optimize_const_folding.DefinedTimesVisitor.step",
-"url":31,
+"url":30,
 "doc":""
 },
 {
 "ref":"opshin.optimize.optimize_const_folding.DefinedTimesVisitor.visit_For",
-"url":31,
+"url":30,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.optimize.optimize_const_folding.DefinedTimesVisitor.visit_While",
-"url":31,
+"url":30,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.optimize.optimize_const_folding.DefinedTimesVisitor.visit_If",
-"url":31,
+"url":30,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.optimize.optimize_const_folding.DefinedTimesVisitor.visit_Name",
-"url":31,
+"url":30,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.optimize.optimize_const_folding.DefinedTimesVisitor.visit_ClassDef",
-"url":31,
+"url":30,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.optimize.optimize_const_folding.DefinedTimesVisitor.visit_FunctionDef",
-"url":31,
+"url":30,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.optimize.optimize_const_folding.DefinedTimesVisitor.visit_Import",
-"url":31,
+"url":30,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.optimize.optimize_const_folding.DefinedTimesVisitor.visit_ImportFrom",
-"url":31,
+"url":30,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.optimize.optimize_const_folding.DefinedTimesVisitor.visit",
-"url":28,
+"url":27,
 "doc":"Visit a node.",
 "func":1
 },
 {
 "ref":"opshin.optimize.optimize_const_folding.OptimizeConstantFolding",
-"url":31,
+"url":30,
 "doc":"A :class: NodeVisitor subclass that walks the abstract syntax tree and allows modification of nodes. The  NodeTransformer will walk the AST and use the return value of the visitor methods to replace or remove the old node. If the return value of the visitor method is  None , the node will be removed from its location, otherwise it is replaced with the return value. The return value may be the original node in which case no replacement takes place. Here is an example transformer that rewrites all occurrences of name lookups ( foo ) to  data['foo']  class RewriteName(NodeTransformer): def visit_Name(self, node): return Subscript( value=Name(id='data', ctx=Load( , slice=Constant(value=node.id), ctx=node.ctx ) Keep in mind that if the node you're operating on has child nodes you must either transform the child nodes yourself or call the :meth: generic_visit method for the node first. For nodes that were part of a collection of statements (that applies to all statement nodes), the visitor may also return a list of nodes rather than just a single node. Usually you use the transformer like this node = YourTransformer().visit(node)"
 },
 {
 "ref":"opshin.optimize.optimize_const_folding.OptimizeConstantFolding.step",
-"url":31,
+"url":30,
 "doc":""
 },
 {
 "ref":"opshin.optimize.optimize_const_folding.OptimizeConstantFolding.enter_scope",
-"url":31,
+"url":30,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.optimize.optimize_const_folding.OptimizeConstantFolding.add_var_visible",
-"url":31,
+"url":30,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.optimize.optimize_const_folding.OptimizeConstantFolding.add_vars_visible",
-"url":31,
+"url":30,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.optimize.optimize_const_folding.OptimizeConstantFolding.add_constant",
-"url":31,
+"url":30,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.optimize.optimize_const_folding.OptimizeConstantFolding.visible_vars",
-"url":31,
+"url":30,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.optimize.optimize_const_folding.OptimizeConstantFolding.exit_scope",
-"url":31,
+"url":30,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.optimize.optimize_const_folding.OptimizeConstantFolding.update_constants",
-"url":31,
+"url":30,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.optimize.optimize_const_folding.OptimizeConstantFolding.visit_Module",
-"url":31,
+"url":30,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.optimize.optimize_const_folding.OptimizeConstantFolding.visit_FunctionDef",
-"url":31,
+"url":30,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.optimize.optimize_const_folding.OptimizeConstantFolding.visit_ClassDef",
-"url":31,
+"url":30,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.optimize.optimize_const_folding.OptimizeConstantFolding.visit_ImportFrom",
-"url":31,
+"url":30,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.optimize.optimize_const_folding.OptimizeConstantFolding.visit_Import",
-"url":31,
+"url":30,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.optimize.optimize_const_folding.OptimizeConstantFolding.visit_Assign",
-"url":31,
+"url":30,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.optimize.optimize_const_folding.OptimizeConstantFolding.visit_AnnAssign",
-"url":31,
+"url":30,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.optimize.optimize_const_folding.OptimizeConstantFolding.generic_visit",
-"url":31,
+"url":30,
 "doc":"Called if no explicit visitor function exists for a node.",
 "func":1
 },
 {
 "ref":"opshin.optimize.optimize_const_folding.OptimizeConstantFolding.visit",
-"url":28,
+"url":27,
 "doc":"Visit a node.",
 "func":1
 },
 {
 "ref":"opshin.compiler",
-"url":32,
+"url":31,
 "doc":""
 },
 {
 "ref":"opshin.compiler.rec_constant_map_data",
-"url":32,
+"url":31,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.compiler.rec_constant_map",
-"url":32,
+"url":31,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.compiler.wrap_validator_double_function",
-"url":32,
+"url":31,
 "doc":"Wraps the validator function to enable a double function as minting script pass_through defines how many parameters x would normally take and should be passed through to x",
 "func":1
 },
 {
 "ref":"opshin.compiler.PlutoCompiler",
-"url":32,
+"url":31,
 "doc":"Expects a TypedAST and returns UPLC/Pluto like code"
 },
 {
 "ref":"opshin.compiler.PlutoCompiler.step",
-"url":32,
+"url":31,
 "doc":""
 },
 {
 "ref":"opshin.compiler.PlutoCompiler.visit_sequence",
-"url":32,
+"url":31,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.compiler.PlutoCompiler.visit_BinOp",
-"url":32,
+"url":31,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.compiler.PlutoCompiler.visit_BoolOp",
-"url":32,
+"url":31,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.compiler.PlutoCompiler.visit_UnaryOp",
-"url":32,
+"url":31,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.compiler.PlutoCompiler.visit_Compare",
-"url":32,
+"url":31,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.compiler.PlutoCompiler.visit_Module",
-"url":32,
+"url":31,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.compiler.PlutoCompiler.visit_Constant",
-"url":32,
+"url":31,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.compiler.PlutoCompiler.visit_NoneType",
-"url":32,
+"url":31,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.compiler.PlutoCompiler.visit_Assign",
-"url":32,
+"url":31,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.compiler.PlutoCompiler.visit_AnnAssign",
-"url":32,
+"url":31,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.compiler.PlutoCompiler.visit_Name",
-"url":32,
+"url":31,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.compiler.PlutoCompiler.visit_Expr",
-"url":32,
+"url":31,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.compiler.PlutoCompiler.visit_Call",
-"url":32,
+"url":31,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.compiler.PlutoCompiler.visit_FunctionDef",
-"url":32,
+"url":31,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.compiler.PlutoCompiler.visit_While",
-"url":32,
+"url":31,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.compiler.PlutoCompiler.visit_For",
-"url":32,
+"url":31,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.compiler.PlutoCompiler.visit_If",
-"url":32,
+"url":31,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.compiler.PlutoCompiler.visit_Return",
-"url":32,
+"url":31,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.compiler.PlutoCompiler.visit_Pass",
-"url":32,
+"url":31,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.compiler.PlutoCompiler.visit_Subscript",
-"url":32,
+"url":31,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.compiler.PlutoCompiler.visit_Tuple",
-"url":32,
+"url":31,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.compiler.PlutoCompiler.visit_ClassDef",
-"url":32,
+"url":31,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.compiler.PlutoCompiler.visit_Attribute",
-"url":32,
+"url":31,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.compiler.PlutoCompiler.visit_Assert",
-"url":32,
+"url":31,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.compiler.PlutoCompiler.visit_RawPlutoExpr",
-"url":32,
+"url":31,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.compiler.PlutoCompiler.visit_List",
-"url":32,
+"url":31,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.compiler.PlutoCompiler.visit_Dict",
-"url":32,
+"url":31,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.compiler.PlutoCompiler.visit_IfExp",
-"url":32,
+"url":31,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.compiler.PlutoCompiler.visit_ListComp",
-"url":32,
+"url":31,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.compiler.PlutoCompiler.visit_DictComp",
-"url":32,
+"url":31,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.compiler.PlutoCompiler.visit_FormattedValue",
-"url":32,
+"url":31,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.compiler.PlutoCompiler.visit_JoinedStr",
-"url":32,
+"url":31,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.compiler.PlutoCompiler.generic_visit",
-"url":32,
+"url":31,
 "doc":"Called if no explicit visitor function exists for a node.",
 "func":1
 },
 {
 "ref":"opshin.compiler.PlutoCompiler.visit",
-"url":28,
+"url":27,
 "doc":"Visit a node.",
 "func":1
 },
 {
 "ref":"opshin.compiler.compile",
-"url":32,
+"url":31,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.rewrite",
-"url":33,
+"url":32,
 "doc":""
 },
 {
 "ref":"opshin.rewrite.rewrite_cast_condition",
-"url":34,
+"url":33,
 "doc":""
 },
 {
 "ref":"opshin.rewrite.rewrite_cast_condition.RewriteConditions",
-"url":34,
+"url":33,
 "doc":"A :class: NodeVisitor subclass that walks the abstract syntax tree and allows modification of nodes. The  NodeTransformer will walk the AST and use the return value of the visitor methods to replace or remove the old node. If the return value of the visitor method is  None , the node will be removed from its location, otherwise it is replaced with the return value. The return value may be the original node in which case no replacement takes place. Here is an example transformer that rewrites all occurrences of name lookups ( foo ) to  data['foo']  class RewriteName(NodeTransformer): def visit_Name(self, node): return Subscript( value=Name(id='data', ctx=Load( , slice=Constant(value=node.id), ctx=node.ctx ) Keep in mind that if the node you're operating on has child nodes you must either transform the child nodes yourself or call the :meth: generic_visit method for the node first. For nodes that were part of a collection of statements (that applies to all statement nodes), the visitor may also return a list of nodes rather than just a single node. Usually you use the transformer like this node = YourTransformer().visit(node)"
 },
 {
 "ref":"opshin.rewrite.rewrite_cast_condition.RewriteConditions.step",
-"url":34,
+"url":33,
 "doc":""
 },
 {
 "ref":"opshin.rewrite.rewrite_cast_condition.RewriteConditions.visit_Module",
-"url":34,
+"url":33,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.rewrite.rewrite_cast_condition.RewriteConditions.visit_If",
-"url":34,
+"url":33,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.rewrite.rewrite_cast_condition.RewriteConditions.visit_IfExp",
-"url":34,
+"url":33,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.rewrite.rewrite_cast_condition.RewriteConditions.visit_While",
-"url":34,
+"url":33,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.rewrite.rewrite_cast_condition.RewriteConditions.visit_BoolOp",
-"url":34,
+"url":33,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.rewrite.rewrite_cast_condition.RewriteConditions.visit_Assert",
-"url":34,
+"url":33,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.rewrite.rewrite_cast_condition.RewriteConditions.visit",
-"url":28,
+"url":27,
 "doc":"Visit a node.",
 "func":1
 },
 {
 "ref":"opshin.rewrite.rewrite_remove_type_stuff",
-"url":35,
+"url":34,
 "doc":""
 },
 {
 "ref":"opshin.rewrite.rewrite_remove_type_stuff.RewriteRemoveTypeStuff",
-"url":35,
+"url":34,
 "doc":"A :class: NodeVisitor subclass that walks the abstract syntax tree and allows modification of nodes. The  NodeTransformer will walk the AST and use the return value of the visitor methods to replace or remove the old node. If the return value of the visitor method is  None , the node will be removed from its location, otherwise it is replaced with the return value. The return value may be the original node in which case no replacement takes place. Here is an example transformer that rewrites all occurrences of name lookups ( foo ) to  data['foo']  class RewriteName(NodeTransformer): def visit_Name(self, node): return Subscript( value=Name(id='data', ctx=Load( , slice=Constant(value=node.id), ctx=node.ctx ) Keep in mind that if the node you're operating on has child nodes you must either transform the child nodes yourself or call the :meth: generic_visit method for the node first. For nodes that were part of a collection of statements (that applies to all statement nodes), the visitor may also return a list of nodes rather than just a single node. Usually you use the transformer like this node = YourTransformer().visit(node)"
 },
 {
 "ref":"opshin.rewrite.rewrite_remove_type_stuff.RewriteRemoveTypeStuff.step",
-"url":35,
+"url":34,
 "doc":""
 },
 {
 "ref":"opshin.rewrite.rewrite_remove_type_stuff.RewriteRemoveTypeStuff.visit_Assign",
-"url":35,
+"url":34,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.rewrite.rewrite_remove_type_stuff.RewriteRemoveTypeStuff.visit",
-"url":28,
+"url":27,
 "doc":"Visit a node.",
 "func":1
 },
 {
 "ref":"opshin.rewrite.rewrite_import_typing",
-"url":36,
+"url":35,
 "doc":""
 },
 {
 "ref":"opshin.rewrite.rewrite_import_typing.RewriteImportTyping",
-"url":36,
+"url":35,
 "doc":"A :class: NodeVisitor subclass that walks the abstract syntax tree and allows modification of nodes. The  NodeTransformer will walk the AST and use the return value of the visitor methods to replace or remove the old node. If the return value of the visitor method is  None , the node will be removed from its location, otherwise it is replaced with the return value. The return value may be the original node in which case no replacement takes place. Here is an example transformer that rewrites all occurrences of name lookups ( foo ) to  data['foo']  class RewriteName(NodeTransformer): def visit_Name(self, node): return Subscript( value=Name(id='data', ctx=Load( , slice=Constant(value=node.id), ctx=node.ctx ) Keep in mind that if the node you're operating on has child nodes you must either transform the child nodes yourself or call the :meth: generic_visit method for the node first. For nodes that were part of a collection of statements (that applies to all statement nodes), the visitor may also return a list of nodes rather than just a single node. Usually you use the transformer like this node = YourTransformer().visit(node)"
 },
 {
 "ref":"opshin.rewrite.rewrite_import_typing.RewriteImportTyping.step",
-"url":36,
+"url":35,
 "doc":""
 },
 {
 "ref":"opshin.rewrite.rewrite_import_typing.RewriteImportTyping.imports_typing",
-"url":36,
+"url":35,
 "doc":""
 },
 {
 "ref":"opshin.rewrite.rewrite_import_typing.RewriteImportTyping.visit_ImportFrom",
-"url":36,
+"url":35,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.rewrite.rewrite_import_typing.RewriteImportTyping.visit_ClassDef",
-"url":36,
+"url":35,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.rewrite.rewrite_import_typing.RewriteImportTyping.visit",
-"url":28,
+"url":27,
 "doc":"Visit a node.",
 "func":1
 },
 {
 "ref":"opshin.rewrite.rewrite_inject_builtin_constr",
-"url":37,
+"url":36,
 "doc":""
 },
 {
 "ref":"opshin.rewrite.rewrite_inject_builtin_constr.RewriteInjectBuiltinsConstr",
-"url":37,
+"url":36,
 "doc":"A :class: NodeVisitor subclass that walks the abstract syntax tree and allows modification of nodes. The  NodeTransformer will walk the AST and use the return value of the visitor methods to replace or remove the old node. If the return value of the visitor method is  None , the node will be removed from its location, otherwise it is replaced with the return value. The return value may be the original node in which case no replacement takes place. Here is an example transformer that rewrites all occurrences of name lookups ( foo ) to  data['foo']  class RewriteName(NodeTransformer): def visit_Name(self, node): return Subscript( value=Name(id='data', ctx=Load( , slice=Constant(value=node.id), ctx=node.ctx ) Keep in mind that if the node you're operating on has child nodes you must either transform the child nodes yourself or call the :meth: generic_visit method for the node first. For nodes that were part of a collection of statements (that applies to all statement nodes), the visitor may also return a list of nodes rather than just a single node. Usually you use the transformer like this node = YourTransformer().visit(node)"
 },
 {
 "ref":"opshin.rewrite.rewrite_inject_builtin_constr.RewriteInjectBuiltinsConstr.step",
-"url":37,
+"url":36,
 "doc":""
 },
 {
 "ref":"opshin.rewrite.rewrite_inject_builtin_constr.RewriteInjectBuiltinsConstr.visit_Module",
-"url":37,
+"url":36,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.rewrite.rewrite_inject_builtin_constr.RewriteInjectBuiltinsConstr.visit",
-"url":28,
+"url":27,
 "doc":"Visit a node.",
 "func":1
 },
 {
 "ref":"opshin.rewrite.rewrite_import_dataclasses",
-"url":38,
+"url":37,
 "doc":""
 },
 {
 "ref":"opshin.rewrite.rewrite_import_dataclasses.RewriteImportDataclasses",
-"url":38,
+"url":37,
 "doc":"A :class: NodeVisitor subclass that walks the abstract syntax tree and allows modification of nodes. The  NodeTransformer will walk the AST and use the return value of the visitor methods to replace or remove the old node. If the return value of the visitor method is  None , the node will be removed from its location, otherwise it is replaced with the return value. The return value may be the original node in which case no replacement takes place. Here is an example transformer that rewrites all occurrences of name lookups ( foo ) to  data['foo']  class RewriteName(NodeTransformer): def visit_Name(self, node): return Subscript( value=Name(id='data', ctx=Load( , slice=Constant(value=node.id), ctx=node.ctx ) Keep in mind that if the node you're operating on has child nodes you must either transform the child nodes yourself or call the :meth: generic_visit method for the node first. For nodes that were part of a collection of statements (that applies to all statement nodes), the visitor may also return a list of nodes rather than just a single node. Usually you use the transformer like this node = YourTransformer().visit(node)"
 },
 {
 "ref":"opshin.rewrite.rewrite_import_dataclasses.RewriteImportDataclasses.step",
-"url":38,
+"url":37,
 "doc":""
 },
 {
 "ref":"opshin.rewrite.rewrite_import_dataclasses.RewriteImportDataclasses.imports_dataclasses",
-"url":38,
+"url":37,
 "doc":""
 },
 {
 "ref":"opshin.rewrite.rewrite_import_dataclasses.RewriteImportDataclasses.visit_ImportFrom",
-"url":38,
+"url":37,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.rewrite.rewrite_import_dataclasses.RewriteImportDataclasses.visit_ClassDef",
-"url":38,
+"url":37,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.rewrite.rewrite_import_dataclasses.RewriteImportDataclasses.visit",
-"url":28,
+"url":27,
 "doc":"Visit a node.",
 "func":1
 },
 {
 "ref":"opshin.rewrite.rewrite_subscript38",
-"url":39,
+"url":38,
 "doc":""
 },
 {
 "ref":"opshin.rewrite.rewrite_subscript38.RewriteSubscript38",
-"url":39,
+"url":38,
 "doc":"A :class: NodeVisitor subclass that walks the abstract syntax tree and allows modification of nodes. The  NodeTransformer will walk the AST and use the return value of the visitor methods to replace or remove the old node. If the return value of the visitor method is  None , the node will be removed from its location, otherwise it is replaced with the return value. The return value may be the original node in which case no replacement takes place. Here is an example transformer that rewrites all occurrences of name lookups ( foo ) to  data['foo']  class RewriteName(NodeTransformer): def visit_Name(self, node): return Subscript( value=Name(id='data', ctx=Load( , slice=Constant(value=node.id), ctx=node.ctx ) Keep in mind that if the node you're operating on has child nodes you must either transform the child nodes yourself or call the :meth: generic_visit method for the node first. For nodes that were part of a collection of statements (that applies to all statement nodes), the visitor may also return a list of nodes rather than just a single node. Usually you use the transformer like this node = YourTransformer().visit(node)"
 },
 {
 "ref":"opshin.rewrite.rewrite_subscript38.RewriteSubscript38.step",
-"url":39,
+"url":38,
 "doc":""
 },
 {
 "ref":"opshin.rewrite.rewrite_subscript38.RewriteSubscript38.visit_Index",
-"url":39,
+"url":38,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.rewrite.rewrite_subscript38.RewriteSubscript38.visit",
-"url":28,
+"url":27,
 "doc":"Visit a node.",
 "func":1
 },
 {
 "ref":"opshin.rewrite.rewrite_empty_lists",
-"url":40,
+"url":39,
 "doc":""
 },
 {
 "ref":"opshin.rewrite.rewrite_empty_lists.RewriteEmptyLists",
-"url":40,
+"url":39,
 "doc":"A :class: NodeVisitor subclass that walks the abstract syntax tree and allows modification of nodes. The  NodeTransformer will walk the AST and use the return value of the visitor methods to replace or remove the old node. If the return value of the visitor method is  None , the node will be removed from its location, otherwise it is replaced with the return value. The return value may be the original node in which case no replacement takes place. Here is an example transformer that rewrites all occurrences of name lookups ( foo ) to  data['foo']  class RewriteName(NodeTransformer): def visit_Name(self, node): return Subscript( value=Name(id='data', ctx=Load( , slice=Constant(value=node.id), ctx=node.ctx ) Keep in mind that if the node you're operating on has child nodes you must either transform the child nodes yourself or call the :meth: generic_visit method for the node first. For nodes that were part of a collection of statements (that applies to all statement nodes), the visitor may also return a list of nodes rather than just a single node. Usually you use the transformer like this node = YourTransformer().visit(node)"
 },
 {
 "ref":"opshin.rewrite.rewrite_empty_lists.RewriteEmptyLists.step",
-"url":40,
+"url":39,
 "doc":""
 },
 {
 "ref":"opshin.rewrite.rewrite_empty_lists.RewriteEmptyLists.visit_List",
-"url":40,
+"url":39,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.rewrite.rewrite_empty_lists.RewriteEmptyLists.visit_Constant",
-"url":40,
+"url":39,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.rewrite.rewrite_empty_lists.RewriteEmptyLists.visit",
-"url":28,
+"url":27,
 "doc":"Visit a node.",
 "func":1
 },
 {
 "ref":"opshin.rewrite.rewrite_scoping",
-"url":41,
+"url":40,
 "doc":""
 },
 {
 "ref":"opshin.rewrite.rewrite_scoping.ShallowNameDefCollector",
-"url":41,
+"url":40,
 "doc":"A node visitor base class that walks the abstract syntax tree and calls a visitor function for every node found. This function may return a value which is forwarded by the  visit method. This class is meant to be subclassed, with the subclass adding visitor methods. Per default the visitor functions for the nodes are  'visit_' + class name of the node. So a  TryFinally node visit function would be  visit_TryFinally . This behavior can be changed by overriding the  visit method. If no visitor function exists for a node (return value  None ) the  generic_visit visitor is used instead. Don't use the  NodeVisitor if you want to apply changes to nodes during traversing. For this a special visitor exists ( NodeTransformer ) that allows modifications."
 },
 {
 "ref":"opshin.rewrite.rewrite_scoping.ShallowNameDefCollector.step",
-"url":41,
+"url":40,
 "doc":""
 },
 {
 "ref":"opshin.rewrite.rewrite_scoping.ShallowNameDefCollector.visit_Name",
-"url":41,
+"url":40,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.rewrite.rewrite_scoping.ShallowNameDefCollector.visit_ClassDef",
-"url":41,
+"url":40,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.rewrite.rewrite_scoping.ShallowNameDefCollector.visit_FunctionDef",
-"url":41,
+"url":40,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.rewrite.rewrite_scoping.ShallowNameDefCollector.visit",
-"url":28,
+"url":27,
 "doc":"Visit a node.",
 "func":1
 },
 {
 "ref":"opshin.rewrite.rewrite_scoping.RewriteScoping",
-"url":41,
+"url":40,
 "doc":"A :class: NodeVisitor subclass that walks the abstract syntax tree and allows modification of nodes. The  NodeTransformer will walk the AST and use the return value of the visitor methods to replace or remove the old node. If the return value of the visitor method is  None , the node will be removed from its location, otherwise it is replaced with the return value. The return value may be the original node in which case no replacement takes place. Here is an example transformer that rewrites all occurrences of name lookups ( foo ) to  data['foo']  class RewriteName(NodeTransformer): def visit_Name(self, node): return Subscript( value=Name(id='data', ctx=Load( , slice=Constant(value=node.id), ctx=node.ctx ) Keep in mind that if the node you're operating on has child nodes you must either transform the child nodes yourself or call the :meth: generic_visit method for the node first. For nodes that were part of a collection of statements (that applies to all statement nodes), the visitor may also return a list of nodes rather than just a single node. Usually you use the transformer like this node = YourTransformer().visit(node)"
 },
 {
 "ref":"opshin.rewrite.rewrite_scoping.RewriteScoping.latest_scope_id",
-"url":41,
+"url":40,
 "doc":""
 },
 {
 "ref":"opshin.rewrite.rewrite_scoping.RewriteScoping.scopes",
-"url":41,
+"url":40,
 "doc":""
 },
 {
 "ref":"opshin.rewrite.rewrite_scoping.RewriteScoping.step",
-"url":41,
+"url":40,
 "doc":""
 },
 {
 "ref":"opshin.rewrite.rewrite_scoping.RewriteScoping.variable_scope_id",
-"url":41,
+"url":40,
 "doc":"find the id of the scope in which this variable is defined (closest to its usage)",
 "func":1
 },
 {
 "ref":"opshin.rewrite.rewrite_scoping.RewriteScoping.enter_scope",
-"url":41,
+"url":40,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.rewrite.rewrite_scoping.RewriteScoping.exit_scope",
-"url":41,
+"url":40,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.rewrite.rewrite_scoping.RewriteScoping.set_variable_scope",
-"url":41,
+"url":40,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.rewrite.rewrite_scoping.RewriteScoping.map_name",
-"url":41,
+"url":40,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.rewrite.rewrite_scoping.RewriteScoping.visit_Module",
-"url":41,
+"url":40,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.rewrite.rewrite_scoping.RewriteScoping.visit_Name",
-"url":41,
+"url":40,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.rewrite.rewrite_scoping.RewriteScoping.visit_ClassDef",
-"url":41,
+"url":40,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.rewrite.rewrite_scoping.RewriteScoping.visit_FunctionDef",
-"url":41,
+"url":40,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.rewrite.rewrite_scoping.RewriteScoping.visit_NoneType",
-"url":41,
+"url":40,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.rewrite.rewrite_scoping.RewriteScoping.visit",
-"url":28,
+"url":27,
 "doc":"Visit a node.",
 "func":1
 },
 {
 "ref":"opshin.rewrite.rewrite_scoping.RecordScoper",
-"url":41,
+"url":40,
 "doc":"A :class: NodeVisitor subclass that walks the abstract syntax tree and allows modification of nodes. The  NodeTransformer will walk the AST and use the return value of the visitor methods to replace or remove the old node. If the return value of the visitor method is  None , the node will be removed from its location, otherwise it is replaced with the return value. The return value may be the original node in which case no replacement takes place. Here is an example transformer that rewrites all occurrences of name lookups ( foo ) to  data['foo']  class RewriteName(NodeTransformer): def visit_Name(self, node): return Subscript( value=Name(id='data', ctx=Load( , slice=Constant(value=node.id), ctx=node.ctx ) Keep in mind that if the node you're operating on has child nodes you must either transform the child nodes yourself or call the :meth: generic_visit method for the node first. For nodes that were part of a collection of statements (that applies to all statement nodes), the visitor may also return a list of nodes rather than just a single node. Usually you use the transformer like this node = YourTransformer().visit(node)"
 },
 {
 "ref":"opshin.rewrite.rewrite_scoping.RecordScoper.scope",
-"url":41,
+"url":40,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.rewrite.rewrite_scoping.RecordScoper.visit_ClassDef",
-"url":41,
+"url":40,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.rewrite.rewrite_scoping.RecordScoper.visit_AnnAssign",
-"url":41,
+"url":40,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.rewrite.rewrite_empty_dicts",
-"url":42,
+"url":41,
 "doc":""
 },
 {
 "ref":"opshin.rewrite.rewrite_empty_dicts.RewriteEmptyDicts",
-"url":42,
+"url":41,
 "doc":"A :class: NodeVisitor subclass that walks the abstract syntax tree and allows modification of nodes. The  NodeTransformer will walk the AST and use the return value of the visitor methods to replace or remove the old node. If the return value of the visitor method is  None , the node will be removed from its location, otherwise it is replaced with the return value. The return value may be the original node in which case no replacement takes place. Here is an example transformer that rewrites all occurrences of name lookups ( foo ) to  data['foo']  class RewriteName(NodeTransformer): def visit_Name(self, node): return Subscript( value=Name(id='data', ctx=Load( , slice=Constant(value=node.id), ctx=node.ctx ) Keep in mind that if the node you're operating on has child nodes you must either transform the child nodes yourself or call the :meth: generic_visit method for the node first. For nodes that were part of a collection of statements (that applies to all statement nodes), the visitor may also return a list of nodes rather than just a single node. Usually you use the transformer like this node = YourTransformer().visit(node)"
 },
 {
 "ref":"opshin.rewrite.rewrite_empty_dicts.RewriteEmptyDicts.step",
-"url":42,
+"url":41,
 "doc":""
 },
 {
 "ref":"opshin.rewrite.rewrite_empty_dicts.RewriteEmptyDicts.visit_Dict",
-"url":42,
+"url":41,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.rewrite.rewrite_empty_dicts.RewriteEmptyDicts.visit_Constant",
-"url":42,
+"url":41,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.rewrite.rewrite_empty_dicts.RewriteEmptyDicts.visit",
-"url":28,
+"url":27,
 "doc":"Visit a node.",
 "func":1
 },
 {
 "ref":"opshin.rewrite.rewrite_augassign",
-"url":43,
+"url":42,
 "doc":""
 },
 {
 "ref":"opshin.rewrite.rewrite_augassign.RewriteAugAssign",
-"url":43,
+"url":42,
 "doc":"A :class: NodeVisitor subclass that walks the abstract syntax tree and allows modification of nodes. The  NodeTransformer will walk the AST and use the return value of the visitor methods to replace or remove the old node. If the return value of the visitor method is  None , the node will be removed from its location, otherwise it is replaced with the return value. The return value may be the original node in which case no replacement takes place. Here is an example transformer that rewrites all occurrences of name lookups ( foo ) to  data['foo']  class RewriteName(NodeTransformer): def visit_Name(self, node): return Subscript( value=Name(id='data', ctx=Load( , slice=Constant(value=node.id), ctx=node.ctx ) Keep in mind that if the node you're operating on has child nodes you must either transform the child nodes yourself or call the :meth: generic_visit method for the node first. For nodes that were part of a collection of statements (that applies to all statement nodes), the visitor may also return a list of nodes rather than just a single node. Usually you use the transformer like this node = YourTransformer().visit(node)"
 },
 {
 "ref":"opshin.rewrite.rewrite_augassign.RewriteAugAssign.step",
-"url":43,
+"url":42,
 "doc":""
 },
 {
 "ref":"opshin.rewrite.rewrite_augassign.RewriteAugAssign.visit_AugAssign",
-"url":43,
+"url":42,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.rewrite.rewrite_augassign.RewriteAugAssign.visit",
-"url":28,
+"url":27,
 "doc":"Visit a node.",
 "func":1
 },
 {
 "ref":"opshin.rewrite.rewrite_import_integrity_check",
-"url":44,
+"url":43,
 "doc":""
 },
 {
 "ref":"opshin.rewrite.rewrite_import_integrity_check.IntegrityCheckImpl",
-"url":44,
+"url":43,
 "doc":""
 },
 {
 "ref":"opshin.rewrite.rewrite_import_integrity_check.IntegrityCheckImpl.type_from_args",
-"url":44,
+"url":43,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.rewrite.rewrite_import_integrity_check.IntegrityCheckImpl.impl_from_args",
-"url":44,
+"url":43,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.rewrite.rewrite_import_integrity_check.RewriteImportIntegrityCheck",
-"url":44,
+"url":43,
 "doc":"A :class: NodeVisitor subclass that walks the abstract syntax tree and allows modification of nodes. The  NodeTransformer will walk the AST and use the return value of the visitor methods to replace or remove the old node. If the return value of the visitor method is  None , the node will be removed from its location, otherwise it is replaced with the return value. The return value may be the original node in which case no replacement takes place. Here is an example transformer that rewrites all occurrences of name lookups ( foo ) to  data['foo']  class RewriteName(NodeTransformer): def visit_Name(self, node): return Subscript( value=Name(id='data', ctx=Load( , slice=Constant(value=node.id), ctx=node.ctx ) Keep in mind that if the node you're operating on has child nodes you must either transform the child nodes yourself or call the :meth: generic_visit method for the node first. For nodes that were part of a collection of statements (that applies to all statement nodes), the visitor may also return a list of nodes rather than just a single node. Usually you use the transformer like this node = YourTransformer().visit(node)"
 },
 {
 "ref":"opshin.rewrite.rewrite_import_integrity_check.RewriteImportIntegrityCheck.step",
-"url":44,
+"url":43,
 "doc":""
 },
 {
 "ref":"opshin.rewrite.rewrite_import_integrity_check.RewriteImportIntegrityCheck.visit_ImportFrom",
-"url":44,
+"url":43,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.rewrite.rewrite_import_integrity_check.RewriteImportIntegrityCheck.visit",
-"url":28,
+"url":27,
 "doc":"Visit a node.",
 "func":1
 },
 {
 "ref":"opshin.rewrite.rewrite_forbidden_overwrites",
-"url":45,
+"url":44,
 "doc":""
 },
 {
 "ref":"opshin.rewrite.rewrite_forbidden_overwrites.ForbiddenOverwriteError",
-"url":45,
+"url":44,
 "doc":"Inappropriate argument value (of correct type)."
 },
 {
 "ref":"opshin.rewrite.rewrite_forbidden_overwrites.RewriteForbiddenOverwrites",
-"url":45,
+"url":44,
 "doc":"A :class: NodeVisitor subclass that walks the abstract syntax tree and allows modification of nodes. The  NodeTransformer will walk the AST and use the return value of the visitor methods to replace or remove the old node. If the return value of the visitor method is  None , the node will be removed from its location, otherwise it is replaced with the return value. The return value may be the original node in which case no replacement takes place. Here is an example transformer that rewrites all occurrences of name lookups ( foo ) to  data['foo']  class RewriteName(NodeTransformer): def visit_Name(self, node): return Subscript( value=Name(id='data', ctx=Load( , slice=Constant(value=node.id), ctx=node.ctx ) Keep in mind that if the node you're operating on has child nodes you must either transform the child nodes yourself or call the :meth: generic_visit method for the node first. For nodes that were part of a collection of statements (that applies to all statement nodes), the visitor may also return a list of nodes rather than just a single node. Usually you use the transformer like this node = YourTransformer().visit(node)"
 },
 {
 "ref":"opshin.rewrite.rewrite_forbidden_overwrites.RewriteForbiddenOverwrites.step",
-"url":45,
+"url":44,
 "doc":""
 },
 {
 "ref":"opshin.rewrite.rewrite_forbidden_overwrites.RewriteForbiddenOverwrites.visit_Name",
-"url":45,
+"url":44,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.rewrite.rewrite_forbidden_overwrites.RewriteForbiddenOverwrites.visit",
-"url":28,
+"url":27,
 "doc":"Visit a node.",
 "func":1
 },
 {
 "ref":"opshin.rewrite.rewrite_inject_builtins",
-"url":46,
+"url":45,
 "doc":""
 },
 {
 "ref":"opshin.rewrite.rewrite_inject_builtins.RewriteInjectBuiltins",
-"url":46,
+"url":45,
 "doc":"A :class: NodeVisitor subclass that walks the abstract syntax tree and allows modification of nodes. The  NodeTransformer will walk the AST and use the return value of the visitor methods to replace or remove the old node. If the return value of the visitor method is  None , the node will be removed from its location, otherwise it is replaced with the return value. The return value may be the original node in which case no replacement takes place. Here is an example transformer that rewrites all occurrences of name lookups ( foo ) to  data['foo']  class RewriteName(NodeTransformer): def visit_Name(self, node): return Subscript( value=Name(id='data', ctx=Load( , slice=Constant(value=node.id), ctx=node.ctx ) Keep in mind that if the node you're operating on has child nodes you must either transform the child nodes yourself or call the :meth: generic_visit method for the node first. For nodes that were part of a collection of statements (that applies to all statement nodes), the visitor may also return a list of nodes rather than just a single node. Usually you use the transformer like this node = YourTransformer().visit(node)"
 },
 {
 "ref":"opshin.rewrite.rewrite_inject_builtins.RewriteInjectBuiltins.step",
-"url":46,
+"url":45,
 "doc":""
 },
 {
 "ref":"opshin.rewrite.rewrite_inject_builtins.RewriteInjectBuiltins.visit_Module",
-"url":46,
+"url":45,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.rewrite.rewrite_inject_builtins.RewriteInjectBuiltins.visit",
-"url":28,
+"url":27,
 "doc":"Visit a node.",
 "func":1
 },
 {
 "ref":"opshin.rewrite.rewrite_import_plutusdata",
-"url":47,
+"url":46,
 "doc":""
 },
 {
 "ref":"opshin.rewrite.rewrite_import_plutusdata.RewriteImportPlutusData",
-"url":47,
+"url":46,
 "doc":"A :class: NodeVisitor subclass that walks the abstract syntax tree and allows modification of nodes. The  NodeTransformer will walk the AST and use the return value of the visitor methods to replace or remove the old node. If the return value of the visitor method is  None , the node will be removed from its location, otherwise it is replaced with the return value. The return value may be the original node in which case no replacement takes place. Here is an example transformer that rewrites all occurrences of name lookups ( foo ) to  data['foo']  class RewriteName(NodeTransformer): def visit_Name(self, node): return Subscript( value=Name(id='data', ctx=Load( , slice=Constant(value=node.id), ctx=node.ctx ) Keep in mind that if the node you're operating on has child nodes you must either transform the child nodes yourself or call the :meth: generic_visit method for the node first. For nodes that were part of a collection of statements (that applies to all statement nodes), the visitor may also return a list of nodes rather than just a single node. Usually you use the transformer like this node = YourTransformer().visit(node)"
 },
 {
 "ref":"opshin.rewrite.rewrite_import_plutusdata.RewriteImportPlutusData.step",
-"url":47,
+"url":46,
 "doc":""
 },
 {
 "ref":"opshin.rewrite.rewrite_import_plutusdata.RewriteImportPlutusData.imports_plutus_data",
-"url":47,
+"url":46,
 "doc":""
 },
 {
 "ref":"opshin.rewrite.rewrite_import_plutusdata.RewriteImportPlutusData.visit_ImportFrom",
-"url":47,
+"url":46,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.rewrite.rewrite_import_plutusdata.RewriteImportPlutusData.visit_ClassDef",
-"url":47,
+"url":46,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.rewrite.rewrite_import_plutusdata.RewriteImportPlutusData.visit",
-"url":28,
+"url":27,
 "doc":"Visit a node.",
 "func":1
 },
 {
 "ref":"opshin.rewrite.rewrite_import_uplc_builtins",
-"url":48,
+"url":47,
 "doc":""
 },
 {
 "ref":"opshin.rewrite.rewrite_import_uplc_builtins.RewriteImportUPLCBuiltins",
-"url":48,
+"url":47,
 "doc":"A :class: NodeVisitor subclass that walks the abstract syntax tree and allows modification of nodes. The  NodeTransformer will walk the AST and use the return value of the visitor methods to replace or remove the old node. If the return value of the visitor method is  None , the node will be removed from its location, otherwise it is replaced with the return value. The return value may be the original node in which case no replacement takes place. Here is an example transformer that rewrites all occurrences of name lookups ( foo ) to  data['foo']  class RewriteName(NodeTransformer): def visit_Name(self, node): return Subscript( value=Name(id='data', ctx=Load( , slice=Constant(value=node.id), ctx=node.ctx ) Keep in mind that if the node you're operating on has child nodes you must either transform the child nodes yourself or call the :meth: generic_visit method for the node first. For nodes that were part of a collection of statements (that applies to all statement nodes), the visitor may also return a list of nodes rather than just a single node. Usually you use the transformer like this node = YourTransformer().visit(node)"
 },
 {
 "ref":"opshin.rewrite.rewrite_import_uplc_builtins.RewriteImportUPLCBuiltins.step",
-"url":48,
+"url":47,
 "doc":""
 },
 {
 "ref":"opshin.rewrite.rewrite_import_uplc_builtins.RewriteImportUPLCBuiltins.imports_uplc_builtins",
-"url":48,
+"url":47,
 "doc":""
 },
 {
 "ref":"opshin.rewrite.rewrite_import_uplc_builtins.RewriteImportUPLCBuiltins.visit_ImportFrom",
-"url":48,
+"url":47,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.rewrite.rewrite_import_uplc_builtins.RewriteImportUPLCBuiltins.visit_FunctionDef",
-"url":48,
+"url":47,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.rewrite.rewrite_import_uplc_builtins.RewriteImportUPLCBuiltins.visit",
-"url":28,
+"url":27,
 "doc":"Visit a node.",
 "func":1
 },
 {
 "ref":"opshin.rewrite.rewrite_import_hashlib",
-"url":49,
+"url":48,
 "doc":""
 },
 {
 "ref":"opshin.rewrite.rewrite_import_hashlib.HashType",
-"url":49,
+"url":48,
 "doc":"A pseudo class that is the result of python hash functions that need a 'digest' call"
 },
 {
 "ref":"opshin.rewrite.rewrite_import_hashlib.HashType.attribute_type",
-"url":49,
+"url":48,
 "doc":"The types of the named attributes of this class",
 "func":1
 },
 {
 "ref":"opshin.rewrite.rewrite_import_hashlib.HashType.attribute",
-"url":49,
+"url":48,
 "doc":"The attributes of this class. Needs to be a lambda that expects as first argument the object itself",
 "func":1
 },
 {
 "ref":"opshin.rewrite.rewrite_import_hashlib.HashType.copy_only_attributes",
-"url":25,
+"url":49,
 "doc":"Returns a copy of this type with only the declared attributes (mapped to builtin values, thus checking atomic types too). For anything but record types and union types, this is the identity function.",
 "func":1
 },
 {
 "ref":"opshin.rewrite.rewrite_import_hashlib.HashType.constr_type",
-"url":25,
+"url":49,
 "doc":"The type of the constructor for this class",
 "func":1
 },
 {
 "ref":"opshin.rewrite.rewrite_import_hashlib.HashType.constr",
-"url":25,
+"url":49,
 "doc":"The constructor for this class",
 "func":1
 },
 {
 "ref":"opshin.rewrite.rewrite_import_hashlib.HashType.cmp",
-"url":25,
+"url":49,
 "doc":"The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second the comparison.",
 "func":1
 },
 {
 "ref":"opshin.rewrite.rewrite_import_hashlib.HashType.stringify",
-"url":25,
+"url":49,
 "doc":"Returns a stringified version of the object The recursive parameter informs the method whether it was invoked recursively from another invokation",
 "func":1
 },
 {
 "ref":"opshin.rewrite.rewrite_import_hashlib.HashType.binop_type",
-"url":25,
+"url":49,
 "doc":"Type of a binary operation between self and other.",
 "func":1
 },
 {
 "ref":"opshin.rewrite.rewrite_import_hashlib.HashType.binop",
-"url":25,
+"url":49,
 "doc":"Implements a binary operation between self and other",
 "func":1
 },
 {
 "ref":"opshin.rewrite.rewrite_import_hashlib.HashType.unop_type",
-"url":25,
+"url":49,
 "doc":"Type of a unary operation on self.",
 "func":1
 },
 {
 "ref":"opshin.rewrite.rewrite_import_hashlib.HashType.unop",
-"url":25,
+"url":49,
 "doc":"Implements a unary operation on self",
 "func":1
 },
 {
 "ref":"opshin.rewrite.rewrite_import_hashlib.HashType.id_map",
-"url":25,
+"url":49,
 "doc":"Returns a map from the constructor id to a descriptive typestring",
 "func":1
 },
 {
 "ref":"opshin.rewrite.rewrite_import_hashlib.PythonHashlib",
-"url":49,
+"url":48,
 "doc":"An enumeration."
 },
 {
 "ref":"opshin.rewrite.rewrite_import_hashlib.PythonHashlib.sha256",
-"url":49,
+"url":48,
 "doc":""
 },
 {
 "ref":"opshin.rewrite.rewrite_import_hashlib.PythonHashlib.sha3_256",
-"url":49,
+"url":48,
 "doc":""
 },
 {
 "ref":"opshin.rewrite.rewrite_import_hashlib.PythonHashlib.blake2b",
-"url":49,
+"url":48,
 "doc":""
 },
 {
 "ref":"opshin.rewrite.rewrite_import_hashlib.RewriteImportHashlib",
-"url":49,
+"url":48,
 "doc":"A :class: NodeVisitor subclass that walks the abstract syntax tree and allows modification of nodes. The  NodeTransformer will walk the AST and use the return value of the visitor methods to replace or remove the old node. If the return value of the visitor method is  None , the node will be removed from its location, otherwise it is replaced with the return value. The return value may be the original node in which case no replacement takes place. Here is an example transformer that rewrites all occurrences of name lookups ( foo ) to  data['foo']  class RewriteName(NodeTransformer): def visit_Name(self, node): return Subscript( value=Name(id='data', ctx=Load( , slice=Constant(value=node.id), ctx=node.ctx ) Keep in mind that if the node you're operating on has child nodes you must either transform the child nodes yourself or call the :meth: generic_visit method for the node first. For nodes that were part of a collection of statements (that applies to all statement nodes), the visitor may also return a list of nodes rather than just a single node. Usually you use the transformer like this node = YourTransformer().visit(node)"
 },
 {
 "ref":"opshin.rewrite.rewrite_import_hashlib.RewriteImportHashlib.step",
-"url":49,
+"url":48,
 "doc":""
 },
 {
 "ref":"opshin.rewrite.rewrite_import_hashlib.RewriteImportHashlib.imports_hashlib",
-"url":49,
+"url":48,
 "doc":""
 },
 {
 "ref":"opshin.rewrite.rewrite_import_hashlib.RewriteImportHashlib.visit_ImportFrom",
-"url":49,
+"url":48,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.rewrite.rewrite_import_hashlib.RewriteImportHashlib.visit",
-"url":28,
+"url":27,
 "doc":"Visit a node.",
 "func":1
 },
@@ -7668,7 +5886,7 @@ INDEX=[
 },
 {
 "ref":"opshin.rewrite.rewrite_tuple_assign.RewriteTupleAssign.visit",
-"url":28,
+"url":27,
 "doc":"Visit a node.",
 "func":1
 },
@@ -7695,7 +5913,7 @@ INDEX=[
 },
 {
 "ref":"opshin.rewrite.rewrite_comparison_chaining.RewriteComparisonChaining.visit",
-"url":28,
+"url":27,
 "doc":"Visit a node.",
 "func":1
 },
@@ -7728,7 +5946,7 @@ INDEX=[
 },
 {
 "ref":"opshin.rewrite.rewrite_forbidden_return.RewriteForbiddenReturn.visit",
-"url":28,
+"url":27,
 "doc":"Visit a node.",
 "func":1
 },
@@ -7772,7 +5990,7 @@ INDEX=[
 },
 {
 "ref":"opshin.rewrite.rewrite_import.RewriteImport.visit",
-"url":28,
+"url":27,
 "doc":"Visit a node.",
 "func":1
 },
@@ -7817,7 +6035,7 @@ INDEX=[
 },
 {
 "ref":"opshin.rewrite.rewrite_orig_name.RewriteOrigName.visit",
-"url":28,
+"url":27,
 "doc":"Visit a node.",
 "func":1
 },
@@ -8296,7 +6514,7 @@ INDEX=[
 },
 {
 "ref":"opshin.type_inference.TypeCheckVisitor.visit",
-"url":28,
+"url":27,
 "doc":"Visit a node.",
 "func":1
 },
@@ -8581,7 +6799,7 @@ INDEX=[
 },
 {
 "ref":"opshin.type_inference.AggressiveTypeInferencer.visit",
-"url":28,
+"url":27,
 "doc":"Visit a node.",
 "func":1
 },
@@ -8707,291 +6925,2073 @@ INDEX=[
 },
 {
 "ref":"opshin.type_inference.ReturnExtractor.visit",
-"url":28,
+"url":27,
 "doc":"Visit a node.",
 "func":1
 },
 {
+"ref":"opshin.type_impls",
+"url":49,
+"doc":""
+},
+{
+"ref":"opshin.type_impls.FunctionType",
+"url":49,
+"doc":"FunctionType(argtyps: List[opshin.type_impls.Type], rettyp: opshin.type_impls.Type, bound_vars: Dict[str, opshin.type_impls.Type] =  , bind_self: Optional[str] = None)"
+},
+{
+"ref":"opshin.type_impls.FunctionType.argtyps",
+"url":49,
+"doc":""
+},
+{
+"ref":"opshin.type_impls.FunctionType.rettyp",
+"url":49,
+"doc":""
+},
+{
+"ref":"opshin.type_impls.FunctionType.bound_vars",
+"url":49,
+"doc":""
+},
+{
+"ref":"opshin.type_impls.FunctionType.bind_self",
+"url":49,
+"doc":""
+},
+{
+"ref":"opshin.type_impls.FunctionType.stringify",
+"url":49,
+"doc":"Returns a stringified version of the object The recursive parameter informs the method whether it was invoked recursively from another invokation",
+"func":1
+},
+{
+"ref":"opshin.type_impls.FunctionType.copy_only_attributes",
+"url":49,
+"doc":"Returns a copy of this type with only the declared attributes (mapped to builtin values, thus checking atomic types too). For anything but record types and union types, this is the identity function.",
+"func":1
+},
+{
+"ref":"opshin.type_impls.FunctionType.constr_type",
+"url":49,
+"doc":"The type of the constructor for this class",
+"func":1
+},
+{
+"ref":"opshin.type_impls.FunctionType.constr",
+"url":49,
+"doc":"The constructor for this class",
+"func":1
+},
+{
+"ref":"opshin.type_impls.FunctionType.attribute_type",
+"url":49,
+"doc":"The types of the named attributes of this class",
+"func":1
+},
+{
+"ref":"opshin.type_impls.FunctionType.attribute",
+"url":49,
+"doc":"The attributes of this class. Needs to be a lambda that expects as first argument the object itself",
+"func":1
+},
+{
+"ref":"opshin.type_impls.FunctionType.cmp",
+"url":49,
+"doc":"The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second the comparison.",
+"func":1
+},
+{
+"ref":"opshin.type_impls.FunctionType.binop_type",
+"url":49,
+"doc":"Type of a binary operation between self and other.",
+"func":1
+},
+{
+"ref":"opshin.type_impls.FunctionType.binop",
+"url":49,
+"doc":"Implements a binary operation between self and other",
+"func":1
+},
+{
+"ref":"opshin.type_impls.FunctionType.unop_type",
+"url":49,
+"doc":"Type of a unary operation on self.",
+"func":1
+},
+{
+"ref":"opshin.type_impls.FunctionType.unop",
+"url":49,
+"doc":"Implements a unary operation on self",
+"func":1
+},
+{
+"ref":"opshin.type_impls.FunctionType.id_map",
+"url":49,
+"doc":"Returns a map from the constructor id to a descriptive typestring",
+"func":1
+},
+{
+"ref":"opshin.type_impls.TypeInferenceError",
+"url":49,
+"doc":"Assertion failed."
+},
+{
+"ref":"opshin.type_impls.Type",
+"url":49,
+"doc":""
+},
+{
+"ref":"opshin.type_impls.Type.constr_type",
+"url":49,
+"doc":"The type of the constructor for this class",
+"func":1
+},
+{
+"ref":"opshin.type_impls.Type.constr",
+"url":49,
+"doc":"The constructor for this class",
+"func":1
+},
+{
+"ref":"opshin.type_impls.Type.attribute_type",
+"url":49,
+"doc":"The types of the named attributes of this class",
+"func":1
+},
+{
+"ref":"opshin.type_impls.Type.attribute",
+"url":49,
+"doc":"The attributes of this class. Needs to be a lambda that expects as first argument the object itself",
+"func":1
+},
+{
+"ref":"opshin.type_impls.Type.cmp",
+"url":49,
+"doc":"The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second the comparison.",
+"func":1
+},
+{
+"ref":"opshin.type_impls.Type.stringify",
+"url":49,
+"doc":"Returns a stringified version of the object The recursive parameter informs the method whether it was invoked recursively from another invokation",
+"func":1
+},
+{
+"ref":"opshin.type_impls.Type.copy_only_attributes",
+"url":49,
+"doc":"Pluthon function that returns a copy of only the attributes of the object",
+"func":1
+},
+{
+"ref":"opshin.type_impls.Type.binop_type",
+"url":49,
+"doc":"Type of a binary operation between self and other.",
+"func":1
+},
+{
+"ref":"opshin.type_impls.Type.binop",
+"url":49,
+"doc":"Implements a binary operation between self and other",
+"func":1
+},
+{
+"ref":"opshin.type_impls.Type.unop_type",
+"url":49,
+"doc":"Type of a unary operation on self.",
+"func":1
+},
+{
+"ref":"opshin.type_impls.Type.unop",
+"url":49,
+"doc":"Implements a unary operation on self",
+"func":1
+},
+{
+"ref":"opshin.type_impls.Type.id_map",
+"url":49,
+"doc":"Returns a map from the constructor id to a descriptive typestring",
+"func":1
+},
+{
+"ref":"opshin.type_impls.Record",
+"url":49,
+"doc":"Record(name: str, orig_name: str, constructor: int, fields: Union[List[Tuple[str, opshin.type_impls.Type , frozenlist2.frozenlist])"
+},
+{
+"ref":"opshin.type_impls.Record.name",
+"url":49,
+"doc":""
+},
+{
+"ref":"opshin.type_impls.Record.orig_name",
+"url":49,
+"doc":""
+},
+{
+"ref":"opshin.type_impls.Record.constructor",
+"url":49,
+"doc":""
+},
+{
+"ref":"opshin.type_impls.Record.fields",
+"url":49,
+"doc":""
+},
+{
+"ref":"opshin.type_impls.ClassType",
+"url":49,
+"doc":"ClassType()"
+},
+{
+"ref":"opshin.type_impls.ClassType.copy_only_attributes",
+"url":49,
+"doc":"Returns a copy of this type with only the declared attributes (mapped to builtin values, thus checking atomic types too). For anything but record types and union types, this is the identity function.",
+"func":1
+},
+{
+"ref":"opshin.type_impls.ClassType.constr_type",
+"url":49,
+"doc":"The type of the constructor for this class",
+"func":1
+},
+{
+"ref":"opshin.type_impls.ClassType.constr",
+"url":49,
+"doc":"The constructor for this class",
+"func":1
+},
+{
+"ref":"opshin.type_impls.ClassType.attribute_type",
+"url":49,
+"doc":"The types of the named attributes of this class",
+"func":1
+},
+{
+"ref":"opshin.type_impls.ClassType.attribute",
+"url":49,
+"doc":"The attributes of this class. Needs to be a lambda that expects as first argument the object itself",
+"func":1
+},
+{
+"ref":"opshin.type_impls.ClassType.cmp",
+"url":49,
+"doc":"The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second the comparison.",
+"func":1
+},
+{
+"ref":"opshin.type_impls.ClassType.stringify",
+"url":49,
+"doc":"Returns a stringified version of the object The recursive parameter informs the method whether it was invoked recursively from another invokation",
+"func":1
+},
+{
+"ref":"opshin.type_impls.ClassType.binop_type",
+"url":49,
+"doc":"Type of a binary operation between self and other.",
+"func":1
+},
+{
+"ref":"opshin.type_impls.ClassType.binop",
+"url":49,
+"doc":"Implements a binary operation between self and other",
+"func":1
+},
+{
+"ref":"opshin.type_impls.ClassType.unop_type",
+"url":49,
+"doc":"Type of a unary operation on self.",
+"func":1
+},
+{
+"ref":"opshin.type_impls.ClassType.unop",
+"url":49,
+"doc":"Implements a unary operation on self",
+"func":1
+},
+{
+"ref":"opshin.type_impls.ClassType.id_map",
+"url":49,
+"doc":"Returns a map from the constructor id to a descriptive typestring",
+"func":1
+},
+{
+"ref":"opshin.type_impls.AnyType",
+"url":49,
+"doc":"The top element in the partial order on types (excluding FunctionTypes, which do not compare to anything)"
+},
+{
+"ref":"opshin.type_impls.AnyType.id_map",
+"url":49,
+"doc":"Returns a map from the constructor id to a descriptive typestring",
+"func":1
+},
+{
+"ref":"opshin.type_impls.AnyType.attribute_type",
+"url":49,
+"doc":"The types of the named attributes of this class",
+"func":1
+},
+{
+"ref":"opshin.type_impls.AnyType.attribute",
+"url":49,
+"doc":"The attributes of this class. Need to be a lambda that expects as first argument the object itself",
+"func":1
+},
+{
+"ref":"opshin.type_impls.AnyType.cmp",
+"url":49,
+"doc":"The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second the comparison.",
+"func":1
+},
+{
+"ref":"opshin.type_impls.AnyType.stringify",
+"url":49,
+"doc":"Returns a stringified version of the object The recursive parameter informs the method whether it was invoked recursively from another invokation",
+"func":1
+},
+{
+"ref":"opshin.type_impls.AnyType.copy_only_attributes",
+"url":49,
+"doc":"Returns a copy of this type with only the declared attributes (mapped to builtin values, thus checking atomic types too). For anything but record types and union types, this is the identity function.",
+"func":1
+},
+{
+"ref":"opshin.type_impls.AnyType.constr_type",
+"url":49,
+"doc":"The type of the constructor for this class",
+"func":1
+},
+{
+"ref":"opshin.type_impls.AnyType.constr",
+"url":49,
+"doc":"The constructor for this class",
+"func":1
+},
+{
+"ref":"opshin.type_impls.AnyType.binop_type",
+"url":49,
+"doc":"Type of a binary operation between self and other.",
+"func":1
+},
+{
+"ref":"opshin.type_impls.AnyType.binop",
+"url":49,
+"doc":"Implements a binary operation between self and other",
+"func":1
+},
+{
+"ref":"opshin.type_impls.AnyType.unop_type",
+"url":49,
+"doc":"Type of a unary operation on self.",
+"func":1
+},
+{
+"ref":"opshin.type_impls.AnyType.unop",
+"url":49,
+"doc":"Implements a unary operation on self",
+"func":1
+},
+{
+"ref":"opshin.type_impls.AtomicType",
+"url":49,
+"doc":"AtomicType()"
+},
+{
+"ref":"opshin.type_impls.AtomicType.copy_only_attributes",
+"url":49,
+"doc":"Returns a copy of this type with only the declared attributes (mapped to builtin values, thus checking atomic types too). For anything but record types and union types, this is the identity function.",
+"func":1
+},
+{
+"ref":"opshin.type_impls.AtomicType.constr_type",
+"url":49,
+"doc":"The type of the constructor for this class",
+"func":1
+},
+{
+"ref":"opshin.type_impls.AtomicType.constr",
+"url":49,
+"doc":"The constructor for this class",
+"func":1
+},
+{
+"ref":"opshin.type_impls.AtomicType.attribute_type",
+"url":49,
+"doc":"The types of the named attributes of this class",
+"func":1
+},
+{
+"ref":"opshin.type_impls.AtomicType.attribute",
+"url":49,
+"doc":"The attributes of this class. Needs to be a lambda that expects as first argument the object itself",
+"func":1
+},
+{
+"ref":"opshin.type_impls.AtomicType.cmp",
+"url":49,
+"doc":"The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second the comparison.",
+"func":1
+},
+{
+"ref":"opshin.type_impls.AtomicType.stringify",
+"url":49,
+"doc":"Returns a stringified version of the object The recursive parameter informs the method whether it was invoked recursively from another invokation",
+"func":1
+},
+{
+"ref":"opshin.type_impls.AtomicType.binop_type",
+"url":49,
+"doc":"Type of a binary operation between self and other.",
+"func":1
+},
+{
+"ref":"opshin.type_impls.AtomicType.binop",
+"url":49,
+"doc":"Implements a binary operation between self and other",
+"func":1
+},
+{
+"ref":"opshin.type_impls.AtomicType.unop_type",
+"url":49,
+"doc":"Type of a unary operation on self.",
+"func":1
+},
+{
+"ref":"opshin.type_impls.AtomicType.unop",
+"url":49,
+"doc":"Implements a unary operation on self",
+"func":1
+},
+{
+"ref":"opshin.type_impls.AtomicType.id_map",
+"url":49,
+"doc":"Returns a map from the constructor id to a descriptive typestring",
+"func":1
+},
+{
+"ref":"opshin.type_impls.RecordType",
+"url":49,
+"doc":"RecordType(record: opshin.type_impls.Record)"
+},
+{
+"ref":"opshin.type_impls.RecordType.record",
+"url":49,
+"doc":""
+},
+{
+"ref":"opshin.type_impls.RecordType.id_map",
+"url":49,
+"doc":"Returns a map from the constructor id to a descriptive typestring",
+"func":1
+},
+{
+"ref":"opshin.type_impls.RecordType.constr_type",
+"url":49,
+"doc":"The type of the constructor for this class",
+"func":1
+},
+{
+"ref":"opshin.type_impls.RecordType.constr",
+"url":49,
+"doc":"The constructor for this class",
+"func":1
+},
+{
+"ref":"opshin.type_impls.RecordType.attribute_type",
+"url":49,
+"doc":"The types of the named attributes of this class",
+"func":1
+},
+{
+"ref":"opshin.type_impls.RecordType.attribute",
+"url":49,
+"doc":"The attributes of this class. Need to be a lambda that expects as first argument the object itself",
+"func":1
+},
+{
+"ref":"opshin.type_impls.RecordType.cmp",
+"url":49,
+"doc":"The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second the comparison.",
+"func":1
+},
+{
+"ref":"opshin.type_impls.RecordType.stringify",
+"url":49,
+"doc":"Returns a stringified version of the object",
+"func":1
+},
+{
+"ref":"opshin.type_impls.RecordType.copy_only_attributes",
+"url":49,
+"doc":"Returns a copy of this type with only the declared attributes (mapped to builtin values, thus checking atomic types too). For anything but record types and union types, this is the identity function.",
+"func":1
+},
+{
+"ref":"opshin.type_impls.RecordType.binop_type",
+"url":49,
+"doc":"Type of a binary operation between self and other.",
+"func":1
+},
+{
+"ref":"opshin.type_impls.RecordType.binop",
+"url":49,
+"doc":"Implements a binary operation between self and other",
+"func":1
+},
+{
+"ref":"opshin.type_impls.RecordType.unop_type",
+"url":49,
+"doc":"Type of a unary operation on self.",
+"func":1
+},
+{
+"ref":"opshin.type_impls.RecordType.unop",
+"url":49,
+"doc":"Implements a unary operation on self",
+"func":1
+},
+{
+"ref":"opshin.type_impls.UnionType",
+"url":49,
+"doc":"UnionType(typs: List[opshin.type_impls.RecordType])"
+},
+{
+"ref":"opshin.type_impls.UnionType.typs",
+"url":49,
+"doc":""
+},
+{
+"ref":"opshin.type_impls.UnionType.id_map",
+"url":49,
+"doc":"Returns a map from the constructor id to a descriptive typestring",
+"func":1
+},
+{
+"ref":"opshin.type_impls.UnionType.attribute_type",
+"url":49,
+"doc":"The types of the named attributes of this class",
+"func":1
+},
+{
+"ref":"opshin.type_impls.UnionType.attribute",
+"url":49,
+"doc":"The attributes of this class. Needs to be a lambda that expects as first argument the object itself",
+"func":1
+},
+{
+"ref":"opshin.type_impls.UnionType.cmp",
+"url":49,
+"doc":"The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second the comparison.",
+"func":1
+},
+{
+"ref":"opshin.type_impls.UnionType.stringify",
+"url":49,
+"doc":"Returns a stringified version of the object The recursive parameter informs the method whether it was invoked recursively from another invokation",
+"func":1
+},
+{
+"ref":"opshin.type_impls.UnionType.copy_only_attributes",
+"url":49,
+"doc":"Returns a copy of this type with only the declared attributes (mapped to builtin values, thus checking atomic types too). For anything but record types and union types, this is the identity function.",
+"func":1
+},
+{
+"ref":"opshin.type_impls.UnionType.constr_type",
+"url":49,
+"doc":"The type of the constructor for this class",
+"func":1
+},
+{
+"ref":"opshin.type_impls.UnionType.constr",
+"url":49,
+"doc":"The constructor for this class",
+"func":1
+},
+{
+"ref":"opshin.type_impls.UnionType.binop_type",
+"url":49,
+"doc":"Type of a binary operation between self and other.",
+"func":1
+},
+{
+"ref":"opshin.type_impls.UnionType.binop",
+"url":49,
+"doc":"Implements a binary operation between self and other",
+"func":1
+},
+{
+"ref":"opshin.type_impls.UnionType.unop_type",
+"url":49,
+"doc":"Type of a unary operation on self.",
+"func":1
+},
+{
+"ref":"opshin.type_impls.UnionType.unop",
+"url":49,
+"doc":"Implements a unary operation on self",
+"func":1
+},
+{
+"ref":"opshin.type_impls.TupleType",
+"url":49,
+"doc":"TupleType(typs: List[opshin.type_impls.Type])"
+},
+{
+"ref":"opshin.type_impls.TupleType.typs",
+"url":49,
+"doc":""
+},
+{
+"ref":"opshin.type_impls.TupleType.stringify",
+"url":49,
+"doc":"Returns a stringified version of the object The recursive parameter informs the method whether it was invoked recursively from another invokation",
+"func":1
+},
+{
+"ref":"opshin.type_impls.TupleType.copy_only_attributes",
+"url":49,
+"doc":"Returns a copy of this type with only the declared attributes (mapped to builtin values, thus checking atomic types too). For anything but record types and union types, this is the identity function.",
+"func":1
+},
+{
+"ref":"opshin.type_impls.TupleType.constr_type",
+"url":49,
+"doc":"The type of the constructor for this class",
+"func":1
+},
+{
+"ref":"opshin.type_impls.TupleType.constr",
+"url":49,
+"doc":"The constructor for this class",
+"func":1
+},
+{
+"ref":"opshin.type_impls.TupleType.attribute_type",
+"url":49,
+"doc":"The types of the named attributes of this class",
+"func":1
+},
+{
+"ref":"opshin.type_impls.TupleType.attribute",
+"url":49,
+"doc":"The attributes of this class. Needs to be a lambda that expects as first argument the object itself",
+"func":1
+},
+{
+"ref":"opshin.type_impls.TupleType.cmp",
+"url":49,
+"doc":"The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second the comparison.",
+"func":1
+},
+{
+"ref":"opshin.type_impls.TupleType.binop_type",
+"url":49,
+"doc":"Type of a binary operation between self and other.",
+"func":1
+},
+{
+"ref":"opshin.type_impls.TupleType.binop",
+"url":49,
+"doc":"Implements a binary operation between self and other",
+"func":1
+},
+{
+"ref":"opshin.type_impls.TupleType.unop_type",
+"url":49,
+"doc":"Type of a unary operation on self.",
+"func":1
+},
+{
+"ref":"opshin.type_impls.TupleType.unop",
+"url":49,
+"doc":"Implements a unary operation on self",
+"func":1
+},
+{
+"ref":"opshin.type_impls.TupleType.id_map",
+"url":49,
+"doc":"Returns a map from the constructor id to a descriptive typestring",
+"func":1
+},
+{
+"ref":"opshin.type_impls.PairType",
+"url":49,
+"doc":"An internal type representing built-in PlutusData pairs"
+},
+{
+"ref":"opshin.type_impls.PairType.l_typ",
+"url":49,
+"doc":""
+},
+{
+"ref":"opshin.type_impls.PairType.r_typ",
+"url":49,
+"doc":""
+},
+{
+"ref":"opshin.type_impls.PairType.stringify",
+"url":49,
+"doc":"Returns a stringified version of the object The recursive parameter informs the method whether it was invoked recursively from another invokation",
+"func":1
+},
+{
+"ref":"opshin.type_impls.PairType.copy_only_attributes",
+"url":49,
+"doc":"Returns a copy of this type with only the declared attributes (mapped to builtin values, thus checking atomic types too). For anything but record types and union types, this is the identity function.",
+"func":1
+},
+{
+"ref":"opshin.type_impls.PairType.constr_type",
+"url":49,
+"doc":"The type of the constructor for this class",
+"func":1
+},
+{
+"ref":"opshin.type_impls.PairType.constr",
+"url":49,
+"doc":"The constructor for this class",
+"func":1
+},
+{
+"ref":"opshin.type_impls.PairType.attribute_type",
+"url":49,
+"doc":"The types of the named attributes of this class",
+"func":1
+},
+{
+"ref":"opshin.type_impls.PairType.attribute",
+"url":49,
+"doc":"The attributes of this class. Needs to be a lambda that expects as first argument the object itself",
+"func":1
+},
+{
+"ref":"opshin.type_impls.PairType.cmp",
+"url":49,
+"doc":"The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second the comparison.",
+"func":1
+},
+{
+"ref":"opshin.type_impls.PairType.binop_type",
+"url":49,
+"doc":"Type of a binary operation between self and other.",
+"func":1
+},
+{
+"ref":"opshin.type_impls.PairType.binop",
+"url":49,
+"doc":"Implements a binary operation between self and other",
+"func":1
+},
+{
+"ref":"opshin.type_impls.PairType.unop_type",
+"url":49,
+"doc":"Type of a unary operation on self.",
+"func":1
+},
+{
+"ref":"opshin.type_impls.PairType.unop",
+"url":49,
+"doc":"Implements a unary operation on self",
+"func":1
+},
+{
+"ref":"opshin.type_impls.PairType.id_map",
+"url":49,
+"doc":"Returns a map from the constructor id to a descriptive typestring",
+"func":1
+},
+{
+"ref":"opshin.type_impls.ListType",
+"url":49,
+"doc":"ListType(typ: opshin.type_impls.Type)"
+},
+{
+"ref":"opshin.type_impls.ListType.typ",
+"url":49,
+"doc":""
+},
+{
+"ref":"opshin.type_impls.ListType.id_map",
+"url":49,
+"doc":"Returns a map from the constructor id to a descriptive typestring",
+"func":1
+},
+{
+"ref":"opshin.type_impls.ListType.attribute_type",
+"url":49,
+"doc":"The types of the named attributes of this class",
+"func":1
+},
+{
+"ref":"opshin.type_impls.ListType.attribute",
+"url":49,
+"doc":"The attributes of this class. Needs to be a lambda that expects as first argument the object itself",
+"func":1
+},
+{
+"ref":"opshin.type_impls.ListType.stringify",
+"url":49,
+"doc":"Returns a stringified version of the object The recursive parameter informs the method whether it was invoked recursively from another invokation",
+"func":1
+},
+{
+"ref":"opshin.type_impls.ListType.copy_only_attributes",
+"url":49,
+"doc":"Returns a copy of this type with only the declared attributes (mapped to builtin values, thus checking atomic types too). For anything but record types and union types, this is the identity function.",
+"func":1
+},
+{
+"ref":"opshin.type_impls.ListType.constr_type",
+"url":49,
+"doc":"The type of the constructor for this class",
+"func":1
+},
+{
+"ref":"opshin.type_impls.ListType.constr",
+"url":49,
+"doc":"The constructor for this class",
+"func":1
+},
+{
+"ref":"opshin.type_impls.ListType.cmp",
+"url":49,
+"doc":"The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second the comparison.",
+"func":1
+},
+{
+"ref":"opshin.type_impls.ListType.binop_type",
+"url":49,
+"doc":"Type of a binary operation between self and other.",
+"func":1
+},
+{
+"ref":"opshin.type_impls.ListType.binop",
+"url":49,
+"doc":"Implements a binary operation between self and other",
+"func":1
+},
+{
+"ref":"opshin.type_impls.ListType.unop_type",
+"url":49,
+"doc":"Type of a unary operation on self.",
+"func":1
+},
+{
+"ref":"opshin.type_impls.ListType.unop",
+"url":49,
+"doc":"Implements a unary operation on self",
+"func":1
+},
+{
+"ref":"opshin.type_impls.DictType",
+"url":49,
+"doc":"DictType(key_typ: opshin.type_impls.Type, value_typ: opshin.type_impls.Type)"
+},
+{
+"ref":"opshin.type_impls.DictType.key_typ",
+"url":49,
+"doc":""
+},
+{
+"ref":"opshin.type_impls.DictType.value_typ",
+"url":49,
+"doc":""
+},
+{
+"ref":"opshin.type_impls.DictType.id_map",
+"url":49,
+"doc":"Returns a map from the constructor id to a descriptive typestring",
+"func":1
+},
+{
+"ref":"opshin.type_impls.DictType.attribute_type",
+"url":49,
+"doc":"The types of the named attributes of this class",
+"func":1
+},
+{
+"ref":"opshin.type_impls.DictType.attribute",
+"url":49,
+"doc":"The attributes of this class. Needs to be a lambda that expects as first argument the object itself",
+"func":1
+},
+{
+"ref":"opshin.type_impls.DictType.stringify",
+"url":49,
+"doc":"Returns a stringified version of the object The recursive parameter informs the method whether it was invoked recursively from another invokation",
+"func":1
+},
+{
+"ref":"opshin.type_impls.DictType.copy_only_attributes",
+"url":49,
+"doc":"Returns a copy of this type with only the declared attributes (mapped to builtin values, thus checking atomic types too). For anything but record types and union types, this is the identity function.",
+"func":1
+},
+{
+"ref":"opshin.type_impls.DictType.constr_type",
+"url":49,
+"doc":"The type of the constructor for this class",
+"func":1
+},
+{
+"ref":"opshin.type_impls.DictType.constr",
+"url":49,
+"doc":"The constructor for this class",
+"func":1
+},
+{
+"ref":"opshin.type_impls.DictType.cmp",
+"url":49,
+"doc":"The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second the comparison.",
+"func":1
+},
+{
+"ref":"opshin.type_impls.DictType.binop_type",
+"url":49,
+"doc":"Type of a binary operation between self and other.",
+"func":1
+},
+{
+"ref":"opshin.type_impls.DictType.binop",
+"url":49,
+"doc":"Implements a binary operation between self and other",
+"func":1
+},
+{
+"ref":"opshin.type_impls.DictType.unop_type",
+"url":49,
+"doc":"Type of a unary operation on self.",
+"func":1
+},
+{
+"ref":"opshin.type_impls.DictType.unop",
+"url":49,
+"doc":"Implements a unary operation on self",
+"func":1
+},
+{
+"ref":"opshin.type_impls.InstanceType",
+"url":49,
+"doc":"InstanceType(typ: opshin.type_impls.ClassType)"
+},
+{
+"ref":"opshin.type_impls.InstanceType.typ",
+"url":49,
+"doc":""
+},
+{
+"ref":"opshin.type_impls.InstanceType.id_map",
+"url":49,
+"doc":"Returns a map from the constructor id to a descriptive typestring",
+"func":1
+},
+{
+"ref":"opshin.type_impls.InstanceType.constr_type",
+"url":49,
+"doc":"The type of the constructor for this class",
+"func":1
+},
+{
+"ref":"opshin.type_impls.InstanceType.constr",
+"url":49,
+"doc":"The constructor for this class",
+"func":1
+},
+{
+"ref":"opshin.type_impls.InstanceType.attribute_type",
+"url":49,
+"doc":"The types of the named attributes of this class",
+"func":1
+},
+{
+"ref":"opshin.type_impls.InstanceType.attribute",
+"url":49,
+"doc":"The attributes of this class. Needs to be a lambda that expects as first argument the object itself",
+"func":1
+},
+{
+"ref":"opshin.type_impls.InstanceType.cmp",
+"url":49,
+"doc":"The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second the comparison.",
+"func":1
+},
+{
+"ref":"opshin.type_impls.InstanceType.stringify",
+"url":49,
+"doc":"Returns a stringified version of the object The recursive parameter informs the method whether it was invoked recursively from another invokation",
+"func":1
+},
+{
+"ref":"opshin.type_impls.InstanceType.copy_only_attributes",
+"url":49,
+"doc":"Pluthon function that returns a copy of only the attributes of the object",
+"func":1
+},
+{
+"ref":"opshin.type_impls.InstanceType.binop_type",
+"url":49,
+"doc":"Type of a binary operation between self and other.",
+"func":1
+},
+{
+"ref":"opshin.type_impls.InstanceType.binop",
+"url":49,
+"doc":"Implements a binary operation between self and other",
+"func":1
+},
+{
+"ref":"opshin.type_impls.InstanceType.unop_type",
+"url":49,
+"doc":"Type of a unary operation on self.",
+"func":1
+},
+{
+"ref":"opshin.type_impls.InstanceType.unop",
+"url":49,
+"doc":"Implements a unary operation on self",
+"func":1
+},
+{
+"ref":"opshin.type_impls.IntegerType",
+"url":49,
+"doc":"IntegerType()"
+},
+{
+"ref":"opshin.type_impls.IntegerType.id_map",
+"url":49,
+"doc":"Returns a map from the constructor id to a descriptive typestring",
+"func":1
+},
+{
+"ref":"opshin.type_impls.IntegerType.constr_type",
+"url":49,
+"doc":"The type of the constructor for this class",
+"func":1
+},
+{
+"ref":"opshin.type_impls.IntegerType.cmp",
+"url":49,
+"doc":"The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second the comparison.",
+"func":1
+},
+{
+"ref":"opshin.type_impls.IntegerType.stringify",
+"url":49,
+"doc":"Returns a stringified version of the object The recursive parameter informs the method whether it was invoked recursively from another invokation",
+"func":1
+},
+{
+"ref":"opshin.type_impls.IntegerType.copy_only_attributes",
+"url":49,
+"doc":"Returns a copy of this type with only the declared attributes (mapped to builtin values, thus checking atomic types too). For anything but record types and union types, this is the identity function.",
+"func":1
+},
+{
+"ref":"opshin.type_impls.IntegerType.constr",
+"url":49,
+"doc":"The constructor for this class",
+"func":1
+},
+{
+"ref":"opshin.type_impls.IntegerType.attribute_type",
+"url":49,
+"doc":"The types of the named attributes of this class",
+"func":1
+},
+{
+"ref":"opshin.type_impls.IntegerType.attribute",
+"url":49,
+"doc":"The attributes of this class. Needs to be a lambda that expects as first argument the object itself",
+"func":1
+},
+{
+"ref":"opshin.type_impls.IntegerType.binop_type",
+"url":49,
+"doc":"Type of a binary operation between self and other.",
+"func":1
+},
+{
+"ref":"opshin.type_impls.IntegerType.binop",
+"url":49,
+"doc":"Implements a binary operation between self and other",
+"func":1
+},
+{
+"ref":"opshin.type_impls.IntegerType.unop_type",
+"url":49,
+"doc":"Type of a unary operation on self.",
+"func":1
+},
+{
+"ref":"opshin.type_impls.IntegerType.unop",
+"url":49,
+"doc":"Implements a unary operation on self",
+"func":1
+},
+{
+"ref":"opshin.type_impls.StringType",
+"url":49,
+"doc":"StringType()"
+},
+{
+"ref":"opshin.type_impls.StringType.constr_type",
+"url":49,
+"doc":"The type of the constructor for this class",
+"func":1
+},
+{
+"ref":"opshin.type_impls.StringType.attribute_type",
+"url":49,
+"doc":"The types of the named attributes of this class",
+"func":1
+},
+{
+"ref":"opshin.type_impls.StringType.attribute",
+"url":49,
+"doc":"The attributes of this class. Needs to be a lambda that expects as first argument the object itself",
+"func":1
+},
+{
+"ref":"opshin.type_impls.StringType.cmp",
+"url":49,
+"doc":"The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second the comparison.",
+"func":1
+},
+{
+"ref":"opshin.type_impls.StringType.stringify",
+"url":49,
+"doc":"Returns a stringified version of the object The recursive parameter informs the method whether it was invoked recursively from another invokation",
+"func":1
+},
+{
+"ref":"opshin.type_impls.StringType.copy_only_attributes",
+"url":49,
+"doc":"Returns a copy of this type with only the declared attributes (mapped to builtin values, thus checking atomic types too). For anything but record types and union types, this is the identity function.",
+"func":1
+},
+{
+"ref":"opshin.type_impls.StringType.constr",
+"url":49,
+"doc":"The constructor for this class",
+"func":1
+},
+{
+"ref":"opshin.type_impls.StringType.binop_type",
+"url":49,
+"doc":"Type of a binary operation between self and other.",
+"func":1
+},
+{
+"ref":"opshin.type_impls.StringType.binop",
+"url":49,
+"doc":"Implements a binary operation between self and other",
+"func":1
+},
+{
+"ref":"opshin.type_impls.StringType.unop_type",
+"url":49,
+"doc":"Type of a unary operation on self.",
+"func":1
+},
+{
+"ref":"opshin.type_impls.StringType.unop",
+"url":49,
+"doc":"Implements a unary operation on self",
+"func":1
+},
+{
+"ref":"opshin.type_impls.StringType.id_map",
+"url":49,
+"doc":"Returns a map from the constructor id to a descriptive typestring",
+"func":1
+},
+{
+"ref":"opshin.type_impls.ByteStringType",
+"url":49,
+"doc":"ByteStringType()"
+},
+{
+"ref":"opshin.type_impls.ByteStringType.id_map",
+"url":49,
+"doc":"Returns a map from the constructor id to a descriptive typestring",
+"func":1
+},
+{
+"ref":"opshin.type_impls.ByteStringType.constr_type",
+"url":49,
+"doc":"The type of the constructor for this class",
+"func":1
+},
+{
+"ref":"opshin.type_impls.ByteStringType.attribute_type",
+"url":49,
+"doc":"The types of the named attributes of this class",
+"func":1
+},
+{
+"ref":"opshin.type_impls.ByteStringType.attribute",
+"url":49,
+"doc":"The attributes of this class. Needs to be a lambda that expects as first argument the object itself",
+"func":1
+},
+{
+"ref":"opshin.type_impls.ByteStringType.cmp",
+"url":49,
+"doc":"The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second the comparison.",
+"func":1
+},
+{
+"ref":"opshin.type_impls.ByteStringType.stringify",
+"url":49,
+"doc":"Returns a stringified version of the object The recursive parameter informs the method whether it was invoked recursively from another invokation",
+"func":1
+},
+{
+"ref":"opshin.type_impls.ByteStringType.copy_only_attributes",
+"url":49,
+"doc":"Returns a copy of this type with only the declared attributes (mapped to builtin values, thus checking atomic types too). For anything but record types and union types, this is the identity function.",
+"func":1
+},
+{
+"ref":"opshin.type_impls.ByteStringType.constr",
+"url":49,
+"doc":"The constructor for this class",
+"func":1
+},
+{
+"ref":"opshin.type_impls.ByteStringType.binop_type",
+"url":49,
+"doc":"Type of a binary operation between self and other.",
+"func":1
+},
+{
+"ref":"opshin.type_impls.ByteStringType.binop",
+"url":49,
+"doc":"Implements a binary operation between self and other",
+"func":1
+},
+{
+"ref":"opshin.type_impls.ByteStringType.unop_type",
+"url":49,
+"doc":"Type of a unary operation on self.",
+"func":1
+},
+{
+"ref":"opshin.type_impls.ByteStringType.unop",
+"url":49,
+"doc":"Implements a unary operation on self",
+"func":1
+},
+{
+"ref":"opshin.type_impls.BoolType",
+"url":49,
+"doc":"BoolType()"
+},
+{
+"ref":"opshin.type_impls.BoolType.constr_type",
+"url":49,
+"doc":"The type of the constructor for this class",
+"func":1
+},
+{
+"ref":"opshin.type_impls.BoolType.cmp",
+"url":49,
+"doc":"The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second the comparison.",
+"func":1
+},
+{
+"ref":"opshin.type_impls.BoolType.stringify",
+"url":49,
+"doc":"Returns a stringified version of the object The recursive parameter informs the method whether it was invoked recursively from another invokation",
+"func":1
+},
+{
+"ref":"opshin.type_impls.BoolType.copy_only_attributes",
+"url":49,
+"doc":"Returns a copy of this type with only the declared attributes (mapped to builtin values, thus checking atomic types too). For anything but record types and union types, this is the identity function.",
+"func":1
+},
+{
+"ref":"opshin.type_impls.BoolType.constr",
+"url":49,
+"doc":"The constructor for this class",
+"func":1
+},
+{
+"ref":"opshin.type_impls.BoolType.attribute_type",
+"url":49,
+"doc":"The types of the named attributes of this class",
+"func":1
+},
+{
+"ref":"opshin.type_impls.BoolType.attribute",
+"url":49,
+"doc":"The attributes of this class. Needs to be a lambda that expects as first argument the object itself",
+"func":1
+},
+{
+"ref":"opshin.type_impls.BoolType.binop_type",
+"url":49,
+"doc":"Type of a binary operation between self and other.",
+"func":1
+},
+{
+"ref":"opshin.type_impls.BoolType.binop",
+"url":49,
+"doc":"Implements a binary operation between self and other",
+"func":1
+},
+{
+"ref":"opshin.type_impls.BoolType.unop_type",
+"url":49,
+"doc":"Type of a unary operation on self.",
+"func":1
+},
+{
+"ref":"opshin.type_impls.BoolType.unop",
+"url":49,
+"doc":"Implements a unary operation on self",
+"func":1
+},
+{
+"ref":"opshin.type_impls.BoolType.id_map",
+"url":49,
+"doc":"Returns a map from the constructor id to a descriptive typestring",
+"func":1
+},
+{
+"ref":"opshin.type_impls.UnitType",
+"url":49,
+"doc":"UnitType()"
+},
+{
+"ref":"opshin.type_impls.UnitType.cmp",
+"url":49,
+"doc":"The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second the comparison.",
+"func":1
+},
+{
+"ref":"opshin.type_impls.UnitType.stringify",
+"url":49,
+"doc":"Returns a stringified version of the object The recursive parameter informs the method whether it was invoked recursively from another invokation",
+"func":1
+},
+{
+"ref":"opshin.type_impls.UnitType.copy_only_attributes",
+"url":49,
+"doc":"Returns a copy of this type with only the declared attributes (mapped to builtin values, thus checking atomic types too). For anything but record types and union types, this is the identity function.",
+"func":1
+},
+{
+"ref":"opshin.type_impls.UnitType.constr_type",
+"url":49,
+"doc":"The type of the constructor for this class",
+"func":1
+},
+{
+"ref":"opshin.type_impls.UnitType.constr",
+"url":49,
+"doc":"The constructor for this class",
+"func":1
+},
+{
+"ref":"opshin.type_impls.UnitType.attribute_type",
+"url":49,
+"doc":"The types of the named attributes of this class",
+"func":1
+},
+{
+"ref":"opshin.type_impls.UnitType.attribute",
+"url":49,
+"doc":"The attributes of this class. Needs to be a lambda that expects as first argument the object itself",
+"func":1
+},
+{
+"ref":"opshin.type_impls.UnitType.binop_type",
+"url":49,
+"doc":"Type of a binary operation between self and other.",
+"func":1
+},
+{
+"ref":"opshin.type_impls.UnitType.binop",
+"url":49,
+"doc":"Implements a binary operation between self and other",
+"func":1
+},
+{
+"ref":"opshin.type_impls.UnitType.unop_type",
+"url":49,
+"doc":"Type of a unary operation on self.",
+"func":1
+},
+{
+"ref":"opshin.type_impls.UnitType.unop",
+"url":49,
+"doc":"Implements a unary operation on self",
+"func":1
+},
+{
+"ref":"opshin.type_impls.UnitType.id_map",
+"url":49,
+"doc":"Returns a map from the constructor id to a descriptive typestring",
+"func":1
+},
+{
+"ref":"opshin.type_impls.InaccessibleType",
+"url":49,
+"doc":"A type that blocks overwriting of a function"
+},
+{
+"ref":"opshin.type_impls.InaccessibleType.copy_only_attributes",
+"url":49,
+"doc":"Returns a copy of this type with only the declared attributes (mapped to builtin values, thus checking atomic types too). For anything but record types and union types, this is the identity function.",
+"func":1
+},
+{
+"ref":"opshin.type_impls.InaccessibleType.constr_type",
+"url":49,
+"doc":"The type of the constructor for this class",
+"func":1
+},
+{
+"ref":"opshin.type_impls.InaccessibleType.constr",
+"url":49,
+"doc":"The constructor for this class",
+"func":1
+},
+{
+"ref":"opshin.type_impls.InaccessibleType.attribute_type",
+"url":49,
+"doc":"The types of the named attributes of this class",
+"func":1
+},
+{
+"ref":"opshin.type_impls.InaccessibleType.attribute",
+"url":49,
+"doc":"The attributes of this class. Needs to be a lambda that expects as first argument the object itself",
+"func":1
+},
+{
+"ref":"opshin.type_impls.InaccessibleType.cmp",
+"url":49,
+"doc":"The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second the comparison.",
+"func":1
+},
+{
+"ref":"opshin.type_impls.InaccessibleType.stringify",
+"url":49,
+"doc":"Returns a stringified version of the object The recursive parameter informs the method whether it was invoked recursively from another invokation",
+"func":1
+},
+{
+"ref":"opshin.type_impls.InaccessibleType.binop_type",
+"url":49,
+"doc":"Type of a binary operation between self and other.",
+"func":1
+},
+{
+"ref":"opshin.type_impls.InaccessibleType.binop",
+"url":49,
+"doc":"Implements a binary operation between self and other",
+"func":1
+},
+{
+"ref":"opshin.type_impls.InaccessibleType.unop_type",
+"url":49,
+"doc":"Type of a unary operation on self.",
+"func":1
+},
+{
+"ref":"opshin.type_impls.InaccessibleType.unop",
+"url":49,
+"doc":"Implements a unary operation on self",
+"func":1
+},
+{
+"ref":"opshin.type_impls.InaccessibleType.id_map",
+"url":49,
+"doc":"Returns a map from the constructor id to a descriptive typestring",
+"func":1
+},
+{
+"ref":"opshin.type_impls.repeated_addition",
+"url":49,
+"doc":"",
+"func":1
+},
+{
+"ref":"opshin.type_impls.PowImpl",
+"url":49,
+"doc":"",
+"func":1
+},
+{
+"ref":"opshin.type_impls.ByteStrIntMulImpl",
+"url":49,
+"doc":"",
+"func":1
+},
+{
+"ref":"opshin.type_impls.StrIntMulImpl",
+"url":49,
+"doc":"",
+"func":1
+},
+{
+"ref":"opshin.type_impls.PolymorphicFunction",
+"url":49,
+"doc":""
+},
+{
+"ref":"opshin.type_impls.PolymorphicFunction.type_from_args",
+"url":49,
+"doc":"",
+"func":1
+},
+{
+"ref":"opshin.type_impls.PolymorphicFunction.impl_from_args",
+"url":49,
+"doc":"",
+"func":1
+},
+{
+"ref":"opshin.type_impls.StrImpl",
+"url":49,
+"doc":""
+},
+{
+"ref":"opshin.type_impls.StrImpl.type_from_args",
+"url":49,
+"doc":"",
+"func":1
+},
+{
+"ref":"opshin.type_impls.StrImpl.impl_from_args",
+"url":49,
+"doc":"",
+"func":1
+},
+{
+"ref":"opshin.type_impls.IntImpl",
+"url":49,
+"doc":""
+},
+{
+"ref":"opshin.type_impls.IntImpl.type_from_args",
+"url":49,
+"doc":"",
+"func":1
+},
+{
+"ref":"opshin.type_impls.IntImpl.impl_from_args",
+"url":49,
+"doc":"",
+"func":1
+},
+{
+"ref":"opshin.type_impls.BoolImpl",
+"url":49,
+"doc":""
+},
+{
+"ref":"opshin.type_impls.BoolImpl.type_from_args",
+"url":49,
+"doc":"",
+"func":1
+},
+{
+"ref":"opshin.type_impls.BoolImpl.impl_from_args",
+"url":49,
+"doc":"",
+"func":1
+},
+{
+"ref":"opshin.type_impls.BytesImpl",
+"url":49,
+"doc":""
+},
+{
+"ref":"opshin.type_impls.BytesImpl.type_from_args",
+"url":49,
+"doc":"",
+"func":1
+},
+{
+"ref":"opshin.type_impls.BytesImpl.impl_from_args",
+"url":49,
+"doc":"",
+"func":1
+},
+{
+"ref":"opshin.type_impls.PolymorphicFunctionType",
+"url":49,
+"doc":"A special type of builtin that may act differently on different parameters"
+},
+{
+"ref":"opshin.type_impls.PolymorphicFunctionType.polymorphic_function",
+"url":49,
+"doc":""
+},
+{
+"ref":"opshin.type_impls.PolymorphicFunctionType.copy_only_attributes",
+"url":49,
+"doc":"Returns a copy of this type with only the declared attributes (mapped to builtin values, thus checking atomic types too). For anything but record types and union types, this is the identity function.",
+"func":1
+},
+{
+"ref":"opshin.type_impls.PolymorphicFunctionType.constr_type",
+"url":49,
+"doc":"The type of the constructor for this class",
+"func":1
+},
+{
+"ref":"opshin.type_impls.PolymorphicFunctionType.constr",
+"url":49,
+"doc":"The constructor for this class",
+"func":1
+},
+{
+"ref":"opshin.type_impls.PolymorphicFunctionType.attribute_type",
+"url":49,
+"doc":"The types of the named attributes of this class",
+"func":1
+},
+{
+"ref":"opshin.type_impls.PolymorphicFunctionType.attribute",
+"url":49,
+"doc":"The attributes of this class. Needs to be a lambda that expects as first argument the object itself",
+"func":1
+},
+{
+"ref":"opshin.type_impls.PolymorphicFunctionType.cmp",
+"url":49,
+"doc":"The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second the comparison.",
+"func":1
+},
+{
+"ref":"opshin.type_impls.PolymorphicFunctionType.stringify",
+"url":49,
+"doc":"Returns a stringified version of the object The recursive parameter informs the method whether it was invoked recursively from another invokation",
+"func":1
+},
+{
+"ref":"opshin.type_impls.PolymorphicFunctionType.binop_type",
+"url":49,
+"doc":"Type of a binary operation between self and other.",
+"func":1
+},
+{
+"ref":"opshin.type_impls.PolymorphicFunctionType.binop",
+"url":49,
+"doc":"Implements a binary operation between self and other",
+"func":1
+},
+{
+"ref":"opshin.type_impls.PolymorphicFunctionType.unop_type",
+"url":49,
+"doc":"Type of a unary operation on self.",
+"func":1
+},
+{
+"ref":"opshin.type_impls.PolymorphicFunctionType.unop",
+"url":49,
+"doc":"Implements a unary operation on self",
+"func":1
+},
+{
+"ref":"opshin.type_impls.PolymorphicFunctionType.id_map",
+"url":49,
+"doc":"Returns a map from the constructor id to a descriptive typestring",
+"func":1
+},
+{
+"ref":"opshin.type_impls.PolymorphicFunctionInstanceType",
+"url":49,
+"doc":"PolymorphicFunctionInstanceType(typ: opshin.type_impls.FunctionType, polymorphic_function: opshin.type_impls.PolymorphicFunction)"
+},
+{
+"ref":"opshin.type_impls.PolymorphicFunctionInstanceType.typ",
+"url":49,
+"doc":""
+},
+{
+"ref":"opshin.type_impls.PolymorphicFunctionInstanceType.polymorphic_function",
+"url":49,
+"doc":""
+},
+{
+"ref":"opshin.type_impls.PolymorphicFunctionInstanceType.id_map",
+"url":49,
+"doc":"Returns a map from the constructor id to a descriptive typestring",
+"func":1
+},
+{
+"ref":"opshin.type_impls.PolymorphicFunctionInstanceType.constr_type",
+"url":49,
+"doc":"The type of the constructor for this class",
+"func":1
+},
+{
+"ref":"opshin.type_impls.PolymorphicFunctionInstanceType.constr",
+"url":49,
+"doc":"The constructor for this class",
+"func":1
+},
+{
+"ref":"opshin.type_impls.PolymorphicFunctionInstanceType.attribute_type",
+"url":49,
+"doc":"The types of the named attributes of this class",
+"func":1
+},
+{
+"ref":"opshin.type_impls.PolymorphicFunctionInstanceType.attribute",
+"url":49,
+"doc":"The attributes of this class. Needs to be a lambda that expects as first argument the object itself",
+"func":1
+},
+{
+"ref":"opshin.type_impls.PolymorphicFunctionInstanceType.cmp",
+"url":49,
+"doc":"The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second the comparison.",
+"func":1
+},
+{
+"ref":"opshin.type_impls.PolymorphicFunctionInstanceType.stringify",
+"url":49,
+"doc":"Returns a stringified version of the object The recursive parameter informs the method whether it was invoked recursively from another invokation",
+"func":1
+},
+{
+"ref":"opshin.type_impls.PolymorphicFunctionInstanceType.copy_only_attributes",
+"url":49,
+"doc":"Pluthon function that returns a copy of only the attributes of the object",
+"func":1
+},
+{
+"ref":"opshin.type_impls.PolymorphicFunctionInstanceType.binop_type",
+"url":49,
+"doc":"Type of a binary operation between self and other.",
+"func":1
+},
+{
+"ref":"opshin.type_impls.PolymorphicFunctionInstanceType.binop",
+"url":49,
+"doc":"Implements a binary operation between self and other",
+"func":1
+},
+{
+"ref":"opshin.type_impls.PolymorphicFunctionInstanceType.unop_type",
+"url":49,
+"doc":"Type of a unary operation on self.",
+"func":1
+},
+{
+"ref":"opshin.type_impls.PolymorphicFunctionInstanceType.unop",
+"url":49,
+"doc":"Implements a unary operation on self",
+"func":1
+},
+{
+"ref":"opshin.type_impls.empty_list",
+"url":49,
+"doc":"",
+"func":1
+},
+{
+"ref":"opshin.type_impls.transform_ext_params_map",
+"url":49,
+"doc":"",
+"func":1
+},
+{
+"ref":"opshin.type_impls.transform_output_map",
+"url":49,
+"doc":"",
+"func":1
+},
+{
 "ref":"opshin.util",
-"url":28,
+"url":27,
 "doc":""
 },
 {
 "ref":"opshin.util.FileContextFilter",
-"url":28,
+"url":27,
 "doc":"This is a filter which injects contextual information into the log. The information is about the currently inspected AST node. The information needs to be updated inside the NodeTransformer and NodeVisitor classes. Initialize a filter. Initialize with the name of the logger which, together with its children, will have its events allowed through the filter. If no name is specified, allow every event."
 },
 {
 "ref":"opshin.util.FileContextFilter.file_name",
-"url":28,
+"url":27,
 "doc":""
 },
 {
 "ref":"opshin.util.FileContextFilter.node",
-"url":28,
+"url":27,
 "doc":""
 },
 {
 "ref":"opshin.util.FileContextFilter.filter",
-"url":28,
+"url":27,
 "doc":"Determine if the specified record is to be logged. Returns True if the record should be logged, or False otherwise. If deemed appropriate, the record may be modified in-place.",
 "func":1
 },
 {
 "ref":"opshin.util.distinct",
-"url":28,
+"url":27,
 "doc":"Returns true iff the list consists of distinct elements",
 "func":1
 },
 {
 "ref":"opshin.util.TypedNodeTransformer",
-"url":28,
+"url":27,
 "doc":"A :class: NodeVisitor subclass that walks the abstract syntax tree and allows modification of nodes. The  NodeTransformer will walk the AST and use the return value of the visitor methods to replace or remove the old node. If the return value of the visitor method is  None , the node will be removed from its location, otherwise it is replaced with the return value. The return value may be the original node in which case no replacement takes place. Here is an example transformer that rewrites all occurrences of name lookups ( foo ) to  data['foo']  class RewriteName(NodeTransformer): def visit_Name(self, node): return Subscript( value=Name(id='data', ctx=Load( , slice=Constant(value=node.id), ctx=node.ctx ) Keep in mind that if the node you're operating on has child nodes you must either transform the child nodes yourself or call the :meth: generic_visit method for the node first. For nodes that were part of a collection of statements (that applies to all statement nodes), the visitor may also return a list of nodes rather than just a single node. Usually you use the transformer like this node = YourTransformer().visit(node)"
 },
 {
 "ref":"opshin.util.TypedNodeTransformer.visit",
-"url":28,
+"url":27,
 "doc":"Visit a node.",
 "func":1
 },
 {
 "ref":"opshin.util.TypedNodeVisitor",
-"url":28,
+"url":27,
 "doc":"A node visitor base class that walks the abstract syntax tree and calls a visitor function for every node found. This function may return a value which is forwarded by the  visit method. This class is meant to be subclassed, with the subclass adding visitor methods. Per default the visitor functions for the nodes are  'visit_' + class name of the node. So a  TryFinally node visit function would be  visit_TryFinally . This behavior can be changed by overriding the  visit method. If no visitor function exists for a node (return value  None ) the  generic_visit visitor is used instead. Don't use the  NodeVisitor if you want to apply changes to nodes during traversing. For this a special visitor exists ( NodeTransformer ) that allows modifications."
 },
 {
 "ref":"opshin.util.TypedNodeVisitor.visit",
-"url":28,
+"url":27,
 "doc":"Visit a node.",
 "func":1
 },
 {
 "ref":"opshin.util.CompilerError",
-"url":28,
+"url":27,
 "doc":"Common base class for all non-exit exceptions."
 },
 {
 "ref":"opshin.util.CompilingNodeTransformer",
-"url":28,
+"url":27,
 "doc":"A :class: NodeVisitor subclass that walks the abstract syntax tree and allows modification of nodes. The  NodeTransformer will walk the AST and use the return value of the visitor methods to replace or remove the old node. If the return value of the visitor method is  None , the node will be removed from its location, otherwise it is replaced with the return value. The return value may be the original node in which case no replacement takes place. Here is an example transformer that rewrites all occurrences of name lookups ( foo ) to  data['foo']  class RewriteName(NodeTransformer): def visit_Name(self, node): return Subscript( value=Name(id='data', ctx=Load( , slice=Constant(value=node.id), ctx=node.ctx ) Keep in mind that if the node you're operating on has child nodes you must either transform the child nodes yourself or call the :meth: generic_visit method for the node first. For nodes that were part of a collection of statements (that applies to all statement nodes), the visitor may also return a list of nodes rather than just a single node. Usually you use the transformer like this node = YourTransformer().visit(node)"
 },
 {
 "ref":"opshin.util.CompilingNodeTransformer.step",
-"url":28,
+"url":27,
 "doc":""
 },
 {
 "ref":"opshin.util.CompilingNodeTransformer.visit",
-"url":28,
+"url":27,
 "doc":"Visit a node.",
 "func":1
 },
 {
 "ref":"opshin.util.NoOp",
-"url":28,
+"url":27,
 "doc":"A variation of the Compiling Node transformer that performs no changes"
 },
 {
 "ref":"opshin.util.NoOp.visit",
-"url":28,
+"url":27,
 "doc":"Visit a node.",
 "func":1
 },
 {
 "ref":"opshin.util.CompilingNodeVisitor",
-"url":28,
+"url":27,
 "doc":"A node visitor base class that walks the abstract syntax tree and calls a visitor function for every node found. This function may return a value which is forwarded by the  visit method. This class is meant to be subclassed, with the subclass adding visitor methods. Per default the visitor functions for the nodes are  'visit_' + class name of the node. So a  TryFinally node visit function would be  visit_TryFinally . This behavior can be changed by overriding the  visit method. If no visitor function exists for a node (return value  None ) the  generic_visit visitor is used instead. Don't use the  NodeVisitor if you want to apply changes to nodes during traversing. For this a special visitor exists ( NodeTransformer ) that allows modifications."
 },
 {
 "ref":"opshin.util.CompilingNodeVisitor.step",
-"url":28,
+"url":27,
 "doc":""
 },
 {
 "ref":"opshin.util.CompilingNodeVisitor.visit",
-"url":28,
+"url":27,
 "doc":"Visit a node.",
 "func":1
 },
 {
 "ref":"opshin.util.data_from_json",
-"url":28,
+"url":27,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.util.datum_to_cbor",
-"url":28,
+"url":27,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.util.datum_to_json",
-"url":28,
+"url":27,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.util.custom_fix_missing_locations",
-"url":28,
+"url":27,
 "doc":"Works like ast.fix_missing_location but forces it onto everything",
 "func":1
 },
 {
 "ref":"opshin.util.make_pattern",
-"url":28,
+"url":27,
 "doc":"Creates a shared pattern from the given lambda, cached so that it is re-used in subsequent calls",
 "func":1
 },
 {
 "ref":"opshin.util.patternize",
-"url":28,
+"url":27,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.util.force_params",
-"url":28,
+"url":27,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.util.NameWriteCollector",
-"url":28,
+"url":27,
 "doc":"A node visitor base class that walks the abstract syntax tree and calls a visitor function for every node found. This function may return a value which is forwarded by the  visit method. This class is meant to be subclassed, with the subclass adding visitor methods. Per default the visitor functions for the nodes are  'visit_' + class name of the node. So a  TryFinally node visit function would be  visit_TryFinally . This behavior can be changed by overriding the  visit method. If no visitor function exists for a node (return value  None ) the  generic_visit visitor is used instead. Don't use the  NodeVisitor if you want to apply changes to nodes during traversing. For this a special visitor exists ( NodeTransformer ) that allows modifications."
 },
 {
 "ref":"opshin.util.NameWriteCollector.step",
-"url":28,
+"url":27,
 "doc":""
 },
 {
 "ref":"opshin.util.NameWriteCollector.visit_Name",
-"url":28,
+"url":27,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.util.NameWriteCollector.visit_ClassDef",
-"url":28,
+"url":27,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.util.NameWriteCollector.visit_FunctionDef",
-"url":28,
+"url":27,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.util.NameWriteCollector.visit",
-"url":28,
+"url":27,
 "doc":"Visit a node.",
 "func":1
 },
 {
 "ref":"opshin.util.written_vars",
-"url":28,
+"url":27,
 "doc":"Returns all variable names written to in this node",
 "func":1
 },
 {
 "ref":"opshin.util.NameReadCollector",
-"url":28,
+"url":27,
 "doc":"A node visitor base class that walks the abstract syntax tree and calls a visitor function for every node found. This function may return a value which is forwarded by the  visit method. This class is meant to be subclassed, with the subclass adding visitor methods. Per default the visitor functions for the nodes are  'visit_' + class name of the node. So a  TryFinally node visit function would be  visit_TryFinally . This behavior can be changed by overriding the  visit method. If no visitor function exists for a node (return value  None ) the  generic_visit visitor is used instead. Don't use the  NodeVisitor if you want to apply changes to nodes during traversing. For this a special visitor exists ( NodeTransformer ) that allows modifications."
 },
 {
 "ref":"opshin.util.NameReadCollector.step",
-"url":28,
+"url":27,
 "doc":""
 },
 {
 "ref":"opshin.util.NameReadCollector.visit_AnnAssign",
-"url":28,
+"url":27,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.util.NameReadCollector.visit_FunctionDef",
-"url":28,
+"url":27,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.util.NameReadCollector.visit_Name",
-"url":28,
+"url":27,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.util.NameReadCollector.visit_ClassDef",
-"url":28,
+"url":27,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.util.NameReadCollector.visit",
-"url":28,
+"url":27,
 "doc":"Visit a node.",
 "func":1
 },
 {
 "ref":"opshin.util.read_vars",
-"url":28,
+"url":27,
 "doc":"Returns all variable names read to in this node",
 "func":1
 },
 {
 "ref":"opshin.util.all_vars",
-"url":28,
+"url":27,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.util.externally_bound_vars",
-"url":28,
+"url":27,
 "doc":"A superset of the variables bound from an outer scope",
 "func":1
 },
 {
 "ref":"opshin.util.opshin_name_scheme_compatible_varname",
-"url":28,
+"url":27,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.util.OVar",
-"url":28,
+"url":27,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.util.OLambda",
-"url":28,
+"url":27,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.util.OLet",
-"url":28,
+"url":27,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.util.SafeLambda",
-"url":28,
+"url":27,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.util.SafeOLambda",
-"url":28,
+"url":27,
 "doc":"",
 "func":1
 },
 {
 "ref":"opshin.util.SafeApply",
-"url":28,
+"url":27,
 "doc":"",
 "func":1
 },
