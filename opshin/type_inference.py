@@ -838,11 +838,10 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
     def visit_Assert(self, node: Assert) -> TypedAssert:
         ta = copy(node)
         ta.test = self.visit(node.test)
-        warn_assert_msg = (
-            f" (see assert with message '{node.msg.value}')"
-            if node.msg is not None
-            else ""
-        )
+        try:
+            warn_assert_msg = f" (see assert with message '{node.msg.value}')"
+        except Exception:
+            warn_assert_msg = ""
         if isinstance(ta.test.args[0], Constant) and ta.test.args[0].value is None:
             OPSHIN_LOGGER.warning(
                 "Asserting `None'"
