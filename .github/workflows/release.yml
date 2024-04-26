@@ -1,4 +1,4 @@
-name: Build and Release
+name: Build binaries & add as release assets
 
 on:
   release:
@@ -6,7 +6,18 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        include:
+          - os: ubuntu-latest
+            executable: opshin-linux
+          - os: macos-latest
+            executable: opshin-macos
+          - os: windows-latest
+            executable: opshin-windows.exe
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v2
@@ -25,7 +36,7 @@ jobs:
       run: |
         pip install ./  # Ensure your package and its dependencies are installed
         pip freeze > requirements.txt
-        pex -r requirements.txt setuptools -c opshin -o ./dist/opshin
+        pex -r requirements.txt setuptools -c opshin -o ./dist/${{ matrix.executable }}
 
     - name: Upload Release Asset
       uses: actions/upload-release-asset@v1
@@ -33,6 +44,6 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ github.event.release.upload_url }}
-        asset_path: ./dist/opshin
-        asset_name: opshin-binary
+        asset_path: ./dist/${{ matrix.executable }}
+        asset_name: ${{ matrix.executable }}
         asset_content_type: application/octet-stream
