@@ -15,8 +15,6 @@ jobs:
             executable: opshin-linux
           - os: macos-latest
             executable: opshin-macos
-          - os: windows-latest
-            executable: opshin-windows.exe
 
     steps:
     - name: Checkout code
