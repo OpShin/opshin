@@ -24,7 +24,8 @@ jobs:
     - name: Build Binary with Pex
       run: |
         pip install ./  # Ensure your package and its dependencies are installed
-        pex opshin $(pip freeze) setuptools -c opshin -o ./dist/opshin
+        pip freeze > requirements.txt
+        pex -r requirements.txt setuptools -c opshin -o ./dist/opshin
 
     - name: Upload Release Asset
       uses: actions/upload-release-asset@v1
