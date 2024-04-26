@@ -1,0 +1,37 @@
+name: Build and Release
+
+on:
+  release:
+    types: [created]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: '3.8'
+
+    - name: Install Dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pex
+
+    - name: Build Binary with Pex
+      run: |
+        pip install ./  # Ensure your package and its dependencies are installed
+        pex opshin $(pip freeze) setuptools -c opshin -o ./dist/opshin
+
+    - name: Upload Release Asset
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ github.event.release.upload_url }}
+        asset_path: ./dist/opshin
+        asset_name: opshin-binary
+        asset_content_type: application/octet-stream
