@@ -36,6 +36,7 @@ jobs:
         if [ "${{ matrix.os }}" != "windows-latest" ]; then
           pip install pex
         fi
+      shell: bash
 
     - name: Build Binary
       run: |
@@ -46,6 +47,7 @@ jobs:
           pip freeze > requirements.txt
           pex -r requirements.txt setuptools -c opshin -o ./dist/${{ matrix.executable }}
         fi
+      shell: bash
 
     - name: Upload Release Asset
       uses: actions/upload-release-asset@v1
