@@ -31,22 +31,46 @@ jobs:
         python-version: '3.8'
 
     - name: Install Dependencies
+      if: matrix.os == 'ubuntu-latest'
       run: |
         python -m pip install --upgrade pip
-        if [ "${{ matrix.os }}" != "windows-latest" ]; then
-          pip install pex
-        fi
+        pip install pex
+      shell: bash
+
+    - name: Install Dependencies
+      if: matrix.os == 'macos-latest'
+      run: |
+        python -m pip install --upgrade pip
+        pip install pex
+      shell: bash
+
+    - name: Install Dependencies
+      if: matrix.os == 'windows-latest'
+      run: |
+        python -m pip install --upgrade pip
       shell: bash
 
     - name: Build Binary
+      if: matrix.os == 'ubuntu-latest'
       run: |
         pip install ./  # Ensure your package and its dependencies are installed
-        if [ "${{ matrix.os }}" == "windows-latest" ]; then
-          python -m nuitka --follow-imports --standalone scripts/run_opshin.py
-        else
-          pip freeze > requirements.txt
-          pex -r requirements.txt setuptools -c opshin -o ./dist/${{ matrix.executable }}
-        fi
+        pip freeze > requirements.txt
+        pex -r requirements.txt setuptools -c opshin -o ./dist/${{ matrix.executable }}
+      shell: bash
+
+    - name: Build Binary
+      if: matrix.os == 'macos-latest'
+      run: |
+        pip install ./  # Ensure your package and its dependencies are installed
+        pip freeze > requirements.txt
+        pex -r requirements.txt setuptools -c opshin -o ./dist/${{ matrix.executable }}
+      shell: bash
+
+    - name: Build Binary
+      if: matrix.os == 'windows-latest'
+      run: |
+        pip install ./  # Ensure your package and its dependencies are installed
+        python -m nuitka --follow-imports --standalone scripts/run_opshin.py
       shell: bash
 
     - name: Upload Release Asset
