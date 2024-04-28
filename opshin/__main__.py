@@ -498,8 +498,9 @@ def parse_args():
     return a.parse_args()
 
 
-def main():
-    args = parse_args()
+def main(args = None):
+    if args is None:
+        args = parse_args()
     sys.setrecursionlimit(args.recursion_limit)
     if Command(args.command) != Command.lint:
         OPSHIN_LOG_HANDLER.setFormatter(
