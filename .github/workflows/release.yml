@@ -71,7 +71,7 @@ jobs:
       if: matrix.os == 'windows-latest'
       run: |
         pip install ./  # Ensure your package and its dependencies are installed
-        python -m nuitka --follow-imports --standalone scripts/run_opshin.py
+        python -m nuitka --follow-imports --assume-yes-for-downloads --standalone scripts/run_opshin.py
       shell: bash
 
     - name: Upload Release Asset
