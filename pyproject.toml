@@ -24,7 +24,7 @@ packages = [{include = "opshin"}]
 python = ">=3.8, <3.12"
 uplc = "^0.6.9"
 pluthon = "^0.5.4"
-pycardano = "^0.10.0"
+pycardano = {git = "https://github.com/pcjordan/pycardano", rev = "no-blockfrost"}
 frozenlist2 = "^1.0.0"
 astunparse = {version = "^1.6.3", python = "<3.9"}
 ordered-set = "^4.1.0"

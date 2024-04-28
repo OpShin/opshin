@@ -1,0 +1,85 @@
+name: Build binaries & add as release assets
+
+on:
+  release:
+    types: [created]
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        include:
+          - os: ubuntu-latest
+            executable: opshin-linux
+            executable_path: ./dist/opshin-linux
+          - os: macos-latest
+            executable: opshin-macos
+            executable_path: ./dist/opshin-macos
+          - os: windows-latest
+            executable: opshin-windows.exe
+            executable_path: .\run_opshin.dist\run_opshin.exe
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: '3.8'
+
+    - name: Install Dependencies
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        python -m pip install --upgrade pip
+        pip install pex
+      shell: bash
+
+    - name: Install Dependencies
+      if: matrix.os == 'macos-latest'
+      run: |
+        python -m pip install --upgrade pip
+        pip install pex
+      shell: bash
+
+    - name: Install Dependencies
+      if: matrix.os == 'windows-latest'
+      run: |
+        python -m pip install --upgrade pip
+        pip install nuitka
+      shell: bash
+
+    - name: Build Binary
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        pip install ./  # Ensure your package and its dependencies are installed
+        pip freeze > requirements.txt
+        pex -r requirements.txt setuptools -c opshin -o ./dist/${{ matrix.executable }}
+      shell: bash
+
+    - name: Build Binary
+      if: matrix.os == 'macos-latest'
+      run: |
+        pip install ./  # Ensure your package and its dependencies are installed
+        pip freeze > requirements.txt
+        pex -r requirements.txt setuptools -c opshin -o ./dist/${{ matrix.executable }}
+      shell: bash
+
+    - name: Build Binary
+      if: matrix.os == 'windows-latest'
+      run: |
+        pip install ./  # Ensure your package and its dependencies are installed
+        python -m nuitka --follow-imports --assume-yes-for-downloads --onefile --standalone scripts/run_opshin.py
+      shell: bash
+
+    - name: Upload Release Asset
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ github.event.release.upload_url }}
+        asset_path: ${{ matrix.executable_path }}
+        asset_name: ${{ matrix.executable }}
+        asset_content_type: application/octet-stream
