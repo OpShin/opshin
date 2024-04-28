@@ -13,13 +13,13 @@ jobs:
         include:
           - os: ubuntu-latest
             executable: opshin-linux
-            executable_path: .dist/opshin-linux
+            executable_path: ./dist/opshin-linux
           - os: macos-latest
             executable: opshin-macos
-            executable_path: .dist/opshin-macos
+            executable_path: ./dist/opshin-macos
           - os: windows-latest
             executable: opshin-windows.exe
-            executable_path: .run.dist/run.bin
+            executable_path: ./run.dist/run.bin
 
     steps:
     - name: Checkout code
