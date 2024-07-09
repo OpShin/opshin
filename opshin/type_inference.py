@@ -839,8 +839,8 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         ta = copy(node)
         ta.test = self.visit(node.test)
         try:
-            warn_assert_msg = f" (see assert with message '{node.msg.value}')"
-        except Exception:
+            warn_assert_msg = f" (see assert with message '{node.msg.values[0].value}')"
+        except AttributeError as err:
             warn_assert_msg = ""
         if isinstance(ta.test.args[0], Constant) and ta.test.args[0].value is None:
             OPSHIN_LOGGER.warning(
