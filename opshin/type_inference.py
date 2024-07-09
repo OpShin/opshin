@@ -848,9 +848,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                 + warn_assert_msg
                 + " is equivalent to asserting False, which always fails."
             )
-        if isinstance(ta.test.args[0], Call) and isinstance(
-            ta.test.args[0].typ.typ, UnitType
-        ):
+        elif isinstance(ta.test.args[0].typ.typ, UnitType):
             OPSHIN_LOGGER.warning(
                 "Asserting `None'"
                 + warn_assert_msg
