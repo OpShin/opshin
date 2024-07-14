@@ -71,7 +71,7 @@ jobs:
       if: matrix.os == 'windows-latest'
       run: |
         pip install ./  # Ensure your package and its dependencies are installed
-        pyinstaller --name opshin --collect-all pycardano --collect-all blockfrost --collect-all opshin --noconfirm --onefile .\scripts\run_opshin.py
+        pyinstaller --name opshin --collect-all pycardano --collect-all blockfrost --collect-all opshin --noconfirm --onefile ./scripts/run_opshin.py
       shell: bash
 
     - name: Upload Release Asset
