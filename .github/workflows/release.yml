@@ -13,10 +13,10 @@ jobs:
         include:
           - os: ubuntu-latest
             executable: opshin-linux
-            executable_path: ./dist/opshin-linux
+            executable_path: ./dist/opshin
           - os: macos-latest
             executable: opshin-macos
-            executable_path: ./dist/opshin-macos
+            executable_path: ./dist/opshin
           - os: windows-latest
             executable: opshin-windows.exe
             executable_path: .\dist\opshin.exe
@@ -31,44 +31,12 @@ jobs:
         python-version: '3.8'
 
     - name: Install Dependencies
-      if: matrix.os == 'ubuntu-latest'
-      run: |
-        python -m pip install --upgrade pip
-        pip install pex
-      shell: bash
-
-    - name: Install Dependencies
-      if: matrix.os == 'macos-latest'
-      run: |
-        python -m pip install --upgrade pip
-        pip install pex
-      shell: bash
-
-    - name: Install Dependencies
-      if: matrix.os == 'windows-latest'
       run: |
         python -m pip install --upgrade pip
         pip install pyinstaller
       shell: bash
 
     - name: Build Binary
-      if: matrix.os == 'ubuntu-latest'
-      run: |
-        pip install ./  # Ensure your package and its dependencies are installed
-        pip freeze > requirements.txt
-        pex -r requirements.txt setuptools -c opshin -o ./dist/${{ matrix.executable }}
-      shell: bash
-
-    - name: Build Binary
-      if: matrix.os == 'macos-latest'
-      run: |
-        pip install ./  # Ensure your package and its dependencies are installed
-        pip freeze > requirements.txt
-        pex -r requirements.txt setuptools -c opshin -o ./dist/${{ matrix.executable }}
-      shell: bash
-
-    - name: Build Binary
-      if: matrix.os == 'windows-latest'
       run: |
         pip install ./  # Ensure your package and its dependencies are installed
         pyinstaller --name opshin --collect-all pycardano --collect-all blockfrost --collect-all opshin --noconfirm --onefile ./scripts/run_opshin.py
