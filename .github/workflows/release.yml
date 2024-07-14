@@ -19,7 +19,7 @@ jobs:
             executable_path: ./dist/opshin-macos
           - os: windows-latest
             executable: opshin-windows.exe
-            executable_path: .\run_opshin.dist\run_opshin.exe
+            executable_path: .\dist\opshin.exe
 
     steps:
     - name: Checkout code
@@ -48,7 +48,7 @@ jobs:
       if: matrix.os == 'windows-latest'
       run: |
         python -m pip install --upgrade pip
-        pip install nuitka
+        pip install pyinstaller
       shell: bash
 
     - name: Build Binary
@@ -71,7 +71,8 @@ jobs:
       if: matrix.os == 'windows-latest'
       run: |
         pip install ./  # Ensure your package and its dependencies are installed
-        python -m nuitka --follow-imports --assume-yes-for-downloads --onefile --standalone scripts/run_opshin.py
+        echo from opshin.__main__ import main ^> run_opshin.py && echo if __name__ == "__main__": main() >> run_opshin.py
+        pyinstaller --name opshin --collect-all pycardano --collect-all blockfrost --collect-all opshin --noconfirm --onefile run_opshin.py
       shell: bash
 
     - name: Upload Release Asset

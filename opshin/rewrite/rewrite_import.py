@@ -88,6 +88,8 @@ class RewriteImport(CompilingNodeTransformer):
         if self.filename:
             sys.path.pop()
         module_file = pathlib.Path(module.__file__)
+        if module_file.suffix == ".cpy":
+            module_file = module_file.with_suffix(".py")
         if module_file in self.resolved_imports:
             # Import was already resolved and its names are visible
             return None
