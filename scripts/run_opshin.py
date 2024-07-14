@@ -1,5 +1,4 @@
-from ..opshin.__main__ import main, parse_args
+from opshin.__main__ import main
 
-if __name__ == '__main__':
-    args = parse_args()
-    main(args)
+if __name__ == "__main__":
+    main()
