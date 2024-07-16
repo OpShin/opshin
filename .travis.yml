@@ -12,7 +12,8 @@ jobs:
   fast_finish: true
 
 before_install:
-- pip install poetry
+- sudo apt remove -y python3-virtualenv
+- pip install -U poetry virtualenv
 install:
 - poetry install
 script:
