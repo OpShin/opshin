@@ -540,6 +540,12 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         tn.typ = self.variable_type(node.id)
         return tn
 
+    def visit_keyword(self, node: keyword) -> Typedkeyword:
+        tk = copy(node)
+        tk.value = self.visit(node.value)
+        return tk
+
+
     def visit_Compare(self, node: Compare) -> TypedCompare:
         typed_cmp = copy(node)
         typed_cmp.left = self.visit(node.left)
@@ -762,9 +768,9 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         return ts
 
     def visit_Call(self, node: Call) -> TypedCall:
-        assert not node.keywords, "Keyword arguments are not supported yet"
         tc = copy(node)
         tc.args = [self.visit(a) for a in node.args]
+        tc.keywords = [self.visit(a) for a in node.keywords]
         # might be isinstance
         if isinstance(tc.func, Name) and tc.func.orig_id == "isinstance":
             target_class = tc.args[1].typ
@@ -805,7 +811,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             tc.func.typ.typ, FunctionType
         ):
             functyp = tc.func.typ.typ
-            assert len(tc.args) == len(
+            assert len(tc.args) + len(tc.keywords) == len(
                 functyp.argtyps
             ), f"Signature of function does not match number of arguments. Expected {len(functyp.argtyps)} arguments with these types: {functyp.argtyps} but got {len(tc.args)} arguments."
             # all arguments need to be subtypes of the parameter type

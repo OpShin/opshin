@@ -96,6 +96,9 @@ class TypedPass(typedstmt, Pass):
 class TypedName(typedexpr, Name):
     pass
 
+class Typedkeyword(TypedAST, keyword):
+    arg: typedexpr
+    value: typedexpr
 
 class TypedConstant(TypedAST, Constant):
     pass
