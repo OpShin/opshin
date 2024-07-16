@@ -545,7 +545,6 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         tk.value = self.visit(node.value)
         return tk
 
-
     def visit_Compare(self, node: Compare) -> TypedCompare:
         typed_cmp = copy(node)
         typed_cmp.left = self.visit(node.left)
