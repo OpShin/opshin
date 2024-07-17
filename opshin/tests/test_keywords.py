@@ -83,3 +83,18 @@ def validator(a: int, b: int, c: int) -> int:
 """
         with self.assertRaises(Exception):
             ret = eval_uplc_value(source_code, x, y, z)
+
+
+    @given(x=st.integers(), y=st.integers(), z=st.integers())
+    def test_correct_scope(self, x: int, y: int, z:int):
+        source_code = """
+def simple_example(x: int, y: int, z: int) -> int:
+    def simple_example(new_x: int, new_z: int) -> int:
+        return new_x-new_z
+    return simple_example(new_x = x, new_z = z) * y
+
+def validatior(a: int, b: int, c: int) -> int:
+    return simple_example(x=a, y=b, k=c)
+"""
+        ret = eval_uplc_value(source_code, x, y, z)
+        self.assertEqual(ret, (x-z)*y)
