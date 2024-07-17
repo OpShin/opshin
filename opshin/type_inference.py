@@ -239,6 +239,8 @@ def merge_scope(s1: typing.Dict[str, Type], s2: typing.Dict[str, Type]):
 
 
 class AggressiveTypeInferencer(CompilingNodeTransformer):
+    FUNCTION_ARGUMENT_REGISTRY = {}
+
     def __init__(self, allow_isinstance_anything=False):
         self.allow_isinstance_anything = allow_isinstance_anything
 
@@ -603,6 +605,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         self.exit_scope()
         # We need the function type outside for usage
         self.set_variable_type(node.name, tfd.typ)
+        self.FUNCTION_ARGUMENT_REGISTRY[node.name] = node.args.args
         return tfd
 
     def visit_Module(self, node: Module) -> TypedModule:
@@ -768,8 +771,32 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
 
     def visit_Call(self, node: Call) -> TypedCall:
         tc = copy(node)
-        tc.args = [self.visit(a) for a in node.args]
-        tc.keywords = [self.visit(a) for a in node.keywords]
+        if node.keywords:
+            keywords = copy(node.keywords)
+            reg_args = self.FUNCTION_ARGUMENT_REGISTRY[node.func.id]
+            args = []
+            for i, a in enumerate(reg_args):
+                if len(node.args) > i:
+                    args.append(self.visit(node.args[i]))
+                else:
+                    candidates = [
+                        (idx, keyword)
+                        for idx, keyword in enumerate(keywords)
+                        if keyword.arg == a.orig_arg
+                    ]
+                    assert (
+                        len(candidates) == 1
+                    ), f"There should be one keyword or positional argument for the arg {a.orig_arg} but found {len(candidates)}"
+                    args.append(self.visit(candidates[0][1].value))
+                    keywords.pop(candidates[0][0])
+            assert (
+                len(keywords) == 0
+            ), f"Could not match the keywords {[keyword.arg for keyword in keywords]} to any argument"
+            tc.args = args
+            tc.keywords = []
+        else:
+            tc.args = [self.visit(a) for a in node.args]
+
         # might be isinstance
         if isinstance(tc.func, Name) and tc.func.orig_id == "isinstance":
             target_class = tc.args[1].typ
@@ -810,7 +837,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             tc.func.typ.typ, FunctionType
         ):
             functyp = tc.func.typ.typ
-            assert len(tc.args) + len(tc.keywords) == len(
+            assert len(tc.args) == len(
                 functyp.argtyps
             ), f"Signature of function does not match number of arguments. Expected {len(functyp.argtyps)} arguments with these types: {functyp.argtyps} but got {len(tc.args)} arguments."
             # all arguments need to be subtypes of the parameter type
