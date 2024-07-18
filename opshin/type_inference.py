@@ -239,15 +239,16 @@ def merge_scope(s1: typing.Dict[str, Type], s2: typing.Dict[str, Type]):
 
 
 class AggressiveTypeInferencer(CompilingNodeTransformer):
-    FUNCTION_ARGUMENT_REGISTRY = {}
+    step = "Static Type Inference"
 
     def __init__(self, allow_isinstance_anything=False):
         self.allow_isinstance_anything = allow_isinstance_anything
+        self.FUNCTION_ARGUMENT_REGISTRY = {}
 
-    step = "Static Type Inference"
 
-    # A stack of dictionaries for storing scoped knowledge of variable types
-    scopes = [INITIAL_SCOPE]
+        # A stack of dictionaries for storing scoped knowledge of variable types
+        self.scopes = [INITIAL_SCOPE]
+
 
     # Obtain the type of a variable name in the current scope
     def variable_type(self, name: str) -> Type:
@@ -772,6 +773,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
     def visit_Call(self, node: Call) -> TypedCall:
         tc = copy(node)
         if node.keywords:
+            assert node.func.id in self.FUNCTION_ARGUMENT_REGISTRY, 'Keyword arguments can only be used with user defined functions'
             keywords = copy(node.keywords)
             reg_args = self.FUNCTION_ARGUMENT_REGISTRY[node.func.id]
             args = []
