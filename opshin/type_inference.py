@@ -245,10 +245,8 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         self.allow_isinstance_anything = allow_isinstance_anything
         self.FUNCTION_ARGUMENT_REGISTRY = {}
 
-
         # A stack of dictionaries for storing scoped knowledge of variable types
         self.scopes = [INITIAL_SCOPE]
-
 
     # Obtain the type of a variable name in the current scope
     def variable_type(self, name: str) -> Type:
@@ -773,7 +771,9 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
     def visit_Call(self, node: Call) -> TypedCall:
         tc = copy(node)
         if node.keywords:
-            assert node.func.id in self.FUNCTION_ARGUMENT_REGISTRY, 'Keyword arguments can only be used with user defined functions'
+            assert (
+                node.func.id in self.FUNCTION_ARGUMENT_REGISTRY
+            ), "Keyword arguments can only be used with user defined functions"
             keywords = copy(node.keywords)
             reg_args = self.FUNCTION_ARGUMENT_REGISTRY[node.func.id]
             args = []
