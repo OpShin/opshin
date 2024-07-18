@@ -92,8 +92,8 @@ def simple_example(x: int, y: int, z: int) -> int:
         return new_x-new_z
     return simple_example(new_x = x, new_z = z) * y
 
-def validatior(a: int, b: int, c: int) -> int:
-    return simple_example(x=a, y=b, k=c)
+def validator(a: int, b: int, c: int) -> int:
+    return simple_example(x=a, y=b, z=c)
 """
         ret = eval_uplc_value(source_code, x, y, z)
         self.assertEqual(ret, (x - z) * y)
