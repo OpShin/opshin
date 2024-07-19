@@ -96,3 +96,34 @@ def validator(a: int, b: int, c: int) -> int:
 """
         ret = eval_uplc_value(source_code, x, y, z)
         self.assertEqual(ret, (x - z) * y)
+
+    @given(x=st.integers(), y=st.integers(), z=st.integers())
+    def test_default(self, x: int, y: int, z: int):
+        source_code = f"""
+def simple_example(x: int, y: int, z: int={z}) -> int:
+    return (x-z)*y
+
+def validator(a: int, b: int) -> int:
+    return simple_example(a, b)
+"""
+        ret = eval_uplc_value(source_code, x, y)
+        self.assertEqual(ret, (x - z) * y)
+
+    def test_default_wrong_type(self):
+        source_code = f"""
+def simple_example(x: int, y: int, z: int="hello") -> int:
+    return (x-z)*y
+
+def validator(a: int, b: int) -> int:
+    return simple_example(a, b)
+"""
+        with self.assertRaises(Exception):
+            ret = eval_uplc_value(source_code, 1, 2)
+
+    def test_no_allow_validator_default(self):
+        source_code = f"""
+def validator(a: int, b: int, c:int=1) -> int:
+    return a*b*c
+"""
+        with self.assertRaises(Exception):
+            ret = eval_uplc_value(source_code, 1, 2, 2)
