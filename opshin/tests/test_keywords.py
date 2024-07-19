@@ -70,7 +70,6 @@ def validator(a: int, b: int, c: int) -> int:
 """
         with self.assertRaises(Exception):
             ret = eval_uplc_value(source_code, x, y, z)
-            self.assertEqual(ret, (x * y) + z)
 
     @given(x=st.integers(), y=st.integers(), z=st.integers())
     def test_incorrect_keywords_failure(self, x: int, y: int, z: int):
