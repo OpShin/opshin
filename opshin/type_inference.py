@@ -362,8 +362,8 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         typ = RecordType(class_record)
         self.set_variable_type(node.name, typ)
         self.FUNCTION_ARGUMENT_REGISTRY[node.name] = [
-            typedarg(arg=field, typ=typ, orig_arg=field)
-            for field, typ in class_record.fields
+            typedarg(arg=field, typ=field_typ, orig_arg=field)
+            for field, field_typ in class_record.fields
         ]
         typed_node = copy(node)
         typed_node.class_typ = typ
