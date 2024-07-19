@@ -239,13 +239,14 @@ def merge_scope(s1: typing.Dict[str, Type], s2: typing.Dict[str, Type]):
 
 
 class AggressiveTypeInferencer(CompilingNodeTransformer):
-    def __init__(self, allow_isinstance_anything=False):
-        self.allow_isinstance_anything = allow_isinstance_anything
-
     step = "Static Type Inference"
 
-    # A stack of dictionaries for storing scoped knowledge of variable types
-    scopes = [INITIAL_SCOPE]
+    def __init__(self, allow_isinstance_anything=False):
+        self.allow_isinstance_anything = allow_isinstance_anything
+        self.FUNCTION_ARGUMENT_REGISTRY = {}
+
+        # A stack of dictionaries for storing scoped knowledge of variable types
+        self.scopes = [INITIAL_SCOPE]
 
     # Obtain the type of a variable name in the current scope
     def variable_type(self, name: str) -> Type:
@@ -540,6 +541,11 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         tn.typ = self.variable_type(node.id)
         return tn
 
+    def visit_keyword(self, node: keyword) -> Typedkeyword:
+        tk = copy(node)
+        tk.value = self.visit(node.value)
+        return tk
+
     def visit_Compare(self, node: Compare) -> TypedCompare:
         typed_cmp = copy(node)
         typed_cmp.left = self.visit(node.left)
@@ -598,6 +604,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         self.exit_scope()
         # We need the function type outside for usage
         self.set_variable_type(node.name, tfd.typ)
+        self.FUNCTION_ARGUMENT_REGISTRY[node.name] = node.args.args
         return tfd
 
     def visit_Module(self, node: Module) -> TypedModule:
@@ -762,9 +769,36 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         return ts
 
     def visit_Call(self, node: Call) -> TypedCall:
-        assert not node.keywords, "Keyword arguments are not supported yet"
         tc = copy(node)
-        tc.args = [self.visit(a) for a in node.args]
+        if node.keywords:
+            assert (
+                node.func.id in self.FUNCTION_ARGUMENT_REGISTRY
+            ), "Keyword arguments can only be used with user defined functions"
+            keywords = copy(node.keywords)
+            reg_args = self.FUNCTION_ARGUMENT_REGISTRY[node.func.id]
+            args = []
+            for i, a in enumerate(reg_args):
+                if len(node.args) > i:
+                    args.append(self.visit(node.args[i]))
+                else:
+                    candidates = [
+                        (idx, keyword)
+                        for idx, keyword in enumerate(keywords)
+                        if keyword.arg == a.orig_arg
+                    ]
+                    assert (
+                        len(candidates) == 1
+                    ), f"There should be one keyword or positional argument for the arg {a.orig_arg} but found {len(candidates)}"
+                    args.append(self.visit(candidates[0][1].value))
+                    keywords.pop(candidates[0][0])
+            assert (
+                len(keywords) == 0
+            ), f"Could not match the keywords {[keyword.arg for keyword in keywords]} to any argument"
+            tc.args = args
+            tc.keywords = []
+        else:
+            tc.args = [self.visit(a) for a in node.args]
+
         # might be isinstance
         if isinstance(tc.func, Name) and tc.func.orig_id == "isinstance":
             target_class = tc.args[1].typ
