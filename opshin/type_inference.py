@@ -342,6 +342,25 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         raise NotImplementedError(f"Annotation type {ann.__class__} is not supported")
 
     def visit_sequence(self, node_seq: typing.List[stmt]) -> plt.AST:
+        additional_functions = []
+        for n in node_seq:
+            if not isinstance(n, ast.ClassDef):
+                continue
+            non_method_attributes = []
+            for attribute in n.body:
+                if not isinstance(attribute, ast.FunctionDef):
+                    non_method_attributes.append(attribute)
+                    continue
+                func = copy(attribute)
+                func.name = f"{n.name}_{attribute.name}"
+                func.args.args[0].annotation = ast.Name(id=n.name, ctx=ast.Load())
+                additional_functions.append(func)
+            n.body = non_method_attributes
+        if additional_functions:
+            last = node_seq.pop()
+            node_seq.extend(additional_functions)
+            node_seq.append(last)
+
         stmts = []
         prevtyps = {}
         for n in node_seq:
@@ -821,7 +840,23 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             ntc.typ = BoolInstanceType
             ntc.typechecks = TypeCheckVisitor(self.allow_isinstance_anything).visit(tc)
             return ntc
-        tc.func = self.visit(node.func)
+        try:
+            tc.func = self.visit(node.func)
+        except Exception as e:
+            # might be a method, duck test for class_name, method_name should
+            try:
+                func_variable_type = self.variable_type(tc.func.value.id)
+                class_name = func_variable_type.typ.record.name
+                method_name = f"{class_name}_{tc.func.attr}"
+                # If method_name found then use this.
+                self.variable_type(method_name)
+            except Exception:
+                # if this fails raise original error
+                raise e
+            tc.func = self.visit(ast.Name(id=method_name, ctx=ast.Load()))
+            c_self = ast.Name(id=node.func.value.id, ctx=ast.Load())
+            tc.args.insert(0, self.visit(c_self))
+
         # might be a class
         if isinstance(tc.func.typ, ClassType):
             tc.func.typ = tc.func.typ.constr_type()
