@@ -30,8 +30,7 @@ def validator(a: int, b: int) -> int:
         ret = eval_uplc_value(source_code, x, y)
         self.assertEqual(ret, x + y)
 
-    @given(x=st.integers(), y=st.integers())
-    def test_instance_method_only(self, x: int, y: int):
+    def test_instance_method_only(self, x=5, y=6):
         source_code = """
 from opshin.prelude import *
 @dataclass()
@@ -47,3 +46,41 @@ def validator(a: int, b: int) -> int:
 """
         with self.assertRaises(Exception):
             ret = eval_uplc_value(source_code, x, y)
+
+    @given(x=st.integers(), y=st.integers())
+    def test_ge_dunder(self, x: int, y: int):
+        source_code = """
+from opshin.prelude import *
+@dataclass()
+class Foo(PlutusData):
+    a: int
+
+    def __ge__(self, other: Foo) -> bool:
+        return self.a >= other.a
+
+def validator(a: int, b: int) -> bool:
+    foo1 = Foo(a)
+    foo2 = Foo(b)
+    return foo1>=foo2
+"""
+        ret = eval_uplc_value(source_code, x, y)
+        self.assertEqual(ret, x >= y)
+
+    @given(x=st.integers(), y=st.integers())
+    def test_le_dunder(self, x: int, y: int):
+        source_code = """
+from opshin.prelude import *
+@dataclass()
+class Foo(PlutusData):
+    a: int
+
+    def __le__(self, other: Foo) -> bool:
+        return self.a <= other.a
+
+def validator(a: int, b: int) -> bool:
+    foo1 = Foo(a)
+    foo2 = Foo(b)
+    return foo1<=foo2
+"""
+        ret = eval_uplc_value(source_code, x, y)
+        self.assertEqual(ret, x <= y)

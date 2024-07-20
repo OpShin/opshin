@@ -42,6 +42,15 @@ INITIAL_SCOPE.update(
     }
 )
 
+DUNDER_MAP = {
+    ast.Eq: "__eq__",
+    ast.NotEq: "__ne__",
+    ast.Lt: "__lt__",
+    ast.LtE: "__le__",
+    ast.Gt: "__gt__",
+    ast.GtE: "__ge__",
+}
+
 
 def record_from_plutusdata(c: PlutusData):
     return Record(
@@ -354,6 +363,12 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                 func = copy(attribute)
                 func.name = f"{n.name}_{attribute.name}"
                 func.args.args[0].annotation = ast.Name(id=n.name, ctx=ast.Load())
+                for i, arg in enumerate(func.args.args):
+                    if isinstance(arg.annotation, ast.Name) and hasattr(
+                        arg.annotation, "orig_id"
+                    ):
+                        if arg.annotation.orig_id == n.orig_name:
+                            func.args.args[i].annotation.id = n.name
                 additional_functions.append(func)
             n.body = non_method_attributes
         if additional_functions:
@@ -570,6 +585,39 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         typed_cmp.left = self.visit(node.left)
         typed_cmp.comparators = [self.visit(s) for s in node.comparators]
         typed_cmp.typ = BoolInstanceType
+
+        # Check for potential dunder_method override
+        if hasattr(typed_cmp.left, "id") and hasattr(typed_cmp.comparators[0], "id"):
+            left_type = self.variable_type(typed_cmp.left.id)
+            comparator_type = self.variable_type(typed_cmp.comparators[0].id)
+            if (
+                typed_cmp.ops[0].__class__ in DUNDER_MAP
+                and isinstance(left_type, InstanceType)
+                and isinstance(left_type.typ, RecordType)
+            ):
+                left_class_name = left_type.typ.record.name
+                if isinstance(comparator_type, InstanceType) and isinstance(
+                    comparator_type.typ, RecordType
+                ):
+                    comparator_name = comparator_type.typ.record.name
+                method_name = (
+                    f"{left_class_name}_{DUNDER_MAP[typed_cmp.ops[0].__class__]}"
+                )
+                if left_class_name == comparator_name and any(
+                    [method_name in scope for scope in self.scopes]
+                ):
+                    return self.visit_Call(
+                        ast.Call(
+                            func=ast.Attribute(
+                                value=typed_cmp.left,
+                                attr=DUNDER_MAP[typed_cmp.ops[0].__class__],
+                                ctx=ast.Load(),
+                            ),
+                            args=[typed_cmp.comparators[0]],
+                            keywords=[],
+                        )
+                    )
+
         # the actual required types are being taken care of in the implementation
         return typed_cmp
 
