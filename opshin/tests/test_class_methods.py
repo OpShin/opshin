@@ -101,3 +101,41 @@ def validator(a: int, b: int) -> bool:
 """
         with self.assertRaises(CompilerError):
             ret = eval_uplc_value(source_code, x, y)
+
+    @given(x=st.integers(), y=st.integers())
+    def test_Self_arguments(self, x: int, y: int):
+        source_code = """
+from typing import Self
+from opshin.prelude import *
+@dataclass()
+class Foo(PlutusData):
+    a: int
+
+    def __ge__(self, other: Self) -> bool:
+        return self.a >= other.a
+
+def validator(a: int, b: int) -> bool:
+    foo1 = Foo(a)
+    foo2 = Foo(b)
+    return foo1 >= foo2
+"""
+        ret = eval_uplc_value(source_code, x, y)
+        self.assertEqual(ret, x >= y)
+
+    def test_Self_return(self):
+        source_code = """
+from typing import Self
+from opshin.prelude import *
+@dataclass()
+class Foo(PlutusData):
+    a: int
+
+    def get_me(self) -> Self:
+        return self
+
+def validator(b:int) -> int:
+    foo1 = Foo(b)
+    return foo1.get_me().a
+"""
+        ret = eval_uplc_value(source_code, 5)
+        self.assertEqual(ret, 5)

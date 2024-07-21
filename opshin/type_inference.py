@@ -635,6 +635,12 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         assert (
             not node.decorator_list or wraps_builtin
         ), "Functions may not have decorators other than wraps_builtin"
+        for i, arg in enumerate(node.args.args):
+            if hasattr(arg.annotation, "idSelf"):
+                tfd.args.args[i].annotation.id = tfd.args.args[0].annotation.id
+        if hasattr(node.returns, "idSelf"):
+            tfd.returns.id = tfd.args.args[0].annotation.id
+
         self.enter_scope()
         tfd.args = self.visit(node.args)
         functyp = FunctionType(
