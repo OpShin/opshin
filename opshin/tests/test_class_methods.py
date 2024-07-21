@@ -5,7 +5,7 @@ from hypothesis import given
 from hypothesis import strategies as st
 from .utils import eval_uplc_value
 from . import PLUTUS_VM_PROFILE
-
+from opshin.util import CompilerError
 
 hypothesis.settings.load_profile(PLUTUS_VM_PROFILE)
 
@@ -55,13 +55,12 @@ from opshin.prelude import *
 class Foo(PlutusData):
     a: int
 
-    def __ge__(self, other: Foo) -> bool:
-        return self.a >= other.a
+    def __ge__(self, other: int) -> bool:
+        return self.a >= other
 
 def validator(a: int, b: int) -> bool:
     foo1 = Foo(a)
-    foo2 = Foo(b)
-    return foo1>=foo2
+    return foo1 >= b
 """
         ret = eval_uplc_value(source_code, x, y)
         self.assertEqual(ret, x >= y)
@@ -74,13 +73,31 @@ from opshin.prelude import *
 class Foo(PlutusData):
     a: int
 
-    def __le__(self, other: Foo) -> bool:
-        return self.a <= other.a
+    def __le__(self, other:int) -> bool:
+        return self.a <= other
+
+def validator(a: int, b: int) -> bool:
+    foo1 = Foo(a)
+    return foo1 <= b
+"""
+        ret = eval_uplc_value(source_code, x, y)
+        self.assertEqual(ret, x <= y)
+
+    @given(x=st.integers(), y=st.integers())
+    def test_invalid_python(self, x: int, y: int):
+        source_code = """
+from opshin.prelude import *
+@dataclass()
+class Foo(PlutusData):
+    a: int
+
+    def __ge__(self, other: Foo) -> bool:
+        return self.a >= other.a
 
 def validator(a: int, b: int) -> bool:
     foo1 = Foo(a)
     foo2 = Foo(b)
-    return foo1<=foo2
+    return foo1 >= foo2
 """
-        ret = eval_uplc_value(source_code, x, y)
-        self.assertEqual(ret, x <= y)
+        with self.assertRaises(CompilerError):
+            ret = eval_uplc_value(source_code, x, y)
