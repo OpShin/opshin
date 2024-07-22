@@ -326,7 +326,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             args.append(node.right)
         elif isinstance(node, Compare):
             operation = node.ops[0]
-            if isinstance(operation, Union[ast.In, ast.NotIn]):
+            if any([isinstance(operation, x) for x in [ast.In, ast.NotIn]]):
                 operand = node.comparators[0]
                 args = [node.left]
             else:
