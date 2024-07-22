@@ -15,7 +15,7 @@ security into the Smart Contract by checking type correctness.
 import re
 
 from pycardano import PlutusData
-
+from typing import Union
 from .typed_ast import *
 from .util import CompilingNodeTransformer
 from .fun_impls import PythonBuiltInTypes
@@ -43,12 +43,21 @@ INITIAL_SCOPE.update(
 )
 
 DUNDER_MAP = {
+    # ast.Compare
     ast.Eq: "__eq__",
     ast.NotEq: "__ne__",
     ast.Lt: "__lt__",
     ast.LtE: "__le__",
     ast.Gt: "__gt__",
     ast.GtE: "__ge__",
+    # ast.Binop
+    ast.Add: "__add__",
+    ast.Sub: "__sub__",
+    ast.Mult: "__mul__",
+    ast.FloorDiv: "__floordiv__",
+    ast.Mod: "__mod__",
+    ast.Pow: "__pow__",
+    ast.MatMult: "__matmul__",
 }
 
 
@@ -290,6 +299,43 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             self.set_variable_type(n, InstanceType(t), force=True)
         return prevtyps
 
+    def dunder_override(self, node: Union[BinOp, Compare]):
+        # Check for potential dunder_method override
+        if hasattr(node.left, "id"):
+            left_type = self.variable_type(node.left.id)
+            if hasattr(node, "ops"):
+                # only support one op
+                assert len(node.ops) == 1, "Only support one op at a time"
+                op = node.ops[0]
+            else:
+                op = node.op
+            if (
+                op.__class__ in DUNDER_MAP
+                and isinstance(left_type, InstanceType)
+                and isinstance(left_type.typ, RecordType)
+            ):
+                left_class_name = left_type.typ.record.name
+                method_name = f"{left_class_name}_{DUNDER_MAP[op.__class__]}"
+                if any([method_name in scope for scope in self.scopes]):
+                    return self.visit_Call(
+                        ast.Call(
+                            func=ast.Attribute(
+                                value=node.left,
+                                attr=DUNDER_MAP[op.__class__],
+                                ctx=ast.Load(),
+                            ),
+                            args=(
+                                node.comparators
+                                if isinstance(node, Compare)
+                                else [
+                                    node.right,
+                                ]
+                            ),
+                            keywords=[],
+                        )
+                    )
+        return None
+
     def type_from_annotation(self, ann: expr):
         if isinstance(ann, Constant):
             if ann.value is None:
@@ -361,6 +407,10 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                     non_method_attributes.append(attribute)
                     continue
                 func = copy(attribute)
+                if func.name[0:2] == "__" and func.name[-2:] == "__":
+                    assert any(
+                        [func.name == value for key, value in DUNDER_MAP.items()]
+                    ), f"The following Dunder methods are supported {list(DUNDER_MAP.values())}. Received {func.name} which is not supported"
                 func.name = f"{n.name}_{attribute.name}"
                 for arg in func.args.args:
                     assert (
@@ -581,38 +631,15 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         tk.value = self.visit(node.value)
         return tk
 
-    def visit_Compare(self, node: Compare) -> TypedCompare:
+    def visit_Compare(self, node: Compare) -> Union[TypedCompare, TypedCall]:
+        dunder_node = self.dunder_override(node)
+        if dunder_node is not None:
+            return dunder_node
         typed_cmp = copy(node)
         typed_cmp.left = self.visit(node.left)
         typed_cmp.comparators = [self.visit(s) for s in node.comparators]
         typed_cmp.typ = BoolInstanceType
 
-        # Check for potential dunder_method override
-        if hasattr(typed_cmp.left, "id"):
-            left_type = self.variable_type(typed_cmp.left.id)
-            if (
-                typed_cmp.ops[0].__class__ in DUNDER_MAP
-                and isinstance(left_type, InstanceType)
-                and isinstance(left_type.typ, RecordType)
-            ):
-                left_class_name = left_type.typ.record.name
-                method_name = (
-                    f"{left_class_name}_{DUNDER_MAP[typed_cmp.ops[0].__class__]}"
-                )
-                if any([method_name in scope for scope in self.scopes]):
-                    return self.visit_Call(
-                        ast.Call(
-                            func=ast.Attribute(
-                                value=typed_cmp.left,
-                                attr=DUNDER_MAP[typed_cmp.ops[0].__class__],
-                                ctx=ast.Load(),
-                            ),
-                            args=[typed_cmp.comparators[0]],
-                            keywords=[],
-                        )
-                    )
-
-        # the actual required types are being taken care of in the implementation
         return typed_cmp
 
     def visit_arg(self, node: arg) -> typedarg:
@@ -686,12 +713,16 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         tn.value = self.visit(node.value)
         return tn
 
-    def visit_BinOp(self, node: BinOp) -> TypedBinOp:
+    def visit_BinOp(self, node: BinOp) -> Union[TypedBinOp, TypedCall]:
+        dunder_node = self.dunder_override(node)
+        if dunder_node is not None:
+            return dunder_node
         tb = copy(node)
         tb.left = self.visit(node.left)
         tb.right = self.visit(node.right)
         binop_fun_typ: FunctionType = tb.left.typ.binop_type(tb.op, tb.right.typ)
         tb.typ = binop_fun_typ.rettyp
+
         return tb
 
     def visit_BoolOp(self, node: BoolOp) -> TypedBoolOp:
