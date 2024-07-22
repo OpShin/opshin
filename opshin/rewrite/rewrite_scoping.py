@@ -25,6 +25,10 @@ class ShallowNameDefCollector(CompilingNodeVisitor):
 
     def visit_ClassDef(self, node: ClassDef):
         self.vars.add(node.name)
+        # methods will be put in global scope so add them now
+        for attribute in node.body:
+            if isinstance(attribute, FunctionDef):
+                self.vars.add(attribute.name)
         # ignore the content (i.e. attribute names) of class definitions
 
     def visit_FunctionDef(self, node: FunctionDef):
@@ -86,12 +90,16 @@ class RewriteScoping(CompilingNodeTransformer):
         return nc
 
     def visit_ClassDef(self, node: ClassDef) -> ClassDef:
-        return RecordScoper.scope(node, self)
+        cp_node = RecordScoper.scope(node, self)
+        for i, attribute in enumerate(cp_node.body):
+            if isinstance(attribute, FunctionDef):
+                cp_node.body[i] = self.visit_FunctionDef(attribute, method=True)
+        return cp_node
 
-    def visit_FunctionDef(self, node: FunctionDef) -> FunctionDef:
+    def visit_FunctionDef(self, node: FunctionDef, method: bool = False) -> FunctionDef:
         node_cp = copy(node)
         # setting is handled in either enclosing module or function
-        node_cp.name = self.map_name(node.name)
+        node_cp.name = self.map_name(node.name) if not method else node.name
         self.enter_scope()
         node_cp.args = copy(node.args)
         node_cp.args.args = []
@@ -100,9 +108,17 @@ class RewriteScoping(CompilingNodeTransformer):
             a_cp = copy(a)
             self.set_variable_scope(a.arg)
             a_cp.arg = self.map_name(a.arg)
-            a_cp.annotation = self.visit(a.annotation)
+            a_cp.annotation = (
+                self.visit(a.annotation)
+                if not hasattr(a.annotation, "idSelf")
+                else a.annotation
+            )
             node_cp.args.args.append(a_cp)
-        node_cp.returns = self.visit(node.returns)
+        node_cp.returns = (
+            self.visit(node.returns)
+            if not hasattr(node.returns, "idSelf")
+            else node.returns
+        )
         # vars defined in this scope
         shallow_node_def_collector = ShallowNameDefCollector()
         for s in node.body:

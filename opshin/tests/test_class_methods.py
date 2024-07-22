@@ -83,8 +83,7 @@ def validator(a: int, b: int) -> bool:
         ret = eval_uplc_value(source_code, x, y)
         self.assertEqual(ret, x <= y)
 
-    @given(x=st.integers(), y=st.integers())
-    def test_invalid_python(self, x: int, y: int):
+    def test_invalid_python(self, x=5, y=6):
         source_code = """
 from opshin.prelude import *
 @dataclass()
@@ -139,3 +138,26 @@ def validator(b:int) -> int:
 """
         ret = eval_uplc_value(source_code, 5)
         self.assertEqual(ret, 5)
+
+    @given(x=st.integers(), y=st.integers())
+    def test_externally_bound_variables_scope(self, x: int, y: int):
+        source_code = """
+from typing import Self
+from opshin.prelude import *
+@dataclass()
+class Foo(PlutusData):
+    a: int
+
+    def larger(self, other:Self) -> Self:
+        if self.a>other.a:
+            return self
+        else:
+            return other
+
+def validator(a:int, b:int) -> int:
+    foo1 = Foo(a)
+    foo2 = Foo(b)
+    return foo1.larger(foo2).a
+"""
+        ret = eval_uplc_value(source_code, x, y)
+        self.assertEqual(ret, max(x, y))

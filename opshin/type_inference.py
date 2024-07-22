@@ -362,6 +362,13 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                     continue
                 func = copy(attribute)
                 func.name = f"{n.name}_{attribute.name}"
+                for arg in func.args.args:
+                    assert (
+                        arg.annotation is None or arg.annotation.id != n.name
+                    ), "Invalid Python, class name is undefined at this stage."
+                assert (
+                    func.returns is None or func.returns.id != n.name
+                ), "Invalid Python, class name is undefined at this stage"
                 func.args.args[0].annotation = ast.Name(id=n.name, ctx=ast.Load())
                 additional_functions.append(func)
             n.body = non_method_attributes
