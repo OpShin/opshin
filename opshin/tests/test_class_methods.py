@@ -430,3 +430,103 @@ def validator(a:int, b:int) -> int:
 """
         with self.assertRaises(CompilerError):
             ret = eval_uplc_value(source_code, 5, 6)
+
+    @given(x=st.integers(), y=st.integers().filter(lambda x: x != 0))
+    def test_truediv_dunder(self, x: int, y: int):
+        source_code = """
+from typing import Self
+from opshin.prelude import *
+@dataclass()
+class Foo(PlutusData):
+    a: int
+
+    def __truediv__(self, other:Self) -> int:
+        #map true div to floordiv
+        return self.a // other.a
+
+def validator(a:int, b:int) -> int:
+    foo1 = Foo(a)
+    foo2 = Foo(b)
+    return foo1 / foo2
+"""
+        ret = eval_uplc_value(source_code, x, y)
+        self.assertEqual(ret, x // y)
+
+    def test_not_dunder(self):
+        source_code = """
+from typing import Self
+from opshin.prelude import *
+@dataclass()
+class Foo(PlutusData):
+    a: int
+
+    def __bool__(self,) -> bool:
+        return self.a!=0
+
+def validator(a: int) -> bool:
+    foo1 = Foo(a)
+    return not foo1
+"""
+        ret = eval_uplc_value(source_code, 3)
+        self.assertEqual(ret, False)
+        ret = eval_uplc_value(source_code, 0)
+        self.assertEqual(ret, True)
+
+    @given(x=st.integers())
+    def test_neg_dunder(self, x: int):
+        source_code = """
+from typing import Self
+from opshin.prelude import *
+@dataclass()
+class Foo(PlutusData):
+    a: int
+
+    def __neg__(self,) -> int:
+        return -self.a
+
+def validator(a: int) -> int:
+    foo1 = Foo(a)
+    return -foo1
+"""
+        ret = eval_uplc_value(source_code, x)
+        self.assertEqual(ret, -x)
+
+    @given(x=st.integers(), y=st.integers(), z=st.integers())
+    def test_in_dunder(self, x: int, y: int, z: int):
+        source_code = """
+from typing import Self
+from opshin.prelude import *
+@dataclass()
+class Foo(PlutusData):
+    a: int
+    b: int
+
+    def __contains__(self, c: int) -> bool:
+        return self.a==c or self.b==c
+
+def validator(a: int, b: int, c:int) -> bool:
+    foo1 = Foo(a, b)
+    return c in foo1
+"""
+        ret = eval_uplc_value(source_code, x, y, z)
+        self.assertEqual(ret, z in [x, y])
+
+    @given(x=st.integers(), y=st.integers(), z=st.integers())
+    def test_Notin_dunder(self, x: int, y: int, z: int):
+        source_code = """
+from typing import Self
+from opshin.prelude import *
+@dataclass()
+class Foo(PlutusData):
+    a: int
+    b: int
+
+    def __contains__(self, c: int) -> bool:
+        return self.a==c or self.b==c
+
+def validator(a: int, b: int, c:int) -> bool:
+    foo1 = Foo(a, b)
+    return c not in foo1
+"""
+        ret = eval_uplc_value(source_code, x, y, z)
+        self.assertEqual(ret, z not in [x, y])

@@ -43,21 +43,34 @@ INITIAL_SCOPE.update(
 )
 
 DUNDER_MAP = {
-    # ast.Compare
+    # ast.Compare:
     ast.Eq: "__eq__",
     ast.NotEq: "__ne__",
     ast.Lt: "__lt__",
     ast.LtE: "__le__",
     ast.Gt: "__gt__",
     ast.GtE: "__ge__",
-    # ast.Binop
+    # ast.Is # no dunder
+    # ast.IsNot # no dunder
+    ast.In: "__contains__",
+    ast.NotIn: "__contains__",
+    # ast.Binop:
     ast.Add: "__add__",
     ast.Sub: "__sub__",
     ast.Mult: "__mul__",
+    ast.Div: "__truediv__",
     ast.FloorDiv: "__floordiv__",
     ast.Mod: "__mod__",
     ast.Pow: "__pow__",
     ast.MatMult: "__matmul__",
+    # ast.UnaryOp:
+    # ast.UAdd
+    ast.USub: "__neg__",
+    ast.Not: "__bool__",
+    ast.Invert: "__invert__",
+    # ast.BoolOp
+    ast.And: "__and__",
+    ast.Or: "__or__",
 }
 
 
@@ -299,41 +312,50 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             self.set_variable_type(n, InstanceType(t), force=True)
         return prevtyps
 
-    def dunder_override(self, node: Union[BinOp, Compare]):
+    def dunder_override(self, node: Union[BinOp, Compare, UnaryOp]):
         # Check for potential dunder_method override
-        if hasattr(node.left, "id"):
-            left_type = self.variable_type(node.left.id)
-            if hasattr(node, "ops"):
-                # only support one op
-                assert len(node.ops) == 1, "Only support one op at a time"
-                op = node.ops[0]
+        operand = None
+        operation = None
+        args = []
+        if isinstance(node, UnaryOp):
+            operand = node.operand
+            operation = node.op
+        elif isinstance(node, BinOp):
+            operand = node.left
+            operation = node.op
+            args.append(node.right)
+        elif isinstance(node, Compare):
+            operation = node.ops[0]
+            if isinstance(operation, Union[ast.In, ast.NotIn]):
+                operand = node.comparators[0]
+                args = [node.left]
             else:
-                op = node.op
+                operand = node.left
+                args = node.comparators
+            assert len(node.ops) == 1, "Only support one op at a time"
+        if operand is not None and hasattr(operand, "id"):
+            operand_type = self.variable_type(operand.id)
             if (
-                op.__class__ in DUNDER_MAP
-                and isinstance(left_type, InstanceType)
-                and isinstance(left_type.typ, RecordType)
+                operation.__class__ in DUNDER_MAP
+                and isinstance(operand_type, InstanceType)
+                and isinstance(operand_type.typ, RecordType)
             ):
-                left_class_name = left_type.typ.record.name
-                method_name = f"{left_class_name}_{DUNDER_MAP[op.__class__]}"
+                dunder = DUNDER_MAP[operation.__class__]
+                operand_class_name = operand_type.typ.record.name
+                method_name = f"{operand_class_name}_{dunder}"
                 if any([method_name in scope for scope in self.scopes]):
-                    return self.visit_Call(
-                        ast.Call(
-                            func=ast.Attribute(
-                                value=node.left,
-                                attr=DUNDER_MAP[op.__class__],
-                                ctx=ast.Load(),
-                            ),
-                            args=(
-                                node.comparators
-                                if isinstance(node, Compare)
-                                else [
-                                    node.right,
-                                ]
-                            ),
-                            keywords=[],
-                        )
+                    call = ast.Call(
+                        func=ast.Attribute(
+                            value=operand,
+                            attr=dunder,
+                            ctx=ast.Load(),
+                        ),
+                        args=args,
+                        keywords=[],
                     )
+                    call.func.orig_id = None
+                    call.func.id = method_name
+                    return self.visit_Call(call)
         return None
 
     def type_from_annotation(self, ann: expr):
@@ -634,6 +656,8 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
     def visit_Compare(self, node: Compare) -> Union[TypedCompare, TypedCall]:
         dunder_node = self.dunder_override(node)
         if dunder_node is not None:
+            if isinstance(node.ops[0], ast.NotIn):
+                return self.visit(ast.UnaryOp(op=ast.Not(), operand=dunder_node))
             return dunder_node
         typed_cmp = copy(node)
         typed_cmp.left = self.visit(node.left)
@@ -760,6 +784,12 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         return tt
 
     def visit_UnaryOp(self, node: UnaryOp) -> TypedUnaryOp:
+        dunder_node = self.dunder_override(node)
+        if dunder_node is not None:
+            if isinstance(node.op, ast.Not):
+                node.operand = dunder_node
+            else:
+                return dunder_node
         tu = copy(node)
         tu.operand = self.visit(node.operand)
         tu.typ = tu.operand.typ.typ.unop_type(node.op).rettyp
@@ -933,6 +963,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                 # if this fails raise original error
                 raise e
             tc.func = self.visit(ast.Name(id=method_name, ctx=ast.Load()))
+            tc.func.orig_id = node.func.attr
             c_self = ast.Name(id=node.func.value.id, ctx=ast.Load())
             tc.args.insert(0, self.visit(c_self))
 
