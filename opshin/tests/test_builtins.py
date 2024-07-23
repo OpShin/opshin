@@ -416,15 +416,23 @@ def validator(x: int, y: bool, z: None) -> None:
         """
         eval_uplc(source_code, x, y, Unit())
 
-    @given(i=st.one_of(st.text(), st.builds(lambda x: x.hex(), st.binary())))
+    @given(
+        i=st.one_of(
+            st.text(),
+            st.builds(lambda x: x.hex(), st.binary()),
+            st.builds(lambda x: x.hex()[:-1], st.binary()),
+            st.builds(lambda x: x.hex().upper(), st.binary()),
+        )
+    )
+    @example("")
     def test_fromhex(self, i):
         source_code = """
 def validator(x: str) -> bytes:
     return b"".fromhex(x)
         """
         try:
-            ret = eval_uplc_value(source_code, i)
-        except:
+            ret = eval_uplc_value(source_code, i.encode("utf8"))
+        except RuntimeError as e:
             ret = None
         try:
             exp = bytes.fromhex(i)

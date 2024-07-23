@@ -1783,10 +1783,8 @@ class ByteStringType(AtomicType):
         if attr == "fromhex":
             return InstanceType(
                 FunctionType(
-                    frozenlist([]),
-                    FunctionType(
-                        frozenlist([StringInstanceType]), ByteStringInstanceType
-                    ),
+                    frozenlist([StringInstanceType]),
+                    ByteStringInstanceType,
                 )
             )
         return super().attribute_type(attr)
@@ -1890,6 +1888,14 @@ class ByteStringType(AtomicType):
                 OLet(
                     [
                         (
+                            "bytestr",
+                            plt.EncodeUtf8(plt.Force(OVar("x"))),
+                        ),
+                        (
+                            "bytestr_len",
+                            plt.LengthOfByteString(OVar("bytestr")),
+                        ),
+                        (
                             "char_to_int",
                             OLambda(
                                 ["c"],
@@ -1940,31 +1946,24 @@ class ByteStringType(AtomicType):
                                     ),
                                 ),
                             ),
-                            (
-                                "bytestr",
-                                plt.EncodeUtf8(OVar("x")),
-                            ),
-                            (
-                                "bytestr_len",
-                                plt.LengthOfByteString(OVar("bytestr")),
-                            ),
-                            (
-                                "splitlist",
-                                plt.RecFun(
-                                    OLambda(
-                                        ["f", "i"],
+                        ),
+                        (
+                            "splitlist",
+                            plt.RecFun(
+                                OLambda(
+                                    ["f", "i"],
+                                    plt.Ite(
+                                        plt.LessThanInteger(
+                                            OVar("bytestr_len"),
+                                            plt.AddInteger(OVar("i"), plt.Integer(1)),
+                                        ),
+                                        plt.ByteString(b""),
                                         plt.Ite(
                                             plt.LessThanInteger(
-                                                OVar("bytestr_len"), OVar("i")
-                                            ),
-                                            plt.ByteString(b""),
-                                            plt.Ite(
-                                                plt.LessThanInteger(
-                                                    OVar("bytestr_len"),
-                                                    plt.AddInteger(
-                                                        OVar("i"), plt.Integer(1)
-                                                    ),
-                                                )
+                                                OVar("bytestr_len"),
+                                                plt.AddInteger(
+                                                    OVar("i"), plt.Integer(2)
+                                                ),
                                             ),
                                             plt.TraceError("Invalid hex string"),
                                             OLet(
@@ -1972,7 +1971,8 @@ class ByteStringType(AtomicType):
                                                     (
                                                         "char_at_i",
                                                         plt.IndexByteString(
-                                                            OVar("bytestr"), OVar("i")
+                                                            OVar("bytestr"),
+                                                            OVar("i"),
                                                         ),
                                                     ),
                                                     (
@@ -1986,7 +1986,7 @@ class ByteStringType(AtomicType):
                                                         ),
                                                     ),
                                                 ],
-                                                plt.MkCons(
+                                                plt.ConsByteString(
                                                     plt.AddInteger(
                                                         plt.MultiplyInteger(
                                                             plt.Apply(
@@ -2004,18 +2004,19 @@ class ByteStringType(AtomicType):
                                                         OVar("f"),
                                                         OVar("f"),
                                                         plt.AddInteger(
-                                                            OVar("i"), plt.Integer(2)
+                                                            OVar("i"),
+                                                            plt.Integer(2),
                                                         ),
                                                     ),
                                                 ),
                                             ),
                                         ),
-                                    )
-                                ),
+                                    ),
+                                )
                             ),
                         ),
                     ],
-                    plt.Apply(OVar("splitlist"), OVar("splitlist"), plt.Integer(0)),
+                    plt.Apply(OVar("splitlist"), plt.Integer(0)),
                 ),
             )
         return super().attribute(attr)
