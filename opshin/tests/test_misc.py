@@ -1128,10 +1128,10 @@ def validator(_: None) -> List[int]:
         code = builder._compile(
             source_code, Unit(), config=DEFAULT_CONFIG_CONSTANT_FOLDING
         )
-        self.assertIn("(con list<integer> [0, 2, 4, 6, 8])", code.dumps())
+        self.assertIn("(con (list integer) [0, 2, 4, 6, 8])", code.dumps())
         res = builder.uplc_eval(code)
         self.assertEqual(
-            res, uplc.PlutusList([uplc.PlutusInteger(i) for i in range(0, 10, 2)])
+            res.result, uplc.PlutusList([uplc.PlutusInteger(i) for i in range(0, 10, 2)])
         )
 
     def test_constant_folding_dict(self):
@@ -1145,9 +1145,11 @@ def validator(_: None) -> Dict[str, bool]:
             source_code, Unit(), config=DEFAULT_CONFIG_CONSTANT_FOLDING
         )
         self.assertIn(
-            "(con list<pair<data, data>> [[#4173, #01], [#416d, #00]]))", code.dumps()
+            "(con (list (pair data data)) [(B #73, I 1), (B #6d, I 0)])", code.dumps()
         )
-        res = uplc_eval(code)
+        res = uplc_eval(code).result
+        if isinstance(res, Exception):
+            raise res
         self.assertEqual(
             res,
             uplc.PlutusMap(
@@ -1194,10 +1196,10 @@ def validator(_: None) -> PubKeyCredential:
         code = builder._compile(
             source_code, Unit(), config=DEFAULT_CONFIG_CONSTANT_FOLDING
         )
-        self.assertIn("(con data #d8799f420011ff)", code.dumps())
+        self.assertIn("(con data (Constr 0 [B #0011]))", code.dumps())
         res = uplc_eval(code)
         self.assertEqual(
-            res,
+            res.result,
             uplc.PlutusConstr(
                 constructor=0, fields=[uplc.PlutusByteString(value=b"\x00\x11")]
             ),
@@ -1215,7 +1217,9 @@ def validator(_: None) -> int:
             source_code, Unit(), config=DEFAULT_CONFIG_CONSTANT_FOLDING
         )
         self.assertIn("(con integer 55)", code.dumps())
-        res = uplc_eval(code)
+        res = uplc_eval(code).result
+        if isinstance(res, Exception):
+            raise res
         self.assertEqual(
             res.value,
             55,
@@ -1314,9 +1318,13 @@ def validator(i: int) -> int:
     return a
 """
         code = builder._compile(source_code, config=DEFAULT_CONFIG_CONSTANT_FOLDING)
-        res = uplc_eval(uplc.Apply(code, uplc.PlutusInteger(0)))
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusInteger(0))).result
+        if isinstance(res, Exception):
+            raise res
         self.assertEqual(res.value, 4)
-        res = uplc_eval(uplc.Apply(code, uplc.PlutusInteger(1)))
+        res = uplc_eval(uplc.Apply(code, uplc.PlutusInteger(1))).result
+        if isinstance(res, Exception):
+            raise res
         self.assertEqual(res.value, 2)
 
     def test_constant_folding_math(self):
