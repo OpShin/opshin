@@ -781,7 +781,11 @@ def validator(x: Union[A, B, C, D]) -> Union[SomeOutputDatumHash, SomeOutputDatu
         x = (
             A(x)
             if isinstance(x, SomeOutputDatumHash)
-            else B(x) if y == 1 else C(0, x) if y == 2 else D(0, 0, x)
+            else B(x)
+            if y == 1
+            else C(0, x)
+            if y == 2
+            else D(0, 0, x)
         )
 
         ret = eval_uplc(source_code, x)
@@ -1131,7 +1135,8 @@ def validator(_: None) -> List[int]:
         self.assertIn("(con (list integer) [0, 2, 4, 6, 8])", code.dumps())
         res = builder.uplc_eval(code)
         self.assertEqual(
-            res.result, uplc.PlutusList([uplc.PlutusInteger(i) for i in range(0, 10, 2)])
+            res.result,
+            uplc.PlutusList([uplc.PlutusInteger(i) for i in range(0, 10, 2)]),
         )
 
     def test_constant_folding_dict(self):

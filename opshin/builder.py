@@ -36,9 +36,9 @@ class PlutusContract:
     contract: PlutusV2Script
     datum_type: Optional[typing.Tuple[str, typing.Type[Datum]]] = None
     redeemer_type: Optional[typing.Tuple[str, typing.Type[Datum]]] = None
-    parameter_types: typing.List[typing.Tuple[str, typing.Type[Datum]]] = (
-        dataclasses.field(default_factory=list)
-    )
+    parameter_types: typing.List[
+        typing.Tuple[str, typing.Type[Datum]]
+    ] = dataclasses.field(default_factory=list)
     purpose: typing.Iterable[Purpose] = (Purpose.any,)
     version: Optional[str] = "1.0.0"
     title: str = "validator"

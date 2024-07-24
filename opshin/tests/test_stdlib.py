@@ -248,6 +248,7 @@ def validator(x: int, z: bool) -> bytes:
         class Test2(PlutusData):
             CONSTR_ID = 0
             x: int
+
         ret = eval_uplc_value(source_code, x, z)
         self.assertEqual(
             ret,
