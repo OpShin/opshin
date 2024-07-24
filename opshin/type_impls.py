@@ -1071,14 +1071,14 @@ class ListType(ClassType):
             OVar("self"),
             OLambda(
                 ["v"],
-                transform_output_map(self.typ)(
+                transform_ext_params_map(self.typ)(
                     plt.Apply(
                         self.typ.copy_only_attributes(),
-                        transform_ext_params_map(self.typ)(OVar("v")),
+                        transform_output_map(self.typ)(OVar("v")),
                     )
                 ),
             ),
-            plt.EmptyDataList(),
+            empty_list(self.typ),
         )
         return OLambda(["self"], mapped_attrs)
 
@@ -1780,6 +1780,13 @@ class ByteStringType(AtomicType):
             return InstanceType(FunctionType(frozenlist([]), StringInstanceType))
         if attr == "hex":
             return InstanceType(FunctionType(frozenlist([]), StringInstanceType))
+        if attr == "fromhex":
+            return InstanceType(
+                FunctionType(
+                    frozenlist([StringInstanceType]),
+                    ByteStringInstanceType,
+                )
+            )
         return super().attribute_type(attr)
 
     def attribute(self, attr) -> plt.AST:
@@ -1873,6 +1880,143 @@ class ByteStringType(AtomicType):
                             ),
                         ),
                     ),
+                ),
+            )
+        if attr == "fromhex":
+            return OLambda(
+                ["_", "x"],
+                OLet(
+                    [
+                        (
+                            "bytestr",
+                            plt.EncodeUtf8(plt.Force(OVar("x"))),
+                        ),
+                        (
+                            "bytestr_len",
+                            plt.LengthOfByteString(OVar("bytestr")),
+                        ),
+                        (
+                            "char_to_int",
+                            OLambda(
+                                ["c"],
+                                plt.Ite(
+                                    plt.And(
+                                        plt.LessThanEqualsInteger(
+                                            plt.Integer(ord("a")), OVar("c")
+                                        ),
+                                        plt.LessThanEqualsInteger(
+                                            OVar("c"), plt.Integer(ord("f"))
+                                        ),
+                                    ),
+                                    plt.AddInteger(
+                                        plt.SubtractInteger(
+                                            OVar("c"), plt.Integer(ord("a"))
+                                        ),
+                                        plt.Integer(10),
+                                    ),
+                                    plt.Ite(
+                                        plt.And(
+                                            plt.LessThanEqualsInteger(
+                                                plt.Integer(ord("0")), OVar("c")
+                                            ),
+                                            plt.LessThanEqualsInteger(
+                                                OVar("c"), plt.Integer(ord("9"))
+                                            ),
+                                        ),
+                                        plt.SubtractInteger(
+                                            OVar("c"), plt.Integer(ord("0"))
+                                        ),
+                                        plt.Ite(
+                                            plt.And(
+                                                plt.LessThanEqualsInteger(
+                                                    plt.Integer(ord("A")), OVar("c")
+                                                ),
+                                                plt.LessThanEqualsInteger(
+                                                    OVar("c"), plt.Integer(ord("F"))
+                                                ),
+                                            ),
+                                            plt.AddInteger(
+                                                plt.SubtractInteger(
+                                                    OVar("c"), plt.Integer(ord("A"))
+                                                ),
+                                                plt.Integer(10),
+                                            ),
+                                            plt.TraceError("Invalid hex character"),
+                                        ),
+                                    ),
+                                ),
+                            ),
+                        ),
+                        (
+                            "splitlist",
+                            plt.RecFun(
+                                OLambda(
+                                    ["f", "i"],
+                                    plt.Ite(
+                                        plt.LessThanInteger(
+                                            OVar("bytestr_len"),
+                                            plt.AddInteger(OVar("i"), plt.Integer(1)),
+                                        ),
+                                        plt.ByteString(b""),
+                                        plt.Ite(
+                                            plt.LessThanInteger(
+                                                OVar("bytestr_len"),
+                                                plt.AddInteger(
+                                                    OVar("i"), plt.Integer(2)
+                                                ),
+                                            ),
+                                            plt.TraceError("Invalid hex string"),
+                                            OLet(
+                                                [
+                                                    (
+                                                        "char_at_i",
+                                                        plt.IndexByteString(
+                                                            OVar("bytestr"),
+                                                            OVar("i"),
+                                                        ),
+                                                    ),
+                                                    (
+                                                        "char_at_ip1",
+                                                        plt.IndexByteString(
+                                                            OVar("bytestr"),
+                                                            plt.AddInteger(
+                                                                OVar("i"),
+                                                                plt.Integer(1),
+                                                            ),
+                                                        ),
+                                                    ),
+                                                ],
+                                                plt.ConsByteString(
+                                                    plt.AddInteger(
+                                                        plt.MultiplyInteger(
+                                                            plt.Apply(
+                                                                OVar("char_to_int"),
+                                                                OVar("char_at_i"),
+                                                            ),
+                                                            plt.Integer(16),
+                                                        ),
+                                                        plt.Apply(
+                                                            OVar("char_to_int"),
+                                                            OVar("char_at_ip1"),
+                                                        ),
+                                                    ),
+                                                    plt.Apply(
+                                                        OVar("f"),
+                                                        OVar("f"),
+                                                        plt.AddInteger(
+                                                            OVar("i"),
+                                                            plt.Integer(2),
+                                                        ),
+                                                    ),
+                                                ),
+                                            ),
+                                        ),
+                                    ),
+                                )
+                            ),
+                        ),
+                    ],
+                    plt.Apply(OVar("splitlist"), plt.Integer(0)),
                 ),
             )
         return super().attribute(attr)
