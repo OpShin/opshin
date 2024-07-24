@@ -1071,14 +1071,14 @@ class ListType(ClassType):
             OVar("self"),
             OLambda(
                 ["v"],
-                transform_output_map(self.typ)(
+                transform_ext_params_map(self.typ)(
                     plt.Apply(
                         self.typ.copy_only_attributes(),
-                        transform_ext_params_map(self.typ)(OVar("v")),
+                        transform_output_map(self.typ)(OVar("v")),
                     )
                 ),
             ),
-            plt.EmptyDataList(),
+            empty_list(self.typ),
         )
         return OLambda(["self"], mapped_attrs)
 
