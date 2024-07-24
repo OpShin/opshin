@@ -1318,11 +1318,11 @@ def validator(i: int) -> int:
     return a
 """
         code = builder._compile(source_code, config=DEFAULT_CONFIG_CONSTANT_FOLDING)
-        res = uplc_eval(uplc.Apply(code, uplc.PlutusInteger(0))).result
+        res = uplc_eval(code, uplc.PlutusInteger(0)).result
         if isinstance(res, Exception):
             raise res
         self.assertEqual(res.value, 4)
-        res = uplc_eval(uplc.Apply(code, uplc.PlutusInteger(1))).result
+        res = uplc_eval(code, uplc.PlutusInteger(1)).result
         if isinstance(res, Exception):
             raise res
         self.assertEqual(res.value, 2)
