@@ -781,11 +781,7 @@ def validator(x: Union[A, B, C, D]) -> Union[SomeOutputDatumHash, SomeOutputDatu
         x = (
             A(x)
             if isinstance(x, SomeOutputDatumHash)
-            else B(x)
-            if y == 1
-            else C(0, x)
-            if y == 2
-            else D(0, 0, x)
+            else B(x) if y == 1 else C(0, x) if y == 2 else D(0, 0, x)
         )
 
         ret = eval_uplc(source_code, x)
