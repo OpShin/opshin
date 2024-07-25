@@ -557,22 +557,25 @@ files = [
     {file = "coverage-7.4.4.tar.gz", hash = "sha256:c901df83d097649e257e803be22592aedfd5182f07b3cc87d640bbb9afd50f49"},
 ]
 
+[package.dependencies]
+tomli = {version = "*", optional = true, markers = "python_full_version <= \"3.11.0a6\" and extra == \"toml\""}
+
 [package.extras]
 toml = ["tomli"]
 
 [[package]]
 name = "coveralls"
-version = "3.4.0a1"
+version = "4.0.1"
 description = "Show coverage stats online via coveralls.io"
 optional = false
 python-versions = "<3.13,>=3.8"
 files = [
-    {file = "coveralls-3.4.0a1-py3-none-any.whl", hash = "sha256:aa059a1ed0c53ea916a017a55d23ddf3730af124c37a373ac1f930c426310566"},
-    {file = "coveralls-3.4.0a1.tar.gz", hash = "sha256:e871b728b10fe80d70d746ebc46440f72262b8e3d8d898beef9bb8d2a4ddd293"},
+    {file = "coveralls-4.0.1-py3-none-any.whl", hash = "sha256:7a6b1fa9848332c7b2221afb20f3df90272ac0167060f41b5fe90429b30b1809"},
+    {file = "coveralls-4.0.1.tar.gz", hash = "sha256:7b2a0a2bcef94f295e3cf28dcc55ca40b71c77d1c2446b538e85f0f7bc21aa69"},
 ]
 
 [package.dependencies]
-coverage = ">=5.0,<6.0.dev0 || >6.1,<6.1.1 || >6.1.1,<7.5"
+coverage = {version = ">=5.0,<6.0.dev0 || >6.1,<6.1.1 || >6.1.1,<8.0", extras = ["toml"]}
 docopt = ">=0.6.1,<0.7.0"
 requests = ">=1.0.0,<3.0.0"
 
@@ -2299,4 +2302,4 @@ test = ["big-O", "importlib-resources", "jaraco.functools", "jaraco.itertools", 
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.8.1, <3.12"
-content-hash = "084a54e8922f1f07080b820184337cd7cde2b7569f5e9edf93f9a30a4bdf3340"
+content-hash = "ee6ab30c0028d83b7e9cc27f1d520e76c3f93d943e15ca04a1b1ccc7b749f8f6"
