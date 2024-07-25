@@ -34,6 +34,7 @@ The following deviations from Python semantics are known and code that involves 
 
 - `isinstance` does only check the constructor id of the Data object, not the number or type of data fields
 - `int(...)` does not automatically trim preceding and trailing space characters. `int("  123  ")` will fail.
+- `bytes.fromhex(...)` does not automatically remove space characters. `bytes.fromhex("00 11\t")` will fail.
 - `pow(x, y)` and `x ** y` do not work and fail when `y` is negative (floats are not supported in opshin)
 - `x <= y <= z` (and all other chained comparisons) will evaluate `y` twice (the official semantic is to execute it only once). Note that this has practically no effect because the only side-effects in OpShin are traces/print statements.
  

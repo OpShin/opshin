@@ -418,7 +418,7 @@ def validator(x: int, y: bool, z: None) -> None:
 
     @given(
         i=st.one_of(
-            st.text(),
+            st.from_regex(r"[^\s]*", fullmatch=True),
             st.builds(lambda x: x.hex(), st.binary()),
             st.builds(lambda x: x.hex()[:-1], st.binary()),
             st.builds(lambda x: x.hex().upper(), st.binary()),
