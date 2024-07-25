@@ -33,7 +33,6 @@ class FileContextFilter(logging.Filter):
     node: ast.AST = None
 
     def filter(self, record):
-
         if self.node is None:
             record.lineno = 1
             record.col_offset = 0

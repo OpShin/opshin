@@ -30,7 +30,10 @@ def eval_uplc(
         validator_function_name=validator_function_name,
         config=config,
     )
-    return uplc_eval(code)
+    ret = uplc_eval(code).result
+    if isinstance(ret, Exception):
+        raise ret
+    return ret
 
 
 def eval_uplc_value(
