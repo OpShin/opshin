@@ -92,8 +92,6 @@ class IsinstanceImpl(PolymorphicFunction):
         assert (
             len(args) == 2
         ), f"isinstance takes two arguments [object, type], but {len(args)} were given"
-        # Plutus dataclasses isinstance is replaced by checking CONSTR_IDs
-        assert isinstance(args[1], (IntegerType, ByteStringType))
         return FunctionType(args, BoolInstanceType)
 
     def impl_from_args(self, args: typing.List[Type]) -> plt.AST:
@@ -119,6 +117,42 @@ class IsinstanceImpl(PolymorphicFunction):
                     plt.Bool(False),
                     plt.Bool(False),
                     plt.Bool(True),
+                ),
+            )
+        elif isinstance(args[1], RecordType):
+            return OLambda(
+                ["x"],
+                plt.ChooseData(
+                    OVar("x"),
+                    plt.Bool(True),
+                    plt.Bool(False),
+                    plt.Bool(False),
+                    plt.Bool(False),
+                    plt.Bool(False),
+                ),
+            )
+        elif isinstance(args[1], ListType):
+            return OLambda(
+                ["x"],
+                plt.ChooseData(
+                    OVar("x"),
+                    plt.Bool(False),
+                    plt.Bool(False),
+                    plt.Bool(True),
+                    plt.Bool(False),
+                    plt.Bool(False),
+                ),
+            )
+        elif isinstance(args[1], DictType):
+            return OLambda(
+                ["x"],
+                plt.ChooseData(
+                    OVar("x"),
+                    plt.Bool(False),
+                    plt.Bool(True),
+                    plt.Bool(False),
+                    plt.Bool(False),
+                    plt.Bool(False),
                 ),
             )
         else:

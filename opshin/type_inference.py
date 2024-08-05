@@ -135,7 +135,7 @@ def union_types(*ts: Type):
     for e in ts:
         for e2 in e.typs:
             assert isinstance(
-                e2, (RecordType, IntegerType, ByteStringType)
+                e2, (RecordType, IntegerType, ByteStringType, ListType, DictType)
             ), f"Union must combine multiple PlutusData classes but found {e2.__class__.__name__}"
     union_set = OrderedSet()
     for t in ts:
@@ -144,7 +144,7 @@ def union_types(*ts: Type):
         [
             e.record.constructor
             for e in union_set
-            if not isinstance(e, (ByteStringType, IntegerType))
+            if not isinstance(e, (ByteStringType, IntegerType, ListType, DictType))
         ]
     ), "Union must combine PlutusData classes with unique constructors"
     return UnionType(frozenlist(union_set))
@@ -187,8 +187,8 @@ class TypeCheckVisitor(TypedNodeVisitor):
                 "Target 0 of an isinstance cast must be a variable name for type casting to work. You can still proceed, but the inferred type of the isinstance cast will not be accurate."
             )
             return ({}, {})
-        assert isinstance(
-            node.args[1], Name
+        assert isinstance(node.args[1], Name) or isinstance(
+            node.args[1].typ, (ListType, DictType)
         ), "Target 1 of an isinstance cast must be a class name"
         target_class: RecordType = node.args[1].typ
         inst = node.args[0]
@@ -709,10 +709,15 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
 
         self.enter_scope()
         tfd.args = self.visit(node.args)
+
         functyp = FunctionType(
             frozenlist([t.typ for t in tfd.args.args]),
             InstanceType(self.type_from_annotation(tfd.returns)),
-            bound_vars={v: self.variable_type(v) for v in externally_bound_vars(node)},
+            bound_vars={
+                v: self.variable_type(v)
+                for v in externally_bound_vars(node)
+                if not v in ["List", "Dict"]
+            },
             bind_self=node.name if node.name in read_vars(node) else None,
         )
         tfd.typ = InstanceType(functyp)
@@ -939,7 +944,10 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         if (
             isinstance(tc.func, Name)
             and tc.func.orig_id == "isinstance"
-            and not isinstance(tc.args[1].typ, (ByteStringType, IntegerType))
+            and not isinstance(
+                tc.args[1].typ, (ByteStringType, IntegerType, ListType, DictType)
+            )
+            and not hasattr(node, "skip_next")
         ):
             target_class = tc.args[1].typ
             if (
@@ -951,7 +959,6 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                     "OpShin does not permit checking the instance of raw Anything/Datum objects as this only checks the equality of the constructor id and nothing more. "
                     "If you are certain of what you are doing, please use the flag '--allow-isinstance-anything'."
                 )
-
             ntc = Compare(
                 left=Attribute(tc.args[0], "CONSTR_ID"),
                 ops=[Eq()],
@@ -961,7 +968,17 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             ntc = self.visit(ntc)
             ntc.typ = BoolInstanceType
             ntc.typechecks = TypeCheckVisitor(self.allow_isinstance_anything).visit(tc)
-            return ntc
+            if isinstance(tc.args[0].typ.typ, UnionType) and any(
+                [
+                    isinstance(a, (IntegerType, ByteStringType, ListType, DictType))
+                    for a in tc.args[0].typ.typ.typs
+                ]
+            ):
+                n = copy(node)
+                n.skip_next = True
+                return self.visit(BoolOp(And(), [n, ntc]))
+            else:
+                return ntc
         try:
             tc.func = self.visit(node.func)
         except Exception as e:
