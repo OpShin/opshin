@@ -87,6 +87,46 @@ class PrintImpl(PolymorphicFunction):
         return print
 
 
+class IsinstanceImpl(PolymorphicFunction):
+    def type_from_args(self, args: typing.List[Type]) -> FunctionType:
+        assert (
+            len(args) == 2
+        ), f"isinstance takes two arguments [object, type], but {len(args)} were given"
+        # Plutus dataclasses isinstance is replaced by checking CONSTR_IDs
+        assert isinstance(args[1], (IntegerType, ByteStringType))
+        return FunctionType(args, BoolInstanceType)
+
+    def impl_from_args(self, args: typing.List[Type]) -> plt.AST:
+        if isinstance(args[1], IntegerType):
+            return OLambda(
+                ["x"],
+                plt.ChooseData(
+                    OVar("x"),
+                    plt.Bool(False),
+                    plt.Bool(False),
+                    plt.Bool(False),
+                    plt.Bool(True),
+                    plt.Bool(False),
+                ),
+            )
+        elif isinstance(args[1], ByteStringType):
+            return OLambda(
+                ["x"],
+                plt.ChooseData(
+                    OVar("x"),
+                    plt.Bool(False),
+                    plt.Bool(False),
+                    plt.Bool(False),
+                    plt.Bool(False),
+                    plt.Bool(True),
+                ),
+            )
+        else:
+            raise NotImplementedError(
+                f"Only isinstance for byte, int, Plutus Dataclass types are supported"
+            )
+
+
 class PythonBuiltIn(Enum):
     all = OLambda(
         ["xs"],
@@ -437,6 +477,7 @@ class PythonBuiltIn(Enum):
             OVar("xs"), plt.BuiltIn(uplc.BuiltInFun.AddInteger), plt.Integer(0)
         ),
     )
+    isinstance = "isinstance"
 
 
 PythonBuiltInTypes = {
@@ -510,4 +551,5 @@ PythonBuiltInTypes = {
             IntegerInstanceType,
         )
     ),
+    PythonBuiltIn.isinstance: InstanceType(PolymorphicFunctionType(IsinstanceImpl())),
 }

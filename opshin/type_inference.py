@@ -135,13 +135,17 @@ def union_types(*ts: Type):
     for e in ts:
         for e2 in e.typs:
             assert isinstance(
-                e2, RecordType
+                e2, (RecordType, IntegerType, ByteStringType)
             ), f"Union must combine multiple PlutusData classes but found {e2.__class__.__name__}"
     union_set = OrderedSet()
     for t in ts:
         union_set.update(t.typs)
     assert distinct(
-        [e.record.constructor for e in union_set]
+        [
+            e.record.constructor
+            for e in union_set
+            if not isinstance(e, (ByteStringType, IntegerType))
+        ]
     ), "Union must combine PlutusData classes with unique constructors"
     return UnionType(frozenlist(union_set))
 
@@ -192,7 +196,7 @@ class TypeCheckVisitor(TypedNodeVisitor):
         assert isinstance(
             inst_class, InstanceType
         ), "Can only cast instances, not classes"
-        assert isinstance(target_class, RecordType), "Can only cast to PlutusData"
+        # assert isinstance(target_class, RecordType), "Can only cast to PlutusData"
         if isinstance(inst_class.typ, UnionType):
             assert (
                 target_class in inst_class.typ.typs
@@ -932,7 +936,11 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             tc.args = [self.visit(a) for a in node.args]
 
         # might be isinstance
-        if isinstance(tc.func, Name) and tc.func.orig_id == "isinstance":
+        if (
+            isinstance(tc.func, Name)
+            and tc.func.orig_id == "isinstance"
+            and not isinstance(tc.args[1].typ, (ByteStringType, IntegerType))
+        ):
             target_class = tc.args[1].typ
             if (
                 isinstance(tc.args[0].typ, InstanceType)
@@ -943,6 +951,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                     "OpShin does not permit checking the instance of raw Anything/Datum objects as this only checks the equality of the constructor id and nothing more. "
                     "If you are certain of what you are doing, please use the flag '--allow-isinstance-anything'."
                 )
+
             ntc = Compare(
                 left=Attribute(tc.args[0], "CONSTR_ID"),
                 ops=[Eq()],

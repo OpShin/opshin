@@ -422,7 +422,14 @@ class PlutoCompiler(CompilingNodeTransformer):
             bind_self = node.func.typ.typ.bind_self
         bound_vs = sorted(list(node.func.typ.typ.bound_vars.keys()))
         args = []
-        for a, t in zip(node.args, node.func.typ.typ.argtyps):
+        for i, (a, t) in enumerate(zip(node.args, node.func.typ.typ.argtyps)):
+            # now impl_from_args has been chosen, skip type arg
+            if (
+                hasattr(node.func, "orig_id")
+                and node.func.orig_id == "isinstance"
+                and i == 1
+            ):
+                continue
             assert isinstance(t, InstanceType)
             # pass in all arguments evaluated with the statemonad
             a_int = self.visit(a)
