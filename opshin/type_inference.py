@@ -456,7 +456,10 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                 assert (
                     func.returns is None or func.returns.id != n.name
                 ), "Invalid Python, class name is undefined at this stage"
-                func.args.args[0].annotation = ast.Name(id=n.name, ctx=ast.Load())
+                ann = ast.Name(id=n.name, ctx=ast.Load())
+                custom_fix_missing_locations(ann, attribute.args.args[0])
+                ann.orig_id = attribute.args.args[0].orig_arg
+                func.args.args[0].annotation = ann
                 additional_functions.append(func)
             n.body = non_method_attributes
         if additional_functions:
@@ -663,8 +666,14 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
 
     def visit_Name(self, node: Name) -> TypedName:
         tn = copy(node)
-        # Make sure that the rhs of an assign is evaluated first
-        tn.typ = self.variable_type(node.id)
+        # typing List and Dict are not present in scope we don't want to call variable_type
+        if node.orig_id == "List":
+            tn.typ = ListType(InstanceType(AnyType()))
+        elif node.orig_id == "Dict":
+            tn.typ = DictType(InstanceType(AnyType()), InstanceType(AnyType()))
+        else:
+            # Make sure that the rhs of an assign is evaluated first
+            tn.typ = self.variable_type(node.id)
         return tn
 
     def visit_keyword(self, node: keyword) -> Typedkeyword:
@@ -952,6 +961,17 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             tc.args = [self.visit(a) for a in node.args]
 
         # might be isinstance
+        # Subscripts are not allowed in isinstance calls
+        if (
+            isinstance(tc.func, Name)
+            and tc.func.orig_id == "isinstance"
+            and isinstance(tc.args[1], Subscript)
+        ):
+            raise TypeError(
+                "Subscripted generics cannot be used with class and instance checks"
+            )
+
+        # Need to handle the presence of PlutusData classes
         if (
             isinstance(tc.func, Name)
             and tc.func.orig_id == "isinstance"
@@ -1003,9 +1023,12 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             except Exception:
                 # if this fails raise original error
                 raise e
-            tc.func = self.visit(ast.Name(id=method_name, ctx=ast.Load()))
+            n = ast.Name(id=method_name, ctx=ast.Load())
+            n.orig_id = node.func.attr
+            tc.func = self.visit(n)
             tc.func.orig_id = node.func.attr
             c_self = ast.Name(id=node.func.value.id, ctx=ast.Load())
+            c_self.orig_id = None
             tc.args.insert(0, self.visit(c_self))
 
         # might be a class
