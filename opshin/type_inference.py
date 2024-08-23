@@ -394,6 +394,21 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                 ann_types = frozenlist(
                     [self.type_from_annotation(e) for e in ann.slice.elts]
                 )
+                # check for unique constr_ids
+                constr_ids = [
+                    record.record.constructor
+                    for record in ann_types
+                    if isinstance(record, RecordType)
+                ]
+                assert len(constr_ids) == len(
+                    set(constr_ids)
+                ), f"Duplicate constr_ids for records in Union: " + str(
+                    {
+                        t.record.orig_name: t.record.constructor
+                        for t in ann_types
+                        if isinstance(t, RecordType)
+                    }
+                )
                 return union_types(*ann_types)
             if ann.value.orig_id == "List":
                 ann_type = self.type_from_annotation(ann.slice)
@@ -836,6 +851,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             "Dict",
             "List",
         ]:
+
             ts.value = ts.typ = self.type_from_annotation(ts)
             return ts
 

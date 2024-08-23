@@ -1,5 +1,4 @@
 import unittest
-
 import hypothesis
 from hypothesis import given
 from hypothesis import strategies as st
@@ -10,6 +9,9 @@ from opshin.util import CompilerError
 hypothesis.settings.load_profile(PLUTUS_VM_PROFILE)
 
 from .test_misc import A
+from typing import List, Dict
+
+from ..ledger.api_v2 import *
 
 
 def to_int(x):
@@ -19,9 +21,9 @@ def to_int(x):
         return 6
     elif isinstance(x, bytes):
         return 7
-    elif isinstance(x, list):
+    elif isinstance(x, List):
         return 8
-    elif isinstance(x, dict):
+    elif isinstance(x, Dict):
         return 9
     return False
 
@@ -239,4 +241,67 @@ def validator(x: Union[A, int, bytes, List[Anything], Dict[int, bytes]]) -> int:
 """
         with self.assertRaises(CompilerError) as ce:
             res = eval_uplc_value(source_code, [1, 2, 3])
+        self.assertIsInstance(ce.exception.orig_err, AssertionError)
+
+    def test_same_constructor_fail(self):
+        @dataclass()
+        class B(PlutusData):
+            CONSTR_ID = 0
+            foo: int
+
+        @dataclass()
+        class C(PlutusData):
+            CONSTR_ID = 0
+            foo: int
+
+        source_code = """
+from dataclasses import dataclass
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
+
+@dataclass()
+class B(PlutusData):
+    CONSTR_ID = 0
+    foo: int
+
+@dataclass()
+class C(PlutusData):
+    CONSTR_ID = 0
+    foo: int
+
+def validator(x: Union[B, C]) -> int:
+    return 100
+"""
+        with self.assertRaises(CompilerError) as ce:
+            res = eval_uplc_value(source_code, B(0))
+        self.assertIsInstance(ce.exception.orig_err, AssertionError)
+
+    def test_str_fail(self):
+        source_code = """
+def validator(x: Union[int, bytes, str]) -> int:
+    if isinstance(x, int):
+        return 5
+    elif isinstance(x, bytes):
+        return 6
+    elif isinstance(x, str):
+        return 7
+    return 100
+"""
+        with self.assertRaises(CompilerError) as ce:
+            res = eval_uplc_value(source_code, "test")
+        self.assertIsInstance(ce.exception.orig_err, AssertionError)
+
+    def test_bool_fail(self):
+        source_code = """
+def validator(x: Union[int, bytes, bool]) -> int:
+    if isinstance(x, int):
+        return 5
+    elif isinstance(x, bytes):
+        return 6
+    elif isinstance(x, bool):
+        return 7
+    return 100
+"""
+        with self.assertRaises(CompilerError) as ce:
+            res = eval_uplc_value(source_code, True)
         self.assertIsInstance(ce.exception.orig_err, AssertionError)
