@@ -1,8 +1,8 @@
 name: Build binaries & add as release assets
 
 on:
-  release:
-    types: [created, published, released, prereleased]
+  repository_dispatch:
+    types: [trigger_binary_build]
 
 jobs:
   build:
