@@ -2,7 +2,7 @@ name: Build binaries & add as release assets
 
 on:
   release:
-    types: [created]
+    types: [created, published, released, prereleased]
 
 jobs:
   build:
