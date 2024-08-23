@@ -39,6 +39,7 @@ coverage = "<8.0"
 pytest = ">=7.3.1,<9.0.0"
 coveralls = "^4.0.1"
 poetry-bumpversion = "^0.3.0"
+pdoc = "^14.6.0"
 
 [tool.poetry.scripts]
 opshin = "opshin.__main__:main"
