@@ -25,8 +25,26 @@ def test_add(a: oc_fractions.Fraction, b: oc_fractions.Fraction):
 
 
 @hypothesis.given(denormalized_fractions, denormalized_fractions)
+def test_add_dunder(a: oc_fractions.Fraction, b: oc_fractions.Fraction):
+    oc_added = a + b
+    oc_normalized = native_fraction_from_oc_fraction(oc_added)
+    assert oc_normalized == (
+        native_fraction_from_oc_fraction(a) + native_fraction_from_oc_fraction(b)
+    ), "Invalid add"
+
+
+@hypothesis.given(denormalized_fractions, denormalized_fractions)
 def test_sub(a: oc_fractions.Fraction, b: oc_fractions.Fraction):
     oc_subbed = oc_fractions.sub_fraction(a, b)
+    oc_normalized = native_fraction_from_oc_fraction(oc_subbed)
+    assert oc_normalized == (
+        native_fraction_from_oc_fraction(a) - native_fraction_from_oc_fraction(b)
+    ), "Invalid sub"
+
+
+@hypothesis.given(denormalized_fractions, denormalized_fractions)
+def test_sub_dunder(a: oc_fractions.Fraction, b: oc_fractions.Fraction):
+    oc_subbed = a - b
     oc_normalized = native_fraction_from_oc_fraction(oc_subbed)
     assert oc_normalized == (
         native_fraction_from_oc_fraction(a) - native_fraction_from_oc_fraction(b)
@@ -40,6 +58,13 @@ def test_neg(a: oc_fractions.Fraction):
     assert oc_normalized == -native_fraction_from_oc_fraction(a), "Invalid neg"
 
 
+@hypothesis.given(denormalized_fractions)
+def test_neg_dunder(a: oc_fractions.Fraction):
+    oc_negged = -a
+    oc_normalized = native_fraction_from_oc_fraction(oc_negged)
+    assert oc_normalized == -native_fraction_from_oc_fraction(a), "Invalid neg"
+
+
 @hypothesis.given(denormalized_fractions, denormalized_fractions)
 def test_mul(a: oc_fractions.Fraction, b: oc_fractions.Fraction):
     oc_mulled = oc_fractions.mul_fraction(a, b)
@@ -49,9 +74,27 @@ def test_mul(a: oc_fractions.Fraction, b: oc_fractions.Fraction):
     ), "Invalid mul"
 
 
+@hypothesis.given(denormalized_fractions, denormalized_fractions)
+def test_mul_dunder(a: oc_fractions.Fraction, b: oc_fractions.Fraction):
+    oc_mulled = a * b
+    oc_normalized = native_fraction_from_oc_fraction(oc_mulled)
+    assert oc_normalized == (
+        native_fraction_from_oc_fraction(a) * native_fraction_from_oc_fraction(b)
+    ), "Invalid mul"
+
+
 @hypothesis.given(denormalized_fractions, denormalized_fractions_non_null)
 def test_div(a: oc_fractions.Fraction, b: oc_fractions.Fraction):
     oc_divved = oc_fractions.div_fraction(a, b)
+    oc_normalized = native_fraction_from_oc_fraction(oc_divved)
+    assert oc_normalized == (
+        native_fraction_from_oc_fraction(a) / native_fraction_from_oc_fraction(b)
+    ), "Invalid div"
+
+
+@hypothesis.given(denormalized_fractions, denormalized_fractions_non_null)
+def test_div_dunder(a: oc_fractions.Fraction, b: oc_fractions.Fraction):
+    oc_divved = a / b
     oc_normalized = native_fraction_from_oc_fraction(oc_divved)
     assert oc_normalized == (
         native_fraction_from_oc_fraction(a) / native_fraction_from_oc_fraction(b)
@@ -76,9 +119,25 @@ def test_norm(a: oc_fractions.Fraction):
     assert oc_normed.denominator == oc_normalized.denominator, "Invalid norm"
 
 
+@hypothesis.given(denormalized_fractions)
+@hypothesis.example(oc_fractions.Fraction(0, -1))
+def test_norm_method(a: oc_fractions.Fraction):
+    oc_normed = a.norm()
+    oc_normalized = native_fraction_from_oc_fraction(a)
+    assert oc_normed.numerator == oc_normalized.numerator, "Invalid norm"
+    assert oc_normed.denominator == oc_normalized.denominator, "Invalid norm"
+
+
 @hypothesis.given(denormalized_fractions, denormalized_fractions)
 def test_ge(a: oc_fractions.Fraction, b: oc_fractions.Fraction):
     oc_ge = oc_fractions.ge_fraction(a, b)
+    ge = native_fraction_from_oc_fraction(a) >= native_fraction_from_oc_fraction(b)
+    assert oc_ge == ge, "Invalid ge"
+
+
+@hypothesis.given(denormalized_fractions, denormalized_fractions)
+def test_ge_dunder(a: oc_fractions.Fraction, b: oc_fractions.Fraction):
+    oc_ge = a >= b
     ge = native_fraction_from_oc_fraction(a) >= native_fraction_from_oc_fraction(b)
     assert oc_ge == ge, "Invalid ge"
 
@@ -91,8 +150,22 @@ def test_le(a: oc_fractions.Fraction, b: oc_fractions.Fraction):
 
 
 @hypothesis.given(denormalized_fractions, denormalized_fractions)
+def test_le_dunder(a: oc_fractions.Fraction, b: oc_fractions.Fraction):
+    oc_le = a <= b
+    le = native_fraction_from_oc_fraction(a) <= native_fraction_from_oc_fraction(b)
+    assert oc_le == le, "Invalid le"
+
+
+@hypothesis.given(denormalized_fractions, denormalized_fractions)
 def test_lt(a: oc_fractions.Fraction, b: oc_fractions.Fraction):
     oc_lt = oc_fractions.lt_fraction(a, b)
+    lt = native_fraction_from_oc_fraction(a) < native_fraction_from_oc_fraction(b)
+    assert oc_lt == lt, "Invalid lt"
+
+
+@hypothesis.given(denormalized_fractions, denormalized_fractions)
+def test_lt_dunder(a: oc_fractions.Fraction, b: oc_fractions.Fraction):
+    oc_lt = a < b
     lt = native_fraction_from_oc_fraction(a) < native_fraction_from_oc_fraction(b)
     assert oc_lt == lt, "Invalid lt"
 
@@ -105,8 +178,22 @@ def test_gt(a: oc_fractions.Fraction, b: oc_fractions.Fraction):
 
 
 @hypothesis.given(denormalized_fractions, denormalized_fractions)
+def test_gt_dunder(a: oc_fractions.Fraction, b: oc_fractions.Fraction):
+    oc_gt = a > b
+    gt = native_fraction_from_oc_fraction(a) > native_fraction_from_oc_fraction(b)
+    assert oc_gt == gt, "Invalid gt"
+
+
+@hypothesis.given(denormalized_fractions, denormalized_fractions)
 def test_eq(a: oc_fractions.Fraction, b: oc_fractions.Fraction):
     oc_eq = oc_fractions.eq_fraction(a, b)
+    eq = native_fraction_from_oc_fraction(a) == native_fraction_from_oc_fraction(b)
+    assert oc_eq == eq, "Invalid eq"
+
+
+@hypothesis.given(denormalized_fractions, denormalized_fractions)
+def test_eq_dunder(a: oc_fractions.Fraction, b: oc_fractions.Fraction):
+    oc_eq = a == b
     eq = native_fraction_from_oc_fraction(a) == native_fraction_from_oc_fraction(b)
     assert oc_eq == eq, "Invalid eq"
 
@@ -119,9 +206,25 @@ def test_floor(a: oc_fractions.Fraction):
     ), "Invalid floor"
 
 
+@hypothesis.given(denormalized_fractions, denormalized_fractions_non_null)
+def test_floor_dunder(a: oc_fractions.Fraction, b: oc_fractions.Fraction):
+    oc_floor = a // b
+    floor = native_fraction_from_oc_fraction(a) // native_fraction_from_oc_fraction(b)
+
+    assert oc_floor == floor, "Invalid floor"
+
+
 @hypothesis.given(denormalized_fractions)
 def test_ceil(a: oc_fractions.Fraction):
     oc_ceil = oc_fractions.ceil_fraction(a)
+    assert (
+        native_math.ceil(native_fraction_from_oc_fraction(a)) == oc_ceil
+    ), "Invalid ceil"
+
+
+@hypothesis.given(denormalized_fractions)
+def test_ceil_method(a: oc_fractions.Fraction):
+    oc_ceil = a.ceil()
     assert (
         native_math.ceil(native_fraction_from_oc_fraction(a)) == oc_ceil
     ), "Invalid ceil"
