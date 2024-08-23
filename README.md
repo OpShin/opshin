@@ -24,19 +24,19 @@ If the program compiles then:
 1. it is a valid Python program
 2. the output running it with python is the same as running it on-chain.
 
-### Why opshin?
+## Why opshin?
 - 100% valid Python. Leverage the existing tool stack for Python, syntax highlighting, linting, debugging, unit-testing, [property-based testing](https://hypothesis.readthedocs.io/), [verification](https://github.com/marcoeilers/nagini)
 - Intuitive. Just like Python.
 - Flexible. Imperative, functional, the way you want it.
 - Efficient & Secure. Static type inference ensures strict typing and optimized code
 
 
-### Getting Started
+## Getting Started
 
 Check out the [OpShin Book](https://book.opshin.dev) for an introduction to this tool and details into writing smart contracts.
 This document will just outline the basic usage of the tool.
 
-#### Installation
+### Installation
 
 Install Python 3.8, 3.9, 3.10 or 3.11. Then run
 
@@ -44,7 +44,7 @@ Install Python 3.8, 3.9, 3.10 or 3.11. Then run
 python3 -m pip install opshin
 ```
 
-#### Writing a Smart Contract
+### Writing a Smart Contract
 
 Check out the [OpShin Book](https://book.opshin.dev) for an introduction to this tool and details into writing smart contracts.
 
@@ -82,7 +82,7 @@ opshin build spending examples/smart_contracts/assert_sum.py
 
 See the [tutorial by `pycardano`](https://pycardano.readthedocs.io/en/latest/guides/plutus.html) for explanations how to build transactions with `opshin` contracts.
 
-### API for Smart Contracts
+## API for Smart Contracts
 
 The python interface offers a simple API to compile, load, apply parameters and evaluate smart contracts.
 
@@ -109,7 +109,7 @@ contract_addr = contract.mainnet_addr
 contract_blueprint = contract.blueprint
 ```
 
-### Debugging artefacts
+## Debugging artefacts
 
 For debugging purposes, you can also run
 
