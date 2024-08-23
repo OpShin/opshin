@@ -4,15 +4,15 @@
 <style>.homelink{display:block;font-size:2em;font-weight:bold;color:#555;padding-bottom:.5em;border-bottom:1px solid silver}.homelink:hover{color:inherit}.homelink img{max-width:20%;max-height:5em;margin:auto;margin-bottom:.3em}</style>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
-<meta name="generator" content="pdoc 0.10.0" />
+<meta name="generator" content="pdoc 0.11.1" />
 <link rel="icon" href="https://raw.githubusercontent.com/OpShin/opshin/dev/docs/opshin_32.png" sizes="32x32" type="image/png">
 <title>opshin.type_impls API documentation</title>
 <meta name="description" content="" />
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/sanitize.min.css" integrity="sha256-PK9q560IAAa6WVRRh76LtCaI8pjTJ2z11v0miyNNjrs=" crossorigin>
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/typography.min.css" integrity="sha256-7l/o7C8jubJiy74VsKTidCy1yBkRtiUGbVkYBylBqUg=" crossorigin>
 <link rel="stylesheet preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/styles/github.min.css" crossorigin>
-<style>:root{--highlight-color:#fe9}.flex{display:flex !important}body{line-height:1.5em}#content{padding:20px}#sidebar{padding:30px;overflow:hidden}#sidebar > *:last-child{margin-bottom:2cm}#lunr-search{width:100%;font-size:1em;padding:6px 9px 5px 9px;border:1px solid silver}.http-server-breadcrumbs{font-size:130%;margin:0 0 15px 0}#footer{font-size:.75em;padding:5px 30px;border-top:1px solid #ddd;text-align:right}#footer p{margin:0 0 0 1em;display:inline-block}#footer p:last-child{margin-right:30px}h1,h2,h3,h4,h5{font-weight:300}h1{font-size:2.5em;line-height:1.1em}h2{font-size:1.75em;margin:1em 0 .50em 0}h3{font-size:1.4em;margin:25px 0 10px 0}h4{margin:0;font-size:105%}h1:target,h2:target,h3:target,h4:target,h5:target,h6:target{background:var(--highlight-color);padding:.2em 0}a{color:#058;text-decoration:none;transition:color .3s ease-in-out}a:hover{color:#e82}.title code{font-weight:bold}h2[id^="header-"]{margin-top:2em}.ident{color:#900}pre code{background:#f8f8f8;font-size:.8em;line-height:1.4em}code{background:#f2f2f1;padding:1px 4px;overflow-wrap:break-word}h1 code{background:transparent}pre{background:#f8f8f8;border:0;border-top:1px solid #ccc;border-bottom:1px solid #ccc;margin:1em 0;padding:1ex}#http-server-module-list{display:flex;flex-flow:column}#http-server-module-list div{display:flex}#http-server-module-list dt{min-width:10%}#http-server-module-list p{margin-top:0}.toc ul,#index{list-style-type:none;margin:0;padding:0}#index code{background:transparent}#index h3{border-bottom:1px solid #ddd}#index ul{padding:0}#index h4{margin-top:.6em;font-weight:bold}@media (min-width:200ex){#index .two-column{column-count:2}}@media (min-width:300ex){#index .two-column{column-count:3}}dl{margin-bottom:2em}dl dl:last-child{margin-bottom:4em}dd{margin:0 0 1em 3em}#header-classes + dl > dd{margin-bottom:3em}dd dd{margin-left:2em}dd p{margin:10px 0}.name{background:#eee;font-weight:bold;font-size:.85em;padding:5px 10px;display:inline-block;min-width:40%}.name:hover{background:#e0e0e0}dt:target .name{background:var(--highlight-color)}.name > span:first-child{white-space:nowrap}.name.class > span:nth-child(2){margin-left:.4em}.inherited{color:#999;border-left:5px solid #eee;padding-left:1em}.inheritance em{font-style:normal;font-weight:bold}.desc h2{font-weight:400;font-size:1.25em}.desc h3{font-size:1em}.desc dt code{background:inherit}.source summary,.git-link-div{color:#666;text-align:right;font-weight:400;font-size:.8em;text-transform:uppercase}.source summary > *{white-space:nowrap;cursor:pointer}.git-link{color:inherit;margin-left:1em}.source pre{max-height:500px;overflow:auto;margin:0}.source pre code{font-size:12px;overflow:visible}.hlist{list-style:none}.hlist li{display:inline}.hlist li:after{content:',\2002'}.hlist li:last-child:after{content:none}.hlist .hlist{display:inline;padding-left:1em}img{max-width:100%}td{padding:0 .5em}.admonition{padding:.1em .5em;margin-bottom:1em}.admonition-title{font-weight:bold}.admonition.note,.admonition.info,.admonition.important{background:#aef}.admonition.todo,.admonition.versionadded,.admonition.tip,.admonition.hint{background:#dfd}.admonition.warning,.admonition.versionchanged,.admonition.deprecated{background:#fd4}.admonition.error,.admonition.danger,.admonition.caution{background:lightpink}</style>
-<style media="screen and (min-width: 700px)">@media screen and (min-width:700px){#sidebar{width:30%;height:100vh;overflow:auto;position:sticky;top:0}#content{width:70%;max-width:100ch;padding:3em 4em;border-left:1px solid #ddd}pre code{font-size:1em}.item .name{font-size:1em}main{display:flex;flex-direction:row-reverse;justify-content:flex-end}.toc ul ul,#index ul{padding-left:1.5em}.toc > ul > li{margin-top:.5em}}</style>
+<style>:root{--highlight-color:#fe9}.flex{display:flex !important}body{line-height:1.5em}#content{padding:20px}#sidebar{padding:1.5em;overflow:hidden}#sidebar > *:last-child{margin-bottom:2cm}#lunr-search{width:100%;font-size:1em;padding:6px 9px 5px 9px;border:1px solid silver}.http-server-breadcrumbs{font-size:130%;margin:0 0 15px 0}#footer{font-size:.75em;padding:5px 30px;border-top:1px solid #ddd;text-align:right}#footer p{margin:0 0 0 1em;display:inline-block}#footer p:last-child{margin-right:30px}h1,h2,h3,h4,h5{font-weight:300}h1{font-size:2.5em;line-height:1.1em}h2{font-size:1.75em;margin:2em 0 .50em 0}h3{font-size:1.4em;margin:1.6em 0 .7em 0}h4{margin:0;font-size:105%}h1:target,h2:target,h3:target,h4:target,h5:target,h6:target{background:var(--highlight-color);padding:.2em 0}a{color:#058;text-decoration:none;transition:color .2s ease-in-out}a:visited{color:#503}a:hover{color:#b62}.title code{font-weight:bold}h2[id^="header-"]{margin-top:2em}.ident{color:#900;font-weight:bold}pre code{font-size:.8em;line-height:1.4em;padding:1em;display:block}code{background:#f3f3f3;font-family:"DejaVu Sans Mono",monospace;padding:1px 4px;overflow-wrap:break-word}h1 code{background:transparent}pre{border-top:1px solid #ccc;border-bottom:1px solid #ccc;margin:1em 0}#http-server-module-list{display:flex;flex-flow:column}#http-server-module-list div{display:flex}#http-server-module-list dt{min-width:10%}#http-server-module-list p{margin-top:0}.toc ul,#index{list-style-type:none;margin:0;padding:0}#index code{background:transparent}#index h3{border-bottom:1px solid #ddd}#index ul{padding:0}#index h4{margin-top:.6em;font-weight:bold}@media (min-width:200ex){#index .two-column{column-count:2}}@media (min-width:300ex){#index .two-column{column-count:3}}dl{margin-bottom:2em}dl dl:last-child{margin-bottom:4em}dd{margin:0 0 1em 3em}#header-classes + dl > dd{margin-bottom:3em}dd dd{margin-left:2em}dd p{margin:10px 0}.name{background:#eee;font-size:.85em;padding:5px 10px;display:inline-block;min-width:40%}.name:hover{background:#e0e0e0}dt:target .name{background:var(--highlight-color)}.name > span:first-child{white-space:nowrap}.name.class > span:nth-child(2){margin-left:.4em}.inherited{color:#999;border-left:5px solid #eee;padding-left:1em}.inheritance em{font-style:normal;font-weight:bold}.desc h2{font-weight:400;font-size:1.25em}.desc h3{font-size:1em}.desc dt code{background:inherit}.source summary,.git-link-div{color:#666;text-align:right;font-weight:400;font-size:.8em;text-transform:uppercase}.source summary > *{white-space:nowrap;cursor:pointer}.git-link{color:inherit;margin-left:1em}.source pre{max-height:500px;overflow:auto;margin:0}.source pre code{font-size:12px;overflow:visible}.hlist{list-style:none}.hlist li{display:inline}.hlist li:after{content:',\2002'}.hlist li:last-child:after{content:none}.hlist .hlist{display:inline;padding-left:1em}img{max-width:100%}td{padding:0 .5em}.admonition{padding:.1em 1em;margin-bottom:1em}.admonition-title{font-weight:bold}.admonition.note,.admonition.info,.admonition.important{background:#aef}.admonition.todo,.admonition.versionadded,.admonition.tip,.admonition.hint{background:#dfd}.admonition.warning,.admonition.versionchanged,.admonition.deprecated{background:#fd4}.admonition.error,.admonition.danger,.admonition.caution{background:lightpink}</style>
+<style media="screen and (min-width: 700px)">@media screen and (min-width:700px){#sidebar{width:30%;height:100vh;overflow:auto;position:sticky;top:0}#content{width:70%;max-width:100ch;padding:3em 4em;border-left:1px solid #ddd}pre code{font-size:1em}.name{font-size:1em}main{display:flex;flex-direction:row-reverse;justify-content:flex-end}.toc ul ul,#index ul ul{padding-left:1em}.toc > ul > li{margin-top:.5em}}</style>
 <style media="print">@media print{#sidebar h1{page-break-before:always}.source{display:none}}@media print{*{background:transparent !important;color:#000 !important;box-shadow:none !important;text-shadow:none !important}a[href]:after{content:" (" attr(href) ")";font-size:90%}a[href][title]:after{content:none}abbr[title]:after{content:" (" attr(title) ")"}.ir a:after,a[href^="javascript:"]:after,a[href^="#"]:after{content:""}pre,blockquote{border:1px solid #999;page-break-inside:avoid}thead{display:table-header-group}tr,img{page-break-inside:avoid}img{max-width:100% !important}@page{margin:0.5cm}p,h2,h3{orphans:3;widows:3}h1,h2,h3,h4,h5,h6{page-break-after:avoid}}</style>
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/highlight.min.js" integrity="sha256-Uv3H6lx7dJmRfRvH8TH6kJD1TSK1aFcwgx+mdg3epi8=" crossorigin></script>
 <script>window.addEventListener('DOMContentLoaded', () => hljs.initHighlighting())</script>
@@ -1141,14 +1141,14 @@ class ListType(ClassType):
             OVar(&#34;self&#34;),
             OLambda(
                 [&#34;v&#34;],
-                transform_output_map(self.typ)(
+                transform_ext_params_map(self.typ)(
                     plt.Apply(
                         self.typ.copy_only_attributes(),
-                        transform_ext_params_map(self.typ)(OVar(&#34;v&#34;)),
+                        transform_output_map(self.typ)(OVar(&#34;v&#34;)),
                     )
                 ),
             ),
-            plt.EmptyDataList(),
+            empty_list(self.typ),
         )
         return OLambda([&#34;self&#34;], mapped_attrs)
 
@@ -1850,6 +1850,13 @@ class ByteStringType(AtomicType):
             return InstanceType(FunctionType(frozenlist([]), StringInstanceType))
         if attr == &#34;hex&#34;:
             return InstanceType(FunctionType(frozenlist([]), StringInstanceType))
+        if attr == &#34;fromhex&#34;:
+            return InstanceType(
+                FunctionType(
+                    frozenlist([StringInstanceType]),
+                    ByteStringInstanceType,
+                )
+            )
         return super().attribute_type(attr)
 
     def attribute(self, attr) -&gt; plt.AST:
@@ -1943,6 +1950,143 @@ class ByteStringType(AtomicType):
                             ),
                         ),
                     ),
+                ),
+            )
+        if attr == &#34;fromhex&#34;:
+            return OLambda(
+                [&#34;_&#34;, &#34;x&#34;],
+                OLet(
+                    [
+                        (
+                            &#34;bytestr&#34;,
+                            plt.EncodeUtf8(plt.Force(OVar(&#34;x&#34;))),
+                        ),
+                        (
+                            &#34;bytestr_len&#34;,
+                            plt.LengthOfByteString(OVar(&#34;bytestr&#34;)),
+                        ),
+                        (
+                            &#34;char_to_int&#34;,
+                            OLambda(
+                                [&#34;c&#34;],
+                                plt.Ite(
+                                    plt.And(
+                                        plt.LessThanEqualsInteger(
+                                            plt.Integer(ord(&#34;a&#34;)), OVar(&#34;c&#34;)
+                                        ),
+                                        plt.LessThanEqualsInteger(
+                                            OVar(&#34;c&#34;), plt.Integer(ord(&#34;f&#34;))
+                                        ),
+                                    ),
+                                    plt.AddInteger(
+                                        plt.SubtractInteger(
+                                            OVar(&#34;c&#34;), plt.Integer(ord(&#34;a&#34;))
+                                        ),
+                                        plt.Integer(10),
+                                    ),
+                                    plt.Ite(
+                                        plt.And(
+                                            plt.LessThanEqualsInteger(
+                                                plt.Integer(ord(&#34;0&#34;)), OVar(&#34;c&#34;)
+                                            ),
+                                            plt.LessThanEqualsInteger(
+                                                OVar(&#34;c&#34;), plt.Integer(ord(&#34;9&#34;))
+                                            ),
+                                        ),
+                                        plt.SubtractInteger(
+                                            OVar(&#34;c&#34;), plt.Integer(ord(&#34;0&#34;))
+                                        ),
+                                        plt.Ite(
+                                            plt.And(
+                                                plt.LessThanEqualsInteger(
+                                                    plt.Integer(ord(&#34;A&#34;)), OVar(&#34;c&#34;)
+                                                ),
+                                                plt.LessThanEqualsInteger(
+                                                    OVar(&#34;c&#34;), plt.Integer(ord(&#34;F&#34;))
+                                                ),
+                                            ),
+                                            plt.AddInteger(
+                                                plt.SubtractInteger(
+                                                    OVar(&#34;c&#34;), plt.Integer(ord(&#34;A&#34;))
+                                                ),
+                                                plt.Integer(10),
+                                            ),
+                                            plt.TraceError(&#34;Invalid hex character&#34;),
+                                        ),
+                                    ),
+                                ),
+                            ),
+                        ),
+                        (
+                            &#34;splitlist&#34;,
+                            plt.RecFun(
+                                OLambda(
+                                    [&#34;f&#34;, &#34;i&#34;],
+                                    plt.Ite(
+                                        plt.LessThanInteger(
+                                            OVar(&#34;bytestr_len&#34;),
+                                            plt.AddInteger(OVar(&#34;i&#34;), plt.Integer(1)),
+                                        ),
+                                        plt.ByteString(b&#34;&#34;),
+                                        plt.Ite(
+                                            plt.LessThanInteger(
+                                                OVar(&#34;bytestr_len&#34;),
+                                                plt.AddInteger(
+                                                    OVar(&#34;i&#34;), plt.Integer(2)
+                                                ),
+                                            ),
+                                            plt.TraceError(&#34;Invalid hex string&#34;),
+                                            OLet(
+                                                [
+                                                    (
+                                                        &#34;char_at_i&#34;,
+                                                        plt.IndexByteString(
+                                                            OVar(&#34;bytestr&#34;),
+                                                            OVar(&#34;i&#34;),
+                                                        ),
+                                                    ),
+                                                    (
+                                                        &#34;char_at_ip1&#34;,
+                                                        plt.IndexByteString(
+                                                            OVar(&#34;bytestr&#34;),
+                                                            plt.AddInteger(
+                                                                OVar(&#34;i&#34;),
+                                                                plt.Integer(1),
+                                                            ),
+                                                        ),
+                                                    ),
+                                                ],
+                                                plt.ConsByteString(
+                                                    plt.AddInteger(
+                                                        plt.MultiplyInteger(
+                                                            plt.Apply(
+                                                                OVar(&#34;char_to_int&#34;),
+                                                                OVar(&#34;char_at_i&#34;),
+                                                            ),
+                                                            plt.Integer(16),
+                                                        ),
+                                                        plt.Apply(
+                                                            OVar(&#34;char_to_int&#34;),
+                                                            OVar(&#34;char_at_ip1&#34;),
+                                                        ),
+                                                    ),
+                                                    plt.Apply(
+                                                        OVar(&#34;f&#34;),
+                                                        OVar(&#34;f&#34;),
+                                                        plt.AddInteger(
+                                                            OVar(&#34;i&#34;),
+                                                            plt.Integer(2),
+                                                        ),
+                                                    ),
+                                                ),
+                                            ),
+                                        ),
+                                    ),
+                                )
+                            ),
+                        ),
+                    ],
+                    plt.Apply(OVar(&#34;splitlist&#34;), plt.Integer(0)),
                 ),
             )
         return super().attribute(attr)
@@ -2781,323 +2925,42 @@ def transform_output_map(p: Type):
 </code></dt>
 <dd>
 <div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def RepeatedAdd(x: plt.AST, y: plt.AST):
-    return plt.Apply(
-        plt.RecFun(
-            OLambda(
-                [&#34;f&#34;, &#34;y&#34;, &#34;x&#34;, &#34;n&#34;],
-                plt.Ite(
-                    plt.LessThanEqualsInteger(OVar(&#34;n&#34;), plt.Integer(0)),
-                    OVar(&#34;y&#34;),
-                    OLet(
-                        [
-                            (
-                                &#34;n_half&#34;,
-                                plt.DivideInteger(OVar(&#34;n&#34;), plt.Integer(2)),
-                            )
-                        ],
-                        plt.Ite(
-                            # tests whether (x//2)*2 == x which is True iff x is even
-                            plt.EqualsInteger(
-                                plt.AddInteger(OVar(&#34;n_half&#34;), OVar(&#34;n_half&#34;)),
-                                OVar(&#34;n&#34;),
-                            ),
-                            plt.Apply(
-                                OVar(&#34;f&#34;),
-                                OVar(&#34;f&#34;),
-                                OVar(&#34;y&#34;),
-                                add(OVar(&#34;x&#34;), OVar(&#34;x&#34;)),
-                                OVar(&#34;n_half&#34;),
-                            ),
-                            plt.Apply(
-                                OVar(&#34;f&#34;),
-                                OVar(&#34;f&#34;),
-                                add(OVar(&#34;y&#34;), OVar(&#34;x&#34;)),
-                                add(OVar(&#34;x&#34;), OVar(&#34;x&#34;)),
-                                OVar(&#34;n_half&#34;),
-                            ),
-                        ),
-                    ),
-                ),
-            ),
-        ),
-        zero,
-        x,
-        y,
-    )</code></pre>
-</details>
 </dd>
 <dt id="opshin.type_impls.PowImpl"><code class="name flex">
 <span>def <span class="ident">PowImpl</span></span>(<span>x: pluthon.pluthon_ast.AST, y: pluthon.pluthon_ast.AST)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def RepeatedAdd(x: plt.AST, y: plt.AST):
-    return plt.Apply(
-        plt.RecFun(
-            OLambda(
-                [&#34;f&#34;, &#34;y&#34;, &#34;x&#34;, &#34;n&#34;],
-                plt.Ite(
-                    plt.LessThanEqualsInteger(OVar(&#34;n&#34;), plt.Integer(0)),
-                    OVar(&#34;y&#34;),
-                    OLet(
-                        [
-                            (
-                                &#34;n_half&#34;,
-                                plt.DivideInteger(OVar(&#34;n&#34;), plt.Integer(2)),
-                            )
-                        ],
-                        plt.Ite(
-                            # tests whether (x//2)*2 == x which is True iff x is even
-                            plt.EqualsInteger(
-                                plt.AddInteger(OVar(&#34;n_half&#34;), OVar(&#34;n_half&#34;)),
-                                OVar(&#34;n&#34;),
-                            ),
-                            plt.Apply(
-                                OVar(&#34;f&#34;),
-                                OVar(&#34;f&#34;),
-                                OVar(&#34;y&#34;),
-                                add(OVar(&#34;x&#34;), OVar(&#34;x&#34;)),
-                                OVar(&#34;n_half&#34;),
-                            ),
-                            plt.Apply(
-                                OVar(&#34;f&#34;),
-                                OVar(&#34;f&#34;),
-                                add(OVar(&#34;y&#34;), OVar(&#34;x&#34;)),
-                                add(OVar(&#34;x&#34;), OVar(&#34;x&#34;)),
-                                OVar(&#34;n_half&#34;),
-                            ),
-                        ),
-                    ),
-                ),
-            ),
-        ),
-        zero,
-        x,
-        y,
-    )</code></pre>
-</details>
 </dd>
 <dt id="opshin.type_impls.StrIntMulImpl"><code class="name flex">
 <span>def <span class="ident">StrIntMulImpl</span></span>(<span>x: pluthon.pluthon_ast.AST, y: pluthon.pluthon_ast.AST)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def RepeatedAdd(x: plt.AST, y: plt.AST):
-    return plt.Apply(
-        plt.RecFun(
-            OLambda(
-                [&#34;f&#34;, &#34;y&#34;, &#34;x&#34;, &#34;n&#34;],
-                plt.Ite(
-                    plt.LessThanEqualsInteger(OVar(&#34;n&#34;), plt.Integer(0)),
-                    OVar(&#34;y&#34;),
-                    OLet(
-                        [
-                            (
-                                &#34;n_half&#34;,
-                                plt.DivideInteger(OVar(&#34;n&#34;), plt.Integer(2)),
-                            )
-                        ],
-                        plt.Ite(
-                            # tests whether (x//2)*2 == x which is True iff x is even
-                            plt.EqualsInteger(
-                                plt.AddInteger(OVar(&#34;n_half&#34;), OVar(&#34;n_half&#34;)),
-                                OVar(&#34;n&#34;),
-                            ),
-                            plt.Apply(
-                                OVar(&#34;f&#34;),
-                                OVar(&#34;f&#34;),
-                                OVar(&#34;y&#34;),
-                                add(OVar(&#34;x&#34;), OVar(&#34;x&#34;)),
-                                OVar(&#34;n_half&#34;),
-                            ),
-                            plt.Apply(
-                                OVar(&#34;f&#34;),
-                                OVar(&#34;f&#34;),
-                                add(OVar(&#34;y&#34;), OVar(&#34;x&#34;)),
-                                add(OVar(&#34;x&#34;), OVar(&#34;x&#34;)),
-                                OVar(&#34;n_half&#34;),
-                            ),
-                        ),
-                    ),
-                ),
-            ),
-        ),
-        zero,
-        x,
-        y,
-    )</code></pre>
-</details>
 </dd>
 <dt id="opshin.type_impls.empty_list"><code class="name flex">
 <span>def <span class="ident">empty_list</span></span>(<span>p: <a title="opshin.type_impls.Type" href="#opshin.type_impls.Type">Type</a>)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def empty_list(p: Type):
-    if p in EmptyListMap:
-        return EmptyListMap[p]
-    assert isinstance(p, InstanceType), &#34;Can only create lists of instances&#34;
-    if isinstance(p.typ, ListType):
-        el = empty_list(p.typ.typ)
-        return plt.EmptyListList(uplc.BuiltinList([], el.sample_value))
-    if isinstance(p.typ, DictType):
-        return plt.EmptyListList(
-            uplc.BuiltinList(
-                [],
-                uplc.BuiltinPair(
-                    uplc.PlutusConstr(0, frozenlist([])),
-                    uplc.PlutusConstr(0, frozenlist([])),
-                ),
-            )
-        )
-    if (
-        isinstance(p.typ, RecordType)
-        or isinstance(p.typ, AnyType)
-        or isinstance(p.typ, UnionType)
-    ):
-        return plt.EmptyDataList()
-    raise NotImplementedError(f&#34;Empty lists of type {p} can&#39;t be constructed yet&#34;)</code></pre>
-</details>
 </dd>
 <dt id="opshin.type_impls.repeated_addition"><code class="name flex">
 <span>def <span class="ident">repeated_addition</span></span>(<span>zero, add)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def repeated_addition(zero, add):
-    # this is optimized for logarithmic complexity by exponentiation by squaring
-    # it follows the implementation described here: https://en.wikipedia.org/wiki/Exponentiation_by_squaring#With_constant_auxiliary_memory
-    def RepeatedAdd(x: plt.AST, y: plt.AST):
-        return plt.Apply(
-            plt.RecFun(
-                OLambda(
-                    [&#34;f&#34;, &#34;y&#34;, &#34;x&#34;, &#34;n&#34;],
-                    plt.Ite(
-                        plt.LessThanEqualsInteger(OVar(&#34;n&#34;), plt.Integer(0)),
-                        OVar(&#34;y&#34;),
-                        OLet(
-                            [
-                                (
-                                    &#34;n_half&#34;,
-                                    plt.DivideInteger(OVar(&#34;n&#34;), plt.Integer(2)),
-                                )
-                            ],
-                            plt.Ite(
-                                # tests whether (x//2)*2 == x which is True iff x is even
-                                plt.EqualsInteger(
-                                    plt.AddInteger(OVar(&#34;n_half&#34;), OVar(&#34;n_half&#34;)),
-                                    OVar(&#34;n&#34;),
-                                ),
-                                plt.Apply(
-                                    OVar(&#34;f&#34;),
-                                    OVar(&#34;f&#34;),
-                                    OVar(&#34;y&#34;),
-                                    add(OVar(&#34;x&#34;), OVar(&#34;x&#34;)),
-                                    OVar(&#34;n_half&#34;),
-                                ),
-                                plt.Apply(
-                                    OVar(&#34;f&#34;),
-                                    OVar(&#34;f&#34;),
-                                    add(OVar(&#34;y&#34;), OVar(&#34;x&#34;)),
-                                    add(OVar(&#34;x&#34;), OVar(&#34;x&#34;)),
-                                    OVar(&#34;n_half&#34;),
-                                ),
-                            ),
-                        ),
-                    ),
-                ),
-            ),
-            zero,
-            x,
-            y,
-        )
-
-    return RepeatedAdd</code></pre>
-</details>
 </dd>
 <dt id="opshin.type_impls.transform_ext_params_map"><code class="name flex">
 <span>def <span class="ident">transform_ext_params_map</span></span>(<span>p: <a title="opshin.type_impls.Type" href="#opshin.type_impls.Type">Type</a>)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def transform_ext_params_map(p: Type):
-    assert isinstance(
-        p, InstanceType
-    ), &#34;Can only transform instances, not classes as input&#34;
-    if p in TransformExtParamsMap:
-        return TransformExtParamsMap[p]
-    if isinstance(p.typ, ListType):
-        list_int_typ = p.typ.typ
-        return lambda x: plt.MapList(
-            plt.UnListData(x),
-            OLambda([&#34;x&#34;], transform_ext_params_map(list_int_typ)(OVar(&#34;x&#34;))),
-            empty_list(p.typ.typ),
-        )
-    if isinstance(p.typ, DictType):
-        # there doesn&#39;t appear to be a constructor function to make Pair a b for any types
-        # so pairs will always contain Data
-        return lambda x: plt.UnMapData(x)
-    return lambda x: x</code></pre>
-</details>
 </dd>
 <dt id="opshin.type_impls.transform_output_map"><code class="name flex">
 <span>def <span class="ident">transform_output_map</span></span>(<span>p: <a title="opshin.type_impls.Type" href="#opshin.type_impls.Type">Type</a>)</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def transform_output_map(p: Type):
-    assert isinstance(
-        p, InstanceType
-    ), &#34;Can only transform instances, not classes as input&#34;
-    if isinstance(p.typ, FunctionType) or isinstance(p.typ, PolymorphicFunction):
-        raise NotImplementedError(
-            &#34;Can not map functions into PlutusData and hence not return them from a function as Anything&#34;
-        )
-    if p in TransformOutputMap:
-        return TransformOutputMap[p]
-    if isinstance(p.typ, ListType):
-        list_int_typ = p.typ.typ
-        return lambda x: plt.ListData(
-            plt.MapList(
-                x,
-                OLambda([&#34;x&#34;], transform_output_map(list_int_typ)(OVar(&#34;x&#34;))),
-            ),
-        )
-    if isinstance(p.typ, DictType):
-        # there doesn&#39;t appear to be a constructor function to make Pair a b for any types
-        # so pairs will always contain Data
-        return lambda x: plt.MapData(x)
-    return lambda x: x</code></pre>
-</details>
 </dd>
 </dl>
 </section>
@@ -3409,20 +3272,6 @@ class AnyType(ClassType):
 </code></dt>
 <dd>
 <div class="desc"><p>The attributes of this class. Need to be a lambda that expects as first argument the object itself</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def attribute(self, attr: str) -&gt; plt.AST:
-    &#34;&#34;&#34;The attributes of this class. Need to be a lambda that expects as first argument the object itself&#34;&#34;&#34;
-    if attr == &#34;CONSTR_ID&#34;:
-        # access to constructor
-        return OLambda(
-            [&#34;self&#34;],
-            plt.Constructor(OVar(&#34;self&#34;)),
-        )
-    return super().attribute(attr)</code></pre>
-</details>
 </dd>
 <dt id="opshin.type_impls.AnyType.attribute_type"><code class="name flex">
 <span>def <span class="ident">attribute_type</span></span>(<span>self, attr: str) ‑> <a title="opshin.type_impls.Type" href="#opshin.type_impls.Type">Type</a></span>
@@ -3433,16 +3282,6 @@ class AnyType(ClassType):
 <code><a title="opshin.type_impls.ClassType" href="#opshin.type_impls.ClassType">ClassType</a></code>.<code><a title="opshin.type_impls.ClassType.attribute_type" href="#opshin.type_impls.ClassType.attribute_type">attribute_type</a></code>
 </p>
 <div class="desc inherited"><p>The types of the named attributes of this class</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def attribute_type(self, attr: str) -&gt; Type:
-    &#34;&#34;&#34;The types of the named attributes of this class&#34;&#34;&#34;
-    if attr == &#34;CONSTR_ID&#34;:
-        return IntegerInstanceType
-    return super().attribute_type(attr)</code></pre>
-</details>
 </dd>
 <dt id="opshin.type_impls.AnyType.binop"><code class="name flex">
 <span>def <span class="ident">binop</span></span>(<span>self, binop: ast.operator, other: ast.AST) ‑> pluthon.pluthon_ast.AST</span>
@@ -3473,63 +3312,6 @@ class AnyType(ClassType):
 <code><a title="opshin.type_impls.ClassType" href="#opshin.type_impls.ClassType">ClassType</a></code>.<code><a title="opshin.type_impls.ClassType.cmp" href="#opshin.type_impls.ClassType.cmp">cmp</a></code>
 </p>
 <div class="desc inherited"><p>The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second …</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def cmp(self, op: cmpop, o: &#34;Type&#34;) -&gt; plt.AST:
-    &#34;&#34;&#34;The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second the comparison.&#34;&#34;&#34;
-    # this will reject comparisons that will always be false - most likely due to faults during programming
-    if (
-        (isinstance(o, RecordType))
-        or isinstance(o, UnionType)
-        or isinstance(o, AnyType)
-    ):
-        # Note that comparison with Record and UnionType is actually fine because both are Data
-        if isinstance(op, Eq):
-            return plt.BuiltIn(uplc.BuiltInFun.EqualsData)
-        if isinstance(op, NotEq):
-            return OLambda(
-                [&#34;x&#34;, &#34;y&#34;],
-                plt.Not(
-                    plt.Apply(
-                        plt.BuiltIn(uplc.BuiltInFun.EqualsData),
-                        OVar(&#34;x&#34;),
-                        OVar(&#34;y&#34;),
-                    )
-                ),
-            )
-    if (
-        isinstance(o, ListType)
-        and isinstance(o.typ, InstanceType)
-        and (o.typ.typ &gt;= self or self &gt;= o.typ.typ)
-    ):
-        if isinstance(op, In):
-            return OLambda(
-                [&#34;x&#34;, &#34;y&#34;],
-                plt.AnyList(
-                    OVar(&#34;y&#34;),
-                    plt.Apply(
-                        plt.BuiltIn(uplc.BuiltInFun.EqualsData),
-                        OVar(&#34;x&#34;),
-                    ),
-                ),
-            )
-        if isinstance(op, NotIn):
-            return OLambda(
-                [&#34;x&#34;, &#34;y&#34;],
-                plt.Not(
-                    plt.AnyList(
-                        OVar(&#34;y&#34;),
-                        plt.Apply(
-                            plt.BuiltIn(uplc.BuiltInFun.EqualsData),
-                            OVar(&#34;x&#34;),
-                        ),
-                    ),
-                ),
-            )
-    return super().cmp(op, o)</code></pre>
-</details>
 </dd>
 <dt id="opshin.type_impls.AnyType.constr"><code class="name flex">
 <span>def <span class="ident">constr</span></span>(<span>self) ‑> pluthon.pluthon_ast.AST</span>
@@ -3571,13 +3353,6 @@ For anything but record …</p></div>
 <code><a title="opshin.type_impls.ClassType" href="#opshin.type_impls.ClassType">ClassType</a></code>.<code><a title="opshin.type_impls.ClassType.id_map" href="#opshin.type_impls.ClassType.id_map">id_map</a></code>
 </p>
 <div class="desc inherited"><p>Returns a map from the constructor id to a descriptive typestring</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def id_map(self, skip_constructor: bool = False) -&gt; str:
-    return &#34;any&#34;</code></pre>
-</details>
 </dd>
 <dt id="opshin.type_impls.AnyType.stringify"><code class="name flex">
 <span>def <span class="ident">stringify</span></span>(<span>self, recursive: bool = False) ‑> pluthon.pluthon_ast.AST</span>
@@ -3588,211 +3363,6 @@ For anything but record …</p></div>
 <code><a title="opshin.type_impls.ClassType" href="#opshin.type_impls.ClassType">ClassType</a></code>.<code><a title="opshin.type_impls.ClassType.stringify" href="#opshin.type_impls.ClassType.stringify">stringify</a></code>
 </p>
 <div class="desc inherited"><p>Returns a stringified version of the object …</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def stringify(self, recursive: bool = False) -&gt; plt.AST:
-    OPSHIN_LOGGER.warning(
-        &#34;Serializing AnyType will result in RawPlutusData (CBOR representation) to be printed without additional type information. Annotate types where possible to avoid this warning.&#34;
-    )
-    return OLambda(
-        [&#34;self&#34;],
-        OLet(
-            [
-                (
-                    &#34;joinMapList&#34;,
-                    OLambda(
-                        [&#34;m&#34;, &#34;l&#34;, &#34;start&#34;, &#34;end&#34;],
-                        OLet(
-                            [
-                                (
-                                    &#34;g&#34;,
-                                    plt.RecFun(
-                                        OLambda(
-                                            [&#34;f&#34;, &#34;l&#34;],
-                                            plt.AppendString(
-                                                plt.Apply(
-                                                    OVar(&#34;m&#34;),
-                                                    plt.HeadList(OVar(&#34;l&#34;)),
-                                                ),
-                                                OLet(
-                                                    [
-                                                        (
-                                                            &#34;t&#34;,
-                                                            plt.TailList(OVar(&#34;l&#34;)),
-                                                        )
-                                                    ],
-                                                    plt.IteNullList(
-                                                        OVar(&#34;t&#34;),
-                                                        OVar(&#34;end&#34;),
-                                                        plt.AppendString(
-                                                            plt.Text(&#34;, &#34;),
-                                                            plt.Apply(
-                                                                OVar(&#34;f&#34;),
-                                                                OVar(&#34;f&#34;),
-                                                                OVar(&#34;t&#34;),
-                                                            ),
-                                                        ),
-                                                    ),
-                                                ),
-                                            ),
-                                        )
-                                    ),
-                                )
-                            ],
-                            plt.AppendString(
-                                OVar(&#34;start&#34;),
-                                plt.IteNullList(
-                                    OVar(&#34;l&#34;),
-                                    OVar(&#34;end&#34;),
-                                    plt.Apply(
-                                        OVar(&#34;g&#34;),
-                                        OVar(&#34;l&#34;),
-                                    ),
-                                ),
-                            ),
-                        ),
-                    ),
-                ),
-                (
-                    &#34;stringifyPlutusData&#34;,
-                    plt.RecFun(
-                        OLambda(
-                            [&#34;f&#34;, &#34;d&#34;],
-                            plt.DelayedChooseData(
-                                OVar(&#34;d&#34;),
-                                OLet(
-                                    [
-                                        (
-                                            &#34;constructor&#34;,
-                                            plt.FstPair(
-                                                plt.UnConstrData(OVar(&#34;d&#34;))
-                                            ),
-                                        )
-                                    ],
-                                    plt.Ite(
-                                        plt.LessThanInteger(
-                                            OVar(&#34;constructor&#34;),
-                                            plt.Integer(128),
-                                        ),
-                                        plt.ConcatString(
-                                            plt.Text(&#34;CBORTag(&#34;),
-                                            plt.Apply(
-                                                OVar(&#34;f&#34;),
-                                                OVar(&#34;f&#34;),
-                                                plt.IData(
-                                                    plt.AddInteger(
-                                                        OVar(&#34;constructor&#34;),
-                                                        plt.Ite(
-                                                            plt.LessThanInteger(
-                                                                OVar(&#34;constructor&#34;),
-                                                                plt.Integer(7),
-                                                            ),
-                                                            plt.Integer(121),
-                                                            plt.Integer(1280 - 7),
-                                                        ),
-                                                    )
-                                                ),
-                                            ),
-                                            plt.Text(&#34;, &#34;),
-                                            plt.Apply(
-                                                OVar(&#34;f&#34;),
-                                                OVar(&#34;f&#34;),
-                                                plt.ListData(
-                                                    plt.SndPair(
-                                                        plt.UnConstrData(OVar(&#34;d&#34;))
-                                                    )
-                                                ),
-                                            ),
-                                            plt.Text(&#34;)&#34;),
-                                        ),
-                                        plt.ConcatString(
-                                            plt.Text(&#34;CBORTag(102, &#34;),
-                                            plt.Apply(
-                                                OVar(&#34;f&#34;),
-                                                OVar(&#34;f&#34;),
-                                                plt.ListData(
-                                                    plt.MkCons(
-                                                        plt.IData(
-                                                            OVar(&#34;constructor&#34;)
-                                                        ),
-                                                        plt.MkCons(
-                                                            plt.ListData(
-                                                                plt.SndPair(
-                                                                    plt.UnConstrData(
-                                                                        OVar(&#34;d&#34;)
-                                                                    )
-                                                                )
-                                                            ),
-                                                            plt.EmptyDataList(),
-                                                        ),
-                                                    )
-                                                ),
-                                            ),
-                                            plt.Text(&#34;)&#34;),
-                                        ),
-                                    ),
-                                ),
-                                plt.Apply(
-                                    OVar(&#34;joinMapList&#34;),
-                                    OLambda(
-                                        [&#34;x&#34;],
-                                        plt.ConcatString(
-                                            plt.Apply(
-                                                OVar(&#34;f&#34;),
-                                                OVar(&#34;f&#34;),
-                                                plt.FstPair(OVar(&#34;x&#34;)),
-                                            ),
-                                            plt.Text(&#34;: &#34;),
-                                            plt.Apply(
-                                                OVar(&#34;f&#34;),
-                                                OVar(&#34;f&#34;),
-                                                plt.SndPair(OVar(&#34;x&#34;)),
-                                            ),
-                                        ),
-                                    ),
-                                    plt.UnMapData(OVar(&#34;d&#34;)),
-                                    plt.Text(&#34;{&#34;),
-                                    plt.Text(&#34;}&#34;),
-                                ),
-                                plt.Apply(
-                                    OVar(&#34;joinMapList&#34;),
-                                    OLambda(
-                                        [&#34;x&#34;],
-                                        plt.Apply(
-                                            OVar(&#34;f&#34;),
-                                            OVar(&#34;f&#34;),
-                                            OVar(&#34;x&#34;),
-                                        ),
-                                    ),
-                                    plt.UnListData(OVar(&#34;d&#34;)),
-                                    plt.Text(&#34;[&#34;),
-                                    plt.Text(&#34;]&#34;),
-                                ),
-                                plt.Apply(
-                                    IntegerInstanceType.stringify(recursive=True),
-                                    plt.UnIData(OVar(&#34;d&#34;)),
-                                ),
-                                plt.Apply(
-                                    ByteStringInstanceType.stringify(
-                                        recursive=True
-                                    ),
-                                    plt.UnBData(OVar(&#34;d&#34;)),
-                                ),
-                            ),
-                        )
-                    ),
-                ),
-            ],
-            plt.ConcatString(
-                plt.Text(&#34;RawPlutusData(data=&#34;),
-                plt.Apply(OVar(&#34;stringifyPlutusData&#34;), OVar(&#34;self&#34;)),
-                plt.Text(&#34;)&#34;),
-            ),
-        ),
-    )</code></pre>
-</details>
 </dd>
 <dt id="opshin.type_impls.AnyType.unop"><code class="name flex">
 <span>def <span class="ident">unop</span></span>(<span>self, unop: ast.unaryop) ‑> pluthon.pluthon_ast.AST</span>
@@ -4039,68 +3609,12 @@ For anything but record …</p></div>
 </code></dt>
 <dd>
 <div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def impl_from_args(self, args: typing.List[Type]) -&gt; plt.AST:
-    arg = args[0]
-    assert isinstance(arg, InstanceType), &#34;Can only create bools from instances&#34;
-    if isinstance(arg.typ, BoolType):
-        return OLambda([&#34;x&#34;], OVar(&#34;x&#34;))
-    elif isinstance(arg.typ, IntegerType):
-        return OLambda([&#34;x&#34;], plt.NotEqualsInteger(OVar(&#34;x&#34;), plt.Integer(0)))
-    elif isinstance(arg.typ, StringType):
-        return OLambda(
-            [&#34;x&#34;],
-            plt.NotEqualsInteger(
-                plt.LengthOfByteString(plt.EncodeUtf8(OVar(&#34;x&#34;))), plt.Integer(0)
-            ),
-        )
-    elif isinstance(arg.typ, ByteStringType):
-        return OLambda(
-            [&#34;x&#34;],
-            plt.NotEqualsInteger(plt.LengthOfByteString(OVar(&#34;x&#34;)), plt.Integer(0)),
-        )
-    elif isinstance(arg.typ, ListType) or isinstance(arg.typ, DictType):
-        return OLambda([&#34;x&#34;], plt.Not(plt.NullList(OVar(&#34;x&#34;))))
-    elif isinstance(arg.typ, UnitType):
-        return OLambda([&#34;x&#34;], plt.Bool(False))
-    else:
-        raise NotImplementedError(
-            f&#34;Can not derive bool from type {arg.typ.__name__}&#34;
-        )</code></pre>
-</details>
 </dd>
 <dt id="opshin.type_impls.BoolImpl.type_from_args"><code class="name flex">
 <span>def <span class="ident">type_from_args</span></span>(<span>self, args: List[<a title="opshin.type_impls.Type" href="#opshin.type_impls.Type">Type</a>]) ‑> <a title="opshin.type_impls.FunctionType" href="#opshin.type_impls.FunctionType">FunctionType</a></span>
 </code></dt>
 <dd>
 <div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def type_from_args(self, args: typing.List[Type]) -&gt; FunctionType:
-    assert (
-        len(args) == 1
-    ), f&#34;&#39;bool&#39; takes only one argument, but {len(args)} were given&#34;
-    typ = args[0]
-    assert isinstance(typ, InstanceType), &#34;Can only create bools from instances&#34;
-    assert any(
-        isinstance(typ.typ, t)
-        for t in (
-            IntegerType,
-            StringType,
-            ByteStringType,
-            BoolType,
-            UnitType,
-            ListType,
-            DictType,
-        )
-    ), &#34;Can only create bools from int, str, bool, bytes, None, list or dict&#34;
-    return FunctionType(args, BoolInstanceType)</code></pre>
-</details>
 </dd>
 </dl>
 </dd>
@@ -4225,40 +3739,6 @@ class BoolType(AtomicType):
 <code><a title="opshin.type_impls.AtomicType" href="#opshin.type_impls.AtomicType">AtomicType</a></code>.<code><a title="opshin.type_impls.AtomicType.cmp" href="#opshin.type_impls.AtomicType.cmp">cmp</a></code>
 </p>
 <div class="desc inherited"><p>The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second …</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def cmp(self, op: cmpop, o: &#34;Type&#34;) -&gt; plt.AST:
-    if isinstance(o, IntegerType):
-        if isinstance(op, Eq):
-            # 1 == True
-            # 0 == False
-            # all other comparisons are False
-            return OLambda(
-                [&#34;y&#34;, &#34;x&#34;],
-                plt.Ite(
-                    OVar(&#34;y&#34;),
-                    plt.EqualsInteger(OVar(&#34;x&#34;), plt.Integer(1)),
-                    plt.EqualsInteger(OVar(&#34;x&#34;), plt.Integer(0)),
-                ),
-            )
-        if isinstance(op, NotEq):
-            return OLambda(
-                [&#34;y&#34;, &#34;x&#34;],
-                plt.Ite(
-                    OVar(&#34;y&#34;),
-                    plt.NotEqualsInteger(OVar(&#34;x&#34;), plt.Integer(1)),
-                    plt.NotEqualsInteger(OVar(&#34;x&#34;), plt.Integer(0)),
-                ),
-            )
-    if isinstance(o, BoolType):
-        if isinstance(op, Eq):
-            return OLambda([&#34;x&#34;, &#34;y&#34;], plt.Iff(OVar(&#34;x&#34;), OVar(&#34;y&#34;)))
-        if isinstance(op, NotEq):
-            return OLambda([&#34;x&#34;, &#34;y&#34;], plt.Not(plt.Iff(OVar(&#34;x&#34;), OVar(&#34;y&#34;))))
-    return super().cmp(op, o)</code></pre>
-</details>
 </dd>
 <dt id="opshin.type_impls.BoolType.constr"><code class="name flex">
 <span>def <span class="ident">constr</span></span>(<span>self) ‑> pluthon.pluthon_ast.AST</span>
@@ -4279,13 +3759,6 @@ class BoolType(AtomicType):
 <code><a title="opshin.type_impls.AtomicType" href="#opshin.type_impls.AtomicType">AtomicType</a></code>.<code><a title="opshin.type_impls.AtomicType.constr_type" href="#opshin.type_impls.AtomicType.constr_type">constr_type</a></code>
 </p>
 <div class="desc inherited"><p>The type of the constructor for this class</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def constr_type(self) -&gt; &#34;InstanceType&#34;:
-    return InstanceType(PolymorphicFunctionType(BoolImpl()))</code></pre>
-</details>
 </dd>
 <dt id="opshin.type_impls.BoolType.copy_only_attributes"><code class="name flex">
 <span>def <span class="ident">copy_only_attributes</span></span>(<span>self) ‑> pluthon.pluthon_ast.AST</span>
@@ -4317,20 +3790,6 @@ For anything but record …</p></div>
 <code><a title="opshin.type_impls.AtomicType" href="#opshin.type_impls.AtomicType">AtomicType</a></code>.<code><a title="opshin.type_impls.AtomicType.stringify" href="#opshin.type_impls.AtomicType.stringify">stringify</a></code>
 </p>
 <div class="desc inherited"><p>Returns a stringified version of the object …</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def stringify(self, recursive: bool = False) -&gt; plt.AST:
-    return OLambda(
-        [&#34;self&#34;],
-        plt.Ite(
-            OVar(&#34;self&#34;),
-            plt.Text(&#34;True&#34;),
-            plt.Text(&#34;False&#34;),
-        ),
-    )</code></pre>
-</details>
 </dd>
 <dt id="opshin.type_impls.BoolType.unop"><code class="name flex">
 <span>def <span class="ident">unop</span></span>(<span>self, unop: ast.unaryop) ‑> pluthon.pluthon_ast.AST</span>
@@ -4376,6 +3835,13 @@ class ByteStringType(AtomicType):
             return InstanceType(FunctionType(frozenlist([]), StringInstanceType))
         if attr == &#34;hex&#34;:
             return InstanceType(FunctionType(frozenlist([]), StringInstanceType))
+        if attr == &#34;fromhex&#34;:
+            return InstanceType(
+                FunctionType(
+                    frozenlist([StringInstanceType]),
+                    ByteStringInstanceType,
+                )
+            )
         return super().attribute_type(attr)
 
     def attribute(self, attr) -&gt; plt.AST:
@@ -4469,6 +3935,143 @@ class ByteStringType(AtomicType):
                             ),
                         ),
                     ),
+                ),
+            )
+        if attr == &#34;fromhex&#34;:
+            return OLambda(
+                [&#34;_&#34;, &#34;x&#34;],
+                OLet(
+                    [
+                        (
+                            &#34;bytestr&#34;,
+                            plt.EncodeUtf8(plt.Force(OVar(&#34;x&#34;))),
+                        ),
+                        (
+                            &#34;bytestr_len&#34;,
+                            plt.LengthOfByteString(OVar(&#34;bytestr&#34;)),
+                        ),
+                        (
+                            &#34;char_to_int&#34;,
+                            OLambda(
+                                [&#34;c&#34;],
+                                plt.Ite(
+                                    plt.And(
+                                        plt.LessThanEqualsInteger(
+                                            plt.Integer(ord(&#34;a&#34;)), OVar(&#34;c&#34;)
+                                        ),
+                                        plt.LessThanEqualsInteger(
+                                            OVar(&#34;c&#34;), plt.Integer(ord(&#34;f&#34;))
+                                        ),
+                                    ),
+                                    plt.AddInteger(
+                                        plt.SubtractInteger(
+                                            OVar(&#34;c&#34;), plt.Integer(ord(&#34;a&#34;))
+                                        ),
+                                        plt.Integer(10),
+                                    ),
+                                    plt.Ite(
+                                        plt.And(
+                                            plt.LessThanEqualsInteger(
+                                                plt.Integer(ord(&#34;0&#34;)), OVar(&#34;c&#34;)
+                                            ),
+                                            plt.LessThanEqualsInteger(
+                                                OVar(&#34;c&#34;), plt.Integer(ord(&#34;9&#34;))
+                                            ),
+                                        ),
+                                        plt.SubtractInteger(
+                                            OVar(&#34;c&#34;), plt.Integer(ord(&#34;0&#34;))
+                                        ),
+                                        plt.Ite(
+                                            plt.And(
+                                                plt.LessThanEqualsInteger(
+                                                    plt.Integer(ord(&#34;A&#34;)), OVar(&#34;c&#34;)
+                                                ),
+                                                plt.LessThanEqualsInteger(
+                                                    OVar(&#34;c&#34;), plt.Integer(ord(&#34;F&#34;))
+                                                ),
+                                            ),
+                                            plt.AddInteger(
+                                                plt.SubtractInteger(
+                                                    OVar(&#34;c&#34;), plt.Integer(ord(&#34;A&#34;))
+                                                ),
+                                                plt.Integer(10),
+                                            ),
+                                            plt.TraceError(&#34;Invalid hex character&#34;),
+                                        ),
+                                    ),
+                                ),
+                            ),
+                        ),
+                        (
+                            &#34;splitlist&#34;,
+                            plt.RecFun(
+                                OLambda(
+                                    [&#34;f&#34;, &#34;i&#34;],
+                                    plt.Ite(
+                                        plt.LessThanInteger(
+                                            OVar(&#34;bytestr_len&#34;),
+                                            plt.AddInteger(OVar(&#34;i&#34;), plt.Integer(1)),
+                                        ),
+                                        plt.ByteString(b&#34;&#34;),
+                                        plt.Ite(
+                                            plt.LessThanInteger(
+                                                OVar(&#34;bytestr_len&#34;),
+                                                plt.AddInteger(
+                                                    OVar(&#34;i&#34;), plt.Integer(2)
+                                                ),
+                                            ),
+                                            plt.TraceError(&#34;Invalid hex string&#34;),
+                                            OLet(
+                                                [
+                                                    (
+                                                        &#34;char_at_i&#34;,
+                                                        plt.IndexByteString(
+                                                            OVar(&#34;bytestr&#34;),
+                                                            OVar(&#34;i&#34;),
+                                                        ),
+                                                    ),
+                                                    (
+                                                        &#34;char_at_ip1&#34;,
+                                                        plt.IndexByteString(
+                                                            OVar(&#34;bytestr&#34;),
+                                                            plt.AddInteger(
+                                                                OVar(&#34;i&#34;),
+                                                                plt.Integer(1),
+                                                            ),
+                                                        ),
+                                                    ),
+                                                ],
+                                                plt.ConsByteString(
+                                                    plt.AddInteger(
+                                                        plt.MultiplyInteger(
+                                                            plt.Apply(
+                                                                OVar(&#34;char_to_int&#34;),
+                                                                OVar(&#34;char_at_i&#34;),
+                                                            ),
+                                                            plt.Integer(16),
+                                                        ),
+                                                        plt.Apply(
+                                                            OVar(&#34;char_to_int&#34;),
+                                                            OVar(&#34;char_at_ip1&#34;),
+                                                        ),
+                                                    ),
+                                                    plt.Apply(
+                                                        OVar(&#34;f&#34;),
+                                                        OVar(&#34;f&#34;),
+                                                        plt.AddInteger(
+                                                            OVar(&#34;i&#34;),
+                                                            plt.Integer(2),
+                                                        ),
+                                                    ),
+                                                ),
+                                            ),
+                                        ),
+                                    ),
+                                )
+                            ),
+                        ),
+                    ],
+                    plt.Apply(OVar(&#34;splitlist&#34;), plt.Integer(0)),
                 ),
             )
         return super().attribute(attr)
@@ -4743,105 +4346,6 @@ class ByteStringType(AtomicType):
 <code><a title="opshin.type_impls.AtomicType" href="#opshin.type_impls.AtomicType">AtomicType</a></code>.<code><a title="opshin.type_impls.AtomicType.attribute" href="#opshin.type_impls.AtomicType.attribute">attribute</a></code>
 </p>
 <div class="desc inherited"><p>The attributes of this class. Needs to be a lambda that expects as first argument the object itself</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def attribute(self, attr) -&gt; plt.AST:
-    if attr == &#34;decode&#34;:
-        # No codec -&gt; only the default (utf8) is allowed
-        return OLambda([&#34;x&#34;, &#34;_&#34;], plt.DecodeUtf8(OVar(&#34;x&#34;)))
-    if attr == &#34;hex&#34;:
-        return OLambda(
-            [&#34;x&#34;, &#34;_&#34;],
-            plt.DecodeUtf8(
-                OLet(
-                    [
-                        (
-                            &#34;hexlist&#34;,
-                            plt.RecFun(
-                                OLambda(
-                                    [&#34;f&#34;, &#34;i&#34;],
-                                    plt.Ite(
-                                        plt.LessThanInteger(
-                                            OVar(&#34;i&#34;), plt.Integer(0)
-                                        ),
-                                        plt.EmptyIntegerList(),
-                                        plt.MkCons(
-                                            plt.IndexByteString(
-                                                OVar(&#34;x&#34;), OVar(&#34;i&#34;)
-                                            ),
-                                            plt.Apply(
-                                                OVar(&#34;f&#34;),
-                                                OVar(&#34;f&#34;),
-                                                plt.SubtractInteger(
-                                                    OVar(&#34;i&#34;), plt.Integer(1)
-                                                ),
-                                            ),
-                                        ),
-                                    ),
-                                ),
-                            ),
-                        ),
-                        (
-                            &#34;map_str&#34;,
-                            OLambda(
-                                [&#34;i&#34;],
-                                plt.AddInteger(
-                                    OVar(&#34;i&#34;),
-                                    plt.IfThenElse(
-                                        plt.LessThanInteger(
-                                            OVar(&#34;i&#34;), plt.Integer(10)
-                                        ),
-                                        plt.Integer(ord(&#34;0&#34;)),
-                                        plt.Integer(ord(&#34;a&#34;) - 10),
-                                    ),
-                                ),
-                            ),
-                        ),
-                        (
-                            &#34;mkstr&#34;,
-                            OLambda(
-                                [&#34;i&#34;],
-                                plt.FoldList(
-                                    plt.Apply(OVar(&#34;hexlist&#34;), OVar(&#34;i&#34;)),
-                                    OLambda(
-                                        [&#34;b&#34;, &#34;i&#34;],
-                                        plt.ConsByteString(
-                                            plt.Apply(
-                                                OVar(&#34;map_str&#34;),
-                                                plt.DivideInteger(
-                                                    OVar(&#34;i&#34;), plt.Integer(16)
-                                                ),
-                                            ),
-                                            plt.ConsByteString(
-                                                plt.Apply(
-                                                    OVar(&#34;map_str&#34;),
-                                                    plt.ModInteger(
-                                                        OVar(&#34;i&#34;),
-                                                        plt.Integer(16),
-                                                    ),
-                                                ),
-                                                OVar(&#34;b&#34;),
-                                            ),
-                                        ),
-                                    ),
-                                    plt.ByteString(b&#34;&#34;),
-                                ),
-                            ),
-                        ),
-                    ],
-                    plt.Apply(
-                        OVar(&#34;mkstr&#34;),
-                        plt.SubtractInteger(
-                            plt.LengthOfByteString(OVar(&#34;x&#34;)), plt.Integer(1)
-                        ),
-                    ),
-                ),
-            ),
-        )
-    return super().attribute(attr)</code></pre>
-</details>
 </dd>
 <dt id="opshin.type_impls.ByteStringType.attribute_type"><code class="name flex">
 <span>def <span class="ident">attribute_type</span></span>(<span>self, attr) ‑> <a title="opshin.type_impls.Type" href="#opshin.type_impls.Type">Type</a></span>
@@ -4852,17 +4356,6 @@ class ByteStringType(AtomicType):
 <code><a title="opshin.type_impls.AtomicType" href="#opshin.type_impls.AtomicType">AtomicType</a></code>.<code><a title="opshin.type_impls.AtomicType.attribute_type" href="#opshin.type_impls.AtomicType.attribute_type">attribute_type</a></code>
 </p>
 <div class="desc inherited"><p>The types of the named attributes of this class</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def attribute_type(self, attr) -&gt; Type:
-    if attr == &#34;decode&#34;:
-        return InstanceType(FunctionType(frozenlist([]), StringInstanceType))
-    if attr == &#34;hex&#34;:
-        return InstanceType(FunctionType(frozenlist([]), StringInstanceType))
-    return super().attribute_type(attr)</code></pre>
-</details>
 </dd>
 <dt id="opshin.type_impls.ByteStringType.binop"><code class="name flex">
 <span>def <span class="ident">binop</span></span>(<span>self, binop: ast.operator, other: ast.AST) ‑> pluthon.pluthon_ast.AST</span>
@@ -4893,78 +4386,6 @@ class ByteStringType(AtomicType):
 <code><a title="opshin.type_impls.AtomicType" href="#opshin.type_impls.AtomicType">AtomicType</a></code>.<code><a title="opshin.type_impls.AtomicType.cmp" href="#opshin.type_impls.AtomicType.cmp">cmp</a></code>
 </p>
 <div class="desc inherited"><p>The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second …</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def cmp(self, op: cmpop, o: &#34;Type&#34;) -&gt; plt.AST:
-    if isinstance(o, ByteStringType):
-        if isinstance(op, Eq):
-            return plt.BuiltIn(uplc.BuiltInFun.EqualsByteString)
-        if isinstance(op, NotEq):
-            return OLambda(
-                [&#34;x&#34;, &#34;y&#34;],
-                plt.Not(
-                    plt.Apply(
-                        plt.BuiltIn(uplc.BuiltInFun.EqualsByteString),
-                        OVar(&#34;y&#34;),
-                        OVar(&#34;x&#34;),
-                    )
-                ),
-            )
-        if isinstance(op, Lt):
-            return plt.BuiltIn(uplc.BuiltInFun.LessThanByteString)
-        if isinstance(op, LtE):
-            return plt.BuiltIn(uplc.BuiltInFun.LessThanEqualsByteString)
-        if isinstance(op, Gt):
-            return OLambda(
-                [&#34;x&#34;, &#34;y&#34;],
-                plt.Apply(
-                    plt.BuiltIn(uplc.BuiltInFun.LessThanByteString),
-                    OVar(&#34;y&#34;),
-                    OVar(&#34;x&#34;),
-                ),
-            )
-        if isinstance(op, GtE):
-            return OLambda(
-                [&#34;x&#34;, &#34;y&#34;],
-                plt.Apply(
-                    plt.BuiltIn(uplc.BuiltInFun.LessThanEqualsByteString),
-                    OVar(&#34;y&#34;),
-                    OVar(&#34;x&#34;),
-                ),
-            )
-    if (
-        isinstance(o, ListType)
-        and isinstance(o.typ, InstanceType)
-        and isinstance(o.typ.typ, ByteStringType)
-    ):
-        if isinstance(op, In):
-            return OLambda(
-                [&#34;x&#34;, &#34;y&#34;],
-                plt.AnyList(
-                    OVar(&#34;y&#34;),
-                    plt.Apply(
-                        plt.BuiltIn(uplc.BuiltInFun.EqualsByteString),
-                        OVar(&#34;x&#34;),
-                    ),
-                ),
-            )
-        if isinstance(op, NotIn):
-            return OLambda(
-                [&#34;x&#34;, &#34;y&#34;],
-                plt.Not(
-                    plt.AnyList(
-                        OVar(&#34;y&#34;),
-                        plt.Apply(
-                            plt.BuiltIn(uplc.BuiltInFun.EqualsByteString),
-                            OVar(&#34;x&#34;),
-                        ),
-                    ),
-                ),
-            )
-    return super().cmp(op, o)</code></pre>
-</details>
 </dd>
 <dt id="opshin.type_impls.ByteStringType.constr"><code class="name flex">
 <span>def <span class="ident">constr</span></span>(<span>self) ‑> pluthon.pluthon_ast.AST</span>
@@ -4985,13 +4406,6 @@ class ByteStringType(AtomicType):
 <code><a title="opshin.type_impls.AtomicType" href="#opshin.type_impls.AtomicType">AtomicType</a></code>.<code><a title="opshin.type_impls.AtomicType.constr_type" href="#opshin.type_impls.AtomicType.constr_type">constr_type</a></code>
 </p>
 <div class="desc inherited"><p>The type of the constructor for this class</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def constr_type(self) -&gt; InstanceType:
-    return InstanceType(PolymorphicFunctionType(BytesImpl()))</code></pre>
-</details>
 </dd>
 <dt id="opshin.type_impls.ByteStringType.copy_only_attributes"><code class="name flex">
 <span>def <span class="ident">copy_only_attributes</span></span>(<span>self) ‑> pluthon.pluthon_ast.AST</span>
@@ -5013,13 +4427,6 @@ For anything but record …</p></div>
 <code><a title="opshin.type_impls.AtomicType" href="#opshin.type_impls.AtomicType">AtomicType</a></code>.<code><a title="opshin.type_impls.AtomicType.id_map" href="#opshin.type_impls.AtomicType.id_map">id_map</a></code>
 </p>
 <div class="desc inherited"><p>Returns a map from the constructor id to a descriptive typestring</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def id_map(self, skip_constructor: bool = False) -&gt; str:
-    return &#34;bytes&#34;</code></pre>
-</details>
 </dd>
 <dt id="opshin.type_impls.ByteStringType.stringify"><code class="name flex">
 <span>def <span class="ident">stringify</span></span>(<span>self, recursive: bool = False) ‑> pluthon.pluthon_ast.AST</span>
@@ -5030,166 +4437,6 @@ For anything but record …</p></div>
 <code><a title="opshin.type_impls.AtomicType" href="#opshin.type_impls.AtomicType">AtomicType</a></code>.<code><a title="opshin.type_impls.AtomicType.stringify" href="#opshin.type_impls.AtomicType.stringify">stringify</a></code>
 </p>
 <div class="desc inherited"><p>Returns a stringified version of the object …</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def stringify(self, recursive: bool = False) -&gt; plt.AST:
-    return OLambda(
-        [&#34;x&#34;],
-        plt.DecodeUtf8(
-            OLet(
-                [
-                    (
-                        &#34;hexlist&#34;,
-                        plt.RecFun(
-                            OLambda(
-                                [&#34;f&#34;, &#34;i&#34;],
-                                plt.Ite(
-                                    plt.LessThanInteger(OVar(&#34;i&#34;), plt.Integer(0)),
-                                    plt.EmptyIntegerList(),
-                                    plt.MkCons(
-                                        plt.IndexByteString(OVar(&#34;x&#34;), OVar(&#34;i&#34;)),
-                                        plt.Apply(
-                                            OVar(&#34;f&#34;),
-                                            OVar(&#34;f&#34;),
-                                            plt.SubtractInteger(
-                                                OVar(&#34;i&#34;), plt.Integer(1)
-                                            ),
-                                        ),
-                                    ),
-                                ),
-                            ),
-                        ),
-                    ),
-                    (
-                        &#34;map_str&#34;,
-                        OLambda(
-                            [&#34;i&#34;],
-                            plt.AddInteger(
-                                OVar(&#34;i&#34;),
-                                plt.IfThenElse(
-                                    plt.LessThanInteger(OVar(&#34;i&#34;), plt.Integer(10)),
-                                    plt.Integer(ord(&#34;0&#34;)),
-                                    plt.Integer(ord(&#34;a&#34;) - 10),
-                                ),
-                            ),
-                        ),
-                    ),
-                    (
-                        &#34;mkstr&#34;,
-                        OLambda(
-                            [&#34;i&#34;],
-                            plt.FoldList(
-                                plt.Apply(OVar(&#34;hexlist&#34;), OVar(&#34;i&#34;)),
-                                OLambda(
-                                    [&#34;b&#34;, &#34;i&#34;],
-                                    plt.Ite(
-                                        # ascii printable characters are kept unmodified
-                                        plt.And(
-                                            plt.LessThanEqualsInteger(
-                                                plt.Integer(0x20), OVar(&#34;i&#34;)
-                                            ),
-                                            plt.LessThanEqualsInteger(
-                                                OVar(&#34;i&#34;), plt.Integer(0x7E)
-                                            ),
-                                        ),
-                                        plt.Ite(
-                                            plt.EqualsInteger(
-                                                OVar(&#34;i&#34;),
-                                                plt.Integer(ord(&#34;\\&#34;)),
-                                            ),
-                                            plt.AppendByteString(
-                                                plt.ByteString(b&#34;\\\\&#34;),
-                                                OVar(&#34;b&#34;),
-                                            ),
-                                            plt.Ite(
-                                                plt.EqualsInteger(
-                                                    OVar(&#34;i&#34;),
-                                                    plt.Integer(ord(&#34;&#39;&#34;)),
-                                                ),
-                                                plt.AppendByteString(
-                                                    plt.ByteString(b&#34;\\&#39;&#34;),
-                                                    OVar(&#34;b&#34;),
-                                                ),
-                                                plt.ConsByteString(
-                                                    OVar(&#34;i&#34;), OVar(&#34;b&#34;)
-                                                ),
-                                            ),
-                                        ),
-                                        plt.Ite(
-                                            plt.EqualsInteger(
-                                                OVar(&#34;i&#34;), plt.Integer(ord(&#34;\t&#34;))
-                                            ),
-                                            plt.AppendByteString(
-                                                plt.ByteString(b&#34;\\t&#34;), OVar(&#34;b&#34;)
-                                            ),
-                                            plt.Ite(
-                                                plt.EqualsInteger(
-                                                    OVar(&#34;i&#34;),
-                                                    plt.Integer(ord(&#34;\n&#34;)),
-                                                ),
-                                                plt.AppendByteString(
-                                                    plt.ByteString(b&#34;\\n&#34;),
-                                                    OVar(&#34;b&#34;),
-                                                ),
-                                                plt.Ite(
-                                                    plt.EqualsInteger(
-                                                        OVar(&#34;i&#34;),
-                                                        plt.Integer(ord(&#34;\r&#34;)),
-                                                    ),
-                                                    plt.AppendByteString(
-                                                        plt.ByteString(b&#34;\\r&#34;),
-                                                        OVar(&#34;b&#34;),
-                                                    ),
-                                                    plt.AppendByteString(
-                                                        plt.ByteString(b&#34;\\x&#34;),
-                                                        plt.ConsByteString(
-                                                            plt.Apply(
-                                                                OVar(&#34;map_str&#34;),
-                                                                plt.DivideInteger(
-                                                                    OVar(&#34;i&#34;),
-                                                                    plt.Integer(16),
-                                                                ),
-                                                            ),
-                                                            plt.ConsByteString(
-                                                                plt.Apply(
-                                                                    OVar(&#34;map_str&#34;),
-                                                                    plt.ModInteger(
-                                                                        OVar(&#34;i&#34;),
-                                                                        plt.Integer(
-                                                                            16
-                                                                        ),
-                                                                    ),
-                                                                ),
-                                                                OVar(&#34;b&#34;),
-                                                            ),
-                                                        ),
-                                                    ),
-                                                ),
-                                            ),
-                                        ),
-                                    ),
-                                ),
-                                plt.ByteString(b&#34;&#34;),
-                            ),
-                        ),
-                    ),
-                ],
-                plt.ConcatByteString(
-                    plt.ByteString(b&#34;b&#39;&#34;),
-                    plt.Apply(
-                        OVar(&#34;mkstr&#34;),
-                        plt.SubtractInteger(
-                            plt.LengthOfByteString(OVar(&#34;x&#34;)), plt.Integer(1)
-                        ),
-                    ),
-                    plt.ByteString(b&#34;&#39;&#34;),
-                ),
-            ),
-        ),
-    )</code></pre>
-</details>
 </dd>
 <dt id="opshin.type_impls.ByteStringType.unop"><code class="name flex">
 <span>def <span class="ident">unop</span></span>(<span>self, unop: ast.unaryop) ‑> pluthon.pluthon_ast.AST</span>
@@ -5283,68 +4530,12 @@ For anything but record …</p></div>
 </code></dt>
 <dd>
 <div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def impl_from_args(self, args: typing.List[Type]) -&gt; plt.AST:
-    arg = args[0]
-    assert isinstance(arg, InstanceType), &#34;Can only create bytes from instances&#34;
-    if isinstance(arg.typ, ByteStringType):
-        return OLambda([&#34;x&#34;], OVar(&#34;x&#34;))
-    elif isinstance(arg.typ, IntegerType):
-        return OLambda(
-            [&#34;x&#34;],
-            plt.Ite(
-                plt.LessThanInteger(OVar(&#34;x&#34;), plt.Integer(0)),
-                plt.TraceError(&#34;ValueError: negative count&#34;),
-                ByteStrIntMulImpl(plt.ByteString(b&#34;\x00&#34;), OVar(&#34;x&#34;)),
-            ),
-        )
-    elif isinstance(arg.typ, ListType):
-        return OLambda(
-            [&#34;xs&#34;],
-            plt.RFoldList(
-                OVar(&#34;xs&#34;),
-                OLambda([&#34;a&#34;, &#34;x&#34;], plt.ConsByteString(OVar(&#34;x&#34;), OVar(&#34;a&#34;))),
-                plt.ByteString(b&#34;&#34;),
-            ),
-        )
-    else:
-        raise NotImplementedError(
-            f&#34;Can not derive bytes from type {arg.typ.__name__}&#34;
-        )</code></pre>
-</details>
 </dd>
 <dt id="opshin.type_impls.BytesImpl.type_from_args"><code class="name flex">
 <span>def <span class="ident">type_from_args</span></span>(<span>self, args: List[<a title="opshin.type_impls.Type" href="#opshin.type_impls.Type">Type</a>]) ‑> <a title="opshin.type_impls.FunctionType" href="#opshin.type_impls.FunctionType">FunctionType</a></span>
 </code></dt>
 <dd>
 <div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def type_from_args(self, args: typing.List[Type]) -&gt; FunctionType:
-    assert (
-        len(args) == 1
-    ), f&#34;&#39;bytes&#39; takes only one argument, but {len(args)} were given&#34;
-    typ = args[0]
-    assert isinstance(typ, InstanceType), &#34;Can only create bools from instances&#34;
-    assert any(
-        isinstance(typ.typ, t)
-        for t in (
-            IntegerType,
-            ByteStringType,
-            ListType,
-        )
-    ), &#34;Can only create bytes from int, bytes or integer lists&#34;
-    if isinstance(typ.typ, ListType):
-        assert (
-            typ.typ.typ == IntegerInstanceType
-        ), &#34;Can only create bytes from integer lists but got a list with another type&#34;
-    return FunctionType(args, ByteStringInstanceType)</code></pre>
-</details>
 </dd>
 </dl>
 </dd>
@@ -5474,17 +4665,6 @@ class ClassType(Type):
 <dd>
 <div class="desc"><p>Returns a copy of this type with only the declared attributes (mapped to builtin values, thus checking atomic types too).
 For anything but record types and union types, this is the identity function.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def copy_only_attributes(self) -&gt; plt.AST:
-    &#34;&#34;&#34;
-    Returns a copy of this type with only the declared attributes (mapped to builtin values, thus checking atomic types too).
-    For anything but record types and union types, this is the identity function.
-    &#34;&#34;&#34;
-    return OLambda([&#34;self&#34;], OVar(&#34;self&#34;))</code></pre>
-</details>
 </dd>
 <dt id="opshin.type_impls.ClassType.id_map"><code class="name flex">
 <span>def <span class="ident">id_map</span></span>(<span>self, skip_constructor: bool = False) ‑> str</span>
@@ -5856,79 +5036,6 @@ class DictType(ClassType):
 <code><a title="opshin.type_impls.ClassType" href="#opshin.type_impls.ClassType">ClassType</a></code>.<code><a title="opshin.type_impls.ClassType.attribute" href="#opshin.type_impls.ClassType.attribute">attribute</a></code>
 </p>
 <div class="desc inherited"><p>The attributes of this class. Needs to be a lambda that expects as first argument the object itself</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def attribute(self, attr) -&gt; plt.AST:
-    if attr == &#34;get&#34;:
-        return OLambda(
-            [&#34;self&#34;, &#34;key&#34;, &#34;default&#34;],
-            transform_ext_params_map(self.value_typ)(
-                OLet(
-                    [
-                        (
-                            &#34;key_mapped&#34;,
-                            transform_output_map(self.key_typ)(
-                                plt.Force(OVar(&#34;key&#34;))
-                            ),
-                        )
-                    ],
-                    plt.SndPair(
-                        plt.FindList(
-                            OVar(&#34;self&#34;),
-                            OLambda(
-                                [&#34;x&#34;],
-                                plt.EqualsData(
-                                    OVar(&#34;key_mapped&#34;),
-                                    plt.FstPair(OVar(&#34;x&#34;)),
-                                ),
-                            ),
-                            # this is a bit ugly... we wrap - only to later unwrap again
-                            plt.MkPairData(
-                                OVar(&#34;key_mapped&#34;),
-                                transform_output_map(self.value_typ)(
-                                    plt.Force(OVar(&#34;default&#34;))
-                                ),
-                            ),
-                        ),
-                    ),
-                ),
-            ),
-        )
-    if attr == &#34;keys&#34;:
-        return OLambda(
-            [&#34;self&#34;, &#34;_&#34;],
-            plt.MapList(
-                OVar(&#34;self&#34;),
-                OLambda(
-                    [&#34;x&#34;],
-                    transform_ext_params_map(self.key_typ)(plt.FstPair(OVar(&#34;x&#34;))),
-                ),
-                empty_list(self.key_typ),
-            ),
-        )
-    if attr == &#34;values&#34;:
-        return OLambda(
-            [&#34;self&#34;, &#34;_&#34;],
-            plt.MapList(
-                OVar(&#34;self&#34;),
-                OLambda(
-                    [&#34;x&#34;],
-                    transform_ext_params_map(self.value_typ)(
-                        plt.SndPair(OVar(&#34;x&#34;))
-                    ),
-                ),
-                empty_list(self.value_typ),
-            ),
-        )
-    if attr == &#34;items&#34;:
-        return OLambda(
-            [&#34;self&#34;, &#34;_&#34;],
-            OVar(&#34;self&#34;),
-        )
-    raise NotImplementedError(f&#34;Attribute &#39;{attr}&#39; of Dict is unknown.&#34;)</code></pre>
-</details>
 </dd>
 <dt id="opshin.type_impls.DictType.attribute_type"><code class="name flex">
 <span>def <span class="ident">attribute_type</span></span>(<span>self, attr) ‑> <a title="opshin.type_impls.Type" href="#opshin.type_impls.Type">Type</a></span>
@@ -5939,36 +5046,6 @@ class DictType(ClassType):
 <code><a title="opshin.type_impls.ClassType" href="#opshin.type_impls.ClassType">ClassType</a></code>.<code><a title="opshin.type_impls.ClassType.attribute_type" href="#opshin.type_impls.ClassType.attribute_type">attribute_type</a></code>
 </p>
 <div class="desc inherited"><p>The types of the named attributes of this class</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def attribute_type(self, attr) -&gt; &#34;Type&#34;:
-    if attr == &#34;get&#34;:
-        return InstanceType(
-            FunctionType(frozenlist([self.key_typ, self.value_typ]), self.value_typ)
-        )
-    if attr == &#34;keys&#34;:
-        return InstanceType(
-            FunctionType(frozenlist([]), InstanceType(ListType(self.key_typ)))
-        )
-    if attr == &#34;values&#34;:
-        return InstanceType(
-            FunctionType(frozenlist([]), InstanceType(ListType(self.value_typ)))
-        )
-    if attr == &#34;items&#34;:
-        return InstanceType(
-            FunctionType(
-                frozenlist([]),
-                InstanceType(
-                    ListType(InstanceType(PairType(self.key_typ, self.value_typ)))
-                ),
-            )
-        )
-    raise TypeInferenceError(
-        f&#34;Type of attribute &#39;{attr}&#39; is unknown for type Dict.&#34;
-    )</code></pre>
-</details>
 </dd>
 <dt id="opshin.type_impls.DictType.binop"><code class="name flex">
 <span>def <span class="ident">binop</span></span>(<span>self, binop: ast.operator, other: ast.AST) ‑> pluthon.pluthon_ast.AST</span>
@@ -6030,120 +5107,6 @@ class DictType(ClassType):
 </p>
 <div class="desc inherited"><p>Returns a copy of this type with only the declared attributes (mapped to builtin values, thus checking atomic types too).
 For anything but record …</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def copy_only_attributes(self) -&gt; plt.AST:
-    def CustomMapFilterList(
-        l: plt.AST,
-        filter_op: plt.AST,
-        map_op: plt.AST,
-        empty_list=plt.EmptyDataList(),
-    ):
-        from pluthon import (
-            Apply,
-            Lambda as PLambda,
-            RecFun,
-            IteNullList,
-            Var as PVar,
-            HeadList,
-            Ite,
-            TailList,
-            PrependList,
-            Let as PLet,
-        )
-
-        &#34;&#34;&#34;
-        Apply a filter and a map function on each element in a list (throws out all that evaluate to false)
-        Performs only a single pass and is hence much more efficient than filter + map
-        &#34;&#34;&#34;
-        return Apply(
-            PLambda(
-                [&#34;filter&#34;, &#34;map&#34;],
-                RecFun(
-                    PLambda(
-                        [&#34;filtermap&#34;, &#34;xs&#34;],
-                        IteNullList(
-                            PVar(&#34;xs&#34;),
-                            empty_list,
-                            PLet(
-                                [
-                                    (&#34;head&#34;, HeadList(PVar(&#34;xs&#34;))),
-                                    (&#34;tail&#34;, TailList(PVar(&#34;xs&#34;))),
-                                ],
-                                Ite(
-                                    Apply(
-                                        PVar(&#34;filter&#34;), PVar(&#34;head&#34;), PVar(&#34;tail&#34;)
-                                    ),
-                                    PrependList(
-                                        Apply(PVar(&#34;map&#34;), PVar(&#34;head&#34;)),
-                                        Apply(
-                                            PVar(&#34;filtermap&#34;),
-                                            PVar(&#34;filtermap&#34;),
-                                            PVar(&#34;tail&#34;),
-                                        ),
-                                    ),
-                                    Apply(
-                                        PVar(&#34;filtermap&#34;),
-                                        PVar(&#34;filtermap&#34;),
-                                        PVar(&#34;tail&#34;),
-                                    ),
-                                ),
-                            ),
-                        ),
-                    ),
-                ),
-            ),
-            filter_op,
-            map_op,
-            l,
-        )
-
-    mapped_attrs = CustomMapFilterList(
-        OVar(&#34;self&#34;),
-        OLambda(
-            [&#34;h&#34;, &#34;t&#34;],
-            OLet(
-                [
-                    (&#34;hfst&#34;, plt.FstPair(OVar(&#34;h&#34;))),
-                ],
-                plt.Not(
-                    plt.AnyList(
-                        OVar(&#34;t&#34;),
-                        OLambda(
-                            [&#34;e&#34;],
-                            plt.EqualsData(OVar(&#34;hfst&#34;), plt.FstPair(OVar(&#34;e&#34;))),
-                        ),
-                    )
-                ),
-            ),
-        ),
-        OLambda(
-            [&#34;v&#34;],
-            plt.MkPairData(
-                transform_output_map(self.key_typ)(
-                    plt.Apply(
-                        self.key_typ.copy_only_attributes(),
-                        transform_ext_params_map(self.key_typ)(
-                            plt.FstPair(OVar(&#34;v&#34;))
-                        ),
-                    )
-                ),
-                transform_output_map(self.value_typ)(
-                    plt.Apply(
-                        self.value_typ.copy_only_attributes(),
-                        transform_ext_params_map(self.value_typ)(
-                            plt.SndPair(OVar(&#34;v&#34;))
-                        ),
-                    )
-                ),
-            ),
-        ),
-        plt.EmptyDataPairList(),
-    )
-    return OLambda([&#34;self&#34;], mapped_attrs)</code></pre>
-</details>
 </dd>
 <dt id="opshin.type_impls.DictType.id_map"><code class="name flex">
 <span>def <span class="ident">id_map</span></span>(<span>self, skip_constructor: bool = False) ‑> str</span>
@@ -6154,13 +5117,6 @@ For anything but record …</p></div>
 <code><a title="opshin.type_impls.ClassType" href="#opshin.type_impls.ClassType">ClassType</a></code>.<code><a title="opshin.type_impls.ClassType.id_map" href="#opshin.type_impls.ClassType.id_map">id_map</a></code>
 </p>
 <div class="desc inherited"><p>Returns a map from the constructor id to a descriptive typestring</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def id_map(self, skip_constructor: bool = False) -&gt; str:
-    return &#34;map&lt;&#34; + self.key_typ.id_map() + &#34;,&#34; + self.value_typ.id_map() + &#34;&gt;&#34;</code></pre>
-</details>
 </dd>
 <dt id="opshin.type_impls.DictType.stringify"><code class="name flex">
 <span>def <span class="ident">stringify</span></span>(<span>self, recursive: bool = False) ‑> pluthon.pluthon_ast.AST</span>
@@ -6171,71 +5127,6 @@ For anything but record …</p></div>
 <code><a title="opshin.type_impls.ClassType" href="#opshin.type_impls.ClassType">ClassType</a></code>.<code><a title="opshin.type_impls.ClassType.stringify" href="#opshin.type_impls.ClassType.stringify">stringify</a></code>
 </p>
 <div class="desc inherited"><p>Returns a stringified version of the object …</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def stringify(self, recursive: bool = False) -&gt; plt.AST:
-    return OLambda(
-        [&#34;self&#34;],
-        OLet(
-            [
-                (
-                    &#34;g&#34;,
-                    plt.RecFun(
-                        OLambda(
-                            [&#34;f&#34;, &#34;l&#34;],
-                            OLet(
-                                [
-                                    (&#34;h&#34;, plt.HeadList(OVar(&#34;l&#34;))),
-                                    (&#34;t&#34;, plt.TailList(OVar(&#34;l&#34;))),
-                                ],
-                                plt.ConcatString(
-                                    plt.Apply(
-                                        self.key_typ.stringify(recursive=True),
-                                        transform_ext_params_map(self.key_typ)(
-                                            plt.FstPair(OVar(&#34;h&#34;))
-                                        ),
-                                    ),
-                                    plt.Text(&#34;: &#34;),
-                                    plt.Apply(
-                                        self.value_typ.stringify(recursive=True),
-                                        transform_ext_params_map(self.value_typ)(
-                                            plt.SndPair(OVar(&#34;h&#34;))
-                                        ),
-                                    ),
-                                    plt.IteNullList(
-                                        OVar(&#34;t&#34;),
-                                        plt.Text(&#34;}&#34;),
-                                        plt.AppendString(
-                                            plt.Text(&#34;, &#34;),
-                                            plt.Apply(
-                                                OVar(&#34;f&#34;),
-                                                OVar(&#34;f&#34;),
-                                                OVar(&#34;t&#34;),
-                                            ),
-                                        ),
-                                    ),
-                                ),
-                            ),
-                        )
-                    ),
-                )
-            ],
-            plt.AppendString(
-                plt.Text(&#34;{&#34;),
-                plt.IteNullList(
-                    OVar(&#34;self&#34;),
-                    plt.Text(&#34;}&#34;),
-                    plt.Apply(
-                        OVar(&#34;g&#34;),
-                        OVar(&#34;self&#34;),
-                    ),
-                ),
-            ),
-        ),
-    )</code></pre>
-</details>
 </dd>
 <dt id="opshin.type_impls.DictType.unop"><code class="name flex">
 <span>def <span class="ident">unop</span></span>(<span>self, unop: ast.unaryop) ‑> pluthon.pluthon_ast.AST</span>
@@ -6423,13 +5314,6 @@ For anything but record …</p></div>
 <code><a title="opshin.type_impls.ClassType" href="#opshin.type_impls.ClassType">ClassType</a></code>.<code><a title="opshin.type_impls.ClassType.stringify" href="#opshin.type_impls.ClassType.stringify">stringify</a></code>
 </p>
 <div class="desc inherited"><p>Returns a stringified version of the object …</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def stringify(self, recursive: bool = False) -&gt; plt.AST:
-    return OLambda([&#34;x&#34;], plt.Text(&#34;&lt;function&gt;&#34;))</code></pre>
-</details>
 </dd>
 <dt id="opshin.type_impls.FunctionType.unop"><code class="name flex">
 <span>def <span class="ident">unop</span></span>(<span>self, unop: ast.unaryop) ‑> pluthon.pluthon_ast.AST</span>
@@ -6679,13 +5563,6 @@ class InstanceType(Type):
 <code><a title="opshin.type_impls.Type" href="#opshin.type_impls.Type">Type</a></code>.<code><a title="opshin.type_impls.Type.attribute" href="#opshin.type_impls.Type.attribute">attribute</a></code>
 </p>
 <div class="desc inherited"><p>The attributes of this class. Needs to be a lambda that expects as first argument the object itself</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def attribute(self, attr) -&gt; plt.AST:
-    return self.typ.attribute(attr)</code></pre>
-</details>
 </dd>
 <dt id="opshin.type_impls.InstanceType.attribute_type"><code class="name flex">
 <span>def <span class="ident">attribute_type</span></span>(<span>self, attr) ‑> <a title="opshin.type_impls.Type" href="#opshin.type_impls.Type">Type</a></span>
@@ -6696,13 +5573,6 @@ class InstanceType(Type):
 <code><a title="opshin.type_impls.Type" href="#opshin.type_impls.Type">Type</a></code>.<code><a title="opshin.type_impls.Type.attribute_type" href="#opshin.type_impls.Type.attribute_type">attribute_type</a></code>
 </p>
 <div class="desc inherited"><p>The types of the named attributes of this class</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def attribute_type(self, attr) -&gt; Type:
-    return self.typ.attribute_type(attr)</code></pre>
-</details>
 </dd>
 <dt id="opshin.type_impls.InstanceType.binop"><code class="name flex">
 <span>def <span class="ident">binop</span></span>(<span>self, binop: ast.operator, other: ast.AST) ‑> pluthon.pluthon_ast.AST</span>
@@ -6713,13 +5583,6 @@ class InstanceType(Type):
 <code><a title="opshin.type_impls.Type" href="#opshin.type_impls.Type">Type</a></code>.<code><a title="opshin.type_impls.Type.binop" href="#opshin.type_impls.Type.binop">binop</a></code>
 </p>
 <div class="desc inherited"><p>Implements a binary operation between self and other</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def binop(self, binop: operator, other: AST) -&gt; plt.AST:
-    return self.typ.binop(binop, other)</code></pre>
-</details>
 </dd>
 <dt id="opshin.type_impls.InstanceType.binop_type"><code class="name flex">
 <span>def <span class="ident">binop_type</span></span>(<span>self, binop: ast.operator, other: <a title="opshin.type_impls.Type" href="#opshin.type_impls.Type">Type</a>) ‑> <a title="opshin.type_impls.Type" href="#opshin.type_impls.Type">Type</a></span>
@@ -6730,13 +5593,6 @@ class InstanceType(Type):
 <code><a title="opshin.type_impls.Type" href="#opshin.type_impls.Type">Type</a></code>.<code><a title="opshin.type_impls.Type.binop_type" href="#opshin.type_impls.Type.binop_type">binop_type</a></code>
 </p>
 <div class="desc inherited"><p>Type of a binary operation between self and other.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def binop_type(self, binop: operator, other: &#34;Type&#34;) -&gt; &#34;Type&#34;:
-    return self.typ.binop_type(binop, other)</code></pre>
-</details>
 </dd>
 <dt id="opshin.type_impls.InstanceType.cmp"><code class="name flex">
 <span>def <span class="ident">cmp</span></span>(<span>self, op: ast.cmpop, o: <a title="opshin.type_impls.Type" href="#opshin.type_impls.Type">Type</a>) ‑> pluthon.pluthon_ast.AST</span>
@@ -6747,16 +5603,6 @@ class InstanceType(Type):
 <code><a title="opshin.type_impls.Type" href="#opshin.type_impls.Type">Type</a></code>.<code><a title="opshin.type_impls.Type.cmp" href="#opshin.type_impls.Type.cmp">cmp</a></code>
 </p>
 <div class="desc inherited"><p>The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second …</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def cmp(self, op: cmpop, o: &#34;Type&#34;) -&gt; plt.AST:
-    &#34;&#34;&#34;The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second the comparison.&#34;&#34;&#34;
-    if isinstance(o, InstanceType):
-        return self.typ.cmp(op, o.typ)
-    return super().cmp(op, o)</code></pre>
-</details>
 </dd>
 <dt id="opshin.type_impls.InstanceType.constr"><code class="name flex">
 <span>def <span class="ident">constr</span></span>(<span>self) ‑> pluthon.pluthon_ast.AST</span>
@@ -6767,13 +5613,6 @@ class InstanceType(Type):
 <code><a title="opshin.type_impls.Type" href="#opshin.type_impls.Type">Type</a></code>.<code><a title="opshin.type_impls.Type.constr" href="#opshin.type_impls.Type.constr">constr</a></code>
 </p>
 <div class="desc inherited"><p>The constructor for this class</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def constr(self) -&gt; plt.AST:
-    raise NotImplementedError(f&#34;Can not construct an instance {self}&#34;)</code></pre>
-</details>
 </dd>
 <dt id="opshin.type_impls.InstanceType.constr_type"><code class="name flex">
 <span>def <span class="ident">constr_type</span></span>(<span>self) ‑> <a title="opshin.type_impls.FunctionType" href="#opshin.type_impls.FunctionType">FunctionType</a></span>
@@ -6784,13 +5623,6 @@ class InstanceType(Type):
 <code><a title="opshin.type_impls.Type" href="#opshin.type_impls.Type">Type</a></code>.<code><a title="opshin.type_impls.Type.constr_type" href="#opshin.type_impls.Type.constr_type">constr_type</a></code>
 </p>
 <div class="desc inherited"><p>The type of the constructor for this class</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def constr_type(self) -&gt; FunctionType:
-    raise TypeInferenceError(f&#34;Can not construct an instance {self}&#34;)</code></pre>
-</details>
 </dd>
 <dt id="opshin.type_impls.InstanceType.copy_only_attributes"><code class="name flex">
 <span>def <span class="ident">copy_only_attributes</span></span>(<span>self) ‑> pluthon.pluthon_ast.AST</span>
@@ -6801,13 +5633,6 @@ class InstanceType(Type):
 <code><a title="opshin.type_impls.Type" href="#opshin.type_impls.Type">Type</a></code>.<code><a title="opshin.type_impls.Type.copy_only_attributes" href="#opshin.type_impls.Type.copy_only_attributes">copy_only_attributes</a></code>
 </p>
 <div class="desc inherited"><p>Pluthon function that returns a copy of only the attributes of the object</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def copy_only_attributes(self) -&gt; plt.AST:
-    return self.typ.copy_only_attributes()</code></pre>
-</details>
 </dd>
 <dt id="opshin.type_impls.InstanceType.id_map"><code class="name flex">
 <span>def <span class="ident">id_map</span></span>(<span>self, skip_constructor: bool = False) ‑> str</span>
@@ -6818,13 +5643,6 @@ class InstanceType(Type):
 <code><a title="opshin.type_impls.Type" href="#opshin.type_impls.Type">Type</a></code>.<code><a title="opshin.type_impls.Type.id_map" href="#opshin.type_impls.Type.id_map">id_map</a></code>
 </p>
 <div class="desc inherited"><p>Returns a map from the constructor id to a descriptive typestring</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def id_map(self, skip_constructor: bool = False) -&gt; str:
-    return self.typ.id_map(skip_constructor=skip_constructor)</code></pre>
-</details>
 </dd>
 <dt id="opshin.type_impls.InstanceType.stringify"><code class="name flex">
 <span>def <span class="ident">stringify</span></span>(<span>self, recursive: bool = False) ‑> pluthon.pluthon_ast.AST</span>
@@ -6835,13 +5653,6 @@ class InstanceType(Type):
 <code><a title="opshin.type_impls.Type" href="#opshin.type_impls.Type">Type</a></code>.<code><a title="opshin.type_impls.Type.stringify" href="#opshin.type_impls.Type.stringify">stringify</a></code>
 </p>
 <div class="desc inherited"><p>Returns a stringified version of the object …</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def stringify(self, recursive: bool = False) -&gt; plt.AST:
-    return self.typ.stringify(recursive=recursive)</code></pre>
-</details>
 </dd>
 <dt id="opshin.type_impls.InstanceType.unop"><code class="name flex">
 <span>def <span class="ident">unop</span></span>(<span>self, unop: ast.unaryop) ‑> pluthon.pluthon_ast.AST</span>
@@ -6852,13 +5663,6 @@ class InstanceType(Type):
 <code><a title="opshin.type_impls.Type" href="#opshin.type_impls.Type">Type</a></code>.<code><a title="opshin.type_impls.Type.unop" href="#opshin.type_impls.Type.unop">unop</a></code>
 </p>
 <div class="desc inherited"><p>Implements a unary operation on self</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def unop(self, unop: unaryop) -&gt; plt.AST:
-    return self.typ.unop(unop)</code></pre>
-</details>
 </dd>
 <dt id="opshin.type_impls.InstanceType.unop_type"><code class="name flex">
 <span>def <span class="ident">unop_type</span></span>(<span>self, unop: ast.unaryop) ‑> <a title="opshin.type_impls.Type" href="#opshin.type_impls.Type">Type</a></span>
@@ -6869,13 +5673,6 @@ class InstanceType(Type):
 <code><a title="opshin.type_impls.Type" href="#opshin.type_impls.Type">Type</a></code>.<code><a title="opshin.type_impls.Type.unop_type" href="#opshin.type_impls.Type.unop_type">unop_type</a></code>
 </p>
 <div class="desc inherited"><p>Type of a unary operation on self.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def unop_type(self, unop: unaryop) -&gt; &#34;Type&#34;:
-    return self.typ.unop_type(unop)</code></pre>
-</details>
 </dd>
 </dl>
 </dd>
@@ -7052,171 +5849,12 @@ class InstanceType(Type):
 </code></dt>
 <dd>
 <div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def impl_from_args(self, args: typing.List[Type]) -&gt; plt.AST:
-    arg = args[0]
-    assert isinstance(arg, InstanceType), &#34;Can only create ints from instances&#34;
-    if isinstance(arg.typ, IntegerType):
-        return OLambda([&#34;x&#34;], OVar(&#34;x&#34;))
-    elif isinstance(arg.typ, BoolType):
-        return OLambda(
-            [&#34;x&#34;], plt.IfThenElse(OVar(&#34;x&#34;), plt.Integer(1), plt.Integer(0))
-        )
-    elif isinstance(arg.typ, StringType):
-        return OLambda(
-            [&#34;x&#34;],
-            OLet(
-                [
-                    (&#34;e&#34;, plt.EncodeUtf8(OVar(&#34;x&#34;))),
-                    (&#34;len&#34;, plt.LengthOfByteString(OVar(&#34;e&#34;))),
-                    (
-                        &#34;first_int&#34;,
-                        plt.Ite(
-                            plt.LessThanInteger(plt.Integer(0), OVar(&#34;len&#34;)),
-                            plt.IndexByteString(OVar(&#34;e&#34;), plt.Integer(0)),
-                            plt.Integer(ord(&#34;_&#34;)),
-                        ),
-                    ),
-                    (
-                        &#34;last_int&#34;,
-                        plt.IndexByteString(
-                            OVar(&#34;e&#34;),
-                            plt.SubtractInteger(OVar(&#34;len&#34;), plt.Integer(1)),
-                        ),
-                    ),
-                    (
-                        &#34;fold_start&#34;,
-                        OLambda(
-                            [&#34;start&#34;],
-                            plt.FoldList(
-                                plt.Range(OVar(&#34;len&#34;), OVar(&#34;start&#34;)),
-                                OLambda(
-                                    [&#34;s&#34;, &#34;i&#34;],
-                                    OLet(
-                                        [
-                                            (
-                                                &#34;b&#34;,
-                                                plt.IndexByteString(
-                                                    OVar(&#34;e&#34;), OVar(&#34;i&#34;)
-                                                ),
-                                            )
-                                        ],
-                                        plt.Ite(
-                                            plt.EqualsInteger(
-                                                OVar(&#34;b&#34;), plt.Integer(ord(&#34;_&#34;))
-                                            ),
-                                            OVar(&#34;s&#34;),
-                                            plt.Ite(
-                                                plt.Or(
-                                                    plt.LessThanInteger(
-                                                        OVar(&#34;b&#34;),
-                                                        plt.Integer(ord(&#34;0&#34;)),
-                                                    ),
-                                                    plt.LessThanInteger(
-                                                        plt.Integer(ord(&#34;9&#34;)),
-                                                        OVar(&#34;b&#34;),
-                                                    ),
-                                                ),
-                                                plt.TraceError(
-                                                    &#34;ValueError: invalid literal for int() with base 10&#34;
-                                                ),
-                                                plt.AddInteger(
-                                                    plt.SubtractInteger(
-                                                        OVar(&#34;b&#34;),
-                                                        plt.Integer(ord(&#34;0&#34;)),
-                                                    ),
-                                                    plt.MultiplyInteger(
-                                                        OVar(&#34;s&#34;),
-                                                        plt.Integer(10),
-                                                    ),
-                                                ),
-                                            ),
-                                        ),
-                                    ),
-                                ),
-                                plt.Integer(0),
-                            ),
-                        ),
-                    ),
-                ],
-                plt.Ite(
-                    plt.Or(
-                        plt.Or(
-                            plt.EqualsInteger(
-                                OVar(&#34;first_int&#34;),
-                                plt.Integer(ord(&#34;_&#34;)),
-                            ),
-                            plt.EqualsInteger(
-                                OVar(&#34;last_int&#34;),
-                                plt.Integer(ord(&#34;_&#34;)),
-                            ),
-                        ),
-                        plt.And(
-                            plt.EqualsInteger(OVar(&#34;len&#34;), plt.Integer(1)),
-                            plt.Or(
-                                plt.EqualsInteger(
-                                    OVar(&#34;first_int&#34;),
-                                    plt.Integer(ord(&#34;-&#34;)),
-                                ),
-                                plt.EqualsInteger(
-                                    OVar(&#34;first_int&#34;),
-                                    plt.Integer(ord(&#34;+&#34;)),
-                                ),
-                            ),
-                        ),
-                    ),
-                    plt.TraceError(
-                        &#34;ValueError: invalid literal for int() with base 10&#34;
-                    ),
-                    plt.Ite(
-                        plt.EqualsInteger(
-                            OVar(&#34;first_int&#34;),
-                            plt.Integer(ord(&#34;-&#34;)),
-                        ),
-                        plt.Negate(
-                            plt.Apply(OVar(&#34;fold_start&#34;), plt.Integer(1)),
-                        ),
-                        plt.Ite(
-                            plt.EqualsInteger(
-                                OVar(&#34;first_int&#34;),
-                                plt.Integer(ord(&#34;+&#34;)),
-                            ),
-                            plt.Apply(OVar(&#34;fold_start&#34;), plt.Integer(1)),
-                            plt.Apply(OVar(&#34;fold_start&#34;), plt.Integer(0)),
-                        ),
-                    ),
-                ),
-            ),
-        )
-    else:
-        raise NotImplementedError(
-            f&#34;Can not derive integer from type {arg.typ.__name__}&#34;
-        )</code></pre>
-</details>
 </dd>
 <dt id="opshin.type_impls.IntImpl.type_from_args"><code class="name flex">
 <span>def <span class="ident">type_from_args</span></span>(<span>self, args: List[<a title="opshin.type_impls.Type" href="#opshin.type_impls.Type">Type</a>]) ‑> <a title="opshin.type_impls.FunctionType" href="#opshin.type_impls.FunctionType">FunctionType</a></span>
 </code></dt>
 <dd>
 <div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def type_from_args(self, args: typing.List[Type]) -&gt; FunctionType:
-    assert (
-        len(args) == 1
-    ), f&#34;&#39;int&#39; takes only one argument, but {len(args)} were given&#34;
-    typ = args[0]
-    assert isinstance(typ, InstanceType), &#34;Can only create ints from instances&#34;
-    assert any(
-        isinstance(typ.typ, t) for t in (IntegerType, StringType, BoolType)
-    ), &#34;Can only create integers from int, str or bool&#34;
-    return FunctionType(args, IntegerInstanceType)</code></pre>
-</details>
 </dd>
 </dl>
 </dd>
@@ -7506,90 +6144,6 @@ class IntegerType(AtomicType):
 <code><a title="opshin.type_impls.AtomicType" href="#opshin.type_impls.AtomicType">AtomicType</a></code>.<code><a title="opshin.type_impls.AtomicType.cmp" href="#opshin.type_impls.AtomicType.cmp">cmp</a></code>
 </p>
 <div class="desc inherited"><p>The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second …</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def cmp(self, op: cmpop, o: &#34;Type&#34;) -&gt; plt.AST:
-    &#34;&#34;&#34;The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second the comparison.&#34;&#34;&#34;
-    if isinstance(o, BoolType):
-        if isinstance(op, Eq):
-            # 1 == True
-            # 0 == False
-            # all other comparisons are False
-            return OLambda(
-                [&#34;x&#34;, &#34;y&#34;],
-                plt.Ite(
-                    OVar(&#34;y&#34;),
-                    plt.EqualsInteger(OVar(&#34;x&#34;), plt.Integer(1)),
-                    plt.EqualsInteger(OVar(&#34;x&#34;), plt.Integer(0)),
-                ),
-            )
-    if isinstance(o, IntegerType):
-        if isinstance(op, Eq):
-            return plt.BuiltIn(uplc.BuiltInFun.EqualsInteger)
-        if isinstance(op, NotEq):
-            return OLambda(
-                [&#34;x&#34;, &#34;y&#34;],
-                plt.Not(
-                    plt.Apply(
-                        plt.BuiltIn(uplc.BuiltInFun.EqualsInteger),
-                        OVar(&#34;y&#34;),
-                        OVar(&#34;x&#34;),
-                    )
-                ),
-            )
-        if isinstance(op, LtE):
-            return plt.BuiltIn(uplc.BuiltInFun.LessThanEqualsInteger)
-        if isinstance(op, Lt):
-            return plt.BuiltIn(uplc.BuiltInFun.LessThanInteger)
-        if isinstance(op, Gt):
-            return OLambda(
-                [&#34;x&#34;, &#34;y&#34;],
-                plt.Apply(
-                    plt.BuiltIn(uplc.BuiltInFun.LessThanInteger),
-                    OVar(&#34;y&#34;),
-                    OVar(&#34;x&#34;),
-                ),
-            )
-        if isinstance(op, GtE):
-            return OLambda(
-                [&#34;x&#34;, &#34;y&#34;],
-                plt.Apply(
-                    plt.BuiltIn(uplc.BuiltInFun.LessThanEqualsInteger),
-                    OVar(&#34;y&#34;),
-                    OVar(&#34;x&#34;),
-                ),
-            )
-    if (
-        isinstance(o, ListType)
-        and isinstance(o.typ, InstanceType)
-        and isinstance(o.typ.typ, IntegerType)
-    ):
-        if isinstance(op, In):
-            return OLambda(
-                [&#34;x&#34;, &#34;y&#34;],
-                plt.AnyList(
-                    OVar(&#34;y&#34;),
-                    plt.Apply(
-                        plt.BuiltIn(uplc.BuiltInFun.EqualsInteger), OVar(&#34;x&#34;)
-                    ),
-                ),
-            )
-        if isinstance(op, NotIn):
-            return OLambda(
-                [&#34;x&#34;, &#34;y&#34;],
-                plt.Not(
-                    plt.AnyList(
-                        OVar(&#34;y&#34;),
-                        plt.Apply(
-                            plt.BuiltIn(uplc.BuiltInFun.EqualsInteger), OVar(&#34;x&#34;)
-                        ),
-                    ),
-                ),
-            )
-    return super().cmp(op, o)</code></pre>
-</details>
 </dd>
 <dt id="opshin.type_impls.IntegerType.constr"><code class="name flex">
 <span>def <span class="ident">constr</span></span>(<span>self) ‑> pluthon.pluthon_ast.AST</span>
@@ -7610,13 +6164,6 @@ class IntegerType(AtomicType):
 <code><a title="opshin.type_impls.AtomicType" href="#opshin.type_impls.AtomicType">AtomicType</a></code>.<code><a title="opshin.type_impls.AtomicType.constr_type" href="#opshin.type_impls.AtomicType.constr_type">constr_type</a></code>
 </p>
 <div class="desc inherited"><p>The type of the constructor for this class</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def constr_type(self) -&gt; InstanceType:
-    return InstanceType(PolymorphicFunctionType(IntImpl()))</code></pre>
-</details>
 </dd>
 <dt id="opshin.type_impls.IntegerType.copy_only_attributes"><code class="name flex">
 <span>def <span class="ident">copy_only_attributes</span></span>(<span>self) ‑> pluthon.pluthon_ast.AST</span>
@@ -7638,13 +6185,6 @@ For anything but record …</p></div>
 <code><a title="opshin.type_impls.AtomicType" href="#opshin.type_impls.AtomicType">AtomicType</a></code>.<code><a title="opshin.type_impls.AtomicType.id_map" href="#opshin.type_impls.AtomicType.id_map">id_map</a></code>
 </p>
 <div class="desc inherited"><p>Returns a map from the constructor id to a descriptive typestring</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def id_map(self, skip_constructor: bool = False) -&gt; str:
-    return &#34;int&#34;</code></pre>
-</details>
 </dd>
 <dt id="opshin.type_impls.IntegerType.stringify"><code class="name flex">
 <span>def <span class="ident">stringify</span></span>(<span>self, recursive: bool = False) ‑> pluthon.pluthon_ast.AST</span>
@@ -7655,76 +6195,6 @@ For anything but record …</p></div>
 <code><a title="opshin.type_impls.AtomicType" href="#opshin.type_impls.AtomicType">AtomicType</a></code>.<code><a title="opshin.type_impls.AtomicType.stringify" href="#opshin.type_impls.AtomicType.stringify">stringify</a></code>
 </p>
 <div class="desc inherited"><p>Returns a stringified version of the object …</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def stringify(self, recursive: bool = False) -&gt; plt.AST:
-    return OLambda(
-        [&#34;x&#34;],
-        plt.DecodeUtf8(
-            OLet(
-                [
-                    (
-                        &#34;strlist&#34;,
-                        plt.RecFun(
-                            OLambda(
-                                [&#34;f&#34;, &#34;i&#34;],
-                                plt.Ite(
-                                    plt.LessThanEqualsInteger(
-                                        OVar(&#34;i&#34;), plt.Integer(0)
-                                    ),
-                                    plt.EmptyIntegerList(),
-                                    plt.MkCons(
-                                        plt.AddInteger(
-                                            plt.ModInteger(
-                                                OVar(&#34;i&#34;), plt.Integer(10)
-                                            ),
-                                            plt.Integer(ord(&#34;0&#34;)),
-                                        ),
-                                        plt.Apply(
-                                            OVar(&#34;f&#34;),
-                                            OVar(&#34;f&#34;),
-                                            plt.DivideInteger(
-                                                OVar(&#34;i&#34;), plt.Integer(10)
-                                            ),
-                                        ),
-                                    ),
-                                ),
-                            ),
-                        ),
-                    ),
-                    (
-                        &#34;mkstr&#34;,
-                        OLambda(
-                            [&#34;i&#34;],
-                            plt.FoldList(
-                                plt.Apply(OVar(&#34;strlist&#34;), OVar(&#34;i&#34;)),
-                                OLambda(
-                                    [&#34;b&#34;, &#34;i&#34;],
-                                    plt.ConsByteString(OVar(&#34;i&#34;), OVar(&#34;b&#34;)),
-                                ),
-                                plt.ByteString(b&#34;&#34;),
-                            ),
-                        ),
-                    ),
-                ],
-                plt.Ite(
-                    plt.EqualsInteger(OVar(&#34;x&#34;), plt.Integer(0)),
-                    plt.ByteString(b&#34;0&#34;),
-                    plt.Ite(
-                        plt.LessThanInteger(OVar(&#34;x&#34;), plt.Integer(0)),
-                        plt.ConsByteString(
-                            plt.Integer(ord(&#34;-&#34;)),
-                            plt.Apply(OVar(&#34;mkstr&#34;), plt.Negate(OVar(&#34;x&#34;))),
-                        ),
-                        plt.Apply(OVar(&#34;mkstr&#34;), OVar(&#34;x&#34;)),
-                    ),
-                ),
-            )
-        ),
-    )</code></pre>
-</details>
 </dd>
 <dt id="opshin.type_impls.IntegerType.unop"><code class="name flex">
 <span>def <span class="ident">unop</span></span>(<span>self, unop: ast.unaryop) ‑> pluthon.pluthon_ast.AST</span>
@@ -7864,14 +6334,14 @@ class ListType(ClassType):
             OVar(&#34;self&#34;),
             OLambda(
                 [&#34;v&#34;],
-                transform_output_map(self.typ)(
+                transform_ext_params_map(self.typ)(
                     plt.Apply(
                         self.typ.copy_only_attributes(),
-                        transform_ext_params_map(self.typ)(OVar(&#34;v&#34;)),
+                        transform_output_map(self.typ)(OVar(&#34;v&#34;)),
                     )
                 ),
             ),
-            plt.EmptyDataList(),
+            empty_list(self.typ),
         )
         return OLambda([&#34;self&#34;], mapped_attrs)
 
@@ -7927,45 +6397,6 @@ class ListType(ClassType):
 <code><a title="opshin.type_impls.ClassType" href="#opshin.type_impls.ClassType">ClassType</a></code>.<code><a title="opshin.type_impls.ClassType.attribute" href="#opshin.type_impls.ClassType.attribute">attribute</a></code>
 </p>
 <div class="desc inherited"><p>The attributes of this class. Needs to be a lambda that expects as first argument the object itself</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def attribute(self, attr) -&gt; plt.AST:
-    if attr == &#34;index&#34;:
-        return OLambda(
-            [&#34;self&#34;, &#34;x&#34;],
-            OLet(
-                [(&#34;x&#34;, plt.Force(OVar(&#34;x&#34;)))],
-                plt.Apply(
-                    plt.RecFun(
-                        OLambda(
-                            [&#34;index&#34;, &#34;xs&#34;, &#34;a&#34;],
-                            plt.IteNullList(
-                                OVar(&#34;xs&#34;),
-                                plt.TraceError(&#34;Did not find element in list&#34;),
-                                plt.Ite(
-                                    plt.EqualsInteger(
-                                        OVar(&#34;x&#34;), plt.HeadList(OVar(&#34;xs&#34;))
-                                    ),
-                                    OVar(&#34;a&#34;),
-                                    plt.Apply(
-                                        OVar(&#34;index&#34;),
-                                        OVar(&#34;index&#34;),
-                                        plt.TailList(OVar(&#34;xs&#34;)),
-                                        plt.AddInteger(OVar(&#34;a&#34;), plt.Integer(1)),
-                                    ),
-                                ),
-                            ),
-                        ),
-                    ),
-                    OVar(&#34;self&#34;),
-                    plt.Integer(0),
-                ),
-            ),
-        )
-    super().attribute(attr)</code></pre>
-</details>
 </dd>
 <dt id="opshin.type_impls.ListType.attribute_type"><code class="name flex">
 <span>def <span class="ident">attribute_type</span></span>(<span>self, attr) ‑> <a title="opshin.type_impls.Type" href="#opshin.type_impls.Type">Type</a></span>
@@ -7976,17 +6407,6 @@ class ListType(ClassType):
 <code><a title="opshin.type_impls.ClassType" href="#opshin.type_impls.ClassType">ClassType</a></code>.<code><a title="opshin.type_impls.ClassType.attribute_type" href="#opshin.type_impls.ClassType.attribute_type">attribute_type</a></code>
 </p>
 <div class="desc inherited"><p>The types of the named attributes of this class</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def attribute_type(self, attr) -&gt; &#34;Type&#34;:
-    if attr == &#34;index&#34;:
-        return InstanceType(
-            FunctionType(frozenlist([self.typ]), IntegerInstanceType)
-        )
-    super().attribute_type(attr)</code></pre>
-</details>
 </dd>
 <dt id="opshin.type_impls.ListType.binop"><code class="name flex">
 <span>def <span class="ident">binop</span></span>(<span>self, binop: ast.operator, other: ast.AST) ‑> pluthon.pluthon_ast.AST</span>
@@ -8048,26 +6468,6 @@ class ListType(ClassType):
 </p>
 <div class="desc inherited"><p>Returns a copy of this type with only the declared attributes (mapped to builtin values, thus checking atomic types too).
 For anything but record …</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def copy_only_attributes(self) -&gt; plt.AST:
-    mapped_attrs = plt.MapList(
-        OVar(&#34;self&#34;),
-        OLambda(
-            [&#34;v&#34;],
-            transform_output_map(self.typ)(
-                plt.Apply(
-                    self.typ.copy_only_attributes(),
-                    transform_ext_params_map(self.typ)(OVar(&#34;v&#34;)),
-                )
-            ),
-        ),
-        plt.EmptyDataList(),
-    )
-    return OLambda([&#34;self&#34;], mapped_attrs)</code></pre>
-</details>
 </dd>
 <dt id="opshin.type_impls.ListType.id_map"><code class="name flex">
 <span>def <span class="ident">id_map</span></span>(<span>self, skip_constructor: bool = False) ‑> str</span>
@@ -8078,13 +6478,6 @@ For anything but record …</p></div>
 <code><a title="opshin.type_impls.ClassType" href="#opshin.type_impls.ClassType">ClassType</a></code>.<code><a title="opshin.type_impls.ClassType.id_map" href="#opshin.type_impls.ClassType.id_map">id_map</a></code>
 </p>
 <div class="desc inherited"><p>Returns a map from the constructor id to a descriptive typestring</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def id_map(self, skip_constructor: bool = False) -&gt; str:
-    return &#34;list&lt;&#34; + self.typ.id_map() + &#34;&gt;&#34;</code></pre>
-</details>
 </dd>
 <dt id="opshin.type_impls.ListType.stringify"><code class="name flex">
 <span>def <span class="ident">stringify</span></span>(<span>self, recursive: bool = False) ‑> pluthon.pluthon_ast.AST</span>
@@ -8095,59 +6488,6 @@ For anything but record …</p></div>
 <code><a title="opshin.type_impls.ClassType" href="#opshin.type_impls.ClassType">ClassType</a></code>.<code><a title="opshin.type_impls.ClassType.stringify" href="#opshin.type_impls.ClassType.stringify">stringify</a></code>
 </p>
 <div class="desc inherited"><p>Returns a stringified version of the object …</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def stringify(self, recursive: bool = False) -&gt; plt.AST:
-    return OLambda(
-        [&#34;self&#34;],
-        OLet(
-            [
-                (
-                    &#34;g&#34;,
-                    plt.RecFun(
-                        OLambda(
-                            [&#34;f&#34;, &#34;l&#34;],
-                            plt.AppendString(
-                                plt.Apply(
-                                    self.typ.stringify(recursive=True),
-                                    plt.HeadList(OVar(&#34;l&#34;)),
-                                ),
-                                OLet(
-                                    [(&#34;t&#34;, plt.TailList(OVar(&#34;l&#34;)))],
-                                    plt.IteNullList(
-                                        OVar(&#34;t&#34;),
-                                        plt.Text(&#34;]&#34;),
-                                        plt.AppendString(
-                                            plt.Text(&#34;, &#34;),
-                                            plt.Apply(
-                                                OVar(&#34;f&#34;),
-                                                OVar(&#34;f&#34;),
-                                                OVar(&#34;t&#34;),
-                                            ),
-                                        ),
-                                    ),
-                                ),
-                            ),
-                        )
-                    ),
-                )
-            ],
-            plt.AppendString(
-                plt.Text(&#34;[&#34;),
-                plt.IteNullList(
-                    OVar(&#34;self&#34;),
-                    plt.Text(&#34;]&#34;),
-                    plt.Apply(
-                        OVar(&#34;g&#34;),
-                        OVar(&#34;self&#34;),
-                    ),
-                ),
-            ),
-        ),
-    )</code></pre>
-</details>
 </dd>
 <dt id="opshin.type_impls.ListType.unop"><code class="name flex">
 <span>def <span class="ident">unop</span></span>(<span>self, unop: ast.unaryop) ‑> pluthon.pluthon_ast.AST</span>
@@ -8329,27 +6669,6 @@ For anything but record …</p></div>
 <code><a title="opshin.type_impls.ClassType" href="#opshin.type_impls.ClassType">ClassType</a></code>.<code><a title="opshin.type_impls.ClassType.stringify" href="#opshin.type_impls.ClassType.stringify">stringify</a></code>
 </p>
 <div class="desc inherited"><p>Returns a stringified version of the object …</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def stringify(self, recursive: bool = False) -&gt; plt.AST:
-    tuple_content = plt.ConcatString(
-        plt.Apply(
-            self.l_typ.stringify(recursive=True),
-            transform_ext_params_map(self.l_typ)(plt.FstPair(OVar(&#34;self&#34;))),
-        ),
-        plt.Text(&#34;, &#34;),
-        plt.Apply(
-            self.r_typ.stringify(recursive=True),
-            transform_ext_params_map(self.r_typ)(plt.SndPair(OVar(&#34;self&#34;))),
-        ),
-    )
-    return OLambda(
-        [&#34;self&#34;],
-        plt.ConcatString(plt.Text(&#34;(&#34;), tuple_content, plt.Text(&#34;)&#34;)),
-    )</code></pre>
-</details>
 </dd>
 <dt id="opshin.type_impls.PairType.unop"><code class="name flex">
 <span>def <span class="ident">unop</span></span>(<span>self, unop: ast.unaryop) ‑> pluthon.pluthon_ast.AST</span>
@@ -8418,26 +6737,12 @@ For anything but record …</p></div>
 </code></dt>
 <dd>
 <div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def impl_from_args(self, args: typing.List[Type]) -&gt; plt.AST:
-    raise NotImplementedError()</code></pre>
-</details>
 </dd>
 <dt id="opshin.type_impls.PolymorphicFunction.type_from_args"><code class="name flex">
 <span>def <span class="ident">type_from_args</span></span>(<span>self, args: List[<a title="opshin.type_impls.Type" href="#opshin.type_impls.Type">Type</a>]) ‑> <a title="opshin.type_impls.FunctionType" href="#opshin.type_impls.FunctionType">FunctionType</a></span>
 </code></dt>
 <dd>
 <div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def type_from_args(self, args: typing.List[Type]) -&gt; FunctionType:
-    raise NotImplementedError()</code></pre>
-</details>
 </dd>
 </dl>
 </dd>
@@ -9039,40 +7344,6 @@ class RecordType(ClassType):
 </code></dt>
 <dd>
 <div class="desc"><p>The attributes of this class. Need to be a lambda that expects as first argument the object itself</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def attribute(self, attr: str) -&gt; plt.AST:
-    &#34;&#34;&#34;The attributes of this class. Need to be a lambda that expects as first argument the object itself&#34;&#34;&#34;
-    if attr == &#34;CONSTR_ID&#34;:
-        # access to constructor
-        return OLambda(
-            [&#34;self&#34;],
-            plt.Constructor(OVar(&#34;self&#34;)),
-        )
-    if attr in (n for n, t in self.record.fields):
-        attr_typ = self.attribute_type(attr)
-        pos = next(i for i, (n, _) in enumerate(self.record.fields) if n == attr)
-        # access to normal fields
-        return OLambda(
-            [&#34;self&#34;],
-            transform_ext_params_map(attr_typ)(
-                plt.ConstantNthField(
-                    OVar(&#34;self&#34;),
-                    pos,
-                ),
-            ),
-        )
-    if attr == &#34;to_cbor&#34;:
-        return OLambda(
-            [&#34;self&#34;, &#34;_&#34;],
-            plt.SerialiseData(
-                OVar(&#34;self&#34;),
-            ),
-        )
-    raise NotImplementedError(f&#34;Attribute {attr} not implemented for type {self}&#34;)</code></pre>
-</details>
 </dd>
 <dt id="opshin.type_impls.RecordType.attribute_type"><code class="name flex">
 <span>def <span class="ident">attribute_type</span></span>(<span>self, attr: str) ‑> <a title="opshin.type_impls.Type" href="#opshin.type_impls.Type">Type</a></span>
@@ -9083,23 +7354,6 @@ class RecordType(ClassType):
 <code><a title="opshin.type_impls.ClassType" href="#opshin.type_impls.ClassType">ClassType</a></code>.<code><a title="opshin.type_impls.ClassType.attribute_type" href="#opshin.type_impls.ClassType.attribute_type">attribute_type</a></code>
 </p>
 <div class="desc inherited"><p>The types of the named attributes of this class</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def attribute_type(self, attr: str) -&gt; Type:
-    &#34;&#34;&#34;The types of the named attributes of this class&#34;&#34;&#34;
-    if attr == &#34;CONSTR_ID&#34;:
-        return IntegerInstanceType
-    for n, t in self.record.fields:
-        if n == attr:
-            return t
-    if attr == &#34;to_cbor&#34;:
-        return InstanceType(FunctionType(frozenlist([]), ByteStringInstanceType))
-    raise TypeInferenceError(
-        f&#34;Type {self.record.name} does not have attribute {attr}&#34;
-    )</code></pre>
-</details>
 </dd>
 <dt id="opshin.type_impls.RecordType.binop"><code class="name flex">
 <span>def <span class="ident">binop</span></span>(<span>self, binop: ast.operator, other: ast.AST) ‑> pluthon.pluthon_ast.AST</span>
@@ -9130,68 +7384,6 @@ class RecordType(ClassType):
 <code><a title="opshin.type_impls.ClassType" href="#opshin.type_impls.ClassType">ClassType</a></code>.<code><a title="opshin.type_impls.ClassType.cmp" href="#opshin.type_impls.ClassType.cmp">cmp</a></code>
 </p>
 <div class="desc inherited"><p>The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second …</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def cmp(self, op: cmpop, o: &#34;Type&#34;) -&gt; plt.AST:
-    &#34;&#34;&#34;The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second the comparison.&#34;&#34;&#34;
-    # this will reject comparisons that will always be false - most likely due to faults during programming
-    if (
-        (
-            isinstance(o, RecordType)
-            and (self.record &gt;= o.record or o.record &gt;= self.record)
-        )
-        or (
-            isinstance(o, UnionType) and any(self &gt;= o or self &gt;= o for o in o.typs)
-        )
-        or isinstance(o, AnyType)
-    ):
-        # Note that comparison with AnyType is actually fine because both are Data
-        if isinstance(op, Eq):
-            return plt.BuiltIn(uplc.BuiltInFun.EqualsData)
-        if isinstance(op, NotEq):
-            return OLambda(
-                [&#34;x&#34;, &#34;y&#34;],
-                plt.Not(
-                    plt.Apply(
-                        plt.BuiltIn(uplc.BuiltInFun.EqualsData),
-                        OVar(&#34;x&#34;),
-                        OVar(&#34;y&#34;),
-                    )
-                ),
-            )
-    if (
-        isinstance(o, ListType)
-        and isinstance(o.typ, InstanceType)
-        and (o.typ.typ &gt;= self or self &gt;= o.typ.typ)
-    ):
-        if isinstance(op, In):
-            return OLambda(
-                [&#34;x&#34;, &#34;y&#34;],
-                plt.AnyList(
-                    OVar(&#34;y&#34;),
-                    plt.Apply(
-                        plt.BuiltIn(uplc.BuiltInFun.EqualsData),
-                        OVar(&#34;x&#34;),
-                    ),
-                ),
-            )
-        if isinstance(op, NotIn):
-            return OLambda(
-                [&#34;x&#34;, &#34;y&#34;],
-                plt.Not(
-                    plt.AnyList(
-                        OVar(&#34;y&#34;),
-                        plt.Apply(
-                            plt.BuiltIn(uplc.BuiltInFun.EqualsData),
-                            OVar(&#34;x&#34;),
-                        ),
-                    ),
-                ),
-            )
-    return super().cmp(op, o)</code></pre>
-</details>
 </dd>
 <dt id="opshin.type_impls.RecordType.constr"><code class="name flex">
 <span>def <span class="ident">constr</span></span>(<span>self) ‑> pluthon.pluthon_ast.AST</span>
@@ -9202,23 +7394,6 @@ class RecordType(ClassType):
 <code><a title="opshin.type_impls.ClassType" href="#opshin.type_impls.ClassType">ClassType</a></code>.<code><a title="opshin.type_impls.ClassType.constr" href="#opshin.type_impls.ClassType.constr">constr</a></code>
 </p>
 <div class="desc inherited"><p>The constructor for this class</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def constr(self) -&gt; plt.AST:
-    # wrap all constructor values to PlutusData
-    build_constr_params = plt.EmptyDataList()
-    for n, t in reversed(self.record.fields):
-        build_constr_params = plt.MkCons(
-            transform_output_map(t)(plt.Force(OVar(n))), build_constr_params
-        )
-    # then build a constr type with this PlutusData
-    return SafeOLambda(
-        [n for n, _ in self.record.fields],
-        plt.ConstrData(plt.Integer(self.record.constructor), build_constr_params),
-    )</code></pre>
-</details>
 </dd>
 <dt id="opshin.type_impls.RecordType.constr_type"><code class="name flex">
 <span>def <span class="ident">constr_type</span></span>(<span>self) ‑> <a title="opshin.type_impls.InstanceType" href="#opshin.type_impls.InstanceType">InstanceType</a></span>
@@ -9229,17 +7404,6 @@ class RecordType(ClassType):
 <code><a title="opshin.type_impls.ClassType" href="#opshin.type_impls.ClassType">ClassType</a></code>.<code><a title="opshin.type_impls.ClassType.constr_type" href="#opshin.type_impls.ClassType.constr_type">constr_type</a></code>
 </p>
 <div class="desc inherited"><p>The type of the constructor for this class</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def constr_type(self) -&gt; &#34;InstanceType&#34;:
-    return InstanceType(
-        FunctionType(
-            frozenlist([f[1] for f in self.record.fields]), InstanceType(self)
-        )
-    )</code></pre>
-</details>
 </dd>
 <dt id="opshin.type_impls.RecordType.copy_only_attributes"><code class="name flex">
 <span>def <span class="ident">copy_only_attributes</span></span>(<span>self) ‑> pluthon.pluthon_ast.AST</span>
@@ -9251,42 +7415,6 @@ class RecordType(ClassType):
 </p>
 <div class="desc inherited"><p>Returns a copy of this type with only the declared attributes (mapped to builtin values, thus checking atomic types too).
 For anything but record …</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def copy_only_attributes(self) -&gt; plt.AST:
-    copied_attributes = plt.EmptyDataList()
-    for attr_name, attr_type in reversed(self.record.fields):
-        copied_attributes = OLet(
-            [
-                (&#34;f&#34;, plt.HeadList(OVar(&#34;fs&#34;))),
-                (&#34;fs&#34;, plt.TailList(OVar(&#34;fs&#34;))),
-            ],
-            plt.MkCons(
-                transform_output_map(attr_type)(
-                    plt.Apply(
-                        attr_type.copy_only_attributes(),
-                        transform_ext_params_map(attr_type)(
-                            OVar(&#34;f&#34;),
-                        ),
-                    )
-                ),
-                copied_attributes,
-            ),
-        )
-    copied_attributes = OLet(
-        [(&#34;fs&#34;, plt.Fields(OVar(&#34;self&#34;)))],
-        copied_attributes,
-    )
-    return OLambda(
-        [&#34;self&#34;],
-        plt.ConstrData(
-            plt.Integer(self.record.constructor),
-            copied_attributes,
-        ),
-    )</code></pre>
-</details>
 </dd>
 <dt id="opshin.type_impls.RecordType.id_map"><code class="name flex">
 <span>def <span class="ident">id_map</span></span>(<span>self, skip_constructor: bool = False) ‑> str</span>
@@ -9297,64 +7425,12 @@ For anything but record …</p></div>
 <code><a title="opshin.type_impls.ClassType" href="#opshin.type_impls.ClassType">ClassType</a></code>.<code><a title="opshin.type_impls.ClassType.id_map" href="#opshin.type_impls.ClassType.id_map">id_map</a></code>
 </p>
 <div class="desc inherited"><p>Returns a map from the constructor id to a descriptive typestring</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def id_map(self, skip_constructor: bool = False) -&gt; str:
-    return (
-        &#34;cons[&#34;
-        + self.record.orig_name
-        + &#34;](&#34;
-        + (str(self.record.constructor) if not skip_constructor else &#34;_&#34;)
-        + &#34;;&#34;
-        + &#34;,&#34;.join(name + &#34;:&#34; + type.id_map() for name, type in self.record.fields)
-        + &#34;)&#34;
-    )</code></pre>
-</details>
 </dd>
 <dt id="opshin.type_impls.RecordType.stringify"><code class="name flex">
 <span>def <span class="ident">stringify</span></span>(<span>self, recursive: bool = False) ‑> pluthon.pluthon_ast.AST</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Returns a stringified version of the object</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def stringify(self, recursive: bool = False) -&gt; plt.AST:
-    &#34;&#34;&#34;Returns a stringified version of the object&#34;&#34;&#34;
-    map_fields = plt.Text(&#34;)&#34;)
-    if self.record.fields:
-        # TODO access to fields is a bit inefficient but this is debugging stuff only anyways
-        pos = len(self.record.fields) - 1
-        for field_name, field_type in reversed(self.record.fields[1:]):
-            map_fields = plt.ConcatString(
-                plt.Text(f&#34;, {field_name}=&#34;),
-                plt.Apply(
-                    field_type.stringify(recursive=True),
-                    transform_ext_params_map(field_type)(
-                        plt.ConstantNthField(OVar(&#34;self&#34;), pos)
-                    ),
-                ),
-                map_fields,
-            )
-            pos -= 1
-        map_fields = plt.ConcatString(
-            plt.Text(f&#34;{self.record.fields[0][0]}=&#34;),
-            plt.Apply(
-                self.record.fields[0][1].stringify(recursive=True),
-                transform_ext_params_map(self.record.fields[0][1])(
-                    plt.ConstantNthField(OVar(&#34;self&#34;), pos)
-                ),
-            ),
-            map_fields,
-        )
-    return OLambda(
-        [&#34;self&#34;],
-        plt.AppendString(plt.Text(f&#34;{self.record.orig_name}(&#34;), map_fields),
-    )</code></pre>
-</details>
 </dd>
 <dt id="opshin.type_impls.RecordType.unop"><code class="name flex">
 <span>def <span class="ident">unop</span></span>(<span>self, unop: ast.unaryop) ‑> pluthon.pluthon_ast.AST</span>
@@ -9413,33 +7489,12 @@ For anything but record …</p></div>
 </code></dt>
 <dd>
 <div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def impl_from_args(self, args: typing.List[Type]) -&gt; plt.AST:
-    arg = args[0]
-    assert isinstance(arg, InstanceType), &#34;Can only stringify instances&#34;
-    return arg.typ.stringify()</code></pre>
-</details>
 </dd>
 <dt id="opshin.type_impls.StrImpl.type_from_args"><code class="name flex">
 <span>def <span class="ident">type_from_args</span></span>(<span>self, args: List[<a title="opshin.type_impls.Type" href="#opshin.type_impls.Type">Type</a>]) ‑> <a title="opshin.type_impls.FunctionType" href="#opshin.type_impls.FunctionType">FunctionType</a></span>
 </code></dt>
 <dd>
 <div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def type_from_args(self, args: typing.List[Type]) -&gt; FunctionType:
-    assert (
-        len(args) == 1
-    ), f&#34;&#39;str&#39; takes only one argument, but {len(args)} were given&#34;
-    typ = args[0]
-    assert isinstance(typ, InstanceType), &#34;Can only stringify instances&#34;
-    return FunctionType(args, StringInstanceType)</code></pre>
-</details>
 </dd>
 </dl>
 </dd>
@@ -9534,16 +7589,6 @@ class StringType(AtomicType):
 <code><a title="opshin.type_impls.AtomicType" href="#opshin.type_impls.AtomicType">AtomicType</a></code>.<code><a title="opshin.type_impls.AtomicType.attribute" href="#opshin.type_impls.AtomicType.attribute">attribute</a></code>
 </p>
 <div class="desc inherited"><p>The attributes of this class. Needs to be a lambda that expects as first argument the object itself</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def attribute(self, attr) -&gt; plt.AST:
-    if attr == &#34;encode&#34;:
-        # No codec -&gt; only the default (utf8) is allowed
-        return OLambda([&#34;x&#34;, &#34;_&#34;], plt.EncodeUtf8(OVar(&#34;x&#34;)))
-    return super().attribute(attr)</code></pre>
-</details>
 </dd>
 <dt id="opshin.type_impls.StringType.attribute_type"><code class="name flex">
 <span>def <span class="ident">attribute_type</span></span>(<span>self, attr) ‑> <a title="opshin.type_impls.Type" href="#opshin.type_impls.Type">Type</a></span>
@@ -9554,15 +7599,6 @@ class StringType(AtomicType):
 <code><a title="opshin.type_impls.AtomicType" href="#opshin.type_impls.AtomicType">AtomicType</a></code>.<code><a title="opshin.type_impls.AtomicType.attribute_type" href="#opshin.type_impls.AtomicType.attribute_type">attribute_type</a></code>
 </p>
 <div class="desc inherited"><p>The types of the named attributes of this class</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def attribute_type(self, attr) -&gt; Type:
-    if attr == &#34;encode&#34;:
-        return InstanceType(FunctionType(frozenlist([]), ByteStringInstanceType))
-    return super().attribute_type(attr)</code></pre>
-</details>
 </dd>
 <dt id="opshin.type_impls.StringType.binop"><code class="name flex">
 <span>def <span class="ident">binop</span></span>(<span>self, binop: ast.operator, other: ast.AST) ‑> pluthon.pluthon_ast.AST</span>
@@ -9593,20 +7629,6 @@ class StringType(AtomicType):
 <code><a title="opshin.type_impls.AtomicType" href="#opshin.type_impls.AtomicType">AtomicType</a></code>.<code><a title="opshin.type_impls.AtomicType.cmp" href="#opshin.type_impls.AtomicType.cmp">cmp</a></code>
 </p>
 <div class="desc inherited"><p>The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second …</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def cmp(self, op: cmpop, o: &#34;Type&#34;) -&gt; plt.AST:
-    if isinstance(o, StringType):
-        if isinstance(op, Eq):
-            return plt.BuiltIn(uplc.BuiltInFun.EqualsString)
-        if isinstance(op, NotEq):
-            return OLambda(
-                [&#34;x&#34;, &#34;y&#34;], plt.Not(plt.EqualsString(OVar(&#34;x&#34;), OVar(&#34;y&#34;)))
-            )
-    return super().cmp(op, o)</code></pre>
-</details>
 </dd>
 <dt id="opshin.type_impls.StringType.constr"><code class="name flex">
 <span>def <span class="ident">constr</span></span>(<span>self) ‑> pluthon.pluthon_ast.AST</span>
@@ -9627,13 +7649,6 @@ class StringType(AtomicType):
 <code><a title="opshin.type_impls.AtomicType" href="#opshin.type_impls.AtomicType">AtomicType</a></code>.<code><a title="opshin.type_impls.AtomicType.constr_type" href="#opshin.type_impls.AtomicType.constr_type">constr_type</a></code>
 </p>
 <div class="desc inherited"><p>The type of the constructor for this class</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def constr_type(self) -&gt; InstanceType:
-    return InstanceType(PolymorphicFunctionType(StrImpl()))</code></pre>
-</details>
 </dd>
 <dt id="opshin.type_impls.StringType.copy_only_attributes"><code class="name flex">
 <span>def <span class="ident">copy_only_attributes</span></span>(<span>self) ‑> pluthon.pluthon_ast.AST</span>
@@ -9665,20 +7680,6 @@ For anything but record …</p></div>
 <code><a title="opshin.type_impls.AtomicType" href="#opshin.type_impls.AtomicType">AtomicType</a></code>.<code><a title="opshin.type_impls.AtomicType.stringify" href="#opshin.type_impls.AtomicType.stringify">stringify</a></code>
 </p>
 <div class="desc inherited"><p>Returns a stringified version of the object …</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def stringify(self, recursive: bool = False) -&gt; plt.AST:
-    if recursive:
-        # TODO this is not correct, as the string is not properly escaped
-        return OLambda(
-            [&#34;self&#34;],
-            plt.ConcatString(plt.Text(&#34;&#39;&#34;), OVar(&#34;self&#34;), plt.Text(&#34;&#39;&#34;)),
-        )
-    else:
-        return OLambda([&#34;self&#34;], OVar(&#34;self&#34;))</code></pre>
-</details>
 </dd>
 <dt id="opshin.type_impls.StringType.unop"><code class="name flex">
 <span>def <span class="ident">unop</span></span>(<span>self, unop: ast.unaryop) ‑> pluthon.pluthon_ast.AST</span>
@@ -9876,45 +7877,6 @@ For anything but record …</p></div>
 <code><a title="opshin.type_impls.ClassType" href="#opshin.type_impls.ClassType">ClassType</a></code>.<code><a title="opshin.type_impls.ClassType.stringify" href="#opshin.type_impls.ClassType.stringify">stringify</a></code>
 </p>
 <div class="desc inherited"><p>Returns a stringified version of the object …</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def stringify(self, recursive: bool = False) -&gt; plt.AST:
-    if not self.typs:
-        return OLambda(
-            [&#34;self&#34;],
-            plt.Text(&#34;()&#34;),
-        )
-    elif len(self.typs) == 1:
-        tuple_content = plt.ConcatString(
-            plt.Apply(
-                self.typs[0].stringify(recursive=True),
-                plt.FunctionalTupleAccess(OVar(&#34;self&#34;), 0, len(self.typs)),
-            ),
-            plt.Text(&#34;,&#34;),
-        )
-    else:
-        tuple_content = plt.ConcatString(
-            plt.Apply(
-                self.typs[0].stringify(recursive=True),
-                plt.FunctionalTupleAccess(OVar(&#34;self&#34;), 0, len(self.typs)),
-            ),
-        )
-        for i, t in enumerate(self.typs[1:], start=1):
-            tuple_content = plt.ConcatString(
-                tuple_content,
-                plt.Text(&#34;, &#34;),
-                plt.Apply(
-                    t.stringify(recursive=True),
-                    plt.FunctionalTupleAccess(OVar(&#34;self&#34;), i, len(self.typs)),
-                ),
-            )
-    return OLambda(
-        [&#34;self&#34;],
-        plt.ConcatString(plt.Text(&#34;(&#34;), tuple_content, plt.Text(&#34;)&#34;)),
-    )</code></pre>
-</details>
 </dd>
 <dt id="opshin.type_impls.TupleType.unop"><code class="name flex">
 <span>def <span class="ident">unop</span></span>(<span>self, unop: ast.unaryop) ‑> pluthon.pluthon_ast.AST</span>
@@ -10089,148 +8051,54 @@ For anything but record …</p></div>
 </code></dt>
 <dd>
 <div class="desc"><p>The attributes of this class. Needs to be a lambda that expects as first argument the object itself</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def attribute(self, attr) -&gt; plt.AST:
-    &#34;&#34;&#34;The attributes of this class. Needs to be a lambda that expects as first argument the object itself&#34;&#34;&#34;
-    raise NotImplementedError(f&#34;Attribute {attr} not implemented for type {self}&#34;)</code></pre>
-</details>
 </dd>
 <dt id="opshin.type_impls.Type.attribute_type"><code class="name flex">
 <span>def <span class="ident">attribute_type</span></span>(<span>self, attr) ‑> <a title="opshin.type_impls.Type" href="#opshin.type_impls.Type">Type</a></span>
 </code></dt>
 <dd>
 <div class="desc"><p>The types of the named attributes of this class</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def attribute_type(self, attr) -&gt; &#34;Type&#34;:
-    &#34;&#34;&#34;The types of the named attributes of this class&#34;&#34;&#34;
-    raise TypeInferenceError(
-        f&#34;Object of type {type(self).__name__} does not have attribute {attr}&#34;
-    )</code></pre>
-</details>
 </dd>
 <dt id="opshin.type_impls.Type.binop"><code class="name flex">
 <span>def <span class="ident">binop</span></span>(<span>self, binop: ast.operator, other: ast.AST) ‑> pluthon.pluthon_ast.AST</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Implements a binary operation between self and other</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def binop(self, binop: operator, other: AST) -&gt; plt.AST:
-    &#34;&#34;&#34;
-    Implements a binary operation between self and other
-    &#34;&#34;&#34;
-    return OLambda(
-        [&#34;self&#34;, &#34;other&#34;],
-        self._binop_bin_fun(binop, other)(OVar(&#34;self&#34;), OVar(&#34;other&#34;)),
-    )</code></pre>
-</details>
 </dd>
 <dt id="opshin.type_impls.Type.binop_type"><code class="name flex">
 <span>def <span class="ident">binop_type</span></span>(<span>self, binop: ast.operator, other: <a title="opshin.type_impls.Type" href="#opshin.type_impls.Type">Type</a>) ‑> <a title="opshin.type_impls.Type" href="#opshin.type_impls.Type">Type</a></span>
 </code></dt>
 <dd>
 <div class="desc"><p>Type of a binary operation between self and other.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def binop_type(self, binop: operator, other: &#34;Type&#34;) -&gt; &#34;Type&#34;:
-    &#34;&#34;&#34;
-    Type of a binary operation between self and other.
-    &#34;&#34;&#34;
-    return FunctionType(
-        [InstanceType(self), InstanceType(other)],
-        InstanceType(self._binop_return_type(binop, other)),
-    )</code></pre>
-</details>
 </dd>
 <dt id="opshin.type_impls.Type.cmp"><code class="name flex">
 <span>def <span class="ident">cmp</span></span>(<span>self, op: ast.cmpop, o: <a title="opshin.type_impls.Type" href="#opshin.type_impls.Type">Type</a>) ‑> pluthon.pluthon_ast.AST</span>
 </code></dt>
 <dd>
 <div class="desc"><p>The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second the comparison.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def cmp(self, op: cmpop, o: &#34;Type&#34;) -&gt; plt.AST:
-    &#34;&#34;&#34;The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second the comparison.&#34;&#34;&#34;
-    raise NotImplementedError(
-        f&#34;Comparison {type(op).__name__} for {self.__class__.__name__} and {o.__class__.__name__} is not implemented. This is likely intended because it would always evaluate to False.&#34;
-    )</code></pre>
-</details>
 </dd>
 <dt id="opshin.type_impls.Type.constr"><code class="name flex">
 <span>def <span class="ident">constr</span></span>(<span>self) ‑> pluthon.pluthon_ast.AST</span>
 </code></dt>
 <dd>
 <div class="desc"><p>The constructor for this class</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def constr(self) -&gt; plt.AST:
-    &#34;&#34;&#34;The constructor for this class&#34;&#34;&#34;
-    raise NotImplementedError(
-        f&#34;Constructor of {type(self).__name__} not implemented&#34;
-    )</code></pre>
-</details>
 </dd>
 <dt id="opshin.type_impls.Type.constr_type"><code class="name flex">
 <span>def <span class="ident">constr_type</span></span>(<span>self) ‑> <a title="opshin.type_impls.InstanceType" href="#opshin.type_impls.InstanceType">InstanceType</a></span>
 </code></dt>
 <dd>
 <div class="desc"><p>The type of the constructor for this class</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def constr_type(self) -&gt; &#34;InstanceType&#34;:
-    &#34;&#34;&#34;The type of the constructor for this class&#34;&#34;&#34;
-    raise TypeInferenceError(
-        f&#34;Object of type {self.__class__} does not have a constructor&#34;
-    )</code></pre>
-</details>
 </dd>
 <dt id="opshin.type_impls.Type.copy_only_attributes"><code class="name flex">
 <span>def <span class="ident">copy_only_attributes</span></span>(<span>self) ‑> pluthon.pluthon_ast.AST</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Pluthon function that returns a copy of only the attributes of the object</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def copy_only_attributes(self) -&gt; plt.AST:
-    &#34;&#34;&#34;
-    Pluthon function that returns a copy of only the attributes of the object
-    &#34;&#34;&#34;
-    raise NotImplementedError(f&#34;{type(self).__name__} can not be copied&#34;)</code></pre>
-</details>
 </dd>
 <dt id="opshin.type_impls.Type.id_map"><code class="name flex">
 <span>def <span class="ident">id_map</span></span>(<span>self, skip_constructor: bool = False) ‑> str</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Returns a map from the constructor id to a descriptive typestring</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def id_map(self, skip_constructor: bool = False) -&gt; str:
-    &#34;&#34;&#34;
-    Returns a map from the constructor id to a descriptive typestring
-    &#34;&#34;&#34;
-    raise NotImplementedError(f&#34;Type {type(self).__name__} does not have a id map&#34;)</code></pre>
-</details>
 </dd>
 <dt id="opshin.type_impls.Type.stringify"><code class="name flex">
 <span>def <span class="ident">stringify</span></span>(<span>self, recursive: bool = False) ‑> pluthon.pluthon_ast.AST</span>
@@ -10238,56 +8106,18 @@ For anything but record …</p></div>
 <dd>
 <div class="desc"><p>Returns a stringified version of the object</p>
 <p>The recursive parameter informs the method whether it was invoked recursively from another invokation</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def stringify(self, recursive: bool = False) -&gt; plt.AST:
-    &#34;&#34;&#34;
-    Returns a stringified version of the object
-
-    The recursive parameter informs the method whether it was invoked recursively from another invokation
-    &#34;&#34;&#34;
-    raise NotImplementedError(f&#34;{type(self).__name__} can not be stringified&#34;)</code></pre>
-</details>
 </dd>
 <dt id="opshin.type_impls.Type.unop"><code class="name flex">
 <span>def <span class="ident">unop</span></span>(<span>self, unop: ast.unaryop) ‑> pluthon.pluthon_ast.AST</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Implements a unary operation on self</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def unop(self, unop: unaryop) -&gt; plt.AST:
-    &#34;&#34;&#34;
-    Implements a unary operation on self
-    &#34;&#34;&#34;
-    return OLambda(
-        [&#34;self&#34;],
-        self._unop_fun(unop)(OVar(&#34;self&#34;)),
-    )</code></pre>
-</details>
 </dd>
 <dt id="opshin.type_impls.Type.unop_type"><code class="name flex">
 <span>def <span class="ident">unop_type</span></span>(<span>self, unop: ast.unaryop) ‑> <a title="opshin.type_impls.Type" href="#opshin.type_impls.Type">Type</a></span>
 </code></dt>
 <dd>
 <div class="desc"><p>Type of a unary operation on self.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def unop_type(self, unop: unaryop) -&gt; &#34;Type&#34;:
-    &#34;&#34;&#34;
-    Type of a unary operation on self.
-    &#34;&#34;&#34;
-    return FunctionType(
-        [InstanceType(self)],
-        InstanceType(self._unop_return_type(unop)),
-    )</code></pre>
-</details>
 </dd>
 </dl>
 </dd>
@@ -10540,75 +8370,6 @@ class UnionType(ClassType):
 <code><a title="opshin.type_impls.ClassType" href="#opshin.type_impls.ClassType">ClassType</a></code>.<code><a title="opshin.type_impls.ClassType.attribute" href="#opshin.type_impls.ClassType.attribute">attribute</a></code>
 </p>
 <div class="desc inherited"><p>The attributes of this class. Needs to be a lambda that expects as first argument the object itself</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def attribute(self, attr: str) -&gt; plt.AST:
-    if attr == &#34;CONSTR_ID&#34;:
-        # access to constructor
-        return OLambda(
-            [&#34;self&#34;],
-            plt.Constructor(OVar(&#34;self&#34;)),
-        )
-    # iterate through all names/types of the unioned records by position
-    if any(attr in (n for n, t in r.record.fields) for r in self.typs):
-        attr_typ = self.attribute_type(attr)
-        pos_constrs = [
-            (i, x.record.constructor)
-            for x in self.typs
-            for i, (n, t) in enumerate(x.record.fields)
-            if n == attr
-        ]
-        pos_constrs = sorted(pos_constrs, key=lambda x: x[0])
-        pos_constrs = [
-            (pos, [c[1] for c in constrs])
-            for (pos, constrs) in itertools.groupby(pos_constrs, key=lambda x: x[0])
-        ]
-        # largest group last so we save the comparisons for that
-        pos_constrs = sorted(pos_constrs, key=lambda x: len(x[1]))
-        # access to normal fields
-        if not pos_constrs:
-            pos_decisor = plt.TraceError(&#34;Invalid constructor&#34;)
-        else:
-            pos_decisor = plt.Integer(pos_constrs[-1][0])
-            pos_constrs = pos_constrs[:-1]
-        for pos, constrs in pos_constrs:
-            assert constrs, &#34;Found empty constructors for a position&#34;
-            constr_check = plt.EqualsInteger(
-                OVar(&#34;constr&#34;), plt.Integer(constrs[0])
-            )
-            for constr in constrs[1:]:
-                constr_check = plt.Or(
-                    plt.EqualsInteger(OVar(&#34;constr&#34;), plt.Integer(constr)),
-                    constr_check,
-                )
-            pos_decisor = plt.Ite(
-                constr_check,
-                plt.Integer(pos),
-                pos_decisor,
-            )
-        return OLambda(
-            [&#34;self&#34;],
-            transform_ext_params_map(attr_typ)(
-                plt.NthField(
-                    OVar(&#34;self&#34;),
-                    OLet(
-                        [(&#34;constr&#34;, plt.Constructor(OVar(&#34;self&#34;)))],
-                        pos_decisor,
-                    ),
-                ),
-            ),
-        )
-    if attr == &#34;to_cbor&#34;:
-        return OLambda(
-            [&#34;self&#34;, &#34;_&#34;],
-            plt.SerialiseData(
-                OVar(&#34;self&#34;),
-            ),
-        )
-    raise NotImplementedError(f&#34;Attribute {attr} not implemented for type {self}&#34;)</code></pre>
-</details>
 </dd>
 <dt id="opshin.type_impls.UnionType.attribute_type"><code class="name flex">
 <span>def <span class="ident">attribute_type</span></span>(<span>self, attr) ‑> <a title="opshin.type_impls.Type" href="#opshin.type_impls.Type">Type</a></span>
@@ -10619,38 +8380,6 @@ class UnionType(ClassType):
 <code><a title="opshin.type_impls.ClassType" href="#opshin.type_impls.ClassType">ClassType</a></code>.<code><a title="opshin.type_impls.ClassType.attribute_type" href="#opshin.type_impls.ClassType.attribute_type">attribute_type</a></code>
 </p>
 <div class="desc inherited"><p>The types of the named attributes of this class</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def attribute_type(self, attr) -&gt; &#34;Type&#34;:
-    if attr == &#34;CONSTR_ID&#34;:
-        return IntegerInstanceType
-    # need to have a common field with the same name
-    if all(attr in (n for n, t in x.record.fields) for x in self.typs):
-        attr_types = OrderedSet(
-            t for x in self.typs for n, t in x.record.fields if n == attr
-        )
-        for at in attr_types:
-            # return the maximum element if there is one
-            if all(at &gt;= at2 for at2 in attr_types):
-                return at
-        # return the union type of all possible instantiations if all possible values are record types
-        if all(
-            isinstance(at, InstanceType) and isinstance(at.typ, RecordType)
-            for at in attr_types
-        ) and distinct([at.typ.record.constructor for at in attr_types]):
-            return InstanceType(
-                UnionType(frozenlist([at.typ for at in attr_types]))
-            )
-        # return Anytype
-        return InstanceType(AnyType())
-    if attr == &#34;to_cbor&#34;:
-        return InstanceType(FunctionType(frozenlist([]), ByteStringInstanceType))
-    raise TypeInferenceError(
-        f&#34;Can not access attribute {attr} of Union type. Cast to desired type with an &#39;if isinstance(_, _):&#39; branch.&#34;
-    )</code></pre>
-</details>
 </dd>
 <dt id="opshin.type_impls.UnionType.binop"><code class="name flex">
 <span>def <span class="ident">binop</span></span>(<span>self, binop: ast.operator, other: ast.AST) ‑> pluthon.pluthon_ast.AST</span>
@@ -10681,64 +8410,6 @@ class UnionType(ClassType):
 <code><a title="opshin.type_impls.ClassType" href="#opshin.type_impls.ClassType">ClassType</a></code>.<code><a title="opshin.type_impls.ClassType.cmp" href="#opshin.type_impls.ClassType.cmp">cmp</a></code>
 </p>
 <div class="desc inherited"><p>The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second …</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def cmp(self, op: cmpop, o: &#34;Type&#34;) -&gt; plt.AST:
-    &#34;&#34;&#34;The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second the comparison.&#34;&#34;&#34;
-    # this will reject comparisons that will always be false - most likely due to faults during programming
-    # note we require that there is an overlapt between the possible types for unions
-    if (isinstance(o, RecordType) and any(t &gt;= o or o &gt;= t for t in self.typs)) or (
-        isinstance(o, UnionType)
-        and any(t &gt;= ot or t &gt;= ot for t in self.typs for ot in o.typs)
-    ):
-        if isinstance(op, Eq):
-            return plt.BuiltIn(uplc.BuiltInFun.EqualsData)
-        if isinstance(op, NotEq):
-            return OLambda(
-                [&#34;x&#34;, &#34;y&#34;],
-                plt.Not(
-                    plt.Apply(
-                        plt.BuiltIn(uplc.BuiltInFun.EqualsData),
-                        OVar(&#34;x&#34;),
-                        OVar(&#34;y&#34;),
-                    )
-                ),
-            )
-    if (
-        isinstance(o, ListType)
-        and isinstance(o.typ, InstanceType)
-        and any(o.typ.typ &gt;= t or t &gt;= o.typ.typ for t in self.typs)
-    ):
-        if isinstance(op, In):
-            return OLambda(
-                [&#34;x&#34;, &#34;y&#34;],
-                plt.AnyList(
-                    OVar(&#34;y&#34;),
-                    plt.Apply(
-                        plt.BuiltIn(uplc.BuiltInFun.EqualsData),
-                        OVar(&#34;x&#34;),
-                    ),
-                ),
-            )
-        if isinstance(op, NotIn):
-            return OLambda(
-                [&#34;x&#34;, &#34;y&#34;],
-                plt.Not(
-                    plt.AnyList(
-                        OVar(&#34;y&#34;),
-                        plt.Apply(
-                            plt.BuiltIn(uplc.BuiltInFun.EqualsData),
-                            OVar(&#34;x&#34;),
-                        ),
-                    ),
-                ),
-            )
-    raise NotImplementedError(
-        f&#34;Can not compare {o} and {self} with operation {op.__class__}. Note that comparisons that always return false are also rejected.&#34;
-    )</code></pre>
-</details>
 </dd>
 <dt id="opshin.type_impls.UnionType.constr"><code class="name flex">
 <span>def <span class="ident">constr</span></span>(<span>self) ‑> pluthon.pluthon_ast.AST</span>
@@ -10770,28 +8441,6 @@ class UnionType(ClassType):
 </p>
 <div class="desc inherited"><p>Returns a copy of this type with only the declared attributes (mapped to builtin values, thus checking atomic types too).
 For anything but record …</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def copy_only_attributes(self) -&gt; plt.AST:
-    copied_attributes = plt.TraceError(
-        f&#34;Invalid CONSTR_ID for instance of Union[{&#39;, &#39;.join(type(typ).__name__ for typ in self.typs)}]&#34;
-    )
-    for typ in self.typs:
-        copied_attributes = plt.Ite(
-            plt.EqualsInteger(OVar(&#34;constr&#34;), plt.Integer(typ.record.constructor)),
-            plt.Apply(typ.copy_only_attributes(), OVar(&#34;self&#34;)),
-            copied_attributes,
-        )
-    return OLambda(
-        [&#34;self&#34;],
-        OLet(
-            [(&#34;constr&#34;, plt.Constructor(OVar(&#34;self&#34;)))],
-            copied_attributes,
-        ),
-    )</code></pre>
-</details>
 </dd>
 <dt id="opshin.type_impls.UnionType.id_map"><code class="name flex">
 <span>def <span class="ident">id_map</span></span>(<span>self, skip_constructor: bool = False) ‑> str</span>
@@ -10802,13 +8451,6 @@ For anything but record …</p></div>
 <code><a title="opshin.type_impls.ClassType" href="#opshin.type_impls.ClassType">ClassType</a></code>.<code><a title="opshin.type_impls.ClassType.id_map" href="#opshin.type_impls.ClassType.id_map">id_map</a></code>
 </p>
 <div class="desc inherited"><p>Returns a map from the constructor id to a descriptive typestring</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def id_map(self, skip_constructor: bool = False) -&gt; str:
-    return &#34;union&lt;&#34; + &#34;,&#34;.join(t.id_map() for t in self.typs) + &#34;&gt;&#34;</code></pre>
-</details>
 </dd>
 <dt id="opshin.type_impls.UnionType.stringify"><code class="name flex">
 <span>def <span class="ident">stringify</span></span>(<span>self, recursive: bool = False) ‑> pluthon.pluthon_ast.AST</span>
@@ -10819,26 +8461,6 @@ For anything but record …</p></div>
 <code><a title="opshin.type_impls.ClassType" href="#opshin.type_impls.ClassType">ClassType</a></code>.<code><a title="opshin.type_impls.ClassType.stringify" href="#opshin.type_impls.ClassType.stringify">stringify</a></code>
 </p>
 <div class="desc inherited"><p>Returns a stringified version of the object …</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def stringify(self, recursive: bool = False) -&gt; plt.AST:
-    decide_string_func = plt.TraceError(&#34;Invalid constructor id in Union&#34;)
-    for t in self.typs:
-        decide_string_func = plt.Ite(
-            plt.EqualsInteger(OVar(&#34;c&#34;), plt.Integer(t.record.constructor)),
-            t.stringify(recursive=True),
-            decide_string_func,
-        )
-    return OLambda(
-        [&#34;self&#34;],
-        OLet(
-            [(&#34;c&#34;, plt.Constructor(OVar(&#34;self&#34;)))],
-            plt.Apply(decide_string_func, OVar(&#34;self&#34;)),
-        ),
-    )</code></pre>
-</details>
 </dd>
 <dt id="opshin.type_impls.UnionType.unop"><code class="name flex">
 <span>def <span class="ident">unop</span></span>(<span>self, unop: ast.unaryop) ‑> pluthon.pluthon_ast.AST</span>
@@ -10951,18 +8573,6 @@ class UnitType(AtomicType):
 <code><a title="opshin.type_impls.AtomicType" href="#opshin.type_impls.AtomicType">AtomicType</a></code>.<code><a title="opshin.type_impls.AtomicType.cmp" href="#opshin.type_impls.AtomicType.cmp">cmp</a></code>
 </p>
 <div class="desc inherited"><p>The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second …</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def cmp(self, op: cmpop, o: &#34;Type&#34;) -&gt; plt.AST:
-    if isinstance(o, UnitType):
-        if isinstance(op, Eq):
-            return OLambda([&#34;x&#34;, &#34;y&#34;], plt.Bool(True))
-        if isinstance(op, NotEq):
-            return OLambda([&#34;x&#34;, &#34;y&#34;], plt.Bool(False))
-    return super().cmp(op, o)</code></pre>
-</details>
 </dd>
 <dt id="opshin.type_impls.UnitType.constr"><code class="name flex">
 <span>def <span class="ident">constr</span></span>(<span>self) ‑> pluthon.pluthon_ast.AST</span>
@@ -11014,13 +8624,6 @@ For anything but record …</p></div>
 <code><a title="opshin.type_impls.AtomicType" href="#opshin.type_impls.AtomicType">AtomicType</a></code>.<code><a title="opshin.type_impls.AtomicType.stringify" href="#opshin.type_impls.AtomicType.stringify">stringify</a></code>
 </p>
 <div class="desc inherited"><p>Returns a stringified version of the object …</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def stringify(self, recursive: bool = False) -&gt; plt.AST:
-    return OLambda([&#34;self&#34;], plt.Text(&#34;None&#34;))</code></pre>
-</details>
 </dd>
 <dt id="opshin.type_impls.UnitType.unop"><code class="name flex">
 <span>def <span class="ident">unop</span></span>(<span>self, unop: ast.unaryop) ‑> pluthon.pluthon_ast.AST</span>
@@ -11059,8 +8662,8 @@ For anything but record …</p></div>
 <input id="lunr-search" name="q" placeholder="🔎 Search ..." aria-label="Search"
 disabled minlength="2">
 </form>
-<link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/tingle/0.15.3/tingle.min.css" integrity="sha512-j1u8eUJ4f23xPPxwOrLUPQaCD2dwzNqqmDDcWS4deWsMv2ohLqmXXuP3hU7g8TyzbMSakP/mMqoNBYWj8AEIFg==" crossorigin>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/tingle/0.15.3/tingle.min.js" integrity="sha512-plGUER9JkeEWPPqQBE4sdLqBoQug5Ap+BCGMc7bJ8BXkm+VVj6QzkpBz5Yv2yPkkq+cqg9IpkBaGCas6uDbW8g==" crossorigin></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tingle/0.16.0/tingle.min.css" integrity="sha512-b+T2i3P45i1LZM7I00Ci5QquB9szqaxu+uuk5TUSGjZQ4w4n+qujQiIuvTv2BxE7WCGQCifNMksyKILDiHzsOg==" crossorigin>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/tingle/0.16.0/tingle.min.js" integrity="sha512-2B9/byNV1KKRm5nQ2RLViPFD6U4dUjDGwuW1GU+ImJh8YinPU9Zlq1GzdTMO+G2ROrB5o1qasJBy1ttYz0wCug==" crossorigin></script>
 <style>
 .modal-dialog iframe {
 width: 100vw;
@@ -11533,7 +9136,7 @@ setTimeout(() => input.focus(), 100);
 </nav>
 </main>
 <footer id="footer">
-<p>Generated by <a href="https://pdoc3.github.io/pdoc" title="pdoc: Python API documentation generator"><cite>pdoc</cite> 0.10.0</a>.</p>
+<p>Generated by <a href="https://pdoc3.github.io/pdoc" title="pdoc: Python API documentation generator"><cite>pdoc</cite> 0.11.1</a>.</p>
 </footer>
 </body>
 </html>

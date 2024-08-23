@@ -4,15 +4,15 @@
 <style>.homelink{display:block;font-size:2em;font-weight:bold;color:#555;padding-bottom:.5em;border-bottom:1px solid silver}.homelink:hover{color:inherit}.homelink img{max-width:20%;max-height:5em;margin:auto;margin-bottom:.3em}</style>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
-<meta name="generator" content="pdoc 0.10.0" />
+<meta name="generator" content="pdoc 0.11.1" />
 <link rel="icon" href="https://raw.githubusercontent.com/OpShin/opshin/dev/docs/opshin_32.png" sizes="32x32" type="image/png">
 <title>opshin.tests.test_builtins API documentation</title>
 <meta name="description" content="" />
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/sanitize.min.css" integrity="sha256-PK9q560IAAa6WVRRh76LtCaI8pjTJ2z11v0miyNNjrs=" crossorigin>
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/typography.min.css" integrity="sha256-7l/o7C8jubJiy74VsKTidCy1yBkRtiUGbVkYBylBqUg=" crossorigin>
 <link rel="stylesheet preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/styles/github.min.css" crossorigin>
-<style>:root{--highlight-color:#fe9}.flex{display:flex !important}body{line-height:1.5em}#content{padding:20px}#sidebar{padding:30px;overflow:hidden}#sidebar > *:last-child{margin-bottom:2cm}#lunr-search{width:100%;font-size:1em;padding:6px 9px 5px 9px;border:1px solid silver}.http-server-breadcrumbs{font-size:130%;margin:0 0 15px 0}#footer{font-size:.75em;padding:5px 30px;border-top:1px solid #ddd;text-align:right}#footer p{margin:0 0 0 1em;display:inline-block}#footer p:last-child{margin-right:30px}h1,h2,h3,h4,h5{font-weight:300}h1{font-size:2.5em;line-height:1.1em}h2{font-size:1.75em;margin:1em 0 .50em 0}h3{font-size:1.4em;margin:25px 0 10px 0}h4{margin:0;font-size:105%}h1:target,h2:target,h3:target,h4:target,h5:target,h6:target{background:var(--highlight-color);padding:.2em 0}a{color:#058;text-decoration:none;transition:color .3s ease-in-out}a:hover{color:#e82}.title code{font-weight:bold}h2[id^="header-"]{margin-top:2em}.ident{color:#900}pre code{background:#f8f8f8;font-size:.8em;line-height:1.4em}code{background:#f2f2f1;padding:1px 4px;overflow-wrap:break-word}h1 code{background:transparent}pre{background:#f8f8f8;border:0;border-top:1px solid #ccc;border-bottom:1px solid #ccc;margin:1em 0;padding:1ex}#http-server-module-list{display:flex;flex-flow:column}#http-server-module-list div{display:flex}#http-server-module-list dt{min-width:10%}#http-server-module-list p{margin-top:0}.toc ul,#index{list-style-type:none;margin:0;padding:0}#index code{background:transparent}#index h3{border-bottom:1px solid #ddd}#index ul{padding:0}#index h4{margin-top:.6em;font-weight:bold}@media (min-width:200ex){#index .two-column{column-count:2}}@media (min-width:300ex){#index .two-column{column-count:3}}dl{margin-bottom:2em}dl dl:last-child{margin-bottom:4em}dd{margin:0 0 1em 3em}#header-classes + dl > dd{margin-bottom:3em}dd dd{margin-left:2em}dd p{margin:10px 0}.name{background:#eee;font-weight:bold;font-size:.85em;padding:5px 10px;display:inline-block;min-width:40%}.name:hover{background:#e0e0e0}dt:target .name{background:var(--highlight-color)}.name > span:first-child{white-space:nowrap}.name.class > span:nth-child(2){margin-left:.4em}.inherited{color:#999;border-left:5px solid #eee;padding-left:1em}.inheritance em{font-style:normal;font-weight:bold}.desc h2{font-weight:400;font-size:1.25em}.desc h3{font-size:1em}.desc dt code{background:inherit}.source summary,.git-link-div{color:#666;text-align:right;font-weight:400;font-size:.8em;text-transform:uppercase}.source summary > *{white-space:nowrap;cursor:pointer}.git-link{color:inherit;margin-left:1em}.source pre{max-height:500px;overflow:auto;margin:0}.source pre code{font-size:12px;overflow:visible}.hlist{list-style:none}.hlist li{display:inline}.hlist li:after{content:',\2002'}.hlist li:last-child:after{content:none}.hlist .hlist{display:inline;padding-left:1em}img{max-width:100%}td{padding:0 .5em}.admonition{padding:.1em .5em;margin-bottom:1em}.admonition-title{font-weight:bold}.admonition.note,.admonition.info,.admonition.important{background:#aef}.admonition.todo,.admonition.versionadded,.admonition.tip,.admonition.hint{background:#dfd}.admonition.warning,.admonition.versionchanged,.admonition.deprecated{background:#fd4}.admonition.error,.admonition.danger,.admonition.caution{background:lightpink}</style>
-<style media="screen and (min-width: 700px)">@media screen and (min-width:700px){#sidebar{width:30%;height:100vh;overflow:auto;position:sticky;top:0}#content{width:70%;max-width:100ch;padding:3em 4em;border-left:1px solid #ddd}pre code{font-size:1em}.item .name{font-size:1em}main{display:flex;flex-direction:row-reverse;justify-content:flex-end}.toc ul ul,#index ul{padding-left:1.5em}.toc > ul > li{margin-top:.5em}}</style>
+<style>:root{--highlight-color:#fe9}.flex{display:flex !important}body{line-height:1.5em}#content{padding:20px}#sidebar{padding:1.5em;overflow:hidden}#sidebar > *:last-child{margin-bottom:2cm}#lunr-search{width:100%;font-size:1em;padding:6px 9px 5px 9px;border:1px solid silver}.http-server-breadcrumbs{font-size:130%;margin:0 0 15px 0}#footer{font-size:.75em;padding:5px 30px;border-top:1px solid #ddd;text-align:right}#footer p{margin:0 0 0 1em;display:inline-block}#footer p:last-child{margin-right:30px}h1,h2,h3,h4,h5{font-weight:300}h1{font-size:2.5em;line-height:1.1em}h2{font-size:1.75em;margin:2em 0 .50em 0}h3{font-size:1.4em;margin:1.6em 0 .7em 0}h4{margin:0;font-size:105%}h1:target,h2:target,h3:target,h4:target,h5:target,h6:target{background:var(--highlight-color);padding:.2em 0}a{color:#058;text-decoration:none;transition:color .2s ease-in-out}a:visited{color:#503}a:hover{color:#b62}.title code{font-weight:bold}h2[id^="header-"]{margin-top:2em}.ident{color:#900;font-weight:bold}pre code{font-size:.8em;line-height:1.4em;padding:1em;display:block}code{background:#f3f3f3;font-family:"DejaVu Sans Mono",monospace;padding:1px 4px;overflow-wrap:break-word}h1 code{background:transparent}pre{border-top:1px solid #ccc;border-bottom:1px solid #ccc;margin:1em 0}#http-server-module-list{display:flex;flex-flow:column}#http-server-module-list div{display:flex}#http-server-module-list dt{min-width:10%}#http-server-module-list p{margin-top:0}.toc ul,#index{list-style-type:none;margin:0;padding:0}#index code{background:transparent}#index h3{border-bottom:1px solid #ddd}#index ul{padding:0}#index h4{margin-top:.6em;font-weight:bold}@media (min-width:200ex){#index .two-column{column-count:2}}@media (min-width:300ex){#index .two-column{column-count:3}}dl{margin-bottom:2em}dl dl:last-child{margin-bottom:4em}dd{margin:0 0 1em 3em}#header-classes + dl > dd{margin-bottom:3em}dd dd{margin-left:2em}dd p{margin:10px 0}.name{background:#eee;font-size:.85em;padding:5px 10px;display:inline-block;min-width:40%}.name:hover{background:#e0e0e0}dt:target .name{background:var(--highlight-color)}.name > span:first-child{white-space:nowrap}.name.class > span:nth-child(2){margin-left:.4em}.inherited{color:#999;border-left:5px solid #eee;padding-left:1em}.inheritance em{font-style:normal;font-weight:bold}.desc h2{font-weight:400;font-size:1.25em}.desc h3{font-size:1em}.desc dt code{background:inherit}.source summary,.git-link-div{color:#666;text-align:right;font-weight:400;font-size:.8em;text-transform:uppercase}.source summary > *{white-space:nowrap;cursor:pointer}.git-link{color:inherit;margin-left:1em}.source pre{max-height:500px;overflow:auto;margin:0}.source pre code{font-size:12px;overflow:visible}.hlist{list-style:none}.hlist li{display:inline}.hlist li:after{content:',\2002'}.hlist li:last-child:after{content:none}.hlist .hlist{display:inline;padding-left:1em}img{max-width:100%}td{padding:0 .5em}.admonition{padding:.1em 1em;margin-bottom:1em}.admonition-title{font-weight:bold}.admonition.note,.admonition.info,.admonition.important{background:#aef}.admonition.todo,.admonition.versionadded,.admonition.tip,.admonition.hint{background:#dfd}.admonition.warning,.admonition.versionchanged,.admonition.deprecated{background:#fd4}.admonition.error,.admonition.danger,.admonition.caution{background:lightpink}</style>
+<style media="screen and (min-width: 700px)">@media screen and (min-width:700px){#sidebar{width:30%;height:100vh;overflow:auto;position:sticky;top:0}#content{width:70%;max-width:100ch;padding:3em 4em;border-left:1px solid #ddd}pre code{font-size:1em}.name{font-size:1em}main{display:flex;flex-direction:row-reverse;justify-content:flex-end}.toc ul ul,#index ul ul{padding-left:1em}.toc > ul > li{margin-top:.5em}}</style>
 <style media="print">@media print{#sidebar h1{page-break-before:always}.source{display:none}}@media print{*{background:transparent !important;color:#000 !important;box-shadow:none !important;text-shadow:none !important}a[href]:after{content:" (" attr(href) ")";font-size:90%}a[href][title]:after{content:none}abbr[title]:after{content:" (" attr(title) ")"}.ir a:after,a[href^="javascript:"]:after,a[href^="#"]:after{content:""}pre,blockquote{border:1px solid #999;page-break-inside:avoid}thead{display:table-header-group}tr,img{page-break-inside:avoid}img{max-width:100% !important}@page{margin:0.5cm}p,h2,h3{orphans:3;widows:3}h1,h2,h3,h4,h5,h6{page-break-after:avoid}}</style>
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/highlight.min.js" integrity="sha256-Uv3H6lx7dJmRfRvH8TH6kJD1TSK1aFcwgx+mdg3epi8=" crossorigin></script>
 <script>window.addEventListener('DOMContentLoaded', () => hljs.initHighlighting())</script>
@@ -484,7 +484,31 @@ def validator(x: Dict[int, str]) -&gt; bool:
 def validator(x: int, y: bool, z: None) -&gt; None:
     print(x, y, z)
         &#34;&#34;&#34;
-        eval_uplc(source_code, x, y, Unit())</code></pre>
+        eval_uplc(source_code, x, y, Unit())
+
+    @given(
+        i=st.one_of(
+            st.from_regex(r&#34;[^\s]*&#34;, fullmatch=True),
+            st.builds(lambda x: x.hex(), st.binary()),
+            st.builds(lambda x: x.hex()[:-1], st.binary()),
+            st.builds(lambda x: x.hex().upper(), st.binary()),
+        )
+    )
+    @example(&#34;&#34;)
+    def test_fromhex(self, i):
+        source_code = &#34;&#34;&#34;
+def validator(x: str) -&gt; bytes:
+    return b&#34;&#34;.fromhex(x)
+        &#34;&#34;&#34;
+        try:
+            ret = eval_uplc_value(source_code, i.encode(&#34;utf8&#34;))
+        except RuntimeError as e:
+            ret = None
+        try:
+            exp = bytes.fromhex(i)
+        except ValueError:
+            exp = None
+        self.assertEqual(ret, exp, &#34;fromhex returned wrong value&#34;)</code></pre>
 </details>
 </section>
 <section>
@@ -937,7 +961,31 @@ def validator(x: Dict[int, str]) -&gt; bool:
 def validator(x: int, y: bool, z: None) -&gt; None:
     print(x, y, z)
         &#34;&#34;&#34;
-        eval_uplc(source_code, x, y, Unit())</code></pre>
+        eval_uplc(source_code, x, y, Unit())
+
+    @given(
+        i=st.one_of(
+            st.from_regex(r&#34;[^\s]*&#34;, fullmatch=True),
+            st.builds(lambda x: x.hex(), st.binary()),
+            st.builds(lambda x: x.hex()[:-1], st.binary()),
+            st.builds(lambda x: x.hex().upper(), st.binary()),
+        )
+    )
+    @example(&#34;&#34;)
+    def test_fromhex(self, i):
+        source_code = &#34;&#34;&#34;
+def validator(x: str) -&gt; bytes:
+    return b&#34;&#34;.fromhex(x)
+        &#34;&#34;&#34;
+        try:
+            ret = eval_uplc_value(source_code, i.encode(&#34;utf8&#34;))
+        except RuntimeError as e:
+            ret = None
+        try:
+            exp = bytes.fromhex(i)
+        except ValueError:
+            exp = None
+        self.assertEqual(ret, exp, &#34;fromhex returned wrong value&#34;)</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -950,735 +998,204 @@ def validator(x: int, y: bool, z: None) -&gt; None:
 </code></dt>
 <dd>
 <div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">    @given(i=st.integers())
-    def test_abs(self, i):
-        source_code = &#34;&#34;&#34;
-def validator(x: int) -&gt; int:
-    return abs(x)
-        &#34;&#34;&#34;
-        ret = eval_uplc_value(source_code, i)
-        self.assertEqual(ret, abs(i), &#34;abs returned wrong value&#34;)</code></pre>
-</details>
 </dd>
 <dt id="opshin.tests.test_builtins.BuiltinTest.test_all"><code class="name flex">
 <span>def <span class="ident">test_all</span></span>(<span>self) ‑> None</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">    @given(xs=st.lists(st.booleans()))
-    def test_all(self, xs):
-        source_code = &#34;&#34;&#34;
-def validator(x: List[bool]) -&gt; bool:
-    return all(x)
-            &#34;&#34;&#34;
-        ret = eval_uplc_value(source_code, xs)
-        self.assertEqual(bool(ret), all(xs), &#34;all returned wrong value&#34;)</code></pre>
-</details>
 </dd>
 <dt id="opshin.tests.test_builtins.BuiltinTest.test_any"><code class="name flex">
 <span>def <span class="ident">test_any</span></span>(<span>self) ‑> None</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">    @given(xs=st.lists(st.booleans()))
-    def test_any(self, xs):
-        source_code = &#34;&#34;&#34;
-def validator(x: List[bool]) -&gt; bool:
-    return any(x)
-        &#34;&#34;&#34;
-        ret = eval_uplc_value(source_code, xs)
-        self.assertEqual(bool(ret), any(xs), &#34;any returned wrong value&#34;)</code></pre>
-</details>
 </dd>
 <dt id="opshin.tests.test_builtins.BuiltinTest.test_bool_constr_bool"><code class="name flex">
 <span>def <span class="ident">test_bool_constr_bool</span></span>(<span>self) ‑> None</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">    @given(x=st.booleans())
-    def test_bool_constr_bool(self, x):
-        source_code = &#34;&#34;&#34;
-def validator(x: bool) -&gt; bool:
-    return bool(x)
-        &#34;&#34;&#34;
-        ret = eval_uplc_value(source_code, x)
-        self.assertEqual(bool(ret), bool(x), &#34;bool (bool) returned wrong value&#34;)</code></pre>
-</details>
 </dd>
 <dt id="opshin.tests.test_builtins.BuiltinTest.test_bool_constr_bytes"><code class="name flex">
 <span>def <span class="ident">test_bool_constr_bytes</span></span>(<span>self) ‑> None</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">    @given(x=st.binary())
-    def test_bool_constr_bytes(self, x):
-        source_code = &#34;&#34;&#34;
-def validator(x: bytes) -&gt; bool:
-    return bool(x)
-        &#34;&#34;&#34;
-        ret = eval_uplc_value(source_code, x)
-        self.assertEqual(bool(ret), bool(x), &#34;bool (bytes) returned wrong value&#34;)</code></pre>
-</details>
 </dd>
 <dt id="opshin.tests.test_builtins.BuiltinTest.test_bool_constr_dict"><code class="name flex">
 <span>def <span class="ident">test_bool_constr_dict</span></span>(<span>self) ‑> None</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">    @given(xs=st.dictionaries(st.integers(), st.binary()))
-    def test_bool_constr_dict(self, xs):
-        source_code = &#34;&#34;&#34;
-def validator(x: Dict[int, str]) -&gt; bool:
-    return bool(x)
-        &#34;&#34;&#34;
-        ret = eval_uplc_value(source_code, xs)
-        self.assertEqual(bool(ret), bool(xs), &#34;bool (list) returned wrong value&#34;)</code></pre>
-</details>
 </dd>
 <dt id="opshin.tests.test_builtins.BuiltinTest.test_bool_constr_int"><code class="name flex">
 <span>def <span class="ident">test_bool_constr_int</span></span>(<span>self) ‑> None</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">    @given(x=st.integers())
-    def test_bool_constr_int(self, x):
-        source_code = &#34;&#34;&#34;
-def validator(x: int) -&gt; bool:
-    return bool(x)
-        &#34;&#34;&#34;
-        ret = eval_uplc_value(source_code, x)
-        self.assertEqual(bool(ret), bool(x), &#34;bool (int) returned wrong value&#34;)</code></pre>
-</details>
 </dd>
 <dt id="opshin.tests.test_builtins.BuiltinTest.test_bool_constr_list"><code class="name flex">
 <span>def <span class="ident">test_bool_constr_list</span></span>(<span>self) ‑> None</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">    @given(xs=st.lists(st.integers()))
-    def test_bool_constr_list(self, xs):
-        source_code = &#34;&#34;&#34;
-def validator(x: List[int]) -&gt; bool:
-    return bool(x)
-        &#34;&#34;&#34;
-        ret = eval_uplc_value(source_code, xs)
-        self.assertEqual(bool(ret), bool(xs), &#34;bool (list) returned wrong value&#34;)</code></pre>
-</details>
 </dd>
 <dt id="opshin.tests.test_builtins.BuiltinTest.test_bool_constr_none"><code class="name flex">
 <span>def <span class="ident">test_bool_constr_none</span></span>(<span>self) ‑> None</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">    @given(x=st.none())
-    def test_bool_constr_none(self, x):
-        source_code = &#34;&#34;&#34;
-def validator(x: None) -&gt; bool:
-    return bool(x)
-        &#34;&#34;&#34;
-        ret = eval_uplc_value(source_code, Unit())
-        self.assertEqual(bool(ret), bool(x), &#34;bool (none) returned wrong value&#34;)</code></pre>
-</details>
 </dd>
 <dt id="opshin.tests.test_builtins.BuiltinTest.test_bool_constr_str"><code class="name flex">
 <span>def <span class="ident">test_bool_constr_str</span></span>(<span>self) ‑> None</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">    @given(x=st.text())
-    def test_bool_constr_str(self, x):
-        source_code = &#34;&#34;&#34;
-def validator(x: str) -&gt; bool:
-    return bool(x)
-        &#34;&#34;&#34;
-        ret = eval_uplc_value(source_code, x.encode(&#34;utf8&#34;))
-        self.assertEqual(bool(ret), bool(x), &#34;bool (str) returned wrong value&#34;)</code></pre>
-</details>
 </dd>
 <dt id="opshin.tests.test_builtins.BuiltinTest.test_bytes_bytes"><code class="name flex">
 <span>def <span class="ident">test_bytes_bytes</span></span>(<span>self) ‑> None</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">    @given(x=st.binary())
-    def test_bytes_bytes(self, x):
-        source_code = &#34;&#34;&#34;
-def validator(x: bytes) -&gt; bytes:
-    return bytes(x)
-        &#34;&#34;&#34;
-        try:
-            exp = bytes(x)
-        except ValueError:
-            exp = None
-        try:
-            ret = eval_uplc_value(source_code, x)
-        except:
-            ret = None
-        self.assertEqual(ret, exp, &#34;bytes (bytes) returned wrong value&#34;)</code></pre>
-</details>
 </dd>
 <dt id="opshin.tests.test_builtins.BuiltinTest.test_bytes_int"><code class="name flex">
 <span>def <span class="ident">test_bytes_int</span></span>(<span>self) ‑> None</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">    @given(x=st.integers(min_value=-1000, max_value=1000))
-    def test_bytes_int(self, x):
-        source_code = &#34;&#34;&#34;
-def validator(x: int) -&gt; bytes:
-    return bytes(x)
-        &#34;&#34;&#34;
-        try:
-            exp = bytes(x)
-        except ValueError:
-            exp = None
-        try:
-            ret = eval_uplc_value(source_code, x)
-        except:
-            ret = None
-        self.assertEqual(ret, exp, &#34;bytes (integer) returned wrong value&#34;)</code></pre>
-</details>
 </dd>
 <dt id="opshin.tests.test_builtins.BuiltinTest.test_bytes_int_list"><code class="name flex">
 <span>def <span class="ident">test_bytes_int_list</span></span>(<span>self) ‑> None</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">    @given(
-        xs=st.one_of(
-            st.lists(st.integers()), st.lists(st.integers(min_value=0, max_value=255))
-        )
-    )
-    def test_bytes_int_list(self, xs):
-        source_code = &#34;&#34;&#34;
-def validator(x: List[int]) -&gt; bytes:
-    return bytes(x)
-        &#34;&#34;&#34;
-        try:
-            exp = bytes(xs)
-        except ValueError:
-            exp = None
-        try:
-            ret = eval_uplc_value(source_code, xs)
-        except:
-            ret = None
-        self.assertEqual(ret, exp, &#34;bytes (integer list) returned wrong value&#34;)</code></pre>
-</details>
 </dd>
 <dt id="opshin.tests.test_builtins.BuiltinTest.test_chr"><code class="name flex">
 <span>def <span class="ident">test_chr</span></span>(<span>self) ‑> None</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">    @given(i=st.integers())
-    @example(256)
-    @example(0)
-    def test_chr(self, i):
-        source_code = &#34;&#34;&#34;
-def validator(x: int) -&gt; str:
-    return chr(x)
-        &#34;&#34;&#34;
-        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
-        try:
-            i_unicode = chr(i).encode(&#34;utf8&#34;)
-        except (ValueError, OverflowError):
-            i_unicode = None
-        try:
-            ret = eval_uplc_value(source_code, i)
-        except:
-            ret = None
-        self.assertEqual(ret, i_unicode, &#34;chr returned wrong value&#34;)</code></pre>
-</details>
+</dd>
+<dt id="opshin.tests.test_builtins.BuiltinTest.test_fromhex"><code class="name flex">
+<span>def <span class="ident">test_fromhex</span></span>(<span>self) ‑> None</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
 </dd>
 <dt id="opshin.tests.test_builtins.BuiltinTest.test_hex"><code class="name flex">
 <span>def <span class="ident">test_hex</span></span>(<span>self) ‑> None</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">    @given(x=st.integers())
-    @example(0)
-    @example(-1)
-    @example(100)
-    def test_hex(self, x):
-        source_code = &#34;&#34;&#34;
-def validator(x: int) -&gt; str:
-    return hex(x)
-        &#34;&#34;&#34;
-        ret = eval_uplc_value(source_code, x)
-        self.assertEqual(ret.decode(&#34;utf8&#34;), hex(x), &#34;hex returned wrong value&#34;)</code></pre>
-</details>
 </dd>
 <dt id="opshin.tests.test_builtins.BuiltinTest.test_int_bool"><code class="name flex">
 <span>def <span class="ident">test_int_bool</span></span>(<span>self) ‑> None</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">    @given(xs=st.booleans())
-    def test_int_bool(self, xs: bool):
-        source_code = &#34;&#34;&#34;
-def validator(x: bool) -&gt; int:
-    return int(x)
-        &#34;&#34;&#34;
-        try:
-            exp = int(xs)
-        except ValueError:
-            exp = None
-        try:
-            ret = eval_uplc_value(source_code, xs)
-        except:
-            ret = None
-        self.assertEqual(ret, exp, &#34;int (bool) returned wrong value&#34;)</code></pre>
-</details>
 </dd>
 <dt id="opshin.tests.test_builtins.BuiltinTest.test_int_int"><code class="name flex">
 <span>def <span class="ident">test_int_int</span></span>(<span>self) ‑> None</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">    @given(xs=st.integers())
-    def test_int_int(self, xs: int):
-        source_code = &#34;&#34;&#34;
-def validator(x: int) -&gt; int:
-    return int(x)
-        &#34;&#34;&#34;
-        try:
-            exp = int(xs)
-        except ValueError:
-            exp = None
-        try:
-            ret = eval_uplc_value(source_code, xs)
-        except:
-            ret = None
-        self.assertEqual(ret, exp, &#34;int (int) returned wrong value&#34;)</code></pre>
-</details>
 </dd>
 <dt id="opshin.tests.test_builtins.BuiltinTest.test_int_string"><code class="name flex">
 <span>def <span class="ident">test_int_string</span></span>(<span>self) ‑> None</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">    @given(
-        xs=st.one_of(
-            st.builds(lambda x: str(x), st.integers()),
-            st.from_regex(r&#34;\A(?!\s).*(?&lt;!\s)\Z&#34;, fullmatch=True),
-        )
-    )
-    @example(&#34;&#34;)
-    @example(&#34;10_00&#34;)
-    @example(&#34;_&#34;)
-    @example(&#34;_1&#34;)
-    @example(&#34;-&#34;)
-    @example(&#34;+123&#34;)
-    @example(&#34;-_&#34;)
-    @example(&#34;0_&#34;)
-    # @example(&#34;0\n&#34;)  # stripping is broken
-    def test_int_string(self, xs: str):
-        source_code = &#34;&#34;&#34;
-def validator(x: str) -&gt; int:
-    return int(x)
-        &#34;&#34;&#34;
-        try:
-            exp = int(xs)
-        except ValueError:
-            exp = None
-        try:
-            ret = eval_uplc_value(source_code, xs.encode(&#34;utf8&#34;))
-        except Exception as e:
-            ret = None
-        self.assertEqual(ret, exp, &#34;int (str) returned wrong value&#34;)</code></pre>
-</details>
 </dd>
 <dt id="opshin.tests.test_builtins.BuiltinTest.test_len_bytestring"><code class="name flex">
 <span>def <span class="ident">test_len_bytestring</span></span>(<span>self) ‑> None</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">    @given(i=st.binary())
-    def test_len_bytestring(self, i):
-        source_code = &#34;&#34;&#34;
-def validator(x: bytes) -&gt; int:
-    return len(x)
-        &#34;&#34;&#34;
-        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
-        ret = eval_uplc_value(source_code, i)
-        self.assertEqual(ret, len(i), &#34;len (bytestring) returned wrong value&#34;)</code></pre>
-</details>
 </dd>
 <dt id="opshin.tests.test_builtins.BuiltinTest.test_len_dicts"><code class="name flex">
 <span>def <span class="ident">test_len_dicts</span></span>(<span>self) ‑> None</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">    @given(xs=st.dictionaries(st.integers(), st.integers()))
-    def test_len_dicts(self, xs):
-        source_code = &#34;&#34;&#34;
-def validator(x: Dict[int, int]) -&gt; int:
-    return len(x)
-        &#34;&#34;&#34;
-        ret = eval_uplc_value(source_code, xs)
-        self.assertEqual(ret, len(xs), &#34;len returned wrong value&#34;)</code></pre>
-</details>
 </dd>
 <dt id="opshin.tests.test_builtins.BuiltinTest.test_len_lists"><code class="name flex">
 <span>def <span class="ident">test_len_lists</span></span>(<span>self) ‑> None</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">    @given(xs=st.lists(st.integers()))
-    def test_len_lists(self, xs):
-        source_code = &#34;&#34;&#34;
-def validator(x: List[int]) -&gt; int:
-    return len(x)
-        &#34;&#34;&#34;
-        ret = eval_uplc_value(source_code, xs)
-        self.assertEqual(ret, len(xs), &#34;len returned wrong value&#34;)</code></pre>
-</details>
 </dd>
 <dt id="opshin.tests.test_builtins.BuiltinTest.test_len_tuples"><code class="name flex">
 <span>def <span class="ident">test_len_tuples</span></span>(<span>self) ‑> None</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">    @given(xs=st.lists(st.integers()))
-    def test_len_tuples(self, xs):
-        source_code = f&#34;&#34;&#34;
-def validator(x: None) -&gt; int:
-    return len(({&#34;, &#34;.join(map(str, xs))}{&#34;,&#34; if len(xs) == 1 else &#34;&#34;}))
-        &#34;&#34;&#34;
-        ret = eval_uplc_value(source_code, xs)
-        self.assertEqual(ret, len(xs), &#34;len returned wrong value&#34;)</code></pre>
-</details>
 </dd>
 <dt id="opshin.tests.test_builtins.BuiltinTest.test_max"><code class="name flex">
 <span>def <span class="ident">test_max</span></span>(<span>self) ‑> None</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">    @given(xs=st.lists(st.integers()))
-    def test_max(self, xs):
-        source_code = &#34;&#34;&#34;
-def validator(x: List[int]) -&gt; int:
-    return max(x)
-        &#34;&#34;&#34;
-        try:
-            exp = max(xs)
-        except:
-            exp = None
-        try:
-            ret = eval_uplc_value(source_code, xs)
-        except:
-            ret = None
-        self.assertEqual(ret, exp, &#34;max returned wrong value&#34;)</code></pre>
-</details>
 </dd>
 <dt id="opshin.tests.test_builtins.BuiltinTest.test_min"><code class="name flex">
 <span>def <span class="ident">test_min</span></span>(<span>self) ‑> None</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">    @given(xs=st.lists(st.integers()))
-    def test_min(self, xs):
-        source_code = &#34;&#34;&#34;
-def validator(x: List[int]) -&gt; int:
-    return min(x)
-        &#34;&#34;&#34;
-        try:
-            exp = min(xs)
-        except ValueError:
-            exp = None
-        try:
-            ret = eval_uplc_value(source_code, xs)
-        except:
-            ret = None
-        self.assertEqual(ret, exp, &#34;min returned wrong value&#34;)</code></pre>
-</details>
 </dd>
 <dt id="opshin.tests.test_builtins.BuiltinTest.test_neg_pow"><code class="name flex">
 <span>def <span class="ident">test_neg_pow</span></span>(<span>self) ‑> None</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">    @given(x=st.integers(), y=st.integers(min_value=-20, max_value=-1))
-    def test_neg_pow(self, x: int, y: int):
-        source_code = &#34;&#34;&#34;
-def validator(x: int, y: int) -&gt; int:
-    return pow(x, y) % 10000000000
-        &#34;&#34;&#34;
-        try:
-            eval_uplc_value(source_code, x, y)
-            fail = True
-        except Exception:
-            fail = False
-        self.assertFalse(fail, &#34;pow worked on negative exponent&#34;)</code></pre>
-</details>
 </dd>
 <dt id="opshin.tests.test_builtins.BuiltinTest.test_oct"><code class="name flex">
 <span>def <span class="ident">test_oct</span></span>(<span>self) ‑> None</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">    @given(x=st.integers())
-    @example(0)
-    @example(-1)
-    @example(100)
-    def test_oct(self, x):
-        source_code = &#34;&#34;&#34;
-def validator(x: int) -&gt; str:
-    return oct(x)
-        &#34;&#34;&#34;
-        ret = eval_uplc_value(source_code, x)
-        self.assertEqual(ret.decode(&#34;utf8&#34;), oct(x), &#34;oct returned wrong value&#34;)</code></pre>
-</details>
 </dd>
 <dt id="opshin.tests.test_builtins.BuiltinTest.test_pow"><code class="name flex">
 <span>def <span class="ident">test_pow</span></span>(<span>self) ‑> None</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">    @given(x=st.integers(), y=st.integers(min_value=0, max_value=20))
-    def test_pow(self, x: int, y: int):
-        source_code = &#34;&#34;&#34;
-def validator(x: int, y: int) -&gt; int:
-    return pow(x, y) % 10000000000
-        &#34;&#34;&#34;
-        try:
-            exp = pow(x, y) % 10000000000
-        except ValueError:
-            exp = None
-        try:
-            ret = eval_uplc_value(source_code, x, y)
-        except:
-            ret = None
-        self.assertEqual(ret, exp, &#34;pow returned wrong value&#34;)</code></pre>
-</details>
 </dd>
 <dt id="opshin.tests.test_builtins.BuiltinTest.test_print_compile"><code class="name flex">
 <span>def <span class="ident">test_print_compile</span></span>(<span>self) ‑> None</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">    @given(x=st.integers(), y=st.booleans(), z=st.none())
-    def test_print_compile(self, x, y, z):
-        source_code = &#34;&#34;&#34;
-def validator(x: int, y: bool, z: None) -&gt; None:
-    print(x, y, z)
-        &#34;&#34;&#34;
-        eval_uplc(source_code, x, y, Unit())</code></pre>
-</details>
 </dd>
 <dt id="opshin.tests.test_builtins.BuiltinTest.test_range"><code class="name flex">
 <span>def <span class="ident">test_range</span></span>(<span>self) ‑> None</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">    @given(i=st.integers(max_value=100))
-    def test_range(self, i):
-        source_code = &#34;&#34;&#34;
-def validator(x: int) -&gt; List[int]:
-    return range(x)
-        &#34;&#34;&#34;
-        ret = eval_uplc_value(source_code, i)
-        self.assertEqual(
-            [x.value for x in ret], list(range(i)), &#34;sum returned wrong value&#34;
-        )</code></pre>
-</details>
 </dd>
 <dt id="opshin.tests.test_builtins.BuiltinTest.test_reversed"><code class="name flex">
 <span>def <span class="ident">test_reversed</span></span>(<span>self) ‑> None</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">    @given(xs=st.lists(st.integers()))
-    def test_reversed(self, xs):
-        source_code = &#34;&#34;&#34;
-def validator(x: List[int]) -&gt; List[int]:
-    return reversed(x)
-        &#34;&#34;&#34;
-        ret = eval_uplc_value(source_code, xs)
-        self.assertEqual(
-            [r.value for r in ret], list(reversed(xs)), &#34;reversed returned wrong value&#34;
-        )</code></pre>
-</details>
 </dd>
 <dt id="opshin.tests.test_builtins.BuiltinTest.test_str_bool"><code class="name flex">
 <span>def <span class="ident">test_str_bool</span></span>(<span>self) ‑> None</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">    @given(x=st.booleans())
-    def test_str_bool(self, x):
-        source_code = &#34;&#34;&#34;
-def validator(x: bool) -&gt; str:
-    return str(x)
-        &#34;&#34;&#34;
-        ret = eval_uplc_value(source_code, x)
-        self.assertEqual(ret.decode(&#34;utf8&#34;), str(x), &#34;str returned wrong value&#34;)</code></pre>
-</details>
 </dd>
 <dt id="opshin.tests.test_builtins.BuiltinTest.test_str_int"><code class="name flex">
 <span>def <span class="ident">test_str_int</span></span>(<span>self) ‑> None</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">    @given(x=st.integers())
-    @example(0)
-    @example(-1)
-    @example(100)
-    def test_str_int(self, x):
-        source_code = &#34;&#34;&#34;
-def validator(x: int) -&gt; str:
-    return str(x)
-        &#34;&#34;&#34;
-        ret = eval_uplc_value(source_code, x)
-        self.assertEqual(ret.decode(&#34;utf8&#34;), str(x), &#34;str returned wrong value&#34;)</code></pre>
-</details>
 </dd>
 <dt id="opshin.tests.test_builtins.BuiltinTest.test_sum"><code class="name flex">
 <span>def <span class="ident">test_sum</span></span>(<span>self) ‑> None</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">    @given(xs=st.lists(st.integers()))
-    def test_sum(self, xs):
-        source_code = &#34;&#34;&#34;
-def validator(x: List[int]) -&gt; int:
-    return sum(x)
-        &#34;&#34;&#34;
-        ret = eval_uplc_value(source_code, xs)
-        self.assertEqual(ret, sum(xs), &#34;sum returned wrong value&#34;)</code></pre>
-</details>
 </dd>
 </dl>
 </dd>
@@ -1697,8 +1214,8 @@ def validator(x: List[int]) -&gt; int:
 <input id="lunr-search" name="q" placeholder="🔎 Search ..." aria-label="Search"
 disabled minlength="2">
 </form>
-<link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/tingle/0.15.3/tingle.min.css" integrity="sha512-j1u8eUJ4f23xPPxwOrLUPQaCD2dwzNqqmDDcWS4deWsMv2ohLqmXXuP3hU7g8TyzbMSakP/mMqoNBYWj8AEIFg==" crossorigin>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/tingle/0.15.3/tingle.min.js" integrity="sha512-plGUER9JkeEWPPqQBE4sdLqBoQug5Ap+BCGMc7bJ8BXkm+VVj6QzkpBz5Yv2yPkkq+cqg9IpkBaGCas6uDbW8g==" crossorigin></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tingle/0.16.0/tingle.min.css" integrity="sha512-b+T2i3P45i1LZM7I00Ci5QquB9szqaxu+uuk5TUSGjZQ4w4n+qujQiIuvTv2BxE7WCGQCifNMksyKILDiHzsOg==" crossorigin>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/tingle/0.16.0/tingle.min.js" integrity="sha512-2B9/byNV1KKRm5nQ2RLViPFD6U4dUjDGwuW1GU+ImJh8YinPU9Zlq1GzdTMO+G2ROrB5o1qasJBy1ttYz0wCug==" crossorigin></script>
 <style>
 .modal-dialog iframe {
 width: 100vw;
@@ -1768,6 +1285,7 @@ setTimeout(() => input.focus(), 100);
 <li><code><a title="opshin.tests.test_builtins.BuiltinTest.test_bytes_int" href="#opshin.tests.test_builtins.BuiltinTest.test_bytes_int">test_bytes_int</a></code></li>
 <li><code><a title="opshin.tests.test_builtins.BuiltinTest.test_bytes_int_list" href="#opshin.tests.test_builtins.BuiltinTest.test_bytes_int_list">test_bytes_int_list</a></code></li>
 <li><code><a title="opshin.tests.test_builtins.BuiltinTest.test_chr" href="#opshin.tests.test_builtins.BuiltinTest.test_chr">test_chr</a></code></li>
+<li><code><a title="opshin.tests.test_builtins.BuiltinTest.test_fromhex" href="#opshin.tests.test_builtins.BuiltinTest.test_fromhex">test_fromhex</a></code></li>
 <li><code><a title="opshin.tests.test_builtins.BuiltinTest.test_hex" href="#opshin.tests.test_builtins.BuiltinTest.test_hex">test_hex</a></code></li>
 <li><code><a title="opshin.tests.test_builtins.BuiltinTest.test_int_bool" href="#opshin.tests.test_builtins.BuiltinTest.test_int_bool">test_int_bool</a></code></li>
 <li><code><a title="opshin.tests.test_builtins.BuiltinTest.test_int_int" href="#opshin.tests.test_builtins.BuiltinTest.test_int_int">test_int_int</a></code></li>
@@ -1795,7 +1313,7 @@ setTimeout(() => input.focus(), 100);
 </nav>
 </main>
 <footer id="footer">
-<p>Generated by <a href="https://pdoc3.github.io/pdoc" title="pdoc: Python API documentation generator"><cite>pdoc</cite> 0.10.0</a>.</p>
+<p>Generated by <a href="https://pdoc3.github.io/pdoc" title="pdoc: Python API documentation generator"><cite>pdoc</cite> 0.11.1</a>.</p>
 </footer>
 </body>
 </html>
