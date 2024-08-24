@@ -135,13 +135,17 @@ def union_types(*ts: Type):
     for e in ts:
         for e2 in e.typs:
             assert isinstance(
-                e2, RecordType
+                e2, (RecordType, IntegerType, ByteStringType, ListType, DictType)
             ), f"Union must combine multiple PlutusData classes but found {e2.__class__.__name__}"
     union_set = OrderedSet()
     for t in ts:
         union_set.update(t.typs)
     assert distinct(
-        [e.record.constructor for e in union_set]
+        [
+            e.record.constructor
+            for e in union_set
+            if not isinstance(e, (ByteStringType, IntegerType, ListType, DictType))
+        ]
     ), "Union must combine PlutusData classes with unique constructors"
     return UnionType(frozenlist(union_set))
 
@@ -183,8 +187,8 @@ class TypeCheckVisitor(TypedNodeVisitor):
                 "Target 0 of an isinstance cast must be a variable name for type casting to work. You can still proceed, but the inferred type of the isinstance cast will not be accurate."
             )
             return ({}, {})
-        assert isinstance(
-            node.args[1], Name
+        assert isinstance(node.args[1], Name) or isinstance(
+            node.args[1].typ, (ListType, DictType)
         ), "Target 1 of an isinstance cast must be a class name"
         target_class: RecordType = node.args[1].typ
         inst = node.args[0]
@@ -192,7 +196,7 @@ class TypeCheckVisitor(TypedNodeVisitor):
         assert isinstance(
             inst_class, InstanceType
         ), "Can only cast instances, not classes"
-        assert isinstance(target_class, RecordType), "Can only cast to PlutusData"
+        # assert isinstance(target_class, RecordType), "Can only cast to PlutusData"
         if isinstance(inst_class.typ, UnionType):
             assert (
                 target_class in inst_class.typ.typs
@@ -376,8 +380,34 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                 ann.value, Name
             ), "Only Union, Dict and List are allowed as Generic types"
             if ann.value.orig_id == "Union":
+                for elt in ann.slice.elts:
+                    if isinstance(elt, Subscript) and elt.value.id == "List":
+                        assert (
+                            isinstance(elt.slice, Name)
+                            and elt.slice.orig_id == "Anything"
+                        ), f"Only List[Anything] is supported in Unions. Received List[{elt.slice.orig_id}]."
+                    if isinstance(elt, Subscript) and elt.value.id == "Dict":
+                        assert all(
+                            isinstance(e, Name) and e.orig_id == "Anything"
+                            for e in elt.slice.elts
+                        ), f"Only Dict[Anything, Anything] or Dict is supported in Unions. Received Dict[{elt.slice.elts[0].orig_id}, {elt.slice.elts[1].orig_id}]."
                 ann_types = frozenlist(
                     [self.type_from_annotation(e) for e in ann.slice.elts]
+                )
+                # check for unique constr_ids
+                constr_ids = [
+                    record.record.constructor
+                    for record in ann_types
+                    if isinstance(record, RecordType)
+                ]
+                assert len(constr_ids) == len(
+                    set(constr_ids)
+                ), f"Duplicate constr_ids for records in Union: " + str(
+                    {
+                        t.record.orig_name: t.record.constructor
+                        for t in ann_types
+                        if isinstance(t, RecordType)
+                    }
                 )
                 return union_types(*ann_types)
             if ann.value.orig_id == "List":
@@ -441,7 +471,10 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                 assert (
                     func.returns is None or func.returns.id != n.name
                 ), "Invalid Python, class name is undefined at this stage"
-                func.args.args[0].annotation = ast.Name(id=n.name, ctx=ast.Load())
+                ann = ast.Name(id=n.name, ctx=ast.Load())
+                custom_fix_missing_locations(ann, attribute.args.args[0])
+                ann.orig_id = attribute.args.args[0].orig_arg
+                func.args.args[0].annotation = ann
                 additional_functions.append(func)
             n.body = non_method_attributes
         if additional_functions:
@@ -648,8 +681,14 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
 
     def visit_Name(self, node: Name) -> TypedName:
         tn = copy(node)
-        # Make sure that the rhs of an assign is evaluated first
-        tn.typ = self.variable_type(node.id)
+        # typing List and Dict are not present in scope we don't want to call variable_type
+        if node.orig_id == "List":
+            tn.typ = ListType(InstanceType(AnyType()))
+        elif node.orig_id == "Dict":
+            tn.typ = DictType(InstanceType(AnyType()), InstanceType(AnyType()))
+        else:
+            # Make sure that the rhs of an assign is evaluated first
+            tn.typ = self.variable_type(node.id)
         return tn
 
     def visit_keyword(self, node: keyword) -> Typedkeyword:
@@ -705,10 +744,15 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
 
         self.enter_scope()
         tfd.args = self.visit(node.args)
+
         functyp = FunctionType(
             frozenlist([t.typ for t in tfd.args.args]),
             InstanceType(self.type_from_annotation(tfd.returns)),
-            bound_vars={v: self.variable_type(v) for v in externally_bound_vars(node)},
+            bound_vars={
+                v: self.variable_type(v)
+                for v in externally_bound_vars(node)
+                if not v in ["List", "Dict"]
+            },
             bind_self=node.name if node.name in read_vars(node) else None,
         )
         tfd.typ = InstanceType(functyp)
@@ -807,6 +851,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             "Dict",
             "List",
         ]:
+
             ts.value = ts.typ = self.type_from_annotation(ts)
             return ts
 
@@ -932,7 +977,25 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             tc.args = [self.visit(a) for a in node.args]
 
         # might be isinstance
-        if isinstance(tc.func, Name) and tc.func.orig_id == "isinstance":
+        # Subscripts are not allowed in isinstance calls
+        if (
+            isinstance(tc.func, Name)
+            and tc.func.orig_id == "isinstance"
+            and isinstance(tc.args[1], Subscript)
+        ):
+            raise TypeError(
+                "Subscripted generics cannot be used with class and instance checks"
+            )
+
+        # Need to handle the presence of PlutusData classes
+        if (
+            isinstance(tc.func, Name)
+            and tc.func.orig_id == "isinstance"
+            and not isinstance(
+                tc.args[1].typ, (ByteStringType, IntegerType, ListType, DictType)
+            )
+            and not hasattr(node, "skip_next")
+        ):
             target_class = tc.args[1].typ
             if (
                 isinstance(tc.args[0].typ, InstanceType)
@@ -952,7 +1015,17 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             ntc = self.visit(ntc)
             ntc.typ = BoolInstanceType
             ntc.typechecks = TypeCheckVisitor(self.allow_isinstance_anything).visit(tc)
-            return ntc
+            if isinstance(tc.args[0].typ.typ, UnionType) and any(
+                [
+                    isinstance(a, (IntegerType, ByteStringType, ListType, DictType))
+                    for a in tc.args[0].typ.typ.typs
+                ]
+            ):
+                n = copy(node)
+                n.skip_next = True
+                return self.visit(BoolOp(And(), [n, ntc]))
+            else:
+                return ntc
         try:
             tc.func = self.visit(node.func)
         except Exception as e:
@@ -966,9 +1039,12 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             except Exception:
                 # if this fails raise original error
                 raise e
-            tc.func = self.visit(ast.Name(id=method_name, ctx=ast.Load()))
+            n = ast.Name(id=method_name, ctx=ast.Load())
+            n.orig_id = node.func.attr
+            tc.func = self.visit(n)
             tc.func.orig_id = node.func.attr
             c_self = ast.Name(id=node.func.value.id, ctx=ast.Load())
+            c_self.orig_id = None
             tc.args.insert(0, self.visit(c_self))
 
         # might be a class
