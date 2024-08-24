@@ -40,6 +40,7 @@ class RewriteScoping(CompilingNodeTransformer):
     step = "Rewrite all variables to inambiguously point to the definition in the nearest enclosing scope"
     latest_scope_id: int
     scopes: typing.List[typing.Tuple[OrderedSet, int]]
+    current_Self: typing.Tuple[str, str]
 
     def variable_scope_id(self, name: str) -> int:
         """find the id of the scope in which this variable is defined (closest to its usage)"""
@@ -86,6 +87,9 @@ class RewriteScoping(CompilingNodeTransformer):
     def visit_Name(self, node: Name) -> Name:
         nc = copy(node)
         # setting is handled in either enclosing module or function
+        if node.id == "Self":
+            assert node.idSelf == self.current_Self[1]
+            nc.idSelf_new = self.current_Self[0]
         nc.id = self.map_name(node.id)
         return nc
 
@@ -93,6 +97,7 @@ class RewriteScoping(CompilingNodeTransformer):
         cp_node = RecordScoper.scope(node, self)
         for i, attribute in enumerate(cp_node.body):
             if isinstance(attribute, FunctionDef):
+                self.current_Self = (cp_node.name, cp_node.orig_name)
                 cp_node.body[i] = self.visit_FunctionDef(attribute, method=True)
         return cp_node
 
@@ -108,17 +113,9 @@ class RewriteScoping(CompilingNodeTransformer):
             a_cp = copy(a)
             self.set_variable_scope(a.arg)
             a_cp.arg = self.map_name(a.arg)
-            a_cp.annotation = (
-                self.visit(a.annotation)
-                if not hasattr(a.annotation, "idSelf")
-                else a.annotation
-            )
+            a_cp.annotation = self.visit(a.annotation)
             node_cp.args.args.append(a_cp)
-        node_cp.returns = (
-            self.visit(node.returns)
-            if not hasattr(node.returns, "idSelf")
-            else node.returns
-        )
+        node_cp.returns = self.visit(node.returns)
         # vars defined in this scope
         shallow_node_def_collector = ShallowNameDefCollector()
         for s in node.body:

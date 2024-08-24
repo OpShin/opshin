@@ -369,7 +369,10 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         if isinstance(ann, Name):
             if ann.id in ATOMIC_TYPES:
                 return ATOMIC_TYPES[ann.id]
-            v_t = self.variable_type(ann.id)
+            if ann.id == "Self":
+                v_t = self.variable_type(ann.idSelf_new)
+            else:
+                v_t = self.variable_type(ann.id)
             if isinstance(v_t, ClassType):
                 return v_t
             raise TypeInferenceError(
@@ -465,9 +468,19 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                     ), f"The following Dunder methods are supported {list(DUNDER_MAP.values())}. Received {func.name} which is not supported"
                 func.name = f"{n.name}_{attribute.name}"
                 for arg in func.args.args:
-                    assert (
-                        arg.annotation is None or arg.annotation.id != n.name
-                    ), "Invalid Python, class name is undefined at this stage."
+                    if not arg.annotation is None:
+                        if isinstance(arg.annotation, ast.Name):
+                            assert (
+                                arg.annotation is None or arg.annotation.id != n.name
+                            ), "Invalid Python, class name is undefined at this stage."
+                        elif (
+                            isinstance(arg.annotation, ast.Subscript)
+                            and arg.annotation.value.id == "Union"
+                        ):
+                            for s in arg.annotation.slice.elts:
+                                assert (
+                                    s.id != n.name
+                                ), "Invalid Python, class name is undefined at this stage."
                 assert (
                     func.returns is None or func.returns.id != n.name
                 ), "Invalid Python, class name is undefined at this stage"

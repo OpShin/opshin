@@ -49,6 +49,16 @@ class RewriteImportTyping(CompilingNodeTransformer):
                             and arg.annotation.id == "Self"
                         ):
                             node.body[i].args.args[j].annotation.idSelf = node.name
+                        if (
+                            isinstance(arg.annotation, Subscript)
+                            and arg.annotation.value.id == "Union"
+                        ):
+                            for k, s in enumerate(arg.annotation.slice.elts):
+                                if isinstance(s, Name) and s.id == "Self":
+                                    node.body[i].args.args[j].annotation.slice.elts[
+                                        k
+                                    ].idSelf = node.name
+
                     if (
                         isinstance(attribute.returns, Name)
                         and attribute.returns.id == "Self"

@@ -27,12 +27,18 @@ class Fraction(PlutusData):
             self.numerator + self.denominator - sign(self.denominator)
         ) // self.denominator
 
-    def __add__(self, other: Self) -> Self:
+    def __add__(self, other: Union[Self, int]) -> Self:
         """returns self + other"""
-        return Fraction(
-            (self.numerator * other.denominator) + (other.numerator * self.denominator),
-            self.denominator * other.denominator,
-        )
+        if isinstance(other, Fraction):
+            return Fraction(
+                (self.numerator * other.denominator)
+                + (other.numerator * self.denominator),
+                self.denominator * other.denominator,
+            )
+        else:
+            return Fraction(
+                self.numerator + (other * self.denominator), self.denominator
+            )
 
     def __neg__(
         self,
@@ -40,108 +46,136 @@ class Fraction(PlutusData):
         """returns -self"""
         return Fraction(-self.numerator, self.denominator)
 
-    def __sub__(self, other: Self) -> Self:
+    def __sub__(self, other: Union[Self, int]) -> Self:
         """returns self - other"""
-        return Fraction(
-            (self.numerator * other.denominator) - (other.numerator * self.denominator),
-            self.denominator * other.denominator,
-        )
+        if isinstance(other, Fraction):
+            return Fraction(
+                (self.numerator * other.denominator)
+                - (other.numerator * self.denominator),
+                self.denominator * other.denominator,
+            )
+        else:
+            return Fraction(
+                self.numerator - (other * self.denominator), self.denominator
+            )
 
-    def __mul__(self, other: Self) -> Self:
+    def __mul__(self, other: Union[Self, int]) -> Self:
         """returns self * other"""
-        return Fraction(
-            self.numerator * other.numerator, self.denominator * other.denominator
-        )
+        if isinstance(other, Fraction):
+            return Fraction(
+                self.numerator * other.numerator, self.denominator * other.denominator
+            )
+        else:
+            return Fraction(self.numerator * other, self.denominator)
 
-    def __truediv__(self, other: Self) -> Self:
+    def __truediv__(self, other: Union[Self, int]) -> Self:
         """returns self / other"""
-        return Fraction(
-            self.numerator * other.denominator, self.denominator * other.numerator
-        )
+        if isinstance(other, Fraction):
+            return Fraction(
+                self.numerator * other.denominator, self.denominator * other.numerator
+            )
+        else:
+            return Fraction(self.numerator, self.denominator * other)
 
-    def __ge__(self, other: Self) -> Self:
+    def __ge__(self, other: Union[Self, int]) -> bool:
         """returns self >= other"""
-        if self.denominator * other.denominator >= 0:
-            res = (
-                self.numerator * other.denominator >= self.denominator * other.numerator
-            )
+        if isinstance(other, Fraction):
+            if self.denominator * other.denominator >= 0:
+                res = (
+                    self.numerator * other.denominator
+                    >= self.denominator * other.numerator
+                )
+            else:
+                res = (
+                    self.numerator * other.denominator
+                    <= self.denominator * other.numerator
+                )
+            return res
         else:
-            res = (
-                self.numerator * other.denominator <= self.denominator * other.numerator
-            )
-        return res
+            if self.denominator >= 0:
+                res = self.numerator >= self.denominator * other
+            else:
+                res = self.numerator <= self.denominator * other
+            return res
 
-    def __le__(self, other: Self) -> Self:
+    def __le__(self, other: Union[Self, int]) -> bool:
         """returns self <= other"""
-        if self.denominator * other.denominator >= 0:
-            res = (
-                self.numerator * other.denominator <= self.denominator * other.numerator
-            )
+        if isinstance(other, Fraction):
+            if self.denominator * other.denominator >= 0:
+                res = (
+                    self.numerator * other.denominator
+                    <= self.denominator * other.numerator
+                )
+            else:
+                res = (
+                    self.numerator * other.denominator
+                    >= self.denominator * other.numerator
+                )
+            return res
         else:
-            res = (
-                self.numerator * other.denominator >= self.denominator * other.numerator
-            )
-        return res
+            if self.denominator >= 0:
+                res = self.numerator <= self.denominator * other
+            else:
+                res = self.numerator >= self.denominator * other
+            return res
 
-    def __eq__(self, other: Self) -> Self:
+    def __eq__(self, other: Union[Self, int]) -> bool:
         """returns self == other"""
-        return self.numerator * other.denominator == self.denominator * other.numerator
+        if isinstance(other, Fraction):
+            return (
+                self.numerator * other.denominator == self.denominator * other.numerator
+            )
+        else:
+            return self.numerator == self.denominator * other
 
-    def __lt__(self, other: Self) -> Self:
+    def __lt__(self, other: Union[Self, int]) -> bool:
         """returns self < other"""
-        if self.denominator * other.denominator >= 0:
-            res = (
-                self.numerator * other.denominator < self.denominator * other.numerator
-            )
+        if isinstance(other, Fraction):
+            if self.denominator * other.denominator >= 0:
+                res = (
+                    self.numerator * other.denominator
+                    < self.denominator * other.numerator
+                )
+            else:
+                res = (
+                    self.numerator * other.denominator
+                    > self.denominator * other.numerator
+                )
+            return res
         else:
-            res = (
-                self.numerator * other.denominator > self.denominator * other.numerator
-            )
-        return res
+            if self.denominator >= 0:
+                res = self.numerator < self.denominator * other
+            else:
+                res = self.numerator > self.denominator * other
+            return res
 
-    def __gt__(self, other: Self) -> Self:
+    def __gt__(self, other: Union[Self, int]) -> bool:
         """returns self > other"""
-        if self.denominator * other.denominator >= 0:
-            res = (
-                self.numerator * other.denominator > self.denominator * other.numerator
-            )
+        if isinstance(other, Fraction):
+            if self.denominator * other.denominator >= 0:
+                res = (
+                    self.numerator * other.denominator
+                    > self.denominator * other.numerator
+                )
+            else:
+                res = (
+                    self.numerator * other.denominator
+                    < self.denominator * other.numerator
+                )
+            return res
         else:
-            res = (
-                self.numerator * other.denominator < self.denominator * other.numerator
-            )
-        return res
+            if self.denominator >= 0:
+                res = self.numerator > self.denominator * other
+            else:
+                res = self.numerator < self.denominator * other
+            return res
 
-    def __floordiv__(self, other: Self) -> int:
-        x = self / other
-        return x.numerator // x.denominator
-
-
-def add_fraction(a: Fraction, b: Fraction) -> Fraction:
-    """returns self + other"""
-    return Fraction(
-        (a.numerator * b.denominator) + (b.numerator * a.denominator),
-        a.denominator * b.denominator,
-    )
-
-
-def neg_fraction(a: Fraction) -> Fraction:
-    """returns -a"""
-    return Fraction(-a.numerator, a.denominator)
-
-
-def sub_fraction(a: Fraction, b: Fraction) -> Fraction:
-    """returns self - other"""
-    return add_fraction(a, neg_fraction(b))
-
-
-def mul_fraction(a: Fraction, b: Fraction) -> Fraction:
-    """returns self * other"""
-    return Fraction(a.numerator * b.numerator, a.denominator * b.denominator)
-
-
-def div_fraction(a: Fraction, b: Fraction) -> Fraction:
-    """returns self / other"""
-    return Fraction(a.numerator * b.denominator, a.denominator * b.numerator)
+    def __floordiv__(self, other: Union[Self, int]) -> int:
+        if isinstance(other, Fraction):
+            x = self / other
+            return x.numerator // x.denominator
+        else:
+            return self.numerator // (other * self.denominator)
 
 
 def _norm_signs_fraction(a: Fraction) -> Fraction:
@@ -158,51 +192,6 @@ def _norm_gcd_fraction(a: Fraction) -> Fraction:
 def norm_fraction(a: Fraction) -> Fraction:
     """Restores the invariant that num/denom are in the smallest possible denomination and denominator > 0"""
     return _norm_gcd_fraction(_norm_signs_fraction(a))
-
-
-def ge_fraction(a: Fraction, b: Fraction) -> bool:
-    """returns self >= other"""
-    if a.denominator * b.denominator >= 0:
-        res = a.numerator * b.denominator >= a.denominator * b.numerator
-    else:
-        res = a.numerator * b.denominator <= a.denominator * b.numerator
-    return res
-
-
-def le_fraction(a: Fraction, b: Fraction) -> bool:
-    """returns self <= other"""
-    if a.denominator * b.denominator >= 0:
-        res = a.numerator * b.denominator <= a.denominator * b.numerator
-    else:
-        res = a.numerator * b.denominator >= a.denominator * b.numerator
-    return res
-
-
-def eq_fraction(a: Fraction, b: Fraction) -> bool:
-    """returns self == other"""
-    return a.numerator * b.denominator == a.denominator * b.numerator
-
-
-def lt_fraction(a: Fraction, b: Fraction) -> bool:
-    """returns self < other"""
-    if a.denominator * b.denominator >= 0:
-        res = a.numerator * b.denominator < a.denominator * b.numerator
-    else:
-        res = a.numerator * b.denominator > a.denominator * b.numerator
-    return res
-
-
-def gt_fraction(a: Fraction, b: Fraction) -> bool:
-    """returns self > other"""
-    if a.denominator * b.denominator >= 0:
-        res = a.numerator * b.denominator > a.denominator * b.numerator
-    else:
-        res = a.numerator * b.denominator < a.denominator * b.numerator
-    return res
-
-
-def floor_fraction(a: Fraction) -> int:
-    return a.numerator // a.denominator
 
 
 def ceil_fraction(a: Fraction) -> int:
