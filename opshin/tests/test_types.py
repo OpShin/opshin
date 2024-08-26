@@ -47,3 +47,15 @@ def test_union_type_order():
     assert not a >= c
     assert abc >= c
     assert not ab >= c
+
+
+def test_list_type_equality():
+    type1 = Type()  # Replace with the actual way to instantiate `Type`
+    type2 = Type()  # Another `Type` object, could be the same or different
+
+    list1 = ListType(typ=type1)
+    list2 = ListType(typ=type1)
+    list3 = ListType(typ=type2)
+
+    assert list1 == list2
+    assert list1 != list3

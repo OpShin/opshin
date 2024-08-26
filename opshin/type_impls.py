@@ -972,6 +972,14 @@ class ListType(ClassType):
     def __ge__(self, other):
         return isinstance(other, ListType) and self.typ >= other.typ
 
+    def __eq__(self, other):
+        if not isinstance(other, ListType):
+            return False
+        return self.typ == other.typ
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
     def id_map(self, skip_constructor: bool = False) -> str:
         return "list<" + self.typ.id_map() + ">"
 
