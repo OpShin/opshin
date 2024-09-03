@@ -37,7 +37,8 @@ class Fraction(PlutusData):
             )
         else:
             return Fraction(
-                self.numerator + (other * self.denominator), self.denominator
+                (self.numerator) + (other * self.denominator),
+                self.denominator,
             )
 
     def __neg__(

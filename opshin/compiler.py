@@ -393,6 +393,8 @@ class PlutoCompiler(CompilingNodeTransformer):
         if isinstance(node.typ, ClassType):
             # if this is not an instance but a class, call the constructor
             return node.typ.constr()
+        if hasattr(node, "is_wrapped"):
+            return transform_ext_params_map(node.typ)(plt.Force(plt.Var(node.id)))
         return plt.Force(plt.Var(node.id))
 
     def visit_Expr(self, node: TypedExpr) -> CallAST:

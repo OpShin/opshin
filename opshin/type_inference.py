@@ -279,6 +279,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
     def __init__(self, allow_isinstance_anything=False):
         self.allow_isinstance_anything = allow_isinstance_anything
         self.FUNCTION_ARGUMENT_REGISTRY = {}
+        self.wrapped = []
 
         # A stack of dictionaries for storing scoped knowledge of variable types
         self.scopes = [INITIAL_SCOPE]
@@ -625,15 +626,19 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         ).visit(typed_if.test)
         # for the time of the branch, these types are cast
         initial_scope = copy(self.scopes[-1])
-        self.implement_typechecks(typchecks)
+        wrapped = self.implement_typechecks(typchecks)
+        self.wrapped.extend(wrapped.keys())
         typed_if.body = self.visit_sequence(node.body)
+        self.wrapped = [x for x in self.wrapped if x not in wrapped.keys()]
+
         # save resulting types
         final_scope_body = copy(self.scopes[-1])
         # reverse typechecks and remove typing of one branch
         self.scopes[-1] = initial_scope
         # for the time of the else branch, the inverse types hold
-        self.implement_typechecks(inv_typchecks)
+        wrapped = self.implement_typechecks(inv_typchecks)
         typed_if.orelse = self.visit_sequence(node.orelse)
+        self.wrapped = [x for x in self.wrapped if x not in wrapped.keys()]
         final_scope_else = self.scopes[-1]
         # unify the resulting branch scopes
         self.scopes[-1] = merge_scope(final_scope_body, final_scope_else)
@@ -702,6 +707,8 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         else:
             # Make sure that the rhs of an assign is evaluated first
             tn.typ = self.variable_type(node.id)
+        if node.id in self.wrapped:
+            tn.is_wrapped = True
         return tn
 
     def visit_keyword(self, node: keyword) -> Typedkeyword:
@@ -864,7 +871,6 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             "Dict",
             "List",
         ]:
-
             ts.value = ts.typ = self.type_from_annotation(ts)
             return ts
 
