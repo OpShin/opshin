@@ -2,7 +2,7 @@ import hypothesis
 import hypothesis.strategies as hst
 from typing import Union
 from opshin.std import fractions as oc_fractions
-from opshin.tests.utils import eval_uplc, eval_uplc_value
+from ..utils import eval_uplc, eval_uplc_value
 
 import fractions as native_fractions
 import math as native_math
