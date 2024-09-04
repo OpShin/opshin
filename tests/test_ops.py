@@ -19,7 +19,7 @@ from uplc.ast import (
 
 from . import PLUTUS_VM_PROFILE
 from .utils import eval_uplc, eval_uplc_value, Unit
-from .. import compiler
+from opshin import compiler
 
 hypothesis.settings.load_profile(PLUTUS_VM_PROFILE)
 

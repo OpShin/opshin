@@ -54,10 +54,6 @@ branch = true
 source = ["opshin"]
 
 [tool.coverage.report]
-# We dont care whether test cases got executed
-omit = [
- "*/opshin/tests/*",
-]
 # Regexes for lines to exclude from consideration
 exclude_also = [
     # Don't complain if tests don't hit defensive assertion code:

@@ -8,7 +8,7 @@ from pycardano import PlutusData
 
 from . import PLUTUS_VM_PROFILE
 from .utils import eval_uplc, eval_uplc_value, Unit
-from .. import compiler, builder
+from opshin import compiler, builder
 
 settings.load_profile(PLUTUS_VM_PROFILE)
 
