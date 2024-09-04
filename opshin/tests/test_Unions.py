@@ -318,9 +318,9 @@ def validator(x: Union[int,bytes]) -> int:
     if isinstance(x, int):
         k = x+5
     elif isinstance(x, bytes):
-        k = 7
+        k = len(x)
     return k
 """
         res = eval_uplc_value(source_code, x)
-        real = x + 5 if isinstance(x, int) else 7
+        real = x + 5 if isinstance(x, int) else len(x)
         self.assertEqual(res, real)
