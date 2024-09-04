@@ -3024,3 +3024,21 @@ def validator(_: None) -> None:
 """
         res = eval_uplc(source_code, Unit())
         self.assertEqual(res, uplc.PlutusConstr(0, []), "Invalid return")
+
+    @given(a=st.booleans(), b=st.booleans())
+    def test_cast_bool_to_int_lt(self, a: bool, b: bool):
+        source_code = """
+def validator(a: bool, b:bool)-> int:
+    return 5+(a<b)
+"""
+        res = eval_uplc_value(source_code, a, b)
+        self.assertEquals(res, 5 + (a < b))
+
+    @given(a=st.booleans(), b=st.booleans())
+    def test_cast_bool_to_int_gt(self, a: bool, b: bool):
+        source_code = """
+def validator(a: bool, b:bool)-> int:
+    return 5+(a>b)
+"""
+        res = eval_uplc_value(source_code, a, b)
+        self.assertEquals(res, 5 + (a > b))
