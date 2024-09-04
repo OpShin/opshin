@@ -56,7 +56,7 @@ source = ["opshin"]
 [tool.coverage.report]
 # We dont care whether test cases got executed
 omit = [
- "*opshin/tests/*",
+ "*/opshin/tests/*",
 ]
 # Regexes for lines to exclude from consideration
 exclude_also = [
