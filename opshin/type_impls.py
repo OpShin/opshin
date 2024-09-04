@@ -1645,6 +1645,9 @@ class IntegerType(AtomicType):
         ):
             if other == IntegerInstanceType:
                 return IntegerType()
+            elif other == BoolInstanceType:
+                # cast to integer
+                return IntegerType()
         if isinstance(binop, Mult):
             if other == IntegerInstanceType:
                 return IntegerType()
@@ -1671,6 +1674,23 @@ class IntegerType(AtomicType):
                         plt.LessThanInteger(OVar("y"), plt.Integer(0)),
                         plt.TraceError("Negative exponentiation is not supported"),
                         PowImpl(x, OVar("y")),
+                    ),
+                )
+        if other.typ == BoolInstanceType:
+            if isinstance(binop, Add):
+                return lambda x, y: OLet(
+                    [("x", x), ("y", y)],
+                    plt.Ite(
+                        OVar("y"), plt.AddInteger(OVar("x"), plt.Integer(1)), OVar("x")
+                    ),
+                )
+            elif isinstance(binop, Sub):
+                return lambda x, y: OLet(
+                    [("x", x), ("y", y)],
+                    plt.Ite(
+                        OVar("y"),
+                        plt.SubtractInteger(OVar("x"), plt.Integer(1)),
+                        OVar("x"),
                     ),
                 )
 
@@ -2308,6 +2328,10 @@ class BoolType(AtomicType):
                 return OLambda(["x", "y"], plt.Iff(OVar("x"), OVar("y")))
             if isinstance(op, NotEq):
                 return OLambda(["x", "y"], plt.Not(plt.Iff(OVar("x"), OVar("y"))))
+            if isinstance(op, Lt):
+                return OLambda(["x", "y"], plt.And(plt.Not(OVar("x")), OVar("y")))
+            if isinstance(op, Gt):
+                return OLambda(["x", "y"], plt.And(OVar("x"), plt.Not(OVar("y"))))
         return super().cmp(op, o)
 
     def stringify(self, recursive: bool = False) -> plt.AST:
