@@ -9,7 +9,7 @@ on:
       - '**'
 
 jobs:
-  build:
+  test:
     runs-on: ubuntu-20.04
     strategy:
       matrix:
@@ -63,10 +63,13 @@ jobs:
         #   poetry run coverage run -a --source=opshin -m opshin compile lib "$i" -fno-remove-dead-code > /dev/null || exit
         # done
 
-    - name: Upload coverage to Coveralls
-      uses: coverallsapp/github-action@v2
+  coveralls_finish:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+    - name: Coveralls Finished
+      uses: AndreMiras/coveralls-python-action@develop
       with:
-        github-token: ${{ secrets.GITHUB_TOKEN }}
-        parallel: true
-        flag-name: run ${{ join(matrix.*, ' - ') }}
-        base-path: /home/runner/work/opshin/opshin
+        github-token: '${{ github.GITHUB_TOKEN }}'
+        parallel-finished: true
+        base-path: '/home/runner/work/opshin/opshin'
