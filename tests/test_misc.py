@@ -20,15 +20,15 @@ from parameterized import parameterized
 from uplc import ast as uplc, eval as uplc_eval
 
 from . import PLUTUS_VM_PROFILE
-from .. import prelude, builder, Purpose, PlutusContract
+from opshin import prelude, builder, Purpose, PlutusContract
 from .utils import eval_uplc_value, Unit, eval_uplc
-from ..bridge import wraps_builtin
-from ..compiler_config import OPT_O2_CONFIG, DEFAULT_CONFIG
+from opshin.bridge import wraps_builtin
+from opshin.compiler_config import OPT_O2_CONFIG, DEFAULT_CONFIG
 
 hypothesis.settings.load_profile(PLUTUS_VM_PROFILE)
 
 # these imports are required to eval the result of script context dumps
-from ..ledger.api_v2 import *
+from opshin.ledger.api_v2 import *
 from pycardano import RawPlutusData, RawCBOR
 from cbor2 import CBORTag
 

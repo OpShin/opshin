@@ -7,8 +7,8 @@ import uplc.ast as uplc_ast
 from pycardano import PlutusData
 from uplc import eval as uplc_eval
 
-from .. import DEFAULT_CONFIG
-from ..builder import _compile
+from opshin import DEFAULT_CONFIG
+from opshin.builder import _compile
 
 
 @dataclasses.dataclass

@@ -1,4 +1,4 @@
-from ..type_impls import *
+from opshin.type_impls import *
 
 
 def test_record_type_order():

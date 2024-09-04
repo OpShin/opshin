@@ -11,7 +11,7 @@ hypothesis.settings.load_profile(PLUTUS_VM_PROFILE)
 from .test_misc import A
 from typing import List, Dict
 
-from ..ledger.api_v2 import *
+from opshin.ledger.api_v2 import *
 
 
 def to_int(x):
