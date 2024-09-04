@@ -1,4 +1,4 @@
-name: Python Package
+name: Tests & QA
 
 on:
   push:
@@ -27,7 +27,7 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt remove -y python3-virtualenv
-        pip install -U poetry virtualenv
+        pip install -U poetry virtualenv black
         poetry install
 
     - name: Run linters and tests
