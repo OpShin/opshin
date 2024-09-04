@@ -5,7 +5,7 @@
 <h1 style="text-align: center;">opshin</h1></br>
 
 
-<a href="https://app.travis-ci.com/OpShin/opshin"><img alt="Build Status" src="https://app.travis-ci.com/OpShin/opshin.svg?branch=main"/></a>
+[![Tests & QA](https://github.com/OpShin/opshin/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/OpShin/opshin/actions/workflows/tests.yml)
 <a href="https://pypi.org/project/opshin/"><img alt="PyPI version" src="https://badge.fury.io/py/opshin.svg"/></a>
 <img alt="PyPI - Python Version" src="https://img.shields.io/pypi/pyversions/opshin.svg" />
 <a href="https://pypi.org/project/opshin/"><img alt="PyPI - Status" src="https://img.shields.io/pypi/status/opshin.svg" /></a>
