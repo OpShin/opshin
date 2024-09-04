@@ -7,7 +7,6 @@ This does not maintain smallest possible notation invariants for the sake of eff
 from dataclasses import dataclass
 from pycardano import Datum as Anything, PlutusData
 from typing import Dict, List, Union
-from typing import Self
 
 from opshin.std.math import *
 
@@ -18,7 +17,7 @@ class Fraction(PlutusData):
     numerator: int
     denominator: int
 
-    def norm(self) -> Self:
+    def norm(self) -> "Fraction":
         """Restores the invariant that num/denom are in the smallest possible denomination and denominator > 0"""
         return _norm_gcd_fraction(_norm_signs_fraction(self))
 
@@ -27,7 +26,7 @@ class Fraction(PlutusData):
             self.numerator + self.denominator - sign(self.denominator)
         ) // self.denominator
 
-    def __add__(self, other: Union[Self, int]) -> Self:
+    def __add__(self, other: Union["Fraction", int]) -> "Fraction":
         """returns self + other"""
         if isinstance(other, Fraction):
             return Fraction(
@@ -43,11 +42,11 @@ class Fraction(PlutusData):
 
     def __neg__(
         self,
-    ) -> Self:
+    ) -> "Fraction":
         """returns -self"""
         return Fraction(-self.numerator, self.denominator)
 
-    def __sub__(self, other: Union[Self, int]) -> Self:
+    def __sub__(self, other: Union["Fraction", int]) -> "Fraction":
         """returns self - other"""
         if isinstance(other, Fraction):
             return Fraction(
@@ -60,7 +59,7 @@ class Fraction(PlutusData):
                 self.numerator - (other * self.denominator), self.denominator
             )
 
-    def __mul__(self, other: Union[Self, int]) -> Self:
+    def __mul__(self, other: Union["Fraction", int]) -> "Fraction":
         """returns self * other"""
         if isinstance(other, Fraction):
             return Fraction(
@@ -69,7 +68,7 @@ class Fraction(PlutusData):
         else:
             return Fraction(self.numerator * other, self.denominator)
 
-    def __truediv__(self, other: Union[Self, int]) -> Self:
+    def __truediv__(self, other: Union["Fraction", int]) -> "Fraction":
         """returns self / other"""
         if isinstance(other, Fraction):
             return Fraction(
@@ -78,7 +77,7 @@ class Fraction(PlutusData):
         else:
             return Fraction(self.numerator, self.denominator * other)
 
-    def __ge__(self, other: Union[Self, int]) -> bool:
+    def __ge__(self, other: Union["Fraction", int]) -> bool:
         """returns self >= other"""
         if isinstance(other, Fraction):
             if self.denominator * other.denominator >= 0:
@@ -99,7 +98,7 @@ class Fraction(PlutusData):
                 res = self.numerator <= self.denominator * other
             return res
 
-    def __le__(self, other: Union[Self, int]) -> bool:
+    def __le__(self, other: Union["Fraction", int]) -> bool:
         """returns self <= other"""
         if isinstance(other, Fraction):
             if self.denominator * other.denominator >= 0:
@@ -120,7 +119,7 @@ class Fraction(PlutusData):
                 res = self.numerator >= self.denominator * other
             return res
 
-    def __eq__(self, other: Union[Self, int]) -> bool:
+    def __eq__(self, other: Union["Fraction", int]) -> bool:
         """returns self == other"""
         if isinstance(other, Fraction):
             return (
@@ -129,7 +128,7 @@ class Fraction(PlutusData):
         else:
             return self.numerator == self.denominator * other
 
-    def __lt__(self, other: Union[Self, int]) -> bool:
+    def __lt__(self, other: Union["Fraction", int]) -> bool:
         """returns self < other"""
         if isinstance(other, Fraction):
             if self.denominator * other.denominator >= 0:
@@ -150,7 +149,7 @@ class Fraction(PlutusData):
                 res = self.numerator > self.denominator * other
             return res
 
-    def __gt__(self, other: Union[Self, int]) -> bool:
+    def __gt__(self, other: Union["Fraction", int]) -> bool:
         """returns self > other"""
         if isinstance(other, Fraction):
             if self.denominator * other.denominator >= 0:
@@ -171,7 +170,7 @@ class Fraction(PlutusData):
                 res = self.numerator < self.denominator * other
             return res
 
-    def __floordiv__(self, other: Union[Self, int]) -> int:
+    def __floordiv__(self, other: Union["Fraction", int]) -> int:
         if isinstance(other, Fraction):
             x = self / other
             return x.numerator // x.denominator

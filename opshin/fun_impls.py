@@ -95,6 +95,12 @@ class IsinstanceImpl(PolymorphicFunction):
         return FunctionType(args, BoolInstanceType)
 
     def impl_from_args(self, args: typing.List[Type]) -> plt.AST:
+        if not (isinstance(args[0], UnionType) or isinstance(args[0].typ, UnionType)):
+            if args[0].typ == args[1]:
+                return OLambda(["x"], plt.Bool(True))
+            else:
+                return OLambda(["x"], plt.Bool(False))
+
         if isinstance(args[1], IntegerType):
             return OLambda(
                 ["x"],

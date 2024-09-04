@@ -2,7 +2,7 @@ import hypothesis
 import hypothesis.strategies as hst
 from typing import Union
 from opshin.std import fractions as oc_fractions
-from opshin.tests.utils import eval_uplc
+from opshin.tests.utils import eval_uplc, eval_uplc_value
 
 import fractions as native_fractions
 import math as native_math
@@ -21,6 +21,8 @@ denormalized_fractions_and_int_non_null = hst.one_of(
 def native_fraction_from_oc_fraction(f: Union[oc_fractions.Fraction, int]):
     if isinstance(f, oc_fractions.Fraction):
         return native_fractions.Fraction(f.numerator, f.denominator)
+    elif isinstance(f, PlutusConstr):
+        return native_fractions.Fraction(*[x.value for x in f.fields])
     else:
         return f
 
@@ -158,3 +160,19 @@ def test_ceil_method(a: oc_fractions.Fraction):
     assert (
         native_math.ceil(native_fraction_from_oc_fraction(a)) == oc_ceil
     ), "Invalid ceil"
+
+
+@hypothesis.given(denormalized_fractions, denormalized_fractions)
+def test_uplc(a, b):
+    source_code = """
+from opshin.std.fractions import *
+from typing import Dict, List, Union
+
+def validator(a: Fraction, b: Union[Fraction, int]) -> Fraction:
+    return a+b
+"""
+    ret = eval_uplc(source_code, a, b)
+    print(ret)
+    assert (
+        native_fraction_from_oc_fraction(a) + native_fraction_from_oc_fraction(b)
+    ) == native_fraction_from_oc_fraction(ret), "invalid add"

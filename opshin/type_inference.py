@@ -367,6 +367,15 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         if isinstance(ann, Constant):
             if ann.value is None:
                 return UnitType()
+            else:
+                for scope in reversed(self.scopes):
+                    for key, value in scope.items():
+                        if (
+                            isinstance(value, RecordType)
+                            and value.record.orig_name == ann.value
+                        ):
+                            return value
+
         if isinstance(ann, Name):
             if ann.id in ATOMIC_TYPES:
                 return ATOMIC_TYPES[ann.id]
@@ -480,10 +489,12 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                         ):
                             for s in arg.annotation.slice.elts:
                                 assert (
-                                    s.id != n.name
+                                    isinstance(s, Name) and s.id != n.name
+                                ) or isinstance(
+                                    s, Constant
                                 ), "Invalid Python, class name is undefined at this stage."
-                assert (
-                    func.returns is None or func.returns.id != n.name
+                assert isinstance(func.returns, Constant) or (
+                    isinstance(func.returns, Name) and func.returns.id != n.name
                 ), "Invalid Python, class name is undefined at this stage"
                 ann = ast.Name(id=n.name, ctx=ast.Load())
                 custom_fix_missing_locations(ann, attribute.args.args[0])
