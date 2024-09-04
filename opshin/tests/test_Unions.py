@@ -348,5 +348,25 @@ def validator(x: int) -> int:
     return k
 """
         res = eval_uplc_value(source_code, x)
-        real = x + 6 if isinstance(x, int) else len(x)
+        real = x + 6 if x > 5 else len(x)
+        self.assertEqual(res, real)
+
+    @hypothesis.given(st.sampled_from(range(14)))
+    def test_Union_builtin_cast_direct(self, x):
+        source_code = """
+from dataclasses import dataclass
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
+
+def validator(x: int) -> int:
+    y: Union[int,bytes] = 5 if x > 5 else b"0"*x
+    k: int = 0
+    if isinstance(y, int):
+        k = y+1
+    elif isinstance(y, bytes):
+        k = len(y)
+    return k
+"""
+        res = eval_uplc_value(source_code, x)
+        real = x + 1 if x > 5 else len(x)
         self.assertEqual(res, real)
