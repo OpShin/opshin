@@ -48,3 +48,30 @@ opshin = "opshin.__main__:main"
 [build-system]
 requires = ["setuptools", "poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.coverage.run]
+branch = true
+source = ["opshin"]
+
+[tool.coverage.report]
+# We dont care whether test cases got executed
+omit = [
+ "*opshin/tests/*",
+]
+# Regexes for lines to exclude from consideration
+exclude_also = [
+    # Don't complain if tests don't hit defensive assertion code:
+    "raise NotImplementedError",
+
+    # Don't complain if non-runnable code isn't run:
+    "if __name__ == .__main__.:",
+
+    # Don't complain about abstract methods, they aren't run:
+    "@(abc\\.)?abstractmethod",
+
+    # Don't complain about missing debug-only code:
+    "def __repr__",
+    ]
+
+ignore_errors = true
+
