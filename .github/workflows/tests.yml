@@ -63,13 +63,22 @@ jobs:
         #   poetry run coverage run -a --source=opshin -m opshin compile lib "$i" -fno-remove-dead-code > /dev/null || exit
         # done
 
-  coveralls_finish:
-    needs: test
-    runs-on: ubuntu-latest
-    steps:
-    - name: Coveralls Finished
-      uses: AndreMiras/coveralls-python-action@develop
-      with:
-        github-token: '${{ github.GITHUB_TOKEN }}'
-        parallel-finished: true
-        base-path: '/home/runner/work/opshin/opshin'
+    - name: Upload coverage data to coveralls.io
+      run: coveralls
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        COVERALLS_FLAG_NAME: ${{ matrix.python-version }}
+        COVERALLS_PARALLEL: true
+
+  coveralls:
+      name: Indicate completion to coveralls.io
+      needs: test
+      runs-on: ubuntu-latest
+      container: python:3-slim
+      steps:
+      - name: Install coveralls
+        run: pip3 install --upgrade coveralls
+      - name: Finished
+        run: coveralls --finish
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
