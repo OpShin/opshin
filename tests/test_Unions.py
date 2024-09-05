@@ -348,7 +348,7 @@ def validator(x: int) -> int:
     return k
 """
         res = eval_uplc_value(source_code, x)
-        real = x + 6 if x > 5 else len(x)
+        real = x + 6 if x > 5 else len(b"0" * x)
         self.assertEqual(res, real)
 
     @hypothesis.given(st.sampled_from(range(14)))
@@ -368,5 +368,5 @@ def validator(x: int) -> int:
     return k
 """
         res = eval_uplc_value(source_code, x)
-        real = x + 1 if x > 5 else len(x)
+        real = 5 + 1 if x > 5 else len(b"0" * x)
         self.assertEqual(res, real)

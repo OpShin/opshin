@@ -435,7 +435,7 @@ class PlutoCompiler(CompilingNodeTransformer):
             assert isinstance(t, InstanceType)
             # pass in all arguments evaluated with the statemonad
             a_int = self.visit(a)
-            if isinstance(t.typ, AnyType):
+            if isinstance(t.typ, AnyType) or isinstance(t.typ, UnionType):
                 # if the function expects input of generic type data, wrap data before passing it inside
                 a_int = transform_output_map(a.typ)(a_int)
             args.append(a_int)
@@ -916,6 +916,14 @@ class PlutoCompiler(CompilingNodeTransformer):
         return l
 
     def visit_IfExp(self, node: TypedIfExp) -> plt.AST:
+        if isinstance(node.typ.typ, UnionType):
+            body = self.visit(node.body)
+            orelse = self.visit(node.orelse)
+            if not isinstance(node.body.typ, UnionType):
+                body = transform_output_map(node.body.typ)(body)
+            if not isinstance(node.orelse.typ, UnionType):
+                orelse = transform_output_map(node.orelse.typ)(orelse)
+            return plt.Ite(self.visit(node.test), body, orelse)
         return plt.Ite(
             self.visit(node.test),
             self.visit(node.body),
