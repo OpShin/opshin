@@ -462,7 +462,7 @@ def validator(x: int) -> int:
 
     @unittest.skip("Throw compilation error, hence not critical")
     @hypothesis.given(st.sampled_from(range(14)))
-    def test_Union_builtin_cast_ifexpr(self, x):
+    def test_Union_builtin_cast_List(self, x):
         source_code = """
 from dataclasses import dataclass
 from typing import Dict, List, Union
