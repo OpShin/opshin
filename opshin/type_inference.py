@@ -648,6 +648,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         self.scopes[-1] = initial_scope
         # for the time of the else branch, the inverse types hold
         wrapped = self.implement_typechecks(inv_typchecks)
+        self.wrapped.extend(wrapped.keys())
         typed_if.orelse = self.visit_sequence(node.orelse)
         self.wrapped = [x for x in self.wrapped if x not in wrapped.keys()]
         final_scope_else = self.scopes[-1]
@@ -1149,10 +1150,15 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             self.allow_isinstance_anything
         ).visit(node_cp.test)
         prevtyps = self.implement_typechecks(typchecks)
+        self.wrapped.extend(prevtyps.keys())
         node_cp.body = self.visit(node.body)
+        self.wrapped = [x for x in self.wrapped if x not in prevtyps.keys()]
+
         self.implement_typechecks(prevtyps)
         prevtyps = self.implement_typechecks(inv_typchecks)
+        self.wrapped.extend(prevtyps.keys())
         node_cp.orelse = self.visit(node.orelse)
+        self.wrapped = [x for x in self.wrapped if x not in prevtyps.keys()]
         self.implement_typechecks(prevtyps)
         if node_cp.body.typ >= node_cp.orelse.typ:
             node_cp.typ = node_cp.body.typ
