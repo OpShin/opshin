@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "opshin"
-version = "0.23.0"
+version = "0.23.1"
 description = "A simple pythonic programming language for Smart Contracts on Cardano"
 authors = ["nielstron <n.muendler@web.de>"]
 license = "MIT"
@@ -22,9 +22,9 @@ packages = [{include = "opshin"}]
 
 [tool.poetry.dependencies]
 python = ">=3.8.1, <3.12"
-uplc = "^1.0.6"
+uplc = "^1.0.7"
 pluthon = "^1.0.0"
-pycardano = "^0.11.1"
+pycardano = "^0.12.0"
 frozenlist2 = "^1.0.0"
 astunparse = {version = "^1.6.3", python = "<3.9"}
 ordered-set = "^4.1.0"
