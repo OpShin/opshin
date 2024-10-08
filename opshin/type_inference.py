@@ -279,6 +279,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
     def __init__(self, allow_isinstance_anything=False):
         self.allow_isinstance_anything = allow_isinstance_anything
         self.FUNCTION_ARGUMENT_REGISTRY = {}
+        self.wrapped = []
 
         # A stack of dictionaries for storing scoped knowledge of variable types
         self.scopes = [INITIAL_SCOPE]
@@ -366,10 +367,22 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         if isinstance(ann, Constant):
             if ann.value is None:
                 return UnitType()
+            else:
+                for scope in reversed(self.scopes):
+                    for key, value in scope.items():
+                        if (
+                            isinstance(value, RecordType)
+                            and value.record.orig_name == ann.value
+                        ):
+                            return value
+
         if isinstance(ann, Name):
             if ann.id in ATOMIC_TYPES:
                 return ATOMIC_TYPES[ann.id]
-            v_t = self.variable_type(ann.id)
+            if ann.id == "Self":
+                v_t = self.variable_type(ann.idSelf_new)
+            else:
+                v_t = self.variable_type(ann.id)
             if isinstance(v_t, ClassType):
                 return v_t
             raise TypeInferenceError(
@@ -465,11 +478,23 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                     ), f"The following Dunder methods are supported {list(DUNDER_MAP.values())}. Received {func.name} which is not supported"
                 func.name = f"{n.name}_{attribute.name}"
                 for arg in func.args.args:
-                    assert (
-                        arg.annotation is None or arg.annotation.id != n.name
-                    ), "Invalid Python, class name is undefined at this stage."
-                assert (
-                    func.returns is None or func.returns.id != n.name
+                    if not arg.annotation is None:
+                        if isinstance(arg.annotation, ast.Name):
+                            assert (
+                                arg.annotation is None or arg.annotation.id != n.name
+                            ), "Invalid Python, class name is undefined at this stage."
+                        elif (
+                            isinstance(arg.annotation, ast.Subscript)
+                            and arg.annotation.value.id == "Union"
+                        ):
+                            for s in arg.annotation.slice.elts:
+                                assert (
+                                    isinstance(s, Name) and s.id != n.name
+                                ) or isinstance(
+                                    s, Constant
+                                ), "Invalid Python, class name is undefined at this stage."
+                assert isinstance(func.returns, Constant) or (
+                    isinstance(func.returns, Name) and func.returns.id != n.name
                 ), "Invalid Python, class name is undefined at this stage"
                 ann = ast.Name(id=n.name, ctx=ast.Load())
                 custom_fix_missing_locations(ann, attribute.args.args[0])
@@ -612,15 +637,20 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         ).visit(typed_if.test)
         # for the time of the branch, these types are cast
         initial_scope = copy(self.scopes[-1])
-        self.implement_typechecks(typchecks)
+        wrapped = self.implement_typechecks(typchecks)
+        self.wrapped.extend(wrapped.keys())
         typed_if.body = self.visit_sequence(node.body)
+        self.wrapped = [x for x in self.wrapped if x not in wrapped.keys()]
+
         # save resulting types
         final_scope_body = copy(self.scopes[-1])
         # reverse typechecks and remove typing of one branch
         self.scopes[-1] = initial_scope
         # for the time of the else branch, the inverse types hold
-        self.implement_typechecks(inv_typchecks)
+        wrapped = self.implement_typechecks(inv_typchecks)
+        self.wrapped.extend(wrapped.keys())
         typed_if.orelse = self.visit_sequence(node.orelse)
+        self.wrapped = [x for x in self.wrapped if x not in wrapped.keys()]
         final_scope_else = self.scopes[-1]
         # unify the resulting branch scopes
         self.scopes[-1] = merge_scope(final_scope_body, final_scope_else)
@@ -689,6 +719,8 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         else:
             # Make sure that the rhs of an assign is evaluated first
             tn.typ = self.variable_type(node.id)
+        if node.id in self.wrapped:
+            tn.is_wrapped = True
         return tn
 
     def visit_keyword(self, node: keyword) -> Typedkeyword:
@@ -851,7 +883,6 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             "Dict",
             "List",
         ]:
-
             ts.value = ts.typ = self.type_from_annotation(ts)
             return ts
 
@@ -1119,10 +1150,15 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             self.allow_isinstance_anything
         ).visit(node_cp.test)
         prevtyps = self.implement_typechecks(typchecks)
+        self.wrapped.extend(prevtyps.keys())
         node_cp.body = self.visit(node.body)
+        self.wrapped = [x for x in self.wrapped if x not in prevtyps.keys()]
+
         self.implement_typechecks(prevtyps)
         prevtyps = self.implement_typechecks(inv_typchecks)
+        self.wrapped.extend(prevtyps.keys())
         node_cp.orelse = self.visit(node.orelse)
+        self.wrapped = [x for x in self.wrapped if x not in prevtyps.keys()]
         self.implement_typechecks(prevtyps)
         if node_cp.body.typ >= node_cp.orelse.typ:
             node_cp.typ = node_cp.body.typ
