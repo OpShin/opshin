@@ -13,7 +13,7 @@ jobs:
         with:
           generateReleaseNotes: true
           makeLatest: true
-          prerelease: true
+          prerelease: false
           skipIfReleaseExists: true
       # Build and publish the package to pypi.
       - name: Build and publish to pypi
