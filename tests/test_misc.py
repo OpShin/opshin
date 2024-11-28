@@ -21,7 +21,7 @@ from uplc import ast as uplc, eval as uplc_eval
 
 from . import PLUTUS_VM_PROFILE
 from opshin import prelude, builder, Purpose, PlutusContract
-from .utils import eval_uplc_value, Unit, eval_uplc
+from .utils import eval_uplc_value, Unit, eval_uplc, eval_uplc_raw
 from opshin.bridge import wraps_builtin
 from opshin.compiler_config import OPT_O2_CONFIG, DEFAULT_CONFIG
 
@@ -3068,3 +3068,62 @@ def validator(a: bool, b:bool)-> int:
 """
         res = eval_uplc_value(source_code, a, b)
         self.assertEquals(res, 5 - (a > b))
+
+    @given(st.data())
+    def test_index_access_skip(self, data):
+        xs = data.draw(st.lists(st.integers()))
+        y = data.draw(
+            st.one_of(
+                st.integers(min_value=1 - len(xs), max_value=len(xs) - 1), st.integers()
+            )
+            if xs
+            else st.integers()
+        )
+        # test the optimization for list access when the index is known at compile time
+        source_code = f"""
+from typing import Dict, List, Union
+def validator(x: List[int], y: int) -> int:
+    return x[y]
+            """
+        try:
+            exp = xs[y]
+        except IndexError:
+            exp = None
+        config = DEFAULT_CONFIG
+        config.update(fast_access_skip=5)
+        try:
+            ret = eval_uplc_value(source_code, xs, y, config=config)
+        except Exception as e:
+            ret = None
+        self.assertEqual(ret, exp, "list index returned wrong value")
+
+    def test_index_access_skip_faster(self):
+        xs = list(range(1000))
+        y = 250
+        # test the optimization for list access when the list is long and we can skip entries
+        source_code = f"""
+from typing import Dict, List, Union
+def validator(x: List[int], y: int) -> int:
+    return x[y]
+            """
+        exp = xs[y]
+        default_config = DEFAULT_CONFIG
+        raw_ret_noskip = eval_uplc_raw(source_code, xs, y, config=default_config)
+        skip_config = default_config.update(fast_access_skip=100)
+        raw_ret_skip = eval_uplc_raw(source_code, xs, y, config=skip_config)
+        self.assertEqual(
+            raw_ret_noskip.result.value, exp, "list index returned wrong value"
+        )
+        self.assertEqual(
+            raw_ret_skip.result.value, exp, "list index returned wrong value"
+        )
+        self.assertLess(
+            raw_ret_skip.cost.cpu,
+            raw_ret_noskip.cost.cpu,
+            "skipping had adverse effect on cpu",
+        )
+        self.assertLess(
+            raw_ret_skip.cost.memory,
+            raw_ret_noskip.cost.memory,
+            "skipping had adverse effect on memory",
+        )

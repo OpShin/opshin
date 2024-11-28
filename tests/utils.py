@@ -16,7 +16,7 @@ class Unit(PlutusData):
     CONSTR_ID = 0
 
 
-def eval_uplc(
+def eval_uplc_raw(
     source_code: str,
     *args: typing.Union[pycardano.Datum, uplc_ast.Constant],
     contract_file: str = "<unknown>",
@@ -30,7 +30,23 @@ def eval_uplc(
         validator_function_name=validator_function_name,
         config=config,
     )
-    ret = uplc_eval(code).result
+    return uplc_eval(code)
+
+
+def eval_uplc(
+    source_code: str,
+    *args: typing.Union[pycardano.Datum, uplc_ast.Constant],
+    contract_file: str = "<unknown>",
+    validator_function_name="validator",
+    config=DEFAULT_CONFIG,
+):
+    ret = eval_uplc_raw(
+        source_code,
+        *args,
+        contract_file=contract_file,
+        validator_function_name=validator_function_name,
+        config=config,
+    ).result
     if isinstance(ret, Exception):
         raise ret
     return ret

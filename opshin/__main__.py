@@ -475,21 +475,33 @@ def parse_args():
     )
     for k, v in ARGPARSE_ARGS.items():
         alts = v.pop("__alts__", [])
-        a.add_argument(
-            f"-f{k.replace('_', '-')}",
-            *alts,
-            **v,
-            action="store_true",
-            dest=k,
-            default=None,
-        )
-        a.add_argument(
-            f"-fno-{k.replace('_', '-')}",
-            action="store_false",
-            help=argparse.SUPPRESS,
-            dest=k,
-            default=None,
-        )
+        type = v.pop("type", None)
+        if type is None:
+            a.add_argument(
+                f"-f{k.replace('_', '-')}",
+                *alts,
+                **v,
+                action="store_true",
+                dest=k,
+                default=None,
+            )
+            a.add_argument(
+                f"-fno-{k.replace('_', '-')}",
+                action="store_false",
+                help=argparse.SUPPRESS,
+                dest=k,
+                default=None,
+            )
+        else:
+            a.add_argument(
+                f"-f{k.replace('_', '-')}",
+                *alts,
+                **v,
+                type=type,
+                dest=k,
+                default=None,
+            )
+
     a.add_argument(
         f"-O",
         type=int,
