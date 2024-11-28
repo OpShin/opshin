@@ -1,6 +1,7 @@
 import inspect
 
 import argparse
+import logging
 import tempfile
 
 import cbor2
@@ -28,8 +29,9 @@ from . import (
     Purpose,
     PlutusContract,
 )
-from .util import CompilerError, data_from_json
+from .util import CompilerError, data_from_json, OPSHIN_LOG_HANDLER
 from .prelude import ScriptContext
+from .compiler_config import *
 
 
 class Command(enum.Enum):
@@ -227,11 +229,26 @@ Make sure the validator expects parameters {'datum, ' if purpose == Purpose.spen
 
 
 def perform_command(args):
+    # generate the compiler config
+    compiler_config = DEFAULT_CONFIG
+    compiler_config = compiler_config.update(OPT_CONFIGS[args.opt_level])
+    overrides = {}
+    for k in ARGPARSE_ARGS.keys():
+        if getattr(args, k) is not None:
+            overrides[k] = getattr(args, k)
+    compiler_config = compiler_config.update(CompilationConfig(**overrides))
+    # configure logging
+    if args.verbose:
+        OPSHIN_LOG_HANDLER.setLevel(logging.DEBUG)
+
+    # execute the command
     command = Command(args.command)
     purpose = Purpose(args.purpose)
+    if purpose == Purpose.lib:
+        assert (
+            not compiler_config.remove_dead_code
+        ), "Libraries must have dead code removal disabled (-fno-remove-dead-code)"
     input_file = args.input_file if args.input_file != "-" else sys.stdin
-    force_three_params = args.force_three_params
-    constant_folding = args.constant_folding
     # read and import the contract
     with open(input_file, "r") as f:
         source_code = f.read()
@@ -276,7 +293,7 @@ def perform_command(args):
             annotations,
             return_annotation,
             parsed_params,
-            force_three_params,
+            compiler_config.force_three_params,
         )
 
     if command == Command.eval:
@@ -301,12 +318,9 @@ def perform_command(args):
         code = compiler.compile(
             source_ast,
             filename=input_file,
-            force_three_params=force_three_params,
             validator_function_name="validator" if purpose != Purpose.lib else None,
-            constant_folding=constant_folding,
             # do not remove dead code when compiling a library - none of the code will be used
-            remove_dead_code=purpose != Purpose.lib,
-            allow_isinstance_anything=args.allow_isinstance_anything,
+            config=compiler_config,
         )
     except CompilerError as c:
         # Generate nice error message from compiler error
@@ -343,7 +357,7 @@ Note that opshin errors may be overly restrictive as they aim to prevent code wi
     if command == Command.compile_pluto:
         print(code.dumps())
         return
-    code = pluthon.compile(code, optimize_patterns=not args.no_optimize_patterns)
+    code = pluthon.compile(code, config=compiler_config)
 
     # apply parameters from the command line to the contract (instantiates parameterized contract!)
     code = code.term
@@ -388,17 +402,20 @@ Note that opshin errors may be overly restrictive as they aim to prevent code wi
         print("------------------")
         assert isinstance(code, uplc.ast.Program)
         try:
-            ret = uplc.dumps(uplc.eval(code))
+            ret = uplc.eval(code)
         except Exception as e:
             print("An exception was raised")
             ret = e
+        else:
+            print("Execution succeeded")
+            ret = uplc.dumps(ret.result)
         print("------------------")
         print(ret)
 
 
 def parse_args():
     a = argparse.ArgumentParser(
-        description="An evaluator and compiler from python into UPLC. Translate imperative programs into functional quasi-assembly."
+        description="An evaluator and compiler from python into UPLC. Translate imperative programs into functional quasi-assembly. Flags allow setting fine-grained compiler options. All flags can be turned off via -fno-<flag>."
     )
     a.add_argument(
         "command",
@@ -429,28 +446,6 @@ def parse_args():
         help="The output directory for artefacts of the build command. Defaults to the filename of the compiled contract. of the compiled contract.",
     )
     a.add_argument(
-        "--force-three-params",
-        "--ftp",
-        action="store_true",
-        help="Enforces that the contract is always called with three virtual parameters on-chain. Enable if the script should support spending and other purposes.",
-    )
-    a.add_argument(
-        "--constant-folding",
-        "--cf",
-        action="store_true",
-        help="Enables experimental constant folding, including propagation and code execution.",
-    )
-    a.add_argument(
-        "--allow-isinstance-anything",
-        action="store_true",
-        help="Enables the use of isinstance(x, D) in the contract where x is of type Anything. This is not recommended as it only checks the constructor id and not the actual type of the data.",
-    )
-    a.add_argument(
-        "--no-optimize-patterns",
-        action="store_true",
-        help="Disables the compression of re-occurring code patterns. Can reduce memory and CPU steps but increases the size of the compiled contract.",
-    )
-    a.add_argument(
         "args",
         nargs="*",
         default=[],
@@ -467,10 +462,41 @@ def parse_args():
         version=f"opshin {__version__} {__copyright__}",
     )
     a.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+        help="Enable verbose logging.",
+    )
+    a.add_argument(
         "--recursion-limit",
         default=sys.getrecursionlimit(),
         help="Modify the recursion limit (necessary for larger UPLC programs)",
         type=int,
+    )
+    for k, v in ARGPARSE_ARGS.items():
+        alts = v.pop("__alts__", [])
+        a.add_argument(
+            f"-f{k.replace('_', '-')}",
+            *alts,
+            **v,
+            action="store_true",
+            dest=k,
+            default=None,
+        )
+        a.add_argument(
+            f"-fno-{k.replace('_', '-')}",
+            action="store_false",
+            help=argparse.SUPPRESS,
+            dest=k,
+            default=None,
+        )
+    a.add_argument(
+        f"-O",
+        type=int,
+        help=f"Optimization level from 0 (no optimization) to 3 (aggressive optimization, removes traces). Defaults to 1.",
+        default=1,
+        choices=range(len(OPT_CONFIGS)),
+        dest="opt_level",
     )
     return a.parse_args()
 
@@ -479,8 +505,28 @@ def main():
     args = parse_args()
     sys.setrecursionlimit(args.recursion_limit)
     if Command(args.command) != Command.lint:
+        OPSHIN_LOG_HANDLER.setFormatter(
+            logging.Formatter(
+                f"%(levelname)s for {args.input_file}:%(lineno)d %(message)s"
+            )
+        )
         perform_command(args)
     else:
+        OPSHIN_LOG_HANDLER.stream = sys.stdout
+        if args.output_format_json:
+            OPSHIN_LOG_HANDLER.setFormatter(
+                logging.Formatter(
+                    '{"line":%(lineno)d,"column":%(col_offset)d,"error_class":"%(levelname)s","message":"%(message)s"}'
+                )
+            )
+        else:
+            OPSHIN_LOG_HANDLER.setFormatter(
+                logging.Formatter(
+                    args.input_file
+                    + ":%(lineno)d:%(col_offset)d:%(levelname)s: %(message)s"
+                )
+            )
+
         try:
             perform_command(args)
         except Exception as e:

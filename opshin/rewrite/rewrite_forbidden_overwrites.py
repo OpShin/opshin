@@ -13,6 +13,7 @@ FORBIDDEN_NAMES = {
     "List",
     "Dict",
     "Union",
+    "Self",
     # decorator and class name
     "dataclass",
     "PlutusData",

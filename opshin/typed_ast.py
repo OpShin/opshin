@@ -1,6 +1,4 @@
-from .types import *
-
-_LOGGER = logging.getLogger(__name__)
+from .type_impls import *
 
 
 class TypedAST(AST):
@@ -97,6 +95,11 @@ class TypedPass(typedstmt, Pass):
 
 class TypedName(typedexpr, Name):
     pass
+
+
+class Typedkeyword(TypedAST, keyword):
+    arg: typedexpr
+    value: typedexpr
 
 
 class TypedConstant(TypedAST, Constant):

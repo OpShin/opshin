@@ -25,6 +25,10 @@ class ShallowNameDefCollector(CompilingNodeVisitor):
 
     def visit_ClassDef(self, node: ClassDef):
         self.vars.add(node.name)
+        # methods will be put in global scope so add them now
+        for attribute in node.body:
+            if isinstance(attribute, FunctionDef):
+                self.vars.add(attribute.name)
         # ignore the content (i.e. attribute names) of class definitions
 
     def visit_FunctionDef(self, node: FunctionDef):
@@ -36,6 +40,7 @@ class RewriteScoping(CompilingNodeTransformer):
     step = "Rewrite all variables to inambiguously point to the definition in the nearest enclosing scope"
     latest_scope_id: int
     scopes: typing.List[typing.Tuple[OrderedSet, int]]
+    current_Self: typing.Tuple[str, str]
 
     def variable_scope_id(self, name: str) -> int:
         """find the id of the scope in which this variable is defined (closest to its usage)"""
@@ -82,16 +87,24 @@ class RewriteScoping(CompilingNodeTransformer):
     def visit_Name(self, node: Name) -> Name:
         nc = copy(node)
         # setting is handled in either enclosing module or function
+        if node.id == "Self":
+            assert node.idSelf == self.current_Self[1]
+            nc.idSelf_new = self.current_Self[0]
         nc.id = self.map_name(node.id)
         return nc
 
     def visit_ClassDef(self, node: ClassDef) -> ClassDef:
-        return RecordScoper.scope(node, self)
+        cp_node = RecordScoper.scope(node, self)
+        for i, attribute in enumerate(cp_node.body):
+            if isinstance(attribute, FunctionDef):
+                self.current_Self = (cp_node.name, cp_node.orig_name)
+                cp_node.body[i] = self.visit_FunctionDef(attribute, method=True)
+        return cp_node
 
-    def visit_FunctionDef(self, node: FunctionDef) -> FunctionDef:
+    def visit_FunctionDef(self, node: FunctionDef, method: bool = False) -> FunctionDef:
         node_cp = copy(node)
         # setting is handled in either enclosing module or function
-        node_cp.name = self.map_name(node.name)
+        node_cp.name = self.map_name(node.name) if not method else node.name
         self.enter_scope()
         node_cp.args = copy(node.args)
         node_cp.args.args = []

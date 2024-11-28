@@ -15,15 +15,13 @@ security into the Smart Contract by checking type correctness.
 import re
 
 from pycardano import PlutusData
-
+from typing import Union
 from .typed_ast import *
 from .util import CompilingNodeTransformer
 from .fun_impls import PythonBuiltInTypes
 from .rewrite.rewrite_cast_condition import SPECIAL_BOOL
 
 # from frozendict import frozendict
-
-_LOGGER = logging.getLogger(__name__)
 
 
 INITIAL_SCOPE = {
@@ -43,6 +41,37 @@ INITIAL_SCOPE.update(
         if isinstance(typ.typ, PolymorphicFunctionType)
     }
 )
+
+DUNDER_MAP = {
+    # ast.Compare:
+    ast.Eq: "__eq__",
+    ast.NotEq: "__ne__",
+    ast.Lt: "__lt__",
+    ast.LtE: "__le__",
+    ast.Gt: "__gt__",
+    ast.GtE: "__ge__",
+    # ast.Is # no dunder
+    # ast.IsNot # no dunder
+    ast.In: "__contains__",
+    ast.NotIn: "__contains__",
+    # ast.Binop:
+    ast.Add: "__add__",
+    ast.Sub: "__sub__",
+    ast.Mult: "__mul__",
+    ast.Div: "__truediv__",
+    ast.FloorDiv: "__floordiv__",
+    ast.Mod: "__mod__",
+    ast.Pow: "__pow__",
+    ast.MatMult: "__matmul__",
+    # ast.UnaryOp:
+    # ast.UAdd
+    ast.USub: "__neg__",
+    ast.Not: "__bool__",
+    ast.Invert: "__invert__",
+    # ast.BoolOp
+    ast.And: "__and__",
+    ast.Or: "__or__",
+}
 
 
 def record_from_plutusdata(c: PlutusData):
@@ -106,13 +135,17 @@ def union_types(*ts: Type):
     for e in ts:
         for e2 in e.typs:
             assert isinstance(
-                e2, RecordType
+                e2, (RecordType, IntegerType, ByteStringType, ListType, DictType)
             ), f"Union must combine multiple PlutusData classes but found {e2.__class__.__name__}"
     union_set = OrderedSet()
     for t in ts:
         union_set.update(t.typs)
     assert distinct(
-        [e.record.constructor for e in union_set]
+        [
+            e.record.constructor
+            for e in union_set
+            if not isinstance(e, (ByteStringType, IntegerType, ListType, DictType))
+        ]
     ), "Union must combine PlutusData classes with unique constructors"
     return UnionType(frozenlist(union_set))
 
@@ -149,11 +182,13 @@ class TypeCheckVisitor(TypedNodeVisitor):
         if not (isinstance(node.func, Name) and node.func.orig_id == "isinstance"):
             return ({}, {})
         # special case for Union
-        assert isinstance(
-            node.args[0], Name
-        ), "Target 0 of an isinstance cast must be a variable name"
-        assert isinstance(
-            node.args[1], Name
+        if not isinstance(node.args[0], Name):
+            OPSHIN_LOGGER.warning(
+                "Target 0 of an isinstance cast must be a variable name for type casting to work. You can still proceed, but the inferred type of the isinstance cast will not be accurate."
+            )
+            return ({}, {})
+        assert isinstance(node.args[1], Name) or isinstance(
+            node.args[1].typ, (ListType, DictType)
         ), "Target 1 of an isinstance cast must be a class name"
         target_class: RecordType = node.args[1].typ
         inst = node.args[0]
@@ -161,7 +196,7 @@ class TypeCheckVisitor(TypedNodeVisitor):
         assert isinstance(
             inst_class, InstanceType
         ), "Can only cast instances, not classes"
-        assert isinstance(target_class, RecordType), "Can only cast to PlutusData"
+        # assert isinstance(target_class, RecordType), "Can only cast to PlutusData"
         if isinstance(inst_class.typ, UnionType):
             assert (
                 target_class in inst_class.typ.typs
@@ -239,13 +274,15 @@ def merge_scope(s1: typing.Dict[str, Type], s2: typing.Dict[str, Type]):
 
 
 class AggressiveTypeInferencer(CompilingNodeTransformer):
-    def __init__(self, allow_isinstance_anything=False):
-        self.allow_isinstance_anything = allow_isinstance_anything
-
     step = "Static Type Inference"
 
-    # A stack of dictionaries for storing scoped knowledge of variable types
-    scopes = [INITIAL_SCOPE]
+    def __init__(self, allow_isinstance_anything=False):
+        self.allow_isinstance_anything = allow_isinstance_anything
+        self.FUNCTION_ARGUMENT_REGISTRY = {}
+        self.wrapped = []
+
+        # A stack of dictionaries for storing scoped knowledge of variable types
+        self.scopes = [INITIAL_SCOPE]
 
     # Obtain the type of a variable name in the current scope
     def variable_type(self, name: str) -> Type:
@@ -280,14 +317,72 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             self.set_variable_type(n, InstanceType(t), force=True)
         return prevtyps
 
+    def dunder_override(self, node: Union[BinOp, Compare, UnaryOp]):
+        # Check for potential dunder_method override
+        operand = None
+        operation = None
+        args = []
+        if isinstance(node, UnaryOp):
+            operand = node.operand
+            operation = node.op
+        elif isinstance(node, BinOp):
+            operand = node.left
+            operation = node.op
+            args.append(node.right)
+        elif isinstance(node, Compare):
+            operation = node.ops[0]
+            if any([isinstance(operation, x) for x in [ast.In, ast.NotIn]]):
+                operand = node.comparators[0]
+                args = [node.left]
+            else:
+                operand = node.left
+                args = node.comparators
+            assert len(node.ops) == 1, "Only support one op at a time"
+        if operand is not None and hasattr(operand, "id"):
+            operand_type = self.variable_type(operand.id)
+            if (
+                operation.__class__ in DUNDER_MAP
+                and isinstance(operand_type, InstanceType)
+                and isinstance(operand_type.typ, RecordType)
+            ):
+                dunder = DUNDER_MAP[operation.__class__]
+                operand_class_name = operand_type.typ.record.name
+                method_name = f"{operand_class_name}_{dunder}"
+                if any([method_name in scope for scope in self.scopes]):
+                    call = ast.Call(
+                        func=ast.Attribute(
+                            value=operand,
+                            attr=dunder,
+                            ctx=ast.Load(),
+                        ),
+                        args=args,
+                        keywords=[],
+                    )
+                    call.func.orig_id = None
+                    call.func.id = method_name
+                    return self.visit_Call(call)
+        return None
+
     def type_from_annotation(self, ann: expr):
         if isinstance(ann, Constant):
             if ann.value is None:
                 return UnitType()
+            else:
+                for scope in reversed(self.scopes):
+                    for key, value in scope.items():
+                        if (
+                            isinstance(value, RecordType)
+                            and value.record.orig_name == ann.value
+                        ):
+                            return value
+
         if isinstance(ann, Name):
             if ann.id in ATOMIC_TYPES:
                 return ATOMIC_TYPES[ann.id]
-            v_t = self.variable_type(ann.id)
+            if ann.id == "Self":
+                v_t = self.variable_type(ann.idSelf_new)
+            else:
+                v_t = self.variable_type(ann.id)
             if isinstance(v_t, ClassType):
                 return v_t
             raise TypeInferenceError(
@@ -298,8 +393,34 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                 ann.value, Name
             ), "Only Union, Dict and List are allowed as Generic types"
             if ann.value.orig_id == "Union":
+                for elt in ann.slice.elts:
+                    if isinstance(elt, Subscript) and elt.value.id == "List":
+                        assert (
+                            isinstance(elt.slice, Name)
+                            and elt.slice.orig_id == "Anything"
+                        ), f"Only List[Anything] is supported in Unions. Received List[{elt.slice.orig_id}]."
+                    if isinstance(elt, Subscript) and elt.value.id == "Dict":
+                        assert all(
+                            isinstance(e, Name) and e.orig_id == "Anything"
+                            for e in elt.slice.elts
+                        ), f"Only Dict[Anything, Anything] or Dict is supported in Unions. Received Dict[{elt.slice.elts[0].orig_id}, {elt.slice.elts[1].orig_id}]."
                 ann_types = frozenlist(
                     [self.type_from_annotation(e) for e in ann.slice.elts]
+                )
+                # check for unique constr_ids
+                constr_ids = [
+                    record.record.constructor
+                    for record in ann_types
+                    if isinstance(record, RecordType)
+                ]
+                assert len(constr_ids) == len(
+                    set(constr_ids)
+                ), f"Duplicate constr_ids for records in Union: " + str(
+                    {
+                        t.record.orig_name: t.record.constructor
+                        for t in ann_types
+                        if isinstance(t, RecordType)
+                    }
                 )
                 return union_types(*ann_types)
             if ann.value.orig_id == "List":
@@ -341,6 +462,51 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         raise NotImplementedError(f"Annotation type {ann.__class__} is not supported")
 
     def visit_sequence(self, node_seq: typing.List[stmt]) -> plt.AST:
+        additional_functions = []
+        for n in node_seq:
+            if not isinstance(n, ast.ClassDef):
+                continue
+            non_method_attributes = []
+            for attribute in n.body:
+                if not isinstance(attribute, ast.FunctionDef):
+                    non_method_attributes.append(attribute)
+                    continue
+                func = copy(attribute)
+                if func.name[0:2] == "__" and func.name[-2:] == "__":
+                    assert any(
+                        [func.name == value for key, value in DUNDER_MAP.items()]
+                    ), f"The following Dunder methods are supported {list(DUNDER_MAP.values())}. Received {func.name} which is not supported"
+                func.name = f"{n.name}_{attribute.name}"
+                for arg in func.args.args:
+                    if not arg.annotation is None:
+                        if isinstance(arg.annotation, ast.Name):
+                            assert (
+                                arg.annotation is None or arg.annotation.id != n.name
+                            ), "Invalid Python, class name is undefined at this stage."
+                        elif (
+                            isinstance(arg.annotation, ast.Subscript)
+                            and arg.annotation.value.id == "Union"
+                        ):
+                            for s in arg.annotation.slice.elts:
+                                assert (
+                                    isinstance(s, Name) and s.id != n.name
+                                ) or isinstance(
+                                    s, Constant
+                                ), "Invalid Python, class name is undefined at this stage."
+                assert isinstance(func.returns, Constant) or (
+                    isinstance(func.returns, Name) and func.returns.id != n.name
+                ), "Invalid Python, class name is undefined at this stage"
+                ann = ast.Name(id=n.name, ctx=ast.Load())
+                custom_fix_missing_locations(ann, attribute.args.args[0])
+                ann.orig_id = attribute.args.args[0].orig_arg
+                func.args.args[0].annotation = ann
+                additional_functions.append(func)
+            n.body = non_method_attributes
+        if additional_functions:
+            last = node_seq.pop()
+            node_seq.extend(additional_functions)
+            node_seq.append(last)
+
         stmts = []
         prevtyps = {}
         for n in node_seq:
@@ -360,6 +526,10 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         class_record = RecordReader.extract(node, self)
         typ = RecordType(class_record)
         self.set_variable_type(node.name, typ)
+        self.FUNCTION_ARGUMENT_REGISTRY[node.name] = [
+            typedarg(arg=field, typ=field_typ, orig_arg=field)
+            for field, field_typ in class_record.fields
+        ]
         typed_node = copy(node)
         typed_node.class_typ = typ
         return typed_node
@@ -372,6 +542,11 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             type(...),
         ], "Float, complex numbers and ellipsis currently not supported"
         tc.typ = constant_type(node.value)
+        return tc
+
+    def visit_NoneType(self, node: None) -> TypedConstant:
+        tc = Constant(value=None)
+        tc.typ = constant_type(tc.value)
         return tc
 
     def visit_Tuple(self, node: Tuple) -> TypedTuple:
@@ -462,15 +637,20 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         ).visit(typed_if.test)
         # for the time of the branch, these types are cast
         initial_scope = copy(self.scopes[-1])
-        self.implement_typechecks(typchecks)
+        wrapped = self.implement_typechecks(typchecks)
+        self.wrapped.extend(wrapped.keys())
         typed_if.body = self.visit_sequence(node.body)
+        self.wrapped = [x for x in self.wrapped if x not in wrapped.keys()]
+
         # save resulting types
         final_scope_body = copy(self.scopes[-1])
         # reverse typechecks and remove typing of one branch
         self.scopes[-1] = initial_scope
         # for the time of the else branch, the inverse types hold
-        self.implement_typechecks(inv_typchecks)
+        wrapped = self.implement_typechecks(inv_typchecks)
+        self.wrapped.extend(wrapped.keys())
         typed_if.orelse = self.visit_sequence(node.orelse)
+        self.wrapped = [x for x in self.wrapped if x not in wrapped.keys()]
         final_scope_else = self.scopes[-1]
         # unify the resulting branch scopes
         self.scopes[-1] = merge_scope(final_scope_body, final_scope_else)
@@ -531,16 +711,34 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
 
     def visit_Name(self, node: Name) -> TypedName:
         tn = copy(node)
-        # Make sure that the rhs of an assign is evaluated first
-        tn.typ = self.variable_type(node.id)
+        # typing List and Dict are not present in scope we don't want to call variable_type
+        if node.orig_id == "List":
+            tn.typ = ListType(InstanceType(AnyType()))
+        elif node.orig_id == "Dict":
+            tn.typ = DictType(InstanceType(AnyType()), InstanceType(AnyType()))
+        else:
+            # Make sure that the rhs of an assign is evaluated first
+            tn.typ = self.variable_type(node.id)
+        if node.id in self.wrapped:
+            tn.is_wrapped = True
         return tn
 
-    def visit_Compare(self, node: Compare) -> TypedCompare:
+    def visit_keyword(self, node: keyword) -> Typedkeyword:
+        tk = copy(node)
+        tk.value = self.visit(node.value)
+        return tk
+
+    def visit_Compare(self, node: Compare) -> Union[TypedCompare, TypedCall]:
+        dunder_node = self.dunder_override(node)
+        if dunder_node is not None:
+            if isinstance(node.ops[0], ast.NotIn):
+                return self.visit(ast.UnaryOp(op=ast.Not(), operand=dunder_node))
+            return dunder_node
         typed_cmp = copy(node)
         typed_cmp.left = self.visit(node.left)
         typed_cmp.comparators = [self.visit(s) for s in node.comparators]
         typed_cmp.typ = BoolInstanceType
-        # the actual required types are being taken care of in the implementation
+
         return typed_cmp
 
     def visit_arg(self, node: arg) -> typedarg:
@@ -570,12 +768,23 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         assert (
             not node.decorator_list or wraps_builtin
         ), "Functions may not have decorators other than wraps_builtin"
+        for i, arg in enumerate(node.args.args):
+            if hasattr(arg.annotation, "idSelf"):
+                tfd.args.args[i].annotation.id = tfd.args.args[0].annotation.id
+        if hasattr(node.returns, "idSelf"):
+            tfd.returns.id = tfd.args.args[0].annotation.id
+
         self.enter_scope()
         tfd.args = self.visit(node.args)
+
         functyp = FunctionType(
             frozenlist([t.typ for t in tfd.args.args]),
             InstanceType(self.type_from_annotation(tfd.returns)),
-            bound_vars={v: self.variable_type(v) for v in externally_bound_vars(node)},
+            bound_vars={
+                v: self.variable_type(v)
+                for v in externally_bound_vars(node)
+                if not v in ["List", "Dict"]
+            },
             bind_self=node.name if node.name in read_vars(node) else None,
         )
         tfd.typ = InstanceType(functyp)
@@ -593,6 +802,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         self.exit_scope()
         # We need the function type outside for usage
         self.set_variable_type(node.name, tfd.typ)
+        self.FUNCTION_ARGUMENT_REGISTRY[node.name] = node.args.args
         return tfd
 
     def visit_Module(self, node: Module) -> TypedModule:
@@ -607,12 +817,16 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         tn.value = self.visit(node.value)
         return tn
 
-    def visit_BinOp(self, node: BinOp) -> TypedBinOp:
+    def visit_BinOp(self, node: BinOp) -> Union[TypedBinOp, TypedCall]:
+        dunder_node = self.dunder_override(node)
+        if dunder_node is not None:
+            return dunder_node
         tb = copy(node)
         tb.left = self.visit(node.left)
         tb.right = self.visit(node.right)
         binop_fun_typ: FunctionType = tb.left.typ.binop_type(tb.op, tb.right.typ)
         tb.typ = binop_fun_typ.rettyp
+
         return tb
 
     def visit_BoolOp(self, node: BoolOp) -> TypedBoolOp:
@@ -650,6 +864,12 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         return tt
 
     def visit_UnaryOp(self, node: UnaryOp) -> TypedUnaryOp:
+        dunder_node = self.dunder_override(node)
+        if dunder_node is not None:
+            if isinstance(node.op, ast.Not):
+                node.operand = dunder_node
+            else:
+                return dunder_node
         tu = copy(node)
         tu.operand = self.visit(node.operand)
         tu.typ = tu.operand.typ.typ.unop_type(node.op).rettyp
@@ -757,11 +977,56 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         return ts
 
     def visit_Call(self, node: Call) -> TypedCall:
-        assert not node.keywords, "Keyword arguments are not supported yet"
         tc = copy(node)
-        tc.args = [self.visit(a) for a in node.args]
+        if node.keywords:
+            assert (
+                node.func.id in self.FUNCTION_ARGUMENT_REGISTRY
+            ), "Keyword arguments can only be used with user defined functions"
+            keywords = copy(node.keywords)
+            reg_args = self.FUNCTION_ARGUMENT_REGISTRY[node.func.id]
+            args = []
+            for i, a in enumerate(reg_args):
+                if len(node.args) > i:
+                    args.append(self.visit(node.args[i]))
+                else:
+                    candidates = [
+                        (idx, keyword)
+                        for idx, keyword in enumerate(keywords)
+                        if keyword.arg == a.orig_arg
+                    ]
+                    assert (
+                        len(candidates) == 1
+                    ), f"There should be one keyword or positional argument for the arg {a.orig_arg} but found {len(candidates)}"
+                    args.append(self.visit(candidates[0][1].value))
+                    keywords.pop(candidates[0][0])
+            assert (
+                len(keywords) == 0
+            ), f"Could not match the keywords {[keyword.arg for keyword in keywords]} to any argument"
+            tc.args = args
+            tc.keywords = []
+        else:
+            tc.args = [self.visit(a) for a in node.args]
+
         # might be isinstance
-        if isinstance(tc.func, Name) and tc.func.orig_id == "isinstance":
+        # Subscripts are not allowed in isinstance calls
+        if (
+            isinstance(tc.func, Name)
+            and tc.func.orig_id == "isinstance"
+            and isinstance(tc.args[1], Subscript)
+        ):
+            raise TypeError(
+                "Subscripted generics cannot be used with class and instance checks"
+            )
+
+        # Need to handle the presence of PlutusData classes
+        if (
+            isinstance(tc.func, Name)
+            and tc.func.orig_id == "isinstance"
+            and not isinstance(
+                tc.args[1].typ, (ByteStringType, IntegerType, ListType, DictType)
+            )
+            and not hasattr(node, "skip_next")
+        ):
             target_class = tc.args[1].typ
             if (
                 isinstance(tc.args[0].typ, InstanceType)
@@ -781,8 +1046,38 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             ntc = self.visit(ntc)
             ntc.typ = BoolInstanceType
             ntc.typechecks = TypeCheckVisitor(self.allow_isinstance_anything).visit(tc)
-            return ntc
-        tc.func = self.visit(node.func)
+            if isinstance(tc.args[0].typ.typ, UnionType) and any(
+                [
+                    isinstance(a, (IntegerType, ByteStringType, ListType, DictType))
+                    for a in tc.args[0].typ.typ.typs
+                ]
+            ):
+                n = copy(node)
+                n.skip_next = True
+                return self.visit(BoolOp(And(), [n, ntc]))
+            else:
+                return ntc
+        try:
+            tc.func = self.visit(node.func)
+        except Exception as e:
+            # might be a method, duck test for class_name, method_name should
+            try:
+                func_variable_type = self.variable_type(tc.func.value.id)
+                class_name = func_variable_type.typ.record.name
+                method_name = f"{class_name}_{tc.func.attr}"
+                # If method_name found then use this.
+                self.variable_type(method_name)
+            except Exception:
+                # if this fails raise original error
+                raise e
+            n = ast.Name(id=method_name, ctx=ast.Load())
+            n.orig_id = node.func.attr
+            tc.func = self.visit(n)
+            tc.func.orig_id = node.func.attr
+            c_self = ast.Name(id=node.func.value.id, ctx=ast.Load())
+            c_self.orig_id = None
+            tc.args.insert(0, self.visit(c_self))
+
         # might be a class
         if isinstance(tc.func.typ, ClassType):
             tc.func.typ = tc.func.typ.constr_type()
@@ -855,10 +1150,15 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             self.allow_isinstance_anything
         ).visit(node_cp.test)
         prevtyps = self.implement_typechecks(typchecks)
+        self.wrapped.extend(prevtyps.keys())
         node_cp.body = self.visit(node.body)
+        self.wrapped = [x for x in self.wrapped if x not in prevtyps.keys()]
+
         self.implement_typechecks(prevtyps)
         prevtyps = self.implement_typechecks(inv_typchecks)
+        self.wrapped.extend(prevtyps.keys())
         node_cp.orelse = self.visit(node.orelse)
+        self.wrapped = [x for x in self.wrapped if x not in prevtyps.keys()]
         self.implement_typechecks(prevtyps)
         if node_cp.body.typ >= node_cp.orelse.typ:
             node_cp.typ = node_cp.body.typ

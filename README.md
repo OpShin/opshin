@@ -5,7 +5,7 @@
 <h1 style="text-align: center;">opshin</h1></br>
 
 
-<a href="https://app.travis-ci.com/OpShin/opshin"><img alt="Build Status" src="https://app.travis-ci.com/OpShin/opshin.svg?branch=main"/></a>
+[![Tests & QA](https://github.com/OpShin/opshin/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/OpShin/opshin/actions/workflows/tests.yml)
 <a href="https://pypi.org/project/opshin/"><img alt="PyPI version" src="https://badge.fury.io/py/opshin.svg"/></a>
 <img alt="PyPI - Python Version" src="https://img.shields.io/pypi/pyversions/opshin.svg" />
 <a href="https://pypi.org/project/opshin/"><img alt="PyPI - Status" src="https://img.shields.io/pypi/status/opshin.svg" /></a>
@@ -24,19 +24,19 @@ If the program compiles then:
 1. it is a valid Python program
 2. the output running it with python is the same as running it on-chain.
 
-### Why opshin?
+## Why opshin?
 - 100% valid Python. Leverage the existing tool stack for Python, syntax highlighting, linting, debugging, unit-testing, [property-based testing](https://hypothesis.readthedocs.io/), [verification](https://github.com/marcoeilers/nagini)
 - Intuitive. Just like Python.
 - Flexible. Imperative, functional, the way you want it.
 - Efficient & Secure. Static type inference ensures strict typing and optimized code
 
 
-### Getting Started
+## Getting Started
 
 Check out the [OpShin Book](https://book.opshin.dev) for an introduction to this tool and details into writing smart contracts.
 This document will just outline the basic usage of the tool.
 
-#### Installation
+### Installation
 
 Install Python 3.8, 3.9, 3.10 or 3.11. Then run
 
@@ -44,7 +44,7 @@ Install Python 3.8, 3.9, 3.10 or 3.11. Then run
 python3 -m pip install opshin
 ```
 
-#### Writing a Smart Contract
+### Writing a Smart Contract
 
 Check out the [OpShin Book](https://book.opshin.dev) for an introduction to this tool and details into writing smart contracts.
 
@@ -82,7 +82,7 @@ opshin build spending examples/smart_contracts/assert_sum.py
 
 See the [tutorial by `pycardano`](https://pycardano.readthedocs.io/en/latest/guides/plutus.html) for explanations how to build transactions with `opshin` contracts.
 
-### API for Smart Contracts
+## API for Smart Contracts
 
 The python interface offers a simple API to compile, load, apply parameters and evaluate smart contracts.
 
@@ -109,7 +109,7 @@ contract_addr = contract.mainnet_addr
 contract_blueprint = contract.blueprint
 ```
 
-### Debugging artefacts
+## Debugging artefacts
 
 For debugging purposes, you can also run
 
@@ -128,6 +128,9 @@ opshin compile_pluto spending examples/smart_contracts/assert_sum.py
 
 Generally, all contributions on the code side are very welcome.
 To get an overview over the architecture and idea behind OpShin, check out [the Technical Documentation](./ARCHITECTURE.md).
+A bug bounty has been set up and funded by Project Catalyst, which awards [Github issue](https://github.com/OpShin/opshin/labels/bug%20bounty) resolution wiht ADA rewards.
+This is a great opportunity to get involved and earn some ADA.
+Check out the [detailed introduction to the bounty program](./BUG_BOUNTY.md) for more information.
 
 ### Sponsoring
 

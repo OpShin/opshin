@@ -1,6 +1,8 @@
 import copy
 
 from uplc.ast import data_from_cbor
+
+from .compiler_config import DEFAULT_CONFIG
 from .optimize.optimize_const_folding import OptimizeConstantFolding
 from .optimize.optimize_remove_comments import OptimizeRemoveDeadconstants
 from .rewrite.rewrite_augassign import RewriteAugAssign
@@ -36,8 +38,6 @@ from .typed_ast import (
     transform_output_map,
     RawPlutoExpr,
 )
-
-_LOGGER = logging.getLogger(__name__)
 
 
 BoolOpMap = {
@@ -230,7 +230,7 @@ class PlutoCompiler(CompilingNodeTransformer):
                 else:
                     possible_types = [second_last_arg.typ]
                 if any(isinstance(t, UnitType) for t in possible_types):
-                    _LOGGER.warning(
+                    OPSHIN_LOGGER.warning(
                         "The redeemer is annotated to be 'None'. This value is usually encoded in PlutusData with constructor id 0 and no fields. If you want the script to double function as minting and spending script, annotate the second argument with 'NoRedeemer'."
                     )
                 enable_double_func_mint_spend = not any(
@@ -239,7 +239,7 @@ class PlutoCompiler(CompilingNodeTransformer):
                     for t in possible_types
                 )
                 if not enable_double_func_mint_spend:
-                    _LOGGER.warning(
+                    OPSHIN_LOGGER.warning(
                         "The second argument to the validator function potentially has constructor id 0. The validator will not be able to double function as minting script and spending script."
                     )
 
@@ -331,7 +331,7 @@ class PlutoCompiler(CompilingNodeTransformer):
             except ValueError:
                 pass
             else:
-                _LOGGER.warning(
+                OPSHIN_LOGGER.warning(
                     f"The string {node.value} looks like it is supposed to be a hex-encoded bytestring but is actually utf8-encoded. Try using `bytes.fromhex('{node.value.decode()}')` instead."
                 )
         plt_val = plt.UPLCConstant(rec_constant_map(node.value))
@@ -393,6 +393,8 @@ class PlutoCompiler(CompilingNodeTransformer):
         if isinstance(node.typ, ClassType):
             # if this is not an instance but a class, call the constructor
             return node.typ.constr()
+        if hasattr(node, "is_wrapped") and node.is_wrapped:
+            return transform_ext_params_map(node.typ)(plt.Force(plt.Var(node.id)))
         return plt.Force(plt.Var(node.id))
 
     def visit_Expr(self, node: TypedExpr) -> CallAST:
@@ -422,11 +424,18 @@ class PlutoCompiler(CompilingNodeTransformer):
             bind_self = node.func.typ.typ.bind_self
         bound_vs = sorted(list(node.func.typ.typ.bound_vars.keys()))
         args = []
-        for a, t in zip(node.args, node.func.typ.typ.argtyps):
+        for i, (a, t) in enumerate(zip(node.args, node.func.typ.typ.argtyps)):
+            # now impl_from_args has been chosen, skip type arg
+            if (
+                hasattr(node.func, "orig_id")
+                and node.func.orig_id == "isinstance"
+                and i == 1
+            ):
+                continue
             assert isinstance(t, InstanceType)
             # pass in all arguments evaluated with the statemonad
             a_int = self.visit(a)
-            if isinstance(t.typ, AnyType):
+            if isinstance(t.typ, AnyType) or isinstance(t.typ, UnionType):
                 # if the function expects input of generic type data, wrap data before passing it inside
                 a_int = transform_output_map(a.typ)(a_int)
             args.append(a_int)
@@ -913,6 +922,14 @@ class PlutoCompiler(CompilingNodeTransformer):
         return l
 
     def visit_IfExp(self, node: TypedIfExp) -> plt.AST:
+        if isinstance(node.typ.typ, UnionType):
+            body = self.visit(node.body)
+            orelse = self.visit(node.orelse)
+            if not isinstance(node.body.typ, UnionType):
+                body = transform_output_map(node.body.typ)(body)
+            if not isinstance(node.orelse.typ, UnionType):
+                orelse = transform_output_map(node.orelse.typ)(orelse)
+            return plt.Ite(self.visit(node.test), body, orelse)
         return plt.Ite(
             self.visit(node.test),
             self.visit(node.body),
@@ -1033,18 +1050,15 @@ class PlutoCompiler(CompilingNodeTransformer):
 def compile(
     prog: AST,
     filename=None,
-    force_three_params=False,
-    remove_dead_code=True,
-    constant_folding=False,
     validator_function_name="validator",
-    allow_isinstance_anything=False,
+    config=DEFAULT_CONFIG,
 ) -> plt.Program:
     compile_pipeline = [
         # Important to call this one first - it imports all further files
         RewriteImport(filename=filename),
         # Rewrites that simplify the python code
         RewriteForbiddenReturn(),
-        OptimizeConstantFolding() if constant_folding else NoOp(),
+        OptimizeConstantFolding() if config.constant_folding else NoOp(),
         RewriteSubscript38(),
         RewriteAugAssign(),
         RewriteComparisonChaining(),
@@ -1061,7 +1075,7 @@ def compile(
         RewriteOrigName(),
         RewriteScoping(),
         # The type inference needs to be run after complex python operations were rewritten
-        AggressiveTypeInferencer(allow_isinstance_anything),
+        AggressiveTypeInferencer(config.allow_isinstance_anything),
         # Rewrites that circumvent the type inference or use its results
         RewriteEmptyLists(),
         RewriteEmptyDicts(),
@@ -1069,8 +1083,8 @@ def compile(
         RewriteInjectBuiltinsConstr(),
         RewriteRemoveTypeStuff(),
         # Apply optimizations
-        OptimizeRemoveDeadvars() if remove_dead_code else NoOp(),
-        OptimizeRemoveDeadconstants(),
+        OptimizeRemoveDeadvars() if config.remove_dead_code else NoOp(),
+        OptimizeRemoveDeadconstants() if config.remove_dead_code else NoOp(),
         OptimizeRemovePass(),
     ]
     for s in compile_pipeline:
@@ -1079,7 +1093,7 @@ def compile(
 
     # the compiler runs last
     s = PlutoCompiler(
-        force_three_params=force_three_params,
+        force_three_params=config.force_three_params,
         validator_function_name=validator_function_name,
     )
     prog = s.visit(prog)
