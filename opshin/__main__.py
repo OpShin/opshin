@@ -401,14 +401,14 @@ Note that opshin errors may be overly restrictive as they aim to prevent code wi
         print("Starting execution")
         print("------------------")
         assert isinstance(code, uplc.ast.Program)
-        try:
-            ret = uplc.eval(code)
-        except Exception as e:
+        raw_ret = uplc.eval(code)
+        if isinstance(raw_ret.result, Exception):
             print("An exception was raised")
-            ret = e
+            ret = raw_ret.result
         else:
             print("Execution succeeded")
-            ret = uplc.dumps(ret.result)
+            ret = uplc.dumps(raw_ret.result)
+            print(f"CPU: {raw_ret.cost.cpu} | MEM: {raw_ret.cost.memory}")
         print("------------------")
         print(ret)
 
@@ -475,21 +475,33 @@ def parse_args():
     )
     for k, v in ARGPARSE_ARGS.items():
         alts = v.pop("__alts__", [])
-        a.add_argument(
-            f"-f{k.replace('_', '-')}",
-            *alts,
-            **v,
-            action="store_true",
-            dest=k,
-            default=None,
-        )
-        a.add_argument(
-            f"-fno-{k.replace('_', '-')}",
-            action="store_false",
-            help=argparse.SUPPRESS,
-            dest=k,
-            default=None,
-        )
+        type = v.pop("type", None)
+        if type is None:
+            a.add_argument(
+                f"-f{k.replace('_', '-')}",
+                *alts,
+                **v,
+                action="store_true",
+                dest=k,
+                default=None,
+            )
+            a.add_argument(
+                f"-fno-{k.replace('_', '-')}",
+                action="store_false",
+                help=argparse.SUPPRESS,
+                dest=k,
+                default=None,
+            )
+        else:
+            a.add_argument(
+                f"-f{k.replace('_', '-')}",
+                *alts,
+                **v,
+                type=type,
+                dest=k,
+                default=None,
+            )
+
     a.add_argument(
         f"-O",
         type=int,

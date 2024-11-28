@@ -143,10 +143,19 @@ class PlutoCompiler(CompilingNodeTransformer):
 
     step = "Compiling python statements to UPLC"
 
-    def __init__(self, force_three_params=False, validator_function_name="validator"):
+    def __init__(
+        self,
+        force_three_params=False,
+        validator_function_name="validator",
+        config=DEFAULT_CONFIG,
+    ):
         # parameters
         self.force_three_params = force_three_params
         self.validator_function_name = validator_function_name
+        self.config = config
+        assert (
+            self.config.fast_access_skip is None or self.config.fast_access_skip > 1
+        ), "Parameter fast-access-skip needs to be greater than 1 or omitted"
         # marked knowledge during compilation
         self.current_function_typ: typing.List[FunctionType] = []
 
@@ -654,6 +663,12 @@ class PlutoCompiler(CompilingNodeTransformer):
                 assert (
                     node.slice.typ == IntegerInstanceType
                 ), "Only single element list index access supported"
+                if isinstance(node.slice, Constant) and node.slice.value >= 0:
+                    index = node.slice.value
+                    return plt.ConstantIndexAccessListFast(
+                        self.visit(node.value),
+                        index,
+                    )
                 return OLet(
                     [
                         (
@@ -675,7 +690,13 @@ class PlutoCompiler(CompilingNodeTransformer):
                             ),
                         ),
                     ],
-                    plt.IndexAccessList(OVar("l"), OVar("i")),
+                    (
+                        plt.IndexAccessListFast(self.config.fast_access_skip)(
+                            OVar("l"), OVar("i")
+                        )
+                        if self.config.fast_access_skip is not None
+                        else plt.IndexAccessList(OVar("l"), OVar("i"))
+                    ),
                 )
             else:
                 return OLet(
@@ -1089,6 +1110,7 @@ def compile(
     s = PlutoCompiler(
         force_three_params=config.force_three_params,
         validator_function_name=validator_function_name,
+        config=config,
     )
     prog = s.visit(prog)
 

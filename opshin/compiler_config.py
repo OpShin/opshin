@@ -10,6 +10,7 @@ class CompilationConfig(pluthon.CompilationConfig):
     allow_isinstance_anything: Optional[bool] = None
     force_three_params: Optional[bool] = None
     remove_dead_code: Optional[bool] = None
+    fast_access_skip: Optional[int] = None
 
 
 # The default configuration for the compiler
@@ -35,6 +36,7 @@ OPT_O2_CONFIG = (
     .update(pluthon.OPT_O2_CONFIG)
     .update(
         constant_folding=True,
+        fast_access_skip=5,
     )
 )
 OPT_O3_CONFIG = (
@@ -63,6 +65,10 @@ ARGPARSE_ARGS.update(
         },
         "remove_dead_code": {
             "help": "Removes dead code and variables from the contract. Should be enabled for non-debugging purposes.",
+        },
+        "fast_access_skip": {
+            "help": "How many steps to skip for fast list index access, default None means no steps are skipped (useful if long lists are common).",
+            "type": int,
         },
     }
 )
