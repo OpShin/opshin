@@ -339,10 +339,16 @@ def validator(x: bytes, y: int) -> int:
             ret = None
         self.assertEqual(ret, exp, "byte index returned wrong value")
 
-    @given(xs=st.lists(st.integers()), y=st.integers())
-    @example(xs=[0], y=-1)
-    @example(xs=[0], y=0)
-    def test_index_list(self, xs, y):
+    @given(st.data())
+    def test_index_list(self, data):
+        xs = data.draw(st.lists(st.integers()))
+        y = data.draw(
+            st.one_of(
+                st.integers(min_value=1 - len(xs), max_value=len(xs) - 1), st.integers()
+            )
+            if xs
+            else st.integers()
+        )
         source_code = """
 from typing import Dict, List, Union
 def validator(x: List[int], y: int) -> int:

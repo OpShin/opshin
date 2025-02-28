@@ -542,7 +542,7 @@ class RecordType(ClassType):
             return OLambda(
                 ["self"],
                 transform_ext_params_map(attr_typ)(
-                    plt.ConstantNthField(
+                    plt.ConstantNthFieldFast(
                         OVar("self"),
                         pos,
                     ),
@@ -632,7 +632,7 @@ class RecordType(ClassType):
                     plt.Apply(
                         field_type.stringify(recursive=True),
                         transform_ext_params_map(field_type)(
-                            plt.ConstantNthField(OVar("self"), pos)
+                            plt.ConstantNthFieldFast(OVar("self"), pos)
                         ),
                     ),
                     map_fields,
@@ -643,7 +643,7 @@ class RecordType(ClassType):
                 plt.Apply(
                     self.record.fields[0][1].stringify(recursive=True),
                     transform_ext_params_map(self.record.fields[0][1])(
-                        plt.ConstantNthField(OVar("self"), pos)
+                        plt.ConstantNthFieldFast(OVar("self"), pos)
                     ),
                 ),
                 map_fields,
@@ -751,8 +751,16 @@ class UnionType(ClassType):
             if not pos_constrs:
                 pos_decisor = plt.TraceError("Invalid constructor")
             else:
-                pos_decisor = plt.Integer(pos_constrs[-1][0])
+                pos_decisor = plt.ConstantNthFieldFast(OVar("self"), pos_constrs[-1][0])
                 pos_constrs = pos_constrs[:-1]
+            # constr is not needed when there is only one position for all constructors
+            if not pos_constrs:
+                return OLambda(
+                    ["self"],
+                    transform_ext_params_map(attr_typ)(
+                        pos_decisor,
+                    ),
+                )
             for pos, constrs in pos_constrs:
                 assert constrs, "Found empty constructors for a position"
                 constr_check = plt.EqualsInteger(
@@ -765,18 +773,15 @@ class UnionType(ClassType):
                     )
                 pos_decisor = plt.Ite(
                     constr_check,
-                    plt.Integer(pos),
+                    plt.ConstantNthFieldFast(OVar("self"), pos),
                     pos_decisor,
                 )
             return OLambda(
                 ["self"],
                 transform_ext_params_map(attr_typ)(
-                    plt.NthField(
-                        OVar("self"),
-                        OLet(
-                            [("constr", plt.Constructor(OVar("self")))],
-                            pos_decisor,
-                        ),
+                    OLet(
+                        [("constr", plt.Constructor(OVar("self")))],
+                        pos_decisor,
                     ),
                 ),
             )
