@@ -1,5 +1,5 @@
 """
-The PlutusV2 ledger API.
+The PlutusV3 ledger API.
 All classes involved in defining the ScriptContext passed by the node.
 """
 
@@ -7,9 +7,18 @@ from dataclasses import dataclass
 from typing import Dict, List, Union
 
 from pycardano import Datum as Anything, PlutusData
+from opshin.std.fractions import *
 
 
-# Plutus V2
+@dataclass(unsafe_hash=True)
+class NoScriptHash(PlutusData):
+    """
+    Indicates that there is no script associated with an output
+    """
+
+    CONSTR_ID = 1
+
+
 @dataclass(unsafe_hash=True)
 class TxId(PlutusData):
     """
@@ -52,6 +61,21 @@ class FalseData(PlutusData):
 #
 # Example value: TrueData()
 BoolData = Union[TrueData, FalseData]
+
+
+@dataclass(unsafe_hash=True)
+class BoxedInt(PlutusData):
+    """
+    A boxed integer, used to represent an optional integer value
+    """
+
+    CONSTR_ID = 0
+    value: int
+
+
+Lovelace = int
+OptionalInt = Union[BoxedInt, FalseData]
+OptionalLovelace = OptionalInt
 
 
 @dataclass(unsafe_hash=True)
@@ -204,6 +228,8 @@ class SomeScriptHash(PlutusData):
     CONSTR_ID = 0
     script_hash: DatumHash
 
+
+MaybeScriptHash = Union[SomeScriptHash, NoScriptHash]
 
 # The abstract super type of any object in opshin.
 # Use if you don't know what kind of object is being passed or if it doesn't matter.
@@ -445,64 +471,6 @@ class Withdrawing(PlutusData):
 
 
 @dataclass(unsafe_hash=True)
-class Publishing(PlutusData):
-    """
-    Needed when delegating to a pool using stake credentials defined as a
-    custom script. This purpose is also triggered when de-registering such
-    stake credentials.
-
-    The index is a 0-based index of the given `Certficate` in `certificates`.
-    """
-
-    CONSTR_ID = 3
-    certificate_index: int
-    certificate: Certificate
-
-
-@dataclass(unsafe_hash=True)
-class Voting(PlutusData):
-    """
-    Voting for a type of voter using a governance action id to vote
-    yes / no / abstain inside a transaction.
-    The voter is who is doing the governance action.
-    """
-
-    CONSTR_ID = 4
-    voter: Voter
-
-
-@dataclass(unsafe_hash=True)
-class Proposing(PlutusData):
-    """
-    Used to propose a governance action.
-    A 0-based index of the given `ProposalProcedure` in `proposal_procedures`.
-    """
-
-    CONSTR_ID = 5
-    proposal_index: int
-    proposal_procedure: ProposalProcedure
-
-
-# The reason that this script is being invoked
-ScriptPurpose = Union[Minting, Spending, Withdrawing, Publishing, Voting, Proposing]
-
-
-@dataclass(unsafe_hash=True)
-class BoxedInt(PlutusData):
-    """
-    A boxed integer, used to represent an optional integer value
-    """
-
-    CONSTR_ID = 0
-    value: int
-
-
-Lovelace = int
-OptionalInt = Union[BoxedInt, FalseData]
-OptionalLovelace = OptionalInt
-
-
-@dataclass(unsafe_hash=True)
 class ConstitutionalCommitteeMember(PlutusData):
     CONSTR_ID = 0
     credential: Credential
@@ -547,6 +515,195 @@ class VoteAbstain(PlutusData):
 
 
 Vote = [VoteNo, VoteYes, VoteAbstain]
+
+
+@dataclass(unsafe_hash=True)
+class SomeGovernanceActionId(PlutusData):
+    """
+    Indicates that there is an governance action id associated with this output, given in the first field
+    """
+
+    CONSTR_ID = 0
+    governance_action_id: GovernanceActionId
+
+
+@dataclass(unsafe_hash=True)
+class NoGovernanceActionId(PlutusData):
+    """
+    Indicates that there is no governance action id associated with this output
+    """
+
+    CONSTR_ID = 1
+
+
+# To convert these values to interpretable values,
+# use the index -> value mapping from aiken
+# https://github.com/aiken-lang/stdlib/blob/2.2.0/lib/cardano/governance/protocol_parameters.ak
+# Explicit mapping functions may follow
+ProtocolParametersUpdate = Dict[int, Datum]
+
+MaybeGovernanceActionId = Union[SomeGovernanceActionId, NoGovernanceActionId]
+
+# Below are Governance Actions (GAXXX)
+
+
+@dataclass(unsafe_hash=True)
+class GAProtocolParameters(PlutusData):
+    CONSTR_ID = 0
+    # The last governance action of type 'ProtocolParameters'. They must all form a chain.
+    ancestor: MaybeGovernanceActionId
+    # The new proposed protocol parameters. Only values set to `Some` are relevant.
+    new_parameters: ProtocolParametersUpdate
+    # The optional guardrails script defined in the constitution.
+    # The script is executed by the ledger in addition to the hard-coded ledger rules.
+    # It must pass for the new protocol parameters to be deemed valid.
+    guardrails: Union[SomeScriptHash, NoScriptHash]
+
+
+@dataclass(unsafe_hash=True)
+class ProtocolVersion(PlutusData):
+    CONSTR_ID = 0
+    major: int
+    minor: int
+
+
+@dataclass(unsafe_hash=True)
+class GAHardFork(PlutusData):
+    CONSTR_ID = 1
+    # The last governance action of type 'HardFork'. They must all form a chain.
+    ancestor: MaybeGovernanceActionId
+    # The new proposed version. A few rules apply to proposing new versions:
+    #
+    # - The `major` component, if incremented, must be exactly one more than the current.
+    # - The `minor` component, if incremented, must be exactly one more than the current.
+    # - If the `major` component is incremented, `minor` must be set to `0`.
+    # - Neither `minor` nor `major` can be decremented.
+    new_version: ProtocolVersion
+
+
+@dataclass(unsafe_hash=True)
+class GATreasuryWithdrawal(PlutusData):
+    CONSTR_ID = 2
+    #  A collection of beneficiaries, which can be plain verification key
+    #  hashes or script hashes (e.g. DAO).
+    beneficiaries: Dict[Credential, Lovelace]
+    # The optional guardrails script defined in the constitution. The script
+    # is executed by the ledger in addition to the hard-coded ledger rules.
+    #
+    # It must pass for the withdrawals to be authorized.
+    guardrails: SomeScriptHash
+
+
+@dataclass(unsafe_hash=True)
+class GANoConfidence(PlutusData):
+    CONSTR_ID = 3
+    # The last governance action of type `NoConfidence` or `ConstitutionalCommittee`.
+    # They must all form a chain.
+    ancestor: MaybeGovernanceActionId
+
+
+@dataclass(unsafe_hash=True)
+class GAConstitutionalCommittee(PlutusData):
+    CONSTR_ID = 4
+    # The last governance action of type `NoConfidence` or `ConstitutionalCommittee`.
+    # They must all / form a chain.
+    ancestor: MaybeGovernanceActionId
+    # Constitutional members to be removed.
+    evicted_members: List[Credential]
+    # Constitutional members to be added.
+    # Int value is a "mandate", an epoch number after which constitutional committee member
+    # mandate expires.
+    added_members: Dict[Credential, int]
+    # The new quorum value, as a ratio of a numerator and a denominator.
+    # The quorum specifies the threshold of 'Yes' votes necessary for the constitutional committee to accept a proposal procedure.
+    quorum: Fraction
+
+
+@dataclass(unsafe_hash=True)
+class Constitution(PlutusData):
+    CONSTR_ID = 0
+    # Guardrails for operations as a script
+    guardrails: MaybeScriptHash
+
+
+@dataclass(unsafe_hash=True)
+class GANewConstitution(PlutusData):
+    CONSTR_ID = 5
+    # The last governance action of type `Constitution` or `ConstitutionalCommittee`.
+    # They must all form a chain.
+    ancestor: MaybeGovernanceActionId
+    constitution: Constitution
+
+
+@dataclass(unsafe_hash=True)
+class GANicePoll(PlutusData):
+    # No action
+    CONSTR_ID = 6
+
+
+GovernanceAction = Union[
+    GAProtocolParameters,
+    GAHardFork,
+    GATreasuryWithdrawal,
+    GANoConfidence,
+    GAConstitutionalCommittee,
+    GANewConstitution,
+    GANicePoll,
+]
+
+
+@dataclass(unsafe_hash=True)
+class ProposalProcedure:
+    """
+    Represents a proposal procedure in governance.
+    """
+
+    deposit: Lovelace
+    return_address: Credential
+    governance_action: GovernanceAction
+
+
+@dataclass(unsafe_hash=True)
+class Publishing(PlutusData):
+    """
+    Needed when delegating to a pool using stake credentials defined as a
+    custom script. This purpose is also triggered when de-registering such
+    stake credentials.
+
+    The index is a 0-based index of the given `Certficate` in `certificates`.
+    """
+
+    CONSTR_ID = 3
+    certificate_index: int
+    certificate: Certificate
+
+
+@dataclass(unsafe_hash=True)
+class Voting(PlutusData):
+    """
+    Voting for a type of voter using a governance action id to vote
+    yes / no / abstain inside a transaction.
+    The voter is who is doing the governance action.
+    """
+
+    CONSTR_ID = 4
+    voter: Voter
+
+
+@dataclass(unsafe_hash=True)
+class Proposing(PlutusData):
+    """
+    Used to propose a governance action.
+    A 0-based index of the given `ProposalProcedure` in `proposal_procedures`.
+    """
+
+    CONSTR_ID = 5
+    proposal_index: int
+    proposal_procedure: ProposalProcedure
+
+
+# The reason that this script is being invoked
+ScriptPurpose = Union[Minting, Spending, Withdrawing, Publishing, Voting, Proposing]
 
 
 @dataclass(unsafe_hash=True)
