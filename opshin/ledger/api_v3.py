@@ -514,7 +514,7 @@ class VoteAbstain(PlutusData):
     CONSTR_ID = 2
 
 
-Vote = [VoteNo, VoteYes, VoteAbstain]
+Vote = Union[VoteNo, VoteYes, VoteAbstain]
 
 
 @dataclass(unsafe_hash=True)
@@ -653,7 +653,7 @@ GovernanceAction = Union[
 
 
 @dataclass(unsafe_hash=True)
-class ProposalProcedure:
+class ProposalProcedure(PlutusData):
     """
     Represents a proposal procedure in governance.
     """

@@ -561,7 +561,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         l_typ = tt.elts[0].typ
         assert all(
             l_typ >= e.typ for e in tt.elts
-        ), "All elements of a list must have the same type"
+        ), f"All elements of a list must have the same type, has typs {tuple(e.typ for e in tt.elts)}"
         tt.typ = InstanceType(ListType(l_typ))
         return tt
 

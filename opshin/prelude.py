@@ -81,7 +81,7 @@ def resolve_datum_unsafe(txout: TxOut, tx_info: TxInfo) -> BuiltinData:
     """
     attached_datum = txout.datum
     if isinstance(attached_datum, SomeOutputDatumHash):
-        res = tx_info.data[attached_datum.datum_hash]
+        res = tx_info.datums[attached_datum.datum_hash]
     elif isinstance(attached_datum, SomeOutputDatum):
         res = attached_datum.datum
     else:
@@ -101,7 +101,7 @@ def resolve_datum(
     attached_datum = txout.datum
     if isinstance(attached_datum, SomeOutputDatumHash):
         res: Union[SomeOutputDatum, NoOutputDatum] = SomeOutputDatum(
-            tx_info.data[attached_datum.datum_hash]
+            tx_info.datums[attached_datum.datum_hash]
         )
     else:
         res: Union[SomeOutputDatum, NoOutputDatum] = attached_datum
