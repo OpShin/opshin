@@ -1,4 +1,4 @@
-from opshin.ledger.api_v2 import *
+from opshin.ledger.api_v3 import *
 
 
 @dataclass(unsafe_hash=True)

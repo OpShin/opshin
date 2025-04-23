@@ -67,6 +67,7 @@ class TxOutRef(PlutusData):
 
 
 # A public key hash, used to identify signatures provided by a wallet
+# in aiken, this is called VerificationKeyHash
 PubKeyHash = bytes
 
 
@@ -499,6 +500,53 @@ class BoxedInt(PlutusData):
 Lovelace = int
 OptionalInt = Union[BoxedInt, FalseData]
 OptionalLovelace = OptionalInt
+
+
+@dataclass(unsafe_hash=True)
+class ConstitutionalCommitteeMember(PlutusData):
+    CONSTR_ID = 0
+    credential: Credential
+
+
+@dataclass(unsafe_hash=True)
+class DelegateRepresentative(PlutusData):
+    CONSTR_ID = 1
+    credential: Credential
+
+
+@dataclass(unsafe_hash=True)
+class StakePool(PlutusData):
+    CONSTR_ID = 2
+    verification_key_hash: PubKeyHash
+
+
+Voter = Union[ConstitutionalCommitteeMember, DelegateRepresentative, StakePool]
+
+
+@dataclass(unsafe_hash=True)
+class GovernanceActionId(PlutusData):
+    CONSTR_ID = 0
+    transaction: TxId
+    # Note: is a non-negative index to the proposal
+    proposal_procedure: int
+
+
+@dataclass(unsafe_hash=True)
+class VoteNo(PlutusData):
+    CONSTR_ID = 0
+
+
+@dataclass(unsafe_hash=True)
+class VoteYes(PlutusData):
+    CONSTR_ID = 1
+
+
+@dataclass(unsafe_hash=True)
+class VoteAbstain(PlutusData):
+    CONSTR_ID = 2
+
+
+Vote = [VoteNo, VoteYes, VoteAbstain]
 
 
 @dataclass(unsafe_hash=True)
