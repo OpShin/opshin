@@ -629,8 +629,8 @@ class GANewConstitution(PlutusData):
 
 
 @dataclass(unsafe_hash=True)
-class GANicePoll(PlutusData):
-    # No action
+class GAInfo(PlutusData):
+    # No effect on chain, only informative nature
     CONSTR_ID = 6
 
 
@@ -641,7 +641,7 @@ GovernanceAction = Union[
     GANoConfidence,
     GAConstitutionalCommittee,
     GANewConstitution,
-    GANicePoll,
+    GAInfo,
 ]
 
 
