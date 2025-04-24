@@ -14,9 +14,7 @@ import typing
 import ast
 
 import pycardano
-from pycardano import PlutusData, RawPlutusData
 
-import pluthon
 import uplc
 import uplc.ast
 
@@ -30,7 +28,7 @@ from . import (
     PlutusContract,
 )
 from .util import CompilerError, data_from_json, OPSHIN_LOG_HANDLER
-from .prelude_v3 import ScriptContext
+from .prelude import ScriptContext
 from .compiler_config import *
 
 
