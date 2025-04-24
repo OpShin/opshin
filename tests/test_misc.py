@@ -3059,7 +3059,7 @@ def validator(a: bool, b:bool)-> int:
     return 5+(a<b)
 """
         res = eval_uplc_value(source_code, a, b)
-        self.assertEquals(res, 5 + (a < b))
+        self.assertEqual(res, 5 + (a < b))
 
     @given(a=st.booleans(), b=st.booleans())
     def test_cast_bool_to_int_gt(self, a: bool, b: bool):
@@ -3068,7 +3068,7 @@ def validator(a: bool, b:bool)-> int:
     return 5-(a>b)
 """
         res = eval_uplc_value(source_code, a, b)
-        self.assertEquals(res, 5 - (a > b))
+        self.assertEqual(res, 5 - (a > b))
 
     @given(st.data())
     def test_index_access_skip(self, data):
