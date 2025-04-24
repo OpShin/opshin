@@ -30,7 +30,7 @@ from . import (
     PlutusContract,
 )
 from .util import CompilerError, data_from_json, OPSHIN_LOG_HANDLER
-from .prelude import ScriptContext
+from .prelude_v3 import ScriptContext
 from .compiler_config import *
 
 
@@ -224,7 +224,7 @@ Make sure the validator expects parameters {'datum, ' if purpose == Purpose.spen
         ), f"{purpose.value.capitalize()} validator expects {len(param_types) + len(onchain_params)} parameters for evaluation, but only got {len(validator_params)}."
     assert (
         onchain_params[-1][1] == ScriptContext
-    ), f"Last parameter of the validator is always ScriptContext, but is {onchain_params[-1][1].__name__} here."
+    ), f"Last parameter of the validator has to be ScriptContext, but is {onchain_params[-1][1].__name__} here."
     return onchain_params, param_types
 
 

@@ -19,17 +19,10 @@ class NoScriptHash(PlutusData):
     CONSTR_ID = 1
 
 
-@dataclass(unsafe_hash=True)
-class TxId(PlutusData):
-    """
-    A transaction id, a 64 bytes long hash of the transaction body (also called transaction hash).
-
-    Example value: TxId(bytes.fromhex("842a4d37b036da6ab3c04331240e67d81746beb44f23ad79703e026705361956"))
-    """
-
-    CONSTR_ID = 0
-
-    tx_id: bytes
+# A transaction id, a 64 bytes long hash of the transaction body (also called transaction hash).
+#
+# Example value: bytes.fromhex("842a4d37b036da6ab3c04331240e67d81746beb44f23ad79703e026705361956")
+TxId = bytes
 
 
 @dataclass(unsafe_hash=True)
