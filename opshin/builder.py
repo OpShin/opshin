@@ -9,7 +9,7 @@ from ast import Module
 from typing import Optional, Any, Union
 from pathlib import Path
 
-from pycardano import PlutusV2Script, IndefiniteList, PlutusData, Datum
+from pycardano import PlutusV2Script, IndefiniteList, PlutusData, Datum, PlutusV3Script
 
 from . import __version__, compiler, DEFAULT_CONFIG
 
@@ -33,14 +33,16 @@ class Purpose(enum.Enum):
 
 @dataclasses.dataclass
 class PlutusContract:
-    contract: PlutusV2Script
+    contract: PlutusV3Script
+    # TODO how to infer datum type for spending contracts?
     datum_type: Optional[typing.Tuple[str, typing.Type[Datum]]] = None
     redeemer_type: Optional[typing.Tuple[str, typing.Type[Datum]]] = None
     parameter_types: typing.List[typing.Tuple[str, typing.Type[Datum]]] = (
         dataclasses.field(default_factory=list)
     )
+
     purpose: typing.Iterable[Purpose] = (Purpose.any,)
-    version: Optional[str] = "1.0.0"
+    version: Optional[str] = "1.1.0"
     title: str = "validator"
     description: Optional[str] = f"opshin {__version__} Smart Contract"
     license: Optional[str] = None
@@ -73,7 +75,7 @@ class PlutusContract:
     def plutus_json(self):
         return json.dumps(
             {
-                "type": "PlutusScriptV2",
+                "type": "PlutusScriptV3",
                 "description": self.description,
                 "cborHex": self.cbor_hex,
             },
@@ -84,7 +86,7 @@ class PlutusContract:
     def blueprint(self):
         return {
             "$schema": "https://cips.cardano.org/cips/cip57/schemas/plutus-blueprint.json",
-            "$id": "https://github.com/aiken-lang/aiken/blob/main/examples/hello_world/plutus.json",
+            "$id": "TBD",
             "$vocabulary": {
                 "https://json-schema.org/draft/2020-12/vocab/core": True,
                 "https://json-schema.org/draft/2020-12/vocab/applicator": True,
@@ -93,7 +95,7 @@ class PlutusContract:
             },
             "preamble": {
                 "version": self.version,
-                "plutusVersion": "v2",
+                "plutusVersion": "v3",
                 "description": self.description,
                 "title": self.title,
                 **({"license": self.license} if self.license is not None else {}),
@@ -267,7 +269,7 @@ def build(
 def _build(contract: uplc.ast.Program):
     # create cbor file for use with pycardano/lucid
     cbor = flatten(contract)
-    return pycardano.PlutusV2Script(cbor)
+    return pycardano.PlutusV3Script(cbor)
 
 
 PURPOSE_MAP = {
