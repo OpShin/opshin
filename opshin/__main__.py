@@ -14,9 +14,7 @@ import typing
 import ast
 
 import pycardano
-from pycardano import PlutusData, RawPlutusData
 
-import pluthon
 import uplc
 import uplc.ast
 
@@ -224,7 +222,7 @@ Make sure the validator expects parameters {'datum, ' if purpose == Purpose.spen
         ), f"{purpose.value.capitalize()} validator expects {len(param_types) + len(onchain_params)} parameters for evaluation, but only got {len(validator_params)}."
     assert (
         onchain_params[-1][1] == ScriptContext
-    ), f"Last parameter of the validator is always ScriptContext, but is {onchain_params[-1][1].__name__} here."
+    ), f"Last parameter of the validator has to be ScriptContext, but is {onchain_params[-1][1].__name__} here."
     return onchain_params, param_types
 
 

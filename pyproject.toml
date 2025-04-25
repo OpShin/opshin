@@ -22,7 +22,7 @@ packages = [{include = "opshin"}]
 
 [tool.poetry.dependencies]
 python = ">=3.9.0, <3.13"
-uplc = "^1.0.7"
+uplc = "^1.0.10"
 pluthon = "^1.1.0"
 pycardano = ">=0.13.0"
 frozenlist2 = "^1.0.0"
