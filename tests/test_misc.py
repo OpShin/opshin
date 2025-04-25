@@ -28,9 +28,7 @@ from opshin.compiler_config import OPT_O2_CONFIG, DEFAULT_CONFIG
 hypothesis.settings.load_profile(PLUTUS_VM_PROFILE)
 
 # these imports are required to eval the result of script context dumps
-from opshin.ledger.api_v2 import *
-from pycardano import RawPlutusData, RawCBOR
-from cbor2 import CBORTag
+from opshin.ledger.api_v3 import *
 
 DEFAULT_CONFIG_FORCE_THREE_PARAMS = DEFAULT_CONFIG.update(force_three_params=True)
 DEFAULT_CONFIG_CONSTANT_FOLDING = DEFAULT_CONFIG.update(constant_folding=True)
@@ -78,8 +76,7 @@ class MiscTest(unittest.TestCase):
             22,
             uplc.data_from_cbor(
                 bytes.fromhex(
-                    # TODO need new script context
-                    "d8799fd8799f9fd8799fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffd8799fd8799fd87a9f581cdbe769758f26efb21f008dc097bb194cffc622acc37fcefc5372eee3ffd87a80ffa140a1401a00989680d87a9f5820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dffd87a80ffffff809fd8799fd8799fd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd87a80ffa140a14000d87980d87a80ffffa140a14000a140a1400080a0d8799fd8799fd87980d87a80ffd8799fd87b80d87a80ffff80a1d87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffd87980a15820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd8799f5820746957f0eb57f2b11119684e611a98f373afea93473fefbb7632d579af2f6259ffffd87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffff"
+                    "d8799fd8799f81d8799fd8799f5820ec7874002d9b55a81e64eefcb3b41f8897eb36ad61c3392661f8a7c5a39879a500ffd8799fd8799fd87a9f581c4154af4452c57951a0d4e9bfd36ef809c6f49ed8a66967e51cbdc314ffd87a80ffa140a1401a002dc6c0d87b9fd87980ffd87a80ffff8081d8799fd8799fd8799f581c61299458bd6d3011669ac533b520ab07b94d7428903f61714babb582ffd87a80ffa140a1401a002b112bd87980d87a80ff1a0002b595a080a0d8799fd8799fd87a9f1b0000019667dbfac0ffd87a80ffd8799fd87a9f1b0000019667ead388ffd87980ffff80a1d87a9fd8799f5820ec7874002d9b55a81e64eefcb3b41f8897eb36ad61c3392661f8a7c5a39879a500ffff00a05820ffa18bad2d7b861a44b07af9df6c42b60414bf0e5279134293001aea66ead701a080d87a80d87a80ff00d87a9fd8799f5820ec7874002d9b55a81e64eefcb3b41f8897eb36ad61c3392661f8a7c5a39879a500ffd8799fd87980ffffff"
                 )
             ),
             config=DEFAULT_CONFIG.update(OPT_O2_CONFIG),
@@ -87,11 +84,27 @@ class MiscTest(unittest.TestCase):
         self.assertEqual(ret, uplc.PlutusConstr(0, []))
 
     @unittest.expectedFailure
-    def test_assert_sum_contract_fail(self):
+    def test_assert_sum_contract_fail_sum(self):
         input_file = "examples/smart_contracts/assert_sum.py"
         with open(input_file) as fp:
             source_code = fp.read()
-        ret = eval_uplc(source_code, 0, 22, Unit())
+        ret = eval_uplc(
+            source_code,
+            0,
+            22,
+            uplc.data_from_cbor(
+                bytes.fromhex(
+                    "d8799fd8799f81d8799fd8799f5820ec7874002d9b55a81e64eefcb3b41f8897eb36ad61c3392661f8a7c5a39879a500ffd8799fd8799fd87a9f581c4154af4452c57951a0d4e9bfd36ef809c6f49ed8a66967e51cbdc314ffd87a80ffa140a1401a002dc6c0d87b9fd87980ffd87a80ffff8081d8799fd8799fd8799f581c61299458bd6d3011669ac533b520ab07b94d7428903f61714babb582ffd87a80ffa140a1401a002b112bd87980d87a80ff1a0002b595a080a0d8799fd8799fd87a9f1b0000019667dbfac0ffd87a80ffd8799fd87a9f1b0000019667ead388ffd87980ffff80a1d87a9fd8799f5820ec7874002d9b55a81e64eefcb3b41f8897eb36ad61c3392661f8a7c5a39879a500ffff00a05820ffa18bad2d7b861a44b07af9df6c42b60414bf0e5279134293001aea66ead701a080d87a80d87a80ff00d87a9fd8799f5820ec7874002d9b55a81e64eefcb3b41f8897eb36ad61c3392661f8a7c5a39879a500ffd8799fd87980ffffff"
+                )
+            ),
+        )
+
+    @unittest.expectedFailure
+    def test_assert_sum_contract_fail_context(self):
+        input_file = "examples/smart_contracts/assert_sum.py"
+        with open(input_file) as fp:
+            source_code = fp.read()
+        ret = eval_uplc(source_code, 20, 22, Unit())
 
     @given(
         a=st.integers(min_value=-10, max_value=10),

@@ -59,10 +59,6 @@ ARGPARSE_ARGS.update(
         "allow_isinstance_anything": {
             "help": "Enables the use of isinstance(x, D) in the contract where x is of type Anything. This is not recommended as it only checks the constructor id and not the actual type of the data.",
         },
-        "force_three_params": {
-            "__alts__": ["--ftp"],
-            "help": "Enforces that the contract is always called with three virtual parameters on-chain. Enable if the script should support spending and other purposes.",
-        },
         "remove_dead_code": {
             "help": "Removes dead code and variables from the contract. Should be enabled for non-debugging purposes.",
         },

@@ -181,13 +181,8 @@ def check_params(
     validator_args,
     return_type,
     validator_params,
-    force_three_params=False,
 ):
-    num_onchain_params = (
-        3
-        if purpose == Purpose.spending or force_three_params or purpose == Purpose.any
-        else 2
-    )
+    num_onchain_params = 2
     onchain_params = validator_args[-num_onchain_params:]
     param_types = validator_args[:-num_onchain_params]
     if purpose == Purpose.any:
@@ -195,26 +190,16 @@ def check_params(
         return onchain_params, param_types
     # expect the validator to return None
     assert (
-        return_type is None or return_type == prelude.Anything
+        return_type is None
     ), f"Expected contract to return None, but returns {return_type}"
 
-    required_onchain_parameters = 3 if purpose == Purpose.spending else 2
-    if force_three_params:
-        datum_type = onchain_params[0][1]
-        assert (
-            (
-                typing.get_origin(datum_type) == typing.Union
-                and prelude.Nothing in typing.get_args(datum_type)
-            )
-            or datum_type == prelude.Anything
-            or datum_type == prelude.Nothing
-        ), f"Expected contract to accept Nothing or Anything as datum since it forces three parameters, but got {datum_type}"
+    required_onchain_parameters = 2
 
     assert (
         len(onchain_params) == required_onchain_parameters
     ), f"""\
 {purpose.value.capitalize()} validator must expect {required_onchain_parameters} parameters at evaluation (on-chain), but was specified to have {len(onchain_params)}.
-Make sure the validator expects parameters {'datum, ' if purpose == Purpose.spending else ''}redeemer and script context."""
+Make sure the validator expects two parameters, one redeemer and one of type `ScriptContext`."""
 
     if command in (Command.eval, Command.eval_uplc):
         assert len(validator_params) == len(param_types) + len(
@@ -222,7 +207,7 @@ Make sure the validator expects parameters {'datum, ' if purpose == Purpose.spen
         ), f"{purpose.value.capitalize()} validator expects {len(param_types) + len(onchain_params)} parameters for evaluation, but only got {len(validator_params)}."
     assert (
         onchain_params[-1][1] == ScriptContext
-    ), f"Last parameter of the validator has to be ScriptContext, but is {onchain_params[-1][1].__name__} here."
+    ), f"Parameter of the validator has to be ScriptContext, but is {onchain_params[-1][1].__name__} here."
     return onchain_params, param_types
 
 
@@ -291,7 +276,6 @@ def perform_command(args):
             annotations,
             return_annotation,
             parsed_params,
-            compiler_config.force_three_params,
         )
 
     if command == Command.eval:
@@ -362,7 +346,7 @@ Note that opshin errors may be overly restrictive as they aim to prevent code wi
     # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
     for d in uplc_params:
         code = uplc.ast.Apply(code, d)
-    code = uplc.ast.Program((1, 0, 0), code)
+    code = uplc.ast.Program((1, 1, 0), code)
 
     if command == Command.compile:
         print(code.dumps())
@@ -427,9 +411,8 @@ def parse_args():
         "purpose",
         type=str,
         choices=Purpose.__members__.keys(),
-        help="The intended script purpose. Determines the number of on-chain parameters "
-        "(spending = 3, minting, rewarding, certifying = 2, any = no checks). "
-        "This allows the compiler to check whether the correct amount of parameters was passed during compilation.",
+        help="The intended script purpose. Validates the number and type of on-chain parameters (1 of type ScriptContext). "
+        "This allows the compiler to check whether the correct amount of parameters is expected during compilation.",
         default="any",
         nargs="?",
     )

@@ -23,7 +23,7 @@ from opshin import compiler
 
 hypothesis.settings.load_profile(PLUTUS_VM_PROFILE)
 
-from opshin.ledger.api_v2 import (
+from opshin.ledger.api_v3 import (
     FinitePOSIXTime,
     PosInfPOSIXTime,
     UpperBoundPOSIXTime,

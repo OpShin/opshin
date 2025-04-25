@@ -207,6 +207,7 @@ class PlutoCompiler(CompilingNodeTransformer):
         )
 
     def visit_Module(self, node: TypedModule) -> plt.AST:
+        # TODO rewrite this to extract redeemer from script context
         # extract actually read variables by each function
         if self.validator_function_name is not None:
             # for validators find main function
