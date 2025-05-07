@@ -74,10 +74,10 @@ def test_script_context_mapping():
             withdrawals={},
             validity_range=POSIXTimeRange(
                 lower_bound=LowerBoundPOSIXTime(
-                    limit=FinitePOSIXTime(time=1745501373000), closed=FalseData()
+                    limit=FinitePOSIXTime(time=1745501373000), closed=TrueData()
                 ),
                 upper_bound=UpperBoundPOSIXTime(
-                    limit=FinitePOSIXTime(time=1745502383000), closed=TrueData()
+                    limit=FinitePOSIXTime(time=1745502383000), closed=FalseData()
                 ),
             ),
             signatories=[],
