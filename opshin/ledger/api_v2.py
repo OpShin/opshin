@@ -32,7 +32,7 @@ class TrueData(PlutusData):
     Example value: TrueData()
     """
 
-    CONSTR_ID = 0
+    CONSTR_ID = 1
 
 
 @dataclass(unsafe_hash=True)
@@ -44,7 +44,7 @@ class FalseData(PlutusData):
     Example value: FalseData()
     """
 
-    CONSTR_ID = 1
+    CONSTR_ID = 0
 
 
 # A Datum that represents a boolean value in Haskell implementations.

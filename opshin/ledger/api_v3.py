@@ -34,7 +34,7 @@ class TrueData(PlutusData):
     Example value: TrueData()
     """
 
-    CONSTR_ID = 0
+    CONSTR_ID = 1
 
 
 @dataclass(unsafe_hash=True)
@@ -46,7 +46,7 @@ class FalseData(PlutusData):
     Example value: FalseData()
     """
 
-    CONSTR_ID = 1
+    CONSTR_ID = 0
 
 
 # A Datum that represents a boolean value in Haskell implementations.
@@ -66,8 +66,17 @@ class BoxedInt(PlutusData):
     value: int
 
 
+@dataclass(unsafe_hash=True)
+class NoValue(PlutusData):
+    """
+    An empty value (None case of Optional / Maybe)
+    """
+
+    CONSTR_ID = 1
+
+
 Lovelace = int
-OptionalInt = Union[BoxedInt, FalseData]
+OptionalInt = Union[BoxedInt, NoValue]
 OptionalLovelace = OptionalInt
 
 
