@@ -997,3 +997,47 @@ def validator(x: None) -> bool:
             """
         ret = eval_uplc_value(source_code, uplc.BuiltinUnit())
         self.assertEqual(bool(ret), not None, "not returned wrong value")
+
+    @given(
+        xs=st.lists(st.integers(), max_size=10), ys=st.lists(st.integers(), max_size=10)
+    )
+    def test_eq_list_int(self, xs, ys):
+        source_code = """
+from typing import Dict, List, Union
+def validator(x: List[int], y: List[int]) -> bool:
+    return x == y
+            """
+        ret = eval_uplc_value(source_code, xs, ys)
+        self.assertEqual(bool(ret), xs == ys, "list eq returned wrong value")
+
+    @given(
+        xs=st.lists(st.integers(), max_size=10), ys=st.lists(st.integers(), max_size=10)
+    )
+    def test_neq_list_int(self, xs, ys):
+        source_code = """
+from typing import Dict, List, Union
+def validator(x: List[int], y: List[int]) -> bool:
+    return x != y
+            """
+        ret = eval_uplc_value(source_code, xs, ys)
+        self.assertEqual(bool(ret), xs != ys, "list neq returned wrong value")
+
+    @given(xs=st.lists(st.binary(), max_size=10), ys=st.lists(st.binary(), max_size=10))
+    def test_eq_list_bytes(self, xs, ys):
+        source_code = """
+from typing import Dict, List, Union
+def validator(x: List[bytes], y: List[bytes]) -> bool:
+    return x == y
+            """
+        ret = eval_uplc_value(source_code, xs, ys)
+        self.assertEqual(bool(ret), xs == ys, "list eq returned wrong value")
+
+    @given(xs=st.lists(st.binary(), max_size=10), ys=st.lists(st.binary(), max_size=10))
+    def test_neq_list_bytes(self, xs, ys):
+        source_code = """
+from typing import Dict, List, Union
+def validator(x: List[bytes], y: List[bytes]) -> bool:
+    return x != y
+            """
+        ret = eval_uplc_value(source_code, xs, ys)
+        self.assertEqual(bool(ret), xs != ys, "list neq returned wrong value")

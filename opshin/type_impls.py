@@ -1087,6 +1087,62 @@ class ListType(ClassType):
         )
         return OLambda(["self"], mapped_attrs)
 
+    def cmp(self, op: cmpop, o: "Type") -> plt.AST:
+        """The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second the comparison."""
+        if isinstance(o, ListType) and (self.typ >= o.typ or o.typ >= self.typ):
+            if isinstance(op, Eq):
+                # Implement list equality comparison
+                # This is expensive (linear in the size of the list) as noted in the feature request
+                return OLambda(
+                    ["x", "y"],
+                    plt.Apply(
+                        plt.RecFun(
+                            OLambda(
+                                ["f", "xs", "ys"],
+                                plt.IteNullList(
+                                    OVar("xs"),
+                                    # If first list is empty, check if second is also empty
+                                    plt.NullList(OVar("ys")),
+                                    plt.IteNullList(
+                                        OVar("ys"),
+                                        # If second list is empty but first is not, they're not equal
+                                        plt.Bool(False),
+                                        # Both lists have elements, compare heads and recurse on tails
+                                        plt.And(
+                                            plt.Apply(
+                                                self.typ.cmp(op, o.typ),
+                                                plt.HeadList(OVar("xs")),
+                                                plt.HeadList(OVar("ys")),
+                                            ),
+                                            plt.Apply(
+                                                OVar("f"),
+                                                OVar("f"),
+                                                plt.TailList(OVar("xs")),
+                                                plt.TailList(OVar("ys")),
+                                            ),
+                                        ),
+                                    ),
+                                ),
+                            )
+                        ),
+                        OVar("x"),
+                        OVar("y"),
+                    ),
+                )
+            if isinstance(op, NotEq):
+                # Implement list inequality comparison as negation of equality
+                return OLambda(
+                    ["x", "y"],
+                    plt.Not(
+                        plt.Apply(
+                            self.cmp(Eq(), o),
+                            OVar("x"),
+                            OVar("y"),
+                        )
+                    ),
+                )
+        return super().cmp(op, o)
+
     def _binop_return_type(self, binop: operator, other: "Type") -> "Type":
         if isinstance(binop, Add):
             if isinstance(other, InstanceType) and isinstance(other.typ, ListType):
