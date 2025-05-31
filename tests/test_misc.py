@@ -3128,3 +3128,35 @@ def validator(x: List[int], y: int) -> int:
             raw_ret_noskip.cost.memory,
             "skipping had adverse effect on memory",
         )
+
+    def test_list_comprehension_non_boolean_filter(self):
+        source_code = """
+from opshin.prelude import *
+
+def validator(a: List[int]) -> None:
+    b = [x for x in a if x]  # x is an int, not a bool - now properly cast to bool
+    pass
+"""
+        # This should now compile successfully since filter expressions are automatically cast to bool
+        builder._compile(source_code)
+        # Also test that it executes without crashing
+        eval_uplc(source_code, [1, 0, 2, 0, 3])
+
+    @unittest.expectedFailure
+    def test_list_comprehension_invalid_filter_type(self):
+        source_code = """
+from opshin.prelude import *
+from dataclasses import dataclass
+
+@dataclass()
+class CustomClass(PlutusData):
+    CONSTR_ID = 0
+    value: int
+
+def validator(a: List[CustomClass]) -> None:
+    # This should fail because CustomClass cannot be cast to bool
+    b = [x for x in a if x]  # x is CustomClass, which has no __bool__ method
+    pass
+"""
+        # This should fail during compilation since CustomClass cannot be cast to bool
+        builder._compile(source_code)

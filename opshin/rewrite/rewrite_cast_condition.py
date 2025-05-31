@@ -44,3 +44,21 @@ class RewriteConditions(CompilingNodeTransformer):
         assert_cp = copy(node)
         assert_cp.test = Call(Name(SPECIAL_BOOL, Load()), [node.test], [])
         return self.generic_visit(assert_cp)
+
+    def visit_comprehension(self, node: comprehension) -> comprehension:
+        comp_cp = copy(node)
+        # Wrap all if conditions with Bool casts
+        comp_cp.ifs = [
+            Call(Name(SPECIAL_BOOL, Load()), [if_cond], []) for if_cond in node.ifs
+        ]
+        return self.generic_visit(comp_cp)
+
+    def visit_ListComp(self, node: ListComp) -> ListComp:
+        listcomp_cp = copy(node)
+        listcomp_cp.generators = [self.visit(g) for g in node.generators]
+        return self.generic_visit(listcomp_cp)
+
+    def visit_DictComp(self, node: DictComp) -> DictComp:
+        dictcomp_cp = copy(node)
+        dictcomp_cp.generators = [self.visit(g) for g in node.generators]
+        return self.generic_visit(dictcomp_cp)
