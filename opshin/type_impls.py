@@ -1452,6 +1452,9 @@ class InstanceType(Type):
         raise NotImplementedError(f"Can not construct an instance {self}")
 
     def attribute_type(self, attr) -> Type:
+        # For instances, only allow instance methods
+        if hasattr(self.typ, "instance_attribute_type"):
+            return self.typ.instance_attribute_type(attr)
         return self.typ.attribute_type(attr)
 
     def attribute(self, attr) -> plt.AST:
@@ -1800,11 +1803,8 @@ class ByteStringType(AtomicType):
     def constr_type(self) -> InstanceType:
         return InstanceType(PolymorphicFunctionType(BytesImpl()))
 
-    def attribute_type(self, attr) -> Type:
-        if attr == "decode":
-            return InstanceType(FunctionType(frozenlist([]), StringInstanceType))
-        if attr == "hex":
-            return InstanceType(FunctionType(frozenlist([]), StringInstanceType))
+    def class_attribute_type(self, attr) -> Type:
+        """Return the type of class methods (accessible on the class itself)"""
         if attr == "fromhex":
             return InstanceType(
                 FunctionType(
@@ -1812,7 +1812,26 @@ class ByteStringType(AtomicType):
                     ByteStringInstanceType,
                 )
             )
-        return super().attribute_type(attr)
+        raise TypeInferenceError(
+            f"Type {self.__class__.__name__} does not have class attribute {attr}"
+        )
+
+    def instance_attribute_type(self, attr) -> Type:
+        """Return the type of instance methods (accessible on instances)"""
+        if attr == "decode":
+            return InstanceType(FunctionType(frozenlist([]), StringInstanceType))
+        if attr == "hex":
+            return InstanceType(FunctionType(frozenlist([]), StringInstanceType))
+        raise TypeInferenceError(
+            f"Type {self.__class__.__name__} does not have instance attribute {attr}"
+        )
+
+    def attribute_type(self, attr) -> Type:
+        # For backward compatibility, try instance methods first, then class methods
+        try:
+            return self.instance_attribute_type(attr)
+        except TypeInferenceError:
+            return self.class_attribute_type(attr)
 
     def attribute(self, attr) -> plt.AST:
         if attr == "decode":

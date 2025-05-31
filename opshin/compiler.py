@@ -886,12 +886,30 @@ class PlutoCompiler(CompilingNodeTransformer):
         return lambda x: plt.Let([(node.name, plt.Delay(node.class_typ.constr()))], x)
 
     def visit_Attribute(self, node: TypedAttribute) -> plt.AST:
-        assert isinstance(
-            node.value.typ, InstanceType
-        ), "Can only access attributes of instances"
-        obj = self.visit(node.value)
-        attr = node.value.typ.attribute(node.attr)
-        return plt.Apply(attr, obj)
+        if isinstance(node.value.typ, InstanceType):
+            # Instance attribute access
+            obj = self.visit(node.value)
+            attr = node.value.typ.attribute(node.attr)
+            return plt.Apply(attr, obj)
+        elif isinstance(node.value.typ, ClassType):
+            # Class attribute access (for class methods)
+            if hasattr(node.value.typ, "class_attribute_type"):
+                try:
+                    # Check if this is a valid class method
+                    node.value.typ.class_attribute_type(node.attr)
+                    # For class methods, we don't need the class object itself
+                    # The method implementation handles the class context
+                    attr = node.value.typ.attribute(node.attr)
+                    return attr
+                except TypeInferenceError:
+                    pass
+            raise TypeInferenceError(
+                f"Type {node.value.typ.__class__.__name__} does not have class attribute {node.attr}"
+            )
+        else:
+            raise TypeInferenceError(
+                "Can only access attributes of instances or classes"
+            )
 
     def visit_Assert(self, node: TypedAssert) -> CallAST:
         return lambda x: plt.Ite(
