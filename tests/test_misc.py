@@ -3129,14 +3129,15 @@ def validator(x: List[int], y: int) -> int:
             "skipping had adverse effect on memory",
         )
 
-    @unittest.expectedFailure
     def test_list_comprehension_non_boolean_filter(self):
         source_code = """
 from opshin.prelude import *
 
 def validator(a: List[int]) -> None:
-    b = [x for x in a if x]  # x is an int, not a bool
+    b = [x for x in a if x]  # x is an int, not a bool - now properly cast to bool
     pass
 """
-        # This should fail during type checking since the filter expression 'x' is not a boolean
+        # This should now compile successfully since filter expressions are automatically cast to bool
         builder._compile(source_code)
+        # Also test that it executes without crashing
+        eval_uplc(source_code, [1, 0, 2, 0, 3])
