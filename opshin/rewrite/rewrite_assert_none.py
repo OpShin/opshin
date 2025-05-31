@@ -3,6 +3,8 @@
 import ast
 from typing import Optional, cast
 
+from ..typed_ast import TypedAssert
+from ..type_impls import UnitInstanceType, InstanceType, UnitType
 from ..util import CompilingNodeTransformer
 
 
@@ -31,40 +33,36 @@ class RewriteAssertNone(CompilingNodeTransformer):
                 "The function likely performs its own assertions internally."
             )
 
-        # Also check if this is a call to a function that has a None return type annotation
-        if isinstance(node.test, ast.Call) and isinstance(node.test.func, ast.Name):
-            print(f"DEBUG: Function call to {node.test.func.id}")
-            print(f"DEBUG: func has typ: {hasattr(node.test.func, 'typ')}")
-            if hasattr(node.test.func, "typ"):
-                print(f"DEBUG: func.typ: {node.test.func.typ}")
-                print(f"DEBUG: func.typ has typ: {hasattr(node.test.func.typ, 'typ')}")
-                if hasattr(node.test.func.typ, "typ"):
-                    print(f"DEBUG: func.typ.typ: {node.test.func.typ.typ}")
-                    print(
-                        f"DEBUG: func.typ.typ has rettyp: {hasattr(node.test.func.typ.typ, 'rettyp')}"
-                    )
-                    if hasattr(node.test.func.typ.typ, "rettyp"):
-                        print(
-                            f"DEBUG: func.typ.typ.rettyp: {node.test.func.typ.typ.rettyp}"
-                        )
-
+        # Check if this is a bool() call wrapping a function that returns None
+        # This handles the case where RewriteConditions has already wrapped the call
         if (
             isinstance(node.test, ast.Call)
             and isinstance(node.test.func, ast.Name)
-            and hasattr(node.test.func, "typ")
-            and hasattr(node.test.func.typ, "typ")
-            and hasattr(node.test.func.typ.typ, "rettyp")
+            and node.test.func.id.startswith(
+                "~bool"
+            )  # This is the special bool from RewriteConditions
+            and len(node.test.args) == 1
+            and isinstance(node.test.args[0], ast.Call)
+            and hasattr(node.test.args[0], "typ")
             and (
-                node.test.func.typ.typ.rettyp == UnitInstanceType
+                node.test.args[0].typ == UnitInstanceType
                 or (
-                    isinstance(node.test.func.typ.typ.rettyp, InstanceType)
-                    and isinstance(node.test.func.typ.typ.rettyp.typ, UnitType)
+                    isinstance(node.test.args[0].typ, InstanceType)
+                    and isinstance(node.test.args[0].typ.typ, UnitType)
                 )
             )
         ):
+            # Get the original function name for a better error message
+            func_name = "<function>"
+            if isinstance(node.test.args[0].func, ast.Name) and hasattr(
+                node.test.args[0].func, "id"
+            ):
+                func_name = node.test.args[0].func.id
+
             raise SyntaxError(
                 f"Asserting a function call that returns None at line {node.lineno}. "
-                "This would always fail as it's equivalent to 'assert False'. "
+                f"Function '{func_name}' returns None, so 'assert {func_name}(...)' "
+                "would always fail as it's equivalent to 'assert False'. "
                 "The function likely performs its own assertions internally."
             )
 
