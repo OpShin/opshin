@@ -3160,3 +3160,30 @@ def validator(a: List[CustomClass]) -> None:
 """
         # This should fail during compilation since CustomClass cannot be cast to bool
         builder._compile(source_code)
+
+    @unittest.expectedFailure
+    def test_tuple_type_correct_subtyping(self):
+        source_code = """
+def validator(a: int) -> int:
+    t1 = (a, a, a)
+    t2 = (a, a)
+    
+    t3 = t1 if False else t2
+    
+    return t3[2]
+"""
+        # this should fail during compilation because t3 is not guaranteed to have a third element
+        builder._compile(source_code)
+
+    def test_tuple_type_correct_subtyping_2(self):
+        source_code = """
+def validator(a: int) -> int:
+    t1 = (a, a, a)
+    t2 = (a, a)
+
+    t3 = t1 if False else t2
+
+    return t3[1]
+"""
+        # this should pass during compilation because t3 is guaranteed to have a second element
+        builder._compile(source_code)

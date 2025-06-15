@@ -893,8 +893,10 @@ class TupleType(ClassType):
     typs: typing.List[Type]
 
     def __ge__(self, other):
-        return isinstance(other, TupleType) and all(
-            t >= ot for t, ot in zip(self.typs, other.typs)
+        return (
+            isinstance(other, TupleType)
+            and len(self.typs) <= len(other.typs)
+            and all(t >= ot for t, ot in zip(self.typs, other.typs))
         )
 
     def stringify(self, recursive: bool = False) -> plt.AST:

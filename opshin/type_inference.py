@@ -892,10 +892,13 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             assert (
                 ts.value.typ.typ.typs
             ), "Accessing elements from the empty tuple is not allowed"
-            if all(ts.value.typ.typ.typs[0] == t for t in ts.value.typ.typ.typs):
-                ts.typ = ts.value.typ.typ.typs[0]
-            elif isinstance(ts.slice, Constant) and isinstance(ts.slice.value, int):
+            if isinstance(ts.slice, Constant) and isinstance(ts.slice.value, int):
+                assert ts.slice.value < len(
+                    ts.value.typ.typ.typs
+                ), f"Subscript index out of bounds for tuple. Accessing index {ts.slice.value} in tuple with {len(ts.value.typ.typ.typs)} elements"
                 ts.typ = ts.value.typ.typ.typs[ts.slice.value]
+            elif all(ts.value.typ.typ.typs[0] == t for t in ts.value.typ.typ.typs):
+                ts.typ = ts.value.typ.typ.typs[0]
             else:
                 raise TypeInferenceError(
                     f"Could not infer type of subscript of typ {ts.value.typ.typ.__class__}"
