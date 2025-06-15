@@ -47,3 +47,18 @@ def test_union_type_order():
     assert not a >= c
     assert abc >= c
     assert not ab >= c
+
+
+def test_tuple_size_order():
+    A, B, C = IntegerInstanceType, IntegerInstanceType, IntegerInstanceType
+    ab = TupleType([A, B])
+    ac = TupleType([A, C])
+    abc = TupleType([A, B, C])
+
+    assert ab >= ab
+    assert ac >= ac
+    assert abc >= abc
+    assert not abc >= ab
+    assert not abc >= ac
+    assert ab >= abc
+    assert ac >= abc
