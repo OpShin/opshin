@@ -1001,10 +1001,15 @@ class ListType(ClassType):
                                 ["index", "xs", "a"],
                                 plt.IteNullList(
                                     OVar("xs"),
-                                    plt.TraceError("Did not find element in list"),
+                                    plt.TraceError(
+                                        "ValueError: Did not find element in list"
+                                    ),
                                     plt.Ite(
-                                        plt.EqualsInteger(
-                                            OVar("x"), plt.HeadList(OVar("xs"))
+                                        # the paramter x must have the same type as the list elements
+                                        plt.Apply(
+                                            self.typ.cmp(Eq(), self.typ),
+                                            OVar("x"),
+                                            plt.HeadList(OVar("xs")),
                                         ),
                                         OVar("a"),
                                         plt.Apply(
