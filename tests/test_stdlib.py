@@ -71,6 +71,9 @@ def validator(x: List[int], z: int) -> int:
     @given(st.integers(), st.binary(), st.integers(), st.binary())
     @example(1, b"abc", 2, b"def")
     def test_list_index(self, a_x, a_y, b_x, b_y):
+        # ensure that (a_x, a_y) != (b_x, b_y)
+        if a_x == b_x and a_y == b_y:
+            b_x += 1
         source_code = """
 from opshin.prelude import *
 
@@ -94,6 +97,26 @@ def validator(a_x: int, a_y: bytes, b_x: int, b_y: bytes) -> int:
             ret = None
         exp = 1
         self.assertEqual(ret, exp, "list.index returned wrong value")
+
+    @unittest.expectedFailure
+    def test_list_index_typemismatch(self):
+        source_code = """
+from opshin.prelude import *
+
+@dataclass
+class Test(PlutusData):
+    CONSTR_ID = 0
+    x: int
+    y: bytes
+
+def validator(b: int) -> int:
+    a: Test = Test(b, b"hi")
+    l: List[Test] = [a, a]
+
+    return l.index(20)
+                    """
+        # should fail compilation
+        builder._compile(source_code)
 
     @given(xs=st.dictionaries(st.integers(), st.binary()))
     def test_dict_keys(self, xs):
