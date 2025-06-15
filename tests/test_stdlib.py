@@ -68,6 +68,33 @@ def validator(x: List[int], z: int) -> int:
             exp = None
         self.assertEqual(ret, exp, "list.index returned wrong value")
 
+    @given(st.integers(), st.binary(), st.integers(), st.binary())
+    @example(1, b"abc", 2, b"def")
+    def test_list_index(self, a_x, a_y, b_x, b_y):
+        source_code = """
+from opshin.prelude import *
+
+@dataclass
+class Test(PlutusData):
+    CONSTR_ID = 0
+    x: int
+    y: bytes
+
+def validator(a_x: int, a_y: bytes, b_x: int, b_y: bytes) -> int:
+    a: Test = Test(a_x, a_y)
+    b: Test = Test(b_x, b_y)
+    l: List[Test] = [a, b]
+
+    return l.index(b)
+            """
+
+        try:
+            ret = eval_uplc_value(source_code, a_x, a_y, b_x, b_y)
+        except RuntimeError as e:
+            ret = None
+        exp = 1
+        self.assertEqual(ret, exp, "list.index returned wrong value")
+
     @given(xs=st.dictionaries(st.integers(), st.binary()))
     def test_dict_keys(self, xs):
         source_code = """
