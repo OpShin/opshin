@@ -5,6 +5,7 @@ from uplc.ast import data_from_cbor
 from .compiler_config import DEFAULT_CONFIG
 from .optimize.optimize_const_folding import OptimizeConstantFolding
 from .optimize.optimize_remove_comments import OptimizeRemoveDeadconstants
+from .optimize.optimize_union_expansion import OptimizeUnionExpansion
 from .rewrite.rewrite_augassign import RewriteAugAssign
 from .rewrite.rewrite_cast_condition import RewriteConditions
 from .rewrite.rewrite_comparison_chaining import RewriteComparisonChaining
@@ -1074,6 +1075,7 @@ def compile(
         # Rewrites that simplify the python code
         RewriteForbiddenReturn(),
         OptimizeConstantFolding() if config.constant_folding else NoOp(),
+        OptimizeUnionExpansion() if config.expand_union_types else NoOp(),
         RewriteSubscript38(),
         RewriteAugAssign(),
         RewriteComparisonChaining(),
