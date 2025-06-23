@@ -25,7 +25,7 @@ jobs:
           poetry_install_options: "--without dev"
       # add executables to the release
       - name: Install jq
-        uses: dcarbone/install-jq-action@v3.0.1
+        uses: dcarbone/install-jq-action@v3.2.0
       - name: Trigger executable build
         run: |
           curl -L \
