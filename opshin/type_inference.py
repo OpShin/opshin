@@ -1057,6 +1057,26 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                 return self.visit(BoolOp(And(), [n, ntc]))
             else:
                 return ntc
+        # Check for expanded Union funcs
+        if isinstance(node.func, ast.Name):
+            expanded_unions = {
+                k: v
+                for scope in self.scopes
+                for k, v in scope.items()
+                if k.startswith(f"{node.func.orig_id}_eut")
+            }
+            for k, v in expanded_unions.items():
+                argtyps = v.typ.argtyps
+                if len(tc.args) != len(argtyps):
+                    continue
+                for a, ap in zip(tc.args, argtyps):
+                    if ap != a.typ:
+                        break
+                else:
+                    node.func = ast.Name(
+                        id=k, orig_id=f"unknown orig_id for {k}", ctx=ast.Load()
+                    )
+                    break
         try:
             tc.func = self.visit(node.func)
         except Exception as e:

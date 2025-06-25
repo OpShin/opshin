@@ -1,12 +1,26 @@
 from _ast import BoolOp, Call, FunctionDef, If, UnaryOp
 from ast import *
-from typing import Any
+from typing import Any, List
 from ..util import CompilingNodeTransformer
 from copy import deepcopy
 
 """
 Expand union types
 """
+
+
+def type_to_suffix(typ: expr) -> str:
+    try:
+        raw = unparse(typ)
+    except Exception:
+        return "UnknownType"
+    return (
+        raw.replace(" ", "")
+        .replace("[", "_l_")
+        .replace("]", "_r_")
+        .replace(",", "_c_")
+        .replace(".", "_d_")
+    )
 
 
 class RemoveDeadCode(CompilingNodeTransformer):
@@ -65,7 +79,7 @@ class RemoveDeadCode(CompilingNodeTransformer):
             if isinstance(arg, Name) and isinstance(typ, Name):
                 known_type = self.arg_types.get(arg.id)
                 if known_type is not None:
-                    typ_str = getattr(typ, "id", unparse(typ).replace(" ", ""))
+                    typ_str = getattr(typ, "id", type_to_suffix(typ))
                     return Constant(value=(known_type == typ_str))
 
         return node
@@ -173,10 +187,10 @@ class OptimizeUnionExpansion(CompilingNodeTransformer):
             for typ in arg:
                 new_f = deepcopy(stmt)
                 new_f.args.args[i].annotation = typ
-                typ_str = getattr(typ, "id", unparse(typ).replace(" ", ""))
+                typ_str = getattr(typ, "id", type_to_suffix(typ))
                 new_f.name = f"{naming}_{typ_str}"
                 new_arg_types = deepcopy(arg_types)
-                new_arg_types[stmt.args.args[i].arg] = typ
+                new_arg_types[stmt.args.args[i].arg] = typ_str
                 new_f = RemoveDeadCode(new_arg_types).visit(new_f)
                 new_functions.append(new_f)
                 new_functions.extend(
@@ -199,7 +213,7 @@ class OptimizeUnionExpansion(CompilingNodeTransformer):
                 args = [
                     self.is_Union_annotation(arg.annotation) for arg in stmt.args.args
                 ]
-                new_funcs = self.split_functions(stmt, args, {}, stmt.name)
+                new_funcs = self.split_functions(stmt, args, {}, stmt.name + "_eut")
                 # track variants
                 new_body[-1].expanded_variants = [f.name for f in new_funcs]
                 new_body.extend(new_funcs)
