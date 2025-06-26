@@ -11,6 +11,7 @@ class CompilationConfig(pluthon.CompilationConfig):
     force_three_params: Optional[bool] = None
     remove_dead_code: Optional[bool] = None
     fast_access_skip: Optional[int] = None
+    expand_union_types: Optional[bool] = None
 
 
 # The default configuration for the compiler
@@ -47,6 +48,7 @@ OPT_CONFIGS = [OPT_O0_CONFIG, OPT_O1_CONFIG, OPT_O2_CONFIG, OPT_O3_CONFIG]
 DEFAULT_CONFIG = CompilationConfig(
     allow_isinstance_anything=False,
     force_three_params=False,
+    expand_union_types=False,
 ).update(OPT_O1_CONFIG)
 
 ARGPARSE_ARGS = pluthon.ARGPARSE_ARGS.copy()
@@ -69,6 +71,10 @@ ARGPARSE_ARGS.update(
         "fast_access_skip": {
             "help": "How many steps to skip for fast list index access, default None means no steps are skipped (useful if long lists are common).",
             "type": int,
+        },
+        "expand_union_types": {
+            "__alts__": ["--eut"],
+            "help": "Expand functions with Union type arguments into monomorphic variants (e.g. foo(Union[int, bytes]) -> foo_i(int), foo_b(bytes)). This should allow the compiler to optimise away redundant type checks when argument types are known at compile time. This is an O3-level optimisation and may increase script size significantly.",
         },
     }
 )

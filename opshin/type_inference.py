@@ -795,6 +795,24 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             # We need the function type inside for recursion
             self.set_variable_type(node.name, tfd.typ)
             tfd.body = self.visit_sequence(node.body)
+            # Its possible that bound_variables might have changed after visiting body
+            bv = {
+                v: self.variable_type(v)
+                for v in externally_bound_vars(node)
+                if not v in ["List", "Dict"]
+            }
+            if bv != tfd.typ.typ.bound_vars:
+                functyp = FunctionType(
+                    frozenlist([t.typ for t in tfd.args.args]),
+                    InstanceType(self.type_from_annotation(tfd.returns)),
+                    bound_vars={
+                        v: self.variable_type(v)
+                        for v in externally_bound_vars(node)
+                        if not v in ["List", "Dict"]
+                    },
+                    bind_self=node.name if node.name in read_vars(node) else None,
+                )
+                tfd.typ = InstanceType(functyp)
             # Check that return type and annotated return type match
             rets_extractor = ReturnExtractor(functyp.rettyp)
             rets_extractor.check_fulfills(tfd)
@@ -1057,6 +1075,26 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                 return self.visit(BoolOp(And(), [n, ntc]))
             else:
                 return ntc
+        # Check for expanded Union funcs
+        if isinstance(node.func, ast.Name):
+            expanded_unions = {
+                k: v
+                for scope in self.scopes
+                for k, v in scope.items()
+                if k.startswith(f"{node.func.orig_id}_eut")
+            }
+            for k, v in expanded_unions.items():
+                argtyps = v.typ.argtyps
+                if len(tc.args) != len(argtyps):
+                    continue
+                for a, ap in zip(tc.args, argtyps):
+                    if ap != a.typ:
+                        break
+                else:
+                    node.func = ast.Name(
+                        id=k, orig_id=f"unknown orig_id for {k}", ctx=ast.Load()
+                    )
+                    break
         try:
             tc.func = self.visit(node.func)
         except Exception as e:
