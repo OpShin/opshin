@@ -17,11 +17,11 @@ class NameLoadCollector(CompilingNodeVisitor):
     step = "Collecting used variables"
 
     def __init__(self):
-        self.loaded = defaultdict(int)
+        self.loaded = defaultdict(list)
 
     def visit_Name(self, node: TypedName) -> None:
         if isinstance(node.ctx, Load):
-            self.loaded[node.id] += 1
+            self.loaded[node.id].append(node.lineno)
 
     def visit_ClassDef(self, node: TypedClassDef):
         # ignore the content (i.e. attribute names) of class definitions
@@ -32,9 +32,9 @@ class NameLoadCollector(CompilingNodeVisitor):
         for s in node.body:
             self.visit(s)
         for v in node.typ.typ.bound_vars.keys():
-            self.loaded[v] += 1
+            self.loaded[v].append(node.lineno)
         if node.typ.typ.bind_self is not None:
-            self.loaded[node.typ.typ.bind_self] += 1
+            self.loaded[node.typ.typ.bind_self].append(node.lineno)
 
 
 class SafeOperationVisitor(CompilingNodeVisitor):

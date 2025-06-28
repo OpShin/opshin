@@ -16,9 +16,42 @@ import uplc.ast as uplc
 import pluthon as plt
 from hashlib import sha256
 
+from string import Formatter
+
 OPSHIN_LOGGER = logging.getLogger("opshin")
 OPSHIN_LOG_HANDLER = logging.StreamHandler()
 OPSHIN_LOGGER.addHandler(OPSHIN_LOG_HANDLER)
+
+
+def format_error_trace(template, error, line_number=None, **kwargs):
+    """
+    Formats an error trace message.
+    :param template: Template string with placeholders like {error}, {line_number}, etc.
+    :param error: The error message string to insert if {error} is present.
+    :param kwargs: Additional named arguments for optional placeholders.
+    :return: Formatted string with substituted values.
+    """
+    field_names = {fname for _, fname, _, _ in Formatter().parse(template) if fname}
+    args = {}
+    if "error" in field_names:
+        args["error"] = error
+    if "line_number" in field_names:
+        if not line_number:
+            args["line_number"] = "Unknown"
+        elif isinstance(line_number, list):
+            line_number = [str(l) for l in line_number]
+            if len(line_number) > 1:
+                args["line_number"] = (
+                    ", ".join(line_number[:-1]) + " or " + line_number[-1]
+                )
+            else:
+                args["line_number"] = line_number[0]
+        else:
+            args["line_number"] = str(line_number)
+    for k in kwargs:
+        if k in field_names:
+            args[k] = kwargs[k]
+    return template.format(**args)
 
 
 class FileContextFilter(logging.Filter):
