@@ -11,6 +11,7 @@ class CompilationConfig(pluthon.CompilationConfig):
     force_three_params: Optional[bool] = None
     remove_dead_code: Optional[bool] = None
     fast_access_skip: Optional[int] = None
+    format_error_trace: Optional[str] = None
 
 
 # The default configuration for the compiler
@@ -20,6 +21,7 @@ OPT_O0_CONFIG = (
     .update(
         constant_folding=False,
         remove_dead_code=False,
+        format_error_trace="{error}",
     )
 )
 OPT_O1_CONFIG = (
@@ -69,6 +71,10 @@ ARGPARSE_ARGS.update(
         "fast_access_skip": {
             "help": "How many steps to skip for fast list index access, default None means no steps are skipped (useful if long lists are common).",
             "type": int,
+        },
+        "format_error_trace": {
+            "help": "Customize error trace format string. Currently supported placeholders are {error} for the error msg and {line_number} for the line number in the source code. Example: 'Error {error} on line {line_number}'",
+            "type": str,
         },
     }
 )
