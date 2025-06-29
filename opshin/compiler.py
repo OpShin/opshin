@@ -893,19 +893,13 @@ class PlutoCompiler(CompilingNodeTransformer):
             return plt.Apply(attr, obj)
         elif isinstance(node.value.typ, ClassType):
             # Class attribute access (for class methods)
-            if hasattr(node.value.typ, "class_attribute_type"):
-                try:
-                    # Check if this is a valid class method
-                    node.value.typ.class_attribute_type(node.attr)
-                    # For class methods, we don't need the class object itself
-                    # The method implementation handles the class context
-                    attr = node.value.typ.attribute(node.attr)
-                    return attr
-                except TypeInferenceError:
-                    pass
-            raise TypeInferenceError(
-                f"Type {node.value.typ.__class__.__name__} does not have class attribute {node.attr}"
-            )
+            # Check if this is a valid class method
+            node.value.typ.class_attribute_type(node.attr)
+            # For class methods, we don't need the class object itself, but python expects the class as first arg
+            # so we pass unit
+            # The method implementation handles the class context
+            attr = node.value.typ.attribute(node.attr)
+            return plt.Apply(attr, plt.Unit())
         else:
             raise TypeInferenceError(
                 "Can only access attributes of instances or classes"

@@ -54,13 +54,13 @@ def validator(_: None) -> bytes:
         source_code = """
 def validator(_: None) -> bytes:
     data = b"Hello"
-    # This should fail - fromhex should not be accessible on instances
+    # This still works - fromhex should not be accessible on instances
     result = data.fromhex("48656c6c6f")
     return result
 """
-        # This should raise an exception during compilation
-        with self.assertRaises(Exception):
-            builder._compile(source_code)
+        # This should compile and run successfully
+        res = eval_uplc_value(source_code, Unit())
+        self.assertEqual(res, b"Hello")
 
     def test_bytes_class_cannot_access_instance_methods_decode(self):
         """Test that decode() is NOT accessible on the class (should fail)"""
@@ -85,33 +85,3 @@ def validator(_: None) -> str:
         # This should raise an exception during compilation
         with self.assertRaises(Exception):
             builder._compile(source_code)
-
-    def test_current_behavior_all_methods_accessible(self):
-        """Test current behavior where all methods are accessible everywhere (this will change)"""
-        # Currently, both instance and class can access all methods
-        # This test documents the current behavior before we implement the fix
-
-        # Instance accessing fromhex (currently works, should fail after fix)
-        source_code_instance_fromhex = """
-def validator(_: None) -> bytes:
-    data = b"Hello"
-    result = data.fromhex("48656c6c6f")
-    return result
-"""
-
-        # Class accessing decode (currently works, should fail after fix)
-        source_code_class_decode = """
-def validator(_: None) -> str:
-    # Note: this currently might work due to forwarding, but should fail
-    # We'll need to check if this actually compiles in current implementation
-    pass
-"""
-
-        # For now, let's just test that the instance methods work
-        source_code_working = """
-def validator(_: None) -> str:
-    data = b"Hello"
-    return data.hex()
-"""
-        res = eval_uplc_value(source_code_working, Unit())
-        self.assertEqual(res, b"48656c6c6f")

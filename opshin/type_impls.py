@@ -42,12 +42,32 @@ class Type:
     def attribute_type(self, attr) -> "Type":
         """The types of the named attributes of this class"""
         raise TypeInferenceError(
+            f"Type {type(self).__name__} does not have attribute {attr}"
+        )
+
+    def instance_attribute_type(self, attr) -> "Type":
+        """The types of the named attributes of this class"""
+        raise TypeInferenceError(
             f"Object of type {type(self).__name__} does not have attribute {attr}"
+        )
+
+    def class_attribute_type(self, attr) -> "Type":
+        """The types of the named attributes of this class"""
+        raise TypeInferenceError(
+            f"Class of type {type(self).__name__} does not have attribute {attr}"
         )
 
     def attribute(self, attr) -> plt.AST:
         """The attributes of this class. Needs to be a lambda that expects as first argument the object itself"""
-        raise NotImplementedError(f"Attribute {attr} not implemented for type {self}")
+        raise NotImplementedError(
+            f"Attribute {attr} not implemented for instances of type {self}"
+        )
+
+    def class_attribute(self, attr) -> plt.AST:
+        """The attributes of this class. Needs to be a lambda that expects as first argument the object itself"""
+        raise NotImplementedError(
+            f"Attribute {attr} not implemented for classes of type {self}"
+        )
 
     def cmp(self, op: cmpop, o: "Type") -> plt.AST:
         """The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second the comparison."""
@@ -178,6 +198,9 @@ class ClassType(Type):
         The bottom element is the most specific type and can be substituted for anything.
         """
         raise NotImplementedError("Comparison between raw classtypes impossible")
+
+    def attribute_type(self, attr) -> "Type":
+        return self.class_attribute_type(attr)
 
     def copy_only_attributes(self) -> plt.AST:
         """
@@ -1453,9 +1476,7 @@ class InstanceType(Type):
 
     def attribute_type(self, attr) -> Type:
         # For instances, only allow instance methods
-        if hasattr(self.typ, "instance_attribute_type"):
-            return self.typ.instance_attribute_type(attr)
-        return self.typ.attribute_type(attr)
+        return self.typ.instance_attribute_type(attr)
 
     def attribute(self, attr) -> plt.AST:
         return self.typ.attribute(attr)
