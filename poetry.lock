@@ -1221,14 +1221,14 @@ pyreadline3 = {version = "*", markers = "sys_platform == \"win32\" and python_ve
 
 [[package]]
 name = "hypothesis"
-version = "6.135.7"
+version = "6.136.3"
 description = "A library for property-based testing"
 optional = false
 python-versions = ">=3.9"
 groups = ["dev"]
 files = [
-    {file = "hypothesis-6.135.7-py3-none-any.whl", hash = "sha256:b6aefa6f98421332d2ab91d3ef58646b59d7baaabb45a9005704cce11a4bdac1"},
-    {file = "hypothesis-6.135.7.tar.gz", hash = "sha256:0a077b8f94eba4fb6a5fe4a371b2ad5e6db601b4eaff4ec1d9b6cd207958dac9"},
+    {file = "hypothesis-6.136.3-py3-none-any.whl", hash = "sha256:88163307c625688317bc5f3c7bd88f18b4d5c7cd773c784e3c4182eed2ae1b3d"},
+    {file = "hypothesis-6.136.3.tar.gz", hash = "sha256:89baa2bfc5af38f939e83b62f9f0e7e6407e81cade29cfcb3eafbc661177c2bd"},
 ]
 
 [package.dependencies]
