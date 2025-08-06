@@ -2,7 +2,7 @@ import unittest
 import hypothesis
 from hypothesis import given
 from hypothesis import strategies as st
-from .utils import eval_uplc_value
+from .utils import eval_uplc_value, eval_uplc
 from . import PLUTUS_VM_PROFILE
 from opshin.util import CompilerError
 
@@ -484,3 +484,121 @@ def validator(x: int) -> int:
         res = eval_uplc_value(source_code, x)
         real = x + 2 if x > 5 else len(b"0" * x)
         self.assertEqual(res, real)
+
+    def test_isinstance_and_comparison_vulnerability(self):
+        """
+        Test the exact vulnerability described in the security report.
+
+        This test expects the code to work correctly. When isinstance(a, int) is True,
+        the type assertion should be applied to 'a' in the right-hand-side of the 'and'
+        expression, allowing a == 10 to work without type errors.
+
+        This test will FAIL while the vulnerability exists.
+        """
+        source_code = """
+from typing import Dict, List, Union
+from opshin.prelude import *
+
+def validator(a: Union[int, bytes]) -> None:
+    assert isinstance(a, int) and a + 1 == 10
+"""
+
+        # Should execute without raising an exception
+        eval_uplc(source_code, 9)
+
+    def test_isinstance_and_attribute_access_vulnerability(self):
+        """
+        Test a variant where the right-hand-side accesses an attribute that only exists
+        after the type assertion.
+
+        This test will FAIL while the vulnerability exists.
+        """
+        source_code = """
+from typing import Dict, List, Union
+from opshin.prelude import *
+from dataclasses import dataclass
+
+@dataclass()
+class A(PlutusData):
+    CONSTR_ID = 0
+    value: int
+
+@dataclass()
+class B(PlutusData):
+    CONSTR_ID = 1
+    data: bytes
+
+def validator(x: Union[A, B]) -> None:
+    assert isinstance(x, A) and x.value + 1 == 10
+"""
+
+        # This should work - isinstance(x, A) should make x.value accessible
+        from dataclasses import dataclass
+        from pycardano import PlutusData
+
+        @dataclass()
+        class A(PlutusData):
+            CONSTR_ID = 0
+            value: int
+
+        test_data = A(value=9)
+        # Should execute without raising an exception
+        eval_uplc(source_code, test_data)
+
+    def test_isinstance_or_comparison_vulnerability(self):
+        """
+        Test the vulnerability with OR operations.
+
+        This test will FAIL while the vulnerability exists.
+        """
+        source_code = """
+from typing import Dict, List, Union
+from opshin.prelude import *
+
+def validator(a: Union[int, bytes]) -> None:
+    assert isinstance(a, bytes) or a + 1 == 10
+"""
+
+        # This should work - when isinstance(a, bytes) is False, 'a' should be cast to int
+        # for the right-hand-side evaluation of a == 10
+        eval_uplc(source_code, 9)
+
+    def test_nested_boolop_vulnerability(self):
+        """
+        Test with nested boolean operations.
+
+        This test will FAIL while the vulnerability exists.
+        """
+        source_code = """
+from typing import Dict, List, Union
+from opshin.prelude import *
+
+def validator(a: Union[int, bytes], b: Union[int, bytes]) -> None:
+    assert (isinstance(a, int) and a == 10) and (isinstance(b, int) and b == 20)
+"""
+
+        # This should work with proper type assertion handling in nested boolean operations
+        eval_uplc(source_code, 10, 20)
+
+    def test_if_statement_with_boolop_vulnerability(self):
+        """
+        Test that if statements with boolean operations should work correctly.
+
+        This test will FAIL while the vulnerability exists.
+        """
+        source_code = """
+from typing import Dict, List, Union
+from opshin.prelude import *
+
+def validator(a: Union[int, bytes]) -> bool:
+    if isinstance(a, int) and a+1 == 10:
+        return True
+    return False
+"""
+
+        # This should work correctly with proper type assertion handling
+        result = eval_uplc_value(source_code, 9)
+        self.assertTrue(result)
+
+        result = eval_uplc_value(source_code, b"test")
+        self.assertFalse(result)
