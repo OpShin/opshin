@@ -360,6 +360,10 @@ class PlutoCompiler(CompilingNodeTransformer):
         ), "Assignments to other things then names are not supported"
         compiled_e = self.visit(node.value)
         varname = node.targets[0].id
+        if hasattr(node.targets[0], "is_wrapped") and node.targets[0].is_wrapped:
+            # if this is a wrapped variable, we need to map it back to the external parameter type
+            # TODO this is terribly inefficient. we would rather want to cast once when entering the body and cast back when leaving
+            compiled_e = transform_output_map(node.targets[0].typ)(compiled_e)
         # first evaluate the term, then wrap in a delay
         return lambda x: plt.Let(
             [
