@@ -692,3 +692,27 @@ def validator(a: Union[int, bytes]) -> None:
 
         # Should execute without raising an exception
         eval_uplc(source_code, 9)
+
+    def test_recasting_union(self):
+        """
+        Test that recasting a union type works correctly.
+        """
+        source_code = """
+from opshin.prelude import *
+
+def convert(a: int) -> Union[int, bytes]:
+    return a
+
+def validator(a: Union[int, bytes]) -> Union[int, bytes]:
+    if isinstance(a, int):
+        # In the following the typechecking assumes the return type is `Union[int, bytes]`,
+        # but on-chain it will still be `int` due to missing conversion
+        b = convert(a)
+        if isinstance(b, int):
+            print(str(b))
+    
+    return a
+    """
+
+        # Should execute without raising an exception
+        eval_uplc(source_code, 9)
