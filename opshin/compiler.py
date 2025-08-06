@@ -360,10 +360,16 @@ class PlutoCompiler(CompilingNodeTransformer):
         ), "Assignments to other things then names are not supported"
         compiled_e = self.visit(node.value)
         varname = node.targets[0].id
-        if hasattr(node.targets[0], "is_wrapped") and node.targets[0].is_wrapped:
-            # if this is a wrapped variable, we need to map it back to the external parameter type
+        if (hasattr(node.targets[0], "is_wrapped") and node.targets[0].is_wrapped) or (
+            isinstance(node.targets[0].typ, InstanceType)
+            and (
+                isinstance(node.targets[0].typ.typ, AnyType)
+                or isinstance(node.targets[0].typ.typ, UnionType)
+            )
+        ):
+            # if this is a wrapped variable or Union/Any, we need to map it back to the external parameter type
             # TODO this is terribly inefficient. we would rather want to cast once when entering the body and cast back when leaving
-            compiled_e = transform_output_map(node.targets[0].typ)(compiled_e)
+            compiled_e = transform_output_map(node.value.typ)(compiled_e)
         # first evaluate the term, then wrap in a delay
         return lambda x: plt.Let(
             [
@@ -381,14 +387,16 @@ class PlutoCompiler(CompilingNodeTransformer):
             node.target.typ, InstanceType
         ), "Can only assign instances to instances"
         val = self.visit(node.value)
-        if isinstance(node.value.typ, InstanceType) and isinstance(
-            node.value.typ.typ, AnyType
+        if isinstance(node.value.typ, InstanceType) and (
+            isinstance(node.value.typ.typ, AnyType)
+            or isinstance(node.value.typ.typ, UnionType)
         ):
             # we need to map this as it will originate from PlutusData
             # AnyType is the only type other than the builtin itself that can be cast to builtin values
             val = transform_ext_params_map(node.target.typ)(val)
-        if isinstance(node.target.typ, InstanceType) and isinstance(
-            node.target.typ.typ, AnyType
+        if isinstance(node.target.typ, InstanceType) and (
+            isinstance(node.target.typ.typ, AnyType)
+            or isinstance(node.target.typ.typ, UnionType)
         ):
             # we need to map this back as it will be treated as PlutusData
             # AnyType is the only type other than the builtin itself that can be cast to from builtin values
@@ -615,7 +623,9 @@ class PlutoCompiler(CompilingNodeTransformer):
     def visit_Return(self, node: TypedReturn) -> CallAST:
         value_plt = self.visit(node.value)
         assert self.current_function_typ, "Can not handle Return outside of a function"
-        if isinstance(self.current_function_typ[-1].rettyp.typ, AnyType):
+        if isinstance(self.current_function_typ[-1].rettyp.typ, AnyType) or isinstance(
+            self.current_function_typ[-1].rettyp.typ, UnionType
+        ):
             value_plt = transform_output_map(node.value.typ)(value_plt)
         return lambda _: value_plt
 
