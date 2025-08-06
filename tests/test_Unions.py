@@ -602,3 +602,26 @@ def validator(a: Union[int, bytes]) -> bool:
 
         result = eval_uplc_value(source_code, b"test")
         self.assertFalse(result)
+
+    def test_isinstance_while_comparison_vulnerability(self):
+        """
+        Test the exact vulnerability described in the security report.
+
+        This test expects the code to work correctly. When isinstance(a, int) is True,
+        the type assertion should be applied to 'a' in the right-hand-side of the 'and'
+        expression, allowing a == 10 to work without type errors.
+
+        This test will FAIL while the vulnerability exists.
+        """
+        source_code = """
+from typing import Dict, List, Union
+from opshin.prelude import *
+
+def validator(a: Union[int, bytes]) -> None:
+    while (isinstance(a, int)):
+        if (a > 0):
+            a -= 1
+"""
+
+        # Should execute without raising an exception
+        eval_uplc(source_code, 9)
