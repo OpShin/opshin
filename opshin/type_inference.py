@@ -667,14 +667,18 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         ).visit(typed_while.test)
         # for the time of the branch, these types are cast
         initial_scope = copy(self.scopes[-1])
-        self.implement_typechecks(typchecks)
+        wrapped = self.implement_typechecks(typchecks)
+        self.wrapped.extend(wrapped.keys())
         typed_while.body = self.visit_sequence(node.body)
+        self.wrapped = [x for x in self.wrapped if x not in wrapped.keys()]
         final_scope_body = copy(self.scopes[-1])
         # revert changes
         self.scopes[-1] = initial_scope
         # for the time of the else branch, the inverse types hold
-        self.implement_typechecks(inv_typchecks)
+        wrapped = self.implement_typechecks(inv_typchecks)
+        self.wrapped.extend(wrapped.keys())
         typed_while.orelse = self.visit_sequence(node.orelse)
+        self.wrapped = [x for x in self.wrapped if x not in wrapped.keys()]
         final_scope_else = self.scopes[-1]
         self.scopes[-1] = merge_scope(final_scope_body, final_scope_else)
         return typed_while
@@ -840,7 +844,13 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                     values[-1]
                 )
                 # for the time after the shortcut and the variable type to the specialized type
-                prevtyps.update(self.implement_typechecks(typchecks))
+                wrapped = self.implement_typechecks(typchecks)
+                self.wrapped.extend(wrapped.keys())
+                prevtyps.update(wrapped)
+            # Clean up wrapped variables after processing all values
+            for var in prevtyps.keys():
+                if var in self.wrapped:
+                    self.wrapped.remove(var)
             self.implement_typechecks(prevtyps)
             tt.values = values
         elif isinstance(node.op, Or):
@@ -852,7 +862,13 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                     self.allow_isinstance_anything
                 ).visit(values[-1])
                 # for the time after the shortcut or the variable type is *not* the specialized type
-                prevtyps.update(self.implement_typechecks(inv_typechecks))
+                wrapped = self.implement_typechecks(inv_typechecks)
+                self.wrapped.extend(wrapped.keys())
+                prevtyps.update(wrapped)
+            # Clean up wrapped variables after processing all values
+            for var in prevtyps.keys():
+                if var in self.wrapped:
+                    self.wrapped.remove(var)
             self.implement_typechecks(prevtyps)
             tt.values = values
         else:
