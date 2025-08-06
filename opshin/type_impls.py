@@ -196,18 +196,10 @@ class AnyType(ClassType):
 
     def attribute_type(self, attr: str) -> Type:
         """The types of the named attributes of this class"""
-        if attr == "CONSTR_ID":
-            return IntegerInstanceType
         return super().attribute_type(attr)
 
     def attribute(self, attr: str) -> plt.AST:
         """The attributes of this class. Need to be a lambda that expects as first argument the object itself"""
-        if attr == "CONSTR_ID":
-            # access to constructor
-            return OLambda(
-                ["self"],
-                plt.Constructor(OVar("self")),
-            )
         return super().attribute(attr)
 
     def __ge__(self, other):
@@ -688,7 +680,7 @@ class RecordType(ClassType):
 
 @dataclass(frozen=True, unsafe_hash=True)
 class UnionType(ClassType):
-    typs: typing.List[RecordType]
+    typs: typing.List[Type]
 
     def __post_init__(self):
         object.__setattr__(self, "typs", frozenlist(self.typs))
@@ -697,10 +689,14 @@ class UnionType(ClassType):
         return "union<" + ",".join(t.id_map() for t in self.typs) + ">"
 
     def attribute_type(self, attr) -> "Type":
-        if attr == "CONSTR_ID":
+        record_only = all(isinstance(x, RecordType) for x in self.typs)
+        if attr == "CONSTR_ID" and record_only:
+            # constructor is only guaranteed to be present if all types are record types
             return IntegerInstanceType
         # need to have a common field with the same name
-        if all(attr in (n for n, t in x.record.fields) for x in self.typs):
+        if record_only and all(
+            attr in (n for n, t in x.record.fields) for x in self.typs
+        ):
             attr_types = OrderedSet(
                 t for x in self.typs for n, t in x.record.fields if n == attr
             )

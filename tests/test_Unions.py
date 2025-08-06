@@ -484,3 +484,45 @@ def validator(x: int) -> int:
         res = eval_uplc_value(source_code, x)
         real = x + 2 if x > 5 else len(b"0" * x)
         self.assertEqual(res, real)
+
+    def test_Union_types_access_attr(self):
+        source_code = """
+from dataclasses import dataclass
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
+
+@dataclass()
+class A(PlutusData):
+    CONSTR_ID = 0
+    foo: int
+
+def validator(x: Union[A, int]) -> int:
+    if x.foo == 0:
+        return 0
+    else:
+        return 1
+"""
+        with self.assertRaises(CompilerError) as ce:
+            res = eval_uplc_value(source_code, 0)
+        self.assertIsInstance(ce.exception.orig_err, AssertionError)
+
+    def test_Union_types_access_CONSTR_ID(self):
+        source_code = """
+from dataclasses import dataclass
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
+
+@dataclass()
+class A(PlutusData):
+    CONSTR_ID = 0
+    foo: int
+
+def validator(x: Union[A, int]) -> int:
+    if x.CONSTR_ID == 0:
+        return 0
+    else:
+        return 1
+"""
+        with self.assertRaises(CompilerError) as ce:
+            res = eval_uplc_value(source_code, 0)
+        self.assertIsInstance(ce.exception.orig_err, AssertionError)

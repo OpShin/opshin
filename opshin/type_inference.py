@@ -1028,9 +1028,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             and not isinstance(
                 tc.args[1].typ, (ByteStringType, IntegerType, ListType, DictType)
             )
-            and not hasattr(node, "skip_next")
         ):
-            target_class = tc.args[1].typ
             if (
                 isinstance(tc.args[0].typ, InstanceType)
                 and isinstance(tc.args[0].typ.typ, AnyType)
@@ -1040,26 +1038,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                     "OpShin does not permit checking the instance of raw Anything/Datum objects as this only checks the equality of the constructor id and nothing more. "
                     "If you are certain of what you are doing, please use the flag '--allow-isinstance-anything'."
                 )
-            ntc = Compare(
-                left=Attribute(tc.args[0], "CONSTR_ID"),
-                ops=[Eq()],
-                comparators=[Constant(target_class.record.constructor)],
-            )
-            custom_fix_missing_locations(ntc, node)
-            ntc = self.visit(ntc)
-            ntc.typ = BoolInstanceType
-            ntc.typechecks = TypeCheckVisitor(self.allow_isinstance_anything).visit(tc)
-            if isinstance(tc.args[0].typ.typ, UnionType) and any(
-                [
-                    isinstance(a, (IntegerType, ByteStringType, ListType, DictType))
-                    for a in tc.args[0].typ.typ.typs
-                ]
-            ):
-                n = copy(node)
-                n.skip_next = True
-                return self.visit(BoolOp(And(), [n, ntc]))
-            else:
-                return ntc
+            tc.typechecks = TypeCheckVisitor(self.allow_isinstance_anything).visit(tc)
         try:
             tc.func = self.visit(node.func)
         except Exception as e:
