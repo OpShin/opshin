@@ -196,18 +196,10 @@ class AnyType(ClassType):
 
     def attribute_type(self, attr: str) -> Type:
         """The types of the named attributes of this class"""
-        if attr == "CONSTR_ID":
-            return IntegerInstanceType
         return super().attribute_type(attr)
 
     def attribute(self, attr: str) -> plt.AST:
         """The attributes of this class. Need to be a lambda that expects as first argument the object itself"""
-        if attr == "CONSTR_ID":
-            # access to constructor
-            return OLambda(
-                ["self"],
-                plt.Constructor(OVar("self")),
-            )
         return super().attribute(attr)
 
     def __ge__(self, other):
@@ -688,7 +680,7 @@ class RecordType(ClassType):
 
 @dataclass(frozen=True, unsafe_hash=True)
 class UnionType(ClassType):
-    typs: typing.List[RecordType]
+    typs: typing.List[Type]
 
     def __post_init__(self):
         object.__setattr__(self, "typs", frozenlist(self.typs))
@@ -697,10 +689,14 @@ class UnionType(ClassType):
         return "union<" + ",".join(t.id_map() for t in self.typs) + ">"
 
     def attribute_type(self, attr) -> "Type":
-        if attr == "CONSTR_ID":
+        record_only = all(isinstance(x, RecordType) for x in self.typs)
+        if attr == "CONSTR_ID" and record_only:
+            # constructor is only guaranteed to be present if all types are record types
             return IntegerInstanceType
         # need to have a common field with the same name
-        if all(attr in (n for n, t in x.record.fields) for x in self.typs):
+        if record_only and all(
+            attr in (n for n, t in x.record.fields) for x in self.typs
+        ):
             attr_types = OrderedSet(
                 t for x in self.typs for n, t in x.record.fields if n == attr
             )
@@ -893,8 +889,10 @@ class TupleType(ClassType):
     typs: typing.List[Type]
 
     def __ge__(self, other):
-        return isinstance(other, TupleType) and all(
-            t >= ot for t, ot in zip(self.typs, other.typs)
+        return (
+            isinstance(other, TupleType)
+            and len(self.typs) <= len(other.typs)
+            and all(t >= ot for t, ot in zip(self.typs, other.typs))
         )
 
     def stringify(self, recursive: bool = False) -> plt.AST:
@@ -999,10 +997,15 @@ class ListType(ClassType):
                                 ["index", "xs", "a"],
                                 plt.IteNullList(
                                     OVar("xs"),
-                                    plt.TraceError("Did not find element in list"),
+                                    plt.TraceError(
+                                        "ValueError: Did not find element in list"
+                                    ),
                                     plt.Ite(
-                                        plt.EqualsInteger(
-                                            OVar("x"), plt.HeadList(OVar("xs"))
+                                        # the paramter x must have the same type as the list elements
+                                        plt.Apply(
+                                            self.typ.cmp(Eq(), self.typ),
+                                            OVar("x"),
+                                            plt.HeadList(OVar("xs")),
                                         ),
                                         OVar("a"),
                                         plt.Apply(
@@ -1086,6 +1089,62 @@ class ListType(ClassType):
             empty_list(self.typ),
         )
         return OLambda(["self"], mapped_attrs)
+
+    def cmp(self, op: cmpop, o: "Type") -> plt.AST:
+        """The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second the comparison."""
+        if isinstance(o, ListType) and (self.typ >= o.typ or o.typ >= self.typ):
+            if isinstance(op, Eq):
+                # Implement list equality comparison
+                # This is expensive (linear in the size of the list) as noted in the feature request
+                return OLambda(
+                    ["x", "y"],
+                    plt.Apply(
+                        plt.RecFun(
+                            OLambda(
+                                ["f", "xs", "ys"],
+                                plt.IteNullList(
+                                    OVar("xs"),
+                                    # If first list is empty, check if second is also empty
+                                    plt.NullList(OVar("ys")),
+                                    plt.IteNullList(
+                                        OVar("ys"),
+                                        # If second list is empty but first is not, they're not equal
+                                        plt.Bool(False),
+                                        # Both lists have elements, compare heads and recurse on tails
+                                        plt.And(
+                                            plt.Apply(
+                                                self.typ.cmp(op, o.typ),
+                                                plt.HeadList(OVar("xs")),
+                                                plt.HeadList(OVar("ys")),
+                                            ),
+                                            plt.Apply(
+                                                OVar("f"),
+                                                OVar("f"),
+                                                plt.TailList(OVar("xs")),
+                                                plt.TailList(OVar("ys")),
+                                            ),
+                                        ),
+                                    ),
+                                ),
+                            )
+                        ),
+                        OVar("x"),
+                        OVar("y"),
+                    ),
+                )
+            if isinstance(op, NotEq):
+                # Implement list inequality comparison as negation of equality
+                return OLambda(
+                    ["x", "y"],
+                    plt.Not(
+                        plt.Apply(
+                            self.cmp(Eq(), o),
+                            OVar("x"),
+                            OVar("y"),
+                        )
+                    ),
+                )
+        return super().cmp(op, o)
 
     def _binop_return_type(self, binop: operator, other: "Type") -> "Type":
         if isinstance(binop, Add):

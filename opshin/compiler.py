@@ -434,7 +434,7 @@ class PlutoCompiler(CompilingNodeTransformer):
         else:
             assert isinstance(node.func.typ, InstanceType) and isinstance(
                 node.func.typ.typ, FunctionType
-            )
+            ), "Can only call instances of functions"
             func_plt = self.visit(node.func)
             bind_self = node.func.typ.typ.bind_self
         bound_vs = sorted(list(node.func.typ.typ.bound_vars.keys()))
