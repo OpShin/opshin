@@ -36,13 +36,13 @@ class Type:
     def constr(self) -> plt.AST:
         """The constructor for this class"""
         raise NotImplementedError(
-            f"Constructor of {type(self).__name__} not implemented"
+            f"Constructor of {self.python_type()} not implemented"
         )
 
     def attribute_type(self, attr) -> "Type":
         """The types of the named attributes of this class"""
         raise TypeInferenceError(
-            f"Object of type {type(self).__name__} does not have attribute {attr}"
+            f"Object of type {self.python_type()} does not have attribute {attr}"
         )
 
     def attribute(self, attr) -> plt.AST:
@@ -52,7 +52,7 @@ class Type:
     def cmp(self, op: cmpop, o: "Type") -> plt.AST:
         """The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second the comparison."""
         raise NotImplementedError(
-            f"Comparison {type(op).__name__} for {self.__class__.__name__} and {o.__class__.__name__} is not implemented. This is likely intended because it would always evaluate to False."
+            f"Comparison {type(op).__name__} for {self.python_type()} and {o.python_type()} is not implemented. This is likely intended because it would always evaluate to False."
         )
 
     def stringify(self, recursive: bool = False) -> plt.AST:
@@ -61,13 +61,14 @@ class Type:
 
         The recursive parameter informs the method whether it was invoked recursively from another invokation
         """
-        raise NotImplementedError(f"{type(self).__name__} can not be stringified")
+        raise NotImplementedError(f"{self.python_type()} can not be stringified")
 
     def copy_only_attributes(self) -> plt.AST:
         """
         Pluthon function that returns a copy of only the attributes of the object
+        This can only be called for UnionType and RecordType, as such the input data is always in PlutusData format and the output should be as well.
         """
-        raise NotImplementedError(f"{type(self).__name__} can not be copied")
+        raise NotImplementedError(f"{self.python_type()} can not be copied")
 
     def binop_type(self, binop: operator, other: "Type") -> "Type":
         """
@@ -83,7 +84,7 @@ class Type:
         Return the type of a binary operation between self and other
         """
         raise NotImplementedError(
-            f"{type(self).__name__} does not implement {binop.__class__.__name__}"
+            f"{self.python_type()} does not implement {binop.__class__.__name__}"
         )
 
     def binop(self, binop: operator, other: AST) -> plt.AST:
@@ -102,7 +103,7 @@ class Type:
         Returns a binary function that implements the binary operation between self and other.
         """
         raise NotImplementedError(
-            f"{type(self).__name__} can not be used with operation {binop.__class__.__name__}"
+            f"{self.python_type()} can not be used with operation {binop.__class__.__name__}"
         )
 
     def unop_type(self, unop: unaryop) -> "Type":
@@ -119,7 +120,7 @@ class Type:
         Return the type of a binary operation between self and other
         """
         raise NotImplementedError(
-            f"{type(self).__name__} does not implement {unop.__class__.__name__}"
+            f"{self.python_type()} does not implement {unop.__class__.__name__}"
         )
 
     def unop(self, unop: unaryop) -> plt.AST:
@@ -136,14 +137,24 @@ class Type:
         Returns a unary function that implements the unary operation on self.
         """
         raise NotImplementedError(
-            f"{type(self).__name__} can not be used with operation {unop.__class__.__name__}"
+            f"{self.python_type()} can not be used with operation {unop.__class__.__name__}"
         )
 
-    def id_map(self, skip_constructor: bool = False) -> str:
+    def pluthon_type(self, skip_constructor: bool = False) -> str:
         """
-        Returns a map from the constructor id to a descriptive typestring
+        Returns a representation of the type in pluthon.
         """
-        raise NotImplementedError(f"Type {type(self).__name__} does not have a id map")
+        raise NotImplementedError(
+            f"Type {self.python_type()} does not have a pluthon representation"
+        )
+
+    def python_type(self):
+        """
+        Returns a representation of the type in python.
+        """
+        raise NotImplementedError(
+            f"Type {type(self).__name__} does not have a python type representation"
+        )
 
 
 @dataclass(frozen=True, unsafe_hash=True)
@@ -179,20 +190,16 @@ class ClassType(Type):
         """
         raise NotImplementedError("Comparison between raw classtypes impossible")
 
-    def copy_only_attributes(self) -> plt.AST:
-        """
-        Returns a copy of this type with only the declared attributes (mapped to builtin values, thus checking atomic types too).
-        For anything but record types and union types, this is the identity function.
-        """
-        return OLambda(["self"], OVar("self"))
-
 
 @dataclass(frozen=True, unsafe_hash=True)
 class AnyType(ClassType):
     """The top element in the partial order on types (excluding FunctionTypes, which do not compare to anything)"""
 
-    def id_map(self, skip_constructor: bool = False) -> str:
+    def pluthon_type(self, skip_constructor: bool = False) -> str:
         return "any"
+
+    def python_type(self):
+        return "Any"
 
     def attribute_type(self, attr: str) -> Type:
         """The types of the named attributes of this class"""
@@ -463,6 +470,10 @@ class AnyType(ClassType):
             ),
         )
 
+    def copy_only_attributes(self) -> plt.AST:
+        """Any is always valid, just returns"""
+        return OLambda(["self"], OVar("self"))
+
 
 @dataclass(frozen=True, unsafe_hash=True)
 class AtomicType(ClassType):
@@ -475,14 +486,25 @@ class AtomicType(ClassType):
 class RecordType(ClassType):
     record: Record
 
-    def id_map(self, skip_constructor: bool = False) -> str:
+    def pluthon_type(self, skip_constructor: bool = False) -> str:
         return (
             "cons["
             + self.record.orig_name
             + "]("
             + (str(self.record.constructor) if not skip_constructor else "_")
             + ";"
-            + ",".join(name + ":" + type.id_map() for name, type in self.record.fields)
+            + ",".join(
+                name + ":" + type.pluthon_type() for name, type in self.record.fields
+            )
+            + ")"
+        )
+
+    def python_type(self):
+        return (
+            f"class {self.record.orig_name}(CONSTR_ID={self.record.constructor}, "
+            + ", ".join(
+                f"{name}: {type.python_type()}" for name, type in self.record.fields
+            )
             + ")"
         )
 
@@ -654,13 +676,9 @@ class RecordType(ClassType):
                     ("fs", plt.TailList(OVar("fs"))),
                 ],
                 plt.MkCons(
-                    transform_output_map(attr_type)(
-                        plt.Apply(
-                            attr_type.copy_only_attributes(),
-                            transform_ext_params_map(attr_type)(
-                                OVar("f"),
-                            ),
-                        )
+                    plt.Apply(
+                        attr_type.copy_only_attributes(),
+                        OVar("f"),
                     ),
                     copied_attributes,
                 ),
@@ -671,9 +689,24 @@ class RecordType(ClassType):
         )
         return OLambda(
             ["self"],
-            plt.ConstrData(
-                plt.Integer(self.record.constructor),
-                copied_attributes,
+            plt.DelayedChooseData(
+                OVar("self"),
+                plt.ConstrData(
+                    plt.Integer(self.record.constructor),
+                    copied_attributes,
+                ),
+                plt.TraceError(
+                    "IntegrityError: Expected a PlutusMap, but got PlutusDict"
+                ),
+                plt.TraceError(
+                    "IntegrityError: Expected a PlutusMap, but got PlutusList"
+                ),
+                plt.TraceError(
+                    "IntegrityError: Expected a PlutusMap, but got PlutusInteger"
+                ),
+                plt.TraceError(
+                    "IntegrityError: Expected a PlutusMap, but got PlutusByteString"
+                ),
             ),
         )
 
@@ -685,8 +718,11 @@ class UnionType(ClassType):
     def __post_init__(self):
         object.__setattr__(self, "typs", frozenlist(self.typs))
 
-    def id_map(self, skip_constructor: bool = False) -> str:
-        return "union<" + ",".join(t.id_map() for t in self.typs) + ">"
+    def pluthon_type(self, skip_constructor: bool = False) -> str:
+        return "union<" + ",".join(t.pluthon_type() for t in self.typs) + ">"
+
+    def python_type(self):
+        return "Union[" + ", ".join(t.python_type() for t in self.typs) + "]"
 
     def attribute_type(self, attr) -> "Type":
         record_only = all(isinstance(x, RecordType) for x in self.typs)
@@ -867,19 +903,61 @@ class UnionType(ClassType):
 
     def copy_only_attributes(self) -> plt.AST:
         copied_attributes = plt.TraceError(
-            f"Invalid CONSTR_ID for instance of Union[{', '.join(type(typ).__name__ for typ in self.typs)}]"
+            f"Invalid CONSTR_ID for instance of {self.python_type()}]"
         )
         for typ in self.typs:
+            if not isinstance(typ, RecordType):
+                continue
             copied_attributes = plt.Ite(
                 plt.EqualsInteger(OVar("constr"), plt.Integer(typ.record.constructor)),
                 plt.Apply(typ.copy_only_attributes(), OVar("self")),
                 copied_attributes,
             )
-        return OLambda(
+        record_copier = OLambda(
             ["self"],
             OLet(
                 [("constr", plt.Constructor(OVar("self")))],
                 copied_attributes,
+            ),
+        )
+
+        def lambda_false(x: str):
+            return OLambda(
+                ["_"],
+                plt.TraceError(
+                    "Invalid datatype not in Union. Expected one of: "
+                    + (", ".join(t.python_type() for t in self.typs) + ", got " + x)
+                ),
+            )
+
+        return OLambda(
+            ["self"],
+            plt.Apply(
+                plt.DelayedChooseData(
+                    OVar("self"),
+                    record_copier,
+                    (
+                        DictType(AnyType(), AnyType()).copy_only_attributes()
+                        if any(isinstance(x, DictType) for x in self.typs)
+                        else lambda_false("dict")
+                    ),
+                    (
+                        ListType(AnyType()).copy_only_attributes()
+                        if any(isinstance(x, ListType) for x in self.typs)
+                        else lambda_false("list")
+                    ),
+                    (
+                        IntegerType().copy_only_attributes()
+                        if IntegerType() in self.typs
+                        else lambda_false("int")
+                    ),
+                    (
+                        ByteStringType().copy_only_attributes()
+                        if ByteStringType() in self.typs
+                        else lambda_false("bytes")
+                    ),
+                ),
+                OVar("self"),
             ),
         )
 
@@ -967,6 +1045,9 @@ class PairType(ClassType):
             plt.ConcatString(plt.Text("("), tuple_content, plt.Text(")")),
         )
 
+    def python_type(self):
+        return f"Tuple[{self.l_typ.python_type()}, {self.r_typ.python_type()}]"
+
 
 @dataclass(frozen=True, unsafe_hash=True)
 class ListType(ClassType):
@@ -975,8 +1056,11 @@ class ListType(ClassType):
     def __ge__(self, other):
         return isinstance(other, ListType) and self.typ >= other.typ
 
-    def id_map(self, skip_constructor: bool = False) -> str:
-        return "list<" + self.typ.id_map() + ">"
+    def pluthon_type(self, skip_constructor: bool = False) -> str:
+        return "list<" + self.typ.pluthon_type() + ">"
+
+    def python_type(self):
+        return f"List[{self.typ.python_type()}]"
 
     def attribute_type(self, attr) -> "Type":
         if attr == "index":
@@ -1076,19 +1160,35 @@ class ListType(ClassType):
 
     def copy_only_attributes(self) -> plt.AST:
         mapped_attrs = plt.MapList(
-            OVar("self"),
+            plt.UnListData(OVar("self")),
             OLambda(
                 ["v"],
-                transform_ext_params_map(self.typ)(
-                    plt.Apply(
-                        self.typ.copy_only_attributes(),
-                        transform_output_map(self.typ)(OVar("v")),
-                    )
+                plt.Apply(
+                    self.typ.copy_only_attributes(),
+                    OVar("v"),
                 ),
             ),
-            empty_list(self.typ),
+            plt.EmptyDataList(),
         )
-        return OLambda(["self"], mapped_attrs)
+        return OLambda(
+            ["self"],
+            plt.DelayedChooseData(
+                OVar("self"),
+                plt.TraceError(
+                    "IntegrityError: Expected a PlutusMap, but got PlutusData"
+                ),
+                plt.TraceError(
+                    "IntegrityError: Expected a PlutusMap, but got PlutusDict"
+                ),
+                plt.ListData(mapped_attrs),
+                plt.TraceError(
+                    "IntegrityError: Expected a PlutusMap, but got PlutusInteger"
+                ),
+                plt.TraceError(
+                    "IntegrityError: Expected a PlutusMap, but got PlutusByteString"
+                ),
+            ),
+        )
 
     def cmp(self, op: cmpop, o: "Type") -> plt.AST:
         """The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second the comparison."""
@@ -1181,8 +1281,17 @@ class DictType(ClassType):
     key_typ: Type
     value_typ: Type
 
-    def id_map(self, skip_constructor: bool = False) -> str:
-        return "map<" + self.key_typ.id_map() + "," + self.value_typ.id_map() + ">"
+    def pluthon_type(self, skip_constructor: bool = False) -> str:
+        return (
+            "map<"
+            + self.key_typ.pluthon_type()
+            + ","
+            + self.value_typ.pluthon_type()
+            + ">"
+        )
+
+    def python_type(self):
+        return f"Dict[{self.key_typ.python_type()}, {self.value_typ.python_type()}]"
 
     def attribute_type(self, attr) -> "Type":
         if attr == "get":
@@ -1414,7 +1523,7 @@ class DictType(ClassType):
             )
 
         mapped_attrs = CustomMapFilterList(
-            OVar("self"),
+            plt.UnMapData(OVar("self")),
             OLambda(
                 ["h", "t"],
                 OLet(
@@ -1435,27 +1544,35 @@ class DictType(ClassType):
             OLambda(
                 ["v"],
                 plt.MkPairData(
-                    transform_output_map(self.key_typ)(
-                        plt.Apply(
-                            self.key_typ.copy_only_attributes(),
-                            transform_ext_params_map(self.key_typ)(
-                                plt.FstPair(OVar("v"))
-                            ),
-                        )
+                    plt.Apply(
+                        self.key_typ.copy_only_attributes(), plt.FstPair(OVar("v"))
                     ),
-                    transform_output_map(self.value_typ)(
-                        plt.Apply(
-                            self.value_typ.copy_only_attributes(),
-                            transform_ext_params_map(self.value_typ)(
-                                plt.SndPair(OVar("v"))
-                            ),
-                        )
+                    plt.Apply(
+                        self.value_typ.copy_only_attributes(), plt.SndPair(OVar("v"))
                     ),
                 ),
             ),
             plt.EmptyDataPairList(),
         )
-        return OLambda(["self"], mapped_attrs)
+        return OLambda(
+            ["self"],
+            plt.DelayedChooseData(
+                OVar("self"),
+                plt.TraceError(
+                    "IntegrityError: Expected a PlutusMap, but got PlutusData"
+                ),
+                plt.MapData(mapped_attrs),
+                plt.TraceError(
+                    "IntegrityError: Expected a PlutusMap, but got PlutusList"
+                ),
+                plt.TraceError(
+                    "IntegrityError: Expected a PlutusMap, but got PlutusInteger"
+                ),
+                plt.TraceError(
+                    "IntegrityError: Expected a PlutusMap, but got PlutusByteString"
+                ),
+            ),
+        )
 
     def _unop_return_type(self, unop: unaryop) -> "Type":
         if isinstance(unop, Not):
@@ -1496,13 +1613,17 @@ class FunctionType(ClassType):
     def stringify(self, recursive: bool = False) -> plt.AST:
         return OLambda(["x"], plt.Text("<function>"))
 
+    def python_type(self):
+        arg_types = ", ".join(t.python_type() for t in self.argtyps)
+        return f"Callable[[{arg_types}], {self.rettyp.python_type()}]"
+
 
 @dataclass(frozen=True, unsafe_hash=True)
 class InstanceType(Type):
     typ: ClassType
 
-    def id_map(self, skip_constructor: bool = False) -> str:
-        return self.typ.id_map(skip_constructor=skip_constructor)
+    def pluthon_type(self, skip_constructor: bool = False) -> str:
+        return self.typ.pluthon_type(skip_constructor=skip_constructor)
 
     def constr_type(self) -> FunctionType:
         raise TypeInferenceError(f"Can not construct an instance {self}")
@@ -1543,10 +1664,16 @@ class InstanceType(Type):
     def unop(self, unop: unaryop) -> plt.AST:
         return self.typ.unop(unop)
 
+    def python_type(self):
+        return self.typ.python_type()
+
 
 @dataclass(frozen=True, unsafe_hash=True)
 class IntegerType(AtomicType):
-    def id_map(self, skip_constructor: bool = False) -> str:
+    def pluthon_type(self, skip_constructor: bool = False) -> str:
+        return "int"
+
+    def python_type(self):
         return "int"
 
     def constr_type(self) -> InstanceType:
@@ -1784,9 +1911,34 @@ class IntegerType(AtomicType):
             return lambda x: plt.EqualsInteger(x, plt.Integer(0))
         return super()._unop_fun(unop)
 
+    def copy_only_attributes(self) -> plt.AST:
+        return OLambda(
+            ["self"],
+            plt.DelayedChooseData(
+                OVar("self"),
+                plt.TraceError(
+                    f"IntegrityError: Expected PlutusInteger but got PlutusData"
+                ),
+                plt.TraceError(
+                    f"IntegrityError: Expected PlutusInteger but got PlutusMap"
+                ),
+                plt.TraceError(
+                    f"IntegrityError: Expected PlutusInteger but got PlutusList"
+                ),
+                OVar("self"),
+                plt.TraceError(
+                    f"IntegrityError: Expected PlutusInteger but got PlutusByteString"
+                ),
+            ),
+        )
+
 
 @dataclass(frozen=True, unsafe_hash=True)
 class StringType(AtomicType):
+
+    def python_type(self):
+        return "str"
+
     def constr_type(self) -> InstanceType:
         return InstanceType(PolymorphicFunctionType(StrImpl()))
 
@@ -1850,10 +2002,34 @@ class StringType(AtomicType):
             )
         return super()._unop_fun(unop)
 
+    def copy_only_attributes(self) -> plt.AST:
+        return OLambda(
+            ["self"],
+            plt.DelayedChooseData(
+                OVar("self"),
+                plt.TraceError(
+                    f"IntegrityError: Expected PlutusByteString but got PlutusData"
+                ),
+                plt.TraceError(
+                    f"IntegrityError: Expected PlutusByteString but got PlutusMap"
+                ),
+                plt.TraceError(
+                    f"IntegrityError: Expected PlutusByteString but got PlutusList"
+                ),
+                plt.TraceError(
+                    f"IntegrityError: Expected PlutusByteString but got PlutusInteger"
+                ),
+                OVar("self"),
+            ),
+        )
+
 
 @dataclass(frozen=True, unsafe_hash=True)
 class ByteStringType(AtomicType):
-    def id_map(self, skip_constructor: bool = False) -> str:
+    def pluthon_type(self, skip_constructor: bool = False) -> str:
+        return "bytes"
+
+    def python_type(self):
         return "bytes"
 
     def constr_type(self) -> InstanceType:
@@ -2358,9 +2534,34 @@ class ByteStringType(AtomicType):
             )
         return super()._unop_fun(unop)
 
+    def copy_only_attributes(self) -> plt.AST:
+        return OLambda(
+            ["self"],
+            plt.DelayedChooseData(
+                OVar("self"),
+                plt.TraceError(
+                    f"IntegrityError: Expected PlutusByteString but got PlutusData"
+                ),
+                plt.TraceError(
+                    f"IntegrityError: Expected PlutusByteString but got PlutusMap"
+                ),
+                plt.TraceError(
+                    f"IntegrityError: Expected PlutusByteString but got PlutusList"
+                ),
+                plt.TraceError(
+                    f"IntegrityError: Expected PlutusByteString but got PlutusInteger"
+                ),
+                OVar("self"),
+            ),
+        )
+
 
 @dataclass(frozen=True, unsafe_hash=True)
 class BoolType(AtomicType):
+
+    def python_type(self):
+        return "bool"
+
     def constr_type(self) -> "InstanceType":
         return InstanceType(PolymorphicFunctionType(BoolImpl()))
 
@@ -2418,6 +2619,27 @@ class BoolType(AtomicType):
             return plt.Not
         return super()._unop_fun(unop)
 
+    def copy_only_attributes(self) -> plt.AST:
+        return OLambda(
+            ["self"],
+            plt.DelayedChooseData(
+                OVar("self"),
+                plt.TraceError(
+                    f"IntegrityError: Expected PlutusByteInteger but got PlutusData"
+                ),
+                plt.TraceError(
+                    f"IntegrityError: Expected PlutusByteInteger but got PlutusMap"
+                ),
+                plt.TraceError(
+                    f"IntegrityError: Expected PlutusByteInteger but got PlutusList"
+                ),
+                OVar("self"),
+                plt.TraceError(
+                    f"IntegrityError: Expected PlutusByteInteger but got PlutusByteString"
+                ),
+            ),
+        )
+
 
 @dataclass(frozen=True, unsafe_hash=True)
 class UnitType(AtomicType):
@@ -2441,6 +2663,9 @@ class UnitType(AtomicType):
         if isinstance(unop, Not):
             return lambda x: plt.Bool(True)
         return super()._unop_fun(unop)
+
+    def python_type(self):
+        return "None"
 
 
 IntegerInstanceType = InstanceType(IntegerType())
@@ -2706,7 +2931,7 @@ class IntImpl(PolymorphicFunction):
             )
         else:
             raise NotImplementedError(
-                f"Can not derive integer from type {arg.typ.__name__}"
+                f"Can not derive integer from type {arg.typ.python_type()}"
             )
 
 
@@ -2756,7 +2981,7 @@ class BoolImpl(PolymorphicFunction):
             return OLambda(["x"], plt.Bool(False))
         else:
             raise NotImplementedError(
-                f"Can not derive bool from type {arg.typ.__name__}"
+                f"Can not derive bool from type {arg.typ.python_type()}"
             )
 
 
@@ -2806,7 +3031,7 @@ class BytesImpl(PolymorphicFunction):
             )
         else:
             raise NotImplementedError(
-                f"Can not derive bytes from type {arg.typ.__name__}"
+                f"Can not derive bytes from type {arg.typ.python_type()}"
             )
 
 

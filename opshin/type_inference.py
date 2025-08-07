@@ -381,6 +381,10 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                 return ATOMIC_TYPES[ann.id]
             if ann.id == "Self":
                 v_t = self.variable_type(ann.idSelf_new)
+            elif ann.id in ["Union", "List", "Dict"]:
+                raise TypeInferenceError(
+                    f"Annotation {ann.id} is not allowed as a variable type, use List[Anything], Dict[Anything, Anything] or Union[...] instead"
+                )
             else:
                 v_t = self.variable_type(ann.id)
             if isinstance(v_t, ClassType):
@@ -1279,7 +1283,7 @@ class RecordReader(NodeVisitor):
         if f.constructor is None:
             det_string = RecordType(
                 Record(f.name, f.orig_name, 0, frozenlist(f.attributes))
-            ).id_map(skip_constructor=True)
+            ).pluthon_type(skip_constructor=True)
             det_hash = sha256(str(det_string).encode("utf8")).hexdigest()
             f.constructor = int(det_hash, 16) % 2**32
         return Record(f.name, f.orig_name, f.constructor, frozenlist(f.attributes))
