@@ -381,6 +381,10 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                 return ATOMIC_TYPES[ann.id]
             if ann.id == "Self":
                 v_t = self.variable_type(ann.idSelf_new)
+            elif ann.id in ["Union", "List", "Dict"]:
+                raise TypeInferenceError(
+                    f"Annotation {ann.id} is not allowed as a variable type, use List[Anything], Dict[Anything, Anything] or Union[...] instead"
+                )
             else:
                 v_t = self.variable_type(ann.id)
             if isinstance(v_t, ClassType):

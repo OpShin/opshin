@@ -470,13 +470,9 @@ class AnyType(ClassType):
             ),
         )
 
-
-def copy_only_attributes_map(t: Type) -> Callable[[plt.AST], plt.AST]:
-    """
-    Returns a function that copies only the attributes of the object of type t.
-    Identity for Anytype
-    """
-    return OLambda(["self"], OVar("self"))
+    def copy_only_attributes(self) -> plt.AST:
+        """Any is always valid, just returns"""
+        return OLambda(["self"], OVar("self"))
 
 
 @dataclass(frozen=True, unsafe_hash=True)
@@ -484,14 +480,6 @@ class AtomicType(ClassType):
     def __ge__(self, other):
         # Can only substitute for its own type (also subtypes)
         return isinstance(other, self.__class__)
-
-    def copy_only_attributes(self) -> plt.AST:
-        return OLambda(
-            ["self"],
-            transform_output_map(InstanceType(self))(
-                transform_ext_params_map(InstanceType(self))(OVar("self"))
-            ),
-        )
 
 
 @dataclass(frozen=True, unsafe_hash=True)
@@ -701,9 +689,24 @@ class RecordType(ClassType):
         )
         return OLambda(
             ["self"],
-            plt.ConstrData(
-                plt.Integer(self.record.constructor),
-                copied_attributes,
+            plt.DelayedChooseData(
+                OVar("self"),
+                plt.ConstrData(
+                    plt.Integer(self.record.constructor),
+                    copied_attributes,
+                ),
+                plt.TraceError(
+                    "IntegrityError: Expected a PlutusMap, but got PlutusDict"
+                ),
+                plt.TraceError(
+                    "IntegrityError: Expected a PlutusMap, but got PlutusList"
+                ),
+                plt.TraceError(
+                    "IntegrityError: Expected a PlutusMap, but got PlutusInteger"
+                ),
+                plt.TraceError(
+                    "IntegrityError: Expected a PlutusMap, but got PlutusByteString"
+                ),
             ),
         )
 
@@ -935,12 +938,12 @@ class UnionType(ClassType):
                     record_copier,
                     (
                         DictType(AnyType(), AnyType()).copy_only_attributes()
-                        if DictType(AnyType(), AnyType()) in self.typs
+                        if any(isinstance(x, DictType) for x in self.typs)
                         else lambda_false("dict")
                     ),
                     (
                         ListType(AnyType()).copy_only_attributes()
-                        if ListType(AnyType()) in self.typs
+                        if any(isinstance(x, ListType) for x in self.typs)
                         else lambda_false("list")
                     ),
                     (
@@ -1157,7 +1160,7 @@ class ListType(ClassType):
 
     def copy_only_attributes(self) -> plt.AST:
         mapped_attrs = plt.MapList(
-            OVar("self"),
+            plt.UnListData(OVar("self")),
             OLambda(
                 ["v"],
                 plt.Apply(
@@ -1165,9 +1168,27 @@ class ListType(ClassType):
                     OVar("v"),
                 ),
             ),
-            empty_list(self.typ),
+            plt.EmptyDataList(),
         )
-        return OLambda(["self"], mapped_attrs)
+        return OLambda(
+            ["self"],
+            plt.DelayedChooseData(
+                OVar("self"),
+                plt.TraceError(
+                    "IntegrityError: Expected a PlutusMap, but got PlutusData"
+                ),
+                plt.TraceError(
+                    "IntegrityError: Expected a PlutusMap, but got PlutusDict"
+                ),
+                plt.ListData(mapped_attrs),
+                plt.TraceError(
+                    "IntegrityError: Expected a PlutusMap, but got PlutusInteger"
+                ),
+                plt.TraceError(
+                    "IntegrityError: Expected a PlutusMap, but got PlutusByteString"
+                ),
+            ),
+        )
 
     def cmp(self, op: cmpop, o: "Type") -> plt.AST:
         """The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second the comparison."""
@@ -1502,7 +1523,7 @@ class DictType(ClassType):
             )
 
         mapped_attrs = CustomMapFilterList(
-            OVar("self"),
+            plt.UnMapData(OVar("self")),
             OLambda(
                 ["h", "t"],
                 OLet(
@@ -1533,7 +1554,25 @@ class DictType(ClassType):
             ),
             plt.EmptyDataPairList(),
         )
-        return OLambda(["self"], mapped_attrs)
+        return OLambda(
+            ["self"],
+            plt.DelayedChooseData(
+                OVar("self"),
+                plt.TraceError(
+                    "IntegrityError: Expected a PlutusMap, but got PlutusData"
+                ),
+                plt.MapData(mapped_attrs),
+                plt.TraceError(
+                    "IntegrityError: Expected a PlutusMap, but got PlutusList"
+                ),
+                plt.TraceError(
+                    "IntegrityError: Expected a PlutusMap, but got PlutusInteger"
+                ),
+                plt.TraceError(
+                    "IntegrityError: Expected a PlutusMap, but got PlutusByteString"
+                ),
+            ),
+        )
 
     def _unop_return_type(self, unop: unaryop) -> "Type":
         if isinstance(unop, Not):
@@ -1872,6 +1911,27 @@ class IntegerType(AtomicType):
             return lambda x: plt.EqualsInteger(x, plt.Integer(0))
         return super()._unop_fun(unop)
 
+    def copy_only_attributes(self) -> plt.AST:
+        return OLambda(
+            ["self"],
+            plt.DelayedChooseData(
+                OVar("self"),
+                plt.TraceError(
+                    f"IntegrityError: Expected PlutusInteger but got PlutusData"
+                ),
+                plt.TraceError(
+                    f"IntegrityError: Expected PlutusInteger but got PlutusMap"
+                ),
+                plt.TraceError(
+                    f"IntegrityError: Expected PlutusInteger but got PlutusList"
+                ),
+                OVar("self"),
+                plt.TraceError(
+                    f"IntegrityError: Expected PlutusInteger but got PlutusByteString"
+                ),
+            ),
+        )
+
 
 @dataclass(frozen=True, unsafe_hash=True)
 class StringType(AtomicType):
@@ -1941,6 +2001,27 @@ class StringType(AtomicType):
                 plt.LengthOfByteString(plt.EncodeUtf8(x)), plt.Integer(0)
             )
         return super()._unop_fun(unop)
+
+    def copy_only_attributes(self) -> plt.AST:
+        return OLambda(
+            ["self"],
+            plt.DelayedChooseData(
+                OVar("self"),
+                plt.TraceError(
+                    f"IntegrityError: Expected PlutusByteString but got PlutusData"
+                ),
+                plt.TraceError(
+                    f"IntegrityError: Expected PlutusByteString but got PlutusMap"
+                ),
+                plt.TraceError(
+                    f"IntegrityError: Expected PlutusByteString but got PlutusList"
+                ),
+                plt.TraceError(
+                    f"IntegrityError: Expected PlutusByteString but got PlutusInteger"
+                ),
+                OVar("self"),
+            ),
+        )
 
 
 @dataclass(frozen=True, unsafe_hash=True)
@@ -2453,6 +2534,27 @@ class ByteStringType(AtomicType):
             )
         return super()._unop_fun(unop)
 
+    def copy_only_attributes(self) -> plt.AST:
+        return OLambda(
+            ["self"],
+            plt.DelayedChooseData(
+                OVar("self"),
+                plt.TraceError(
+                    f"IntegrityError: Expected PlutusByteString but got PlutusData"
+                ),
+                plt.TraceError(
+                    f"IntegrityError: Expected PlutusByteString but got PlutusMap"
+                ),
+                plt.TraceError(
+                    f"IntegrityError: Expected PlutusByteString but got PlutusList"
+                ),
+                plt.TraceError(
+                    f"IntegrityError: Expected PlutusByteString but got PlutusInteger"
+                ),
+                OVar("self"),
+            ),
+        )
+
 
 @dataclass(frozen=True, unsafe_hash=True)
 class BoolType(AtomicType):
@@ -2516,6 +2618,27 @@ class BoolType(AtomicType):
         if isinstance(unop, Not):
             return plt.Not
         return super()._unop_fun(unop)
+
+    def copy_only_attributes(self) -> plt.AST:
+        return OLambda(
+            ["self"],
+            plt.DelayedChooseData(
+                OVar("self"),
+                plt.TraceError(
+                    f"IntegrityError: Expected PlutusByteInteger but got PlutusData"
+                ),
+                plt.TraceError(
+                    f"IntegrityError: Expected PlutusByteInteger but got PlutusMap"
+                ),
+                plt.TraceError(
+                    f"IntegrityError: Expected PlutusByteInteger but got PlutusList"
+                ),
+                OVar("self"),
+                plt.TraceError(
+                    f"IntegrityError: Expected PlutusByteInteger but got PlutusByteString"
+                ),
+            ),
+        )
 
 
 @dataclass(frozen=True, unsafe_hash=True)
