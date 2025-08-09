@@ -609,12 +609,18 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         typed_ass.targets = [self.visit(t) for t in node.targets]
         # for deconstructed tuples, check that the size matches
         if hasattr(typed_ass.value, "is_tuple_with_deconstruction"):
-            assert isinstance(typed_ass.value.typ, InstanceType) and isinstance(
-                typed_ass.value.typ.typ, TupleType
+            assert isinstance(typed_ass.value.typ, InstanceType) and (
+                isinstance(typed_ass.value.typ.typ, TupleType)
+                or isinstance(typed_ass.value.typ.typ, PairType)
             ), f"Tuple deconstruction expected a tuple type, found '{typed_ass.value.typ.python_type()}'"
-            assert typed_ass.value.is_tuple_with_deconstruction == len(
-                typed_ass.value.typ.typ.typs
-            ), f"Too many values to unpack or not enough values to unpack. Tuple deconstruction required tuple with {typed_ass.value.is_tuple_with_deconstruction} elements found '{typed_ass.value.typ.python_type()}'"
+            if isinstance(typed_ass.value.typ.typ, PairType):
+                assert (
+                    typed_ass.value.is_tuple_with_deconstruction == 2
+                ), f"Too many values to unpack or not enough values to unpack. Tuple deconstruction required assigning to 2 elements found '{typed_ass.value.is_tuple_with_deconstruction}'"
+            else:
+                assert typed_ass.value.is_tuple_with_deconstruction == len(
+                    typed_ass.value.typ.typ.typs
+                ), f"Too many values to unpack or not enough values to unpack. Tuple deconstruction required tuple with {typed_ass.value.is_tuple_with_deconstruction} elements found '{typed_ass.value.typ.python_type()}'"
         return typed_ass
 
     def visit_AnnAssign(self, node: AnnAssign) -> TypedAnnAssign:
