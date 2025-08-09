@@ -14,7 +14,6 @@ import frozenlist2
 import hypothesis
 from hypothesis import given, example
 from hypothesis import strategies as st
-from opshin import IndefiniteList
 from parameterized import parameterized
 
 from uplc import ast as uplc, eval as uplc_eval
