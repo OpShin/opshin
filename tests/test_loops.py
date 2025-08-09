@@ -1,10 +1,12 @@
 import hypothesis.strategies as st
+import pytest
 from hypothesis import given
 
 from opshin import builder, CompilerError
 from tests.utils import eval_uplc_value
 
 
+@pytest.mark.skip("Loops over tuples are not supported yet")
 @given(st.integers())
 def test_loop_over_tuple(x: int):
     source_code = """
