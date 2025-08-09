@@ -264,11 +264,11 @@ def merge_scope(s1: typing.Dict[str, Type], s2: typing.Dict[str, Type]):
             try:
                 assert isinstance(s1[k], InstanceType) and isinstance(
                     s2[k], InstanceType
-                ), "Can only merge instance types"
+                ), f"""Can only merge instance types, found class type '{s1[k].python_type() if not isinstance(s1[k], InstanceType) else s2[k].python_type() if not isinstance(s2[k], InstanceType) else s1[k].python_type() + "' and '" + s1[k].python_type()}' for '{k}'"""
                 merged[k] = InstanceType(union_types(s1[k].typ, s2[k].typ))
             except AssertionError as e:
                 raise AssertionError(
-                    f"Can not merge scopes after branching, conflicting types for {k}: {e}"
+                    f"Can not merge scopes after branching, conflicting types for '{k}': '{e}'"
                 )
     return merged
 
@@ -290,9 +290,23 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         for scope in reversed(self.scopes):
             if name in scope:
                 return scope[name]
-        raise TypeInferenceError(
-            f"Variable {map_to_orig_name(name)} not initialized at access"
-        )
+        # try to find an outer scope where the variable name maps to the original name
+        outer_scope_type = None
+        for scope in reversed(self.scopes):
+            for key, type in scope.items():
+                if map_to_orig_name(key) == map_to_orig_name(name):
+                    outer_scope_type = type
+        if outer_scope_type is None:
+            # If the variable is not found in any scope, raise an error
+            raise TypeInferenceError(
+                f"Variable '{map_to_orig_name(name)}' not initialized at access. You need to define it before using it the first time."
+            )
+        else:
+            raise TypeInferenceError(
+                f"Variable '{map_to_orig_name(name)}' not initialized at access.\n"
+                f"Note that you may be trying to access variable '{map_to_orig_name(name)}' of type '{outer_scope_type.python_type()}' in an outer scope and later redefine it. This is not allowed.\n"
+                "This can happen for example if you redefine a (renamed) imported function but try to use it before the redefinition."
+            )
 
     def enter_scope(self):
         self.scopes.append({})
@@ -306,7 +320,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                 # the specified type is broader, we pass on this
                 return
             raise TypeInferenceError(
-                f"Type {self.scopes[-1][name]} of variable {map_to_orig_name(name)} in local scope does not match inferred type {typ}"
+                f"Type '{self.scopes[-1][name].python_type()}' of variable '{map_to_orig_name(name)}' in local scope does not match inferred type '{typ.python_type()}'"
             )
         self.scopes[-1][name] = typ
 
