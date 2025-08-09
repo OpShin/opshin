@@ -54,7 +54,7 @@ class RewriteImportIntegrityCheck(CompilingNodeTransformer):
             ), "Imports something other from the integrity check than the integrity check builtin"
             renamed = n.asname if n.asname is not None else n.name
             assert (
-                renamed not in INITIAL_SCOPE
+                renamed not in INITIAL_SCOPE or renamed == FunctionName
             ), f"Name '{renamed}' is a reserved name, cannot import {FunctionName} with that name."
             INITIAL_SCOPE[renamed] = InstanceType(
                 PolymorphicFunctionType(IntegrityCheckImpl())
