@@ -2692,6 +2692,9 @@ class InaccessibleType(ClassType):
 
     pass
 
+    def python_type(self):
+        return "<forbidden>"
+
 
 def repeated_addition(zero, add):
     # this is optimized for logarithmic complexity by exponentiation by squaring
@@ -3047,11 +3050,19 @@ class PolymorphicFunctionType(ClassType):
             and self.polymorphic_function == other.polymorphic_function
         )
 
+    def python_type(self):
+        return (
+            f"PolymorphicFunctionType({self.polymorphic_function.__class__.__name__})"
+        )
+
 
 @dataclass(frozen=True, unsafe_hash=True)
 class PolymorphicFunctionInstanceType(InstanceType):
     typ: FunctionType
     polymorphic_function: PolymorphicFunction
+
+    def python_type(self):
+        return self.typ.python_type()
 
 
 EmptyListMap = {

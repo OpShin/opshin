@@ -290,9 +290,23 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         for scope in reversed(self.scopes):
             if name in scope:
                 return scope[name]
-        raise TypeInferenceError(
-            f"Variable {map_to_orig_name(name)} not initialized at access"
-        )
+        # try to find an outer scope where the variable name maps to the original name
+        outer_scope_type = None
+        for scope in reversed(self.scopes):
+            for key, type in scope.items():
+                if map_to_orig_name(key) == map_to_orig_name(name):
+                    outer_scope_type = type
+        if outer_scope_type is None:
+            # If the variable is not found in any scope, raise an error
+            raise TypeInferenceError(
+                f"Variable {map_to_orig_name(name)} not initialized at access. You need to define it before using it the first time."
+            )
+        else:
+            raise TypeInferenceError(
+                f"Variable {map_to_orig_name(name)} not initialized at access.\n"
+                f"Note that you may be trying to access variable {map_to_orig_name(name)} of type {outer_scope_type.python_type()} in an outer scope and later redefine it. This is not allowed.\n"
+                "This can happen for example if you redefine a (renamed) imported function but try to use it before the redefinition."
+            )
 
     def enter_scope(self):
         self.scopes.append({})
@@ -1063,6 +1077,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             tc.func = self.visit(node.func)
         except Exception as e:
             # might be a method, duck test for class_name, method_name should
+            raise e
             try:
                 func_variable_type = self.variable_type(tc.func.value.id)
                 class_name = func_variable_type.typ.record.name

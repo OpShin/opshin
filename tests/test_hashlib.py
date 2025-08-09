@@ -2,6 +2,7 @@ import hypothesis
 import hypothesis.strategies as hst
 from hashlib import sha256, sha3_256, blake2b
 
+from opshin import builder
 from .utils import eval_uplc_value
 
 pos_int = hst.integers(min_value=0)
@@ -42,3 +43,31 @@ def validator(b: bytes) -> bytes:
     # TODO this is an error in the semantics, strictly speaking
     exp = blake2b(b, digest_size=32).digest()
     assert res == exp, "Invalid implementation of blake2b"
+
+
+@hypothesis.given(hst.binary())
+def test_sha256_rename(b: bytes):
+    source_code = """
+from hashlib import sha256 as hsh
+def validator(b: bytes) -> bytes:
+    return hsh(b).digest()
+"""
+    res = eval_uplc_value(source_code, b)
+    exp = sha256(b).digest()
+    assert res == exp, "Invalid implementation of sha256"
+
+
+def test_sha256_rename_conflict():
+    source_code = """
+from hashlib import sha256 as hsh
+def validator(b: bytes) -> bytes:
+    x = hsh(b).digest()
+    hsh = x + b"hello"
+    return hsh
+"""
+    try:
+        builder._compile(source_code)
+    except Exception as e:
+        assert (
+            "import" in str(e).lower() and "hash" in str(e).lower()
+        ), "Expected a hint about import conflict"
