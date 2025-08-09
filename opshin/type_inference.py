@@ -703,13 +703,13 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             assert itertyp.typ.typs, "Iterating over an empty tuple is not allowed"
             vartyp = itertyp.typ.typs[0]
             assert all(
-                itertyp.typ.typs[0] == t for t in typed_for.iter.typ.typs
-            ), "Iterating through a tuple requires the same type for each element"
+                itertyp.typ.typs[0] == t for t in itertyp.typ.typs
+            ), f"Iterating through a tuple requires the same type for each element, found tuple of type {itertyp.typ.python_type()}"
         elif isinstance(itertyp.typ, ListType):
             vartyp = itertyp.typ.typ
         else:
             raise NotImplementedError(
-                "Type inference for loops over non-list objects is not supported"
+                "Type inference for loops over non-list and non-tuple objects is not supported"
             )
         self.set_variable_type(node.target.id, vartyp)
         typed_for.target = self.visit(node.target)
