@@ -3187,3 +3187,21 @@ def validator(a: int) -> int:
 """
         # this should pass during compilation because t3 is guaranteed to have a second element
         builder._compile(source_code)
+
+    def test_import_integritycheck_reserved_name(self):
+        source_code = """
+from opshin.std.integrity import check_integrity as bytes
+
+def validator(a: int) -> int:
+    return a
+    
+"""
+        try:
+            builder._compile(source_code)
+            self.fail("Integrity check did not catch reserved name")
+        except Exception as e:
+            self.assertIn(
+                "reserved",
+                str(e),
+                "Integrity check did not catch reserved name",
+            )
