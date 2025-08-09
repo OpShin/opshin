@@ -717,13 +717,13 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             assert itertyp.typ.typs, "Iterating over an empty tuple is not allowed"
             vartyp = itertyp.typ.typs[0]
             assert all(
-                itertyp.typ.typs[0] == t for t in typed_for.iter.typ.typs
-            ), "Iterating through a tuple requires the same type for each element"
+                itertyp.typ.typs[0] == t for t in itertyp.typ.typs
+            ), f"Iterating through a tuple requires the same type for each element, found tuple of type {itertyp.typ.python_type()}"
         elif isinstance(itertyp.typ, ListType):
             vartyp = itertyp.typ.typ
         else:
             raise NotImplementedError(
-                "Type inference for loops over non-list objects is not supported"
+                "Type inference for loops over non-list and non-tuple objects is not supported"
             )
         self.set_variable_type(node.target.id, vartyp)
         typed_for.target = self.visit(node.target)
@@ -789,7 +789,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         )
         assert (
             not node.decorator_list or wraps_builtin
-        ), "Functions may not have decorators other than wraps_builtin"
+        ), f"Functions may not have decorators other than literal @wraps_builtin, found other decorators at {node.name}."
         for i, arg in enumerate(node.args.args):
             if hasattr(arg.annotation, "idSelf"):
                 tfd.args.args[i].annotation.id = tfd.args.args[0].annotation.id
@@ -894,7 +894,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         tt.typ = BoolInstanceType
         assert all(
             BoolInstanceType >= e.typ for e in tt.values
-        ), "All values compared must be bools"
+        ), f"All values compared must be bools, found {', '.join(e.typ.python_type() for e in tt.values)}"
         return tt
 
     def visit_UnaryOp(self, node: UnaryOp) -> TypedUnaryOp:
@@ -929,7 +929,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             if isinstance(ts.slice, Constant) and isinstance(ts.slice.value, int):
                 assert ts.slice.value < len(
                     ts.value.typ.typ.typs
-                ), f"Subscript index out of bounds for tuple. Accessing index {ts.slice.value} in tuple with {len(ts.value.typ.typ.typs)} elements"
+                ), f"Subscript index out of bounds for tuple. Accessing index {ts.slice.value} in tuple with {len(ts.value.typ.typ.typs)} elements ({ts.value.typ.python_type()})"
                 ts.typ = ts.value.typ.typ.typs[ts.slice.value]
             elif all(ts.value.typ.typ.typs[0] == t for t in ts.value.typ.typ.typs):
                 ts.typ = ts.value.typ.typ.typs[0]
@@ -954,7 +954,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                 ts.slice = self.visit(node.slice)
                 assert (
                     ts.slice.typ == IntegerInstanceType
-                ), "List indices must be integers"
+                ), f"List indices must be integers, found {ts.slice.typ.python_type()} for list {ts.value.typ.python_type()}"
             else:
                 ts.typ = ts.value.typ
                 if ts.slice.lower is None:
@@ -962,7 +962,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                 ts.slice.lower = self.visit(node.slice.lower)
                 assert (
                     ts.slice.lower.typ == IntegerInstanceType
-                ), "lower slice indices for lists must be integers"
+                ), f"Lower slice indices for lists must be integers, found {ts.slice.lower.typ.python_type()} for list {ts.value.typ.python_type()}"
                 if ts.slice.upper is None:
                     ts.slice.upper = Call(
                         func=Name(id="len", ctx=Load()), args=[ts.value], keywords=[]
@@ -971,14 +971,14 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                 ts.slice.upper = self.visit(node.slice.upper)
                 assert (
                     ts.slice.upper.typ == IntegerInstanceType
-                ), "upper slice indices for lists must be integers"
+                ), f"Upper slice indices for lists must be integers, found {ts.slice.upper.typ.python_type()} for list {ts.value.typ.python_type()}"
         elif isinstance(ts.value.typ.typ, ByteStringType):
             if not isinstance(ts.slice, Slice):
                 ts.typ = IntegerInstanceType
                 ts.slice = self.visit(node.slice)
                 assert (
                     ts.slice.typ == IntegerInstanceType
-                ), "bytes indices must be integers"
+                ), f"Bytes indices must be integers, found {ts.slice.typ.python_type()}."
             else:
                 ts.typ = ByteStringInstanceType
                 if ts.slice.lower is None:
@@ -986,7 +986,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                 ts.slice.lower = self.visit(node.slice.lower)
                 assert (
                     ts.slice.lower.typ == IntegerInstanceType
-                ), "lower slice indices for bytes must be integers"
+                ), f"Lower slice indices for bytes must be integers, found {ts.slice.lower.typ.python_type()}"
                 if ts.slice.upper is None:
                     ts.slice.upper = Call(
                         func=Name(id="len", ctx=Load()), args=[ts.value], keywords=[]
@@ -995,7 +995,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                 ts.slice.upper = self.visit(node.slice.upper)
                 assert (
                     ts.slice.upper.typ == IntegerInstanceType
-                ), "upper slice indices for bytes must be integers"
+                ), f"Upper slice indices for bytes must be integers, found {ts.slice.upper.typ.python_type()}"
         elif isinstance(ts.value.typ.typ, DictType):
             if not isinstance(ts.slice, Slice):
                 ts.slice = self.visit(node.slice)

@@ -1014,6 +1014,9 @@ class TupleType(ClassType):
                 return TupleType(self.typs + other.typs)
         return super()._binop_return_type(binop, other)
 
+    def python_type(self) -> str:
+        return f"Tuple[{', '.join(t.python_type() for t in self.typs)}]"
+
 
 @dataclass(frozen=True, unsafe_hash=True)
 class PairType(ClassType):
