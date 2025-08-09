@@ -19,7 +19,7 @@ from parameterized import parameterized
 from uplc import ast as uplc, eval as uplc_eval
 
 from . import PLUTUS_VM_PROFILE
-from opshin import prelude, builder, Purpose, PlutusContract
+from opshin import prelude, builder, Purpose, PlutusContract, CompilerError
 from .utils import eval_uplc_value, Unit, eval_uplc, eval_uplc_raw
 from opshin.bridge import wraps_builtin
 from opshin.compiler_config import OPT_O2_CONFIG, DEFAULT_CONFIG
@@ -3183,3 +3183,48 @@ def validator(a: int) -> int:
             assert "int" in str(e) and "str" in str(
                 e
             ), "Type check did not fail with correct message"
+
+    def test_tuple_assign_too_many(self):
+        source_code = """
+def validator(a: int) -> int:
+    t1, t2 = (a, a+1, a+2)
+    return t2
+"""
+        # this should pass during compilation because t3 is guaranteed to have a second element
+        try:
+            builder._compile(source_code)
+            self.fail("Expected compilation failure due to tuple unpacking mismatch")
+        except CompilerError as e:
+            self.assertIn(
+                "too many values to unpack", str(e).lower(), "Unexpected error message"
+            )
+
+    def test_tuple_assign_too_few(self):
+        source_code = """
+def validator(a: int) -> int:
+    t1, t2, t3 = (a, a+1)
+    return t2
+"""
+        # this should pass during compilation because t3 is guaranteed to have a second element
+        try:
+            builder._compile(source_code)
+            self.fail("Expected compilation failure due to tuple unpacking mismatch")
+        except CompilerError as e:
+            self.assertIn(
+                "not enough values to unpack",
+                str(e).lower(),
+                "Unexpected error message",
+            )
+
+    def test_tuple_assign_no_tuple(self):
+        source_code = """
+def validator(a: int) -> int:
+    t1, t2 = a
+    return t2
+"""
+        # this should pass during compilation because t3 is guaranteed to have a second element
+        try:
+            builder._compile(source_code)
+            self.fail("Expected compilation failure due to tuple unpacking mismatch")
+        except CompilerError as e:
+            self.assertIn("deconstruction", str(e).lower(), "Unexpected error message")

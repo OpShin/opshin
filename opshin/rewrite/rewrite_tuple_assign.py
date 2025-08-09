@@ -20,7 +20,10 @@ class RewriteTupleAssign(CompilingNodeTransformer):
             return [node]
         uid = self.unique_id
         self.unique_id += 1
-        assignments = [Assign([Name(f"2_{uid}_tup", Store())], self.visit(node.value))]
+        tuple = self.visit(node.value)
+        # store for later that we require a tuple with this number of elements
+        tuple.is_tuple_with_deconstruction = len(node.targets[0].elts)
+        assignments = [Assign([Name(f"2_{uid}_tup", Store())], tuple)]
         for i, t in enumerate(node.targets[0].elts):
             assignments.append(
                 Assign(
