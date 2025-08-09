@@ -3205,3 +3205,19 @@ def validator(a: int) -> int:
                 str(e),
                 "Integrity check did not catch reserved name",
             )
+
+    def test_type_change_error_message(self):
+        source_code = """
+def validator(a: int) -> int:
+    a = 1
+    a = "hello"
+    return a
+
+"""
+        try:
+            builder._compile(source_code)
+            self.fail("Type check did not fail")
+        except Exception as e:
+            assert "int" in str(e) and "str" in str(
+                e
+            ), "Type check did not fail with correct message"

@@ -67,6 +67,7 @@ def validator(b: bytes) -> bytes:
 """
     try:
         builder._compile(source_code)
+        assert False, "Expected an error due to import conflict"
     except Exception as e:
         assert (
             "import" in str(e).lower() and "hash" in str(e).lower()
