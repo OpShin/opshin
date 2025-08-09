@@ -279,7 +279,7 @@ class PlutoCompiler(CompilingNodeTransformer):
             self.current_function_typ.append(FunctionType([], InstanceType(AnyType())))
             name_load_visitor = NameLoadCollector()
             name_load_visitor.visit(node)
-            all_vs = sorted(set(all_vars(node)) | set(name_load_visitor.loaded.keys()))
+            all_vs = sorted(set(name_load_visitor.loaded.keys()))
 
             # write all variables that are ever read
             # once at the beginning so that we can always access them (only potentially causing a nameerror at runtime)
@@ -313,7 +313,7 @@ class PlutoCompiler(CompilingNodeTransformer):
         else:
             name_load_visitor = NameLoadCollector()
             name_load_visitor.visit(node)
-            all_vs = sorted(set(all_vars(node)) | set(name_load_visitor.loaded.keys()))
+            all_vs = sorted(set(name_load_visitor.loaded.keys()))
 
             body = node.body
             # write all variables that are ever read
