@@ -19,7 +19,7 @@ from parameterized import parameterized
 from uplc import ast as uplc, eval as uplc_eval
 
 from . import PLUTUS_VM_PROFILE
-from opshin import prelude, builder, Purpose, PlutusContract
+from opshin import prelude, builder, Purpose, PlutusContract, CompilerError
 from .utils import eval_uplc_value, Unit, eval_uplc, eval_uplc_raw
 from opshin.bridge import wraps_builtin
 from opshin.compiler_config import OPT_O2_CONFIG, DEFAULT_CONFIG
