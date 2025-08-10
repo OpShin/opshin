@@ -54,7 +54,7 @@ class RewriteTupleAssign(CompilingNodeTransformer):
         # in the future need to handle as above
         if len(node.target.elts) < 2:
             raise ValueError(
-                f"Too many elements to unpack in for loop target, expected 2, got {len(node.target.elts)}"
+                f"Too many values to unpack in for loop target, expected 2, got {len(node.target.elts)}"
             )
         if len(node.target.elts) > 2:
             raise ValueError(
