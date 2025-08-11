@@ -131,22 +131,46 @@ def union_types(*ts: Type):
         if all(t >= tp for tp in ts):
             return t
     assert ts, "Union must combine multiple classes"
-    ts = [t if isinstance(t, UnionType) else UnionType(frozenlist([t])) for t in ts]
-    for e in ts:
-        for e2 in e.typs:
+    # flatten encountered union types
+    all_ts = []
+    to_process = list(reversed(ts))
+    while to_process:
+        t = to_process.pop()
+        if isinstance(t, UnionType):
+            to_process = to_process.extend(reversed(t.typs))
+        else:
             assert isinstance(
-                e2, (RecordType, IntegerType, ByteStringType, ListType, DictType)
-            ), f"Union must combine multiple PlutusData classes but found {e2.__class__.__name__}"
-    union_set = OrderedSet()
-    for t in ts:
-        union_set.update(t.typs)
+                t, (RecordType, IntegerType, ByteStringType, ListType, DictType)
+            ), f"Union must combine multiple PlutusData, int, bytes, List[Anything] or Dict[Anything,Anything] but found {t.python_type()}"
+            if isinstance(t, ListType):
+                assert isinstance(t.typ, InstanceType) and isinstance(
+                    t.typ.typ, AnyType
+                ), "Union must contain only lists of Any, i.e. List[Anything]"
+            if isinstance(t, DictType):
+                assert (
+                    isinstance(t.key_typ, InstanceType)
+                    and isinstance(t.key_typ.typ, AnyType)
+                    and isinstance(t.value_typ, InstanceType)
+                    and isinstance(t.value_typ.typ, AnyType)
+                ), "Union must contain only dicts of Any, i.e. Dict[Anything, Anything]"
+            all_ts.append(t)
+    union_set = OrderedSet(all_ts)
     assert distinct(
         [
             e.record.constructor
             for e in union_set
             if not isinstance(e, (ByteStringType, IntegerType, ListType, DictType))
         ]
-    ), "Union must combine PlutusData classes with unique constructors"
+    ), (
+        "Union must combine PlutusData classes with unique CONSTR_ID, but found duplicates: "
+        + str(
+            {
+                e.record.orig_name: e.record.constructor
+                for e in union_set
+                if isinstance(e, RecordType)
+            }
+        )
+    )
     return UnionType(frozenlist(union_set))
 
 
@@ -445,20 +469,31 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                 ann_types = frozenlist(
                     [self.type_from_annotation(e) for e in ann.slice.elts]
                 )
+                # flatten encountered union types
+                ann_types = frozenlist(
+                    sum(
+                        (
+                            tuple(t.typs) if isinstance(t, UnionType) else (t,)
+                            for t in ann_types
+                        ),
+                        start=(),
+                    )
+                )
                 # check for unique constr_ids
                 constr_ids = [
                     record.record.constructor
                     for record in ann_types
                     if isinstance(record, RecordType)
                 ]
-                assert len(constr_ids) == len(
-                    set(constr_ids)
-                ), f"Duplicate constr_ids for records in Union: " + str(
-                    {
-                        t.record.orig_name: t.record.constructor
-                        for t in ann_types
-                        if isinstance(t, RecordType)
-                    }
+                assert len(constr_ids) == len(set(constr_ids)), (
+                    "Union must combine PlutusData classes with unique CONSTR_ID, but found duplicates: "
+                    + str(
+                        {
+                            e.record.orig_name: e.record.constructor
+                            for e in ann_types
+                            if isinstance(e, RecordType)
+                        }
+                    )
                 )
                 return union_types(*ann_types)
             if ann.value.orig_id == "List":
@@ -824,7 +859,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         )
         assert (
             not node.decorator_list or wraps_builtin
-        ), f"Functions may not have decorators other than literal @wraps_builtin, found other decorators at {node.name}."
+        ), f"Functions may not have decorators other than literal @wraps_builtin, found other decorators at {node.orig_name}."
         for i, arg in enumerate(node.args.args):
             if hasattr(arg.annotation, "idSelf"):
                 tfd.args.args[i].annotation.id = tfd.args.args[0].annotation.id

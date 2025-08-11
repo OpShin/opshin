@@ -2,6 +2,8 @@ import unittest
 import hypothesis
 from hypothesis import given
 from hypothesis import strategies as st
+
+from opshin import builder
 from .utils import eval_uplc_value, eval_uplc
 from . import PLUTUS_VM_PROFILE
 from opshin.util import CompilerError
@@ -765,3 +767,101 @@ def validator(a: Union[int, bytes]) -> Union[int, bytes]:
 
         # Should execute without raising an exception
         eval_uplc(source_code, 9)
+
+    def test_nested_union(self):
+        """
+        Test that duplicate constructor ids in nested unions are rejected correctly
+        """
+        source_code = """
+from dataclasses import dataclass
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
+
+@dataclass()
+class A(PlutusData):
+    CONSTR_ID = 1
+    a: bytes
+
+@dataclass()
+class B(PlutusData):
+    CONSTR_ID = 2
+    a: int
+    b: int
+
+@dataclass()
+class C(PlutusData):
+    CONSTR_ID = 2
+    a: int
+    b: int
+
+def validator(_: Union[Union[A, B], C]) -> None:
+    pass
+        """
+        try:
+            builder._compile(source_code)
+            self.fail(
+                "Compile worked, but should have failed due to duplicate constructor ids"
+            )
+        except CompilerError as e:
+            self.assertIn(
+                "constr_id",
+                str(e).lower(),
+                "Expected error about duplicate constructor ids not found",
+            )
+
+    def test_nested_union_message(self):
+        """
+        Test that duplicate constructor ids in nested unions are rejected correctly
+        """
+        source_code = """
+from opshin.prelude import *
+
+@dataclass()
+class A(PlutusData):
+    CONSTR_ID = 1
+    a: bytes
+
+@dataclass()
+class B(PlutusData):
+    CONSTR_ID = 2
+    a: int
+    b: int
+
+@dataclass()
+class C(PlutusData):
+    CONSTR_ID = 3
+    a: int
+    b: int
+
+def validator(x: Union[Union[A, B], C]) -> None:
+    assert isinstance(x, C)
+        """
+
+        @dataclass()
+        class A(PlutusData):
+            CONSTR_ID = 1
+            a: bytes
+
+        @dataclass()
+        class B(PlutusData):
+            CONSTR_ID = 2
+            a: int
+            b: int
+
+        @dataclass()
+        class C(PlutusData):
+            CONSTR_ID = 3
+            a: int
+            b: int
+
+        try:
+            eval_uplc(source_code, A(b"test"))
+            self.fail("Should have failed to execute due to type mismatch")
+        except RuntimeError as e:
+            pass
+        try:
+            eval_uplc(source_code, B(1, 2))
+            self.fail("Should have failed to execute due to type mismatch")
+        except RuntimeError as e:
+            pass
+        eval_uplc(source_code, C(1, 2))
