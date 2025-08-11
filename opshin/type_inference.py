@@ -162,6 +162,26 @@ def intersection_types(*ts: Type):
     return UnionType(frozenlist(intersection_set))
 
 
+def find_max_type(elts: typing.List[InstanceType]):
+    set_elts = OrderedSet(elts)
+    max_typ = None
+    for m in elts:
+        l_typ = m.typ
+        if all(l_typ >= e.typ for e in set_elts):
+            max_typ = l_typ
+            break
+    if max_typ is None:
+        # try to derive a union type
+        try:
+            max_typ = InstanceType(union_types(*(e.typ.typ for e in set_elts)))
+        except AssertionError:
+            # if this fails, we have a list with incompatible types
+            raise ValueError(
+                f"All elements must have a compatible type, found typs {tuple(e.typ.python_type() for e in elts)}"
+            )
+    return max_typ
+
+
 class TypeCheckVisitor(TypedNodeVisitor):
     """
     Generates the types to which objects are cast due to a boolean expression
@@ -576,23 +596,24 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
     def visit_List(self, node: List) -> TypedList:
         tt = copy(node)
         tt.elts = [self.visit(e) for e in node.elts]
-        l_typ = tt.elts[0].typ
         assert all(
-            l_typ >= e.typ for e in tt.elts
-        ), f"All elements of a list must have the same type, has typs {tuple(e.typ for e in tt.elts)}"
-        tt.typ = InstanceType(ListType(l_typ))
+            isinstance(e.typ, InstanceType) for e in tt.elts
+        ), f"All list elements must be instances of a class, found class types {', '.join(e.typ.python_type() for e in tt.elts if not isinstance(e.typ, InstanceType))}"
+        # try to derive a max type
+        max_typ = find_max_type(tt.elts)
+        tt.typ = InstanceType(ListType(max_typ))
         return tt
 
     def visit_Dict(self, node: Dict) -> TypedDict:
         tt = copy(node)
         tt.keys = [self.visit(k) for k in node.keys]
         tt.values = [self.visit(v) for v in node.values]
-        k_typ = tt.keys[0].typ
-        assert all(k_typ >= k.typ for k in tt.keys), "All keys must have the same type"
-        v_typ = tt.values[0].typ
         assert all(
-            v_typ >= v.typ for v in tt.values
-        ), "All values must have the same type"
+            isinstance(e.typ, InstanceType) for e in tt.keys
+        ), f"All keys of a dict must be instances of a class, found class types {', '.join(e.typ.python_type() for e in tt.keys if not isinstance(e.typ, InstanceType))}"
+        # try to derive a max type
+        k_typ = find_max_type(tt.keys)
+        v_typ = find_max_type(tt.values)
         tt.typ = InstanceType(DictType(k_typ, v_typ))
         return tt
 
@@ -1014,8 +1035,8 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             if not isinstance(ts.slice, Slice):
                 ts.slice = self.visit(node.slice)
                 assert (
-                    ts.slice.typ == ts.value.typ.typ.key_typ
-                ), f"Dict subscript must have dict key type {ts.value.typ.typ.key_typ} but has type {ts.slice.typ}"
+                    ts.value.typ.typ.key_typ >= ts.slice.typ
+                ), f"Dict subscript must have dict key type {ts.value.typ.typ.key_typ.python_type()} but has type {ts.slice.typ.python_type()}"
                 ts.typ = ts.value.typ.typ.value_typ
             else:
                 raise TypeInferenceError(
@@ -1023,7 +1044,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                 )
         else:
             raise TypeInferenceError(
-                f"Could not infer type of subscript of typ {ts.value.typ.__class__}"
+                f"Could not infer type of subscript of typ {ts.value.typ.python_type()}"
             )
         return ts
 
@@ -1424,7 +1445,7 @@ class ReturnExtractor(TypedNodeVisitor):
     def visit_Return(self, node: Return) -> bool:
         assert (
             self.func_rettyp >= node.typ
-        ), f"Function annotated return type does not match actual return type"
+        ), f"Function annotated return type does not match actual return type, expected {self.func_rettyp.python_type()} but got {node.typ.python_type()}"
         return True
 
     def check_fulfills(self, node: FunctionDef):
