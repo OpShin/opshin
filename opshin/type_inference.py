@@ -146,7 +146,16 @@ def union_types(*ts: Type):
             for e in union_set
             if not isinstance(e, (ByteStringType, IntegerType, ListType, DictType))
         ]
-    ), "Union must combine PlutusData classes with unique constructors"
+    ), (
+        "Union must combine PlutusData classes with unique CONSTR_ID, but found duplicates: "
+        + str(
+            {
+                e.record.orig_name: e.record.constructor
+                for e in union_set
+                if isinstance(e, RecordType)
+            }
+        )
+    )
     return UnionType(frozenlist(union_set))
 
 
@@ -445,20 +454,31 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                 ann_types = frozenlist(
                     [self.type_from_annotation(e) for e in ann.slice.elts]
                 )
+                # flatten encountered union types
+                ann_types = frozenlist(
+                    sum(
+                        (
+                            tuple(t.typs) if isinstance(t, UnionType) else (t,)
+                            for t in ann_types
+                        ),
+                        start=(),
+                    )
+                )
                 # check for unique constr_ids
                 constr_ids = [
                     record.record.constructor
                     for record in ann_types
                     if isinstance(record, RecordType)
                 ]
-                assert len(constr_ids) == len(
-                    set(constr_ids)
-                ), f"Duplicate constr_ids for records in Union: " + str(
-                    {
-                        t.record.orig_name: t.record.constructor
-                        for t in ann_types
-                        if isinstance(t, RecordType)
-                    }
+                assert len(constr_ids) == len(set(constr_ids)), (
+                    "Union must combine PlutusData classes with unique CONSTR_ID, but found duplicates: "
+                    + str(
+                        {
+                            e.record.orig_name: e.record.constructor
+                            for e in ann_types
+                            if isinstance(e, RecordType)
+                        }
+                    )
                 )
                 return union_types(*ann_types)
             if ann.value.orig_id == "List":

@@ -804,7 +804,7 @@ def validator(_: Union[Union[A, B], C]) -> None:
             )
         except CompilerError as e:
             self.assertIn(
-                "constructor",
+                "constr_id",
                 str(e).lower(),
                 "Expected error about duplicate constructor ids not found",
             )
