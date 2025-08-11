@@ -215,9 +215,7 @@ class OptimizeUnionExpansion(CompilingNodeTransformer):
                     self.is_Union_annotation(arg.annotation) for arg in stmt.args.args
                 ]
                 # number prefix here should guarantee naming uniqueness
-                new_funcs = self.split_functions(
-                    stmt, args, {}, "0_" + stmt.name + "_eut"
-                )
+                new_funcs = self.split_functions(stmt, args, {}, stmt.name + "+")
                 # track variants
                 new_body[-1].expanded_variants = [f.name for f in new_funcs]
                 new_body.extend(new_funcs)
