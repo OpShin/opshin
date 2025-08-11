@@ -887,18 +887,45 @@ class UnionType(ClassType):
 
     def stringify(self, recursive: bool = False) -> plt.AST:
         decide_string_func = plt.TraceError("Invalid constructor id in Union")
+        contains_non_record = False
         for t in self.typs:
+            if not isinstance(t, RecordType):
+                contains_non_record = True
+                continue
             decide_string_func = plt.Ite(
                 plt.EqualsInteger(OVar("c"), plt.Integer(t.record.constructor)),
                 t.stringify(recursive=True),
                 decide_string_func,
             )
+        decide_string_func = OLet(
+            [("c", plt.Constructor(OVar("self")))],
+            plt.Apply(decide_string_func, OVar("self")),
+        )
+        if contains_non_record:
+            decide_string_func = plt.DelayedChooseData(
+                OVar("self"),
+                decide_string_func,
+                plt.Apply(
+                    DictType(
+                        InstanceType(AnyType()), InstanceType(AnyType())
+                    ).stringify(recursive=True),
+                    plt.UnMapData(OVar("self")),
+                ),
+                plt.Apply(
+                    ListType(InstanceType(AnyType())).stringify(recursive=True),
+                    plt.UnListData(OVar("self")),
+                ),
+                plt.Apply(
+                    IntegerType().stringify(recursive=True), plt.UnIData(OVar("self"))
+                ),
+                plt.Apply(
+                    ByteStringType().stringify(recursive=True),
+                    plt.UnBData(OVar("self")),
+                ),
+            )
         return OLambda(
             ["self"],
-            OLet(
-                [("c", plt.Constructor(OVar("self")))],
-                plt.Apply(decide_string_func, OVar("self")),
-            ),
+            decide_string_func,
         )
 
     def copy_only_attributes(self) -> plt.AST:
