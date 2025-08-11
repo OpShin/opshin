@@ -116,7 +116,7 @@ class A(PlutusData):
     CONSTR_ID = 0
     foo: int
 
-def validator(x: int) -> int:
+def validator(x: int) -> Union[int, bytes]:
     l = [10, b"hello"]
     return l[x]
 """

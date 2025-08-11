@@ -584,10 +584,18 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                 max_typ = l_typ
                 break
         if max_typ is None:
-            raise ValueError(
-                f"All elements of a list must have a compatible type, has typs {tuple(e.typ.python_type() for e in tt.elts)}"
-            )
-        tt.typ = InstanceType(ListType(l_typ))
+            # try to derive a union type
+            try:
+                assert all(
+                    isinstance(e.typ, InstanceType) for e in tt.elts
+                ), "All elements of a list must be instances of a class"
+                max_typ = InstanceType(union_types(*(e.typ.typ for e in tt.elts)))
+            except AssertionError:
+                # if this fails, we have a list with incompatible types
+                raise ValueError(
+                    f"All elements of a list must have a compatible type, has typs {tuple(e.typ.python_type() for e in tt.elts)}"
+                )
+        tt.typ = InstanceType(ListType(max_typ))
         return tt
 
     def visit_Dict(self, node: Dict) -> TypedDict:
@@ -1431,7 +1439,7 @@ class ReturnExtractor(TypedNodeVisitor):
     def visit_Return(self, node: Return) -> bool:
         assert (
             self.func_rettyp >= node.typ
-        ), f"Function annotated return type does not match actual return type"
+        ), f"Function annotated return type does not match actual return type, expected {self.func_rettyp.python_type()} but got {node.typ.python_type()}"
         return True
 
     def check_fulfills(self, node: FunctionDef):
