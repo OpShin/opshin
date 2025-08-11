@@ -103,3 +103,105 @@ def validator(x: Union[int, bytes]) -> Union[int, bytes]:
     # primarily test that this does not fail to compile
     res = eval_uplc_value(source_code, 5)
     assert res == 5
+
+
+def test_type_inference_list_3():
+    source_code = """
+from dataclasses import dataclass
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
+
+@dataclass()
+class A(PlutusData):
+    CONSTR_ID = 0
+    foo: int
+
+def validator(x: int) -> int:
+    l = [10, b"hello"]
+    return l[x]
+"""
+    # primarily test that this does not fail to compile
+    res = eval_uplc_value(source_code, 0)
+    assert res == 10
+    res = eval_uplc_value(source_code, 1)
+    assert res == b"hello"
+
+
+def test_type_inference_dict():
+    source_code = """
+from dataclasses import dataclass
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
+
+@dataclass()
+class A(PlutusData):
+    CONSTR_ID = 0
+    foo: int
+
+def validator(x: Union[int, bytes]) -> Union[int, bytes]:
+    l = {1: x, 2: 10, 3: b"hello"}
+    return l[2]
+"""
+    # primarily test that this does not fail to compile
+    res = eval_uplc_value(source_code, 5)
+    assert res == 10
+
+
+def test_type_inference_dict_2():
+    source_code = """
+from dataclasses import dataclass
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
+
+@dataclass()
+class A(PlutusData):
+    CONSTR_ID = 0
+    foo: int
+
+def validator(x: Union[int, bytes]) -> Union[int, bytes]:
+    l = {1: 10, 2: x, 3: b"hello"}
+    return l[1]
+"""
+    # primarily test that this does not fail to compile
+    res = eval_uplc_value(source_code, 5)
+    assert res == 10
+
+
+def test_type_inference_dict_3():
+    source_code = """
+from dataclasses import dataclass
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
+
+@dataclass()
+class A(PlutusData):
+    CONSTR_ID = 0
+    foo: int
+
+def validator(x: Union[int, bytes]) -> Union[int, bytes]:
+    l = {1: 10, x: 20, b"hi": 30}
+    return l[1]
+"""
+    # primarily test that this does not fail to compile
+    res = eval_uplc_value(source_code, 5)
+    assert res == 10
+
+
+def test_type_inference_dict_4():
+    source_code = """
+from dataclasses import dataclass
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
+
+@dataclass()
+class A(PlutusData):
+    CONSTR_ID = 0
+    foo: int
+
+def validator(x: Union[int, bytes]) -> Union[int, bytes]:
+    l = {x: 10, 2: 20, b"hi": 30}
+    return l[2]
+"""
+    # primarily test that this does not fail to compile
+    res = eval_uplc_value(source_code, 5)
+    assert res == 20

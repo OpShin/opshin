@@ -1022,7 +1022,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                 ts.slice = self.visit(node.slice)
                 assert (
                     ts.slice.typ == ts.value.typ.typ.key_typ
-                ), f"Dict subscript must have dict key type {ts.value.typ.typ.key_typ} but has type {ts.slice.typ}"
+                ), f"Dict subscript must have dict key type {ts.value.typ.typ.key_typ.python_type()} but has type {ts.slice.typ.python_type()}"
                 ts.typ = ts.value.typ.typ.value_typ
             else:
                 raise TypeInferenceError(
@@ -1030,7 +1030,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                 )
         else:
             raise TypeInferenceError(
-                f"Could not infer type of subscript of typ {ts.value.typ.__class__}"
+                f"Could not infer type of subscript of typ {ts.value.typ.python_type()}"
             )
         return ts
 
