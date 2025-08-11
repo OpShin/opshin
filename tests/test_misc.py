@@ -11,6 +11,7 @@ import unittest
 import frozendict
 import frozenlist2
 import hypothesis
+import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 from parameterized import parameterized
@@ -1120,6 +1121,9 @@ def validator(c: ScriptContext) -> str:
         """
         res = eval_uplc_value(source_code, context)
         # should not raise
+        from pycardano import RawPlutusData  # noqa: F401
+        from cbor2 import CBORTag  # noqa: F401
+
         eval(res)
 
     @hypothesis.given(st.binary(), st.binary())
