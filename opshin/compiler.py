@@ -926,9 +926,14 @@ class PlutoCompiler(CompilingNodeTransformer):
     def visit_List(self, node: TypedList) -> plt.AST:
         assert isinstance(node.typ, InstanceType)
         assert isinstance(node.typ.typ, ListType)
-        l = empty_list(node.typ.typ.typ)
+        el_typ = node.typ.typ.typ
+        l = empty_list(el_typ)
         for e in reversed(node.elts):
-            l = plt.MkCons(self.visit(e), l)
+            element = self.visit(e)
+            if isinstance(el_typ.typ, AnyType) or isinstance(el_typ.typ, UnionType):
+                # if the function expects input of generic type data, wrap data before passing it inside
+                element = transform_output_map(e.typ)(element)
+            l = plt.MkCons(element, l)
         return l
 
     def visit_Dict(self, node: TypedDict) -> plt.AST:
