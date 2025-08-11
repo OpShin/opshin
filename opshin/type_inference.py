@@ -133,11 +133,11 @@ def union_types(*ts: Type):
     assert ts, "Union must combine multiple classes"
     # flatten encountered union types
     all_ts = []
-    to_process = list(ts)
+    to_process = list(reversed(ts))
     while to_process:
         t = to_process.pop()
         if isinstance(t, UnionType):
-            to_process.extend(t.typs)
+            to_process = to_process.extend(reversed(t.typs))
         else:
             assert isinstance(
                 t, (RecordType, IntegerType, ByteStringType, ListType, DictType)
