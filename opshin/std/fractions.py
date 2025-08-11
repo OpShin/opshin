@@ -1,7 +1,23 @@
 """
 An implementation of fractions in opshin
-This does not maintain smallest possible notation invariants for the sake of efficiency
+
+Fractions internally are represented as a pair of integers (numerator, denominator).
+The representation in OpShin does not maintain smallest possible notation invariants for the sake of efficiency
 - the user has full control over when to normalize the fractions and should do so using norm_fraction
+
+Fractions support all arithmetic operations, comparisons, and some additional methods like ceil, you can even use them with integers.
+For example, you can do:
+```
+from opshin.std.fractions import *
+a = Fraction(1, 2)
+b = Fraction(3, 4)
+c = a + b  # c is Fraction(5, 4)
+d = a * 2  # d is Fraction(2, 2)
+d.norm()  # d is Fraction(1, 1)
+e = a.ceil()  # e is Fraction(1, 1)
+f = a > b  # f is False
+```
+
 """
 
 from dataclasses import dataclass
@@ -25,6 +41,9 @@ class Fraction(PlutusData):
         return (
             self.numerator + self.denominator - sign(self.denominator)
         ) // self.denominator
+
+    def floor(self) -> int:
+        return (self.numerator) // self.denominator
 
     def __add__(self, other: Union["Fraction", int]) -> "Fraction":
         """returns self + other"""
@@ -196,3 +215,7 @@ def norm_fraction(a: Fraction) -> Fraction:
 
 def ceil_fraction(a: Fraction) -> int:
     return (a.numerator + a.denominator - sign(a.denominator)) // a.denominator
+
+
+def floor_fraction(a: Fraction) -> int:
+    return a.numerator // a.denominator
