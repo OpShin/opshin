@@ -2519,7 +2519,6 @@ class B(PlutusData):
     d: Dict[bytes, C]
     e: Union[A, C]
     
-@dataclass
 def validator(_: None) -> int:
     return B(1, A(1, b"", [1, 2]), {b"": C(Nothing())}, C(Nothing())).CONSTR_ID
     """

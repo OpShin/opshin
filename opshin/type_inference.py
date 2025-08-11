@@ -859,7 +859,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         )
         assert (
             not node.decorator_list or wraps_builtin
-        ), f"Functions may not have decorators other than literal @wraps_builtin, found other decorators at {node.name}."
+        ), f"Functions may not have decorators other than literal @wraps_builtin, found other decorators at {node.orig_name}."
         for i, arg in enumerate(node.args.args):
             if hasattr(arg.annotation, "idSelf"):
                 tfd.args.args[i].annotation.id = tfd.args.args[0].annotation.id
