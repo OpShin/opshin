@@ -802,17 +802,9 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                 if not v in ["List", "Dict"]
             }
             if bv != tfd.typ.typ.bound_vars:
-                functyp = FunctionType(
-                    frozenlist([t.typ for t in tfd.args.args]),
-                    InstanceType(self.type_from_annotation(tfd.returns)),
-                    bound_vars={
-                        v: self.variable_type(v)
-                        for v in externally_bound_vars(node)
-                        if not v in ["List", "Dict"]
-                    },
-                    bind_self=node.name if node.name in read_vars(node) else None,
-                )
-                tfd.typ = InstanceType(functyp)
+                # node was modified in place, so we can simply rerun visit_FunctionDef
+                self.exit_scope()
+                return self.visit_FunctionDef(node)
             # Check that return type and annotated return type match
             rets_extractor = ReturnExtractor(functyp.rettyp)
             rets_extractor.check_fulfills(tfd)
