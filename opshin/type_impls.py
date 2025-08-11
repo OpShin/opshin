@@ -897,13 +897,14 @@ class UnionType(ClassType):
                 t.stringify(recursive=True),
                 decide_string_func,
             )
+        decide_string_func = OLet(
+            [("c", plt.Constructor(OVar("self")))],
+            plt.Apply(decide_string_func, OVar("self")),
+        )
         if contains_non_record:
             decide_string_func = plt.DelayedChooseData(
                 OVar("self"),
-                OLet(
-                    [("c", plt.Constructor(OVar("self")))],
-                    plt.Apply(decide_string_func, OVar("self")),
-                ),
+                decide_string_func,
                 plt.Apply(
                     DictType(
                         InstanceType(AnyType()), InstanceType(AnyType())
