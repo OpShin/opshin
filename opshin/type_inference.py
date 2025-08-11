@@ -1073,7 +1073,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                 k: v
                 for scope in self.scopes
                 for k, v in scope.items()
-                if k.startswith(f"{node.func.orig_id}_eut")
+                if k.startswith(f"0_{node.func.orig_id}_eut")
             }
             for k, v in expanded_unions.items():
                 argtyps = v.typ.argtyps

@@ -16,6 +16,7 @@ def type_to_suffix(typ: expr) -> str:
         return "UnknownType"
     return (
         raw.replace(" ", "")
+        .replace("__", "___")
         .replace("[", "_l_")
         .replace("]", "_r_")
         .replace(",", "_c_")
@@ -213,7 +214,10 @@ class OptimizeUnionExpansion(CompilingNodeTransformer):
                 args = [
                     self.is_Union_annotation(arg.annotation) for arg in stmt.args.args
                 ]
-                new_funcs = self.split_functions(stmt, args, {}, stmt.name + "_eut")
+                # number prefix here should guarantee naming uniqueness
+                new_funcs = self.split_functions(
+                    stmt, args, {}, "0_" + stmt.name + "_eut"
+                )
                 # track variants
                 new_body[-1].expanded_variants = [f.name for f in new_funcs]
                 new_body.extend(new_funcs)
