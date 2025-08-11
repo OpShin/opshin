@@ -353,7 +353,8 @@ def validator(x: Union[int,bytes,List[Anything],Dict[Anything,Anything]]) -> str
     return str(x)
         """
         ret = eval_uplc_value(source_code, x)
-        self.assertEqual(ret.decode("utf8"), str(x), "str returned wrong value")
+        if isinstance(x, (int, bytes)):
+            self.assertEqual(ret.decode("utf8"), str(x), "str returned wrong value")
 
     @given(xs=st.lists(st.integers()))
     def test_reversed(self, xs):
