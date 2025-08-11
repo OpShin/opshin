@@ -791,7 +791,7 @@ class PlutoCompiler(CompilingNodeTransformer):
                                 OLambda(
                                     ["x"],
                                     plt.EqualsData(
-                                        transform_output_map(dict_typ.key_typ)(
+                                        transform_output_map(node.slice.typ)(
                                             OVar("key")
                                         ),
                                         plt.FstPair(OVar("x")),
@@ -945,10 +945,10 @@ class PlutoCompiler(CompilingNodeTransformer):
         for k, v in zip(node.keys, node.values):
             l = plt.MkCons(
                 plt.MkPairData(
-                    transform_output_map(key_type)(
+                    transform_output_map(k.typ)(
                         self.visit(k),
                     ),
-                    transform_output_map(value_type)(
+                    transform_output_map(v.typ)(
                         self.visit(v),
                     ),
                 ),

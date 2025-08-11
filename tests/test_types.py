@@ -205,3 +205,23 @@ def validator(x: Union[int, bytes]) -> Union[int, bytes]:
     # primarily test that this does not fail to compile
     res = eval_uplc_value(source_code, 5)
     assert res == 20
+
+
+def test_type_inference_dict_5():
+    source_code = """
+from dataclasses import dataclass
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
+
+@dataclass()
+class A(PlutusData):
+    CONSTR_ID = 0
+    foo: int
+
+def validator(x: Union[int, bytes]) -> Union[int, bytes]:
+    l = {x: 10, 2: 20, b"hi": 30}
+    return l[x]
+"""
+    # primarily test that this does not fail to compile
+    res = eval_uplc_value(source_code, 5)
+    assert res == 10
