@@ -70,6 +70,10 @@ class RewriteImport(CompilingNodeTransformer):
         self.package = package
         self.resolved_imports = resolved_imports or OrderedSet()
 
+    def visit_Import(self, node):
+        error_msg = f"The import must have the form 'from <pkg> import *' or import from one of the special modules {', '.join(SPECIAL_IMPORTS)}"
+        raise SyntaxError(error_msg)
+
     def visit_ImportFrom(
         self, node: ImportFrom
     ) -> typing.Union[ImportFrom, typing.List[AST], None]:
