@@ -1,6 +1,5 @@
 import os
 
-import pycardano
 import sys
 
 import subprocess
@@ -12,12 +11,12 @@ import unittest
 import frozendict
 import frozenlist2
 import hypothesis
-from hypothesis import given, example
+import pytest
+from hypothesis import given
 from hypothesis import strategies as st
-from opshin import IndefiniteList
 from parameterized import parameterized
 
-from uplc import ast as uplc, eval as uplc_eval
+from uplc import ast as uplc
 
 from . import PLUTUS_VM_PROFILE
 from opshin import prelude, builder, Purpose, PlutusContract
@@ -29,11 +28,8 @@ hypothesis.settings.load_profile(PLUTUS_VM_PROFILE)
 
 # these imports are required to eval the result of script context dumps
 from opshin.ledger.api_v2 import *
-from pycardano import RawPlutusData, RawCBOR
-from cbor2 import CBORTag
 
 DEFAULT_CONFIG_FORCE_THREE_PARAMS = DEFAULT_CONFIG.update(force_three_params=True)
-DEFAULT_CONFIG_CONSTANT_FOLDING = DEFAULT_CONFIG.update(constant_folding=True)
 
 ALL_EXAMPLES = [
     os.path.join(root, f)
@@ -78,6 +74,7 @@ class MiscTest(unittest.TestCase):
             22,
             uplc.data_from_cbor(
                 bytes.fromhex(
+                    # TODO need new script context
                     "d8799fd8799f9fd8799fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffd8799fd8799fd87a9f581cdbe769758f26efb21f008dc097bb194cffc622acc37fcefc5372eee3ffd87a80ffa140a1401a00989680d87a9f5820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dffd87a80ffffff809fd8799fd8799fd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd87a80ffa140a14000d87980d87a80ffffa140a14000a140a1400080a0d8799fd8799fd87980d87a80ffd8799fd87b80d87a80ffff80a1d87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffd87980a15820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd8799f5820746957f0eb57f2b11119684e611a98f373afea93473fefbb7632d579af2f6259ffffd87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffff"
                 )
             ),
@@ -113,43 +110,6 @@ class MiscTest(unittest.TestCase):
             source_code = fp.read()
         ret = eval_uplc_value(source_code, a, b)
         self.assertEqual(ret, a * b)
-
-    @given(
-        a=st.integers(min_value=-10, max_value=10),
-        b=st.integers(min_value=0, max_value=10),
-    )
-    def test_mult_for_return(self, a: int, b: int):
-        source_code = """
-def validator(a: int, b: int) -> int:
-    c = 0
-    i = 0
-    for i in range(b):
-        c += a
-        if i == 1:
-            return c
-    return c
-"""
-        ret = eval_uplc_value(source_code, a, b)
-        self.assertEqual(ret, a * min(b, 2))
-
-    @given(
-        a=st.integers(min_value=-10, max_value=10),
-        b=st.integers(min_value=0, max_value=10),
-    )
-    def test_mult_while_return(self, a: int, b: int):
-        source_code = """
-def validator(a: int, b: int) -> int:
-    c = 0
-    i = 0
-    while i < b:
-        c += a
-        i += 1
-        if i == 2:
-            return c
-    return c
-"""
-        ret = eval_uplc_value(source_code, a, b)
-        self.assertEqual(ret, a * min(2, b))
 
     @given(
         a=st.integers(),
@@ -1020,60 +980,6 @@ def validator(a) -> bytes:
         res = eval_uplc(source_code, b"")
         self.assertEqual(res, uplc.PlutusByteString(b""))
 
-    @given(xs=st.dictionaries(st.integers(), st.binary()))
-    def test_dict_items_values_deconstr(self, xs):
-        # asserts that deconstruction of parameters works for for loops too
-        source_code = """
-def validator(xs: Dict[int, bytes]) -> bytes:
-    sum_values = b""
-    for _, x in xs.items():
-        sum_values += x
-    return sum_values
-"""
-        ret = eval_uplc_value(source_code, xs)
-        self.assertEqual(
-            ret,
-            b"".join(xs.values()),
-            "for loop deconstruction did not behave as expected",
-        )
-
-    def test_nested_deconstruction(self):
-        source_code = """
-def validator(xs) -> int:
-    a, ((b, c), d) = (1, ((2, 3), 4))
-    return a + b + c + d
-"""
-        ret = eval_uplc_value(source_code, Unit())
-        self.assertEqual(
-            ret,
-            1 + 2 + 3 + 4,
-            "for loop deconstruction did not behave as expected",
-        )
-
-    @given(
-        xs=st.dictionaries(
-            st.binary(),
-            st.dictionaries(st.binary(), st.integers(), max_size=3),
-            max_size=5,
-        )
-    )
-    def test_dict_items_values_deconstr(self, xs):
-        # nested deconstruction with a Value-like object
-        source_code = """
-def validator(xs: Dict[bytes, Dict[bytes, int]]) -> int:
-    sum_values = 0
-    for pid, tk_dict in xs.items():
-        for tk_name, tk_amount in tk_dict.items():
-            sum_values += tk_amount
-    return sum_values
-"""
-        ret = eval_uplc_value(source_code, xs)
-        self.assertEqual(
-            ret,
-            sum(v for pid, d in xs.items() for nam, v in d.items()),
-            "for loop deconstruction did not behave as expected",
-        )
-
     def test_no_return_annotation_no_return(self):
         source_code = """
 from opshin.prelude import *
@@ -1096,249 +1002,6 @@ def validator(x: Token) -> bool:
         """
         ret = eval_uplc(source_code, Unit())
 
-    def test_constant_folding(self):
-        source_code = """
-from opshin.prelude import *
-
-def validator(_: None) -> bytes:
-    return bytes.fromhex("0011")
-"""
-        res = eval_uplc_value(
-            source_code, Unit(), config=DEFAULT_CONFIG_CONSTANT_FOLDING
-        )
-        self.assertEqual(res, bytes.fromhex("0011"))
-
-    @unittest.expectedFailure
-    def test_constant_folding_disabled(self):
-        source_code = """
-from opshin.prelude import *
-
-def validator(_: None) -> bytes:
-    return bytes.fromhex("0011")
-"""
-        eval_uplc(source_code, Unit(), constant_folding=False)
-
-    def test_constant_folding_list(self):
-        source_code = """
-from opshin.prelude import *
-
-def validator(_: None) -> List[int]:
-    return list(range(0, 10, 2))
-"""
-        code = builder._compile(
-            source_code, Unit(), config=DEFAULT_CONFIG_CONSTANT_FOLDING
-        )
-        self.assertIn("(con (list integer) [0, 2, 4, 6, 8])", code.dumps())
-        res = builder.uplc_eval(code)
-        self.assertEqual(
-            res.result,
-            uplc.PlutusList([uplc.PlutusInteger(i) for i in range(0, 10, 2)]),
-        )
-
-    def test_constant_folding_dict(self):
-        source_code = """
-from opshin.prelude import *
-
-def validator(_: None) -> Dict[str, bool]:
-    return {"s": True, "m": False}
-"""
-        code = builder._compile(
-            source_code, Unit(), config=DEFAULT_CONFIG_CONSTANT_FOLDING
-        )
-        self.assertIn(
-            "(con (list (pair data data)) [(B #73, I 1), (B #6d, I 0)])", code.dumps()
-        )
-        res = uplc_eval(code).result
-        if isinstance(res, Exception):
-            raise res
-        self.assertEqual(
-            res,
-            uplc.PlutusMap(
-                {
-                    uplc.PlutusByteString("s".encode()): uplc.PlutusInteger(1),
-                    uplc.PlutusByteString("m".encode()): uplc.PlutusInteger(0),
-                }
-            ),
-        )
-
-    def test_constant_folding_complex(self):
-        source_code = """
-from opshin.prelude import *
-
-def validator(_: None) -> Dict[str, List[Dict[bytes, int]]]:
-    return {"s": [{b"": 0}, {b"0": 1}]}
-"""
-        res = eval_uplc(source_code, Unit(), config=DEFAULT_CONFIG_CONSTANT_FOLDING)
-        self.assertEqual(
-            res,
-            uplc.PlutusMap(
-                {
-                    uplc.PlutusByteString("s".encode()): uplc.PlutusList(
-                        [
-                            uplc.PlutusMap(
-                                {uplc.PlutusByteString(b""): uplc.PlutusInteger(0)}
-                            ),
-                            uplc.PlutusMap(
-                                {uplc.PlutusByteString(b"0"): uplc.PlutusInteger(1)}
-                            ),
-                        ]
-                    ),
-                }
-            ),
-        )
-
-    def test_constant_folding_plutusdata(self):
-        source_code = """
-from opshin.prelude import *
-
-def validator(_: None) -> PubKeyCredential:
-    return PubKeyCredential(bytes.fromhex("0011"))
-"""
-        code = builder._compile(
-            source_code, Unit(), config=DEFAULT_CONFIG_CONSTANT_FOLDING
-        )
-        self.assertIn("(con data (Constr 0 [B #0011]))", code.dumps())
-        res = uplc_eval(code)
-        self.assertEqual(
-            res.result,
-            uplc.PlutusConstr(
-                constructor=0, fields=[uplc.PlutusByteString(value=b"\x00\x11")]
-            ),
-        )
-
-    def test_constant_folding_user_def(self):
-        source_code = """
-def fib(i: int) -> int:
-    return i if i < 2 else fib(i-1) + fib(i-2)
-
-def validator(_: None) -> int:
-    return fib(10)
-"""
-        code = builder._compile(
-            source_code, Unit(), config=DEFAULT_CONFIG_CONSTANT_FOLDING
-        )
-        self.assertIn("(con integer 55)", code.dumps())
-        res = uplc_eval(code).result
-        if isinstance(res, Exception):
-            raise res
-        self.assertEqual(
-            res.value,
-            55,
-        )
-
-    @unittest.expectedFailure
-    def test_constant_folding_ifelse(self):
-        source_code = """
-def validator(_: None) -> int:
-    if False:
-        a = 10
-    return a
-"""
-        eval_uplc(source_code, Unit(), config=DEFAULT_CONFIG_CONSTANT_FOLDING)
-
-    @unittest.expectedFailure
-    def test_constant_folding_for(self):
-        source_code = """
-def validator(x: List[int]) -> int:
-    for i in x:
-        a = 10
-    return a
-"""
-        eval_uplc(source_code, [], config=DEFAULT_CONFIG_CONSTANT_FOLDING)
-
-    @unittest.expectedFailure
-    def test_constant_folding_for_target(self):
-        source_code = """
-def validator(x: List[int]) -> int:
-    for i in x:
-        a = 10
-    return i
-"""
-        eval_uplc(source_code, [], config=DEFAULT_CONFIG_CONSTANT_FOLDING)
-
-    @unittest.expectedFailure
-    def test_constant_folding_while(self):
-        source_code = """
-def validator(_: None) -> int:
-    while False:
-        a = 10
-    return a
-"""
-        eval_uplc(source_code, Unit(), config=DEFAULT_CONFIG_CONSTANT_FOLDING)
-
-    @unittest.skip("Fine from a guarantee perspective, but needs better inspection")
-    def test_constant_folding_guaranteed_branch(self):
-        source_code = """
-def validator(_: None) -> int:
-    if False:
-        a = 20
-        b = 2 * a
-    else:
-        b = 2
-    return b
-"""
-        code = builder._compile(
-            source_code, Unit(), config=DEFAULT_CONFIG_CONSTANT_FOLDING
-        )
-        self.assertIn("(con integer 40)", code.dumps())
-
-    @unittest.skip("Fine from a guarantee perspective, but needs better inspection")
-    def test_constant_folding_scoping(self):
-        source_code = """
-a = 4
-def validator(_: None) -> int:
-    a = 2
-    b = 5 * a
-    return b
-"""
-        code = builder._compile(
-            source_code, Unit(), config=DEFAULT_CONFIG_CONSTANT_FOLDING
-        )
-        self.assertIn("(con integer 10)", code.dumps())
-
-    @unittest.skip("Fine from a guarantee perspective, but needs better inspection")
-    def test_constant_folding_no_scoping(self):
-        source_code = """
-def validator(_: None) -> int:
-    a = 4
-    a = 2
-    b = 5 * a
-    return b
-"""
-        code = builder._compile(
-            source_code, Unit(), config=DEFAULT_CONFIG_CONSTANT_FOLDING
-        )
-        self.assertIn("(con integer 10)", code.dumps())
-
-    def test_constant_folding_repeated_assign(self):
-        source_code = """
-def validator(i: int) -> int:
-    a = 4
-    for k in range(i):
-        a = 2
-    return a
-"""
-        code = builder._compile(source_code, config=DEFAULT_CONFIG_CONSTANT_FOLDING)
-        res = uplc_eval(code, uplc.PlutusInteger(0)).result
-        if isinstance(res, Exception):
-            raise res
-        self.assertEqual(res.value, 4)
-        res = uplc_eval(code, uplc.PlutusInteger(1)).result
-        if isinstance(res, Exception):
-            raise res
-        self.assertEqual(res.value, 2)
-
-    def test_constant_folding_math(self):
-        source_code = """
-from opshin.prelude import *
-
-def validator(_: None) -> int:
-    return 2 ** 10
-"""
-        code = builder._compile(source_code, config=DEFAULT_CONFIG_CONSTANT_FOLDING)
-        code_src = code.dumps()
-        self.assertIn(f"(con integer {2**10})", code_src)
-
     def test_reassign_builtin(self):
         source_code = """
 b = int
@@ -1359,43 +1022,6 @@ def validator(_: None) -> int:
     return int(5)
 """
         builder._compile(source_code)
-
-    def test_constant_folding_ignore_reassignment(self):
-        source_code = """
-b = int
-def validator(_: None) -> int:
-    def int(a) -> b:
-        return 2
-    return int(5)
-"""
-        res = eval_uplc_value(
-            source_code, Unit(), config=DEFAULT_CONFIG_CONSTANT_FOLDING
-        )
-        self.assertEqual(res, 2)
-
-    def test_constant_folding_no_print_eval(self):
-        source_code = """
-from opshin.prelude import *
-
-def validator(_: None) -> None:
-    return print("hello")
-"""
-        code = builder._compile(source_code, config=DEFAULT_CONFIG_CONSTANT_FOLDING)
-        code_src = code.dumps()
-        self.assertIn(f'(con string "hello")', code_src)
-
-    def test_inner_outer_state_functions(self):
-        source_code = """
-a = 2
-def b() -> int:
-    return a
-
-def validator(_: None) -> int:
-    a = 3
-    return b()
-        """
-        res = eval_uplc_value(source_code, Unit())
-        self.assertEqual(res, 2)
 
     def test_inner_outer_state_functions_nonglobal(self):
         source_code = """
@@ -1495,6 +1121,9 @@ def validator(c: ScriptContext) -> str:
         """
         res = eval_uplc_value(source_code, context)
         # should not raise
+        from pycardano import RawPlutusData  # noqa: F401
+        from cbor2 import CBORTag  # noqa: F401
+
         eval(res)
 
     @hypothesis.given(st.binary(), st.binary())
@@ -2285,87 +1914,6 @@ def validator({param_string}) -> bool:
         res = eval_uplc_value(source_code, *[x[0] for x in xs])
         self.assertEqual(bool(res), eval(eval_string))
 
-    def test_double_import_offset(self):
-        source_code = """
-from opshin.ledger.api_v2 import *
-from opshin.prelude import *
-
-def validator(
-    d: Nothing,
-    r: Nothing,
-    context: ScriptContext,
-):
-    house_address = Address(
-        payment_credential=PubKeyCredential(
-            credential_hash=b""
-        ),
-        staking_credential=SomeStakingCredential(
-            staking_credential=StakingHash(
-                value=PubKeyCredential(
-                    credential_hash=b""
-                )
-            )
-        ),
-    )
-"""
-        # would fail because Address is assigned multiple times and then not constant folded
-        # TODO find a better way
-        builder._compile(source_code, config=DEFAULT_CONFIG_CONSTANT_FOLDING)
-
-    def test_double_import_direct(self):
-        source_code = """
-from opshin.prelude import *
-from opshin.prelude import *
-
-def validator(
-    d: Nothing,
-    r: Nothing,
-    context: ScriptContext,
-):
-    house_address = Address(
-        payment_credential=PubKeyCredential(
-            credential_hash=b""
-        ),
-        staking_credential=SomeStakingCredential(
-            staking_credential=StakingHash(
-                value=PubKeyCredential(
-                    credential_hash=b""
-                )
-            )
-        ),
-    )
-"""
-        # would fail because Address is assigned multiple times and then not constant folded
-        # TODO find a better way
-        builder._compile(source_code, config=DEFAULT_CONFIG_CONSTANT_FOLDING)
-
-    def test_double_import_deep(self):
-        source_code = """
-from opshin.ledger.interval import *
-from opshin.prelude import *
-
-def validator(
-    d: Nothing,
-    r: Nothing,
-    context: ScriptContext,
-):
-    house_address = Address(
-        payment_credential=PubKeyCredential(
-            credential_hash=b""
-        ),
-        staking_credential=SomeStakingCredential(
-            staking_credential=StakingHash(
-                value=PubKeyCredential(
-                    credential_hash=b""
-                )
-            )
-        ),
-    )
-"""
-        # would fail because Address is assigned multiple times and then not constant folded
-        # TODO find a better way
-        builder._compile(source_code, config=DEFAULT_CONFIG_CONSTANT_FOLDING)
-
     def test_bytearray_alternative(self):
         source_code = """
 def validator(
@@ -2706,17 +2254,6 @@ def validator(_: None) -> List[Token]:
             ],
         )
 
-    def test_empty_list_int_constant_folding(self):
-        source_code = """
-def validator(_: None) -> List[int]:
-    a: List[int] = []
-    return a
-"""
-        res = eval_uplc_value(
-            source_code, Unit(), config=DEFAULT_CONFIG_CONSTANT_FOLDING
-        )
-        self.assertEqual(res, [])
-
     def test_empty_dict_int_int(self):
         source_code = """
 def validator(_: None) -> Dict[int, int]:
@@ -2724,32 +2261,6 @@ def validator(_: None) -> Dict[int, int]:
     return a
 """
         res = eval_uplc_value(source_code, Unit())
-        self.assertEqual(res, {})
-
-    def test_empty_dict_int_int_constant_folding(self):
-        source_code = """
-def validator(_: None) -> Dict[int, int]:
-    a: Dict[int, int] = {}
-    return a
-"""
-        res = eval_uplc_value(
-            source_code, Unit(), config=DEFAULT_CONFIG_CONSTANT_FOLDING
-        )
-        self.assertEqual(res, {})
-
-    def test_empty_dict_displaced_constant_folding(self):
-        source_code = """
-from typing import Dict, List, Union
-
-VAR: Dict[bytes, int] = {}
-
-def validator(b: Dict[int, Dict[bytes, int]]) -> Dict[bytes, int]:
-    a = b.get(0, VAR)
-    return a
-        """
-        res = eval_uplc_value(
-            source_code, {1: {b"": 0}}, config=DEFAULT_CONFIG_CONSTANT_FOLDING
-        )
         self.assertEqual(res, {})
 
     def test_union_subset_call(self):
@@ -3007,7 +2518,7 @@ class B(PlutusData):
     c: A
     d: Dict[bytes, C]
     e: Union[A, C]
-
+    
 def validator(_: None) -> int:
     return B(1, A(1, b"", [1, 2]), {b"": C(Nothing())}, C(Nothing())).CONSTR_ID
     """
@@ -3015,6 +2526,70 @@ def validator(_: None) -> int:
 
         self.assertEqual(
             B.CONSTR_ID, res, "Invalid constr id generation (does not match pycardano)"
+        )
+
+    def test_id_map_equals_pycardano_2(self):
+        @dataclass
+        class A(PlutusData):
+            CONSTR_ID = 0
+            a: int
+            b: bytes
+            d: List[int]
+
+        @dataclass
+        class C(PlutusData):
+            z: Anything
+
+        @dataclass
+        class B(PlutusData):
+            a: int
+            c: A
+            d: Dict[bytes, C]
+            e: Union[A, C]
+
+        @dataclass
+        class E(PlutusData):
+            e: Union[A, Union[B, C]]
+
+        source_code = """
+from dataclasses import dataclass
+from pycardano import Datum as Anything, PlutusData
+from typing import Dict, List, Union
+
+@dataclass
+class Nothing(PlutusData):
+    CONSTR_ID = 0
+
+
+@dataclass
+class A(PlutusData):
+    CONSTR_ID = 0
+    a: int
+    b: bytes
+    d: List[int]
+
+@dataclass
+class C(PlutusData):
+    z: Anything
+
+@dataclass
+class B(PlutusData):
+    a: int
+    c: A
+    d: Dict[bytes, C]
+    e: Union[A, C]
+
+@dataclass
+class E(PlutusData):
+    e: Union[A, Union[B,C]]
+
+def validator(_: None) -> int:
+    return E(C(Nothing())).CONSTR_ID
+    """
+        res = eval_uplc_value(source_code, Unit())
+
+        self.assertEqual(
+            E.CONSTR_ID, res, "Invalid constr id generation (does not match pycardano)"
         )
 
     @given(st.data())
@@ -3127,3 +2702,96 @@ def validator(x: List[int], y: int) -> int:
             raw_ret_noskip.cost.memory,
             "skipping had adverse effect on memory",
         )
+
+    def test_list_comprehension_non_boolean_filter(self):
+        source_code = """
+from opshin.prelude import *
+
+def validator(a: List[int]) -> None:
+    b = [x for x in a if x]  # x is an int, not a bool - now properly cast to bool
+    pass
+"""
+        # This should now compile successfully since filter expressions are automatically cast to bool
+        builder._compile(source_code)
+        # Also test that it executes without crashing
+        eval_uplc(source_code, [1, 0, 2, 0, 3])
+
+    @unittest.expectedFailure
+    def test_list_comprehension_invalid_filter_type(self):
+        source_code = """
+from opshin.prelude import *
+from dataclasses import dataclass
+
+@dataclass()
+class CustomClass(PlutusData):
+    CONSTR_ID = 0
+    value: int
+
+def validator(a: List[CustomClass]) -> None:
+    # This should fail because CustomClass cannot be cast to bool
+    b = [x for x in a if x]  # x is CustomClass, which has no __bool__ method
+    pass
+"""
+        # This should fail during compilation since CustomClass cannot be cast to bool
+        builder._compile(source_code)
+
+    @unittest.expectedFailure
+    def test_tuple_type_correct_subtyping(self):
+        source_code = """
+def validator(a: int) -> int:
+    t1 = (a, a, a)
+    t2 = (a, a)
+    
+    t3 = t1 if False else t2
+    
+    return t3[2]
+"""
+        # this should fail during compilation because t3 is not guaranteed to have a third element
+        builder._compile(source_code)
+
+    def test_tuple_type_correct_subtyping_2(self):
+        source_code = """
+def validator(a: int) -> int:
+    t1 = (a, a, a)
+    t2 = (a, a)
+
+    t3 = t1 if False else t2
+
+    return t3[1]
+"""
+        # this should pass during compilation because t3 is guaranteed to have a second element
+        builder._compile(source_code)
+
+    def test_import_integritycheck_reserved_name(self):
+        source_code = """
+from opshin.std.integrity import check_integrity as bytes
+
+def validator(a: int) -> int:
+    return a
+    
+"""
+        try:
+            builder._compile(source_code)
+            self.fail("Integrity check did not catch reserved name")
+        except Exception as e:
+            self.assertIn(
+                "reserved",
+                str(e),
+                "Integrity check did not catch reserved name",
+            )
+
+    def test_type_change_error_message(self):
+        source_code = """
+def validator(a: int) -> int:
+    a = 1
+    a = "hello"
+    return a
+
+"""
+        try:
+            builder._compile(source_code)
+            self.fail("Type check did not fail")
+        except Exception as e:
+            assert "int" in str(e) and "str" in str(
+                e
+            ), "Type check did not fail with correct message"

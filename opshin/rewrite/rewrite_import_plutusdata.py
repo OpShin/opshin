@@ -37,15 +37,17 @@ class RewriteImportPlutusData(CompilingNodeTransformer):
     def visit_ClassDef(self, node: ClassDef) -> ClassDef:
         assert (
             len(node.decorator_list) == 1
-        ), "Class definitions must have no decorators but @dataclass"
+        ), f"Class definitions must have no decorators but @dataclass, {node.name} has {tuple(node.decorator_list)}"
         assert (
             len(node.bases) == 1
-        ), "Class definitions must inherit only from PlutusData"
+        ), f"Class definitions must inherit exactly from PlutusData (i.e., `class {node.name}(PlutusData)`), {node.name} inherits from {tuple(node.bases)}"
         assert isinstance(
             node.bases[0], Name
-        ), "The inheritance must be direct, using the name PlutusData"
+        ), f"The inheritance must be direct, using the name PlutusData (i.e., `class {node.name}(PlutusData)`), {node.name} uses {node.bases}"
         base: Name = node.bases[0]
-        assert base.id == "PlutusData", "Class definitions must inherit from PlutusData"
+        assert (
+            base.id == "PlutusData"
+        ), f"Class definitions must inherit from PlutusData, {node.name} uses {base}"
         assert (
             self.imports_plutus_data
         ), "PlutusData must be imported in order to use datum classes"

@@ -1,3 +1,5 @@
+trigger.sh
+datafile.json
 venv
 .vscode
 __tmp_opshin.py

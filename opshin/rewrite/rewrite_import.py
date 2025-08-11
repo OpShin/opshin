@@ -52,6 +52,16 @@ class RewriteLocation(CompilingNodeTransformer):
         return super().visit(node)
 
 
+SPECIAL_IMPORTS = [
+    "pycardano",
+    "typing",
+    "dataclasses",
+    "hashlib",
+    "opshin.bridge",
+    "opshin.std.integrity",
+]
+
+
 class RewriteImport(CompilingNodeTransformer):
     step = "Resolving imports"
 
@@ -60,27 +70,19 @@ class RewriteImport(CompilingNodeTransformer):
         self.package = package
         self.resolved_imports = resolved_imports or OrderedSet()
 
+    def visit_Import(self, node):
+        error_msg = f"The import must have the form 'from <pkg> import *' or import from one of the special modules {', '.join(SPECIAL_IMPORTS)}"
+        raise SyntaxError(error_msg)
+
     def visit_ImportFrom(
         self, node: ImportFrom
     ) -> typing.Union[ImportFrom, typing.List[AST], None]:
-        if node.module in [
-            "pycardano",
-            "typing",
-            "dataclasses",
-            "hashlib",
-            "opshin.bridge",
-            "opshin.std.integrity",
-        ]:
+        if node.module in SPECIAL_IMPORTS:
             return node
-        assert (
-            len(node.names) == 1
-        ), "The import must have the form 'from <pkg> import *'"
-        assert (
-            node.names[0].name == "*"
-        ), "The import must have the form 'from <pkg> import *'"
-        assert (
-            node.names[0].asname == None
-        ), "The import must have the form 'from <pkg> import *'"
+        error_msg = f"The import must have the form 'from <pkg> import *' or import from one of the special modules {', '.join(SPECIAL_IMPORTS)}"
+        assert len(node.names) == 1, error_msg
+        assert node.names[0].name == "*", error_msg
+        assert node.names[0].asname == None, error_msg
         # TODO set anchor point according to own package
         if self.filename:
             sys.path.append(str(pathlib.Path(self.filename).parent.absolute()))

@@ -1,8 +1,11 @@
+from dataclasses import dataclass
+
 import hypothesis
 import unittest
 
 from hypothesis import example, given
 from hypothesis import strategies as st
+from pycardano import PlutusData
 
 from . import PLUTUS_VM_PROFILE
 from .utils import eval_uplc, eval_uplc_value, Unit
@@ -324,6 +327,53 @@ def validator(x: bool) -> str:
         """
         ret = eval_uplc_value(source_code, x)
         self.assertEqual(ret.decode("utf8"), str(x), "str returned wrong value")
+
+    def test_str_union_dataclass(self):
+        source_code = """
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
+from dataclasses import dataclass
+
+@dataclass
+class A(PlutusData):
+    CONSTR_ID = 0
+    foo: int
+
+def validator(x: Union[A, int, bytes]) -> str:
+    return str(x)
+        """
+
+        @dataclass
+        class A(PlutusData):
+            CONSTR_ID = 0
+            foo: int
+
+        ret = eval_uplc_value(source_code, A(1))
+        self.assertEqual(ret.decode("utf8"), "A(foo=1)", "str returned wrong value")
+
+    @given(
+        x=st.one_of(
+            st.integers(),
+            st.binary(),
+            st.lists(st.integers()),
+            st.dictionaries(st.integers(), st.integers()),
+        )
+    )
+    @example(0)
+    @example(-1)
+    @example(100)
+    def test_str_union(self, x):
+        source_code = """
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
+def validator(x: Union[int,bytes,List[Anything],Dict[Anything,Anything]]) -> str:
+    return str(x)
+        """
+        ret = eval_uplc_value(source_code, x)
+        if isinstance(x, (int, bytes)):
+            if "'" in str(x) and not "\\" in ret.decode("utf8"):
+                return
+            self.assertEqual(ret.decode("utf8"), str(x), "str returned wrong value")
 
     @given(xs=st.lists(st.integers()))
     def test_sum(self, xs):

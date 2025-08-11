@@ -20,7 +20,10 @@ class RewriteTupleAssign(CompilingNodeTransformer):
             return [node]
         uid = self.unique_id
         self.unique_id += 1
-        assignments = [Assign([Name(f"2_{uid}_tup", Store())], self.visit(node.value))]
+        tuple = self.visit(node.value)
+        # store for later that we require
+        tuple.is_tuple_with_deconstruction = len(node.targets[0].elts)
+        assignments = [Assign([Name(f"2_{uid}_tup", Store())], tuple)]
         for i, t in enumerate(node.targets[0].elts):
             assignments.append(
                 Assign(
@@ -47,6 +50,16 @@ class RewriteTupleAssign(CompilingNodeTransformer):
         # write the tuple into a singleton variable
         new_for.target = Name(f"2_{uid}_tup", Store())
         assignments = []
+        # TODO for now we only have lists over pairs, so we can just check length = 2
+        # in the future need to handle as above
+        if len(node.target.elts) < 2:
+            raise ValueError(
+                f"Too many values to unpack in for loop target, expected 2, got {len(node.target.elts)}"
+            )
+        if len(node.target.elts) > 2:
+            raise ValueError(
+                f"Not enough values to unpack in for loop target, expected 2, got {len(node.target.elts)}"
+            )
         # iteratively assign the deconstructed parts to the original variable names
         for i, t in enumerate(node.target.elts):
             assignments.append(

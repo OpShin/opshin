@@ -26,6 +26,9 @@ class HashType(ClassType):
     def __ge__(self, other):
         return isinstance(other, HashType)
 
+    def python_type(self):
+        return "HashFunction"
+
 
 HashInstanceType = InstanceType(HashType())
 

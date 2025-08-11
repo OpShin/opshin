@@ -6,6 +6,8 @@ from .compiler_config import DEFAULT_CONFIG
 from .optimize.optimize_const_folding import OptimizeConstantFolding
 from .optimize.optimize_remove_comments import OptimizeRemoveDeadconstants
 from .optimize.optimize_union_expansion import OptimizeUnionExpansion
+
+from .rewrite.rewrite_assert_none import RewriteAssertNone
 from .rewrite.rewrite_augassign import RewriteAugAssign
 from .rewrite.rewrite_cast_condition import RewriteConditions
 from .rewrite.rewrite_comparison_chaining import RewriteComparisonChaining
@@ -21,7 +23,6 @@ from .rewrite.rewrite_import_plutusdata import RewriteImportPlutusData
 from .rewrite.rewrite_import_typing import RewriteImportTyping
 from .rewrite.rewrite_import_uplc_builtins import RewriteImportUPLCBuiltins
 from .rewrite.rewrite_inject_builtins import RewriteInjectBuiltins
-from .rewrite.rewrite_inject_builtin_constr import RewriteInjectBuiltinsConstr
 from .rewrite.rewrite_orig_name import RewriteOrigName
 from .rewrite.rewrite_remove_type_stuff import RewriteRemoveTypeStuff
 from .rewrite.rewrite_scoping import RewriteScoping
@@ -359,6 +360,16 @@ class PlutoCompiler(CompilingNodeTransformer):
         ), "Assignments to other things then names are not supported"
         compiled_e = self.visit(node.value)
         varname = node.targets[0].id
+        if (hasattr(node.targets[0], "is_wrapped") and node.targets[0].is_wrapped) or (
+            isinstance(node.targets[0].typ, InstanceType)
+            and (
+                isinstance(node.targets[0].typ.typ, AnyType)
+                or isinstance(node.targets[0].typ.typ, UnionType)
+            )
+        ):
+            # if this is a wrapped variable or Union/Any, we need to map it back to the external parameter type
+            # TODO this is terribly inefficient. we would rather want to cast once when entering the body and cast back when leaving
+            compiled_e = transform_output_map(node.value.typ)(compiled_e)
         # first evaluate the term, then wrap in a delay
         return lambda x: plt.Let(
             [
@@ -376,14 +387,16 @@ class PlutoCompiler(CompilingNodeTransformer):
             node.target.typ, InstanceType
         ), "Can only assign instances to instances"
         val = self.visit(node.value)
-        if isinstance(node.value.typ, InstanceType) and isinstance(
-            node.value.typ.typ, AnyType
+        if isinstance(node.value.typ, InstanceType) and (
+            isinstance(node.value.typ.typ, AnyType)
+            or isinstance(node.value.typ.typ, UnionType)
         ):
             # we need to map this as it will originate from PlutusData
             # AnyType is the only type other than the builtin itself that can be cast to builtin values
             val = transform_ext_params_map(node.target.typ)(val)
-        if isinstance(node.target.typ, InstanceType) and isinstance(
-            node.target.typ.typ, AnyType
+        if isinstance(node.target.typ, InstanceType) and (
+            isinstance(node.target.typ.typ, AnyType)
+            or isinstance(node.target.typ.typ, UnionType)
         ):
             # we need to map this back as it will be treated as PlutusData
             # AnyType is the only type other than the builtin itself that can be cast to from builtin values
@@ -429,7 +442,7 @@ class PlutoCompiler(CompilingNodeTransformer):
         else:
             assert isinstance(node.func.typ, InstanceType) and isinstance(
                 node.func.typ.typ, FunctionType
-            )
+            ), "Can only call instances of functions"
             func_plt = self.visit(node.func)
             bind_self = node.func.typ.typ.bind_self
         bound_vs = sorted(list(node.func.typ.typ.bound_vars.keys()))
@@ -610,7 +623,9 @@ class PlutoCompiler(CompilingNodeTransformer):
     def visit_Return(self, node: TypedReturn) -> CallAST:
         value_plt = self.visit(node.value)
         assert self.current_function_typ, "Can not handle Return outside of a function"
-        if isinstance(self.current_function_typ[-1].rettyp.typ, AnyType):
+        if isinstance(self.current_function_typ[-1].rettyp.typ, AnyType) or isinstance(
+            self.current_function_typ[-1].rettyp.typ, UnionType
+        ):
             value_plt = transform_output_map(node.value.typ)(value_plt)
         return lambda _: value_plt
 
@@ -777,7 +792,7 @@ class PlutoCompiler(CompilingNodeTransformer):
                                 OLambda(
                                     ["x"],
                                     plt.EqualsData(
-                                        transform_output_map(dict_typ.key_typ)(
+                                        transform_output_map(node.slice.typ)(
                                             OVar("key")
                                         ),
                                         plt.FstPair(OVar("x")),
@@ -912,9 +927,14 @@ class PlutoCompiler(CompilingNodeTransformer):
     def visit_List(self, node: TypedList) -> plt.AST:
         assert isinstance(node.typ, InstanceType)
         assert isinstance(node.typ.typ, ListType)
-        l = empty_list(node.typ.typ.typ)
+        el_typ = node.typ.typ.typ
+        l = empty_list(el_typ)
         for e in reversed(node.elts):
-            l = plt.MkCons(self.visit(e), l)
+            element = self.visit(e)
+            if isinstance(el_typ.typ, AnyType) or isinstance(el_typ.typ, UnionType):
+                # if the function expects input of generic type data, wrap data before passing it inside
+                element = transform_output_map(e.typ)(element)
+            l = plt.MkCons(element, l)
         return l
 
     def visit_Dict(self, node: TypedDict) -> plt.AST:
@@ -926,10 +946,10 @@ class PlutoCompiler(CompilingNodeTransformer):
         for k, v in zip(node.keys, node.values):
             l = plt.MkCons(
                 plt.MkPairData(
-                    transform_output_map(key_type)(
+                    transform_output_map(k.typ)(
                         self.visit(k),
                     ),
-                    transform_output_map(value_type)(
+                    transform_output_map(v.typ)(
                         self.visit(v),
                     ),
                 ),
@@ -1094,10 +1114,10 @@ def compile(
         # The type inference needs to be run after complex python operations were rewritten
         AggressiveTypeInferencer(config.allow_isinstance_anything),
         # Rewrites that circumvent the type inference or use its results
+        RewriteAssertNone(),
         RewriteEmptyLists(),
         RewriteEmptyDicts(),
         RewriteImportUPLCBuiltins(),
-        RewriteInjectBuiltinsConstr(),
         RewriteRemoveTypeStuff(),
         # Apply optimizations
         OptimizeRemoveDeadvars() if config.remove_dead_code else NoOp(),
