@@ -1153,7 +1153,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                     "If you are certain of what you are doing, please use the flag '--allow-isinstance-anything'."
                 )
             tc.typechecks = TypeCheckVisitor(self.allow_isinstance_anything).visit(tc)
-        
+
         # Check for expanded Union funcs
         if isinstance(node.func, ast.Name):
             expanded_unions = {
@@ -1174,7 +1174,6 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                         id=k, orig_id=f"unknown orig_id for {k}", ctx=ast.Load()
                     )
                     break
-
 
         try:
             tc.func = self.visit(node.func)

@@ -487,7 +487,6 @@ def validator(x: int) -> int:
         real = x + 2 if x > 5 else len(b"0" * x)
         self.assertEqual(res, real)
 
-
     def test_Union_expansion(
         self,
     ):
@@ -1049,4 +1048,3 @@ def validator(x: Union[Union[A, B], C]) -> None:
         except RuntimeError as e:
             pass
         eval_uplc(source_code, C(1, 2))
-
