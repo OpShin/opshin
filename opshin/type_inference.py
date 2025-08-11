@@ -576,10 +576,17 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
     def visit_List(self, node: List) -> TypedList:
         tt = copy(node)
         tt.elts = [self.visit(e) for e in node.elts]
-        l_typ = tt.elts[0].typ
-        assert all(
-            l_typ >= e.typ for e in tt.elts
-        ), f"All elements of a list must have the same type, has typs {tuple(e.typ.python_type() for e in tt.elts)}"
+        # try to derive a max type
+        max_typ = None
+        for m in tt.elts:
+            l_typ = m.typ
+            if all(l_typ >= e.typ for e in tt.elts):
+                max_typ = l_typ
+                break
+        if max_typ is None:
+            raise ValueError(
+                f"All elements of a list must have a compatible type, has typs {tuple(e.typ.python_type() for e in tt.elts)}"
+            )
         tt.typ = InstanceType(ListType(l_typ))
         return tt
 
