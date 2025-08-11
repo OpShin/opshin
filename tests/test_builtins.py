@@ -334,6 +334,27 @@ def validator(x: List[int]) -> int:
         ret = eval_uplc_value(source_code, xs)
         self.assertEqual(ret, sum(xs), "sum returned wrong value")
 
+    @given(
+        x=st.one_of(
+            st.integers(),
+            st.binary(),
+            st.lists(st.integers()),
+            st.dictionaries(st.integers(), st.integers()),
+        )
+    )
+    @example(0)
+    @example(-1)
+    @example(100)
+    def test_str_int(self, x):
+        source_code = """
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
+def validator(x: Union[int,bytes,List[Anything],Dict[Anything,Anything]]) -> str:
+    return str(x)
+        """
+        ret = eval_uplc_value(source_code, x)
+        self.assertEqual(ret.decode("utf8"), str(x), "str returned wrong value")
+
     @given(xs=st.lists(st.integers()))
     def test_reversed(self, xs):
         source_code = """
