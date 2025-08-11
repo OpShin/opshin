@@ -30,7 +30,7 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
-        python-version: '3.10'
+        python-version: '3.11'
 
     - name: Install Dependencies
       run: |
@@ -40,8 +40,8 @@ jobs:
 
     - name: Build Binary
       run: |
-        pip install ./  # Ensure your package and its dependencies are installed
-        pyinstaller --name opshin --collect-all pycardano --collect-all blockfrost --collect-all opshin --noconfirm --onefile --additional-hooks-dir ./hooks ./scripts/run_opshin.py
+        pip install .  # Ensure your package and its dependencies are installed
+        pyinstaller --name opshin --collect-all pycardano --collect-all blockfrost --collect-all uplc --collect-all opshin --noconfirm --onefile ./scripts/run_opshin.py
       shell: bash
 
     - name: Upload Release Asset
