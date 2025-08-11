@@ -131,15 +131,30 @@ def union_types(*ts: Type):
         if all(t >= tp for tp in ts):
             return t
     assert ts, "Union must combine multiple classes"
-    ts = [t if isinstance(t, UnionType) else UnionType(frozenlist([t])) for t in ts]
-    for e in ts:
-        for e2 in e.typs:
+    # flatten encountered union types
+    all_ts = []
+    to_process = list(ts)
+    while to_process:
+        t = to_process.pop()
+        if isinstance(t, UnionType):
+            to_process.extend(t.typs)
+        else:
             assert isinstance(
-                e2, (RecordType, IntegerType, ByteStringType, ListType, DictType)
-            ), f"Union must combine multiple PlutusData classes but found {e2.__class__.__name__}"
-    union_set = OrderedSet()
-    for t in ts:
-        union_set.update(t.typs)
+                t, (RecordType, IntegerType, ByteStringType, ListType, DictType)
+            ), f"Union must combine multiple PlutusData, int, bytes, List[Anything] or Dict[Anything,Anything] but found {t.python_type()}"
+            if isinstance(t, ListType):
+                assert isinstance(t.typ, InstanceType) and isinstance(
+                    t.typ.typ, AnyType
+                ), "Union must contain only lists of Any, i.e. List[Anything]"
+            if isinstance(t, DictType):
+                assert (
+                    isinstance(t.key_typ, InstanceType)
+                    and isinstance(t.key_typ.typ, AnyType)
+                    and isinstance(t.value_typ, InstanceType)
+                    and isinstance(t.value_typ.typ, AnyType)
+                ), "Union must contain only dicts of Any, i.e. Dict[Anything, Anything]"
+            all_ts.append(t)
+    union_set = OrderedSet(all_ts)
     assert distinct(
         [
             e.record.constructor
