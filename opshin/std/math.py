@@ -17,7 +17,7 @@ def unsigned_int_from_bytes_big(b: bytes) -> int:
     """
     Converts a bytestring into the corresponding integer, big/network byteorder, unsigned
 
-    For example, the bytestring b'\x01\x02\x03' will be converted to the integer 66051.
+    For example, the bytestring b'\\x01\\x02\\x03' will be converted to the integer 66051.
     """
     acc = 0
     for i in range(len(b)):
@@ -29,7 +29,7 @@ def bytes_big_from_unsigned_int(b: int) -> bytes:
     """
     Converts an integer into the corresponding bytestring, big/network byteorder, unsigned
 
-    For example, the integer 66051 will be converted to the bytestring b'\x01\x02\x03'.
+    For example, the integer 66051 will be converted to the bytestring b'\\x01\\x02\\x03'.
     """
     assert b >= 0
     if b == 0:
