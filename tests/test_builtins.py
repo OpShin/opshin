@@ -1,8 +1,11 @@
+from dataclasses import dataclass
+
 import hypothesis
 import unittest
 
 from hypothesis import example, given
 from hypothesis import strategies as st
+from pycardano import PlutusData
 
 from . import PLUTUS_VM_PROFILE
 from .utils import eval_uplc, eval_uplc_value, Unit
@@ -325,14 +328,28 @@ def validator(x: bool) -> str:
         ret = eval_uplc_value(source_code, x)
         self.assertEqual(ret.decode("utf8"), str(x), "str returned wrong value")
 
-    @given(xs=st.lists(st.integers()))
-    def test_sum(self, xs):
+    def test_str_union_dataclass(self):
         source_code = """
-def validator(x: List[int]) -> int:
-    return sum(x)
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
+from dataclasses import dataclass
+
+@dataclass
+class A(PlutusData):
+    CONSTR_ID = 0
+    foo: int
+
+def validator(x: Union[A, int, bytes]) -> str:
+    return str(x)
         """
-        ret = eval_uplc_value(source_code, xs)
-        self.assertEqual(ret, sum(xs), "sum returned wrong value")
+
+        @dataclass
+        class A(PlutusData):
+            CONSTR_ID = 0
+            foo: int
+
+        ret = eval_uplc_value(source_code, A(1))
+        self.assertEqual(ret.decode("utf8"), "A(foo=1)", "str returned wrong value")
 
     @given(
         x=st.one_of(
@@ -355,6 +372,15 @@ def validator(x: Union[int,bytes,List[Anything],Dict[Anything,Anything]]) -> str
         ret = eval_uplc_value(source_code, x)
         if isinstance(x, (int, bytes)):
             self.assertEqual(ret.decode("utf8"), str(x), "str returned wrong value")
+
+    @given(xs=st.lists(st.integers()))
+    def test_sum(self, xs):
+        source_code = """
+def validator(x: List[int]) -> int:
+    return sum(x)
+        """
+        ret = eval_uplc_value(source_code, xs)
+        self.assertEqual(ret, sum(xs), "sum returned wrong value")
 
     @given(xs=st.lists(st.integers()))
     def test_reversed(self, xs):
