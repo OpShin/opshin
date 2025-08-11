@@ -30,10 +30,7 @@ from .rewrite.rewrite_tuple_assign import RewriteTupleAssign
 from .optimize.optimize_remove_pass import OptimizeRemovePass
 from .optimize.optimize_remove_deadvars import OptimizeRemoveDeadvars, NameLoadCollector
 from .type_inference import *
-from .util import (
-    CompilingNodeTransformer,
-    NoOp,
-)
+from .util import CompilingNodeTransformer, NoOp, format_error_trace
 from .typed_ast import (
     transform_ext_params_map,
     transform_output_map,
@@ -290,7 +287,15 @@ class PlutoCompiler(CompilingNodeTransformer):
                         (
                             x,
                             plt.Delay(
-                                plt.TraceError(f"NameError: {map_to_orig_name(x)}")
+                                plt.TraceError(
+                                    format_error_trace(
+                                        self.config.format_error_trace,
+                                        f"NameError: {map_to_orig_name(x)}",
+                                        name_load_visitor.loaded.get(
+                                            x, [main_fun.lineno]
+                                        ),
+                                    ),
+                                )
                             ),
                         )
                         for x in all_vs
@@ -322,7 +327,15 @@ class PlutoCompiler(CompilingNodeTransformer):
                 [
                     (
                         x,
-                        plt.Delay(plt.TraceError(f"NameError: {map_to_orig_name(x)}")),
+                        plt.Delay(
+                            plt.TraceError(
+                                format_error_trace(
+                                    self.config.format_error_trace,
+                                    f"NameError: {map_to_orig_name(x)}",
+                                    name_load_visitor.loaded.get(x, [main_fun.lineno]),
+                                )
+                            ),
+                        ),
                     )
                     for x in all_vs
                 ],
@@ -797,7 +810,13 @@ class PlutoCompiler(CompilingNodeTransformer):
                                         plt.FstPair(OVar("x")),
                                     ),
                                 ),
-                                plt.TraceError("KeyError"),
+                                plt.TraceError(
+                                    format_error_trace(
+                                        self.config.format_error_trace,
+                                        "KeyError",
+                                        node.lineno,
+                                    )
+                                ),
                             )
                         ),
                     ),
