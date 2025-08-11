@@ -2,7 +2,9 @@ import unittest
 import hypothesis
 from hypothesis import given
 from hypothesis import strategies as st
-from .utils import eval_uplc_value
+
+from opshin import builder
+from .utils import eval_uplc_value, eval_uplc
 from . import PLUTUS_VM_PROFILE
 from opshin.util import CompilerError
 
@@ -484,3 +486,382 @@ def validator(x: int) -> int:
         res = eval_uplc_value(source_code, x)
         real = x + 2 if x > 5 else len(b"0" * x)
         self.assertEqual(res, real)
+
+    def test_Union_types_access_attr(self):
+        source_code = """
+from dataclasses import dataclass
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
+
+@dataclass()
+class A(PlutusData):
+    CONSTR_ID = 0
+    foo: int
+
+def validator(x: Union[A, int]) -> int:
+    if x.foo == 0:
+        return 0
+    else:
+        return 1
+"""
+        with self.assertRaises(CompilerError) as ce:
+            res = eval_uplc_value(source_code, 0)
+        self.assertIsInstance(ce.exception.orig_err, AssertionError)
+
+    def test_Union_types_access_CONSTR_ID(self):
+        source_code = """
+from dataclasses import dataclass
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
+
+@dataclass()
+class A(PlutusData):
+    CONSTR_ID = 0
+    foo: int
+
+def validator(x: Union[A, int]) -> int:
+    if x.CONSTR_ID == 0:
+        return 0
+    else:
+        return 1
+"""
+        with self.assertRaises(CompilerError) as ce:
+            res = eval_uplc_value(source_code, 0)
+        self.assertIsInstance(ce.exception.orig_err, AssertionError)
+
+    def test_isinstance_and_comparison_vulnerability(self):
+        """
+        Test the exact vulnerability described in the security report.
+
+        This test expects the code to work correctly. When isinstance(a, int) is True,
+        the type assertion should be applied to 'a' in the right-hand-side of the 'and'
+        expression, allowing a == 10 to work without type errors.
+
+        This test will FAIL while the vulnerability exists.
+        """
+        source_code = """
+from typing import Dict, List, Union
+from opshin.prelude import *
+
+def validator(a: Union[int, bytes]) -> None:
+    assert isinstance(a, int) and a + 1 == 10
+"""
+
+        # Should execute without raising an exception
+        eval_uplc(source_code, 9)
+
+    def test_isinstance_and_attribute_access_vulnerability(self):
+        """
+        Test a variant where the right-hand-side accesses an attribute that only exists
+        after the type assertion.
+
+        This test will FAIL while the vulnerability exists.
+        """
+        source_code = """
+from typing import Dict, List, Union
+from opshin.prelude import *
+from dataclasses import dataclass
+
+@dataclass()
+class A(PlutusData):
+    CONSTR_ID = 0
+    value: int
+
+@dataclass()
+class B(PlutusData):
+    CONSTR_ID = 1
+    data: bytes
+
+def validator(x: Union[A, B]) -> None:
+    assert isinstance(x, A) and x.value + 1 == 10
+"""
+
+        # This should work - isinstance(x, A) should make x.value accessible
+        from dataclasses import dataclass
+        from pycardano import PlutusData
+
+        @dataclass()
+        class A(PlutusData):
+            CONSTR_ID = 0
+            value: int
+
+        test_data = A(value=9)
+        # Should execute without raising an exception
+        eval_uplc(source_code, test_data)
+
+    def test_isinstance_or_comparison_vulnerability(self):
+        """
+        Test the vulnerability with OR operations.
+
+        This test will FAIL while the vulnerability exists.
+        """
+        source_code = """
+from typing import Dict, List, Union
+from opshin.prelude import *
+
+def validator(a: Union[int, bytes]) -> None:
+    assert isinstance(a, bytes) or a + 1 == 10
+"""
+
+        # This should work - when isinstance(a, bytes) is False, 'a' should be cast to int
+        # for the right-hand-side evaluation of a == 10
+        eval_uplc(source_code, 9)
+
+    def test_nested_boolop_vulnerability(self):
+        """
+        Test with nested boolean operations.
+
+        This test will FAIL while the vulnerability exists.
+        """
+        source_code = """
+from typing import Dict, List, Union
+from opshin.prelude import *
+
+def validator(a: Union[int, bytes], b: Union[int, bytes]) -> None:
+    assert (isinstance(a, int) and a == 10) and (isinstance(b, int) and b == 20)
+"""
+
+        # This should work with proper type assertion handling in nested boolean operations
+        eval_uplc(source_code, 10, 20)
+
+    def test_if_statement_with_boolop_vulnerability(self):
+        """
+        Test that if statements with boolean operations should work correctly.
+
+        This test will FAIL while the vulnerability exists.
+        """
+        source_code = """
+from typing import Dict, List, Union
+from opshin.prelude import *
+
+def validator(a: Union[int, bytes]) -> bool:
+    if isinstance(a, int) and a+1 == 10:
+        return True
+    return False
+"""
+
+        # This should work correctly with proper type assertion handling
+        result = eval_uplc_value(source_code, 9)
+        self.assertTrue(result)
+
+        result = eval_uplc_value(source_code, b"test")
+        self.assertFalse(result)
+
+    def test_isinstance_while_comparison_vulnerability(self):
+        """
+        Test the exact vulnerability described in the security report.
+
+        This test expects the code to work correctly. When isinstance(a, int) is True,
+        the type assertion should be applied to 'a' in the right-hand-side of the 'and'
+        expression, allowing a == 10 to work without type errors.
+
+        This test will FAIL while the vulnerability exists.
+        """
+        source_code = """
+from typing import Dict, List, Union
+from opshin.prelude import *
+
+def validator(a: Union[int, bytes]) -> None:
+    while isinstance(a, int) and a > 0:
+        a -= 1
+"""
+
+        # Should execute without raising an exception
+        eval_uplc(source_code, 9)
+
+    def test_isinstance_if_comparison_vulnerability(self):
+        """
+        Test the exact vulnerability described in the security report.
+
+        This test expects the code to work correctly. When isinstance(a, int) is True,
+        the type assertion should be applied to 'a' in the right-hand-side of the 'and'
+        expression, allowing a == 10 to work without type errors.
+
+        This test will FAIL while the vulnerability exists.
+        """
+        source_code = """
+from typing import Dict, List, Union
+from opshin.prelude import *
+
+def validator(a: Union[int, bytes]) -> None:
+    if (isinstance(a, int)):
+        if (a > 0):
+            a -= 1
+            a += 1
+    if isinstance(a, int):
+       print("hi")
+"""
+
+        # Should execute without raising an exception
+        eval_uplc(source_code, 9)
+
+    def test_recasting_union(self):
+        """
+        Test that recasting a union type works correctly.
+        """
+        source_code = """
+from opshin.prelude import *
+
+def convert(a: int) -> Union[int, bytes]:
+    return a
+
+def validator(a: Union[int, bytes]) -> Union[int, bytes]:
+    if isinstance(a, int):
+        # In the following the typechecking assumes the return type is `Union[int, bytes]`,
+        # but on-chain it will still be `int` due to missing conversion
+        b = convert(a)
+        if isinstance(b, int):
+            print(str(b))
+    
+    return a
+    """
+
+        # Should execute without raising an exception
+        eval_uplc(source_code, 9)
+
+    def test_recasting_assign(self):
+        """
+        Test that recasting a union type works correctly.
+        """
+        source_code = """
+from opshin.prelude import *
+
+def convert(a: int) -> Union[int, bytes]:
+    return a
+
+def validator(a: Union[int, bytes]) -> Union[int, bytes]:
+    if isinstance(a, int):
+        # In the following the typechecking assumes the return type is `Union[int, bytes]`,
+        # but on-chain it will still be `int` due to missing conversion
+        b: Union[int, bytes] = 1
+        b = a
+        if isinstance(b, int):
+            print(str(b))
+
+    return a
+    """
+
+        # Should execute without raising an exception
+        eval_uplc(source_code, 9)
+
+    def test_recasting_annassign(self):
+        """
+        Test that recasting a union type works correctly.
+        """
+        source_code = """
+from opshin.prelude import *
+
+def convert(a: int) -> Union[int, bytes]:
+    return a
+
+def validator(a: Union[int, bytes]) -> Union[int, bytes]:
+    if isinstance(a, int):
+        # In the following the typechecking assumes the return type is `Union[int, bytes]`,
+        # but on-chain it will still be `int` due to missing conversion
+        b: Union[int, bytes] = a
+        if isinstance(b, int):
+            print(str(b))
+
+    return a
+    """
+
+        # Should execute without raising an exception
+        eval_uplc(source_code, 9)
+
+    def test_nested_union(self):
+        """
+        Test that duplicate constructor ids in nested unions are rejected correctly
+        """
+        source_code = """
+from dataclasses import dataclass
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
+
+@dataclass()
+class A(PlutusData):
+    CONSTR_ID = 1
+    a: bytes
+
+@dataclass()
+class B(PlutusData):
+    CONSTR_ID = 2
+    a: int
+    b: int
+
+@dataclass()
+class C(PlutusData):
+    CONSTR_ID = 2
+    a: int
+    b: int
+
+def validator(_: Union[Union[A, B], C]) -> None:
+    pass
+        """
+        try:
+            builder._compile(source_code)
+            self.fail(
+                "Compile worked, but should have failed due to duplicate constructor ids"
+            )
+        except CompilerError as e:
+            self.assertIn(
+                "constr_id",
+                str(e).lower(),
+                "Expected error about duplicate constructor ids not found",
+            )
+
+    def test_nested_union_message(self):
+        """
+        Test that duplicate constructor ids in nested unions are rejected correctly
+        """
+        source_code = """
+from opshin.prelude import *
+
+@dataclass()
+class A(PlutusData):
+    CONSTR_ID = 1
+    a: bytes
+
+@dataclass()
+class B(PlutusData):
+    CONSTR_ID = 2
+    a: int
+    b: int
+
+@dataclass()
+class C(PlutusData):
+    CONSTR_ID = 3
+    a: int
+    b: int
+
+def validator(x: Union[Union[A, B], C]) -> None:
+    assert isinstance(x, C)
+        """
+
+        @dataclass()
+        class A(PlutusData):
+            CONSTR_ID = 1
+            a: bytes
+
+        @dataclass()
+        class B(PlutusData):
+            CONSTR_ID = 2
+            a: int
+            b: int
+
+        @dataclass()
+        class C(PlutusData):
+            CONSTR_ID = 3
+            a: int
+            b: int
+
+        try:
+            eval_uplc(source_code, A(b"test"))
+            self.fail("Should have failed to execute due to type mismatch")
+        except RuntimeError as e:
+            pass
+        try:
+            eval_uplc(source_code, B(1, 2))
+            self.fail("Should have failed to execute due to type mismatch")
+        except RuntimeError as e:
+            pass
+        eval_uplc(source_code, C(1, 2))

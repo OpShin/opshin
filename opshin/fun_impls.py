@@ -95,13 +95,18 @@ class IsinstanceImpl(PolymorphicFunction):
         return FunctionType(args, BoolInstanceType)
 
     def impl_from_args(self, args: typing.List[Type]) -> plt.AST:
-        if not (isinstance(args[0], UnionType) or isinstance(args[0].typ, UnionType)):
-            if args[0].typ == args[1]:
+        instance: InstanceType = args[0]
+        target: ClassType = args[1]
+        assert isinstance(instance, InstanceType), "First argument must be an instance"
+        if not (
+            isinstance(instance.typ, UnionType) or isinstance(instance.typ, AnyType)
+        ):
+            if instance.typ == target:
                 return OLambda(["x"], plt.Bool(True))
             else:
                 return OLambda(["x"], plt.Bool(False))
 
-        if isinstance(args[1], IntegerType):
+        if isinstance(target, IntegerType):
             return OLambda(
                 ["x"],
                 plt.ChooseData(
@@ -113,7 +118,7 @@ class IsinstanceImpl(PolymorphicFunction):
                     plt.Bool(False),
                 ),
             )
-        elif isinstance(args[1], ByteStringType):
+        elif isinstance(target, ByteStringType):
             return OLambda(
                 ["x"],
                 plt.ChooseData(
@@ -125,18 +130,25 @@ class IsinstanceImpl(PolymorphicFunction):
                     plt.Bool(True),
                 ),
             )
-        elif isinstance(args[1], RecordType):
-            return OLambda(
-                ["x"],
-                plt.ChooseData(
-                    OVar("x"),
-                    plt.Bool(True),
-                    plt.Bool(False),
-                    plt.Bool(False),
-                    plt.Bool(False),
-                    plt.Bool(False),
-                ),
+        elif isinstance(target, RecordType):
+            # default: all fields in union are records, so we can safely access CONSTR_ID
+            node = plt.EqualsInteger(
+                plt.Apply(instance.typ.attribute("CONSTR_ID"), OVar("x")),
+                plt.Integer(target.record.constructor),
             )
+
+            if isinstance(instance.typ, AnyType) or not all(
+                isinstance(x, RecordType) for x in instance.typ.typs
+            ):
+                node = plt.DelayedChooseData(
+                    OVar("x"),
+                    node,
+                    plt.Bool(False),
+                    plt.Bool(False),
+                    plt.Bool(False),
+                    plt.Bool(False),
+                )
+            return OLambda(["x"], node)
         elif isinstance(args[1], ListType):
             return OLambda(
                 ["x"],

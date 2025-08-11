@@ -155,10 +155,26 @@ def test_ceil(a: oc_fractions.Fraction):
 
 
 @hypothesis.given(denormalized_fractions)
+def test_floor(a: oc_fractions.Fraction):
+    oc_ceil = oc_fractions.floor_fraction(a)
+    assert (
+        native_math.floor(native_fraction_from_oc_fraction(a)) == oc_ceil
+    ), "Invalid ceil"
+
+
+@hypothesis.given(denormalized_fractions)
 def test_ceil_method(a: oc_fractions.Fraction):
     oc_ceil = a.ceil()
     assert (
         native_math.ceil(native_fraction_from_oc_fraction(a)) == oc_ceil
+    ), "Invalid ceil"
+
+
+@hypothesis.given(denormalized_fractions)
+def test_floor_method(a: oc_fractions.Fraction):
+    oc_ceil = a.floor()
+    assert (
+        native_math.floor(native_fraction_from_oc_fraction(a)) == oc_ceil
     ), "Invalid ceil"
 
 
