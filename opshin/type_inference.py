@@ -887,6 +887,16 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             # We need the function type inside for recursion
             self.set_variable_type(node.name, tfd.typ)
             tfd.body = self.visit_sequence(node.body)
+            # Its possible that bound_variables might have changed after visiting body
+            bv = {
+                v: self.variable_type(v)
+                for v in externally_bound_vars(node)
+                if not v in ["List", "Dict"]
+            }
+            if bv != tfd.typ.typ.bound_vars:
+                # node was modified in place, so we can simply rerun visit_FunctionDef
+                self.exit_scope()
+                return self.visit_FunctionDef(node)
             # Check that return type and annotated return type match
             rets_extractor = ReturnExtractor(functyp.rettyp)
             rets_extractor.check_fulfills(tfd)
@@ -1143,6 +1153,28 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                     "If you are certain of what you are doing, please use the flag '--allow-isinstance-anything'."
                 )
             tc.typechecks = TypeCheckVisitor(self.allow_isinstance_anything).visit(tc)
+
+        # Check for expanded Union funcs
+        if isinstance(node.func, ast.Name):
+            expanded_unions = {
+                k: v
+                for scope in self.scopes
+                for k, v in scope.items()
+                if k.startswith(f"{node.func.orig_id}+")
+            }
+            for k, v in expanded_unions.items():
+                argtyps = v.typ.argtyps
+                if len(tc.args) != len(argtyps):
+                    continue
+                for a, ap in zip(tc.args, argtyps):
+                    if ap != a.typ:
+                        break
+                else:
+                    node.func = ast.Name(
+                        id=k, orig_id=f"unknown orig_id for {k}", ctx=ast.Load()
+                    )
+                    break
+
         try:
             tc.func = self.visit(node.func)
         except Exception as e:
