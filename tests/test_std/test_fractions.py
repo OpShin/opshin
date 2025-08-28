@@ -275,3 +275,20 @@ def validator(a: Fraction, b: Union[Fraction, int]) -> Fraction:
     assert (
         native_fraction_from_oc_fraction(a) * native_fraction_from_oc_fraction(b)
     ) == native_fraction_from_oc_fraction(ret), "invalid mul"
+
+
+@hypothesis.given(denormalized_fractions, hst.integers())
+@hypothesis.example(oc_fractions.Fraction(1, 2), 0)
+def test_uplc_mul_fractions_unnamed(a: oc_fractions.Fraction, b):
+    source_code = """
+from opshin.std.fractions import *
+from typing import Dict, List, Union
+
+def validator(a: int, b:int, c: int) -> Fraction:
+    return Fraction(a,b) * c
+
+"""
+    ret = eval_uplc(source_code, a.numerator, a.denominator, b)
+    assert (
+        native_fraction_from_oc_fraction(a) * native_fraction_from_oc_fraction(b)
+    ) == native_fraction_from_oc_fraction(ret), "invalid mul"
