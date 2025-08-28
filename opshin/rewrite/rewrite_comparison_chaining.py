@@ -1,5 +1,5 @@
 from ast import *
-from copy import copy
+from copy import deepcopy
 
 from ..util import CompilingNodeTransformer
 
@@ -19,8 +19,14 @@ class RewriteComparisonChaining(CompilingNodeTransformer):
         for comparator_left, comparator_right, op in zip(
             all_comparators[:-1], all_comparators[1:], node.ops
         ):
+            # Deep copy comparators to avoid sharing AST nodes between comparisons
+            # This prevents scoping issues when the same expression appears multiple times
             compare_values.append(
-                Compare(left=comparator_left, ops=[op], comparators=[comparator_right])
+                Compare(
+                    left=deepcopy(comparator_left),
+                    ops=[op],
+                    comparators=[deepcopy(comparator_right)],
+                )
             )
         new_node = BoolOp(
             op=And(),
