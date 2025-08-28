@@ -381,44 +381,43 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         operation = None
         args = []
         if isinstance(node, UnaryOp):
-            operand = node.operand
+            operand = self.visit(node.operand)
             operation = node.op
         elif isinstance(node, BinOp):
-            operand = node.left
+            operand = self.visit(node.left)
             operation = node.op
-            args.append(node.right)
+            args.append(self.visit(node.right))
         elif isinstance(node, Compare):
             operation = node.ops[0]
             if any([isinstance(operation, x) for x in [ast.In, ast.NotIn]]):
-                operand = node.comparators[0]
-                args = [node.left]
+                operand = self.visit(node.comparators[0])
+                args = [self.visit(node.left)]
             else:
-                operand = node.left
-                args = node.comparators
+                operand = self.visit(node.left)
+                args = [self.visit(c) for c in node.comparators]
             assert len(node.ops) == 1, "Only support one op at a time"
-        if operand is not None and hasattr(operand, "id"):
-            operand_type = self.variable_type(operand.id)
-            if (
-                operation.__class__ in DUNDER_MAP
-                and isinstance(operand_type, InstanceType)
-                and isinstance(operand_type.typ, RecordType)
-            ):
-                dunder = DUNDER_MAP[operation.__class__]
-                operand_class_name = operand_type.typ.record.name
-                method_name = f"{operand_class_name}_{dunder}"
-                if any([method_name in scope for scope in self.scopes]):
-                    call = ast.Call(
-                        func=ast.Attribute(
-                            value=operand,
-                            attr=dunder,
-                            ctx=ast.Load(),
-                        ),
-                        args=args,
-                        keywords=[],
-                    )
-                    call.func.orig_id = None
-                    call.func.id = method_name
-                    return self.visit_Call(call)
+        operand_type = operand.typ
+        if (
+            operation.__class__ in DUNDER_MAP
+            and isinstance(operand_type, InstanceType)
+            and isinstance(operand_type.typ, RecordType)
+        ):
+            dunder = DUNDER_MAP[operation.__class__]
+            operand_class_name = operand_type.typ.record.name
+            method_name = f"{operand_class_name}_+_{dunder}"
+            if any([method_name in scope for scope in self.scopes]):
+                call = ast.Call(
+                    func=ast.Attribute(
+                        value=operand,
+                        attr=dunder,
+                        ctx=ast.Load(),
+                    ),
+                    args=args,
+                    keywords=[],
+                )
+                call.func.orig_id = None
+                call.func.id = method_name
+                return self.visit_Call(call)
         return None
 
     def type_from_annotation(self, ann: expr):
@@ -549,7 +548,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                     assert any(
                         [func.name == value for key, value in DUNDER_MAP.items()]
                     ), f"The following Dunder methods are supported {list(DUNDER_MAP.values())}. Received {func.name} which is not supported"
-                func.name = f"{n.name}_{attribute.name}"
+                func.name = f"{n.name}_+_{attribute.name}"
                 for arg in func.args.args:
                     if not arg.annotation is None:
                         if isinstance(arg.annotation, ast.Name):
@@ -1182,7 +1181,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             try:
                 func_variable_type = self.variable_type(tc.func.value.id)
                 class_name = func_variable_type.typ.record.name
-                method_name = f"{class_name}_{tc.func.attr}"
+                method_name = f"{class_name}_+_{tc.func.attr}"
                 # If method_name found then use this.
                 self.variable_type(method_name)
             except Exception:

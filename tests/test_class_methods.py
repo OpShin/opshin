@@ -1,7 +1,7 @@
 import unittest
 
 import hypothesis
-from hypothesis import given
+from hypothesis import given, example
 from hypothesis import strategies as st
 from .utils import eval_uplc_value
 from . import PLUTUS_VM_PROFILE
@@ -527,6 +527,26 @@ class Foo(PlutusData):
 def validator(a: int, b: int, c:int) -> bool:
     foo1 = Foo(a, b)
     return c not in foo1
+"""
+        ret = eval_uplc_value(source_code, x, y, z)
+        self.assertEqual(ret, z not in [x, y])
+
+    @given(x=st.integers(), y=st.integers(), z=st.integers())
+    @example(x=0, y=0, z=0)
+    def test_no_identifier_dunder(self, x: int, y: int, z: int):
+        source_code = """
+from typing import Self
+from opshin.prelude import *
+@dataclass()
+class Foo(PlutusData):
+    a: int
+    b: int
+
+    def __contains__(self, c: int) -> bool:
+        return self.a==c or self.b==c
+
+def validator(a: int, b: int, c:int) -> bool:
+    return c not in Foo(a, b)
 """
         ret = eval_uplc_value(source_code, x, y, z)
         self.assertEqual(ret, z not in [x, y])
