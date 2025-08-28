@@ -73,6 +73,22 @@ DUNDER_MAP = {
     ast.Or: "__or__",
 }
 
+DUNDER_REVERSE_MAP = {
+    ast.Add: "__radd__",
+    ast.Sub: "__rsub__",
+    ast.Mult: "__rmul__",
+    ast.Div: "__rtruediv__",
+    ast.FloorDiv: "__rfloordiv__",
+    ast.Mod: "__rmod__",
+    ast.Pow: "__rpow__",
+    ast.LShift: "__rlshift__",
+    ast.RShift: "__rrshift__",
+    ast.And: "__rand__",
+    ast.Or: "__ror__",
+}
+
+ALL_DUNDERS = set(DUNDER_MAP.values()).union(set(DUNDER_REVERSE_MAP.values()))
+
 
 def record_from_plutusdata(c: PlutusData):
     return Record(
@@ -386,7 +402,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         elif isinstance(node, BinOp):
             operand = self.visit(node.left)
             operation = node.op
-            args.append(self.visit(node.right))
+            args = [self.visit(node.right)]
         elif isinstance(node, Compare):
             operation = node.ops[0]
             if any([isinstance(operation, x) for x in [ast.In, ast.NotIn]]):
@@ -413,6 +429,30 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                         ctx=ast.Load(),
                     ),
                     args=args,
+                    keywords=[],
+                )
+                call.func.orig_id = None
+                call.func.id = method_name
+                return self.visit_Call(call)
+        # if this is not supported, try the reverse dunder
+        # note we assume 1, i.e. allow only a single right operand
+        right_op = args[0] if len(args) == 1 else None
+        if (
+            operation.__class__ in DUNDER_REVERSE_MAP
+            and isinstance(right_op, InstanceType)
+            and isinstance(right_op.typ, RecordType)
+        ):
+            dunder = DUNDER_REVERSE_MAP[operation.__class__]
+            right_class_name = right_op.typ.record.name
+            method_name = f"{right_class_name}_+_{dunder}"
+            if any([method_name in scope for scope in self.scopes]):
+                call = ast.Call(
+                    func=ast.Attribute(
+                        value=args[0],
+                        attr=dunder,
+                        ctx=ast.Load(),
+                    ),
+                    args=operand,
                     keywords=[],
                 )
                 call.func.orig_id = None
@@ -545,9 +585,9 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                     continue
                 func = copy(attribute)
                 if func.name[0:2] == "__" and func.name[-2:] == "__":
-                    assert any(
-                        [func.name == value for key, value in DUNDER_MAP.items()]
-                    ), f"The following Dunder methods are supported {list(DUNDER_MAP.values())}. Received {func.name} which is not supported"
+                    assert (
+                        func.name in ALL_DUNDERS
+                    ), f"The following Dunder methods are supported {sorted(ALL_DUNDERS)}. Received {func.name} which is not supported"
                 func.name = f"{n.name}_+_{attribute.name}"
                 for arg in func.args.args:
                     if not arg.annotation is None:
@@ -1174,26 +1214,23 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                     )
                     break
 
-        try:
-            tc.func = self.visit(node.func)
-        except Exception as e:
+        if isinstance(tc.func, Attribute):
             # might be a method, duck test for class_name, method_name should
-            try:
-                func_variable_type = self.variable_type(tc.func.value.id)
-                class_name = func_variable_type.typ.record.name
-                method_name = f"{class_name}_+_{tc.func.attr}"
-                # If method_name found then use this.
-                self.variable_type(method_name)
-            except Exception:
-                # if this fails raise original error
-                raise e
+            accessed_var = self.visit(tc.func.value)
+            assert isinstance(accessed_var.typ, InstanceType) and isinstance(
+                accessed_var.typ.typ, RecordType
+            ), f"Method calls are only supported on records, found access to method {tc.func.attr} on {accessed_var.typ.python_type()}"
+            class_name = accessed_var.typ.typ.record.name
+            method_name = f"{class_name}_+_{tc.func.attr}"
+            # If method_name found then use this.
+            self.variable_type(method_name)
             n = ast.Name(id=method_name, ctx=ast.Load())
             n.orig_id = node.func.attr
             tc.func = self.visit(n)
             tc.func.orig_id = node.func.attr
-            c_self = ast.Name(id=node.func.value.id, ctx=ast.Load())
-            c_self.orig_id = None
-            tc.args.insert(0, self.visit(c_self))
+            tc.args.insert(0, accessed_var)
+        else:
+            tc.func = self.visit(node.func)
 
         # might be a class
         if isinstance(tc.func.typ, ClassType):
