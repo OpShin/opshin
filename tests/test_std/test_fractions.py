@@ -301,3 +301,40 @@ def validator(a: int, b:int, c: int) -> Fraction:
     assert (
         native_fraction_from_oc_fraction(a) * native_fraction_from_oc_fraction(b)
     ) == native_fraction_from_oc_fraction(ret), "invalid mul"
+
+
+@hypothesis.given(hst.integers(), denormalized_fractions)
+def test_radd_dunder(a: int, b: oc_fractions.Fraction):
+    oc_added = a + b
+    oc_normalized = native_fraction_from_oc_fraction(oc_added)
+    assert oc_normalized == (a + native_fraction_from_oc_fraction(b)), "Invalid radd"
+
+
+@hypothesis.given(hst.integers(), denormalized_fractions)
+def test_rsub_dunder(a: int, b: oc_fractions.Fraction):
+    oc_subbed = a - b
+    oc_normalized = native_fraction_from_oc_fraction(oc_subbed)
+    assert oc_normalized == (a - native_fraction_from_oc_fraction(b)), "Invalid rsub"
+
+
+@hypothesis.given(hst.integers(), denormalized_fractions)
+def test_rmul_dunder(a: int, b: oc_fractions.Fraction):
+    oc_mulled = a * b
+    oc_normalized = native_fraction_from_oc_fraction(oc_mulled)
+    assert oc_normalized == (a * native_fraction_from_oc_fraction(b)), "Invalid rmul"
+
+
+@hypothesis.given(hst.integers(), denormalized_fractions_non_null)
+def test_rtruediv_dunder(a: int, b: oc_fractions.Fraction):
+    oc_divved = a / b
+    oc_normalized = native_fraction_from_oc_fraction(oc_divved)
+    assert oc_normalized == (
+        a / native_fraction_from_oc_fraction(b)
+    ), "Invalid rtruediv"
+
+
+@hypothesis.given(hst.integers(), denormalized_fractions_non_null)
+def test_rfloordiv_dunder(a: int, b: oc_fractions.Fraction):
+    oc_floordivved = a // b
+    floordivved = a // native_fraction_from_oc_fraction(b)
+    assert oc_floordivved == floordivved, "Invalid rfloordiv"
