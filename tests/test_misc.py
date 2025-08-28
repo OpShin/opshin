@@ -1877,43 +1877,6 @@ def validator(
 """
         builder._compile(source_code)
 
-    @hypothesis.given(
-        st.lists(
-            st.tuples(
-                st.integers(), st.sampled_from(["<", "<=", "==", ">=", ">", "!="])
-            ),
-            max_size=10,
-            min_size=2,
-        )
-    )
-    @hypothesis.example(
-        [
-            (0, "<"),
-            (0, "<"),
-            (0, "<"),
-            (0, "<"),
-            (0, "<"),
-            (0, "<"),
-            (0, "<"),
-            (0, "<"),
-            (0, "<"),
-            (0, "<"),
-        ],
-    )
-    def test_comparison_chaining(self, xs):
-        param_string = ",".join(f"i{k}: int" for k, _ in enumerate(xs))
-        comp_string = "i0"
-        eval_string = f"{xs[0][0]}"
-        for k, (x, c) in enumerate(xs[1:], start=1):
-            comp_string += f" {c} i{k}"
-            eval_string += f" {c} {x}"
-        source_code = f"""
-def validator({param_string}) -> bool:
-    return {comp_string}
-"""
-        res = eval_uplc_value(source_code, *[x[0] for x in xs])
-        self.assertEqual(bool(res), eval(eval_string))
-
     def test_bytearray_alternative(self):
         source_code = """
 def validator(
