@@ -1856,6 +1856,8 @@ class IntegerType(AtomicType):
         )
 
     def _binop_return_type(self, binop: operator, other: "Type") -> "Type":
+        if isinstance(other, InstanceType) and isinstance(other.typ, RecordType):
+            print("Ha")
         if (
             isinstance(binop, Add)
             or isinstance(binop, Sub)

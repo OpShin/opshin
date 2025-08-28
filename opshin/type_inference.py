@@ -431,19 +431,19 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                     args=args,
                     keywords=[],
                 )
-                call.func.orig_id = None
+                call.func.orig_id = f"{operand_class_name}.{dunder}"
                 call.func.id = method_name
                 return self.visit_Call(call)
         # if this is not supported, try the reverse dunder
         # note we assume 1, i.e. allow only a single right operand
-        right_op = args[0] if len(args) == 1 else None
+        right_op_typ = args[0].typ if len(args) == 1 else None
         if (
             operation.__class__ in DUNDER_REVERSE_MAP
-            and isinstance(right_op, InstanceType)
-            and isinstance(right_op.typ, RecordType)
+            and isinstance(right_op_typ, InstanceType)
+            and isinstance(right_op_typ.typ, RecordType)
         ):
             dunder = DUNDER_REVERSE_MAP[operation.__class__]
-            right_class_name = right_op.typ.record.name
+            right_class_name = right_op_typ.typ.record.name
             method_name = f"{right_class_name}_+_{dunder}"
             if any([method_name in scope for scope in self.scopes]):
                 call = ast.Call(
@@ -452,10 +452,10 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                         attr=dunder,
                         ctx=ast.Load(),
                     ),
-                    args=operand,
+                    args=[operand],
                     keywords=[],
                 )
-                call.func.orig_id = None
+                call.func.orig_id = f"{right_class_name}.{dunder}"
                 call.func.id = method_name
                 return self.visit_Call(call)
         return None
