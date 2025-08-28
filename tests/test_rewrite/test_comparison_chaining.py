@@ -51,8 +51,8 @@ def validator(x: int) -> bool:
     return x < foo(x) < 10
 """
     for x in [0, 5, 10, 15]:
-        res = eval_uplc_raw(source_code, 1)
+        res = eval_uplc_raw(source_code, x)
         # inspect the logs to check that foo() is only called once
         # TODO: we skip this now because its not supported yet
         # assert res.logs.count("hello") == 1
-        assert bool(res.result) == x < 5 < 10
+        assert bool(res.result.value) == (x < 5 < 10)
