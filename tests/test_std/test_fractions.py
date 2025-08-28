@@ -149,6 +149,15 @@ def test_floor_dunder(a: oc_fractions.Fraction, b: oc_fractions.Fraction):
     assert oc_floor == floor, "Invalid floor"
 
 
+@hypothesis.given(denormalized_fractions, hst.integers(max_value=10, min_value=-10))
+def test_pow_dunder(a: oc_fractions.Fraction, b: int):
+    if a == 0:
+        return
+    oc_le = a**b
+    le = native_fraction_from_oc_fraction(a) ** b
+    assert oc_le == le, "Invalid pow"
+
+
 @hypothesis.given(denormalized_fractions)
 def test_ceil(a: oc_fractions.Fraction):
     oc_ceil = oc_fractions.ceil_fraction(a)
