@@ -1214,22 +1214,25 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                     )
                     break
 
+        subbed_method = False
         if isinstance(tc.func, Attribute):
             # might be a method, duck test for class_name, method_name should
             accessed_var = self.visit(tc.func.value)
-            assert isinstance(accessed_var.typ, InstanceType) and isinstance(
+            if isinstance(accessed_var.typ, InstanceType) and isinstance(
                 accessed_var.typ.typ, RecordType
-            ), f"Method calls are only supported on records, found access to method {tc.func.attr} on {accessed_var.typ.python_type()}"
-            class_name = accessed_var.typ.typ.record.name
-            method_name = f"{class_name}_+_{tc.func.attr}"
-            # If method_name found then use this.
-            self.variable_type(method_name)
-            n = ast.Name(id=method_name, ctx=ast.Load())
-            n.orig_id = node.func.attr
-            tc.func = self.visit(n)
-            tc.func.orig_id = node.func.attr
-            tc.args.insert(0, accessed_var)
-        else:
+            ):
+                class_name = accessed_var.typ.typ.record.name
+                method_name = f"{class_name}_+_{tc.func.attr}"
+                # If method_name found then use this.
+                self.variable_type(method_name)
+                n = ast.Name(id=method_name, ctx=ast.Load())
+                n.orig_id = node.func.attr
+                tc.func = self.visit(n)
+                tc.func.orig_id = node.func.attr
+                tc.args.insert(0, accessed_var)
+                subbed_method = True
+
+        if not subbed_method:
             tc.func = self.visit(node.func)
 
         # might be a class
