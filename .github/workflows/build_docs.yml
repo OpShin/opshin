@@ -24,7 +24,7 @@ jobs:
       - run: poetry install
       - run: bash build_docs.sh
 
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v4
         with:
           path: docs/
 
