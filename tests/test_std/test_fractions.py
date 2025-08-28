@@ -229,6 +229,7 @@ def validator(a: int, b: Fraction) -> Fraction:
 
 
 @hypothesis.given(hst.integers(), denormalized_fractions)
+@hypothesis.example(0, oc_fractions.Fraction(1, 2))
 def test_uplc_mul_int_frac(a, b):
     source_code = """
 from opshin.std.fractions import *
@@ -244,6 +245,7 @@ def validator(a: int, b: Fraction) -> Fraction:
 
 
 @hypothesis.given(denormalized_fractions, hst.integers())
+@hypothesis.example(oc_fractions.Fraction(1, 2), 0)
 def test_uplc_mul_frac_int(a, b):
     source_code = """
 from opshin.std.fractions import *
