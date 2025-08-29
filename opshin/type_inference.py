@@ -1378,8 +1378,26 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         self.enter_scope()
         # first evaluate generators for assigned variables
         typed_listcomp.generators = [self.visit(s) for s in node.generators]
-        # then evaluate elements
+
+        # collect isinstance type narrowing from all conditions in all generators
+        all_typechecks = {}
+        for gen in typed_listcomp.generators:
+            for if_expr in gen.ifs:
+                typchecks, _ = TypeCheckVisitor(self.allow_isinstance_anything).visit(
+                    if_expr
+                )
+                all_typechecks.update(typchecks)
+
+        # apply type narrowing before evaluating the element
+        wrapped = self.implement_typechecks(all_typechecks)
+        self.wrapped.extend(wrapped.keys())
+
+        # then evaluate elements with narrowed types
         typed_listcomp.elt = self.visit(node.elt)
+
+        # clean up wrapped variables
+        self.wrapped = [x for x in self.wrapped if x not in wrapped.keys()]
+
         self.exit_scope()
         typed_listcomp.typ = InstanceType(ListType(typed_listcomp.elt.typ))
         return typed_listcomp
@@ -1390,9 +1408,27 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         self.enter_scope()
         # first evaluate generators for assigned variables
         typed_dictcomp.generators = [self.visit(s) for s in node.generators]
-        # then evaluate elements
+
+        # collect isinstance type narrowing from all conditions in all generators
+        all_typechecks = {}
+        for gen in typed_dictcomp.generators:
+            for if_expr in gen.ifs:
+                typchecks, _ = TypeCheckVisitor(self.allow_isinstance_anything).visit(
+                    if_expr
+                )
+                all_typechecks.update(typchecks)
+
+        # apply type narrowing before evaluating the elements
+        wrapped = self.implement_typechecks(all_typechecks)
+        self.wrapped.extend(wrapped.keys())
+
+        # then evaluate elements with narrowed types
         typed_dictcomp.key = self.visit(node.key)
         typed_dictcomp.value = self.visit(node.value)
+
+        # clean up wrapped variables
+        self.wrapped = [x for x in self.wrapped if x not in wrapped.keys()]
+
         self.exit_scope()
         typed_dictcomp.typ = InstanceType(
             DictType(typed_dictcomp.key.typ, typed_dictcomp.value.typ)

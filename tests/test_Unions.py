@@ -427,7 +427,6 @@ def validator(x: int) -> int:
         real = x + 2 if x > 5 else len(b"0" * x)
         self.assertEqual(res, real)
 
-    @unittest.skip("Throw compilation error, hence not critical")
     @hypothesis.given(st.sampled_from(range(14)))
     def test_Union_cast_List(self, x):
         source_code = """
@@ -462,7 +461,6 @@ def validator(x: int) -> int:
         real = x + 1 if x > 5 else len(b"0" * x)
         self.assertEqual(res, real)
 
-    @unittest.skip("Throw compilation error, hence not critical")
     @hypothesis.given(st.sampled_from(range(14)))
     def test_Union_builtin_cast_List(self, x):
         source_code = """
@@ -478,9 +476,9 @@ def foo(xs: List[Union[int, bytes]]) -> List[int]:
 
 def validator(x: int) -> int:
     if x > 5:
-        k = foo(x+1)
+        k = foo([x+1])
     else:
-        k = foo(b"0"*x)
+        k = foo([b"0"*x])
     return k[0]
 """
         res = eval_uplc_value(source_code, x)
