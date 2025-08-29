@@ -1,5 +1,6 @@
 import unittest
 import hypothesis
+import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 from opshin import builder
@@ -427,7 +428,6 @@ def validator(x: int) -> int:
         real = x + 2 if x > 5 else len(b"0" * x)
         self.assertEqual(res, real)
 
-    @unittest.skip("Throw compilation error, hence not critical")
     @hypothesis.given(st.sampled_from(range(14)))
     def test_Union_cast_List(self, x):
         source_code = """
@@ -462,7 +462,75 @@ def validator(x: int) -> int:
         real = x + 1 if x > 5 else len(b"0" * x)
         self.assertEqual(res, real)
 
-    @unittest.skip("Throw compilation error, hence not critical")
+    @hypothesis.given(st.sampled_from(range(14)))
+    def test_Union_cast_Dict_values(self, x):
+        source_code = """
+from dataclasses import dataclass
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
+
+@dataclass()
+class A(PlutusData):
+    CONSTR_ID = 0
+    x: int
+
+@dataclass()
+class B(PlutusData):
+    CONSTR_ID = 1
+    y: bytes
+
+def foo(xs: Dict[str, Union[A, B]]) -> List[int]:
+    k: List[int] = [x.x + 1 for x in xs.values() if isinstance(x, A)]
+    if not k:
+        k = [len(x.y) for x in xs.values() if isinstance(x, B)]
+    return k
+
+def validator(x: int) -> int:
+    if x > 5:
+        k = foo({"hi": A(x)})
+    else:
+        k = foo({"hi": B(b"0"*x)})
+    return k[0]
+"""
+        res = eval_uplc_value(source_code, x)
+        real = x + 1 if x > 5 else len(b"0" * x)
+        self.assertEqual(res, real)
+
+    @hypothesis.given(st.sampled_from(range(14)))
+    def test_Union_cast_Dict_keys(self, x):
+        source_code = """
+from dataclasses import dataclass
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
+
+@dataclass()
+class A(PlutusData):
+    CONSTR_ID = 0
+    x: int
+
+@dataclass()
+class B(PlutusData):
+    CONSTR_ID = 1
+    y: bytes
+
+def foo(xs: Dict[Union[A, B], str]) -> List[int]:
+    k: List[int] = [x.x + 1 for x in xs.keys() if isinstance(x, A)]
+    if not k:
+        k = [len(x.y) for x in xs.keys() if isinstance(x, B)]
+    return k
+
+def validator(x: int) -> int:
+    if x > 5:
+        k = foo({A(x): "hi"})
+    else:
+        k = foo({B(b"0"*x): "hi"})
+    return k[0]
+"""
+        res = eval_uplc_value(source_code, x)
+        real = x + 1 if x > 5 else len(b"0" * x)
+        self.assertEqual(res, real)
+
+    @pytest.mark.skip("Known compiler error: Respective Issue #496")
     @hypothesis.given(st.sampled_from(range(14)))
     def test_Union_builtin_cast_List(self, x):
         source_code = """
@@ -478,13 +546,40 @@ def foo(xs: List[Union[int, bytes]]) -> List[int]:
 
 def validator(x: int) -> int:
     if x > 5:
-        k = foo(x+1)
+        k = foo([x+1])
     else:
-        k = foo(b"0"*x)
+        k = foo([b"0"*x])
     return k[0]
 """
         res = eval_uplc_value(source_code, x)
         real = x + 2 if x > 5 else len(b"0" * x)
+        self.assertEqual(res, real)
+
+    @pytest.mark.skip("Known compiler error: Respective Issue #496")
+    @hypothesis.given(st.sampled_from(range(14)))
+    def test_Union_builtin_cast_List_call(self, x):
+        source_code = """
+from dataclasses import dataclass
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
+
+def foo(xs: List[Union[int, bytes]]) -> int:
+    y = xs[0]
+    if isinstance(y, int):
+        k = y + 1
+    else:
+        k = len(y)
+    return k
+
+def validator(x: int) -> int:
+    if x > 5:
+        k = foo([x+1])
+    else:
+        k = foo([b"0"*x])
+    return k
+"""
+        res = eval_uplc_value(source_code, x)
+        real = 1
         self.assertEqual(res, real)
 
     def test_Union_expansion(
