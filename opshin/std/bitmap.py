@@ -79,7 +79,7 @@ def any_bitmap(b: BitMap) -> bool:
 
 def all_bitmap(b: BitMap) -> bool:
     """Returns whether all bits were set to 1"""
-    return b == (b"\xFF" * len(b))
+    return b == (b"\xff" * len(b))
 
 
 def none_bitmap(b: BitMap) -> bool:
