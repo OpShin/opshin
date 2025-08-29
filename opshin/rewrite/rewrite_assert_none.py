@@ -3,6 +3,7 @@
 import ast
 from typing import Optional, cast
 
+from .rewrite_cast_condition import SPECIAL_BOOL
 from ..typed_ast import TypedAssert
 from ..type_impls import UnitInstanceType, InstanceType, UnitType
 from ..util import CompilingNodeTransformer
@@ -39,7 +40,7 @@ class RewriteAssertNone(CompilingNodeTransformer):
             isinstance(node.test, ast.Call)
             and isinstance(node.test.func, ast.Name)
             and node.test.func.id.startswith(
-                "~bool"
+                SPECIAL_BOOL
             )  # This is the special bool from RewriteConditions
             and len(node.test.args) == 1
             and isinstance(node.test.args[0], ast.Call)
