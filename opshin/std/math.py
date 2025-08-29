@@ -1,4 +1,4 @@
-""" An implementation of some math operations in opshin """
+"""An implementation of some math operations in opshin"""
 
 
 def gcd(a: int, b: int) -> int:

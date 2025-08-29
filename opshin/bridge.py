@@ -1,4 +1,4 @@
-""" Bridging tools between uplc and opshin """
+"""Bridging tools between uplc and opshin"""
 
 from functools import wraps
 
