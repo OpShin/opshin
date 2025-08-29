@@ -805,6 +805,19 @@ class PlutoCompiler(CompilingNodeTransformer):
                 )
         elif isinstance(node.value.typ.typ, ByteStringType):
             if not isinstance(node.slice, Slice):
+                if isinstance(node.slice, Constant) and node.slice.value >= 0:
+                    return plt.IndexByteString(
+                        self.visit(node.value),
+                        self.visit(node.slice),
+                    )
+                elif isinstance(node.slice, Constant) and node.slice.value < 0:
+                    return plt.IndexByteString(
+                        self.visit(node.value),
+                        plt.AddInteger(
+                            self.visit(node.slice),
+                            plt.LengthOfByteString(self.visit(node.value)),
+                        ),
+                    )
                 return OLet(
                     [
                         (

@@ -409,3 +409,31 @@ def validator(b: Dict[int, Dict[bytes, int]]) -> Dict[bytes, int]:
             source_code, {1: {b"": 0}}, config=DEFAULT_CONFIG_CONSTANT_FOLDING
         )
         self.assertEqual(res, {})
+
+    def test_constant_folding_bytestring_index(self):
+        source_code = """
+def validator(x: bytes) -> int:
+    return x[0 + 2] + 5
+"""
+        code = builder._compile(source_code, Unit(), config=DEFAULT_CONFIG)
+        assert "lengthOfByteString" in code.dumps(), "Needs to check length at runtime"
+        code = builder._compile(
+            source_code, Unit(), config=DEFAULT_CONFIG_CONSTANT_FOLDING
+        )
+        assert (
+            "lengthOfByteString" not in code.dumps()
+        ), "Should be constant folded, can precompute that length not needed"
+
+    def test_constant_folding_bytestring_index_negative(self):
+        source_code = """
+def validator(x: bytes) -> int:
+    return x[0 - 2] + 5
+"""
+        code = builder._compile(source_code, Unit(), config=DEFAULT_CONFIG)
+        assert "lengthOfByteString" in code.dumps(), "Needs to check length at runtime"
+        code = builder._compile(
+            source_code, Unit(), config=DEFAULT_CONFIG_CONSTANT_FOLDING
+        )
+        assert (
+            "lengthOfByteString" in code.dumps()
+        ), "Should be constant folded, but still needs to check length at runtime"
