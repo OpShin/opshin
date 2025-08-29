@@ -65,7 +65,7 @@ jobs:
 
   test-other:
     needs: [get-python-versions, test-primary]
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev'
     runs-on: ubuntu-latest
     strategy:
       matrix:
