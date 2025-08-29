@@ -25,11 +25,11 @@ runs:
         # Get the latest version for primary testing
         primary_version=$(echo "$versions" | tail -n1)
         
-        # Get all other versions for matrix testing
-        other_versions=$(echo "$versions" | head -n -1 | jq -R . | jq -s .)
+        # Get all other versions for matrix testing (compact JSON)
+        other_versions=$(echo "$versions" | head -n -1 | jq -R . | jq -s -c .)
         
-        # Get all versions as JSON array
-        all_versions=$(echo "$versions" | jq -R . | jq -s .)
+        # Get all versions as JSON array (compact JSON)
+        all_versions=$(echo "$versions" | jq -R . | jq -s -c .)
         
         echo "primary-version=$primary_version" >> $GITHUB_OUTPUT
         echo "other-versions=$other_versions" >> $GITHUB_OUTPUT
