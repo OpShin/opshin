@@ -35,3 +35,26 @@ class RewriteForbiddenOverwrites(CompilingNodeTransformer):
                 f"It is not allowed to overwrite name {node.id}"
             )
         return node
+
+    def visit_FunctionDef(self, node: FunctionDef) -> FunctionDef:
+        # Check if the function name is forbidden
+        if node.name in FORBIDDEN_NAMES:
+            raise ForbiddenOverwriteError(
+                f"It is not allowed to overwrite name {node.name}"
+            )
+        for arg in node.args.args:
+            if arg.arg in FORBIDDEN_NAMES:
+                raise ForbiddenOverwriteError(
+                    f"It is not allowed to overwrite name {arg.arg}"
+                )
+        node.body = [self.visit(n) for n in node.body]
+        return node
+
+    def visit_ClassDef(self, node: ClassDef) -> ClassDef:
+        # Check if the class name is forbidden
+        if node.name in FORBIDDEN_NAMES:
+            raise ForbiddenOverwriteError(
+                f"It is not allowed to overwrite name {node.name}"
+            )
+        node.body = [self.visit(n) for n in node.body]
+        return node
