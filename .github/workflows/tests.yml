@@ -4,9 +4,21 @@ on:
   push:
     branches:
       - '**'
+    paths:
+      - '**.py'
+      - 'pyproject.toml'
+      - '.github/workflows/tests.yml'
+      - '.github/scripts/run-tests.sh'
+      - '.github/actions/get-python-versions/**'
   pull_request:
     branches:
       - '**'
+    paths:
+      - '**.py'
+      - 'pyproject.toml'
+      - '.github/workflows/tests.yml'
+      - '.github/scripts/run-tests.sh'
+      - '.github/actions/get-python-versions/**'
 
 jobs:
   get-python-versions:
