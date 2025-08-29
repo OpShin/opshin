@@ -9,13 +9,27 @@ on:
       - '**'
 
 jobs:
+  get-python-versions:
+    runs-on: ubuntu-latest
+    outputs:
+      primary-version: ${{ steps.get-versions.outputs.primary-version }}
+      other-versions: ${{ steps.get-versions.outputs.other-versions }}
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v5
+    
+    - name: Get Python versions
+      id: get-versions
+      uses: ./.github/actions/get-python-versions
+
   test-primary:
+    needs: get-python-versions
     runs-on: ubuntu-latest
     steps:
-    - name: Set up Python 3.12
+    - name: Set up Python ${{ needs.get-python-versions.outputs.primary-version }}
       uses: actions/setup-python@v5
       with:
-        python-version: '3.12'
+        python-version: ${{ needs.get-python-versions.outputs.primary-version }}
 
     - name: Install Poetry
       uses: snok/install-poetry@v1
@@ -33,16 +47,16 @@ jobs:
       run: poetry run coveralls || true
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        COVERALLS_FLAG_NAME: 3.12
+        COVERALLS_FLAG_NAME: ${{ needs.get-python-versions.outputs.primary-version }}
         COVERALLS_PARALLEL: true
 
   test-other:
-    needs: test-primary
+    needs: [get-python-versions, test-primary]
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ['3.9', '3.10', '3.11']
+        python-version: ${{ fromJSON(needs.get-python-versions.outputs.other-versions) }}
 
     steps:
     - name: Set up Python ${{ matrix.python-version }}
