@@ -368,6 +368,13 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                 "This can happen for example if you redefine a (renamed) imported function but try to use it before the redefinition."
             )
 
+    def is_defined_in_current_scope(self, name: str) -> bool:
+        try:
+            self.variable_type(name)
+            return True
+        except TypeInferenceError:
+            return False
+
     def enter_scope(self):
         self.scopes.append({})
 
@@ -1216,21 +1223,23 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
 
         subbed_method = False
         if isinstance(tc.func, Attribute):
-            # might be a method, duck test for class_name, method_name should
+            # might be a method, test whether the variable is a record and if the method exists
             accessed_var = self.visit(tc.func.value)
-            if isinstance(accessed_var.typ, InstanceType) and isinstance(
-                accessed_var.typ.typ, RecordType
+            if (
+                isinstance(accessed_var.typ, InstanceType)
+                and isinstance(accessed_var.typ.typ, RecordType)
+                and tc.func.attr != "to_cbor"
             ):
                 class_name = accessed_var.typ.typ.record.name
                 method_name = f"{class_name}_+_{tc.func.attr}"
                 # If method_name found then use this.
-                self.variable_type(method_name)
-                n = ast.Name(id=method_name, ctx=ast.Load())
-                n.orig_id = node.func.attr
-                tc.func = self.visit(n)
-                tc.func.orig_id = node.func.attr
-                tc.args.insert(0, accessed_var)
-                subbed_method = True
+                if self.is_defined_in_current_scope(method_name):
+                    n = ast.Name(id=method_name, ctx=ast.Load())
+                    n.orig_id = node.func.attr
+                    tc.func = self.visit(n)
+                    tc.func.orig_id = node.func.attr
+                    tc.args.insert(0, accessed_var)
+                    subbed_method = True
 
         if not subbed_method:
             tc.func = self.visit(node.func)

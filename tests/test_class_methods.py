@@ -550,3 +550,21 @@ def validator(a: int, b: int, c:int) -> bool:
 """
         ret = eval_uplc_value(source_code, x, y, z)
         self.assertEqual(ret, z not in [x, y])
+
+    def test_no_identifier_method(self):
+        source_code = """
+from typing import Self
+from opshin.prelude import *
+@dataclass()
+class Foo(PlutusData):
+    a: int
+    b: int
+
+    def mul(self, c: int) -> Self:
+        return Foo(a=self.a * c, b=self.b * c)
+
+def validator(a: int, b: int, c:int) -> bool:
+    return Foo(a, b).mul(c).a > 0
+"""
+        ret = eval_uplc_value(source_code, 1, 2, 3)
+        self.assertEqual(ret, True)
