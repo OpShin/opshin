@@ -5,7 +5,22 @@ on:
     types: [trigger_binary_build]
 
 jobs:
+  get-python-versions:
+    runs-on: ubuntu-latest
+    outputs:
+      primary-version: ${{ steps.get-versions.outputs.primary-version }}
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v5
+      with:
+        ref: ${{ github.event.client_payload.ref }}
+    
+    - name: Get Python versions
+      id: get-versions
+      uses: ./.github/actions/get-python-versions
+
   build:
+    needs: get-python-versions
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -30,7 +45,8 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
-        python-version: '3.11'
+        python-version: ${{ needs.get-python-versions.outputs.primary-version }}
+        cache: "pip"
 
     - name: Install Dependencies
       run: |

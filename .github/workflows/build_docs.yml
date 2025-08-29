@@ -11,14 +11,30 @@ permissions:
   contents: read
 
 jobs:
+  get-python-versions:
+    runs-on: ubuntu-latest
+    outputs:
+      primary-version: ${{ steps.get-versions.outputs.primary-version }}
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v5
+    
+    - name: Get Python versions
+      id: get-versions
+      uses: ./.github/actions/get-python-versions
+
   # Build the documentation and upload the static HTML files as an artifact.
   build:
+    needs: get-python-versions
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - name: Checkout code
+        uses: actions/checkout@v5
+
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: ${{ needs.get-python-versions.outputs.primary-version }}
+          cache: "pip"
       - uses: snok/install-poetry@v1
 
       - run: poetry install

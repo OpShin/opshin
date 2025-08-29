@@ -1,0 +1,40 @@
+name: 'Get Python Versions'
+description: 'Extract Python versions from pyproject.toml classifiers'
+outputs:
+  primary-version:
+    description: 'Latest Python version for primary testing'
+    value: ${{ steps.versions.outputs.primary-version }}
+  other-versions:
+    description: 'Other Python versions as JSON array for matrix testing'
+    value: ${{ steps.versions.outputs.other-versions }}
+  all-versions:
+    description: 'All Python versions as JSON array'
+    value: ${{ steps.versions.outputs.all-versions }}
+runs:
+  using: 'composite'
+  steps:
+    - name: Extract Python versions from pyproject.toml
+      id: versions
+      shell: bash
+      run: |
+        # Extract Python versions from pyproject.toml classifiers
+        versions=$(grep -E 'Programming Language :: Python :: [0-9]+\.[0-9]+' pyproject.toml | \
+                  sed -E 's/.*Python :: ([0-9]+\.[0-9]+).*/\1/' | \
+                  sort -V)
+        
+        # Get the latest version for primary testing
+        primary_version=$(echo "$versions" | tail -n1)
+        
+        # Get all other versions for matrix testing (compact JSON)
+        other_versions=$(echo "$versions" | head -n -1 | jq -R . | jq -s -c .)
+        
+        # Get all versions as JSON array (compact JSON)
+        all_versions=$(echo "$versions" | jq -R . | jq -s -c .)
+        
+        echo "primary-version=$primary_version" >> $GITHUB_OUTPUT
+        echo "other-versions=$other_versions" >> $GITHUB_OUTPUT
+        echo "all-versions=$all_versions" >> $GITHUB_OUTPUT
+        
+        echo "Primary version: $primary_version"
+        echo "Other versions: $other_versions"
+        echo "All versions: $all_versions"
