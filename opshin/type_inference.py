@@ -73,6 +73,22 @@ DUNDER_MAP = {
     ast.Or: "__or__",
 }
 
+DUNDER_REVERSE_MAP = {
+    ast.Add: "__radd__",
+    ast.Sub: "__rsub__",
+    ast.Mult: "__rmul__",
+    ast.Div: "__rtruediv__",
+    ast.FloorDiv: "__rfloordiv__",
+    ast.Mod: "__rmod__",
+    ast.Pow: "__rpow__",
+    ast.LShift: "__rlshift__",
+    ast.RShift: "__rrshift__",
+    ast.And: "__rand__",
+    ast.Or: "__ror__",
+}
+
+ALL_DUNDERS = set(DUNDER_MAP.values()).union(set(DUNDER_REVERSE_MAP.values()))
+
 
 def record_from_plutusdata(c: PlutusData):
     return Record(
@@ -352,6 +368,13 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                 "This can happen for example if you redefine a (renamed) imported function but try to use it before the redefinition."
             )
 
+    def is_defined_in_current_scope(self, name: str) -> bool:
+        try:
+            self.variable_type(name)
+            return True
+        except TypeInferenceError:
+            return False
+
     def enter_scope(self):
         self.scopes.append({})
 
@@ -381,44 +404,67 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         operation = None
         args = []
         if isinstance(node, UnaryOp):
-            operand = node.operand
+            operand = self.visit(node.operand)
             operation = node.op
         elif isinstance(node, BinOp):
-            operand = node.left
+            operand = self.visit(node.left)
             operation = node.op
-            args.append(node.right)
+            args = [self.visit(node.right)]
         elif isinstance(node, Compare):
             operation = node.ops[0]
             if any([isinstance(operation, x) for x in [ast.In, ast.NotIn]]):
-                operand = node.comparators[0]
-                args = [node.left]
+                operand = self.visit(node.comparators[0])
+                args = [self.visit(node.left)]
             else:
-                operand = node.left
-                args = node.comparators
+                operand = self.visit(node.left)
+                args = [self.visit(c) for c in node.comparators]
             assert len(node.ops) == 1, "Only support one op at a time"
-        if operand is not None and hasattr(operand, "id"):
-            operand_type = self.variable_type(operand.id)
-            if (
-                operation.__class__ in DUNDER_MAP
-                and isinstance(operand_type, InstanceType)
-                and isinstance(operand_type.typ, RecordType)
-            ):
-                dunder = DUNDER_MAP[operation.__class__]
-                operand_class_name = operand_type.typ.record.name
-                method_name = f"{operand_class_name}_{dunder}"
-                if any([method_name in scope for scope in self.scopes]):
-                    call = ast.Call(
-                        func=ast.Attribute(
-                            value=operand,
-                            attr=dunder,
-                            ctx=ast.Load(),
-                        ),
-                        args=args,
-                        keywords=[],
-                    )
-                    call.func.orig_id = None
-                    call.func.id = method_name
-                    return self.visit_Call(call)
+        operand_type = operand.typ
+        if (
+            operation.__class__ in DUNDER_MAP
+            and isinstance(operand_type, InstanceType)
+            and isinstance(operand_type.typ, RecordType)
+        ):
+            dunder = DUNDER_MAP[operation.__class__]
+            operand_class_name = operand_type.typ.record.name
+            method_name = f"{operand_class_name}_+_{dunder}"
+            if any([method_name in scope for scope in self.scopes]):
+                call = ast.Call(
+                    func=ast.Attribute(
+                        value=operand,
+                        attr=dunder,
+                        ctx=ast.Load(),
+                    ),
+                    args=args,
+                    keywords=[],
+                )
+                call.func.orig_id = f"{operand_class_name}.{dunder}"
+                call.func.id = method_name
+                return self.visit_Call(call)
+        # if this is not supported, try the reverse dunder
+        # note we assume 1, i.e. allow only a single right operand
+        right_op_typ = args[0].typ if len(args) == 1 else None
+        if (
+            operation.__class__ in DUNDER_REVERSE_MAP
+            and isinstance(right_op_typ, InstanceType)
+            and isinstance(right_op_typ.typ, RecordType)
+        ):
+            dunder = DUNDER_REVERSE_MAP[operation.__class__]
+            right_class_name = right_op_typ.typ.record.name
+            method_name = f"{right_class_name}_+_{dunder}"
+            if any([method_name in scope for scope in self.scopes]):
+                call = ast.Call(
+                    func=ast.Attribute(
+                        value=args[0],
+                        attr=dunder,
+                        ctx=ast.Load(),
+                    ),
+                    args=[operand],
+                    keywords=[],
+                )
+                call.func.orig_id = f"{right_class_name}.{dunder}"
+                call.func.id = method_name
+                return self.visit_Call(call)
         return None
 
     def type_from_annotation(self, ann: expr):
@@ -546,10 +592,10 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                     continue
                 func = copy(attribute)
                 if func.name[0:2] == "__" and func.name[-2:] == "__":
-                    assert any(
-                        [func.name == value for key, value in DUNDER_MAP.items()]
-                    ), f"The following Dunder methods are supported {list(DUNDER_MAP.values())}. Received {func.name} which is not supported"
-                func.name = f"{n.name}_{attribute.name}"
+                    assert (
+                        func.name in ALL_DUNDERS
+                    ), f"The following Dunder methods are supported {sorted(ALL_DUNDERS)}. Received {func.name} which is not supported"
+                func.name = f"{n.name}_+_{attribute.name}"
                 for arg in func.args.args:
                     if not arg.annotation is None:
                         if isinstance(arg.annotation, ast.Name):
@@ -1175,26 +1221,28 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                     )
                     break
 
-        try:
-            tc.func = self.visit(node.func)
-        except Exception as e:
-            # might be a method, duck test for class_name, method_name should
-            try:
-                func_variable_type = self.variable_type(tc.func.value.id)
-                class_name = func_variable_type.typ.record.name
-                method_name = f"{class_name}_{tc.func.attr}"
+        subbed_method = False
+        if isinstance(tc.func, Attribute):
+            # might be a method, test whether the variable is a record and if the method exists
+            accessed_var = self.visit(tc.func.value)
+            if (
+                isinstance(accessed_var.typ, InstanceType)
+                and isinstance(accessed_var.typ.typ, RecordType)
+                and tc.func.attr != "to_cbor"
+            ):
+                class_name = accessed_var.typ.typ.record.name
+                method_name = f"{class_name}_+_{tc.func.attr}"
                 # If method_name found then use this.
-                self.variable_type(method_name)
-            except Exception:
-                # if this fails raise original error
-                raise e
-            n = ast.Name(id=method_name, ctx=ast.Load())
-            n.orig_id = node.func.attr
-            tc.func = self.visit(n)
-            tc.func.orig_id = node.func.attr
-            c_self = ast.Name(id=node.func.value.id, ctx=ast.Load())
-            c_self.orig_id = None
-            tc.args.insert(0, self.visit(c_self))
+                if self.is_defined_in_current_scope(method_name):
+                    n = ast.Name(id=method_name, ctx=ast.Load())
+                    n.orig_id = node.func.attr
+                    tc.func = self.visit(n)
+                    tc.func.orig_id = node.func.attr
+                    tc.args.insert(0, accessed_var)
+                    subbed_method = True
+
+        if not subbed_method:
+            tc.func = self.visit(node.func)
 
         # might be a class
         if isinstance(tc.func.typ, ClassType):

@@ -1856,6 +1856,8 @@ class IntegerType(AtomicType):
         )
 
     def _binop_return_type(self, binop: operator, other: "Type") -> "Type":
+        if isinstance(other, InstanceType) and isinstance(other.typ, RecordType):
+            print("Ha")
         if (
             isinstance(binop, Add)
             or isinstance(binop, Sub)
@@ -1876,7 +1878,7 @@ class IntegerType(AtomicType):
                 return ByteStringType()
             elif other == StringInstanceType:
                 return StringType()
-        return super().binop_type(binop, other)
+        return super()._binop_return_type(binop, other)
 
     def _binop_bin_fun(self, binop: operator, other: AST):
         if other.typ == IntegerInstanceType:
@@ -2010,7 +2012,7 @@ class StringType(AtomicType):
         if isinstance(binop, Mult):
             if other == IntegerInstanceType:
                 return StringType()
-        return super().binop_type(binop, other)
+        return super()._binop_return_type(binop, other)
 
     def _binop_bin_fun(self, binop: operator, other: AST):
         if isinstance(binop, Add):

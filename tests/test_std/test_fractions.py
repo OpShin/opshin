@@ -1,6 +1,9 @@
 import hypothesis
 import hypothesis.strategies as hst
 from typing import Union
+
+from hypothesis.strategies import integers
+
 from opshin.std import fractions as oc_fractions
 from ..utils import eval_uplc, eval_uplc_value
 
@@ -146,6 +149,15 @@ def test_floor_dunder(a: oc_fractions.Fraction, b: oc_fractions.Fraction):
     assert oc_floor == floor, "Invalid floor"
 
 
+@hypothesis.given(denormalized_fractions, hst.integers(max_value=10, min_value=-10))
+def test_pow_dunder(a: oc_fractions.Fraction, b: int):
+    if a == 0:
+        return
+    oc_le = a**b
+    le = native_fraction_from_oc_fraction(a) ** b
+    assert oc_le == le, "Invalid pow"
+
+
 @hypothesis.given(denormalized_fractions)
 def test_ceil(a: oc_fractions.Fraction):
     oc_ceil = oc_fractions.ceil_fraction(a)
@@ -178,8 +190,10 @@ def test_floor_method(a: oc_fractions.Fraction):
     ), "Invalid ceil"
 
 
-@hypothesis.given(denormalized_fractions, denormalized_fractions)
-def test_uplc(a, b):
+@hypothesis.given(
+    denormalized_fractions, hst.one_of(denormalized_fractions, hst.integers())
+)
+def test_uplc_add_frac_union(a, b):
     source_code = """
 from opshin.std.fractions import *
 from typing import Dict, List, Union
@@ -188,7 +202,139 @@ def validator(a: Fraction, b: Union[Fraction, int]) -> Fraction:
     return a+b
 """
     ret = eval_uplc(source_code, a, b)
-    print(ret)
     assert (
         native_fraction_from_oc_fraction(a) + native_fraction_from_oc_fraction(b)
     ) == native_fraction_from_oc_fraction(ret), "invalid add"
+
+
+@hypothesis.given(denormalized_fractions, hst.integers())
+def test_uplc_add_frac_int(a, b):
+    source_code = """
+from opshin.std.fractions import *
+from typing import Dict, List, Union
+
+def validator(a: Fraction, b: int) -> Fraction:
+    return a+b
+"""
+    ret = eval_uplc(source_code, a, b)
+    assert (
+        native_fraction_from_oc_fraction(a) + b
+    ) == native_fraction_from_oc_fraction(ret), "invalid add"
+
+
+@hypothesis.given(hst.integers(), denormalized_fractions)
+def test_uplc_add_int_frac(a, b):
+    source_code = """
+from opshin.std.fractions import *
+from typing import Dict, List, Union
+
+def validator(a: int, b: Fraction) -> Fraction:
+    return a+b
+"""
+    ret = eval_uplc(source_code, a, b)
+    assert (
+        native_fraction_from_oc_fraction(a) + b
+    ) == native_fraction_from_oc_fraction(ret), "invalid add"
+
+
+@hypothesis.given(hst.integers(), denormalized_fractions)
+@hypothesis.example(0, oc_fractions.Fraction(1, 2))
+def test_uplc_mul_int_frac(a, b):
+    source_code = """
+from opshin.std.fractions import *
+from typing import Dict, List, Union
+
+def validator(a: int, b: Fraction) -> Fraction:
+    return a*b
+"""
+    ret = eval_uplc(source_code, a, b)
+    assert (
+        native_fraction_from_oc_fraction(a) * b
+    ) == native_fraction_from_oc_fraction(ret), "invalid mul"
+
+
+@hypothesis.given(denormalized_fractions, hst.integers())
+@hypothesis.example(oc_fractions.Fraction(1, 2), 0)
+def test_uplc_mul_frac_int(a, b):
+    source_code = """
+from opshin.std.fractions import *
+from typing import Dict, List, Union
+
+def validator(a: Fraction, b: int) -> Fraction:
+    return a*b
+"""
+    ret = eval_uplc(source_code, a, b)
+    assert (
+        native_fraction_from_oc_fraction(a) * b
+    ) == native_fraction_from_oc_fraction(ret), "invalid mul"
+
+
+@hypothesis.given(
+    denormalized_fractions, hst.one_of(denormalized_fractions, hst.integers())
+)
+def test_uplc_mul_frac_union(a, b):
+    source_code = """
+from opshin.std.fractions import *
+from typing import Dict, List, Union
+
+def validator(a: Fraction, b: Union[Fraction, int]) -> Fraction:
+    return a*b
+"""
+    ret = eval_uplc(source_code, a, b)
+    assert (
+        native_fraction_from_oc_fraction(a) * native_fraction_from_oc_fraction(b)
+    ) == native_fraction_from_oc_fraction(ret), "invalid mul"
+
+
+@hypothesis.given(denormalized_fractions, hst.integers())
+@hypothesis.example(oc_fractions.Fraction(1, 2), 0)
+def test_uplc_mul_fractions_unnamed(a: oc_fractions.Fraction, b):
+    source_code = """
+from opshin.std.fractions import *
+from typing import Dict, List, Union
+
+def validator(a: int, b:int, c: int) -> Fraction:
+    return Fraction(a,b) * c
+
+"""
+    ret = eval_uplc(source_code, a.numerator, a.denominator, b)
+    assert (
+        native_fraction_from_oc_fraction(a) * native_fraction_from_oc_fraction(b)
+    ) == native_fraction_from_oc_fraction(ret), "invalid mul"
+
+
+@hypothesis.given(hst.integers(), denormalized_fractions)
+def test_radd_dunder(a: int, b: oc_fractions.Fraction):
+    oc_added = a + b
+    oc_normalized = native_fraction_from_oc_fraction(oc_added)
+    assert oc_normalized == (a + native_fraction_from_oc_fraction(b)), "Invalid radd"
+
+
+@hypothesis.given(hst.integers(), denormalized_fractions)
+def test_rsub_dunder(a: int, b: oc_fractions.Fraction):
+    oc_subbed = a - b
+    oc_normalized = native_fraction_from_oc_fraction(oc_subbed)
+    assert oc_normalized == (a - native_fraction_from_oc_fraction(b)), "Invalid rsub"
+
+
+@hypothesis.given(hst.integers(), denormalized_fractions)
+def test_rmul_dunder(a: int, b: oc_fractions.Fraction):
+    oc_mulled = a * b
+    oc_normalized = native_fraction_from_oc_fraction(oc_mulled)
+    assert oc_normalized == (a * native_fraction_from_oc_fraction(b)), "Invalid rmul"
+
+
+@hypothesis.given(hst.integers(), denormalized_fractions_non_null)
+def test_rtruediv_dunder(a: int, b: oc_fractions.Fraction):
+    oc_divved = a / b
+    oc_normalized = native_fraction_from_oc_fraction(oc_divved)
+    assert oc_normalized == (
+        a / native_fraction_from_oc_fraction(b)
+    ), "Invalid rtruediv"
+
+
+@hypothesis.given(hst.integers(), denormalized_fractions_non_null)
+def test_rfloordiv_dunder(a: int, b: oc_fractions.Fraction):
+    oc_floordivved = a // b
+    floordivved = a // native_fraction_from_oc_fraction(b)
+    assert oc_floordivved == floordivved, "Invalid rfloordiv"

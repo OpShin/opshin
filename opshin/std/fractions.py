@@ -96,6 +96,15 @@ class Fraction(PlutusData):
         else:
             return Fraction(self.numerator, self.denominator * other)
 
+    def __pow__(self, exponent: int) -> "Fraction":
+        """returns self ** exponent, where exponent is an integer"""
+        if exponent >= 0:
+            return Fraction(self.numerator**exponent, self.denominator**exponent)
+        else:
+            return Fraction(
+                self.denominator ** (-exponent), self.numerator ** (-exponent)
+            )
+
     def __ge__(self, other: Union["Fraction", int]) -> bool:
         """returns self >= other"""
         if isinstance(other, Fraction):
@@ -195,6 +204,28 @@ class Fraction(PlutusData):
             return x.numerator // x.denominator
         else:
             return self.numerator // (other * self.denominator)
+
+    def __radd__(self, other: Union["Fraction", int]) -> "Fraction":
+        return self + other
+
+    def __rsub__(self, other: Union["Fraction", int]) -> "Fraction":
+        return -self + other
+
+    def __rmul__(self, other: Union["Fraction", int]) -> "Fraction":
+        return self * other
+
+    def __rtruediv__(self, other: Union["Fraction", int]) -> "Fraction":
+        if isinstance(other, Fraction):
+            return other / self
+        else:
+            return Fraction(other * self.denominator, self.numerator)
+
+    def __rfloordiv__(self, other: Union["Fraction", int]) -> int:
+        if isinstance(other, Fraction):
+            return other // self
+        else:
+            x = Fraction(other, 1) / self
+            return x.numerator // x.denominator
 
 
 def _norm_signs_fraction(a: Fraction) -> Fraction:
