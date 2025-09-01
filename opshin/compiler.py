@@ -782,7 +782,9 @@ class PlutoCompiler(CompilingNodeTransformer):
                     [
                         (
                             "key",
-                            self.visit(node.slice),
+                            transform_output_map(node.slice.typ)(
+                                self.visit(node.slice),
+                            ),
                         )
                     ],
                     transform_ext_params_map(dict_typ.value_typ)(
@@ -792,9 +794,7 @@ class PlutoCompiler(CompilingNodeTransformer):
                                 OLambda(
                                     ["x"],
                                     plt.EqualsData(
-                                        transform_output_map(node.slice.typ)(
-                                            OVar("key")
-                                        ),
+                                        OVar("key"),
                                         plt.FstPair(OVar("x")),
                                     ),
                                 ),
