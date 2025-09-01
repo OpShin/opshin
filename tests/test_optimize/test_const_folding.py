@@ -437,3 +437,28 @@ def validator(x: bytes) -> int:
         assert (
             "lengthOfByteString" in code.dumps()
         ), "Should be constant folded, but still needs to check length at runtime"
+
+    def test_constant_folding_check_integrity(self):
+        """
+        Check_integrity does not exist at runtime, so will create a  value error.
+        However, applying check_integrity to a constant is always non-failing/true because
+        constants are always well-formed.
+        """
+        source_code = """
+from opshin.prelude import *
+from opshin.std.integrity import check_integrity
+
+@dataclass()
+class B(PlutusData):
+    CONSTR_ID = 1
+    foobar: int
+    bar: int
+
+def validator(_: B) -> None:
+    check_integrity(B(4,5))
+        """
+        code = builder._compile(
+            source_code, Unit(), config=DEFAULT_CONFIG_CONSTANT_FOLDING
+        )
+        self.assertNotIn("ValueError", code.dumps())
+        eval_uplc(source_code, Unit(), config=DEFAULT_CONFIG_CONSTANT_FOLDING)
