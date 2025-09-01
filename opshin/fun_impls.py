@@ -24,6 +24,7 @@ from .type_impls import (
     PowImpl,
     StringInstanceType,
     PolymorphicFunctionType,
+    FunctionType,
 )
 from .typed_ast import *
 

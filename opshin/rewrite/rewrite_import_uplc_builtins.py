@@ -1,4 +1,5 @@
 import re
+from _ast import ImportFrom, AST, Name
 from copy import copy
 from typing import Optional
 
@@ -51,5 +52,5 @@ class RewriteImportUPLCBuiltins(CompilingNodeTransformer):
             ),
         )
         node_cp = copy(node)
-        node_cp.body = [Return(pluto_expression, typ=node.typ.typ.rettyp)]
+        node_cp.body = [TypedReturn(pluto_expression, typ=node.typ.typ.rettyp)]
         return node_cp

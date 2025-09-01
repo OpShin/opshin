@@ -1,4 +1,5 @@
 import typing
+from _ast import ImportFrom, AST
 from typing import Optional
 import pluthon as plt
 
@@ -8,6 +9,7 @@ from ..type_impls import (
     RecordType,
     UnionType,
     PolymorphicFunctionType,
+    FunctionType,
 )
 from ..type_inference import INITIAL_SCOPE
 from ..util import CompilingNodeTransformer, OLambda, OVar

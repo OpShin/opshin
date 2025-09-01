@@ -4,14 +4,13 @@ import enum
 import functools
 import json
 import typing
-from ast import Module
+from ast import Module, parse
 from typing import Optional, Any, Union
 from pathlib import Path
 
-from frozenlist2 import frozenlist
 from pycardano import PlutusV2Script, IndefiniteList, PlutusData, Datum
 
-from . import __version__, compiler, DEFAULT_CONFIG
+from . import __version__, compiler
 
 import uplc.ast
 from uplc import flatten, ast as uplc_ast, eval as uplc_eval
@@ -20,6 +19,7 @@ import pycardano
 from pluthon import compile as plt_compile
 
 from .util import datum_to_cbor
+from .compiler_config import DEFAULT_CONFIG
 
 
 class Purpose(enum.Enum):
@@ -212,7 +212,7 @@ def _static_compile(
     Expects a python module and returns the build artifacts from compiling it
     """
 
-    source_ast = compiler.parse(source_code, filename=contract_file)
+    source_ast = parse(source_code, filename=contract_file)
     code = compile(
         source_ast,
         contract_filename=contract_file,

@@ -1,5 +1,6 @@
 from copy import copy, deepcopy
 import pluthon as plt
+import ast
 
 from ..typed_ast import *
 from ..util import (
@@ -24,8 +25,8 @@ class RewriteInjectBuiltins(CompilingNodeTransformer):
                 # skip polymorphic functions
                 continue
             additional_assigns.append(
-                TypedAssign(
-                    targets=[TypedName(id=b.name, typ=typ, ctx=Store())],
+                ast.Assign(
+                    targets=[ast.Name(id=b.name, typ=typ, ctx=ast.Store())],
                     value=RawPlutoExpr(typ=typ, expr=force_params(deepcopy(b.value))),
                 )
             )

@@ -1,4 +1,5 @@
 import typing
+from _ast import ImportFrom, AST, Store
 from dataclasses import dataclass
 from enum import Enum, auto
 import pluthon as plt
@@ -6,7 +7,7 @@ import pluthon as plt
 from frozenlist2 import frozenlist
 
 from ..typed_ast import *
-from ..type_impls import ClassType, InstanceType, ByteStringInstanceType
+from ..type_impls import ClassType, InstanceType, ByteStringInstanceType, FunctionType
 from ..util import CompilingNodeTransformer, force_params
 
 """

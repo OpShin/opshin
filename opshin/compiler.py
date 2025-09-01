@@ -1,5 +1,7 @@
+import ast
 import copy
 import typing
+from ast import Load, Name, Constant, Slice
 
 import pluthon as plt
 import uplc.ast as uplc
@@ -23,6 +25,7 @@ from .type_impls import (
     empty_list,
     DictType,
     ByteStringType,
+    FunctionType,
 )
 from .type_inference import map_to_orig_name, AggressiveTypeInferencer
 from .typed_ast import *
@@ -74,8 +77,8 @@ from .util import (
 
 
 BoolOpMap = {
-    And: plt.And,
-    Or: plt.Or,
+    ast.And: plt.And,
+    ast.Or: plt.Or,
 }
 
 
@@ -247,7 +250,7 @@ class PlutoCompiler(CompilingNodeTransformer):
             main_fun: typing.Optional[InstanceType] = None
             for s in node.body:
                 if (
-                    isinstance(s, FunctionDef)
+                    isinstance(s, ast.FunctionDef)
                     and s.orig_name == self.validator_function_name
                 ):
                     main_fun = s
@@ -289,10 +292,10 @@ class PlutoCompiler(CompilingNodeTransformer):
                 [
                     TypedReturn(
                         TypedCall(
-                            func=Name(
+                            func=ast.Name(
                                 id=main_fun.name,
                                 typ=InstanceType(main_fun_typ),
-                                ctx=Load(),
+                                ctx=ast.Load(),
                             ),
                             typ=main_fun_typ.rettyp,
                             args=[
@@ -366,7 +369,7 @@ class PlutoCompiler(CompilingNodeTransformer):
         cp = plt.Program((1, 0, 0), validator)
         return cp
 
-    def visit_Constant(self, node: TypedConstant) -> plt.AST:
+    def visit_Constant(self, node: Constant) -> plt.AST:
         if isinstance(node.value, bytes) and node.value != b"":
             try:
                 bytes.fromhex(node.value.decode())
@@ -410,7 +413,7 @@ class PlutoCompiler(CompilingNodeTransformer):
             x,
         )
 
-    def visit_AnnAssign(self, node: AnnAssign) -> CallAST:
+    def visit_AnnAssign(self, node: TypedAnnAssign) -> CallAST:
         assert isinstance(
             node.target, Name
         ), "Assignments to other things then names are not supported"
@@ -440,7 +443,7 @@ class PlutoCompiler(CompilingNodeTransformer):
             x,
         )
 
-    def visit_Name(self, node: TypedName) -> plt.AST:
+    def visit_Name(self, node: Name) -> plt.AST:
         # depending on load or store context, return the value of the variable or its name
         if not isinstance(node.ctx, Load):
             raise NotImplementedError(f"Context {node.ctx} not supported")
@@ -1125,12 +1128,12 @@ class PlutoCompiler(CompilingNodeTransformer):
             joined_str = plt.AppendString(self.visit(v), joined_str)
         return joined_str
 
-    def generic_visit(self, node: AST) -> plt.AST:
+    def generic_visit(self, node: TypedAST) -> plt.AST:
         raise NotImplementedError(f"Can not compile {node}")
 
 
 def compile(
-    prog: AST,
+    prog: ast.AST,
     filename=None,
     validator_function_name="validator",
     config=DEFAULT_CONFIG,

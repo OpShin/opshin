@@ -14,6 +14,7 @@ security into the Smart Contract by checking type correctness.
 
 import re
 import ast
+from ast import *
 import typing
 from collections import defaultdict
 from copy import copy
