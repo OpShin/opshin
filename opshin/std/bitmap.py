@@ -6,7 +6,7 @@ that stores boolean values with minimal overhead (1 bit per bool)
 BitMap = bytes
 
 BYTE_SIZE = 8
-POWS = [2**i for i in range(BYTE_SIZE)]
+POWS = reversed([2**i for i in range(BYTE_SIZE)])
 
 
 def init_bitmap(size: int) -> BitMap:
@@ -17,7 +17,7 @@ def init_bitmap(size: int) -> BitMap:
 def test_bitmap(bmp: BitMap, i: int) -> bool:
     """Tests if bit at position i has been set to 1"""
     byte = bmp[i // BYTE_SIZE]
-    bit = (byte // POWS[(BYTE_SIZE - 1) - (i % BYTE_SIZE)]) % 2
+    bit = (byte // POWS[i % BYTE_SIZE]) % 2
     return bit == 1
 
 
@@ -29,7 +29,7 @@ def _set_bitmap(bmp: BitMap, i: int, v: bool) -> BitMap:
     """
     scaled_i = i // BYTE_SIZE
     byte = bmp[scaled_i]
-    powi = POWS[(BYTE_SIZE - 1) - (i % BYTE_SIZE)]
+    powi = POWS[i % BYTE_SIZE]
     bit = (byte // powi) % 2
     if bit == v:
         new_byte = byte
@@ -56,7 +56,7 @@ def flip_bitmap(bmp: BitMap, i: int) -> BitMap:
     """Flips a bit in the bitmap"""
     scaled_i = i // BYTE_SIZE
     byte = bmp[scaled_i]
-    powi = POWS[(BYTE_SIZE - 1) - (i % BYTE_SIZE)]
+    powi = POWS[i % BYTE_SIZE]
     bit = (byte // powi) % 2
     if bit == 1:
         # v == 0
