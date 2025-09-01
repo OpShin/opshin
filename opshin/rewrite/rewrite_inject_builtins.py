@@ -1,8 +1,10 @@
-from copy import copy
+from copy import copy, deepcopy
+import pluthon as plt
 
 from ..typed_ast import *
 from ..util import (
     CompilingNodeTransformer,
+    force_params,
 )
 from ..fun_impls import PythonBuiltIn, PythonBuiltInTypes
 

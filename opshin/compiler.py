@@ -1,6 +1,31 @@
 import copy
+import typing
 
+import pluthon as plt
+import uplc.ast as uplc
+from pycardano import PlutusData
 from uplc.ast import data_from_cbor
+
+from .type_impls import (
+    InstanceType,
+    UnionType,
+    UnitType,
+    RecordType,
+    transform_ext_params_map,
+    AnyType,
+    transform_output_map,
+    ClassType,
+    PolymorphicFunctionInstanceType,
+    ListType,
+    TupleType,
+    PairType,
+    IntegerInstanceType,
+    empty_list,
+    DictType,
+    ByteStringType,
+)
+from .type_inference import map_to_orig_name, AggressiveTypeInferencer
+from .typed_ast import *
 
 from .compiler_config import DEFAULT_CONFIG
 from .optimize.optimize_const_folding import OptimizeConstantFolding
@@ -30,15 +55,21 @@ from .rewrite.rewrite_subscript38 import RewriteSubscript38
 from .rewrite.rewrite_tuple_assign import RewriteTupleAssign
 from .optimize.optimize_remove_pass import OptimizeRemovePass
 from .optimize.optimize_remove_deadvars import OptimizeRemoveDeadvars, NameLoadCollector
-from .type_inference import *
 from .util import (
     CompilingNodeTransformer,
     NoOp,
-)
-from .typed_ast import (
-    transform_ext_params_map,
-    transform_output_map,
-    RawPlutoExpr,
+    OVar,
+    OLambda,
+    OLet,
+    OPSHIN_LOGGER,
+    all_vars,
+    SafeOLambda,
+    opshin_name_scheme_compatible_varname,
+    force_params,
+    SafeApply,
+    SafeLambda,
+    written_vars,
+    custom_fix_missing_locations,
 )
 
 
@@ -524,7 +555,7 @@ class PlutoCompiler(CompilingNodeTransformer):
                     plt.Apply(
                         OVar("while"),
                         OVar("while"),
-                        *deepcopy(pwritten_vs),
+                        *copy.deepcopy(pwritten_vs),
                     )
                 ),
                 x,
@@ -536,10 +567,12 @@ class PlutoCompiler(CompilingNodeTransformer):
                 ("adjusted_next", SafeLambda(written_vs, x)),
                 (
                     "while",
-                    s_fun(SafeApply(OVar("adjusted_next"), *deepcopy(pwritten_vs))),
+                    s_fun(
+                        SafeApply(OVar("adjusted_next"), *copy.deepcopy(pwritten_vs))
+                    ),
                 ),
             ],
-            plt.Apply(OVar("while"), OVar("while"), *deepcopy(pwritten_vs)),
+            plt.Apply(OVar("while"), OVar("while"), *copy.deepcopy(pwritten_vs)),
         )
 
     def visit_For(self, node: TypedFor) -> CallAST:
@@ -573,7 +606,7 @@ class PlutoCompiler(CompilingNodeTransformer):
                                 OVar("for"),
                                 OVar("for"),
                                 plt.TailList(OVar("iter")),
-                                *deepcopy(pwritten_vs),
+                                *copy.deepcopy(pwritten_vs),
                             )
                         ),
                     ),
@@ -588,7 +621,7 @@ class PlutoCompiler(CompilingNodeTransformer):
                             plt.Apply(
                                 OVar("adjusted_next"),
                                 plt.Var(node.target.id),
-                                *deepcopy(pwritten_vs),
+                                *copy.deepcopy(pwritten_vs),
                             )
                         ),
                     ),
@@ -597,7 +630,7 @@ class PlutoCompiler(CompilingNodeTransformer):
                     OVar("for"),
                     OVar("for"),
                     compiled_iter,
-                    *deepcopy(pwritten_vs),
+                    *copy.deepcopy(pwritten_vs),
                 ),
             )
         raise NotImplementedError(
@@ -612,10 +645,10 @@ class PlutoCompiler(CompilingNodeTransformer):
             plt.Ite(
                 self.visit(node.test),
                 self.visit_sequence(node.body)(
-                    SafeApply(OVar("adjusted_next"), *deepcopy(pwritten_vs))
+                    SafeApply(OVar("adjusted_next"), *copy.deepcopy(pwritten_vs))
                 ),
                 self.visit_sequence(node.orelse)(
-                    SafeApply(OVar("adjusted_next"), *deepcopy(pwritten_vs))
+                    SafeApply(OVar("adjusted_next"), *copy.deepcopy(pwritten_vs))
                 ),
             ),
         )

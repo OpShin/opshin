@@ -3,12 +3,12 @@ import dataclasses
 import enum
 import functools
 import json
-import types
 import typing
 from ast import Module
 from typing import Optional, Any, Union
 from pathlib import Path
 
+from frozenlist2 import frozenlist
 from pycardano import PlutusV2Script, IndefiniteList, PlutusData, Datum
 
 from . import __version__, compiler, DEFAULT_CONFIG

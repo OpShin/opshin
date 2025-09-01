@@ -1,6 +1,6 @@
 from _ast import Name, Store, ClassDef, FunctionDef, Load
 from collections import defaultdict
-from copy import copy, deepcopy
+from copy import deepcopy
 import logging
 
 import typing

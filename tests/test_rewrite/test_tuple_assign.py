@@ -3,7 +3,8 @@ import unittest
 from hypothesis import given
 from hypothesis import strategies as st
 
-from opshin import builder, CompilerError
+from opshin import builder
+from opshin.util import CompilerError
 from tests.utils import eval_uplc_value, Unit
 
 

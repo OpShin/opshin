@@ -18,5 +18,6 @@ __url__ = "https://github.com/OpShin/opshin"
 try:
     from .compiler import *
     from .builder import *
+    from .util import CompilerError
 except ImportError as e:
     warnings.warn(ImportWarning(e))

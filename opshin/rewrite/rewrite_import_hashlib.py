@@ -1,8 +1,13 @@
-from typing import Optional
+import typing
+from dataclasses import dataclass
 from enum import Enum, auto
+import pluthon as plt
 
-from ..util import CompilingNodeTransformer
+from frozenlist2 import frozenlist
+
 from ..typed_ast import *
+from ..type_impls import ClassType, InstanceType, ByteStringInstanceType
+from ..util import CompilingNodeTransformer, force_params
 
 """
 Checks that there was an import of dataclass if there are any class definitions
@@ -78,7 +83,7 @@ class RewriteImportHashlib(CompilingNodeTransformer):
 
     imports_hashlib = False
 
-    def visit_ImportFrom(self, node: ImportFrom) -> typing.List[AST]:
+    def visit_ImportFrom(self, node: ImportFrom) -> typing.List[AST] | AST:
         if node.module != "hashlib":
             return node
         additional_assigns = []

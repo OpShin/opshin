@@ -2,6 +2,8 @@ from typing import Optional
 
 from ..typed_ast import (
     TypedAssign,
+)
+from ..type_impls import (
     ClassType,
     InstanceType,
     PolymorphicFunctionType,

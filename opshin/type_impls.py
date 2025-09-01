@@ -1,15 +1,19 @@
-import dataclasses
+import typing
+from dataclasses import dataclass, field
 from typing import Callable
 
-import logging
 from ast import *
 
 import itertools
+
+from frozendict import frozendict
+from frozenlist2 import frozenlist
 from ordered_set import OrderedSet
 
-import uplc.ast
+import uplc.ast as uplc
+import pluthon as plt
 
-from .util import *
+from .util import patternize, OVar, OLet, OLambda, OPSHIN_LOGGER, SafeOLambda, distinct
 
 
 class TypeInferenceError(AssertionError):
@@ -26,6 +30,17 @@ class Type:
             object.__setattr__(klass, key, wrapped)
 
         return klass
+
+    def __ge__(self, other: "Type"):
+        """
+        Returns whether other can be substituted for this type.
+        In other words this returns whether the interface of this type is a subset of the interface of other.
+        Note that this is usually <= and not >=, but this needs to be fixed later.
+        Produces a partial order on types.
+        The top element is the most generic type and can not substitute for anything.
+        The bottom element is the most specific type and can be substituted for anything.
+        """
+        raise NotImplementedError("Comparison between raw types impossible")
 
     def constr_type(self) -> "InstanceType":
         """The type of the constructor for this class"""
@@ -1621,7 +1636,7 @@ class FunctionType(ClassType):
     argtyps: typing.List[Type]
     rettyp: Type
     # A map from external variable names to their types when the function is defined
-    bound_vars: typing.Dict[str, Type] = dataclasses.field(default_factory=frozendict)
+    bound_vars: typing.Dict[str, Type] = field(default_factory=frozendict)
     # Whether and under which name the function binds itself
     # The type of this variable is "self"
     bind_self: typing.Optional[str] = None

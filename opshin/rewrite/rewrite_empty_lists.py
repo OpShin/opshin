@@ -1,8 +1,4 @@
-import re
-from copy import copy
-from typing import Optional
-from enum import Enum
-
+from ..type_impls import empty_list
 from ..util import CompilingNodeTransformer
 from ..typed_ast import *
 
