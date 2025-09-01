@@ -3,6 +3,7 @@ from typing import Tuple
 import hypothesis
 import hypothesis.strategies as hst
 
+from opshin import builder
 from opshin.std import bitmap as oc_bitmap
 
 
@@ -108,3 +109,15 @@ def test_reset_test(p: Tuple[bytes, int]):
     assert not oc_bitmap.test_bitmap(
         oc_bitmap.reset_bitmap(a, i), i
     ), "Reset bit incorrectly"
+
+
+def test_compile():
+    source_code = """
+from opshin.std.bitmap import *
+from typing import Dict, List, Union
+
+def validator(a: int, b:int, c: int) -> int:
+    return a * b * c
+
+"""
+    builder._compile(source_code)
