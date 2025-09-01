@@ -6,7 +6,7 @@ that stores boolean values with minimal overhead (1 bit per bool)
 BitMap = bytes
 
 BYTE_SIZE = 8
-POWS = reversed([2**i for i in range(BYTE_SIZE)])
+POWS = [2 ** (BYTE_SIZE - i - 1) for i in range(BYTE_SIZE)]
 
 
 def init_bitmap(size: int) -> BitMap:
