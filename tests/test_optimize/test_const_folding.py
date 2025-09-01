@@ -1,5 +1,7 @@
 import unittest
+from dataclasses import dataclass
 
+from pycardano import PlutusData
 from uplc import ast as uplc
 
 from opshin import DEFAULT_CONFIG, builder
@@ -462,3 +464,40 @@ def validator(_: B) -> None:
         )
         self.assertNotIn("ValueError", code.dumps())
         eval_uplc(source_code, Unit(), config=DEFAULT_CONFIG_CONSTANT_FOLDING)
+
+    def test_constant_folding_check_integrity_nonconst(self):
+        """
+        Check_integrity is just pass in Python, but should not be optimized away
+        """
+        source_code = """
+from opshin.prelude import *
+from opshin.std.integrity import check_integrity
+
+@dataclass()
+class B(PlutusData):
+    CONSTR_ID = 1
+    foobar: int
+    bar: int
+
+def validator(x: B) -> None:
+    check_integrity(x)
+        """
+        code = builder._compile(
+            source_code, Unit(), config=DEFAULT_CONFIG_CONSTANT_FOLDING
+        )
+        self.assertIn("ValueError", code.dumps())
+        try:
+            eval_uplc(source_code, Unit(), config=DEFAULT_CONFIG_CONSTANT_FOLDING)
+        except Exception as e:
+            pass
+
+        @dataclass()
+        class B(PlutusData):
+            CONSTR_ID = 1
+            foobar: int
+            bar: int
+
+        try:
+            eval_uplc(source_code, B(4, 5), config=DEFAULT_CONFIG_CONSTANT_FOLDING)
+        except Exception as e:
+            self.fail("Should not raise")
