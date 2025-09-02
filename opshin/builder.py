@@ -3,7 +3,6 @@ import dataclasses
 import enum
 import functools
 import json
-import types
 import typing
 from ast import Module
 from typing import Optional, Any, Union
@@ -11,7 +10,7 @@ from pathlib import Path
 
 from pycardano import PlutusV2Script, IndefiniteList, PlutusData, Datum
 
-from . import __version__, compiler, DEFAULT_CONFIG
+from . import __version__, compiler
 
 import uplc.ast
 from uplc import flatten, ast as uplc_ast, eval as uplc_eval
@@ -20,6 +19,7 @@ import pycardano
 from pluthon import compile as plt_compile
 
 from .util import datum_to_cbor
+from .compiler_config import DEFAULT_CONFIG
 
 
 class Purpose(enum.Enum):

@@ -1,10 +1,18 @@
-import re
-from copy import copy
+import typing
+from _ast import ImportFrom, AST
 from typing import Optional
-from enum import Enum
+import pluthon as plt
 
+from ..type_impls import (
+    PolymorphicFunction,
+    InstanceType,
+    RecordType,
+    UnionType,
+    PolymorphicFunctionType,
+    FunctionType,
+)
 from ..type_inference import INITIAL_SCOPE
-from ..util import CompilingNodeTransformer
+from ..util import CompilingNodeTransformer, OLambda, OVar
 from ..typed_ast import *
 
 """

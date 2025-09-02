@@ -1,15 +1,21 @@
-import dataclasses
+import typing
+from dataclasses import dataclass, field
 from typing import Callable
 
-import logging
-from ast import *
-
 import itertools
+import ast
+
+from frozendict import frozendict
+from frozenlist2 import frozenlist
 from ordered_set import OrderedSet
 
-import uplc.ast
+import uplc.ast as uplc
+import pluthon as plt
 
-from .util import *
+from .util import patternize, OVar, OLet, OLambda, OPSHIN_LOGGER, SafeOLambda, distinct
+
+if typing.TYPE_CHECKING:
+    from .typed_ast import TypedAST
 
 
 class TypeInferenceError(AssertionError):
@@ -26,6 +32,17 @@ class Type:
             object.__setattr__(klass, key, wrapped)
 
         return klass
+
+    def __ge__(self, other: "Type"):
+        """
+        Returns whether other can be substituted for this type.
+        In other words this returns whether the interface of this type is a subset of the interface of other.
+        Note that this is usually <= and not >=, but this needs to be fixed later.
+        Produces a partial order on types.
+        The top element is the most generic type and can not substitute for anything.
+        The bottom element is the most specific type and can be substituted for anything.
+        """
+        raise NotImplementedError("Comparison between raw types impossible")
 
     def constr_type(self) -> "InstanceType":
         """The type of the constructor for this class"""
@@ -49,7 +66,7 @@ class Type:
         """The attributes of this class. Needs to be a lambda that expects as first argument the object itself"""
         raise NotImplementedError(f"Attribute {attr} not implemented for type {self}")
 
-    def cmp(self, op: cmpop, o: "Type") -> plt.AST:
+    def cmp(self, op: ast.cmpop, o: "Type") -> plt.AST:
         """The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second the comparison."""
         raise NotImplementedError(
             f"Comparison {type(op).__name__} for {self.python_type()} and {o.python_type()} is not implemented. This is likely intended because it would always evaluate to False."
@@ -70,7 +87,7 @@ class Type:
         """
         raise NotImplementedError(f"{self.python_type()} can not be copied")
 
-    def binop_type(self, binop: operator, other: "Type") -> "Type":
+    def binop_type(self, binop: ast.operator, other: "Type") -> "Type":
         """
         Type of a binary operation between self and other.
         """
@@ -79,7 +96,7 @@ class Type:
             InstanceType(self._binop_return_type(binop, other)),
         )
 
-    def _binop_return_type(self, binop: operator, other: "Type") -> "Type":
+    def _binop_return_type(self, binop: ast.operator, other: "Type") -> "Type":
         """
         Return the type of a binary operation between self and other
         """
@@ -87,7 +104,7 @@ class Type:
             f"{self.python_type()} does not implement {binop.__class__.__name__}"
         )
 
-    def binop(self, binop: operator, other: AST) -> plt.AST:
+    def binop(self, binop: ast.operator, other: "TypedAST") -> plt.AST:
         """
         Implements a binary operation between self and other
         """
@@ -97,7 +114,7 @@ class Type:
         )
 
     def _binop_bin_fun(
-        self, binop: operator, other: AST
+        self, binop: ast.operator, other: "TypedAST"
     ) -> Callable[[plt.AST, plt.AST], plt.AST]:
         """
         Returns a binary function that implements the binary operation between self and other.
@@ -106,7 +123,7 @@ class Type:
             f"{self.python_type()} can not be used with operation {binop.__class__.__name__}"
         )
 
-    def unop_type(self, unop: unaryop) -> "Type":
+    def unop_type(self, unop: ast.unaryop) -> "Type":
         """
         Type of a unary operation on self.
         """
@@ -115,7 +132,7 @@ class Type:
             InstanceType(self._unop_return_type(unop)),
         )
 
-    def _unop_return_type(self, unop: unaryop) -> "Type":
+    def _unop_return_type(self, unop: ast.unaryop) -> "Type":
         """
         Return the type of a binary operation between self and other
         """
@@ -123,7 +140,7 @@ class Type:
             f"{self.python_type()} does not implement {unop.__class__.__name__}"
         )
 
-    def unop(self, unop: unaryop) -> plt.AST:
+    def unop(self, unop: ast.unaryop) -> plt.AST:
         """
         Implements a unary operation on self
         """
@@ -132,7 +149,7 @@ class Type:
             self._unop_fun(unop)(OVar("self")),
         )
 
-    def _unop_fun(self, unop: unaryop) -> Callable[[plt.AST], plt.AST]:
+    def _unop_fun(self, unop: ast.unaryop) -> Callable[[plt.AST], plt.AST]:
         """
         Returns a unary function that implements the unary operation on self.
         """
@@ -216,7 +233,7 @@ class AnyType(ClassType):
             and not isinstance(other, PolymorphicFunctionType)
         )
 
-    def cmp(self, op: cmpop, o: "Type") -> plt.AST:
+    def cmp(self, op: ast.cmpop, o: "Type") -> plt.AST:
         """The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second the comparison."""
         # this will reject comparisons that will always be false - most likely due to faults during programming
         if (
@@ -225,9 +242,9 @@ class AnyType(ClassType):
             or isinstance(o, AnyType)
         ):
             # Note that comparison with Record and UnionType is actually fine because both are Data
-            if isinstance(op, Eq):
+            if isinstance(op, ast.Eq):
                 return plt.BuiltIn(uplc.BuiltInFun.EqualsData)
-            if isinstance(op, NotEq):
+            if isinstance(op, ast.NotEq):
                 return OLambda(
                     ["x", "y"],
                     plt.Not(
@@ -243,7 +260,7 @@ class AnyType(ClassType):
             and isinstance(o.typ, InstanceType)
             and (o.typ.typ >= self or self >= o.typ.typ)
         ):
-            if isinstance(op, In):
+            if isinstance(op, ast.In):
                 return OLambda(
                     ["x", "y"],
                     plt.AnyList(
@@ -254,7 +271,7 @@ class AnyType(ClassType):
                         ),
                     ),
                 )
-            if isinstance(op, NotIn):
+            if isinstance(op, ast.NotIn):
                 return OLambda(
                     ["x", "y"],
                     plt.Not(
@@ -571,7 +588,7 @@ class RecordType(ClassType):
             )
         raise NotImplementedError(f"Attribute {attr} not implemented for type {self}")
 
-    def cmp(self, op: cmpop, o: "Type") -> plt.AST:
+    def cmp(self, op: ast.cmpop, o: "Type") -> plt.AST:
         """The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second the comparison."""
         # this will reject comparisons that will always be false - most likely due to faults during programming
         if (
@@ -585,9 +602,9 @@ class RecordType(ClassType):
             or isinstance(o, AnyType)
         ):
             # Note that comparison with AnyType is actually fine because both are Data
-            if isinstance(op, Eq):
+            if isinstance(op, ast.Eq):
                 return plt.BuiltIn(uplc.BuiltInFun.EqualsData)
-            if isinstance(op, NotEq):
+            if isinstance(op, ast.NotEq):
                 return OLambda(
                     ["x", "y"],
                     plt.Not(
@@ -603,7 +620,7 @@ class RecordType(ClassType):
             and isinstance(o.typ, InstanceType)
             and (o.typ.typ >= self or self >= o.typ.typ)
         ):
-            if isinstance(op, In):
+            if isinstance(op, ast.In):
                 return OLambda(
                     ["x", "y"],
                     plt.AnyList(
@@ -614,7 +631,7 @@ class RecordType(ClassType):
                         ),
                     ),
                 )
-            if isinstance(op, NotIn):
+            if isinstance(op, ast.NotIn):
                 return OLambda(
                     ["x", "y"],
                     plt.Not(
@@ -831,7 +848,7 @@ class UnionType(ClassType):
             return all(self >= ot for ot in other.typs)
         return any(t >= other for t in self.typs)
 
-    def cmp(self, op: cmpop, o: "Type") -> plt.AST:
+    def cmp(self, op: ast.cmpop, o: "Type") -> plt.AST:
         """The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second the comparison."""
         # this will reject comparisons that will always be false - most likely due to faults during programming
         # note we require that there is an overlapt between the possible types for unions
@@ -839,9 +856,9 @@ class UnionType(ClassType):
             isinstance(o, UnionType)
             and any(t >= ot or t >= ot for t in self.typs for ot in o.typs)
         ):
-            if isinstance(op, Eq):
+            if isinstance(op, ast.Eq):
                 return plt.BuiltIn(uplc.BuiltInFun.EqualsData)
-            if isinstance(op, NotEq):
+            if isinstance(op, ast.NotEq):
                 return OLambda(
                     ["x", "y"],
                     plt.Not(
@@ -857,7 +874,7 @@ class UnionType(ClassType):
             and isinstance(o.typ, InstanceType)
             and any(o.typ.typ >= t or t >= o.typ.typ for t in self.typs)
         ):
-            if isinstance(op, In):
+            if isinstance(op, ast.In):
                 return OLambda(
                     ["x", "y"],
                     plt.AnyList(
@@ -868,7 +885,7 @@ class UnionType(ClassType):
                         ),
                     ),
                 )
-            if isinstance(op, NotIn):
+            if isinstance(op, ast.NotIn):
                 return OLambda(
                     ["x", "y"],
                     plt.Not(
@@ -1035,8 +1052,8 @@ class TupleType(ClassType):
             plt.ConcatString(plt.Text("("), tuple_content, plt.Text(")")),
         )
 
-    def _binop_return_type(self, binop: operator, other: "Type") -> "Type":
-        if isinstance(binop, Add):
+    def _binop_return_type(self, binop: ast.operator, other: "Type") -> "Type":
+        if isinstance(binop, ast.Add):
             if isinstance(other, TupleType):
                 return TupleType(self.typs + other.typs)
         return super()._binop_return_type(binop, other)
@@ -1117,7 +1134,7 @@ class ListType(ClassType):
                                     plt.Ite(
                                         # the paramter x must have the same type as the list elements
                                         plt.Apply(
-                                            self.typ.cmp(Eq(), self.typ),
+                                            self.typ.cmp(ast.Eq(), self.typ),
                                             OVar("x"),
                                             plt.HeadList(OVar("xs")),
                                         ),
@@ -1220,10 +1237,10 @@ class ListType(ClassType):
             ),
         )
 
-    def cmp(self, op: cmpop, o: "Type") -> plt.AST:
+    def cmp(self, op: ast.cmpop, o: "Type") -> plt.AST:
         """The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second the comparison."""
         if isinstance(o, ListType) and (self.typ >= o.typ or o.typ >= self.typ):
-            if isinstance(op, Eq):
+            if isinstance(op, ast.Eq):
                 # Implement list equality comparison
                 # This is expensive (linear in the size of the list) as noted in the feature request
                 return OLambda(
@@ -1262,13 +1279,13 @@ class ListType(ClassType):
                         OVar("y"),
                     ),
                 )
-            if isinstance(op, NotEq):
+            if isinstance(op, ast.NotEq):
                 # Implement list inequality comparison as negation of equality
                 return OLambda(
                     ["x", "y"],
                     plt.Not(
                         plt.Apply(
-                            self.cmp(Eq(), o),
+                            self.cmp(ast.Eq(), o),
                             OVar("x"),
                             OVar("y"),
                         )
@@ -1276,8 +1293,8 @@ class ListType(ClassType):
                 )
         return super().cmp(op, o)
 
-    def _binop_return_type(self, binop: operator, other: "Type") -> "Type":
-        if isinstance(binop, Add):
+    def _binop_return_type(self, binop: ast.operator, other: "Type") -> "Type":
+        if isinstance(binop, ast.Add):
             if isinstance(other, InstanceType) and isinstance(other.typ, ListType):
                 other_typ = other.typ
                 assert (
@@ -1288,21 +1305,21 @@ class ListType(ClassType):
                 )
         return super()._binop_return_type(binop, other)
 
-    def _binop_bin_fun(self, binop: operator, other: AST):
-        if isinstance(binop, Add):
+    def _binop_bin_fun(self, binop: ast.operator, other: "TypedAST"):
+        if isinstance(binop, ast.Add):
             if isinstance(other.typ, InstanceType) and isinstance(
                 other.typ.typ, ListType
             ):
                 return plt.AppendList
         return super()._binop_bin_fun(binop, other)
 
-    def _unop_return_type(self, unop: unaryop) -> "Type":
-        if isinstance(unop, Not):
+    def _unop_return_type(self, unop: ast.unaryop) -> "Type":
+        if isinstance(unop, ast.Not):
             return BoolType()
         return super()._unop_return_type(unop)
 
-    def _unop_fun(self, unop: unaryop) -> Callable[[plt.AST], plt.AST]:
-        if isinstance(unop, Not):
+    def _unop_fun(self, unop: ast.unaryop) -> Callable[[plt.AST], plt.AST]:
+        if isinstance(unop, ast.Not):
             return lambda x: plt.IteNullList(x, plt.Bool(True), plt.Bool(False))
         return super()._unop_fun(unop)
 
@@ -1605,13 +1622,13 @@ class DictType(ClassType):
             ),
         )
 
-    def _unop_return_type(self, unop: unaryop) -> "Type":
-        if isinstance(unop, Not):
+    def _unop_return_type(self, unop: ast.unaryop) -> "Type":
+        if isinstance(unop, ast.Not):
             return BoolType()
         return super()._unop_return_type(unop)
 
-    def _unop_fun(self, unop: unaryop) -> Callable[[plt.AST], plt.AST]:
-        if isinstance(unop, Not):
+    def _unop_fun(self, unop: ast.unaryop) -> Callable[[plt.AST], plt.AST]:
+        if isinstance(unop, ast.Not):
             return lambda x: plt.IteNullList(x, plt.Bool(True), plt.Bool(False))
         return super()._unop_fun(unop)
 
@@ -1621,7 +1638,7 @@ class FunctionType(ClassType):
     argtyps: typing.List[Type]
     rettyp: Type
     # A map from external variable names to their types when the function is defined
-    bound_vars: typing.Dict[str, Type] = dataclasses.field(default_factory=frozendict)
+    bound_vars: typing.Dict[str, Type] = field(default_factory=frozendict)
     # Whether and under which name the function binds itself
     # The type of this variable is "self"
     bind_self: typing.Optional[str] = None
@@ -1668,7 +1685,7 @@ class InstanceType(Type):
     def attribute(self, attr) -> plt.AST:
         return self.typ.attribute(attr)
 
-    def cmp(self, op: cmpop, o: "Type") -> plt.AST:
+    def cmp(self, op: ast.cmpop, o: "Type") -> plt.AST:
         """The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second the comparison."""
         if isinstance(o, InstanceType):
             return self.typ.cmp(op, o.typ)
@@ -1683,16 +1700,16 @@ class InstanceType(Type):
     def copy_only_attributes(self) -> plt.AST:
         return self.typ.copy_only_attributes()
 
-    def binop_type(self, binop: operator, other: "Type") -> "Type":
+    def binop_type(self, binop: ast.operator, other: "Type") -> "Type":
         return self.typ.binop_type(binop, other)
 
-    def binop(self, binop: operator, other: AST) -> plt.AST:
+    def binop(self, binop: ast.operator, other: "TypedAST") -> plt.AST:
         return self.typ.binop(binop, other)
 
-    def unop_type(self, unop: unaryop) -> "Type":
+    def unop_type(self, unop: ast.unaryop) -> "Type":
         return self.typ.unop_type(unop)
 
-    def unop(self, unop: unaryop) -> plt.AST:
+    def unop(self, unop: ast.unaryop) -> plt.AST:
         return self.typ.unop(unop)
 
     def python_type(self):
@@ -1710,10 +1727,10 @@ class IntegerType(AtomicType):
     def constr_type(self) -> InstanceType:
         return InstanceType(PolymorphicFunctionType(IntImpl()))
 
-    def cmp(self, op: cmpop, o: "Type") -> plt.AST:
+    def cmp(self, op: ast.cmpop, o: "Type") -> plt.AST:
         """The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second the comparison."""
         if isinstance(o, BoolType):
-            if isinstance(op, Eq):
+            if isinstance(op, ast.Eq):
                 # 1 == True
                 # 0 == False
                 # all other comparisons are False
@@ -1726,9 +1743,9 @@ class IntegerType(AtomicType):
                     ),
                 )
         if isinstance(o, IntegerType):
-            if isinstance(op, Eq):
+            if isinstance(op, ast.Eq):
                 return plt.BuiltIn(uplc.BuiltInFun.EqualsInteger)
-            if isinstance(op, NotEq):
+            if isinstance(op, ast.NotEq):
                 return OLambda(
                     ["x", "y"],
                     plt.Not(
@@ -1739,11 +1756,11 @@ class IntegerType(AtomicType):
                         )
                     ),
                 )
-            if isinstance(op, LtE):
+            if isinstance(op, ast.LtE):
                 return plt.BuiltIn(uplc.BuiltInFun.LessThanEqualsInteger)
-            if isinstance(op, Lt):
+            if isinstance(op, ast.Lt):
                 return plt.BuiltIn(uplc.BuiltInFun.LessThanInteger)
-            if isinstance(op, Gt):
+            if isinstance(op, ast.Gt):
                 return OLambda(
                     ["x", "y"],
                     plt.Apply(
@@ -1752,7 +1769,7 @@ class IntegerType(AtomicType):
                         OVar("x"),
                     ),
                 )
-            if isinstance(op, GtE):
+            if isinstance(op, ast.GtE):
                 return OLambda(
                     ["x", "y"],
                     plt.Apply(
@@ -1766,7 +1783,7 @@ class IntegerType(AtomicType):
             and isinstance(o.typ, InstanceType)
             and isinstance(o.typ.typ, IntegerType)
         ):
-            if isinstance(op, In):
+            if isinstance(op, ast.In):
                 return OLambda(
                     ["x", "y"],
                     plt.AnyList(
@@ -1776,7 +1793,7 @@ class IntegerType(AtomicType):
                         ),
                     ),
                 )
-            if isinstance(op, NotIn):
+            if isinstance(op, ast.NotIn):
                 return OLambda(
                     ["x", "y"],
                     plt.Not(
@@ -1856,23 +1873,23 @@ class IntegerType(AtomicType):
             ),
         )
 
-    def _binop_return_type(self, binop: operator, other: "Type") -> "Type":
+    def _binop_return_type(self, binop: ast.operator, other: "Type") -> "Type":
         if isinstance(other, InstanceType) and isinstance(other.typ, RecordType):
             print("Ha")
         if (
-            isinstance(binop, Add)
-            or isinstance(binop, Sub)
-            or isinstance(binop, FloorDiv)
-            or isinstance(binop, Mod)
-            or isinstance(binop, Div)
-            or isinstance(binop, Pow)
+            isinstance(binop, ast.Add)
+            or isinstance(binop, ast.Sub)
+            or isinstance(binop, ast.FloorDiv)
+            or isinstance(binop, ast.Mod)
+            or isinstance(binop, ast.Div)
+            or isinstance(binop, ast.Pow)
         ):
             if other == IntegerInstanceType:
                 return IntegerType()
             elif other == BoolInstanceType:
                 # cast to integer
                 return IntegerType()
-        if isinstance(binop, Mult):
+        if isinstance(binop, ast.Mult):
             if other == IntegerInstanceType:
                 return IntegerType()
             elif other == ByteStringInstanceType:
@@ -1881,17 +1898,17 @@ class IntegerType(AtomicType):
                 return StringType()
         return super()._binop_return_type(binop, other)
 
-    def _binop_bin_fun(self, binop: operator, other: AST):
+    def _binop_bin_fun(self, binop: ast.operator, other: "TypedAST"):
         if other.typ == IntegerInstanceType:
-            if isinstance(binop, Add):
+            if isinstance(binop, ast.Add):
                 return plt.AddInteger
-            elif isinstance(binop, Sub):
+            elif isinstance(binop, ast.Sub):
                 return plt.SubtractInteger
-            elif isinstance(binop, FloorDiv):
+            elif isinstance(binop, ast.FloorDiv):
                 return plt.DivideInteger
-            elif isinstance(binop, Mod):
+            elif isinstance(binop, ast.Mod):
                 return plt.ModInteger
-            elif isinstance(binop, Pow):
+            elif isinstance(binop, ast.Pow):
                 return lambda x, y: OLet(
                     [("y", y)],
                     plt.Ite(
@@ -1901,14 +1918,14 @@ class IntegerType(AtomicType):
                     ),
                 )
         if other.typ == BoolInstanceType:
-            if isinstance(binop, Add):
+            if isinstance(binop, ast.Add):
                 return lambda x, y: OLet(
                     [("x", x), ("y", y)],
                     plt.Ite(
                         OVar("y"), plt.AddInteger(OVar("x"), plt.Integer(1)), OVar("x")
                     ),
                 )
-            elif isinstance(binop, Sub):
+            elif isinstance(binop, ast.Sub):
                 return lambda x, y: OLet(
                     [("x", x), ("y", y)],
                     plt.Ite(
@@ -1918,7 +1935,7 @@ class IntegerType(AtomicType):
                     ),
                 )
 
-        if isinstance(binop, Mult):
+        if isinstance(binop, ast.Mult):
             if other.typ == IntegerInstanceType:
                 return plt.MultiplyInteger
             elif other.typ == ByteStringInstanceType:
@@ -1927,21 +1944,21 @@ class IntegerType(AtomicType):
                 return lambda x, y: StrIntMulImpl(y, x)
         return super()._binop_bin_fun(binop, other)
 
-    def _unop_return_type(self, unop: unaryop) -> "Type":
-        if isinstance(unop, USub):
+    def _unop_return_type(self, unop: ast.unaryop) -> "Type":
+        if isinstance(unop, ast.USub):
             return IntegerType()
-        elif isinstance(unop, UAdd):
+        elif isinstance(unop, ast.UAdd):
             return IntegerType()
-        elif isinstance(unop, Not):
+        elif isinstance(unop, ast.Not):
             return BoolType()
         return super()._unop_return_type(unop)
 
-    def _unop_fun(self, unop: unaryop) -> Callable[[plt.AST], plt.AST]:
-        if isinstance(unop, USub):
+    def _unop_fun(self, unop: ast.unaryop) -> Callable[[plt.AST], plt.AST]:
+        if isinstance(unop, ast.USub):
             return lambda x: plt.SubtractInteger(plt.Integer(0), x)
-        if isinstance(unop, UAdd):
+        if isinstance(unop, ast.UAdd):
             return lambda x: x
-        if isinstance(unop, Not):
+        if isinstance(unop, ast.Not):
             return lambda x: plt.EqualsInteger(x, plt.Integer(0))
         return super()._unop_fun(unop)
 
@@ -1987,11 +2004,11 @@ class StringType(AtomicType):
             return OLambda(["x", "_"], plt.EncodeUtf8(OVar("x")))
         return super().attribute(attr)
 
-    def cmp(self, op: cmpop, o: "Type") -> plt.AST:
+    def cmp(self, op: ast.cmpop, o: "Type") -> plt.AST:
         if isinstance(o, StringType):
-            if isinstance(op, Eq):
+            if isinstance(op, ast.Eq):
                 return plt.BuiltIn(uplc.BuiltInFun.EqualsString)
-            if isinstance(op, NotEq):
+            if isinstance(op, ast.NotEq):
                 return OLambda(
                     ["x", "y"], plt.Not(plt.EqualsString(OVar("x"), OVar("y")))
                 )
@@ -2007,31 +2024,31 @@ class StringType(AtomicType):
         else:
             return OLambda(["self"], OVar("self"))
 
-    def _binop_return_type(self, binop: operator, other: "Type") -> "Type":
-        if isinstance(binop, Add):
+    def _binop_return_type(self, binop: ast.operator, other: "Type") -> "Type":
+        if isinstance(binop, ast.Add):
             if other == StringInstanceType:
                 return StringType()
-        if isinstance(binop, Mult):
+        if isinstance(binop, ast.Mult):
             if other == IntegerInstanceType:
                 return StringType()
         return super()._binop_return_type(binop, other)
 
-    def _binop_bin_fun(self, binop: operator, other: AST):
-        if isinstance(binop, Add):
+    def _binop_bin_fun(self, binop: ast.operator, other: "TypedAST"):
+        if isinstance(binop, ast.Add):
             if other.typ == StringInstanceType:
                 return plt.AppendString
-        if isinstance(binop, Mult):
+        if isinstance(binop, ast.Mult):
             if other.typ == IntegerInstanceType:
                 return StrIntMulImpl
         return super()._binop_bin_fun(binop, other)
 
-    def _unop_return_type(self, unop: unaryop) -> "Type":
-        if isinstance(unop, Not):
+    def _unop_return_type(self, unop: ast.unaryop) -> "Type":
+        if isinstance(unop, ast.Not):
             return BoolType()
         return super()._unop_return_type(unop)
 
-    def _unop_fun(self, unop: unaryop) -> Callable[[plt.AST], plt.AST]:
-        if isinstance(unop, Not):
+    def _unop_fun(self, unop: ast.unaryop) -> Callable[[plt.AST], plt.AST]:
+        if isinstance(unop, ast.Not):
             return lambda x: plt.EqualsInteger(
                 plt.LengthOfByteString(plt.EncodeUtf8(x)), plt.Integer(0)
             )
@@ -2316,11 +2333,11 @@ class ByteStringType(AtomicType):
             )
         return super().attribute(attr)
 
-    def cmp(self, op: cmpop, o: "Type") -> plt.AST:
+    def cmp(self, op: ast.cmpop, o: "Type") -> plt.AST:
         if isinstance(o, ByteStringType):
-            if isinstance(op, Eq):
+            if isinstance(op, ast.Eq):
                 return plt.BuiltIn(uplc.BuiltInFun.EqualsByteString)
-            if isinstance(op, NotEq):
+            if isinstance(op, ast.NotEq):
                 return OLambda(
                     ["x", "y"],
                     plt.Not(
@@ -2331,11 +2348,11 @@ class ByteStringType(AtomicType):
                         )
                     ),
                 )
-            if isinstance(op, Lt):
+            if isinstance(op, ast.Lt):
                 return plt.BuiltIn(uplc.BuiltInFun.LessThanByteString)
-            if isinstance(op, LtE):
+            if isinstance(op, ast.LtE):
                 return plt.BuiltIn(uplc.BuiltInFun.LessThanEqualsByteString)
-            if isinstance(op, Gt):
+            if isinstance(op, ast.Gt):
                 return OLambda(
                     ["x", "y"],
                     plt.Apply(
@@ -2344,7 +2361,7 @@ class ByteStringType(AtomicType):
                         OVar("x"),
                     ),
                 )
-            if isinstance(op, GtE):
+            if isinstance(op, ast.GtE):
                 return OLambda(
                     ["x", "y"],
                     plt.Apply(
@@ -2358,7 +2375,7 @@ class ByteStringType(AtomicType):
             and isinstance(o.typ, InstanceType)
             and isinstance(o.typ.typ, ByteStringType)
         ):
-            if isinstance(op, In):
+            if isinstance(op, ast.In):
                 return OLambda(
                     ["x", "y"],
                     plt.AnyList(
@@ -2369,7 +2386,7 @@ class ByteStringType(AtomicType):
                         ),
                     ),
                 )
-            if isinstance(op, NotIn):
+            if isinstance(op, ast.NotIn):
                 return OLambda(
                     ["x", "y"],
                     plt.Not(
@@ -2540,31 +2557,31 @@ class ByteStringType(AtomicType):
             ),
         )
 
-    def _binop_return_type(self, binop: operator, other: "Type") -> "Type":
-        if isinstance(binop, Add):
+    def _binop_return_type(self, binop: ast.operator, other: "Type") -> "Type":
+        if isinstance(binop, ast.Add):
             if other == ByteStringInstanceType:
                 return ByteStringType()
-        if isinstance(binop, Mult):
+        if isinstance(binop, ast.Mult):
             if other == IntegerInstanceType:
                 return ByteStringType()
         return super().binop_type(binop, other)
 
-    def _binop_bin_fun(self, binop: operator, other: AST):
-        if isinstance(binop, Add):
+    def _binop_bin_fun(self, binop: ast.operator, other: "TypedAST"):
+        if isinstance(binop, ast.Add):
             if other.typ == ByteStringInstanceType:
                 return plt.AppendByteString
-        if isinstance(binop, Mult):
+        if isinstance(binop, ast.Mult):
             if other.typ == IntegerInstanceType:
                 return ByteStrIntMulImpl
         return super()._binop_bin_fun(binop, other)
 
-    def _unop_return_type(self, unop: unaryop) -> "Type":
-        if isinstance(unop, Not):
+    def _unop_return_type(self, unop: ast.unaryop) -> "Type":
+        if isinstance(unop, ast.Not):
             return BoolType()
         return super()._unop_return_type(unop)
 
-    def _unop_fun(self, unop: unaryop) -> Callable[[plt.AST], plt.AST]:
-        if isinstance(unop, Not):
+    def _unop_fun(self, unop: ast.unaryop) -> Callable[[plt.AST], plt.AST]:
+        if isinstance(unop, ast.Not):
             return lambda x: plt.EqualsInteger(
                 plt.LengthOfByteString(x), plt.Integer(0)
             )
@@ -2601,9 +2618,9 @@ class BoolType(AtomicType):
     def constr_type(self) -> "InstanceType":
         return InstanceType(PolymorphicFunctionType(BoolImpl()))
 
-    def cmp(self, op: cmpop, o: "Type") -> plt.AST:
+    def cmp(self, op: ast.cmpop, o: "Type") -> plt.AST:
         if isinstance(o, IntegerType):
-            if isinstance(op, Eq):
+            if isinstance(op, ast.Eq):
                 # 1 == True
                 # 0 == False
                 # all other comparisons are False
@@ -2615,7 +2632,7 @@ class BoolType(AtomicType):
                         plt.EqualsInteger(OVar("x"), plt.Integer(0)),
                     ),
                 )
-            if isinstance(op, NotEq):
+            if isinstance(op, ast.NotEq):
                 return OLambda(
                     ["y", "x"],
                     plt.Ite(
@@ -2625,13 +2642,13 @@ class BoolType(AtomicType):
                     ),
                 )
         if isinstance(o, BoolType):
-            if isinstance(op, Eq):
+            if isinstance(op, ast.Eq):
                 return OLambda(["x", "y"], plt.Iff(OVar("x"), OVar("y")))
-            if isinstance(op, NotEq):
+            if isinstance(op, ast.NotEq):
                 return OLambda(["x", "y"], plt.Not(plt.Iff(OVar("x"), OVar("y"))))
-            if isinstance(op, Lt):
+            if isinstance(op, ast.Lt):
                 return OLambda(["x", "y"], plt.And(plt.Not(OVar("x")), OVar("y")))
-            if isinstance(op, Gt):
+            if isinstance(op, ast.Gt):
                 return OLambda(["x", "y"], plt.And(OVar("x"), plt.Not(OVar("y"))))
         return super().cmp(op, o)
 
@@ -2645,13 +2662,13 @@ class BoolType(AtomicType):
             ),
         )
 
-    def _unop_return_type(self, unop: unaryop) -> "Type":
-        if isinstance(unop, Not):
+    def _unop_return_type(self, unop: ast.unaryop) -> "Type":
+        if isinstance(unop, ast.Not):
             return BoolType()
         return super()._unop_return_type(unop)
 
-    def _unop_fun(self, unop: unaryop) -> Callable[[plt.AST], plt.AST]:
-        if isinstance(unop, Not):
+    def _unop_fun(self, unop: ast.unaryop) -> Callable[[plt.AST], plt.AST]:
+        if isinstance(unop, ast.Not):
             return plt.Not
         return super()._unop_fun(unop)
 
@@ -2679,24 +2696,24 @@ class BoolType(AtomicType):
 
 @dataclass(frozen=True, unsafe_hash=True)
 class UnitType(AtomicType):
-    def cmp(self, op: cmpop, o: "Type") -> plt.AST:
+    def cmp(self, op: ast.cmpop, o: "Type") -> plt.AST:
         if isinstance(o, UnitType):
-            if isinstance(op, Eq):
+            if isinstance(op, ast.Eq):
                 return OLambda(["x", "y"], plt.Bool(True))
-            if isinstance(op, NotEq):
+            if isinstance(op, ast.NotEq):
                 return OLambda(["x", "y"], plt.Bool(False))
         return super().cmp(op, o)
 
     def stringify(self, recursive: bool = False) -> plt.AST:
         return OLambda(["self"], plt.Text("None"))
 
-    def _unop_return_type(self, unop: unaryop) -> "Type":
-        if isinstance(unop, Not):
+    def _unop_return_type(self, unop: ast.unaryop) -> "Type":
+        if isinstance(unop, ast.Not):
             return BoolType()
         return super()._unop_return_type(unop)
 
-    def _unop_fun(self, unop: unaryop) -> Callable[[plt.AST], plt.AST]:
-        if isinstance(unop, Not):
+    def _unop_fun(self, unop: ast.unaryop) -> Callable[[plt.AST], plt.AST]:
+        if isinstance(unop, ast.Not):
             return lambda x: plt.Bool(True)
         return super()._unop_fun(unop)
 

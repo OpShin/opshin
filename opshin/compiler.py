@@ -1,6 +1,34 @@
+import ast
 import copy
+import typing
+from ast import Load, Name, Constant, Slice
 
+import pluthon as plt
+import uplc.ast as uplc
+from pycardano import PlutusData
 from uplc.ast import data_from_cbor
+
+from .type_impls import (
+    InstanceType,
+    UnionType,
+    UnitType,
+    RecordType,
+    transform_ext_params_map,
+    AnyType,
+    transform_output_map,
+    ClassType,
+    PolymorphicFunctionInstanceType,
+    ListType,
+    TupleType,
+    PairType,
+    IntegerInstanceType,
+    empty_list,
+    DictType,
+    ByteStringType,
+    FunctionType,
+)
+from .type_inference import map_to_orig_name, AggressiveTypeInferencer
+from .typed_ast import *
 
 from .compiler_config import DEFAULT_CONFIG
 from .optimize.optimize_const_folding import OptimizeConstantFolding
@@ -30,21 +58,27 @@ from .rewrite.rewrite_subscript38 import RewriteSubscript38
 from .rewrite.rewrite_tuple_assign import RewriteTupleAssign
 from .optimize.optimize_remove_pass import OptimizeRemovePass
 from .optimize.optimize_remove_deadvars import OptimizeRemoveDeadvars, NameLoadCollector
-from .type_inference import *
 from .util import (
     CompilingNodeTransformer,
     NoOp,
-)
-from .typed_ast import (
-    transform_ext_params_map,
-    transform_output_map,
-    RawPlutoExpr,
+    OVar,
+    OLambda,
+    OLet,
+    OPSHIN_LOGGER,
+    all_vars,
+    SafeOLambda,
+    opshin_name_scheme_compatible_varname,
+    force_params,
+    SafeApply,
+    SafeLambda,
+    written_vars,
+    custom_fix_missing_locations,
 )
 
 
 BoolOpMap = {
-    And: plt.And,
-    Or: plt.Or,
+    ast.And: plt.And,
+    ast.Or: plt.Or,
 }
 
 
@@ -216,7 +250,7 @@ class PlutoCompiler(CompilingNodeTransformer):
             main_fun: typing.Optional[InstanceType] = None
             for s in node.body:
                 if (
-                    isinstance(s, FunctionDef)
+                    isinstance(s, ast.FunctionDef)
                     and s.orig_name == self.validator_function_name
                 ):
                     main_fun = s
@@ -258,10 +292,10 @@ class PlutoCompiler(CompilingNodeTransformer):
                 [
                     TypedReturn(
                         TypedCall(
-                            func=Name(
+                            func=ast.Name(
                                 id=main_fun.name,
                                 typ=InstanceType(main_fun_typ),
-                                ctx=Load(),
+                                ctx=ast.Load(),
                             ),
                             typ=main_fun_typ.rettyp,
                             args=[
@@ -335,7 +369,7 @@ class PlutoCompiler(CompilingNodeTransformer):
         cp = plt.Program((1, 0, 0), validator)
         return cp
 
-    def visit_Constant(self, node: TypedConstant) -> plt.AST:
+    def visit_Constant(self, node: Constant) -> plt.AST:
         if isinstance(node.value, bytes) and node.value != b"":
             try:
                 bytes.fromhex(node.value.decode())
@@ -379,7 +413,7 @@ class PlutoCompiler(CompilingNodeTransformer):
             x,
         )
 
-    def visit_AnnAssign(self, node: AnnAssign) -> CallAST:
+    def visit_AnnAssign(self, node: TypedAnnAssign) -> CallAST:
         assert isinstance(
             node.target, Name
         ), "Assignments to other things then names are not supported"
@@ -409,7 +443,7 @@ class PlutoCompiler(CompilingNodeTransformer):
             x,
         )
 
-    def visit_Name(self, node: TypedName) -> plt.AST:
+    def visit_Name(self, node: Name) -> plt.AST:
         # depending on load or store context, return the value of the variable or its name
         if not isinstance(node.ctx, Load):
             raise NotImplementedError(f"Context {node.ctx} not supported")
@@ -509,7 +543,7 @@ class PlutoCompiler(CompilingNodeTransformer):
         # by overwriting them with arguments to its self-recall
         if node.orelse:
             # If there is orelse, transform it to an appended sequence (TODO check if this is correct)
-            cn = copy(node)
+            cn = copy.copy(node)
             cn.orelse = []
             return self.visit_sequence([cn] + node.orelse)
         compiled_c = self.visit(node.test)
@@ -524,7 +558,7 @@ class PlutoCompiler(CompilingNodeTransformer):
                     plt.Apply(
                         OVar("while"),
                         OVar("while"),
-                        *deepcopy(pwritten_vs),
+                        *copy.deepcopy(pwritten_vs),
                     )
                 ),
                 x,
@@ -536,16 +570,18 @@ class PlutoCompiler(CompilingNodeTransformer):
                 ("adjusted_next", SafeLambda(written_vs, x)),
                 (
                     "while",
-                    s_fun(SafeApply(OVar("adjusted_next"), *deepcopy(pwritten_vs))),
+                    s_fun(
+                        SafeApply(OVar("adjusted_next"), *copy.deepcopy(pwritten_vs))
+                    ),
                 ),
             ],
-            plt.Apply(OVar("while"), OVar("while"), *deepcopy(pwritten_vs)),
+            plt.Apply(OVar("while"), OVar("while"), *copy.deepcopy(pwritten_vs)),
         )
 
     def visit_For(self, node: TypedFor) -> CallAST:
         if node.orelse:
             # If there is orelse, transform it to an appended sequence (TODO check if this is correct)
-            cn = copy(node)
+            cn = copy.copy(node)
             cn.orelse = []
             return self.visit_sequence([cn] + node.orelse)
         assert isinstance(node.iter.typ, InstanceType)
@@ -573,7 +609,7 @@ class PlutoCompiler(CompilingNodeTransformer):
                                 OVar("for"),
                                 OVar("for"),
                                 plt.TailList(OVar("iter")),
-                                *deepcopy(pwritten_vs),
+                                *copy.deepcopy(pwritten_vs),
                             )
                         ),
                     ),
@@ -588,7 +624,7 @@ class PlutoCompiler(CompilingNodeTransformer):
                             plt.Apply(
                                 OVar("adjusted_next"),
                                 plt.Var(node.target.id),
-                                *deepcopy(pwritten_vs),
+                                *copy.deepcopy(pwritten_vs),
                             )
                         ),
                     ),
@@ -597,7 +633,7 @@ class PlutoCompiler(CompilingNodeTransformer):
                     OVar("for"),
                     OVar("for"),
                     compiled_iter,
-                    *deepcopy(pwritten_vs),
+                    *copy.deepcopy(pwritten_vs),
                 ),
             )
         raise NotImplementedError(
@@ -612,10 +648,10 @@ class PlutoCompiler(CompilingNodeTransformer):
             plt.Ite(
                 self.visit(node.test),
                 self.visit_sequence(node.body)(
-                    SafeApply(OVar("adjusted_next"), *deepcopy(pwritten_vs))
+                    SafeApply(OVar("adjusted_next"), *copy.deepcopy(pwritten_vs))
                 ),
                 self.visit_sequence(node.orelse)(
-                    SafeApply(OVar("adjusted_next"), *deepcopy(pwritten_vs))
+                    SafeApply(OVar("adjusted_next"), *copy.deepcopy(pwritten_vs))
                 ),
             ),
         )
@@ -1092,12 +1128,25 @@ class PlutoCompiler(CompilingNodeTransformer):
             joined_str = plt.AppendString(self.visit(v), joined_str)
         return joined_str
 
-    def generic_visit(self, node: AST) -> plt.AST:
+    def generic_visit(self, node: TypedAST) -> plt.AST:
         raise NotImplementedError(f"Can not compile {node}")
 
 
+def parse(
+    source: str,
+    filename=None,
+) -> ast.AST:
+    """
+    Parse source code into an AST
+
+    Currently passes everything through Python's ast module.
+    """
+    tree = ast.parse(source, filename=filename)
+    return tree
+
+
 def compile(
-    prog: AST,
+    prog: ast.AST,
     filename=None,
     validator_function_name="validator",
     config=DEFAULT_CONFIG,

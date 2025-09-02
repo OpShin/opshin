@@ -1,4 +1,5 @@
-from opshin import builder, CompilerError
+from opshin import builder
+from opshin.util import CompilerError
 
 
 def test_import_without_from():
