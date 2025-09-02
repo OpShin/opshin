@@ -27,6 +27,7 @@ from .type_impls import (
     FunctionType,
 )
 from .typed_ast import *
+from .type_impls import Type
 
 
 class LenImpl(PolymorphicFunction):

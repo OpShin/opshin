@@ -2,15 +2,15 @@ import ast as _ast
 import typing as _typing
 import pluthon as _plt
 
-from .type_impls import Type, NoneInstanceType
+from .type_impls import NoneInstanceType, Type
 
 
 class TypedAST(_ast.AST):
-    typ: Type
+    typ: "Type"
 
 
 class typedexpr(TypedAST, _ast.expr):
-    def typechecks(self) -> _typing.Dict[str, Type]:
+    def typechecks(self) -> _typing.Dict[str, "Type"]:
         """Successful typechecks if this expression evaluates to True"""
         return {}
 
@@ -72,12 +72,12 @@ class TypedAssign(typedstmt, _ast.Assign):
 
 
 class TypedClassDef(typedstmt, _ast.ClassDef):
-    class_typ: Type
+    class_typ: "Type"
 
 
 class TypedAnnAssign(typedstmt, _ast.AnnAssign):
     target: typedexpr
-    annotation: Type
+    annotation: "Type"
     value: typedexpr
 
 
@@ -196,7 +196,7 @@ class TypedSlice(typedexpr, _ast.Slice):
 
 
 class RawPlutoExpr(typedexpr):
-    typ: Type
+    typ: "Type"
     expr: _plt.AST
 
     _attributes = ["lineno", "col_offset", "end_lineno", "end_col_offset"]

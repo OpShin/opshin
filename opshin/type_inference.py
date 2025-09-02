@@ -38,6 +38,7 @@ from .util import (
 from .fun_impls import PythonBuiltInTypes
 from .rewrite.rewrite_cast_condition import SPECIAL_BOOL
 from .type_impls import (
+    Type,
     ByteStringType,
     IntegerType,
     StringType,
@@ -63,7 +64,6 @@ from .type_impls import (
     TupleType,
     PolymorphicFunctionInstanceType,
     FunctionType,
-    Constant,
 )
 
 # from frozendict import frozendict
