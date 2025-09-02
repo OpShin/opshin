@@ -4,7 +4,7 @@ import enum
 import functools
 import json
 import typing
-from ast import Module, parse
+from ast import Module
 from typing import Optional, Any, Union
 from pathlib import Path
 
@@ -212,7 +212,7 @@ def _static_compile(
     Expects a python module and returns the build artifacts from compiling it
     """
 
-    source_ast = parse(source_code, filename=contract_file)
+    source_ast = compiler.parse(source_code, filename=contract_file)
     code = compile(
         source_ast,
         contract_filename=contract_file,

@@ -1132,6 +1132,19 @@ class PlutoCompiler(CompilingNodeTransformer):
         raise NotImplementedError(f"Can not compile {node}")
 
 
+def parse(
+    source: str,
+    filename=None,
+) -> ast.AST:
+    """
+    Parse source code into an AST
+
+    Currently passes everything through Python's ast module.
+    """
+    tree = ast.parse(source, filename=filename)
+    return tree
+
+
 def compile(
     prog: ast.AST,
     filename=None,
