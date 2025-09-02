@@ -543,7 +543,7 @@ class PlutoCompiler(CompilingNodeTransformer):
         # by overwriting them with arguments to its self-recall
         if node.orelse:
             # If there is orelse, transform it to an appended sequence (TODO check if this is correct)
-            cn = copy(node)
+            cn = copy.copy(node)
             cn.orelse = []
             return self.visit_sequence([cn] + node.orelse)
         compiled_c = self.visit(node.test)
@@ -581,7 +581,7 @@ class PlutoCompiler(CompilingNodeTransformer):
     def visit_For(self, node: TypedFor) -> CallAST:
         if node.orelse:
             # If there is orelse, transform it to an appended sequence (TODO check if this is correct)
-            cn = copy(node)
+            cn = copy.copy(node)
             cn.orelse = []
             return self.visit_sequence([cn] + node.orelse)
         assert isinstance(node.iter.typ, InstanceType)
