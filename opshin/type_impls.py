@@ -1294,6 +1294,7 @@ class ListType(ClassType):
                 other.typ.typ, ListType
             ):
                 return plt.AppendList
+        return super()._binop_bin_fun(binop, other)
 
     def _unop_return_type(self, unop: unaryop) -> "Type":
         if isinstance(unop, Not):
@@ -1924,6 +1925,7 @@ class IntegerType(AtomicType):
                 return lambda x, y: ByteStrIntMulImpl(y, x)
             elif other.typ == StringInstanceType:
                 return lambda x, y: StrIntMulImpl(y, x)
+        return super()._binop_bin_fun(binop, other)
 
     def _unop_return_type(self, unop: unaryop) -> "Type":
         if isinstance(unop, USub):
@@ -2021,6 +2023,7 @@ class StringType(AtomicType):
         if isinstance(binop, Mult):
             if other.typ == IntegerInstanceType:
                 return StrIntMulImpl
+        return super()._binop_bin_fun(binop, other)
 
     def _unop_return_type(self, unop: unaryop) -> "Type":
         if isinstance(unop, Not):
@@ -2553,6 +2556,7 @@ class ByteStringType(AtomicType):
         if isinstance(binop, Mult):
             if other.typ == IntegerInstanceType:
                 return ByteStrIntMulImpl
+        return super()._binop_bin_fun(binop, other)
 
     def _unop_return_type(self, unop: unaryop) -> "Type":
         if isinstance(unop, Not):
