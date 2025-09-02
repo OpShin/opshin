@@ -84,7 +84,7 @@ class RewriteImportHashlib(CompilingNodeTransformer):
 
     imports_hashlib = False
 
-    def visit_ImportFrom(self, node: ImportFrom) -> typing.List[AST] | AST:
+    def visit_ImportFrom(self, node: ImportFrom) -> typing.Union[typing.List[AST], AST]:
         if node.module != "hashlib":
             return node
         additional_assigns = []
