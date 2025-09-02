@@ -206,6 +206,105 @@ class IsinstanceImpl(PolymorphicFunction):
             )
 
 
+class ConvertBasePattern(plt.Pattern):
+    def __init__(self, base: plt.Integer, prefix: plt.ByteString, zero: plt.ByteString):
+        self.base = base
+        self.prefix = prefix
+        self.zero = zero
+
+    def compose(self):
+        return OLambda(
+            ["x"],
+            plt.DecodeUtf8(
+                OLet(
+                    [
+                        (
+                            "baselist",
+                            plt.RecFun(
+                                OLambda(
+                                    ["f", "i"],
+                                    plt.Ite(
+                                        plt.LessThanEqualsInteger(
+                                            OVar("i"), plt.Integer(0)
+                                        ),
+                                        plt.EmptyIntegerList(),
+                                        plt.MkCons(
+                                            OLet(
+                                                [
+                                                    (
+                                                        "mod",
+                                                        plt.ModInteger(
+                                                            OVar("i"), self.base
+                                                        ),
+                                                    ),
+                                                ],
+                                                plt.AddInteger(
+                                                    OVar("mod"),
+                                                    plt.IfThenElse(
+                                                        plt.LessThanInteger(
+                                                            OVar("mod"), plt.Integer(10)
+                                                        ),
+                                                        plt.Integer(ord("0")),
+                                                        plt.Integer(ord("a") - 10),
+                                                    ),
+                                                ),
+                                            ),
+                                            plt.Apply(
+                                                OVar("f"),
+                                                OVar("f"),
+                                                plt.DivideInteger(OVar("i"), self.base),
+                                            ),
+                                        ),
+                                    ),
+                                ),
+                            ),
+                        ),
+                        (
+                            "mkstr",
+                            OLambda(
+                                ["i"],
+                                plt.FoldList(
+                                    plt.Apply(OVar("baselist"), OVar("i")),
+                                    OLambda(
+                                        ["b", "i"],
+                                        plt.ConsByteString(OVar("i"), OVar("b")),
+                                    ),
+                                    plt.ByteString(b""),
+                                ),
+                            ),
+                        ),
+                    ],
+                    plt.Ite(
+                        plt.EqualsInteger(OVar("x"), plt.Integer(0)),
+                        self.zero,
+                        plt.Ite(
+                            plt.LessThanInteger(OVar("x"), plt.Integer(0)),
+                            plt.ConsByteString(
+                                plt.Integer(ord("-")),
+                                plt.AppendByteString(
+                                    self.prefix,
+                                    plt.Apply(OVar("mkstr"), plt.Negate(OVar("x"))),
+                                ),
+                            ),
+                            plt.AppendByteString(
+                                self.prefix,
+                                plt.Apply(OVar("mkstr"), OVar("x")),
+                            ),
+                        ),
+                    ),
+                )
+            ),
+        )
+
+
+def convert_to_base(base: int, prefix: str):
+    return ConvertBasePattern(
+        plt.Integer(base),
+        plt.ByteString(prefix.encode()),
+        plt.ByteString((prefix + "0").encode()),
+    ).compose()
+
+
 class PythonBuiltIn(Enum):
     all = OLambda(
         ["xs"],
@@ -344,90 +443,7 @@ class PythonBuiltIn(Enum):
         ),
     )
     breakpoint = OLambda(["_"], plt.NoneData())
-    hex = OLambda(
-        ["x"],
-        plt.DecodeUtf8(
-            OLet(
-                [
-                    (
-                        "hexlist",
-                        plt.RecFun(
-                            OLambda(
-                                ["f", "i"],
-                                plt.Ite(
-                                    plt.LessThanEqualsInteger(
-                                        OVar("i"), plt.Integer(0)
-                                    ),
-                                    plt.EmptyIntegerList(),
-                                    plt.MkCons(
-                                        OLet(
-                                            [
-                                                (
-                                                    "mod",
-                                                    plt.ModInteger(
-                                                        OVar("i"), plt.Integer(16)
-                                                    ),
-                                                ),
-                                            ],
-                                            plt.AddInteger(
-                                                OVar("mod"),
-                                                plt.IfThenElse(
-                                                    plt.LessThanInteger(
-                                                        OVar("mod"), plt.Integer(10)
-                                                    ),
-                                                    plt.Integer(ord("0")),
-                                                    plt.Integer(ord("a") - 10),
-                                                ),
-                                            ),
-                                        ),
-                                        plt.Apply(
-                                            OVar("f"),
-                                            OVar("f"),
-                                            plt.DivideInteger(
-                                                OVar("i"), plt.Integer(16)
-                                            ),
-                                        ),
-                                    ),
-                                ),
-                            ),
-                        ),
-                    ),
-                    (
-                        "mkstr",
-                        OLambda(
-                            ["i"],
-                            plt.FoldList(
-                                plt.Apply(OVar("hexlist"), OVar("i")),
-                                OLambda(
-                                    ["b", "i"],
-                                    plt.ConsByteString(OVar("i"), OVar("b")),
-                                ),
-                                plt.ByteString(b""),
-                            ),
-                        ),
-                    ),
-                ],
-                plt.Ite(
-                    plt.EqualsInteger(OVar("x"), plt.Integer(0)),
-                    plt.ByteString(b"0x0"),
-                    plt.Ite(
-                        plt.LessThanInteger(OVar("x"), plt.Integer(0)),
-                        plt.ConsByteString(
-                            plt.Integer(ord("-")),
-                            plt.AppendByteString(
-                                plt.ByteString(b"0x"),
-                                plt.Apply(OVar("mkstr"), plt.Negate(OVar("x"))),
-                            ),
-                        ),
-                        plt.AppendByteString(
-                            plt.ByteString(b"0x"),
-                            plt.Apply(OVar("mkstr"), OVar("x")),
-                        ),
-                    ),
-                ),
-            )
-        ),
-    )
+    hex = convert_to_base(16, prefix="0x")
     len = "len"
     max = OLambda(
         ["xs"],
@@ -477,74 +493,7 @@ class PythonBuiltIn(Enum):
             PowImpl(OVar("x"), OVar("y")),
         ),
     )
-    oct = OLambda(
-        ["x"],
-        plt.DecodeUtf8(
-            OLet(
-                [
-                    (
-                        "octlist",
-                        plt.RecFun(
-                            OLambda(
-                                ["f", "i"],
-                                plt.Ite(
-                                    plt.LessThanEqualsInteger(
-                                        OVar("i"), plt.Integer(0)
-                                    ),
-                                    plt.EmptyIntegerList(),
-                                    plt.MkCons(
-                                        plt.AddInteger(
-                                            plt.ModInteger(OVar("i"), plt.Integer(8)),
-                                            plt.Integer(ord("0")),
-                                        ),
-                                        plt.Apply(
-                                            OVar("f"),
-                                            OVar("f"),
-                                            plt.DivideInteger(
-                                                OVar("i"), plt.Integer(8)
-                                            ),
-                                        ),
-                                    ),
-                                ),
-                            ),
-                        ),
-                    ),
-                    (
-                        "mkoct",
-                        OLambda(
-                            ["i"],
-                            plt.FoldList(
-                                plt.Apply(OVar("octlist"), OVar("i")),
-                                OLambda(
-                                    ["b", "i"],
-                                    plt.ConsByteString(OVar("i"), OVar("b")),
-                                ),
-                                plt.ByteString(b""),
-                            ),
-                        ),
-                    ),
-                ],
-                plt.Ite(
-                    plt.EqualsInteger(OVar("x"), plt.Integer(0)),
-                    plt.ByteString(b"0o0"),
-                    plt.Ite(
-                        plt.LessThanInteger(OVar("x"), plt.Integer(0)),
-                        plt.ConsByteString(
-                            plt.Integer(ord("-")),
-                            plt.AppendByteString(
-                                plt.ByteString(b"0o"),
-                                plt.Apply(OVar("mkoct"), plt.Negate(OVar("x"))),
-                            ),
-                        ),
-                        plt.AppendByteString(
-                            plt.ByteString(b"0o"),
-                            plt.Apply(OVar("mkoct"), OVar("x")),
-                        ),
-                    ),
-                ),
-            )
-        ),
-    )
+    oct = convert_to_base(8, prefix="0o")
     range = OLambda(
         ["limit"],
         plt.Range(OVar("limit")),
