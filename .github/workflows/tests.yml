@@ -59,7 +59,9 @@ jobs:
       run: bash .github/scripts/run-tests.sh
 
     - name: Upload coverage data to coveralls.io
-      run: poetry run coveralls || true
+      run: |
+        poetry run pip install --upgrade coveralls || true
+        poetry run coveralls || true
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         COVERALLS_FLAG_NAME: ${{ needs.get-python-versions.outputs.primary-version }}
@@ -92,7 +94,9 @@ jobs:
       run: bash .github/scripts/run-tests.sh
 
     - name: Upload coverage data to coveralls.io
-      run: poetry run coveralls || true
+      run: |
+        poetry run pip install --upgrade coveralls || true
+        poetry run coveralls || true
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         COVERALLS_FLAG_NAME: ${{ matrix.python-version }}
