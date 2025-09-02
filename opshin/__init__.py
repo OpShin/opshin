@@ -5,13 +5,15 @@
 """
 
 import warnings
+import importlib.metadata
 
-__version__ = "0.24.4"
+__version__ = importlib.metadata.version(__package__ or __name__)
 __author__ = "nielstron"
-__author_email__ = "n.muendler@web.de"
-__copyright__ = "Copyright (C) 2023 nielstron"
+__author_email__ = "niels@opshin.dev"
+__copyright__ = "Copyright (C) 2025 nielstron"
 __license__ = "MIT"
 __url__ = "https://github.com/OpShin/opshin"
+
 
 try:
     from .compiler import *
