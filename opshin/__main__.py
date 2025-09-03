@@ -53,7 +53,7 @@ def parse_uplc_param(param: str):
     else:
         try:
             return uplc.ast.data_from_cbor(bytes.fromhex(param))
-        except ValueError as e:
+        except Exception as e:
             raise ValueError(
                 "Expected hexadecimal CBOR representation of plutus datum but could not transform hex string to bytes."
             ) from e
