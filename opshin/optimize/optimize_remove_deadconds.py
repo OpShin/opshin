@@ -1,6 +1,6 @@
 from ast import *
 from copy import deepcopy, copy
-from typing import Any
+from typing import Any, Union
 
 from ..util import CompilingNodeTransformer
 
@@ -11,7 +11,7 @@ Removes if/while branches that are never executed
 
 class ExpressionSimplifier(CompilingNodeTransformer):
 
-    def expression_guaranteed_tf(self, expr: expr) -> bool | None:
+    def expression_guaranteed_tf(self, expr: expr) -> Union[bool, None]:
         """
         Returns True if the expression is guaranteed to be truthy
         Returns False if the expression is guaranteed to be falsy
