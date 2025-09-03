@@ -47,6 +47,10 @@ build-backend = "poetry.core.masonry.api"
 [tool.coverage.run]
 branch = true
 source = ["opshin"]
+omit = [
+    "opshin/prelude.py", # Prelude is not meant to be run directly
+    "opshin/prelude_v3.py", # Prelude is not meant to be run directly
+]
 
 [tool.coverage.report]
 # Regexes for lines to exclude from consideration
