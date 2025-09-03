@@ -305,3 +305,24 @@ def validator(x: int, z: bool) -> bytes:
             Test2(x).to_cbor() if z else Test(x, b"").to_cbor(),
             "to_cbor returned wrong value",
         )
+
+    @given(st.data())
+    def test_tuple_subscript(self, data):
+        x = data.draw(st.integers(min_value=0, max_value=10))
+        y = data.draw(st.integers())
+        i = data.draw(st.integers(min_value=-x, max_value=x - 1))
+        # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+        source_code = f"""
+        def validator(y: int) -> int:
+            x = ({','.join('y + ' + str(i) for i in range(x))},)
+            return x[{i}]
+                    """
+        try:
+            ret = eval_uplc_value(source_code, y)
+        except RuntimeError:
+            ret = None
+        try:
+            exp = [y + j for j in range(x)][i]
+        except KeyError:
+            exp = None
+        self.assertEqual(ret, exp, "tuple[] returned wrong value")
