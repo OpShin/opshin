@@ -371,7 +371,7 @@ def validator(x: Union[int,bytes,List[Anything],Dict[Anything,Anything]]) -> str
         """
         ret = eval_uplc_value(source_code, x)
         if isinstance(x, (int, bytes)):
-            if "'" in str(x) and not "\\" in str(x):
+            if "'" in str(x):
                 return
             self.assertEqual(ret.decode("utf8"), str(x), "str returned wrong value")
 
