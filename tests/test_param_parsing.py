@@ -7,7 +7,7 @@ import pycardano
 from pycardano import PlutusData
 from dataclasses import dataclass
 
-from uplc.ast import PlutusInteger
+from uplc.ast import PlutusInteger, PlutusByteString, PlutusList, PlutusMap
 
 from opshin.__main__ import parse_uplc_param, parse_plutus_param
 
@@ -25,38 +25,56 @@ class TestParseUplcParam(unittest.TestCase):
         """Test parsing valid JSON dictionary"""
         param = '{"int": 42}'
         result = parse_uplc_param(param)
-        # The result should be an uplc.ast data structure
-        self.assertIsNotNone(result)
+        # The result should be a PlutusInteger with value 42
+        self.assertEqual(result, PlutusInteger(42))
 
     def test_parse_json_dict_complex(self):
         """Test parsing complex JSON structure"""
         param = '{"list": [{"int": 1}, {"int": 2}]}'
         result = parse_uplc_param(param)
-        self.assertIsNotNone(result)
+        # Should be a PlutusList containing two PlutusIntegers
+        from frozenlist import FrozenList
+
+        expected = PlutusList(FrozenList([PlutusInteger(1), PlutusInteger(2)]))
+        self.assertEqual(result, expected)
 
     def test_parse_json_dict_nested(self):
         """Test parsing nested JSON structure"""
         param = '{"map": [{"k": {"int": 1}, "v": {"bytes": "48656c6c6f"}}]}'
         result = parse_uplc_param(param)
-        self.assertIsNotNone(result)
+        # Should be a PlutusMap with one entry: PlutusInteger(1) -> PlutusByteString(b"Hello")
+        import frozendict
+
+        expected = PlutusMap(
+            frozendict.frozendict({PlutusInteger(1): PlutusByteString(b"Hello")})
+        )
+        self.assertEqual(result, expected)
 
     def test_parse_hex_cbor_valid(self):
         """Test parsing valid hex-encoded CBOR"""
         param = "182a"  # CBOR encoding of integer 42
         result = parse_uplc_param(param)
-        self.assertIsNotNone(result)
+        # Should be a PlutusInteger with value 42
+        self.assertEqual(result, PlutusInteger(42))
 
     def test_parse_hex_cbor_bytes(self):
         """Test parsing hex-encoded CBOR bytes"""
         param = "4568656c6c6f"  # CBOR encoding of bytes "hello" (correct hex)
         result = parse_uplc_param(param)
-        self.assertIsNotNone(result)
+        # Should be a PlutusByteString with value b"hello"
+        self.assertEqual(result, PlutusByteString(b"hello"))
 
     def test_parse_hex_cbor_list(self):
         """Test parsing hex-encoded CBOR list"""
         param = "83010203"  # CBOR encoding of [1, 2, 3]
         result = parse_uplc_param(param)
-        self.assertIsNotNone(result)
+        # Should be a PlutusList containing three PlutusIntegers
+        from frozenlist import FrozenList
+
+        expected = PlutusList(
+            FrozenList([PlutusInteger(1), PlutusInteger(2), PlutusInteger(3)])
+        )
+        self.assertEqual(result, expected)
 
     def test_invalid_json_format(self):
         """Test error handling for invalid JSON format"""
@@ -285,19 +303,29 @@ class TestEdgeCasesAndCornerCases(unittest.TestCase):
         # Create a long but valid hex string (100 bytes of zeros)
         param = "00" * 100
         result = parse_uplc_param(param)
-        self.assertIsNotNone(result)
+        # Should be a PlutusInteger with value 0
+        self.assertEqual(result, PlutusInteger(0))
 
     def test_unicode_in_json(self):
         """Test handling of Unicode characters in JSON"""
-        param = '{"bytes": "48656c6c6f"}'  # Valid JSON with Unicode escape
+        param = '{"bytes": "48656c6c6f"}'  # Valid JSON encoding bytes "Hello"
         result = parse_uplc_param(param)
-        self.assertIsNotNone(result)
+        # Should be a PlutusByteString with value b"Hello"
+        self.assertEqual(result, PlutusByteString(b"Hello"))
 
     def test_deeply_nested_json(self):
         """Test handling of deeply nested JSON structures"""
         param = '{"list": [{"list": [{"list": [{"int": 42}]}]}]}'
         result = parse_uplc_param(param)
-        self.assertIsNotNone(result)
+        # Should be a deeply nested PlutusList structure
+        from frozenlist import FrozenList
+
+        expected = PlutusList(
+            FrozenList(
+                [PlutusList(FrozenList([PlutusList(FrozenList([PlutusInteger(42)]))]))]
+            )
+        )
+        self.assertEqual(result, expected)
 
     def test_mixed_case_hex(self):
         """Test handling of mixed case hex strings"""
@@ -329,9 +357,12 @@ class TestEdgeCasesAndCornerCases(unittest.TestCase):
         cbor_param = "182a"  # 42 in CBOR
         cbor_result = parse_uplc_param(cbor_param)
 
-        # Both should succeed but be different object types
-        self.assertIsNotNone(json_result)
-        self.assertIsNotNone(cbor_result)
+        # Both should return PlutusInteger(42) and be equal
+        expected = PlutusInteger(42)
+        self.assertEqual(json_result, expected)
+        self.assertEqual(cbor_result, expected)
+        # They should be equal to each other
+        self.assertEqual(json_result, cbor_result)
 
 
 if __name__ == "__main__":
