@@ -17,12 +17,9 @@ def to_uplc_builtin(a):
         return uplc.ast.BuiltinByteString(a)
     if isinstance(a, list):
         return uplc.ast.BuiltinList(list(map(to_uplc_builtin, a)))
-    if isinstance(a, dict):
-        return uplc.ast.BuiltinList(
-            list([(to_uplc_builtin(k), to_uplc_builtin(v)) for k, v in a])
-        )
     if isinstance(a, PlutusData):
         return uplc.ast.data_from_cbor(a.to_cbor())
+    raise NotImplementedError(f"Cannot convert {a} to uplc builtin")
 
 
 def to_python(a):
@@ -32,12 +29,15 @@ def to_python(a):
         or isinstance(a, uplc.ast.BuiltinByteString)
     ):
         return a.value
+    if isinstance(a, uplc.ast.BuiltinUnit):
+        return None
     # TODO how to remap dict? use type annotations?
     if isinstance(a, uplc.ast.BuiltinList):
         return list(map(to_python, a.values))
     # TODO how to remap data? use type annotations?
     if isinstance(a, uplc.ast.PlutusData):
         return RawCBOR(uplc.ast.plutus_cbor_dumps(a))
+    raise NotImplementedError(f"Cannot convert {a} to python")
 
 
 def wraps_builtin(func):

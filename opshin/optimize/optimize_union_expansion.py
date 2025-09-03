@@ -159,18 +159,7 @@ class OptimizeUnionExpansion(CompilingNodeTransformer):
         if isinstance(ann, Subscript) and isinstance(ann.value, Name):
             if ann.value.id == "Union":
                 return ann.slice.elts
-        if isinstance(ann, BinOp) and isinstance(ann.op, BitOr):
-            return self.flatten_union_bitor(ann)
         return False
-
-    def flatten_union_bitor(self, node):
-        # Recursively collect all types in a | b | c expression
-        if isinstance(node, BinOp) and isinstance(node.op, BitOr):
-            return self.flatten_union_bitor(node.left) + self.flatten_union_bitor(
-                node.right
-            )
-        else:
-            return [node]
 
     def split_functions(
         self, stmt: FunctionDef, args: list, arg_types: dict, naming=""

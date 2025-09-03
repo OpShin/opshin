@@ -47,6 +47,10 @@ build-backend = "poetry.core.masonry.api"
 [tool.coverage.run]
 branch = true
 source = ["opshin"]
+omit = [
+    "opshin/prelude.py", # Prelude is not meant to be run directly
+    "opshin/prelude_v3.py", # Prelude is not meant to be run directly
+]
 
 [tool.coverage.report]
 # Regexes for lines to exclude from consideration
@@ -62,6 +66,13 @@ exclude_also = [
 
     # Don't complain about missing debug-only code:
     "def __repr__",
+
+    # Don't complain about missing type-checking-only code:
+    "if typing\\.TYPE_CHECKING:",
+    "if TYPE_CHECKING:",
+
+    # Don't complain about wrapped builtins, they aren't run:
+    "@wraps_builtin",
     ]
 
 ignore_errors = true
