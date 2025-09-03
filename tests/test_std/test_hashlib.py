@@ -3,7 +3,7 @@ import hypothesis.strategies as hst
 from hashlib import sha256, sha3_256, blake2b
 
 from opshin import builder
-from .utils import eval_uplc_value
+from tests.utils import eval_uplc_value
 
 pos_int = hst.integers(min_value=0)
 
@@ -72,3 +72,7 @@ def validator(b: bytes) -> bytes:
         assert (
             "import" in str(e).lower() and "hash" in str(e).lower()
         ), "Expected a hint about import conflict"
+
+
+def test_hashlib_import_all():
+    from opshin.std.hashlib import sha256, sha3_256, blake2b
