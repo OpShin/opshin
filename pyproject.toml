@@ -66,6 +66,13 @@ exclude_also = [
 
     # Don't complain about missing debug-only code:
     "def __repr__",
+
+    # Don't complain about missing type-checking-only code:
+    "if typing\\.TYPE_CHECKING:",
+    "if TYPE_CHECKING:",
+
+    # Don't complain about wrapped builtins, they aren't run:
+    "@wraps_builtin",
     ]
 
 ignore_errors = true
