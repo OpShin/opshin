@@ -472,6 +472,26 @@ def validator(a: int) -> bool:
         ret = eval_uplc_value(source_code, 0)
         self.assertEqual(ret, True)
 
+    def test_bool_dunder(self):
+        source_code = """
+from typing import Self
+from opshin.prelude import *
+@dataclass()
+class Foo(PlutusData):
+    a: int
+
+    def __bool__(self,) -> bool:
+        return self.a!=0
+
+def validator(a: int) -> bool:
+    foo1 = Foo(a)
+    return bool(foo1)
+"""
+        ret = eval_uplc_value(source_code, 3)
+        self.assertEqual(ret, True)
+        ret = eval_uplc_value(source_code, 0)
+        self.assertEqual(ret, False)
+
     @given(x=st.integers())
     def test_neg_dunder(self, x: int):
         source_code = """
