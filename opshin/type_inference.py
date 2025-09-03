@@ -485,7 +485,16 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                 )
                 call.func.orig_id = f"{operand_class_name}.{dunder}"
                 call.func.id = method_name
-                return self.visit_Call(call)
+                call = self.visit_Call(call)
+                if (dunder == "__contains__" and isinstance(operation, ast.NotIn)) or (
+                    dunder == "__bool__" and isinstance(operation, ast.Not)
+                ):
+                    # we need to negate the result
+                    not_call = TypedUnaryOp(
+                        op=ast.Not(), operand=call, typ=BoolInstanceType
+                    )
+                    return not_call
+                return call
         # if this is not supported, try the reverse dunder
         # note we assume 1, i.e. allow only a single right operand
         right_op_typ = args[0].typ if len(args) == 1 else None
@@ -914,8 +923,6 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
     def visit_Compare(self, node: Compare) -> Union[TypedCompare, TypedCall]:
         dunder_node = self.dunder_override(node)
         if dunder_node is not None:
-            if isinstance(node.ops[0], ast.NotIn):
-                return self.visit(ast.UnaryOp(op=ast.Not(), operand=dunder_node))
             return dunder_node
         typed_cmp = copy(node)
         typed_cmp.left = self.visit(node.left)
@@ -1071,10 +1078,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
     def visit_UnaryOp(self, node: UnaryOp) -> TypedUnaryOp:
         dunder_node = self.dunder_override(node)
         if dunder_node is not None:
-            if isinstance(node.op, ast.Not):
-                node.operand = dunder_node
-            else:
-                return dunder_node
+            return dunder_node
         tu = copy(node)
         tu.operand = self.visit(node.operand)
         tu.typ = tu.operand.typ.typ.unop_type(node.op).rettyp
