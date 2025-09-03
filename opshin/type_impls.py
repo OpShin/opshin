@@ -2561,7 +2561,7 @@ class ByteStringType(AtomicType):
         if isinstance(binop, ast.Mult):
             if other == IntegerInstanceType:
                 return ByteStringType()
-        return super().binop_type(binop, other)
+        return super()._binop_return_type(binop, other)
 
     def _binop_bin_fun(self, binop: ast.operator, other: "TypedAST"):
         if isinstance(binop, ast.Add):
