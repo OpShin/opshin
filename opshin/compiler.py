@@ -665,9 +665,6 @@ class PlutoCompiler(CompilingNodeTransformer):
             value_plt = transform_output_map(node.value.typ)(value_plt)
         return lambda _: value_plt
 
-    def visit_Pass(self, node: TypedPass) -> CallAST:
-        return self.visit_sequence([])
-
     def visit_Subscript(self, node: TypedSubscript) -> plt.AST:
         assert isinstance(
             node.value.typ, InstanceType
