@@ -30,7 +30,7 @@ runs:
         minimum_version=$(echo "$versions" | head -n1)
         
         # Get all other versions for matrix testing (compact JSON)
-        other_versions=$(echo "$versions" | head -n -1 | tail -n -1 | jq -R . | jq -s -c .)
+        other_versions=$(echo "$versions" | head -n -1 | tail -n +2 | jq -R . | jq -s -c .)
         
         # Get all versions as JSON array (compact JSON)
         all_versions=$(echo "$versions" | jq -R . | jq -s -c .)
