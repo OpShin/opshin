@@ -26,7 +26,8 @@ jobs:
   get-python-versions:
     runs-on: ubuntu-latest
     outputs:
-      primary-version: ${{ steps.get-versions.outputs.primary-version }}
+      maximum-version: ${{ steps.get-versions.outputs.maximum-version }}
+      minimum-version: ${{ steps.get-versions.outputs.minimum-version }}
       other-versions: ${{ steps.get-versions.outputs.other-versions }}
     steps:
     - name: Checkout code
@@ -39,14 +40,19 @@ jobs:
   test-primary:
     needs: get-python-versions
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version:
+          - "${{ needs.get-python-versions.outputs.maximum-version }}"
+          - "${{ needs.get-python-versions.outputs.minimum-version }}"
     steps:
     - name: Checkout code
       uses: actions/checkout@v5
 
-    - name: Set up Python ${{ needs.get-python-versions.outputs.primary-version }}
+    - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v5
       with:
-        python-version: ${{ needs.get-python-versions.outputs.primary-version }}
+        python-version: ${{ matrix.python-version }}
         cache: "pip"
 
     - name: Install Poetry
@@ -64,7 +70,7 @@ jobs:
         poetry run coveralls || true
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        COVERALLS_FLAG_NAME: ${{ needs.get-python-versions.outputs.primary-version }}
+        COVERALLS_FLAG_NAME: ${{ matrix.python-version }}
         COVERALLS_PARALLEL: true
 
   test-other:
