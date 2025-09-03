@@ -645,7 +645,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                     if not arg.annotation is None:
                         if isinstance(arg.annotation, ast.Name):
                             assert (
-                                arg.annotation is None or arg.annotation.id != n.name
+                                arg.annotation.id != n.name
                             ), "Invalid Python, class name is undefined at this stage."
                         elif (
                             isinstance(arg.annotation, ast.Subscript)
