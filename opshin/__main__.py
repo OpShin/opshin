@@ -139,8 +139,15 @@ def plutus_data_from_json(annotation: typing.Type, x: dict):
 def plutus_data_from_cbor(annotation: typing.Type, x: bytes):
     try:
         if annotation in (int, bytes):
-            return cbor2.loads(x)
+            res = cbor2.loads(x)
+            if not isinstance(res, annotation):
+                raise ValueError(
+                    f"Expected {annotation} but got {type(x)} from {x.hex()}"
+                )
+            return res
         if annotation is None:
+            if not x == cbor2.dumps(None):
+                raise ValueError(f"Expected None but got {x.hex()}")
             return None
         if isinstance(annotation, typing._GenericAlias):
             # Annotation is a List or Dict
@@ -155,14 +162,14 @@ def plutus_data_from_cbor(annotation: typing.Type, x: bytes):
                 return {
                     plutus_data_from_cbor(
                         annotation_key, cbor2.dumps(k)
-                    ): plutus_data_from_cbor(annotation_val, v)
+                    ): plutus_data_from_cbor(annotation_val, cbor2.dumps(v))
                     for k, v in cbor2.loads(x).items()
                 }
             if annotation.__origin__ == typing.Union:
                 for ann in annotation.__dict__["__args__"]:
                     try:
                         return plutus_data_from_cbor(ann, x)
-                    except pycardano.DeserializeException:
+                    except (pycardano.DeserializeException, ValueError):
                         pass
                 raise ValueError(
                     f"Could not find matching type for {x.hex()} in {annotation}"
