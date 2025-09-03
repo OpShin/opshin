@@ -319,7 +319,7 @@ class TypeCheckVisitor(TypedNodeVisitor):
         varname = node.args[0].id
         return ({varname: target_class}, {varname: union_without_target_class})
 
-    def visit_BoolOp(self, node: BoolOp) -> PairType:
+    def visit_BoolOp(self, node: BoolOp) -> TypeMapPair:
         res = {}
         inv_res = {}
         checks = [self.visit(v) for v in node.values]
@@ -350,7 +350,7 @@ class TypeCheckVisitor(TypedNodeVisitor):
                 inv_res[v] = intersection_types(*ts)
         return (res, inv_res)
 
-    def visit_UnaryOp(self, node: UnaryOp) -> PairType:
+    def visit_UnaryOp(self, node: UnaryOp) -> TypeMapPair:
         (res, inv_res) = self.visit(node.operand)
         if isinstance(node.op, Not):
             return (inv_res, res)
