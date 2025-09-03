@@ -103,7 +103,7 @@ def plutus_data_from_json(annotation: typing.Type, x: dict):
                 for ann in annotation.__dict__["__args__"]:
                     try:
                         return plutus_data_from_json(ann, x)
-                    except pycardano.DeserializeException:
+                    except (pycardano.DeserializeException, KeyError, ValueError):
                         pass
                 raise ValueError(
                     f"Could not find matching type for {x} in {annotation}"

@@ -83,9 +83,8 @@ class TestPlutusDataFromJson(unittest.TestCase):
         """Test conversion of Union[int, bytes] matching bytes"""
         # The union tries int first, fails, then should try bytes
         json_data = {"bytes": "48656c6c6f"}
-        with self.assertRaises(ValueError):
-            # This fails because the union handling has issues with the exception catching
-            plutus_data_from_json(Union[int, bytes], json_data)
+        result = plutus_data_from_json(Union[int, bytes], json_data)
+        self.assertEqual(result, b"Hello")
 
     def test_datum_int_conversion(self):
         """Test conversion of Datum containing int"""
