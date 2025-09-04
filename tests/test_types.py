@@ -1,3 +1,6 @@
+import pytest
+
+from opshin import CompilerError
 from opshin.type_impls import *
 from tests.utils import eval_uplc_value
 
@@ -225,3 +228,17 @@ def validator(x: Union[int, bytes]) -> Union[int, bytes]:
     # primarily test that this does not fail to compile
     res = eval_uplc_value(source_code, 5)
     assert res == 10
+
+
+def test_tuple_invalid_slice_type():
+    source_code = """
+from dataclasses import dataclass
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
+
+def validator(x: int) -> int:
+    l = (x, 1)
+    return l[0:1][0]
+"""
+    with pytest.raises(CompilerError):
+        eval_uplc_value(source_code, 5)

@@ -1107,11 +1107,9 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                     ts.value.typ.typ.typs
                 ), f"Subscript index out of bounds for tuple. Accessing index {ts.slice.value} in tuple with {len(ts.value.typ.typ.typs)} elements ({ts.value.typ.python_type()})"
                 ts.typ = ts.value.typ.typ.typs[ts.slice.value]
-            elif all(ts.value.typ.typ.typs[0] == t for t in ts.value.typ.typ.typs):
-                ts.typ = ts.value.typ.typ.typs[0]
             else:
                 raise TypeInferenceError(
-                    f"Could not infer type of subscript of typ {ts.value.typ.typ.__class__}"
+                    f"Could not infer type of subscript of typ {ts.value.typ.python_type()}"
                 )
         elif isinstance(ts.value.typ.typ, PairType):
             if isinstance(ts.slice, Constant) and isinstance(ts.slice.value, int):
@@ -1122,7 +1120,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                 )
             else:
                 raise TypeInferenceError(
-                    f"Could not infer type of subscript of typ {ts.value.typ.typ.__class__}"
+                    f"Could not infer type of subscript of typ {ts.value.typ.python_type()}"
                 )
         elif isinstance(ts.value.typ.typ, ListType):
             if not isinstance(ts.slice, Slice):
