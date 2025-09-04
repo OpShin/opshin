@@ -133,6 +133,7 @@ def rec_constant_map(c):
                 )
             ]
         )
+    # This can occur when PlutusData is generated during constant folding
     if isinstance(c, PlutusData):
         return data_from_cbor(c.to_cbor())
     raise NotImplementedError(f"Unsupported constant type {type(c)}")
