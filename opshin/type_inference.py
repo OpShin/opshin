@@ -696,7 +696,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         return stmts
 
     def visit_ClassDef(self, node: ClassDef) -> TypedClassDef:
-        class_record = RecordReader.extract(node, self)
+        class_record = RecordReader(self).extract(node)
         typ = RecordType(class_record)
         self.set_variable_type(node.name, typ)
         self.FUNCTION_ARGUMENT_REGISTRY[node.name] = [
@@ -1524,17 +1524,17 @@ class RecordReader(NodeVisitor):
         self.attributes = []
         self._type_inferencer = type_inferencer
 
-    @classmethod
-    def extract(cls, c: ClassDef, type_inferencer: AggressiveTypeInferencer) -> Record:
-        f = cls(type_inferencer)
-        f.visit(c)
-        if f.constructor is None:
+    def extract(self, c: ClassDef) -> Record:
+        self.visit(c)
+        if self.constructor is None:
             det_string = RecordType(
-                Record(f.name, f.orig_name, 0, frozenlist(f.attributes))
+                Record(self.name, self.orig_name, 0, frozenlist(self.attributes))
             ).pluthon_type(skip_constructor=True)
             det_hash = sha256(str(det_string).encode("utf8")).hexdigest()
-            f.constructor = int(det_hash, 16) % 2**32
-        return Record(f.name, f.orig_name, f.constructor, frozenlist(f.attributes))
+            self.constructor = int(det_hash, 16) % 2**32
+        return Record(
+            self.name, self.orig_name, self.constructor, frozenlist(self.attributes)
+        )
 
     def visit_AnnAssign(self, node: AnnAssign) -> None:
         assert isinstance(
