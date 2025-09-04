@@ -121,6 +121,29 @@ def validator(_: None) -> PubKeyCredential:
             ),
         )
 
+    def test_constant_folding_plutusdata_list(self):
+        source_code = """
+from opshin.prelude import *
+
+def validator(_: None) -> List[PubKeyCredential]:
+    return [PubKeyCredential(bytes.fromhex("0011"))]
+"""
+        code = builder._compile(
+            source_code, Unit(), config=DEFAULT_CONFIG_CONSTANT_FOLDING
+        )
+        self.assertIn("(con (list data) [Constr 0 [B #0011]])", code.dumps())
+        res = eval_uplc(source_code, Unit(), config=DEFAULT_CONFIG_CONSTANT_FOLDING)
+        self.assertEqual(
+            res,
+            uplc.PlutusList(
+                [
+                    uplc.PlutusConstr(
+                        constructor=0, fields=[uplc.PlutusByteString(value=b"\x00\x11")]
+                    )
+                ]
+            ),
+        )
+
     def test_constant_folding_user_def(self):
         source_code = """
 def fib(i: int) -> int:
