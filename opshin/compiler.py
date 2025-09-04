@@ -9,7 +9,7 @@ from pycardano import PlutusData
 from uplc.ast import data_from_cbor
 
 from .bridge import to_uplc_builtin
-from .prelude_v3 import Nothing
+from .prelude import Nothing
 from .type_impls import (
     InstanceType,
     UnionType,
@@ -161,7 +161,7 @@ def wrap_validator_double_function(x: plt.AST, pass_through: int = 0):
                 # call the validator with a0, a1, and plug in "Nothing" for data
                 plt.Apply(
                     OVar("p"),
-                    plt.UPLCConstant(to_uplc_builtin(Nothing)),
+                    plt.UPLCConstant(to_uplc_builtin(Nothing())),
                     OVar("a0"),
                     OVar("a1"),
                 ),
