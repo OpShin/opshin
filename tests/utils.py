@@ -6,6 +6,7 @@ import pycardano
 import uplc.ast as uplc_ast
 from pycardano import PlutusData
 from uplc import eval as uplc_eval
+from hypothesis import strategies as st
 
 from opshin.builder import _compile, DEFAULT_CONFIG
 
@@ -65,3 +66,19 @@ def eval_uplc_value(
         validator_function_name=validator_function_name,
         config=config,
     ).value
+
+
+@dataclasses.dataclass()
+class A(PlutusData):
+    CONSTR_ID = 0
+    foo: int
+
+
+@dataclasses.dataclass()
+class B(PlutusData):
+    CONSTR_ID = 1
+    foobar: int
+    bar: int
+
+
+a_or_b = st.sampled_from([A(0), B(1, 2)])

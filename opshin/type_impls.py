@@ -59,7 +59,7 @@ class Type:
     def attribute_type(self, attr) -> "Type":
         """The types of the named attributes of this class"""
         raise TypeInferenceError(
-            f"Object of type {self.python_type()} does not have attribute {attr}"
+            f"Object of type {self.python_type()} does not have attribute '{attr}'"
         )
 
     def attribute(self, attr) -> plt.AST:
@@ -185,8 +185,7 @@ class Record:
         object.__setattr__(self, "fields", frozenlist(self.fields))
 
     def __ge__(self, other):
-        if not isinstance(other, Record):
-            return False
+        assert isinstance(other, Record), "Can only compare Records to Records"
         return (
             self.constructor == other.constructor
             and len(self.fields) == len(other.fields)
@@ -554,9 +553,7 @@ class RecordType(ClassType):
                 return t
         if attr == "to_cbor":
             return InstanceType(FunctionType(frozenlist([]), ByteStringInstanceType))
-        raise TypeInferenceError(
-            f"Type {self.record.name} does not have attribute {attr}"
-        )
+        super().attribute_type(attr)
 
     def attribute(self, attr: str) -> plt.AST:
         """The attributes of this class. Need to be a lambda that expects as first argument the object itself"""
@@ -899,7 +896,7 @@ class UnionType(ClassType):
                     ),
                 )
         raise NotImplementedError(
-            f"Can not compare {o} and {self} with operation {op.__class__}. Note that comparisons that always return false are also rejected."
+            f"Can not compare {o.python_type()} and {self.python_type()} with operation {op.__class__.__name__}. Note that comparisons that always return false are also rejected."
         )
 
     def stringify(self, recursive: bool = False) -> plt.AST:

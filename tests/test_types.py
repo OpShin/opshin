@@ -1,8 +1,10 @@
+import hypothesis
 import pytest
+from pycardano import PlutusData
 
-from opshin import CompilerError
+from opshin import CompilerError, builder
 from opshin.type_impls import *
-from tests.utils import eval_uplc_value
+from tests.utils import eval_uplc_value, a_or_b, A, B
 
 
 def test_record_type_order():
@@ -248,3 +250,108 @@ def validator(x: Union[int, bytes]) -> Union[int, bytes]:
     # primarily test that this does not fail to compile
     res = eval_uplc_value(source_code, 5)
     assert res == 10
+
+
+def test_invalid_field_access():
+    source_code = """
+from dataclasses import dataclass
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
+@dataclass()
+class A(PlutusData):
+    CONSTR_ID = 0
+    foo: int
+def validator(x: A) -> int:
+    return x.bar
+"""
+    with pytest.raises(CompilerError, match="does not have attribute 'bar'"):
+        builder._compile(source_code)
+
+
+def test_invalid_field_access_any():
+    source_code = """
+from dataclasses import dataclass
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
+@dataclass()
+class A(PlutusData):
+    CONSTR_ID = 0
+    foo: int
+def validator(x: Anything) -> int:
+    return x.bar
+"""
+    with pytest.raises(CompilerError, match="does not have attribute 'bar'"):
+        builder._compile(source_code)
+
+
+@hypothesis.given(a_or_b)
+def test_unequal(a_or_b):
+    source_code = """
+from dataclasses import dataclass
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
+@dataclass()
+class A(PlutusData):
+    CONSTR_ID = 0
+    foo: int
+
+
+@dataclass()
+class B(PlutusData):
+    CONSTR_ID = 1
+    foobar: int
+    bar: int
+def validator(x: Union[A, B]) -> bool:
+    return x != B(1, 2)
+"""
+    res = eval_uplc_value(source_code, a_or_b)
+    assert res == (a_or_b != B(1, 2)), f"Expected {a_or_b != B(1, 2)}, got {res}"
+
+
+@hypothesis.given(a_or_b)
+def test_notin(a_or_b):
+    source_code = """
+from dataclasses import dataclass
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
+@dataclass()
+class A(PlutusData):
+    CONSTR_ID = 0
+    foo: int
+
+
+@dataclass()
+class B(PlutusData):
+    CONSTR_ID = 1
+    foobar: int
+    bar: int
+def validator(x: Union[A, B]) -> bool:
+    return x not in [B(1, 2)]
+"""
+    res = eval_uplc_value(source_code, a_or_b)
+    assert res == (a_or_b not in [B(1, 2)]), f"Expected {a_or_b != B(1, 2)}, got {res}"
+
+
+@hypothesis.given(a_or_b)
+def test_geq(a_or_b):
+    source_code = """
+from dataclasses import dataclass
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
+@dataclass()
+class A(PlutusData):
+    CONSTR_ID = 0
+    foo: int
+
+
+@dataclass()
+class B(PlutusData):
+    CONSTR_ID = 1
+    foobar: int
+    bar: int
+def validator(x: Union[A, B]) -> bool:
+    return x > B(1, 2)
+"""
+    # should fail to compile because > is not supported
+    with pytest.raises(CompilerError, match="Can not compare"):
+        builder._compile(source_code)

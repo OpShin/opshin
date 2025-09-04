@@ -20,7 +20,7 @@ from uplc import ast as uplc
 
 from . import PLUTUS_VM_PROFILE
 from opshin import prelude, builder, Purpose, PlutusContract, CompilerError
-from .utils import eval_uplc_value, Unit, eval_uplc, eval_uplc_raw
+from .utils import eval_uplc_value, Unit, eval_uplc, eval_uplc_raw, a_or_b, A, B
 from opshin.bridge import wraps_builtin
 from opshin.compiler_config import OPT_O2_CONFIG, DEFAULT_CONFIG
 
@@ -46,20 +46,6 @@ def fib(n):
     return a
 
 
-@dataclass()
-class A(PlutusData):
-    CONSTR_ID = 0
-    foo: int
-
-
-@dataclass()
-class B(PlutusData):
-    CONSTR_ID = 1
-    foobar: int
-    bar: int
-
-
-a_or_b = st.sampled_from([A(0), B(1, 2)])
 some_output = st.sampled_from([SomeOutputDatum(b"0"), SomeOutputDatumHash(b"1")])
 
 
