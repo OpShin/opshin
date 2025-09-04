@@ -361,6 +361,7 @@ class NegInfPOSIXTime(PlutusData):
 class FinitePOSIXTime(PlutusData):
     """
     Finite POSIX time, used to indicate that there is a lower or upper bound for the execution of this transaction
+    Note: POSIX time is in milliseconds, while Python's time.time() provides seconds, so remember to multiply/divide by 1000 when interacting with off-chain code.
     """
 
     CONSTR_ID = 1
@@ -405,6 +406,9 @@ class LowerBoundPOSIXTime(PlutusData):
 class POSIXTimeRange(PlutusData):
     """
     Time range in which this transaction can be executed
+    Note: The transaction can be submitted at any point of time in the range.
+    Deriving the actual submission time can be tricky. Best practices use only the upper or lower bound, depending on the use case.
+    For example, if you accrue interest over time, use only the upper bound as the submission time, which is guaranteed to be after the actual submission time, but can be set tightly by the user to match the actual submission time.
     """
 
     CONSTR_ID = 0
