@@ -643,6 +643,31 @@ def validator(x: Union[A, int]) -> int:
             res = eval_uplc_value(source_code, 0)
         self.assertIsInstance(ce.exception.orig_err, AssertionError)
 
+    def test_Union_types_access_CONSTR_ID_2(self):
+        source_code = """
+from dataclasses import dataclass
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
+
+@dataclass()
+class A(PlutusData):
+    CONSTR_ID = 0
+    foo: int
+
+@dataclass()
+class B(PlutusData):
+    CONSTR_ID = 1
+    bar: int
+
+def validator(x: Union[A, B]) -> int:
+    if x.CONSTR_ID == 0:
+        return 0
+    else:
+        return 1
+"""
+        res = eval_uplc_value(source_code, A(0))
+        self.assertEqual(res, 0)
+
     def test_isinstance_and_comparison_vulnerability(self):
         """
         Test the exact vulnerability described in the security report.
