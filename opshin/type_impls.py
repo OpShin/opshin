@@ -3182,13 +3182,13 @@ def transform_ext_params_map(p: Type):
     return lambda x: x
 
 
+OUnit = plt.ConstrData(plt.Integer(0), plt.EmptyDataList())
+
 TransformOutputMap = {
     StringInstanceType: lambda x: plt.BData(plt.EncodeUtf8(x)),
     IntegerInstanceType: lambda x: plt.IData(x),
     ByteStringInstanceType: lambda x: plt.BData(x),
-    UnitInstanceType: lambda x: plt.Apply(
-        OLambda(["_"], plt.ConstrData(plt.Integer(0), plt.EmptyDataList())), x
-    ),
+    UnitInstanceType: lambda x: plt.Apply(OLambda(["_"], OUnit), x),
     BoolInstanceType: lambda x: plt.IData(
         plt.IfThenElse(x, plt.Integer(1), plt.Integer(0))
     ),
