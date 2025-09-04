@@ -1035,9 +1035,10 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             values = []
             prevtyps = {}
             for e in node.values:
-                values.append(self.visit(e))
+                e_visited = self.visit(e)
+                values.append(e_visited)
                 typchecks, _ = TypeCheckVisitor(self.allow_isinstance_anything).visit(
-                    values[-1]
+                    e_visited
                 )
                 # for the time after the shortcut and the variable type to the specialized type
                 wrapped = self.implement_typechecks(typchecks)
