@@ -3047,7 +3047,9 @@ class BytesImpl(PolymorphicFunction):
             len(args) == 1
         ), f"'bytes' takes only one argument, but {len(args)} were given"
         typ = args[0]
-        assert isinstance(typ, InstanceType), "Can only create bools from instances"
+        assert isinstance(
+            typ, InstanceType
+        ), "Can only create bytes from instances, got ClassType"
         assert any(
             isinstance(typ.typ, t)
             for t in (
@@ -3055,16 +3057,18 @@ class BytesImpl(PolymorphicFunction):
                 ByteStringType,
                 ListType,
             )
-        ), "Can only create bytes from int, bytes or integer lists"
+        ), f"Can only create bytes from int, bytes or integer lists, got {typ.python_type()}"
         if isinstance(typ.typ, ListType):
             assert (
                 typ.typ.typ == IntegerInstanceType
-            ), "Can only create bytes from integer lists but got a list with another type"
+            ), f"Can only create bytes from integer lists but got a list with another type {typ.python_type()}"
         return FunctionType(args, ByteStringInstanceType)
 
     def impl_from_args(self, args: typing.List[Type]) -> plt.AST:
         arg = args[0]
-        assert isinstance(arg, InstanceType), "Can only create bytes from instances"
+        assert isinstance(
+            arg, InstanceType
+        ), "Can only create bytes from instances, got ClassType"
         if isinstance(arg.typ, ByteStringType):
             return OLambda(["x"], OVar("x"))
         elif isinstance(arg.typ, IntegerType):
