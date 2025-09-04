@@ -372,6 +372,8 @@ Certificate = Union[
 ]
 
 
+# POSIX time in milliseconds, typically originating from the Cardano node.
+# Note that Python's `time.time()` provides seconds, so remember to multiply by 1000.
 POSIXTime = int
 
 

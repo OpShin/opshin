@@ -30,13 +30,15 @@ class RequireMOf(PlutusData):
 @dataclass()
 class RequireBefore(PlutusData):
     CONSTR_ID = 4
-    unixtimestamp: int
+    # posix time in milliseconds
+    punixtimestamp: int
 
 
 @dataclass()
 class RequireAfter(PlutusData):
     CONSTR_ID = 5
-    unixtimestamp: int
+    # posix time in milliseconds
+    punixtimestamp: int
 
 
 Script = Union[
@@ -81,9 +83,9 @@ def validate_script(
         if isinstance(upper_limit, FinitePOSIXTime):
             upper_closed = upper_bound.closed
             if isinstance(upper_closed, TrueData):
-                res = upper_limit.time <= script.unixtimestamp
+                res = upper_limit.time <= script.punixtimestamp
             else:
-                res = upper_limit.time < script.unixtimestamp
+                res = upper_limit.time < script.punixtimestamp
         elif isinstance(upper_limit, PosInfPOSIXTime):
             res = False
         elif isinstance(upper_limit, NegInfPOSIXTime):
@@ -94,9 +96,9 @@ def validate_script(
         if isinstance(lower_limit, FinitePOSIXTime):
             lower_closed = lower_bound.closed
             if isinstance(lower_closed, TrueData):
-                res = lower_limit.time >= script.unixtimestamp
+                res = lower_limit.time >= script.punixtimestamp
             else:
-                res = lower_limit.time > script.unixtimestamp
+                res = lower_limit.time > script.punixtimestamp
         elif isinstance(lower_limit, PosInfPOSIXTime):
             res = True
         elif isinstance(lower_limit, NegInfPOSIXTime):
