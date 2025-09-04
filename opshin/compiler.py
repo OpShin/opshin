@@ -747,6 +747,12 @@ class PlutoCompiler(CompilingNodeTransformer):
                     ),
                 )
             else:
+                assert (
+                    node.slice.upper is not None
+                ), "Only slices with upper bound supported"
+                assert (
+                    node.slice.lower is not None
+                ), "Only slices with lower bound supported"
                 return OLet(
                     [
                         (
