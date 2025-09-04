@@ -19,7 +19,7 @@ from parameterized import parameterized
 from uplc import ast as uplc
 
 from . import PLUTUS_VM_PROFILE
-from opshin import prelude, builder, Purpose, PlutusContract
+from opshin import prelude, builder, Purpose, PlutusContract, CompilerError
 from .utils import eval_uplc_value, Unit, eval_uplc, eval_uplc_raw
 from opshin.bridge import wraps_builtin
 from opshin.compiler_config import OPT_O2_CONFIG, DEFAULT_CONFIG
@@ -1308,6 +1308,31 @@ def validator(x: Union[A, B]) -> int:
 """
         res = eval_uplc_value(source_code, x)
         self.assertEqual(res, x.foo if isinstance(x, A) else x.bar)
+
+    def test_ifexpr_check_same_type(self):
+        source_code = """
+from dataclasses import dataclass
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
+
+@dataclass()
+class A(PlutusData):
+    CONSTR_ID = 0
+    foo: int
+
+@dataclass()
+class B(PlutusData):
+    CONSTR_ID = 1
+    foobar: int
+    bar: int
+
+def validator(x: Union[A, B]) -> int:
+    k = x.foo if isinstance(x, A) else str(x) if isinstance(x, B) else 0
+    return k
+"""
+        with self.assertRaises(CompilerError) as e:
+            builder._compile(source_code)
+        self.assertIn("Branches of if-expression", str(e.exception))
 
     @hypothesis.given(a_or_b)
     def test_isinstance_cast_while(self, x):
@@ -2661,12 +2686,8 @@ def validator(a: List[int]) -> None:
     b = [x for x in a if x]  # x is an int, not a bool - now properly cast to bool
     pass
 """
-        # This should now compile successfully since filter expressions are automatically cast to bool
-        builder._compile(source_code)
-        # Also test that it executes without crashing
         eval_uplc(source_code, [1, 0, 2, 0, 3])
 
-    @unittest.expectedFailure
     def test_list_comprehension_invalid_filter_type(self):
         source_code = """
 from opshin.prelude import *
@@ -2683,21 +2704,37 @@ def validator(a: List[CustomClass]) -> None:
     pass
 """
         # This should fail during compilation since CustomClass cannot be cast to bool
-        builder._compile(source_code)
+        with self.assertRaises(CompilerError) as context:
+            builder._compile(source_code)
+        self.assertIn("Can only create bools", str(context.exception))
 
-    @unittest.expectedFailure
+    def test_tuple_comprehension_non_boolean_filter(self):
+        source_code = """
+from opshin.prelude import *
+
+def validator(a: int) -> None:
+    b = [x for x in (a, a+1) if x]  # x is an int, not a bool - now properly cast to bool
+    pass
+"""
+        # should fail during compilation because tuple comprehension is not supported yet
+        with self.assertRaises(CompilerError) as context:
+            builder._compile(source_code)
+        self.assertIn("iterating over", str(context.exception).lower())
+
     def test_tuple_type_correct_subtyping(self):
         source_code = """
 def validator(a: int) -> int:
     t1 = (a, a, a)
     t2 = (a, a)
     
-    t3 = t1 if False else t2
+    t3 = t1 if a else t2
     
     return t3[2]
 """
         # this should fail during compilation because t3 is not guaranteed to have a third element
-        builder._compile(source_code)
+        with self.assertRaises(CompilerError) as context:
+            builder._compile(source_code)
+        self.assertIn("out of bounds", str(context.exception))
 
     def test_tuple_type_correct_subtyping_2(self):
         source_code = """
@@ -2710,7 +2747,8 @@ def validator(a: int) -> int:
     return t3[1]
 """
         # this should pass during compilation because t3 is guaranteed to have a second element
-        builder._compile(source_code)
+        x = eval_uplc_value(source_code, 2)
+        self.assertEqual(x, 2)
 
     def test_import_integritycheck_reserved_name(self):
         source_code = """

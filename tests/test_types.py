@@ -230,15 +230,21 @@ def validator(x: Union[int, bytes]) -> Union[int, bytes]:
     assert res == 10
 
 
-def test_tuple_invalid_slice_type():
+def test_type_declaration_constr_id_annassign():
     source_code = """
 from dataclasses import dataclass
 from typing import Dict, List, Union
 from pycardano import Datum as Anything, PlutusData
 
-def validator(x: int) -> int:
-    l = (x, 1)
-    return l[0:1][0]
+@dataclass()
+class A(PlutusData):
+    CONSTR_ID: int = 0
+    foo: int
+
+def validator(x: Union[int, bytes]) -> Union[int, bytes]:
+    l = {x: 10, 2: 20, b"hi": 30}
+    return l[x]
 """
-    with pytest.raises(CompilerError):
-        eval_uplc_value(source_code, 5)
+    # primarily test that this does not fail to compile
+    res = eval_uplc_value(source_code, 5)
+    assert res == 10

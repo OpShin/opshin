@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 import unittest
 
+import pytest
 from hypothesis import example, given, settings
 from hypothesis import strategies as st
 from uplc import ast as uplc, eval as uplc_eval
@@ -8,7 +9,7 @@ from pycardano import PlutusData
 
 from . import PLUTUS_VM_PROFILE
 from .utils import eval_uplc, eval_uplc_value, Unit
-from opshin import compiler, builder
+from opshin import compiler, builder, CompilerError
 
 settings.load_profile(PLUTUS_VM_PROFILE)
 
@@ -98,7 +99,6 @@ def validator(a_x: int, a_y: bytes, b_x: int, b_y: bytes) -> int:
         exp = 1
         self.assertEqual(ret, exp, "list.index returned wrong value")
 
-    @unittest.expectedFailure
     def test_list_index_typemismatch(self):
         source_code = """
 from opshin.prelude import *
@@ -116,7 +116,9 @@ def validator(b: int) -> int:
     return l.index(20)
                     """
         # should fail compilation
-        builder._compile(source_code)
+        with pytest.raises(CompilerError) as e:
+            builder._compile(source_code)
+        assert "signature" in str(e.value).lower()
 
     @given(xs=st.dictionaries(st.integers(), st.binary()))
     def test_dict_keys(self, xs):
@@ -305,3 +307,64 @@ def validator(x: int, z: bool) -> bytes:
             Test2(x).to_cbor() if z else Test(x, b"").to_cbor(),
             "to_cbor returned wrong value",
         )
+
+
+def test_tuple_invalid_slice_type():
+    source_code = """
+from dataclasses import dataclass
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
+
+def validator(x: int) -> int:
+    l = (x, 1)
+    return l[0:1][0]
+"""
+    with pytest.raises(CompilerError) as e:
+        eval_uplc_value(source_code, 5)
+    assert "subscript" in str(e.value)
+
+
+def test_pair_invalid_slice_type():
+    source_code = """
+from dataclasses import dataclass
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
+
+def validator(x: int) -> int:
+    l = {b"fst": x, b"snd": 1}.items()[0]
+    return l[0:1][0]
+"""
+    with pytest.raises(CompilerError) as e:
+        eval_uplc_value(source_code, 5)
+    assert "subscript" in str(e.value)
+
+
+def test_dict_invalid_slice_type():
+    source_code = """
+from dataclasses import dataclass
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
+
+def validator(x: int) -> int:
+    l = {b"fst": x, b"snd": 1}
+    x = l[0:1]
+    return l["fst"]
+"""
+    with pytest.raises(CompilerError) as e:
+        eval_uplc_value(source_code, 5)
+    assert "subscript" in str(e.value)
+
+
+def test_dict_invalid_subscript():
+    source_code = """
+from dataclasses import dataclass
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
+
+def validator(x: int) -> int:
+    y = x[0]
+    return x + 1
+"""
+    with pytest.raises(CompilerError) as e:
+        eval_uplc_value(source_code, 5)
+    assert "subscript" in str(e.value)

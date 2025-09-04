@@ -339,7 +339,7 @@ class TypeCheckVisitor(TypedNodeVisitor):
                 if len(ts) < len(checks):
                     continue
                 inv_res[v] = union_types(*ts)
-        if isinstance(node.op, Or):
+        elif isinstance(node.op, Or):
             # a disjunction is just the union, but some type must be checked in every disjunction
             for v, ts in checked_types.items():
                 if len(ts) < len(checks):
@@ -348,6 +348,8 @@ class TypeCheckVisitor(TypedNodeVisitor):
             # if the disjunction fails, then it must be in the intersection of the inverses
             for v, ts in inv_checked_types.items():
                 inv_res[v] = intersection_types(*ts)
+        else:
+            raise NotImplementedError(f"Unsupported boolean operator {node.op}")
         return (res, inv_res)
 
     def visit_UnaryOp(self, node: UnaryOp) -> TypeMapPair:
@@ -1069,7 +1071,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             self.implement_typechecks(prevtyps)
             tt.values = values
         else:
-            tt.values = [self.visit(e) for e in node.values]
+            raise NotImplementedError(f"Boolean operator {node.op} not supported")
         tt.typ = BoolInstanceType
         assert all(
             BoolInstanceType >= e.typ for e in tt.values
@@ -1311,12 +1313,12 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             functyp = tc.func.typ.typ
             assert len(tc.args) == len(
                 functyp.argtyps
-            ), f"Signature of function does not match number of arguments. Expected {len(functyp.argtyps)} arguments with these types: {functyp.argtyps} but got {len(tc.args)} arguments."
+            ), f"Signature of function does not match number of arguments. Expected {len(functyp.argtyps)} arguments but got {len(tc.args)} arguments."
             # all arguments need to be subtypes of the parameter type
             for i, (a, ap) in enumerate(zip(tc.args, functyp.argtyps)):
                 assert (
                     ap >= a.typ
-                ), f"Signature of function does not match arguments in argument {i}. Expected this type: {ap} but got {a.typ}."
+                ), f"Signature of function does not match arguments in argument {i}. Expected this type: {ap.python_type()} but got {a.typ.python_type()}."
             tc.typ = functyp.rettyp
             return tc
         raise TypeInferenceError("Could not infer type of call")
@@ -1403,17 +1405,11 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         assert isinstance(
             itertyp, InstanceType
         ), "Can only iterate over instances, not classes"
-        if isinstance(itertyp.typ, TupleType):
-            assert itertyp.typ.typs, "Iterating over an empty tuple is not allowed"
-            vartyp = itertyp.typ.typs[0]
-            assert all(
-                itertyp.typ.typs[0] == t for t in new_g.iter.typ.typs
-            ), "Iterating through a tuple requires the same type for each element"
-        elif isinstance(itertyp.typ, ListType):
+        if isinstance(itertyp.typ, ListType):
             vartyp = itertyp.typ.typ
         else:
             raise NotImplementedError(
-                "Type inference for loops over non-list objects is not supported"
+                "Iterating over non-list objects is not (yet) supported"
             )
         self.set_variable_type(g.target.id, vartyp)
         new_g.target = self.visit(g.target)
@@ -1555,7 +1551,7 @@ class RecordReader(NodeVisitor):
                 )
             )
             return
-        assert typ == IntegerType, "CONSTR_ID must be assigned an integer"
+        assert typ == IntegerType(), "CONSTR_ID must be assigned an integer"
         assert isinstance(
             node.value, Constant
         ), "CONSTR_ID must be assigned a constant integer"
@@ -1596,10 +1592,6 @@ class RecordReader(NodeVisitor):
 
     def generic_visit(self, node: AST) -> None:
         raise NotImplementedError(f"Can not compile {ast.dump(node)} inside of a class")
-
-
-def typed_ast(ast: AST):
-    return AggressiveTypeInferencer().visit(ast)
 
 
 def map_to_orig_name(name: str):
