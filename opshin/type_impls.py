@@ -910,12 +910,12 @@ class UnionType(ClassType):
                 contains_non_record = True
                 continue
             decide_string_func = plt.Ite(
-                plt.EqualsInteger(OVar("c"), plt.Integer(t.record.constructor)),
+                plt.EqualsInteger(OVar("constr"), plt.Integer(t.record.constructor)),
                 t.stringify(recursive=True),
                 decide_string_func,
             )
         decide_string_func = OLet(
-            [("c", plt.Constructor(OVar("self")))],
+            [("constr", plt.Constructor(OVar("self")))],
             plt.Apply(decide_string_func, OVar("self")),
         )
         if contains_non_record:
