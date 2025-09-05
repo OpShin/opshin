@@ -567,7 +567,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                         assert all(
                             isinstance(e, Name) and e.orig_id == "Anything"
                             for e in elt.slice.elts
-                        ), f"Only Dict[Anything, Anything] or Dict is supported in Unions. Received Dict[{elt.slice.elts[0].orig_id}, {elt.slice.elts[1].orig_id}]."
+                        ), f"Only Dict[Anything, Anything] is supported in Unions. Received Dict[{elt.slice.elts[0].orig_id}, {elt.slice.elts[1].orig_id}]."
                 ann_types = frozenlist(
                     [self.type_from_annotation(e) for e in ann.slice.elts]
                 )

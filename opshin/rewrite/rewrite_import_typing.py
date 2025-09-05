@@ -36,33 +36,47 @@ class RewriteImportTyping(CompilingNodeTransformer):
         self.imports_typing = True
         return None
 
+    def visit_Name(self, node: Name) -> Optional[Name]:
+        if node.id == "Self" and not self.imports_Self:
+            raise ValueError("Self used but not imported from typing")
+        if node.id in {"Dict", "List", "Union"} and not self.imports_typing:
+            raise ValueError(
+                f"{node.id} used but typing not imported. Please add 'from typing import Dict, List, Union'"
+            )
+        return node
+
     def visit_ClassDef(self, node: ClassDef) -> ClassDef:
         assert (
             self.imports_typing
         ), "typing must be imported in order to use datum classes"
-        if self.imports_Self:
-            for i, attribute in enumerate(node.body):
-                if isinstance(attribute, FunctionDef):
-                    for j, arg in enumerate(attribute.args.args):
-                        if (
-                            isinstance(arg.annotation, Name)
-                            and arg.annotation.id == "Self"
-                        ):
-                            node.body[i].args.args[j].annotation.idSelf = node.name
-                        if (
-                            isinstance(arg.annotation, Subscript)
-                            and arg.annotation.value.id == "Union"
-                        ):
-                            for k, s in enumerate(arg.annotation.slice.elts):
-                                if isinstance(s, Name) and s.id == "Self":
-                                    node.body[i].args.args[j].annotation.slice.elts[
-                                        k
-                                    ].idSelf = node.name
-
+        for i, attribute in enumerate(node.body):
+            if isinstance(attribute, FunctionDef):
+                for j, arg in enumerate(attribute.args.args):
+                    if isinstance(arg.annotation, Name) and arg.annotation.id == "Self":
+                        assert (
+                            self.imports_Self
+                        ), "Self used but not imported from typing. Please add 'from typing import Self'"
+                        node.body[i].args.args[j].annotation.idSelf = node.name
                     if (
-                        isinstance(attribute.returns, Name)
-                        and attribute.returns.id == "Self"
+                        isinstance(arg.annotation, Subscript)
+                        and arg.annotation.value.id == "Union"
                     ):
-                        node.body[i].returns.idSelf = node.name
+                        for k, s in enumerate(arg.annotation.slice.elts):
+                            if isinstance(s, Name) and s.id == "Self":
+                                assert (
+                                    self.imports_Self
+                                ), "Self used but not imported from typing. Please add 'from typing import Self'"
+                                node.body[i].args.args[j].annotation.slice.elts[
+                                    k
+                                ].idSelf = node.name
+
+                if (
+                    isinstance(attribute.returns, Name)
+                    and attribute.returns.id == "Self"
+                ):
+                    assert (
+                        self.imports_Self
+                    ), "Self used but not imported from typing. Please add 'from typing import Self'"
+                    node.body[i].returns.idSelf = node.name
 
         return node

@@ -1004,3 +1004,39 @@ def validator(x: Union[Union[A, B], C]) -> None:
         except RuntimeError as e:
             pass
         eval_uplc(source_code, C(1, 2))
+
+    def test_error_message_dict_union(self):
+        """
+        Test that duplicate constructor ids in nested unions are rejected correctly
+        """
+        source_code = """
+from opshin.prelude import *
+
+def validator(x: Union[int, Dict]) -> None:
+    assert isinstance(x, int)
+        """
+        with self.assertRaises(CompilerError) as e:
+            builder._compile(source_code)
+        self.assertIn(
+            "Dict is not allowed",
+            str(e.exception.orig_err),
+            "Expected error about Dict without subscript not found",
+        )
+
+    def test_error_message_list_union(self):
+        """
+        Test that duplicate constructor ids in nested unions are rejected correctly
+        """
+        source_code = """
+from opshin.prelude import *
+
+def validator(x: Union[int, List]) -> None:
+    assert isinstance(x, int)
+        """
+        with self.assertRaises(CompilerError) as e:
+            builder._compile(source_code)
+        self.assertIn(
+            "List is not allowed",
+            str(e.exception.orig_err),
+            "Expected error about List with subscript not found",
+        )
