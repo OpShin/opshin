@@ -1398,7 +1398,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         new_g = copy(g)
         if isinstance(g.target, Tuple):
             raise NotImplementedError(
-                "Type deconstruction in for loops is not supported yet"
+                "Type deconstruction in comprehensions is not supported yet"
             )
         new_g.iter = self.visit(g.iter)
         itertyp = new_g.iter.typ
