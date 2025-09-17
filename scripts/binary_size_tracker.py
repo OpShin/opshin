@@ -238,19 +238,33 @@ def compare_with_baseline(
         baseline_contract = baseline["contracts"][name]
         current_contract = current["contracts"][name]
 
+        prev_opt_level_size = float("inf")
         for opt_level in config["optimization_levels"]:
             baseline_size = baseline_contract["sizes"].get(opt_level)
             current_size = current_contract["sizes"].get(opt_level)
             ignore_warnings = opt_level in config["ignore_warnings"]
 
+            if current_size is not None and current_size > prev_opt_level_size:
+                has_changes = True
+                size_diff = current_size - prev_opt_level_size
+                size_percent = (
+                    (size_diff / prev_opt_level_size) * 100
+                    if prev_opt_level_size > 0
+                    else 0
+                )
+                print(
+                    f"  {opt_level}: {current_size:,} bytes (increased from previous level by {size_diff:+,} bytes, {size_percent:+.1f}%) {status}"
+                )
+            prev_opt_level_size = current_size
+
             if baseline_size is None or current_size is None:
-                print(f"  {opt_level}: Data missing")
+                print(f"  {opt_level}: MISSING DATA")
                 continue
 
+            status = ""
             size_diff = current_size - baseline_size
             size_percent = (size_diff / baseline_size) * 100 if baseline_size > 0 else 0
 
-            status = ""
             if size_percent > significant_threshold:
                 has_changes = True if not ignore_warnings else has_changes
                 status = " ⚠️  SIGNIFICANT CHANGE" + (

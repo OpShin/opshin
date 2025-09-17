@@ -19,12 +19,17 @@ contracts:
     path: "examples/smart_contracts/gift.py"
     purpose: "spending"
     description: "Gift contract with simple logic"
-    
-  - name: "dual_use"
-    path: "examples/smart_contracts/dual_use.py"
+
+  - name: "wrapped_token"
+    path: "examples/smart_contracts/wrapped_token.py"
     purpose: "spending"
     extra_flags: ["-fforce-three-params"]
-    description: "Dual-use contract with multiple entry points"
+    description: "Dual-use contract to generate a wrapped token"
+
+  - name: "micropayments"
+    path: "examples/smart_contracts/micropayments.py"
+    purpose: "spending"
+    description: "Channel for fee-less micropayments"
 
 # Optimization levels to test
 optimization_levels: ["O0", "O1", "O2", "O3"]
