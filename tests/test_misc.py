@@ -2769,3 +2769,32 @@ def validator(a: int) -> int:
             assert "int" in str(e) and "str" in str(
                 e
             ), "Type check did not fail with correct message"
+
+    def test_mutual_rec(self):
+        source_code = """
+def even(n: int) -> bool:
+    if n == 0:
+        return True
+    else:
+        return odd(n - 1)
+        
+def odd(n: int) -> bool:
+    if n == 0:
+        return False
+    else:
+        return even(n - 1)
+
+
+def validator(a: int) -> int:
+    a = 1
+    a = "hello"
+    return a
+
+"""
+        try:
+            builder._compile(source_code)
+            self.fail("Type check did not fail")
+        except Exception as e:
+            assert "int" in str(e) and "str" in str(
+                e
+            ), "Type check did not fail with correct message"

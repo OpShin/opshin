@@ -17,6 +17,8 @@ class BuiltinTest(unittest.TestCase):
     @given(xs=st.lists(st.booleans()))
     def test_all(self, xs):
         source_code = """
+from typing import Dict, List, Union
+
 def validator(x: List[bool]) -> bool:
     return all(x)
             """
@@ -26,6 +28,8 @@ def validator(x: List[bool]) -> bool:
     @given(xs=st.lists(st.booleans()))
     def test_any(self, xs):
         source_code = """
+from typing import Dict, List, Union
+
 def validator(x: List[bool]) -> bool:
     return any(x)
         """
@@ -48,6 +52,8 @@ def validator(x: int) -> int:
     )
     def test_bytes_int_list(self, xs):
         source_code = """
+from typing import Dict, List, Union
+
 def validator(x: List[int]) -> bytes:
     return bytes(x)
         """
@@ -199,6 +205,8 @@ def validator(x: bytes) -> int:
     @given(xs=st.lists(st.integers()))
     def test_len_lists(self, xs):
         source_code = """
+from typing import Dict, List, Union
+
 def validator(x: List[int]) -> int:
     return len(x)
         """
@@ -208,6 +216,8 @@ def validator(x: List[int]) -> int:
     @given(xs=st.dictionaries(st.integers(), st.integers()))
     def test_len_dicts(self, xs):
         source_code = """
+from typing import Dict, List, Union
+
 def validator(x: Dict[int, int]) -> int:
     return len(x)
         """
@@ -226,6 +236,8 @@ def validator(x: None) -> int:
     @given(xs=st.lists(st.integers()))
     def test_max(self, xs):
         source_code = """
+from typing import Dict, List, Union
+
 def validator(x: List[int]) -> int:
     return max(x)
         """
@@ -242,6 +254,8 @@ def validator(x: List[int]) -> int:
     @given(xs=st.lists(st.integers()))
     def test_min(self, xs):
         source_code = """
+from typing import Dict, List, Union
+
 def validator(x: List[int]) -> int:
     return min(x)
         """
@@ -299,6 +313,8 @@ def validator(x: int) -> str:
     @given(i=st.integers(max_value=100))
     def test_range(self, i):
         source_code = """
+from typing import Dict, List, Union
+
 def validator(x: int) -> List[int]:
     return range(x)
         """
@@ -378,6 +394,8 @@ def validator(x: Union[int,bytes,List[Anything],Dict[Anything,Anything]]) -> str
     @given(xs=st.lists(st.integers()))
     def test_sum(self, xs):
         source_code = """
+from typing import Dict, List, Union
+
 def validator(x: List[int]) -> int:
     return sum(x)
         """
@@ -387,6 +405,8 @@ def validator(x: List[int]) -> int:
     @given(xs=st.lists(st.integers()))
     def test_reversed(self, xs):
         source_code = """
+from typing import Dict, List, Union
+
 def validator(x: List[int]) -> List[int]:
     return reversed(x)
         """
@@ -443,6 +463,8 @@ def validator(x: bool) -> bool:
     @given(xs=st.lists(st.integers()))
     def test_bool_constr_list(self, xs):
         source_code = """
+from typing import Dict, List, Union
+
 def validator(x: List[int]) -> bool:
     return bool(x)
         """
@@ -452,6 +474,8 @@ def validator(x: List[int]) -> bool:
     @given(xs=st.dictionaries(st.integers(), st.binary()))
     def test_bool_constr_dict(self, xs):
         source_code = """
+from typing import Dict, List, Union
+
 def validator(x: Dict[int, str]) -> bool:
     return bool(x)
         """

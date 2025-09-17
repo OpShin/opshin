@@ -281,6 +281,8 @@ def validator(x: Union[B, C]) -> int:
 
     def test_str_fail(self):
         source_code = """
+from typing import Union
+
 def validator(x: Union[int, bytes, str]) -> int:
     if isinstance(x, int):
         return 5
@@ -296,6 +298,8 @@ def validator(x: Union[int, bytes, str]) -> int:
 
     def test_bool_fail(self):
         source_code = """
+from typing import Union
+
 def validator(x: Union[int, bytes, bool]) -> int:
     if isinstance(x, int):
         return 5
