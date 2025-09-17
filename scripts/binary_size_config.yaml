@@ -1,0 +1,35 @@
+# Binary Size Tracker Configuration
+#
+# This file defines which contracts to track for binary size regression.
+# Each contract should be a simple smart contract that represents different
+# complexity levels and common patterns.
+
+contracts:
+  - name: "assert_sum"
+    path: "examples/smart_contracts/assert_sum.py"
+    purpose: "spending"
+    description: "Simple spending validator with assertion"
+    
+  - name: "marketplace"
+    path: "examples/smart_contracts/marketplace.py"
+    purpose: "spending"
+    description: "Marketplace contract with complex data structures"
+    
+  - name: "gift"
+    path: "examples/smart_contracts/gift.py"
+    purpose: "spending"
+    description: "Gift contract with simple logic"
+    
+  - name: "dual_use"
+    path: "examples/smart_contracts/dual_use.py"
+    purpose: "spending"
+    extra_flags: ["-fforce-three-params"]
+    description: "Dual-use contract with multiple entry points"
+
+# Optimization levels to test
+optimization_levels: ["O1", "O2", "O3"]
+
+# Thresholds for reporting (percentages)
+thresholds:
+  warning: 5.0     # Warn if size changes by more than 5%
+  significant: 10.0 # Mark as significant if size changes by more than 10%

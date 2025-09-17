@@ -121,6 +121,17 @@ opshin eval_uplc spending examples/smart_contracts/assert_sum.py "{\"int\": 4}" 
 opshin compile_pluto spending examples/smart_contracts/assert_sum.py
 ```
 
+## Binary Size Tracking
+
+OpShin includes tooling to track binary size changes across different optimization levels to help catch regressions:
+
+```bash
+# Check binary sizes against latest release
+python scripts/check_binary_sizes.py
+```
+
+The binary size tracker automatically runs on pull requests and reports significant changes. See [Binary Size Tracker Documentation](docs/binary_size_tracker.md) for details.
+
 
 ## Contributing
 

@@ -1,0 +1,163 @@
+name: Binary Size Tracker
+
+on:
+  pull_request:
+    branches:
+      - '**'
+    paths:
+      - '**.py'
+      - 'pyproject.toml'
+      - 'poetry.lock'
+      - '.github/workflows/binary-size-tracker.yml'
+      - 'scripts/binary_size_tracker.py'
+
+jobs:
+  get-python-versions:
+    runs-on: ubuntu-latest
+    outputs:
+      primary-version: ${{ steps.get-versions.outputs.primary-version }}
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v5
+    
+    - name: Get Python versions
+      id: get-versions
+      uses: ./.github/actions/get-python-versions
+
+  binary-size-check:
+    needs: get-python-versions
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout PR code
+      uses: actions/checkout@v5
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ needs.get-python-versions.outputs.primary-version }}
+        cache: "pip"
+
+    - name: Install Poetry
+      uses: snok/install-poetry@v1
+
+    - name: Install project
+      run: poetry install --no-interaction --with dev
+
+    - name: Download baseline from latest release
+      id: download-baseline
+      run: |
+        # Try to download baseline from the latest release
+        LATEST_RELEASE=$(curl -s "https://api.github.com/repos/${{ github.repository }}/releases/latest")
+        if [ $? -eq 0 ]; then
+          DOWNLOAD_URL=$(echo "$LATEST_RELEASE" | jq -r '.assets[] | select(.name == "binary_sizes_baseline.json") | .browser_download_url')
+          if [ "$DOWNLOAD_URL" != "null" ] && [ "$DOWNLOAD_URL" != "" ]; then
+            echo "Found baseline in latest release"
+            curl -L -o baseline.json "$DOWNLOAD_URL"
+            echo "baseline_found=true" >> $GITHUB_OUTPUT
+          else
+            echo "No baseline found in latest release"
+            echo "baseline_found=false" >> $GITHUB_OUTPUT
+          fi
+        else
+          echo "Could not fetch latest release info"
+          echo "baseline_found=false" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Generate baseline if not found
+      if: steps.download-baseline.outputs.baseline_found == 'false'
+      run: |
+        echo "No baseline found, generating new baseline for comparison"
+        # Checkout main/dev branch to generate baseline
+        git fetch origin
+        git checkout origin/dev 2>/dev/null || git checkout origin/main 2>/dev/null || git checkout HEAD~10
+        poetry install --no-interaction --with dev
+        python scripts/binary_size_tracker.py generate --baseline-file baseline.json
+        # Switch back to PR branch
+        git checkout ${{ github.sha }}
+        poetry install --no-interaction --with dev
+
+    - name: Compare binary sizes
+      id: size-check
+      run: |
+        echo "Running binary size comparison..."
+        if python scripts/binary_size_tracker.py compare --baseline-file baseline.json > size_report.txt 2>&1; then
+          echo "has_significant_changes=false" >> $GITHUB_OUTPUT
+        else
+          echo "has_significant_changes=true" >> $GITHUB_OUTPUT
+        fi
+        
+        # Capture the report for commenting
+        echo "REPORT<<EOF" >> $GITHUB_OUTPUT
+        cat size_report.txt >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+
+    - name: Upload size report as artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: binary-size-report
+        path: |
+          size_report.txt
+          baseline.json
+
+    - name: Comment on PR
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const report = `${{ steps.size-check.outputs.REPORT }}`;
+          const hasChanges = ${{ steps.size-check.outputs.has_significant_changes }};
+          
+          const title = hasChanges ? "⚠️ Binary Size Changes Detected" : "✅ Binary Size Check Passed";
+          
+          const body = `## ${title}
+          
+          <details>
+          <summary>Binary Size Comparison Report</summary>
+          
+          \`\`\`
+          ${report}
+          \`\`\`
+          
+          </details>
+          
+          ${hasChanges ? 
+            "**Please review the binary size changes.** Significant increases may impact contract deployment costs and execution limits." :
+            "No significant binary size changes were detected in this PR."
+          }
+          
+          ---
+          *This report compares the binary sizes of compiled contracts against the baseline from the latest release.*`;
+
+          // Look for existing comment
+          const { data: comments } = await github.rest.issues.listComments({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: context.issue.number,
+          });
+
+          const existingComment = comments.find(comment => 
+            comment.body.includes("Binary Size Check") && comment.user.type === 'Bot'
+          );
+
+          if (existingComment) {
+            // Update existing comment
+            await github.rest.issues.updateComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: existingComment.id,
+              body: body
+            });
+          } else {
+            // Create new comment
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: body
+            });
+          }
+
+    - name: Set status check
+      if: steps.size-check.outputs.has_significant_changes == 'true'
+      run: |
+        echo "Significant binary size changes detected"
+        exit 1
