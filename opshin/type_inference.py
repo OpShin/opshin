@@ -1015,17 +1015,22 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         # This enables mutual recursion by making all functions available before processing bodies
         for stmt in node.body:
             if isinstance(stmt, ast.FunctionDef):
-                # Create a minimal function type signature from the annotation
-                functyp = FunctionType(
-                    frozenlist([
-                        InstanceType(self.type_from_annotation(arg.annotation))
-                        for arg in stmt.args.args
-                    ]),
-                    InstanceType(self.type_from_annotation(stmt.returns)),
-                    bound_vars=frozendict(),  # Will be updated in second pass
-                    bind_self=None,  # Will be updated if needed in second pass
-                )
-                self.set_variable_type(stmt.name, InstanceType(functyp))
+                try:
+                    # Create a minimal function type signature from the annotation
+                    functyp = FunctionType(
+                        frozenlist([
+                            InstanceType(self.type_from_annotation(arg.annotation))
+                            for arg in stmt.args.args
+                        ]),
+                        InstanceType(self.type_from_annotation(stmt.returns)),
+                        bound_vars=frozendict(),  # Will be updated in second pass
+                        bind_self=None,  # Will be updated if needed in second pass
+                    )
+                    self.set_variable_type(stmt.name, InstanceType(functyp))
+                except (TypeInferenceError, AttributeError):
+                    # If type inference fails (e.g., due to forward reference to class), 
+                    # skip for now - the function will be properly typed in the second pass
+                    pass
         
         # Second pass: process all statements normally with function signatures available
         tm.body = self.visit_sequence(node.body)

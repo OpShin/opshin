@@ -310,6 +310,39 @@ def validator(n: int) -> int:
         ret = eval_uplc_value(source_code, 3)
         self.assertEqual(0, ret)
 
+    def test_mutual_recursion_three_way(self):
+        source_code = """
+def a(n: int) -> int:
+    if n <= 0:
+        return 1
+    else:
+        return b(n - 1)
+
+def b(n: int) -> int:
+    if n <= 0:
+        return 2
+    else:
+        return c(n - 1)
+
+def c(n: int) -> int:
+    if n <= 0:
+        return 3
+    else:
+        return a(n - 1)
+
+def validator(n: int) -> int:
+    return a(n)
+        """
+        # Test different values to verify the three-way recursion pattern
+        ret = eval_uplc_value(source_code, 0)
+        self.assertEqual(1, ret)  # a(0) = 1
+        ret = eval_uplc_value(source_code, 1)
+        self.assertEqual(2, ret)  # a(1) = b(0) = 2
+        ret = eval_uplc_value(source_code, 2)
+        self.assertEqual(3, ret)  # a(2) = b(1) = c(0) = 3
+        ret = eval_uplc_value(source_code, 3)
+        self.assertEqual(1, ret)  # a(3) = b(2) = c(1) = a(0) = 1
+
     @unittest.expectedFailure
     def test_uninitialized_access(self):
         source_code = """
