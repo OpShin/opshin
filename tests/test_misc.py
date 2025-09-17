@@ -283,6 +283,33 @@ def validator(_: None) -> int:
         ret = eval_uplc_value(source_code, Unit())
         self.assertEqual(100, ret)
 
+    def test_mutual_recursion_even_odd(self):
+        source_code = """
+def even(n: int) -> bool:
+    if n == 0:
+        return True
+    else:
+        return odd(n - 1)
+        
+def odd(n: int) -> bool:
+    if n == 0:
+        return False
+    else:
+        return even(n - 1)
+
+def validator(n: int) -> int:
+    if even(n):
+        return 1
+    else:
+        return 0
+        """
+        # Test with even number
+        ret = eval_uplc_value(source_code, 4)
+        self.assertEqual(1, ret)
+        # Test with odd number  
+        ret = eval_uplc_value(source_code, 3)
+        self.assertEqual(0, ret)
+
     @unittest.expectedFailure
     def test_uninitialized_access(self):
         source_code = """
