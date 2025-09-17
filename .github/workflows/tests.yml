@@ -5,7 +5,9 @@ on:
     branches:
       - '**'
     paths:
-      - '**.py'
+      - 'examples/**.py'
+      - 'opshin/**.py'
+      - 'tests/**.py'
       - 'pyproject.toml'
       - 'poetry.lock'
       - '.github/workflows/tests.yml'
@@ -15,7 +17,9 @@ on:
     branches:
       - '**'
     paths:
-      - '**.py'
+      - 'examples/**.py'
+      - 'opshin/**.py'
+      - 'tests/**.py'
       - 'pyproject.toml'
       - 'poetry.lock'
       - '.github/workflows/tests.yml'

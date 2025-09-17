@@ -5,6 +5,7 @@ on:
     branches:
       - '**'
     paths:
+      - 'examples/**.py'
       - 'opshin/**.py'
       - 'pyproject.toml'
       - 'poetry.lock'
