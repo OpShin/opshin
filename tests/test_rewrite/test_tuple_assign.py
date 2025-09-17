@@ -141,6 +141,7 @@ def validator(a: int) -> int:
     def test_dict_items_values_deconstr(self, xs):
         # asserts that deconstruction of parameters works for for loops too
         source_code = """
+from typing import Dict, List, Union
 def validator(xs: Dict[int, bytes]) -> bytes:
     sum_values = b""
     for _, x in xs.items():
@@ -177,6 +178,7 @@ def validator(xs) -> int:
     def test_dict_items_values_deconstr(self, xs):
         # nested deconstruction with a Value-like object
         source_code = """
+from typing import Dict, List, Union
 def validator(xs: Dict[bytes, Dict[bytes, int]]) -> int:
     sum_values = 0
     for pid, tk_dict in xs.items():

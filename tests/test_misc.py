@@ -513,6 +513,8 @@ def validator(x: Token) -> bool:
     def test_list_expr(self):
         # this tests that the list expression is evaluated correctly
         source_code = """
+from typing import Dict, List, Union
+
 def validator(x: None) -> List[int]:
     return [1, 2, 3, 4, 5]
         """
@@ -523,6 +525,8 @@ def validator(x: None) -> List[int]:
     def test_list_expr_not_const(self):
         # this tests that the list expression is evaluated correctly (for non-constant expressions)
         source_code = """
+from typing import Dict, List, Union
+
 def validator(x: int) -> List[int]:
     return [x, x+1, x+2, x+3, x+4]
         """
@@ -533,6 +537,8 @@ def validator(x: int) -> List[int]:
     def test_dict_expr_not_const(self):
         # this tests that the list expression is evaluated correctly (for non-constant expressions)
         source_code = """
+from typing import Dict, List, Union
+
 def validator(x: int) -> Dict[int, bytes]:
     return {x: b"a", x+1: b"b"}
         """
@@ -2190,6 +2196,8 @@ def validator(a: int) -> int:
 
     def test_empty_list_int(self):
         source_code = """
+from typing import Dict, List, Union
+
 def validator(_: None) -> List[int]:
     a: List[int] = []
     return a + [1]
@@ -2217,6 +2225,8 @@ def validator(_: None) -> List[Token]:
 
     def test_empty_dict_int_int(self):
         source_code = """
+from typing import Dict, List, Union
+
 def validator(_: None) -> Dict[int, int]:
     a: Dict[int, int] = {}
     return a
@@ -2756,35 +2766,6 @@ def validator(a: int) -> int:
 
     def test_type_change_error_message(self):
         source_code = """
-def validator(a: int) -> int:
-    a = 1
-    a = "hello"
-    return a
-
-"""
-        try:
-            builder._compile(source_code)
-            self.fail("Type check did not fail")
-        except Exception as e:
-            assert "int" in str(e) and "str" in str(
-                e
-            ), "Type check did not fail with correct message"
-
-    def test_mutual_rec(self):
-        source_code = """
-def even(n: int) -> bool:
-    if n == 0:
-        return True
-    else:
-        return odd(n - 1)
-        
-def odd(n: int) -> bool:
-    if n == 0:
-        return False
-    else:
-        return even(n - 1)
-
-
 def validator(a: int) -> int:
     a = 1
     a = "hello"

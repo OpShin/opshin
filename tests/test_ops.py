@@ -373,6 +373,7 @@ def validator(x: List[int], y: int) -> int:
     @example([1, 2, 3, 4], 3, 1)
     def test_slice_list(self, x, y, z):
         source_code = """
+from typing import Dict, List, Union
 def validator(x: List[int], y: int, z: int) -> List[int]:
     return x[y:z]
             """
@@ -399,6 +400,7 @@ def validator(x: List[int], y: int, z: int) -> List[int]:
     @example([1, 2, 3, 4], 3)
     def test_slice_list_lower(self, x, y):
         source_code = """
+from typing import Dict, List, Union
 def validator(x: List[int], y: int) -> List[int]:
     return x[y:]
             """
@@ -425,6 +427,7 @@ def validator(x: List[int], y: int) -> List[int]:
     @example([1, 2, 3, 4], 1)
     def test_slice_list_upper(self, x, y):
         source_code = """
+from typing import Dict, List, Union
 def validator(x: List[int], y: int) -> List[int]:
     return x[:y]
             """
@@ -451,6 +454,7 @@ def validator(x: List[int], y: int) -> List[int]:
     @example([1, 2, 3, 4])
     def test_slice_list_full(self, x):
         source_code = """
+from typing import Dict, List, Union
 def validator(x: List[int]) -> List[int]:
     return x[:]
             """
@@ -537,6 +541,8 @@ def validator(x: List[bytes], y: bytes) -> bool:
     @given(x=st.lists(st.integers()))
     def test_not_list(self, x):
         source_code = """
+from typing import Dict, List, Union
+
 def validator(x: List[int]) -> bool:
     return not x
             """
@@ -696,6 +702,7 @@ def validator(x: bytes, y: int) -> bytes:
     )
     def test_add_list(self, xs, ys):
         source_code = """
+from typing import Dict, List, Union
 def validator(x: List[int], y: List[int]) -> List[int]:
     return x + y
             """
@@ -875,7 +882,7 @@ def validator(x: str, y: str) -> str:
     def test_fmt_list_str(self, xs):
         # TODO strings are not properly escaped here
         source_code = """
-from opshin.prelude import *
+from typing import Dict, List, Union
 
 def validator(x: List[str]) -> str:
     return f"{x}"
@@ -891,7 +898,7 @@ def validator(x: List[str]) -> str:
     @example([0])
     def test_fmt_list_int(self, xs):
         source_code = """
-from opshin.prelude import *
+from typing import Dict, List, Union
 
 def validator(x: List[int]) -> str:
     return f"{x}"
@@ -905,6 +912,7 @@ def validator(x: List[int]) -> str:
     @given(x=st.dictionaries(st.integers(), st.integers()))
     def test_not_dict(self, x):
         source_code = """
+from opshin.prelude import *
 def validator(x: Dict[int, int]) -> bool:
     return not x
             """
@@ -934,7 +942,7 @@ def validator(x: Dict[int, int], y: int) -> int:
     def test_fmt_dict_int(self, xs):
         # TODO strings are not properly escaped here
         source_code = """
-from opshin.prelude import *
+from typing import Dict, List, Union
 
 def validator(x: Dict[str, int]) -> str:
     return f"{x}"
@@ -955,6 +963,8 @@ def validator(x: Dict[str, int]) -> str:
         x_cbor = uplc.plutus_cbor_dumps(x)
         x_data = pycardano.RawPlutusData(cbor2.loads(x_cbor))
         source_code = """
+from opshin.prelude import *
+
 def validator(x: Anything) -> str:
     return f"{x}"
             """
