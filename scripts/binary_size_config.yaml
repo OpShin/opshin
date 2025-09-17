@@ -27,7 +27,8 @@ contracts:
     description: "Dual-use contract with multiple entry points"
 
 # Optimization levels to test
-optimization_levels: ["O1", "O2", "O3"]
+optimization_levels: ["O0", "O1", "O2", "O3"]
+ignore_warnings: ["O0", "O1"]
 
 # Thresholds for reporting (percentages)
 thresholds:
