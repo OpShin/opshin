@@ -400,6 +400,7 @@ def validator(
 
     def test_empty_list_int_constant_folding(self):
         source_code = """
+from typing import Dict, List, Union
 def validator(_: None) -> List[int]:
     a: List[int] = []
     return a
@@ -411,6 +412,7 @@ def validator(_: None) -> List[int]:
 
     def test_empty_dict_int_int_constant_folding(self):
         source_code = """
+from typing import Dict, List, Union
 def validator(_: None) -> Dict[int, int]:
     a: Dict[int, int] = {}
     return a
