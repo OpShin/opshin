@@ -248,10 +248,10 @@ def compare_with_baseline(
             size_percent = (size_diff / baseline_size) * 100 if baseline_size > 0 else 0
 
             status = ""
-            if abs(size_percent) > significant_threshold:
+            if size_percent > significant_threshold:
                 has_changes = True
                 status = " ⚠️  SIGNIFICANT CHANGE"
-            elif abs(size_percent) > warning_threshold:
+            elif size_percent > warning_threshold:
                 has_changes = True
                 status = " ⚠️"
 
