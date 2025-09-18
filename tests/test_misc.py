@@ -306,7 +306,7 @@ def validator(n: int) -> int:
         # Test with even number
         ret = eval_uplc_value(source_code, 4)
         self.assertEqual(1, ret)
-        # Test with odd number  
+        # Test with odd number
         ret = eval_uplc_value(source_code, 3)
         self.assertEqual(0, ret)
 
@@ -2839,3 +2839,23 @@ def validator(a: int) -> int:
             assert "int" in str(e) and "str" in str(
                 e
             ), "Type check did not fail with correct message"
+
+    def test_mutual_recursion(self):
+        source_code = """
+def even(n: int) -> bool:
+    if n == 0:
+        return True
+    else:
+        return odd(n - 1)
+        
+def odd(n: int) -> bool:
+    if n == 0:
+        return False
+    else:
+        return even(n - 1)
+
+def validator(a: int) -> int:
+    return 42 if even(a) else 0
+"""
+        res = eval_uplc_value(source_code, 2)
+        self.assertEqual(res, 42)

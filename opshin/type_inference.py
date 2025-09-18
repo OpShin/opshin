@@ -637,6 +637,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         raise NotImplementedError(f"Annotation type {ann.__class__} is not supported")
 
     def visit_sequence(self, node_seq: typing.List[stmt]) -> plt.AST:
+        # Zeroth pass: convert all class methods into functions with self as first argument
         additional_functions = []
         for n in node_seq:
             if not isinstance(n, ast.ClassDef):
@@ -682,6 +683,35 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             node_seq.extend(additional_functions)
             node_seq.append(last)
 
+        # First pass: extract all function signatures and add them to scope
+        # This enables mutual recursion by making all functions available before processing bodies
+        for stmt in node_seq:
+            if isinstance(stmt, ast.FunctionDef):
+                try:
+                    # Create a minimal function type signature from the annotation
+                    functyp = FunctionType(
+                        frozenlist(
+                            [
+                                InstanceType(self.type_from_annotation(arg.annotation))
+                                for arg in stmt.args.args
+                            ]
+                        ),
+                        InstanceType(self.type_from_annotation(stmt.returns)),
+                        bound_vars=frozendict(),  # Will be updated in second pass
+                        bind_self=None,  # Will be updated if needed in second pass
+                    )
+                    self.set_variable_type(stmt.name, InstanceType(functyp))
+                except (TypeInferenceError, AttributeError):
+                    # If type inference fails (e.g., due to forward reference to class),
+                    # skip for now - the function will be properly typed in the second pass
+                    pass
+            if isinstance(stmt, ast.ClassDef):
+                # Classes need to be added to the scope to ensure they can be used in annotations
+                class_record = RecordReader(self).extract(stmt)
+                typ = RecordType(class_record)
+                self.set_variable_type(stmt.name, typ)
+
+        # Second pass: process all statements normally with function signatures available
         stmts = []
         prevtyps = {}
         for n in node_seq:
@@ -700,7 +730,8 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
     def visit_ClassDef(self, node: ClassDef) -> TypedClassDef:
         class_record = RecordReader(self).extract(node)
         typ = RecordType(class_record)
-        self.set_variable_type(node.name, typ)
+        # Set the class type in the current scope --> already done in first pass in body
+        # self.set_variable_type(node.name, typ)
         self.FUNCTION_ARGUMENT_REGISTRY[node.name] = [
             typedarg(arg=field, typ=field_typ, orig_arg=field)
             for field, field_typ in class_record.fields
@@ -1002,37 +1033,14 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             rets_extractor.check_fulfills(tfd)
 
         self.exit_scope()
-        # We need the function type outside for usage
-        self.set_variable_type(node.name, tfd.typ)
+        # We need the function type outside for usage --> already done in first pass
+        # self.set_variable_type(node.name, tfd.typ)
         self.FUNCTION_ARGUMENT_REGISTRY[node.name] = node.args.args
         return tfd
 
     def visit_Module(self, node: Module) -> TypedModule:
         self.enter_scope()
         tm = copy(node)
-        
-        # First pass: extract all function signatures and add them to scope
-        # This enables mutual recursion by making all functions available before processing bodies
-        for stmt in node.body:
-            if isinstance(stmt, ast.FunctionDef):
-                try:
-                    # Create a minimal function type signature from the annotation
-                    functyp = FunctionType(
-                        frozenlist([
-                            InstanceType(self.type_from_annotation(arg.annotation))
-                            for arg in stmt.args.args
-                        ]),
-                        InstanceType(self.type_from_annotation(stmt.returns)),
-                        bound_vars=frozendict(),  # Will be updated in second pass
-                        bind_self=None,  # Will be updated if needed in second pass
-                    )
-                    self.set_variable_type(stmt.name, InstanceType(functyp))
-                except (TypeInferenceError, AttributeError):
-                    # If type inference fails (e.g., due to forward reference to class), 
-                    # skip for now - the function will be properly typed in the second pass
-                    pass
-        
-        # Second pass: process all statements normally with function signatures available
         tm.body = self.visit_sequence(node.body)
         self.exit_scope()
         return tm
