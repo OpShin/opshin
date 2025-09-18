@@ -697,8 +697,12 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                             ]
                         ),
                         InstanceType(self.type_from_annotation(stmt.returns)),
-                        bound_vars=frozendict(),  # Will be updated in second pass
-                        bind_self=None,  # Will be updated if needed in second pass
+                        bound_vars={
+                            v: InstanceType(AnyType())
+                            for v in externally_bound_vars(stmt)
+                            if not v in ["List", "Dict"]
+                        },
+                        bind_self=stmt.name,
                     )
                     self.set_variable_type(stmt.name, InstanceType(functyp))
                 except (TypeInferenceError, AttributeError):
@@ -731,7 +735,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         class_record = RecordReader(self).extract(node)
         typ = RecordType(class_record)
         # Set the class type in the current scope --> already done in first pass in body
-        # self.set_variable_type(node.name, typ)
+        self.set_variable_type(node.name, typ, force=True)
         self.FUNCTION_ARGUMENT_REGISTRY[node.name] = [
             typedarg(arg=field, typ=field_typ, orig_arg=field)
             for field, field_typ in class_record.fields
@@ -1008,7 +1012,9 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                 for v in externally_bound_vars(node)
                 if not v in ["List", "Dict"]
             },
-            bind_self=node.name if node.name in read_vars(node) else None,
+            # this used to check whether the function recurses.
+            # but the function might co-recurse with another function, so we always bind self
+            bind_self=node.name,
         )
         tfd.typ = InstanceType(functyp)
         if wraps_builtin:
@@ -1033,8 +1039,8 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             rets_extractor.check_fulfills(tfd)
 
         self.exit_scope()
-        # We need the function type outside for usage --> already done in first pass
-        # self.set_variable_type(node.name, tfd.typ)
+        # We need the function type outside for usage --> already done in first pass, but needs an update
+        self.set_variable_type(node.name, tfd.typ, force=True)
         self.FUNCTION_ARGUMENT_REGISTRY[node.name] = node.args.args
         return tfd
 

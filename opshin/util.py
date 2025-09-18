@@ -256,7 +256,7 @@ class NameReadCollector(CompilingNodeVisitor):
     step = "Collecting variables that are read"
 
     def __init__(self):
-        self.read = defaultdict(int)
+        self.read: typing.DefaultDict[str, int] = defaultdict(int)
 
     def visit_AnnAssign(self, node) -> None:
         # ignore annotations of variables
@@ -277,7 +277,7 @@ class NameReadCollector(CompilingNodeVisitor):
         pass
 
 
-def read_vars(node):
+def read_vars(node) -> typing.List[str]:
     """
     Returns all variable names read to in this node
     """
@@ -286,11 +286,11 @@ def read_vars(node):
     return sorted(collector.read.keys())
 
 
-def all_vars(node):
+def all_vars(node) -> typing.List[str]:
     return sorted(set(read_vars(node) + written_vars(node)))
 
 
-def externally_bound_vars(node: FunctionDef):
+def externally_bound_vars(node: FunctionDef) -> typing.List[str]:
     """A superset of the variables bound from an outer scope"""
     return sorted(set(read_vars(node)) - set(written_vars(node)) - {"isinstance"})
 
