@@ -104,7 +104,7 @@ def compile_contract(
         contract_path,
         f"-{optimization}",
         "--recursion-limit",
-        "2000",
+        "4000",
         "-o",
         output_dir,
     ]

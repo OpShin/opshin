@@ -5,6 +5,11 @@
 # complexity levels and common patterns.
 
 contracts:
+  - name: "liquidity_pool"
+    path: "examples/smart_contracts/liquidity_pool.py"
+    purpose: "spending"
+    description: "Simple DEX pool"
+
   - name: "assert_sum"
     path: "examples/smart_contracts/assert_sum.py"
     purpose: "spending"
