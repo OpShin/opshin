@@ -48,13 +48,22 @@
 
         .filter-group {
             margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
         }
 
         .filter-group label {
-            display: inline-block;
-            width: 120px;
             font-weight: 600;
             color: #34495e;
+            white-space: nowrap;
+        }
+
+        .filter-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
         }
 
         select, input {
@@ -62,6 +71,7 @@
             border: 1px solid #ddd;
             border-radius: 4px;
             font-size: 14px;
+            min-width: 150px;
         }
 
         .chart-container {
@@ -122,29 +132,41 @@
 
         .optimization-buttons {
             display: flex;
-            gap: 10px;
-            margin-left: 10px;
+            gap: 8px;
+            background: #f8f9fa;
+            padding: 8px;
+            border-radius: 6px;
+            border: 1px solid #e9ecef;
         }
 
         .opt-btn {
-            padding: 6px 12px;
+            padding: 8px 16px;
             border: 1px solid #3498db;
             background: white;
             color: #3498db;
             border-radius: 4px;
             cursor: pointer;
-            font-size: 12px;
+            font-size: 13px;
+            font-weight: 500;
             transition: all 0.2s;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
         }
 
         .opt-btn.active {
             background: #3498db;
             color: white;
+            box-shadow: 0 2px 4px rgba(52, 152, 219, 0.3);
         }
 
         .opt-btn:hover {
             background: #2980b9;
             color: white;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+        }
+
+        .opt-btn:not(.active):hover {
+            background: #3498db;
         }
     </style>
 </head>
@@ -157,21 +179,25 @@
     <div class="controls">
         <h3>📊 Chart Controls</h3>
         <div class="filter-group">
-            <label for="contractSelect">Contract:</label>
-            <select id="contractSelect">
-                <option value="all">All Contracts</option>
-            </select>
-            <label for="optimizationLevels" style="margin-left: 20px;">Optimization Levels:</label>
-            <div class="optimization-buttons" id="optimizationButtons"></div>
-        </div>
-        <div class="filter-group">
-            <label for="releaseLimit">Show last:</label>
-            <select id="releaseLimit">
-                <option value="10">10 releases</option>
-                <option value="20">20 releases</option>
-                <option value="50">50 releases</option>
-                <option value="all">All releases</option>
-            </select>
+            <div class="filter-item">
+                <label for="contractSelect">Contract:</label>
+                <select id="contractSelect">
+                    <option value="all">All Contracts</option>
+                </select>
+            </div>
+            <div class="filter-item">
+                <label for="optimizationLevels">Optimization Levels:</label>
+                <div class="optimization-buttons" id="optimizationButtons"></div>
+            </div>
+            <div class="filter-item">
+                <label for="releaseLimit">Show last:</label>
+                <select id="releaseLimit">
+                    <option value="10">10 releases</option>
+                    <option value="20">20 releases</option>
+                    <option value="50">50 releases</option>
+                    <option value="all">All releases</option>
+                </select>
+            </div>
         </div>
     </div>
 
