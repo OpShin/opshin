@@ -186,13 +186,15 @@
 
     <div class="loading" id="loading">Loading release data...</div>
 
+    <!-- EMBEDDED_DATA_PLACEHOLDER -->
+
     <script>
         class BinarySizeTrendViewer {
             constructor() {
                 this.releases = [];
                 this.chart = null;
                 this.selectedContract = 'all';
-                this.selectedOptLevels = ['O2']; // Default to O2
+                this.selectedOptLevels = ['O0', 'O1', 'O2', 'O3']; // Default to all optimization levels
                 this.releaseLimit = 20;
                 this.init();
             }
@@ -210,38 +212,14 @@
             }
 
             async fetchReleases() {
-                const response = await fetch('https://api.github.com/repos/OpShin/opshin/releases');
-                if (!response.ok) {
-                    throw new Error(`GitHub API error: ${response.status}`);
-                }
+                console.log(`Using embedded data for ${EMBEDDED_RELEASE_DATA.length} releases`);
 
-                const releases = await response.json();
-                console.log(`Found ${releases.length} releases`);
-
-                const releasesWithData = [];
-
-                for (const release of releases) {
-                    // Look for binary_sizes_baseline.json in assets
-                    const baselineAsset = release.assets.find(asset =>
-                        asset.name === 'binary_sizes_baseline.json'
-                    );
-
-                    if (baselineAsset) {
-                        try {
-                            const dataResponse = await fetch(baselineAsset.browser_download_url);
-                            if (dataResponse.ok) {
-                                const binaryData = await dataResponse.json();
-                                releasesWithData.push({
-                                    ...release,
-                                    binaryData: binaryData,
-                                    publishedDate: new Date(release.published_at)
-                                });
-                            }
-                        } catch (error) {
-                            console.warn(`Failed to fetch binary data for release ${release.tag_name}:`, error);
-                        }
-                    }
-                }
+                // Process embedded data to match expected format
+                const releasesWithData = EMBEDDED_RELEASE_DATA.map(release => ({
+                    ...release,
+                    binaryData: release.binary_data,
+                    publishedDate: new Date(release.published_at)
+                }));
 
                 // Sort by date (newest first)
                 this.releases = releasesWithData.sort((a, b) => b.publishedDate - a.publishedDate);
