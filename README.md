@@ -111,7 +111,7 @@ contract_blueprint = contract.blueprint
 
 ## Debugging artefacts
 
-For debugging purposes, you can also run
+For debugging purposes, you can also run the `eval_uplc` and `compile_pluto` commands to see the intermediate representations of your smart contract.
 
 ```bash
 # Compile script to 'uplc', and evaluate the script in UPLC (for debugging purposes)
@@ -120,17 +120,6 @@ opshin eval_uplc spending examples/smart_contracts/assert_sum.py "{\"int\": 4}" 
 # Compile script to 'pluto', an intermediate language (for debugging purposes)
 opshin compile_pluto spending examples/smart_contracts/assert_sum.py
 ```
-
-## Binary Size Tracking
-
-OpShin includes tooling to track binary size changes across different optimization levels to help catch regressions:
-
-```bash
-# Check binary sizes against latest release
-python scripts/check_binary_sizes.py
-```
-
-The binary size tracker automatically runs on pull requests and reports significant changes. See [Binary Size Tracker Documentation](docs/binary_size_tracker.md) for details.
 
 
 ## Contributing
@@ -142,6 +131,18 @@ To get an overview over the architecture and idea behind OpShin, check out [the 
 A bug bounty has been set up and funded by Project Catalyst, which awards [Github issue](https://github.com/OpShin/opshin/labels/bug%20bounty) resolution wiht ADA rewards.
 This is a great opportunity to get involved and earn some ADA.
 Check out the [detailed introduction to the bounty program](./BUG_BOUNTY.md) for more information.
+
+### Binary Size Tracking
+
+OpShin includes tooling to track binary size changes across different optimization levels to help catch regressions:
+
+```bash
+# Check binary sizes against latest release
+python scripts/check_binary_sizes.py
+```
+
+The binary size tracker automatically runs on pull requests and reports significant changes. See [Binary Size Tracker Documentation](docs/binary_size_tracker.md) for details.
+
 
 ### Sponsoring
 

@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OpShin Binary Size Trends</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/date-fns@2.29.3/index.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .header h1 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            color: #7f8c8d;
+            font-size: 16px;
+        }
+
+        .controls {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .controls h3 {
+            margin-top: 0;
+            color: #2c3e50;
+        }
+
+        .filter-group {
+            margin-bottom: 15px;
+        }
+
+        .filter-group label {
+            display: inline-block;
+            width: 120px;
+            font-weight: 600;
+            color: #34495e;
+        }
+
+        select, input {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        .chart-container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .chart-wrapper {
+            position: relative;
+            height: 400px;
+            margin-top: 20px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #7f8c8d;
+            font-size: 18px;
+        }
+
+        .error {
+            background-color: #e74c3c;
+            color: white;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 20px 0;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+
+        .stat-label {
+            color: #7f8c8d;
+            font-size: 14px;
+            margin-top: 5px;
+        }
+
+        .optimization-buttons {
+            display: flex;
+            gap: 10px;
+            margin-left: 10px;
+        }
+
+        .opt-btn {
+            padding: 6px 12px;
+            border: 1px solid #3498db;
+            background: white;
+            color: #3498db;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.2s;
+        }
+
+        .opt-btn.active {
+            background: #3498db;
+            color: white;
+        }
+
+        .opt-btn:hover {
+            background: #2980b9;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🚀 OpShin Binary Size Trends</h1>
+        <p>Track binary size changes across releases for OpShin smart contracts</p>
+    </div>
+
+    <div class="controls">
+        <h3>📊 Chart Controls</h3>
+        <div class="filter-group">
+            <label for="contractSelect">Contract:</label>
+            <select id="contractSelect">
+                <option value="all">All Contracts</option>
+            </select>
+            <label for="optimizationLevels" style="margin-left: 20px;">Optimization Levels:</label>
+            <div class="optimization-buttons" id="optimizationButtons"></div>
+        </div>
+        <div class="filter-group">
+            <label for="releaseLimit">Show last:</label>
+            <select id="releaseLimit">
+                <option value="10">10 releases</option>
+                <option value="20">20 releases</option>
+                <option value="50">50 releases</option>
+                <option value="all">All releases</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="stats" id="stats"></div>
+
+    <div class="chart-container">
+        <h3>📈 Binary Size Over Time</h3>
+        <div class="chart-wrapper">
+            <canvas id="sizeChart"></canvas>
+        </div>
+    </div>
+
+    <div class="loading" id="loading">Loading release data...</div>
+
+    <script>
+        class BinarySizeTrendViewer {
+            constructor() {
+                this.releases = [];
+                this.chart = null;
+                this.selectedContract = 'all';
+                this.selectedOptLevels = ['O2']; // Default to O2
+                this.releaseLimit = 20;
+                this.init();
+            }
+
+            async init() {
+                try {
+                    await this.fetchReleases();
+                    this.setupControls();
+                    this.updateChart();
+                    this.updateStats();
+                    document.getElementById('loading').style.display = 'none';
+                } catch (error) {
+                    this.showError(`Failed to load data: ${error.message}`);
+                }
+            }
+
+            async fetchReleases() {
+                const response = await fetch('https://api.github.com/repos/OpShin/opshin/releases');
+                if (!response.ok) {
+                    throw new Error(`GitHub API error: ${response.status}`);
+                }
+
+                const releases = await response.json();
+                console.log(`Found ${releases.length} releases`);
+
+                const releasesWithData = [];
+
+                for (const release of releases) {
+                    // Look for binary_sizes_baseline.json in assets
+                    const baselineAsset = release.assets.find(asset =>
+                        asset.name === 'binary_sizes_baseline.json'
+                    );
+
+                    if (baselineAsset) {
+                        try {
+                            const dataResponse = await fetch(baselineAsset.browser_download_url);
+                            if (dataResponse.ok) {
+                                const binaryData = await dataResponse.json();
+                                releasesWithData.push({
+                                    ...release,
+                                    binaryData: binaryData,
+                                    publishedDate: new Date(release.published_at)
+                                });
+                            }
+                        } catch (error) {
+                            console.warn(`Failed to fetch binary data for release ${release.tag_name}:`, error);
+                        }
+                    }
+                }
+
+                // Sort by date (newest first)
+                this.releases = releasesWithData.sort((a, b) => b.publishedDate - a.publishedDate);
+                console.log(`Successfully loaded binary data for ${this.releases.length} releases`);
+            }
+
+            setupControls() {
+                this.setupContractSelect();
+                this.setupOptimizationButtons();
+                this.setupEventListeners();
+            }
+
+            setupContractSelect() {
+                const contractSelect = document.getElementById('contractSelect');
+                const contracts = new Set();
+
+                this.releases.forEach(release => {
+                    if (release.binaryData?.contracts) {
+                        Object.keys(release.binaryData.contracts).forEach(contract => {
+                            contracts.add(contract);
+                        });
+                    }
+                });
+
+                // Clear existing options except "All Contracts"
+                while (contractSelect.children.length > 1) {
+                    contractSelect.removeChild(contractSelect.lastChild);
+                }
+
+                // Add contract options
+                [...contracts].sort().forEach(contract => {
+                    const option = document.createElement('option');
+                    option.value = contract;
+                    option.textContent = contract;
+                    contractSelect.appendChild(option);
+                });
+            }
+
+            setupOptimizationButtons() {
+                const container = document.getElementById('optimizationButtons');
+                const optLevels = ['O0', 'O1', 'O2', 'O3'];
+
+                optLevels.forEach(level => {
+                    const button = document.createElement('button');
+                    button.className = `opt-btn ${this.selectedOptLevels.includes(level) ? 'active' : ''}`;
+                    button.textContent = level;
+                    button.onclick = () => this.toggleOptLevel(level);
+                    container.appendChild(button);
+                });
+            }
+
+            setupEventListeners() {
+                document.getElementById('contractSelect').addEventListener('change', (e) => {
+                    this.selectedContract = e.target.value;
+                    this.updateChart();
+                    this.updateStats();
+                });
+
+                document.getElementById('releaseLimit').addEventListener('change', (e) => {
+                    this.releaseLimit = e.target.value === 'all' ? 'all' : parseInt(e.target.value);
+                    this.updateChart();
+                });
+            }
+
+            toggleOptLevel(level) {
+                const index = this.selectedOptLevels.indexOf(level);
+                if (index === -1) {
+                    this.selectedOptLevels.push(level);
+                } else {
+                    this.selectedOptLevels.splice(index, 1);
+                }
+
+                // Update button states
+                document.querySelectorAll('.opt-btn').forEach(btn => {
+                    btn.classList.toggle('active', this.selectedOptLevels.includes(btn.textContent));
+                });
+
+                this.updateChart();
+            }
+
+            updateChart() {
+                const ctx = document.getElementById('sizeChart').getContext('2d');
+
+                if (this.chart) {
+                    this.chart.destroy();
+                }
+
+                const data = this.prepareChartData();
+
+                this.chart = new Chart(ctx, {
+                    type: 'line',
+                    data: data,
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        interaction: {
+                            mode: 'index',
+                            intersect: false,
+                        },
+                        plugins: {
+                            legend: {
+                                position: 'top',
+                            },
+                            title: {
+                                display: true,
+                                text: this.selectedContract === 'all'
+                                    ? 'Binary Sizes Across All Contracts'
+                                    : `Binary Sizes for ${this.selectedContract}`
+                            }
+                        },
+                        scales: {
+                            x: {
+                                title: {
+                                    display: true,
+                                    text: 'Release'
+                                }
+                            },
+                            y: {
+                                title: {
+                                    display: true,
+                                    text: 'Size (bytes)'
+                                },
+                                beginAtZero: true
+                            }
+                        }
+                    }
+                });
+            }
+
+            prepareChartData() {
+                let releases = this.releases.slice();
+                if (this.releaseLimit !== 'all') {
+                    releases = releases.slice(0, this.releaseLimit);
+                }
+
+                // Reverse to show oldest to newest
+                releases.reverse();
+
+                const labels = releases.map(r => r.tag_name);
+                const datasets = [];
+
+                const colors = {
+                    'O0': '#e74c3c',
+                    'O1': '#f39c12',
+                    'O2': '#2ecc71',
+                    'O3': '#3498db'
+                };
+
+                if (this.selectedContract === 'all') {
+                    // Show aggregated data across all contracts
+                    this.selectedOptLevels.forEach(optLevel => {
+                        const data = releases.map(release => {
+                            if (!release.binaryData?.contracts) return null;
+
+                            let totalSize = 0;
+                            let contractCount = 0;
+
+                            Object.values(release.binaryData.contracts).forEach(contract => {
+                                if (contract.sizes?.[optLevel]) {
+                                    totalSize += contract.sizes[optLevel];
+                                    contractCount++;
+                                }
+                            });
+
+                            return contractCount > 0 ? totalSize : null;
+                        });
+
+                        datasets.push({
+                            label: `${optLevel} (Total)`,
+                            data: data,
+                            borderColor: colors[optLevel],
+                            backgroundColor: colors[optLevel] + '20',
+                            fill: false,
+                            tension: 0.1
+                        });
+                    });
+                } else {
+                    // Show data for specific contract
+                    this.selectedOptLevels.forEach(optLevel => {
+                        const data = releases.map(release => {
+                            const contract = release.binaryData?.contracts?.[this.selectedContract];
+                            return contract?.sizes?.[optLevel] || null;
+                        });
+
+                        datasets.push({
+                            label: `${this.selectedContract} (${optLevel})`,
+                            data: data,
+                            borderColor: colors[optLevel],
+                            backgroundColor: colors[optLevel] + '20',
+                            fill: false,
+                            tension: 0.1
+                        });
+                    });
+                }
+
+                return { labels, datasets };
+            }
+
+            updateStats() {
+                const statsContainer = document.getElementById('stats');
+
+                if (this.releases.length === 0) {
+                    statsContainer.innerHTML = '<div class="stat-card"><div class="stat-value">No data</div><div class="stat-label">Available</div></div>';
+                    return;
+                }
+
+                const latestRelease = this.releases[0];
+                const oldestWithData = this.releases[this.releases.length - 1];
+
+                let stats = [
+                    {
+                        value: this.releases.length,
+                        label: 'Releases Tracked'
+                    },
+                    {
+                        value: latestRelease.tag_name,
+                        label: 'Latest Release'
+                    }
+                ];
+
+                // Add contract-specific stats
+                if (this.selectedContract !== 'all' && latestRelease.binaryData?.contracts?.[this.selectedContract]) {
+                    const contractData = latestRelease.binaryData.contracts[this.selectedContract];
+                    const optLevel = this.selectedOptLevels[0] || 'O2';
+                    const currentSize = contractData.sizes?.[optLevel];
+
+                    if (currentSize) {
+                        stats.push({
+                            value: this.formatBytes(currentSize),
+                            label: `Current Size (${optLevel})`
+                        });
+
+                        // Calculate trend if we have historical data
+                        if (this.releases.length > 1) {
+                            const historicalSize = this.releases[this.releases.length - 1].binaryData?.contracts?.[this.selectedContract]?.sizes?.[optLevel];
+                            if (historicalSize) {
+                                const change = ((currentSize - historicalSize) / historicalSize) * 100;
+                                stats.push({
+                                    value: `${change > 0 ? '+' : ''}${change.toFixed(1)}%`,
+                                    label: 'Change Since First'
+                                });
+                            }
+                        }
+                    }
+                } else if (this.selectedContract === 'all') {
+                    // Show total size across all contracts
+                    let totalSize = 0;
+                    const optLevel = this.selectedOptLevels[0] || 'O2';
+
+                    Object.values(latestRelease.binaryData.contracts || {}).forEach(contract => {
+                        if (contract.sizes?.[optLevel]) {
+                            totalSize += contract.sizes[optLevel];
+                        }
+                    });
+
+                    if (totalSize > 0) {
+                        stats.push({
+                            value: this.formatBytes(totalSize),
+                            label: `Total Size (${optLevel})`
+                        });
+                    }
+                }
+
+                statsContainer.innerHTML = stats.map(stat => `
+                    <div class="stat-card">
+                        <div class="stat-value">${stat.value}</div>
+                        <div class="stat-label">${stat.label}</div>
+                    </div>
+                `).join('');
+            }
+
+            formatBytes(bytes) {
+                if (bytes === 0) return '0 B';
+                const k = 1024;
+                const sizes = ['B', 'KB', 'MB', 'GB'];
+                const i = Math.floor(Math.log(bytes) / Math.log(k));
+                return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+            }
+
+            showError(message) {
+                document.getElementById('loading').innerHTML = `<div class="error">Error: ${message}</div>`;
+            }
+        }
+
+        // Initialize the viewer when the page loads
+        window.addEventListener('DOMContentLoaded', () => {
+            new BinarySizeTrendViewer();
+        });
+    </script>
+</body>
+</html>
