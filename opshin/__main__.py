@@ -273,8 +273,17 @@ def perform_command(args):
         try:
             argspec = inspect.signature(sc.validator)
         except AttributeError:
+            can_command_with_lib = command in (
+                Command.compile,
+                Command.build,
+                Command.compile_pluto,
+                Command.parse,
+                Command.lint,
+            )
+            command_with_lib = f" or {command.value} using `opshin {command.value} lib {str(input_file)}`."
             raise AssertionError(
-                f"Contract has no function called 'validator'. Make sure the compiled contract contains one function called 'validator' or {command.value} using `opshin {command.value} lib {str(input_file)}`."
+                f"Contract has no function called 'validator'. Make sure the compiled contract contains one function called 'validator'"
+                + (command_with_lib if can_command_with_lib else ".")
             )
         annotations = [
             (x.name, x.annotation or prelude.Anything)
