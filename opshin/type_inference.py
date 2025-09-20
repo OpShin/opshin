@@ -248,6 +248,8 @@ def intersection_types(*ts: Type):
 
 
 def find_max_type(elts: typing.List[InstanceType]):
+    if not elts:
+        return InstanceType(AnyType())
     set_elts = OrderedSet(elts)
     max_typ = None
     for m in elts:
