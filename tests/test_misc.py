@@ -283,6 +283,66 @@ def validator(_: None) -> int:
         ret = eval_uplc_value(source_code, Unit())
         self.assertEqual(100, ret)
 
+    def test_mutual_recursion_even_odd(self):
+        source_code = """
+def even(n: int) -> bool:
+    if n == 0:
+        return True
+    else:
+        return odd(n - 1)
+        
+def odd(n: int) -> bool:
+    if n == 0:
+        return False
+    else:
+        return even(n - 1)
+
+def validator(n: int) -> int:
+    if even(n):
+        return 1
+    else:
+        return 0
+        """
+        # Test with even number
+        ret = eval_uplc_value(source_code, 4)
+        self.assertEqual(1, ret)
+        # Test with odd number
+        ret = eval_uplc_value(source_code, 3)
+        self.assertEqual(0, ret)
+
+    def test_mutual_recursion_three_way(self):
+        source_code = """
+def a(n: int) -> int:
+    if n <= 0:
+        return 1
+    else:
+        return b(n - 1)
+
+def b(n: int) -> int:
+    if n <= 0:
+        return 2
+    else:
+        return c(n - 1)
+
+def c(n: int) -> int:
+    if n <= 0:
+        return 3
+    else:
+        return a(n - 1)
+
+def validator(n: int) -> int:
+    return a(n)
+        """
+        # Test different values to verify the three-way recursion pattern
+        ret = eval_uplc_value(source_code, 0)
+        self.assertEqual(1, ret)  # a(0) = 1
+        ret = eval_uplc_value(source_code, 1)
+        self.assertEqual(2, ret)  # a(1) = b(0) = 2
+        ret = eval_uplc_value(source_code, 2)
+        self.assertEqual(3, ret)  # a(2) = b(1) = c(0) = 3
+        ret = eval_uplc_value(source_code, 3)
+        self.assertEqual(1, ret)  # a(3) = b(2) = c(1) = a(0) = 1
+
     @unittest.expectedFailure
     def test_uninitialized_access(self):
         source_code = """
@@ -2779,3 +2839,23 @@ def validator(a: int) -> int:
             assert "int" in str(e) and "str" in str(
                 e
             ), "Type check did not fail with correct message"
+
+    def test_mutual_recursion(self):
+        source_code = """
+def even(n: int) -> bool:
+    if n == 0:
+        return True
+    else:
+        return odd(n - 1)
+        
+def odd(n: int) -> bool:
+    if n == 0:
+        return False
+    else:
+        return even(n - 1)
+
+def validator(a: int) -> int:
+    return 42 if even(a) else 0
+"""
+        res = eval_uplc_value(source_code, 2)
+        self.assertEqual(res, 42)

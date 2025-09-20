@@ -7,7 +7,10 @@
 import warnings
 import importlib.metadata
 
-__version__ = importlib.metadata.version(__package__ or __name__)
+try:
+    __version__ = importlib.metadata.version(__package__ or __name__)
+except importlib.metadata.PackageNotFoundError:
+    __version__ = "0.24.4"
 __author__ = "nielstron"
 __author_email__ = "niels@opshin.dev"
 __copyright__ = "Copyright (C) 2025 nielstron"
