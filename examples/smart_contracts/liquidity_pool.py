@@ -145,6 +145,10 @@ def sub_fraction(a: Fraction, b: Fraction) -> Fraction:
     )
 
 
+def floor_fraction(a: Fraction) -> int:
+    return a.numerator // a.denominator
+
+
 def amount_of_token_in_output(token: Token, output: TxOut) -> int:
     return output.value.get(token.policy_id, {b"": 0}).get(token.token_name, 0)
 
