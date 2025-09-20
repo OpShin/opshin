@@ -387,3 +387,19 @@ def validator(_: Union) -> bool:
 """
     with pytest.raises(CompilerError, match=r"Union\["):
         builder._compile(source_code)
+
+
+def test_single_union():
+    source_code = """
+from dataclasses import dataclass
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
+@dataclass()
+class A(PlutusData):
+    CONSTR_ID = 0
+    foo: int
+    
+def validator(x: Union[A]) -> bool:
+    return True
+"""
+    builder._compile(source_code)

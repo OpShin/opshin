@@ -557,7 +557,16 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                 ann.value, Name
             ), "Only Union, Dict and List are allowed as Generic types"
             if ann.value.orig_id == "Union":
-                for elt in ann.slice.elts:
+                if isinstance(ann.slice, Name):
+                    elts = [ann.slice]
+                elif isinstance(ann.slice, ast.Tuple):
+                    elts = ann.slice.elts
+                else:
+                    raise TypeInferenceError(
+                        "Union must combine several classes, use Union[Class1, Class2, ...]"
+                    )
+                # only allow List[Anything] and Dict[Anything, Anything] in unions
+                for elt in elts:
                     if isinstance(elt, Subscript) and elt.value.id == "List":
                         assert (
                             isinstance(elt.slice, Name)
@@ -568,9 +577,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                             isinstance(e, Name) and e.orig_id == "Anything"
                             for e in elt.slice.elts
                         ), f"Only Dict[Anything, Anything] is supported in Unions. Received Dict[{elt.slice.elts[0].orig_id}, {elt.slice.elts[1].orig_id}]."
-                ann_types = frozenlist(
-                    [self.type_from_annotation(e) for e in ann.slice.elts]
-                )
+                ann_types = frozenlist([self.type_from_annotation(e) for e in elts])
                 # flatten encountered union types
                 ann_types = frozenlist(
                     sum(
