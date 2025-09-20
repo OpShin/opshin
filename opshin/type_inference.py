@@ -638,7 +638,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
 
     def visit_sequence(self, node_seq: typing.List[stmt]) -> plt.AST:
         additional_functions = []
-        for n in node_seq:
+        for i, n in enumerate(node_seq):
             if not isinstance(n, ast.ClassDef):
                 continue
             non_method_attributes = []
@@ -675,12 +675,11 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                 custom_fix_missing_locations(ann, attribute.args.args[0])
                 ann.orig_id = attribute.args.args[0].orig_arg
                 func.args.args[0].annotation = ann
-                additional_functions.append(func)
+                additional_functions.append((i, func))
             n.body = non_method_attributes
         if additional_functions:
-            last = node_seq.pop()
-            node_seq.extend(additional_functions)
-            node_seq.append(last)
+            for i, f in reversed(additional_functions):
+                node_seq.insert(i + 1, f)
 
         stmts = []
         prevtyps = {}
