@@ -332,8 +332,7 @@ def validator(x: Union[A, B]) -> bool:
     assert res == (a_or_b not in [B(1, 2)]), f"Expected {a_or_b != B(1, 2)}, got {res}"
 
 
-@hypothesis.given(a_or_b)
-def test_geq(a_or_b):
+def test_geq():
     source_code = """
 from dataclasses import dataclass
 from typing import Dict, List, Union
@@ -354,4 +353,37 @@ def validator(x: Union[A, B]) -> bool:
 """
     # should fail to compile because > is not supported
     with pytest.raises(CompilerError, match="Can not compare"):
+        builder._compile(source_code)
+
+
+def test_error_pure_list():
+    source_code = """
+from typing import Dict, List, Union
+
+def validator(_: List) -> bool:
+    return True
+"""
+    with pytest.raises(CompilerError, match=r"List\[Anything\]"):
+        builder._compile(source_code)
+
+
+def test_error_pure_dict():
+    source_code = """
+from typing import Dict, List, Union
+
+def validator(_: Dict) -> bool:
+    return True
+"""
+    with pytest.raises(CompilerError, match=r"Dict\[Anything, Anything\]"):
+        builder._compile(source_code)
+
+
+def test_error_pure_union():
+    source_code = """
+from typing import Dict, List, Union
+
+def validator(_: Union) -> bool:
+    return True
+"""
+    with pytest.raises(CompilerError, match=r"Union\["):
         builder._compile(source_code)
