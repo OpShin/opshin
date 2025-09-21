@@ -343,6 +343,62 @@ def validator(n: int) -> int:
         ret = eval_uplc_value(source_code, 3)
         self.assertEqual(1, ret)  # a(3) = b(2) = c(1) = a(0) = 1
 
+    def test_mutual_recursion_nested_functions(self):
+        source_code = """
+def validator(n: int) -> int:
+    def even_nested(x: int) -> bool:
+        if x == 0:
+            return True
+        else:
+            return odd_nested(x - 1)
+    
+    def odd_nested(x: int) -> bool:
+        if x == 0:
+            return False
+        else:
+            return even_nested(x - 1)
+    
+    if even_nested(n):
+        return 1
+    else:
+        return 0
+        """
+        # Test nested mutual recursion
+        ret = eval_uplc_value(source_code, 4)
+        self.assertEqual(1, ret)  # 4 is even
+        ret = eval_uplc_value(source_code, 3)
+        self.assertEqual(0, ret)  # 3 is odd
+
+    def test_mutual_recursion_with_classes(self):
+        source_code = """
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
+from dataclasses import dataclass
+
+def process_data(x: int) -> int:
+    obj = MyData(x)
+    return transform_data(obj)
+
+@dataclass
+class MyData(PlutusData):
+    CONSTR_ID = 0
+    value: int
+
+def transform_data(data: MyData) -> int:
+    if data.value <= 0:
+        return 0
+    else:
+        return process_data(data.value - 1) + 1
+
+def validator(n: int) -> int:
+    return process_data(n)
+        """
+        # Test mutual recursion with classes defined between functions
+        ret = eval_uplc_value(source_code, 3)
+        self.assertEqual(3, ret)  # process_data(3) should return 3
+        ret = eval_uplc_value(source_code, 0)
+        self.assertEqual(0, ret)  # process_data(0) should return 0
+
     @unittest.expectedFailure
     def test_uninitialized_access(self):
         source_code = """
