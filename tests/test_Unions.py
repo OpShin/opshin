@@ -1,6 +1,5 @@
 import unittest
 import hypothesis
-import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 from opshin import builder
@@ -1073,3 +1072,33 @@ def validator(x: Union[int, T]) -> None:
             str(e.exception.orig_err),
             "Expected error about List with subscript not found",
         )
+
+    @hypothesis.given(st.sampled_from(range(6)))
+    def test_Union_builtin_cast_List_call(self, x):
+        """Test the exact issue from bug report - List of Union types not properly cast"""
+        source_code = """
+from dataclasses import dataclass
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
+
+def foo(xs: List[Union[int, bytes]]) -> int:
+    y = xs[0]
+    if isinstance(y, int):
+        k = y + 1
+    else:
+        k = len(y)
+    return k
+
+def validator(x: int) -> int:
+    if x > 5:
+        k = foo([x+1])
+    else:
+        k = foo([b"0"*x])
+    return k
+"""
+        res = eval_uplc_value(source_code, x)
+        if x > 5:
+            expected = (x + 1) + 1  # x+1 passed to foo, then +1 in foo
+        else:
+            expected = len(b"0" * x)  # length of b"0"*x
+        self.assertEqual(res, expected)

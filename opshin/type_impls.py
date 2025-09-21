@@ -3183,6 +3183,27 @@ def transform_ext_params_map(p: Type):
     return lambda x: x
 
 
+def needs_any_or_union_casting(p: Type) -> bool:
+    """Check if a type needs casting due to Any/Union types at any nesting level"""
+    if not isinstance(p, InstanceType):
+        return False
+    
+    # Check if this is directly an Any or Union type
+    if isinstance(p.typ, (AnyType, UnionType)):
+        return True
+    
+    # Check nested types in Lists
+    if isinstance(p.typ, ListType):
+        return needs_any_or_union_casting(p.typ.typ)
+    
+    # Check nested types in Dicts
+    if isinstance(p.typ, DictType):
+        return (needs_any_or_union_casting(p.typ.key_typ) or 
+                needs_any_or_union_casting(p.typ.value_typ))
+    
+    return False
+
+
 OUnit = plt.ConstrData(plt.Integer(0), plt.EmptyDataList())
 
 TransformOutputMap = {

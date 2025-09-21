@@ -29,6 +29,7 @@ from .type_impls import (
     ByteStringType,
     FunctionType,
     OUnit,
+    needs_any_or_union_casting,
 )
 from .type_inference import map_to_orig_name, AggressiveTypeInferencer
 from .typed_ast import *
@@ -424,17 +425,11 @@ class PlutoCompiler(CompilingNodeTransformer):
             node.target.typ, InstanceType
         ), "Can only assign instances to instances"
         val = self.visit(node.value)
-        if isinstance(node.value.typ, InstanceType) and (
-            isinstance(node.value.typ.typ, AnyType)
-            or isinstance(node.value.typ.typ, UnionType)
-        ):
+        if isinstance(node.value.typ, InstanceType) and needs_any_or_union_casting(node.value.typ):
             # we need to map this as it will originate from PlutusData
             # AnyType is the only type other than the builtin itself that can be cast to builtin values
             val = transform_ext_params_map(node.target.typ)(val)
-        if isinstance(node.target.typ, InstanceType) and (
-            isinstance(node.target.typ.typ, AnyType)
-            or isinstance(node.target.typ.typ, UnionType)
-        ):
+        if isinstance(node.target.typ, InstanceType) and needs_any_or_union_casting(node.target.typ):
             # we need to map this back as it will be treated as PlutusData
             # AnyType is the only type other than the builtin itself that can be cast to from builtin values
             val = transform_output_map(node.value.typ)(val)
@@ -495,8 +490,9 @@ class PlutoCompiler(CompilingNodeTransformer):
             assert isinstance(t, InstanceType)
             # pass in all arguments evaluated with the statemonad
             a_int = self.visit(a)
-            if isinstance(t.typ, AnyType) or isinstance(t.typ, UnionType):
-                # if the function expects input of generic type data, wrap data before passing it inside
+            if needs_any_or_union_casting(t):
+                # if the function expects input that needs casting (including nested Any/Union types),
+                # wrap data before passing it inside
                 a_int = transform_output_map(a.typ)(a_int)
             args.append(a_int)
         # First assign to let to ensure that the arguments are evaluated before the call, but need to delay
