@@ -1,9 +1,6 @@
 #!/bin/bash
 set -e
 
-# Run linters
-poetry run black --check .
-
 # Run pytest with coverage
 poetry run coverage run -m pytest tests
 
@@ -55,3 +52,7 @@ for i in $(find opshin/std opshin/ledger -type f -name "*.py" ! -name "*integrit
   echo "$i"
   poetry run coverage run -a -m opshin compile lib "$i" -fno-remove-dead-code > /dev/null || exit
 done
+
+# Run linters (last so we see test failures first)
+poetry run black --check .
+
