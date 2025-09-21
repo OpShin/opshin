@@ -34,6 +34,8 @@ from .util import (
     custom_fix_missing_locations,
     read_vars,
     externally_bound_vars,
+    OLambda,
+    OVar,
 )
 from .fun_impls import PythonBuiltInTypes
 from .rewrite.rewrite_cast_condition import SPECIAL_BOOL
@@ -1149,11 +1151,17 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                     ts.slice.lower.typ == IntegerInstanceType
                 ), f"Lower slice indices for lists must be integers, found {ts.slice.lower.typ.python_type()} for list {ts.value.typ.python_type()}"
                 if ts.slice.upper is None:
-                    ts.slice.upper = Call(
-                        func=Name(id="len", ctx=Load()), args=[ts.value], keywords=[]
+                    # Create a direct pluthon expression for list length instead of len() call
+                    ts.slice.upper = RawPlutoExpr(
+                        typ=IntegerInstanceType,
+                        expr=plt.FoldList(
+                            ts.value,
+                            OLambda(["a", "_"], plt.AddInteger(OVar("a"), plt.Integer(1))),
+                            plt.Integer(0),
+                        ),
                     )
-                    ts.slice.upper.func.orig_id = "len"
-                ts.slice.upper = self.visit(node.slice.upper)
+                else:
+                    ts.slice.upper = self.visit(node.slice.upper)
                 assert (
                     ts.slice.upper.typ == IntegerInstanceType
                 ), f"Upper slice indices for lists must be integers, found {ts.slice.upper.typ.python_type()} for list {ts.value.typ.python_type()}"
@@ -1173,11 +1181,13 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                     ts.slice.lower.typ == IntegerInstanceType
                 ), f"Lower slice indices for bytes must be integers, found {ts.slice.lower.typ.python_type()}"
                 if ts.slice.upper is None:
-                    ts.slice.upper = Call(
-                        func=Name(id="len", ctx=Load()), args=[ts.value], keywords=[]
+                    # Create a direct pluthon expression for byte string length instead of len() call
+                    ts.slice.upper = RawPlutoExpr(
+                        typ=IntegerInstanceType,
+                        expr=plt.LengthOfByteString(ts.value),
                     )
-                    ts.slice.upper.func.orig_id = "len"
-                ts.slice.upper = self.visit(node.slice.upper)
+                else:
+                    ts.slice.upper = self.visit(node.slice.upper)
                 assert (
                     ts.slice.upper.typ == IntegerInstanceType
                 ), f"Upper slice indices for bytes must be integers, found {ts.slice.upper.typ.python_type()}"
