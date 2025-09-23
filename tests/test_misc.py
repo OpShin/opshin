@@ -399,6 +399,74 @@ def validator(n: int) -> int:
         ret = eval_uplc_value(source_code, 0)
         self.assertEqual(0, ret)  # process_data(0) should return 0
 
+    def test_three_function_chain_depth_issue(self):
+        # Test for known runtime issue with function call chaining at depth >= 2
+        # This is separate from mutual recursion and affects any three-function chain
+        source_code = """
+def a(n: int) -> int:
+    if n <= 0:
+        return 1
+    else:
+        return b(n - 1)
+
+def b(n: int) -> int:
+    if n <= 0:
+        return 2
+    else:
+        return c(n - 1)
+
+def c(n: int) -> int:
+    if n <= 0:
+        return 3
+    else:
+        return 42  # No recursion, just return a constant
+
+def validator(n: int) -> int:
+    return a(n)
+        """
+        # This should work for n=0,1 but fails at n=2 with runtime error
+        ret = eval_uplc_value(source_code, 0)
+        self.assertEqual(1, ret)
+        ret = eval_uplc_value(source_code, 1)
+        self.assertEqual(2, ret)
+        # This line causes the runtime error
+        ret = eval_uplc_value(source_code, 42)
+        self.assertEqual(42, ret)
+
+    def test_three_function_chain_depth_issue_reverted(self):
+        # same as previous test but with function order reverted
+        # to ensure the issue is with the chain depth and not function order
+        source_code = """
+def c(n: int) -> int:
+    if n <= 0:
+        return 3
+    else:
+        return 42  # No recursion, just return a constant
+        
+def b(n: int) -> int:
+    if n <= 0:
+        return 2
+    else:
+        return c(n - 1)
+        
+def a(n: int) -> int:
+    if n <= 0:
+        return 1
+    else:
+        return b(n - 1)
+
+def validator(n: int) -> int:
+    return a(n)
+        """
+        # This should work for n=0,1 but fails at n=2 with runtime error
+        ret = eval_uplc_value(source_code, 0)
+        self.assertEqual(1, ret)
+        ret = eval_uplc_value(source_code, 1)
+        self.assertEqual(2, ret)
+        # This line causes the runtime error
+        ret = eval_uplc_value(source_code, 42)
+        self.assertEqual(42, ret)
+
     @unittest.expectedFailure
     def test_uninitialized_access(self):
         source_code = """
