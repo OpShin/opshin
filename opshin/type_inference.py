@@ -1670,6 +1670,11 @@ class ReturnExtractor(TypedNodeVisitor):
         # the else path is always visited
         return self.visit_sequence(node.orelse)
 
+    def visit_FunctionDef(self, node: FunctionDef) -> bool:
+        # Skip visiting nested function definitions - they should be handled by their own ReturnExtractor
+        # when they are processed separately during type inference
+        return False
+
     def visit_Return(self, node: Return) -> bool:
         assert (
             self.func_rettyp >= node.typ
