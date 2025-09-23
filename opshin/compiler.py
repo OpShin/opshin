@@ -47,6 +47,7 @@ from .rewrite.rewrite_empty_lists import RewriteEmptyLists
 from .rewrite.rewrite_forbidden_overwrites import RewriteForbiddenOverwrites
 from .rewrite.rewrite_forbidden_return import RewriteForbiddenReturn
 from .rewrite.rewrite_import import RewriteImport
+from .rewrite.rewrite_selective_imports import RewriteSelectiveImports
 from .rewrite.rewrite_import_dataclasses import RewriteImportDataclasses
 from .rewrite.rewrite_import_hashlib import RewriteImportHashlib
 from .rewrite.rewrite_import_integrity_check import RewriteImportIntegrityCheck
@@ -1160,6 +1161,8 @@ def compile(
     compile_pipeline = [
         # Important to call this one first - it imports all further files
         RewriteImport(filename=filename),
+        # Process selective imports after all imports are resolved
+        RewriteSelectiveImports(),
         # Rewrites that simplify the python code
         RewriteForbiddenReturn(),
         OptimizeConstantFolding() if config.constant_folding else NoOp(),

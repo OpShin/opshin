@@ -6,6 +6,7 @@ import pathlib
 import typing
 import sys
 from ast import *
+from copy import copy
 from ordered_set import OrderedSet
 
 from ..util import CompilingNodeTransformer
@@ -76,9 +77,18 @@ class RewriteImport(CompilingNodeTransformer):
         self.filename = filename
         self.package = package
         self.resolved_imports = resolved_imports or OrderedSet()
+        self.selective_imports = {}  # Track which names were selectively imported
+        self.current_module = None  # Track current module being processed
+
+    def visit_Module(self, node):
+        self.current_module = node
+        result = self.generic_visit(node)
+        # Store selective imports info in the module for later steps
+        result.selective_imports = self.selective_imports
+        return result
 
     def visit_Import(self, node):
-        error_msg = f"The import must have the form 'from <pkg> import *' or import from one of the special modules {', '.join(SPECIAL_IMPORTS)}"
+        error_msg = f"The import must have the form 'from <pkg> import *' or 'from <pkg> import name1, name2, ...' or import from one of the special modules {', '.join(SPECIAL_IMPORTS)}"
         raise SyntaxError(error_msg)
 
     def visit_ImportFrom(
@@ -86,10 +96,18 @@ class RewriteImport(CompilingNodeTransformer):
     ) -> typing.Union[ImportFrom, typing.List[AST], None]:
         if node.module in SPECIAL_IMPORTS:
             return node
-        error_msg = f"The import must have the form 'from <pkg> import *' or import from one of the special modules {', '.join(SPECIAL_IMPORTS)}"
-        assert len(node.names) == 1, error_msg
-        assert node.names[0].name == "*", error_msg
-        assert node.names[0].asname == None, error_msg
+        error_msg = f"The import must have the form 'from <pkg> import *' or 'from <pkg> import name1, name2, ...' or import from one of the special modules {', '.join(SPECIAL_IMPORTS)}"
+
+        # Handle star imports (existing behavior)
+        if len(node.names) == 1 and node.names[0].name == "*":
+            assert node.names[0].asname == None, error_msg
+            imported_names = None  # Import everything
+        else:
+            # Handle selective imports: from x import y, z
+            imported_names = []
+            for alias in node.names:
+                assert alias.asname == None, "Import aliases are not supported"
+                imported_names.append(alias.name)
         # TODO set anchor point according to own package
         if self.filename:
             sys.path.append(str(pathlib.Path(self.filename).parent.absolute()))
@@ -120,4 +138,75 @@ class RewriteImport(CompilingNodeTransformer):
         )
         recursively_resolved: Module = recursive_resolver.visit(resolved)
         self.resolved_imports.update(recursive_resolver.resolved_imports)
+
+        # Store the imported names for later use by type inference
+        if imported_names is not None:
+            self.selective_imports[node.module] = imported_names
+            # Store selective import information in the recursive resolver so it propagates
+            recursive_resolver.selective_imports.update(self.selective_imports)
+
+            # Filter the body to only include explicitly imported names and their dependencies
+            filtered_body = self._filter_imported_body_selective(
+                recursively_resolved.body, imported_names
+            )
+            return filtered_body
+
         return recursively_resolved.body
+
+    def _filter_imported_body_selective(self, body, imported_names):
+        """
+        Filter imported body to only include explicitly imported names.
+        This implements the alternative approach: keep everything but let dead code analysis
+        remove unused code later by making non-imported names private.
+        """
+        filtered_body = []
+        imported_names_set = set(imported_names)
+
+        for stmt in body:
+            # Always include import statements
+            if isinstance(stmt, (ImportFrom, Import)):
+                filtered_body.append(stmt)
+                continue
+
+            # For function and class definitions, only include if explicitly imported
+            # or if they might be dependencies (we'll let dead code analysis handle this)
+            if isinstance(stmt, FunctionDef):
+                if stmt.name in imported_names_set:
+                    filtered_body.append(stmt)
+                else:
+                    # Rename to make it "private" - dead code analysis will remove if unused
+                    private_stmt = copy(stmt)
+                    private_stmt.name = f"__{stmt.name}"
+                    filtered_body.append(private_stmt)
+            elif isinstance(stmt, ClassDef):
+                if stmt.name in imported_names_set:
+                    filtered_body.append(stmt)
+                else:
+                    # Rename to make it "private"
+                    private_stmt = copy(stmt)
+                    private_stmt.name = f"__{stmt.name}"
+                    filtered_body.append(private_stmt)
+            elif isinstance(stmt, (Assign, AnnAssign)):
+                # Handle variable assignments
+                should_include = False
+                if isinstance(stmt, Assign):
+                    for target in stmt.targets:
+                        if isinstance(target, Name) and target.id in imported_names_set:
+                            should_include = True
+                            break
+                elif isinstance(stmt, AnnAssign):
+                    if (
+                        isinstance(stmt.target, Name)
+                        and stmt.target.id in imported_names_set
+                    ):
+                        should_include = True
+
+                if should_include:
+                    filtered_body.append(stmt)
+                # For non-imported variables, we don't include them at all
+                # since they can't be dependencies of functions
+            else:
+                # Include other statements (like type definitions, etc.)
+                filtered_body.append(stmt)
+
+        return filtered_body
