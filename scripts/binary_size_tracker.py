@@ -231,13 +231,15 @@ def compare_with_baseline(
             print(f"\nContract {name}: MISSING in baseline or current")
             continue
 
-        print(f"\nContract: {name}")
-        print(f"Description: {current['contracts'][name]['description']}")
-        print("-" * 40)
+        def print_contract_info():
+            print(f"\nContract: {name}")
+            print(f"Description: {current['contracts'][name]['description']}")
+            print("-" * 40)
 
         baseline_contract = baseline["contracts"][name]
         current_contract = current["contracts"][name]
 
+        any_increase = False
         prev_opt_level_size = float("inf")
         for opt_level in config["optimization_levels"]:
             baseline_size = baseline_contract["sizes"].get(opt_level)
@@ -251,10 +253,22 @@ def compare_with_baseline(
                     if prev_opt_level_size > 0
                     else 0
                 )
+                status = ""
+                increased = size_diff > 0
                 if size_percent > significant_threshold:
-                    has_changes = True
+                    has_changes = True if not ignore_warnings else has_changes
+                    status = " ⚠️  SIGNIFICANT CHANGE" + (
+                        " (ignored)" if ignore_warnings else ""
+                    )
+                elif size_percent > warning_threshold:
+                    has_changes = True if not ignore_warnings else has_changes
+                    status = " ⚠️" + (" (ignored)" if ignore_warnings else "")
+                if increased:
+                    if not any_increase:
+                        print_contract_info()
+                    any_increase = True
                     print(
-                        f"  {opt_level}: {current_size:,} bytes (increased from previous level by {size_diff:+,} bytes, {size_percent:+.1f}%) {status}"
+                        f"  {opt_level}: {prev_opt_level_size:,} → {current_size:,} bytes (increased from previous level by {size_diff:+,} bytes, {size_percent:+.1f}%) {status}"
                     )
             prev_opt_level_size = current_size
 
@@ -265,6 +279,7 @@ def compare_with_baseline(
             status = ""
             size_diff = current_size - baseline_size
             size_percent = (size_diff / baseline_size) * 100 if baseline_size > 0 else 0
+            increased = size_diff > 0
 
             if size_percent > significant_threshold:
                 has_changes = True if not ignore_warnings else has_changes
@@ -275,14 +290,20 @@ def compare_with_baseline(
                 has_changes = True if not ignore_warnings else has_changes
                 status = " ⚠️" + (" (ignored)" if ignore_warnings else "")
 
-            print(
-                f"  {opt_level}: {baseline_size:,} → {current_size:,} bytes "
-                f"({size_diff:+,} bytes, {size_percent:+.1f}%){status}"
-            )
+            if increased:
+                if not any_increase:
+                    print_contract_info()
+                any_increase = True
+                print(
+                    f"  {opt_level}: {baseline_size:,} → {current_size:,} bytes "
+                    f"({size_diff:+,} bytes, {size_percent:+.1f}%){status}"
+                )
 
             total_size_change += size_diff
 
-    print(f"\nTotal size change across all contracts: {total_size_change:+,} bytes")
+    print(
+        f"\nTotal size change compared to previous release: {total_size_change:+,} bytes"
+    )
 
     if has_changes:
         print("\n⚠️  SIGNIFICANT BINARY SIZE CHANGES DETECTED")
