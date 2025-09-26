@@ -244,17 +244,18 @@ def compare_with_baseline(
             current_size = current_contract["sizes"].get(opt_level)
             ignore_warnings = opt_level in config["ignore_warnings"]
 
-            if current_size is not None and current_size > prev_opt_level_size:
-                has_changes = True
+            if current_size is not None:
                 size_diff = current_size - prev_opt_level_size
                 size_percent = (
                     (size_diff / prev_opt_level_size) * 100
                     if prev_opt_level_size > 0
                     else 0
                 )
-                print(
-                    f"  {opt_level}: {current_size:,} bytes (increased from previous level by {size_diff:+,} bytes, {size_percent:+.1f}%) {status}"
-                )
+                if size_percent > significant_threshold:
+                    has_changes = True
+                    print(
+                        f"  {opt_level}: {current_size:,} bytes (increased from previous level by {size_diff:+,} bytes, {size_percent:+.1f}%) {status}"
+                    )
             prev_opt_level_size = current_size
 
             if baseline_size is None or current_size is None:
