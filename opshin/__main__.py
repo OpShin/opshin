@@ -60,22 +60,27 @@ def parse_uplc_param(param: str):
 
 
 def parse_plutus_param(annotation, param: str):
-    if param.startswith("{"):
-        try:
-            param_dict = json.loads(param)
-        except json.JSONDecodeError as e:
-            raise ValueError(
-                f"Invalid parameter for contract passed, expected json value, got {param}"
-            ) from e
-        return plutus_data_from_json(annotation, param_dict)
-    else:
-        try:
-            param_bytes = bytes.fromhex(param)
-        except ValueError as e:
-            raise ValueError(
-                "Expected hexadecimal CBOR representation of plutus datum but could not transform hex string to bytes."
-            ) from e
-        return plutus_data_from_cbor(annotation, param_bytes)
+    try:
+        if param.startswith("{"):
+            try:
+                param_dict = json.loads(param)
+            except json.JSONDecodeError as e:
+                raise ValueError(
+                    f"Invalid parameter for contract passed, expected json value, got {param}"
+                ) from e
+            return plutus_data_from_json(annotation, param_dict)
+        else:
+            try:
+                param_bytes = bytes.fromhex(param)
+            except ValueError as e:
+                raise ValueError(
+                    "Expected hexadecimal CBOR representation of plutus datum but could not transform hex string to bytes."
+                ) from e
+            return plutus_data_from_cbor(annotation, param_bytes)
+    except ValueError as e:
+        raise ValueError(
+            f"Could not parse parameter {param} as type {annotation}. Please provide the parameter either as JSON or CBOR (in hexadecimal notation)."
+        ) from e
 
 
 def plutus_data_from_json(annotation: typing.Type, x: dict):
