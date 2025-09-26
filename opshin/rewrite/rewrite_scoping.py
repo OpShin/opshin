@@ -79,6 +79,7 @@ class RewriteScoping(CompilingNodeTransformer):
         for s in node.body:
             shallow_node_def_collector.visit(s)
         vars_def = shallow_node_def_collector.vars
+
         for var_name in vars_def:
             self.set_variable_scope(var_name)
         node_cp.body = [self.visit(s) for s in node.body]

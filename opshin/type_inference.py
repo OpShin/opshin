@@ -389,6 +389,8 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         self.allow_isinstance_anything = allow_isinstance_anything
         self.FUNCTION_ARGUMENT_REGISTRY = {}
         self.wrapped = []
+        # Track selective imports for scope filtering
+        self.selective_imports = {}
 
         # A stack of dictionaries for storing scoped knowledge of variable types
         self.scopes = [INITIAL_SCOPE]
@@ -431,6 +433,10 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         self.scopes.pop()
 
     def set_variable_type(self, name: str, typ: Type, force=False):
+        # Check if this name should be filtered out due to selective imports
+        if self._should_filter_name(name):
+            return  # Don't add filtered names to scope
+
         if not force and name in self.scopes[-1] and self.scopes[-1][name] != typ:
             if self.scopes[-1][name] >= typ:
                 # the specified type is broader, we pass on this
@@ -439,6 +445,24 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                 f"Type '{self.scopes[-1][name].python_type()}' of variable '{map_to_orig_name(name)}' in local scope does not match inferred type '{typ.python_type()}'"
             )
         self.scopes[-1][name] = typ
+
+    def _should_filter_name(self, name: str) -> bool:
+        """Check if a name should be filtered out due to selective imports"""
+        # If no selective imports are active, don't filter anything
+        if not self.selective_imports:
+            return False
+
+        # Don't filter internal/generated names or built-ins
+        if name.startswith("~") or re.match(r".*_\d+$", name) or name in INITIAL_SCOPE:
+            return False
+
+        # Get all explicitly imported names
+        explicitly_imported = set()
+        for module_name, imported_names in self.selective_imports.items():
+            explicitly_imported.update(imported_names)
+
+        # Filter out names that weren't explicitly imported
+        return name not in explicitly_imported
 
     def implement_typechecks(self, typchecks: TypeMap):
         prevtyps = {}
@@ -1018,6 +1042,11 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
 
     def visit_Module(self, node: Module) -> TypedModule:
         self.enter_scope()
+
+        # Store selective imports info for scope filtering
+        if hasattr(node, "selective_imports") and node.selective_imports:
+            self.selective_imports = node.selective_imports
+
         tm = copy(node)
         tm.body = self.visit_sequence(node.body)
         self.exit_scope()

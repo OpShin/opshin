@@ -25,29 +25,31 @@ class RewriteSelectiveImports(CompilingNodeTransformer):
         return self.generic_visit(node)
 
     def visit_FunctionDef(self, node: FunctionDef) -> FunctionDef:
-        # Mark functions as hidden if they weren't explicitly imported
+        # Remove function definitions that weren't explicitly imported
+        # but keep them if they might be dependencies
         if self._should_hide_name(node.name):
-            node.hidden_from_type_inference = True
+            # Instead of hiding, we'll remove the function from the top level
+            # and let dead code analysis handle unused dependencies
+            return None  # This will remove the node
         return self.generic_visit(node)
 
     def visit_ClassDef(self, node: ClassDef) -> ClassDef:
-        # Mark classes as hidden if they weren't explicitly imported
+        # Remove class definitions that weren't explicitly imported
         if self._should_hide_name(node.name):
-            node.hidden_from_type_inference = True
+            return None  # This will remove the node
         return self.generic_visit(node)
 
     def visit_Assign(self, node: Assign) -> Assign:
-        # Mark variable assignments as hidden if they weren't explicitly imported
+        # Remove variable assignments that weren't explicitly imported
         for target in node.targets:
             if isinstance(target, Name) and self._should_hide_name(target.id):
-                node.hidden_from_type_inference = True
-                break
+                return None  # This will remove the node
         return self.generic_visit(node)
 
     def visit_AnnAssign(self, node: AnnAssign) -> AnnAssign:
-        # Mark annotated assignments as hidden if they weren't explicitly imported
+        # Remove annotated assignments that weren't explicitly imported
         if isinstance(node.target, Name) and self._should_hide_name(node.target.id):
-            node.hidden_from_type_inference = True
+            return None  # This will remove the node
         return self.generic_visit(node)
 
     def _should_hide_name(self, name: str) -> bool:

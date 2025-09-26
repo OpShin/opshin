@@ -145,22 +145,45 @@ class RewriteImport(CompilingNodeTransformer):
             # Store selective import information in the recursive resolver so it propagates
             recursive_resolver.selective_imports.update(self.selective_imports)
 
-            # Filter the body to only include explicitly imported names and their dependencies
-            filtered_body = self._filter_imported_body_selective(
-                recursively_resolved.body, imported_names
+            # Apply selective import filtering to the body
+            filtered_body = self._apply_selective_import_namespacing(
+                recursively_resolved.body, imported_names, node.module
             )
             return filtered_body
 
         return recursively_resolved.body
 
-    def _filter_imported_body_selective(self, body, imported_names):
+    def _apply_selective_import_namespacing(self, body, imported_names, module_name):
         """
-        Filter imported body to only include explicitly imported names.
-        This implements the alternative approach: keep everything but let dead code analysis
-        remove unused code later by making non-imported names private.
+        Apply selective import filtering by creating module namespaces.
+        Imported names stay as-is, non-imported names get a module prefix.
         """
         filtered_body = []
         imported_names_set = set(imported_names)
+        module_prefix = module_name.replace(".", "_")
+
+        class NameRewriter(CompilingNodeTransformer):
+            def visit_Name(self, node):
+                # Only rewrite names that reference non-imported functions/variables
+                if (
+                    isinstance(node.ctx, Load)
+                    and node.id not in imported_names_set
+                    and not node.id.startswith(
+                        "_"
+                    )  # Don't rewrite already private names
+                    and node.id not in ["True", "False", "None"]
+                ):  # Don't rewrite constants
+                    # Check if this name exists in the current module's definitions
+                    for stmt in body:
+                        if isinstance(stmt, FunctionDef) and stmt.name == node.id:
+                            node.id = f"{module_prefix}_{node.id}"
+                            break
+                        elif isinstance(stmt, ClassDef) and stmt.name == node.id:
+                            node.id = f"{module_prefix}_{node.id}"
+                            break
+                return node
+
+        rewriter = NameRewriter()
 
         for stmt in body:
             # Always include import statements
@@ -168,26 +191,28 @@ class RewriteImport(CompilingNodeTransformer):
                 filtered_body.append(stmt)
                 continue
 
-            # For function and class definitions, only include if explicitly imported
-            # or if they might be dependencies (we'll let dead code analysis handle this)
+            # Handle function definitions
             if isinstance(stmt, FunctionDef):
-                if stmt.name in imported_names_set:
-                    filtered_body.append(stmt)
-                else:
-                    # Rename to make it "private" - dead code analysis will remove if unused
-                    private_stmt = copy(stmt)
-                    private_stmt.name = f"__{stmt.name}"
-                    filtered_body.append(private_stmt)
+                stmt_copy = copy(stmt)
+                if stmt.name not in imported_names_set:
+                    # Rename non-imported functions with module prefix
+                    stmt_copy.name = f"{module_prefix}_{stmt.name}"
+                # Rewrite any references inside the function body
+                stmt_copy = rewriter.visit(stmt_copy)
+                filtered_body.append(stmt_copy)
+
+            # Handle class definitions
             elif isinstance(stmt, ClassDef):
-                if stmt.name in imported_names_set:
-                    filtered_body.append(stmt)
-                else:
-                    # Rename to make it "private"
-                    private_stmt = copy(stmt)
-                    private_stmt.name = f"__{stmt.name}"
-                    filtered_body.append(private_stmt)
+                stmt_copy = copy(stmt)
+                if stmt.name not in imported_names_set:
+                    # Rename non-imported classes with module prefix
+                    stmt_copy.name = f"{module_prefix}_{stmt.name}"
+                # Rewrite any references inside the class body
+                stmt_copy = rewriter.visit(stmt_copy)
+                filtered_body.append(stmt_copy)
+
+            # Handle variable assignments - only include explicitly imported ones
             elif isinstance(stmt, (Assign, AnnAssign)):
-                # Handle variable assignments
                 should_include = False
                 if isinstance(stmt, Assign):
                     for target in stmt.targets:
@@ -203,10 +228,9 @@ class RewriteImport(CompilingNodeTransformer):
 
                 if should_include:
                     filtered_body.append(stmt)
-                # For non-imported variables, we don't include them at all
-                # since they can't be dependencies of functions
+
             else:
-                # Include other statements (like type definitions, etc.)
+                # Include other statements
                 filtered_body.append(stmt)
 
         return filtered_body
