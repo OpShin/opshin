@@ -1,7 +1,7 @@
 import unittest
 import hypothesis
 import pytest
-from hypothesis import given
+from hypothesis import given, example
 from hypothesis import strategies as st
 from opshin import builder
 from .utils import eval_uplc_value, eval_uplc, eval_uplc_raw
@@ -398,6 +398,7 @@ def validator(x: int) -> int:
         self.assertEqual(res, real)
 
     @hypothesis.given(st.sampled_from(range(14)))
+    @example(2)
     def test_Union_cast_ifexpr(self, x):
         source_code = """
 from dataclasses import dataclass

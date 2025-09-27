@@ -283,6 +283,190 @@ def validator(_: None) -> int:
         ret = eval_uplc_value(source_code, Unit())
         self.assertEqual(100, ret)
 
+    def test_mutual_recursion_even_odd(self):
+        source_code = """
+def even(n: int) -> bool:
+    if n == 0:
+        return True
+    else:
+        return odd(n - 1)
+        
+def odd(n: int) -> bool:
+    if n == 0:
+        return False
+    else:
+        return even(n - 1)
+
+def validator(n: int) -> int:
+    if even(n):
+        return 1
+    else:
+        return 0
+        """
+        # Test with even number
+        ret = eval_uplc_value(source_code, 4)
+        self.assertEqual(1, ret)
+        # Test with odd number
+        ret = eval_uplc_value(source_code, 3)
+        self.assertEqual(0, ret)
+
+    def test_mutual_recursion_three_way(self):
+        source_code = """
+def a(n: int) -> int:
+    if n <= 0:
+        return 1
+    else:
+        return b(n - 1)
+
+def b(n: int) -> int:
+    if n <= 0:
+        return 2
+    else:
+        return c(n - 1)
+
+def c(n: int) -> int:
+    if n <= 0:
+        return 3
+    else:
+        return a(n - 1)
+
+def validator(n: int) -> int:
+    return a(n)
+        """
+        # Test different values to verify the three-way recursion pattern
+        ret = eval_uplc_value(source_code, 0)
+        self.assertEqual(1, ret)  # a(0) = 1
+        ret = eval_uplc_value(source_code, 1)
+        self.assertEqual(2, ret)  # a(1) = b(0) = 2
+        ret = eval_uplc_value(source_code, 2)
+        self.assertEqual(3, ret)  # a(2) = b(1) = c(0) = 3
+        ret = eval_uplc_value(source_code, 3)
+        self.assertEqual(1, ret)  # a(3) = b(2) = c(1) = a(0) = 1
+
+    def test_mutual_recursion_nested_functions(self):
+        source_code = """
+def validator(n: int) -> int:
+    def even_nested(x: int) -> bool:
+        if x == 0:
+            return True
+        else:
+            return odd_nested(x - 1)
+    
+    def odd_nested(x: int) -> bool:
+        if x == 0:
+            return False
+        else:
+            return even_nested(x - 1)
+    
+    if even_nested(n):
+        return 1
+    else:
+        return 0
+        """
+        # Test nested mutual recursion
+        ret = eval_uplc_value(source_code, 4)
+        self.assertEqual(1, ret)  # 4 is even
+        ret = eval_uplc_value(source_code, 3)
+        self.assertEqual(0, ret)  # 3 is odd
+
+    def test_mutual_recursion_with_classes(self):
+        source_code = """
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
+from dataclasses import dataclass
+
+def process_data(x: int) -> int:
+    obj = MyData(x)
+    return transform_data(obj)
+
+@dataclass
+class MyData(PlutusData):
+    CONSTR_ID = 0
+    value: int
+
+def transform_data(data: MyData) -> int:
+    if data.value <= 0:
+        return 0
+    else:
+        return process_data(data.value - 1) + 1
+
+def validator(n: int) -> int:
+    return process_data(n)
+        """
+        # Test mutual recursion with classes defined between functions
+        ret = eval_uplc_value(source_code, 3)
+        self.assertEqual(3, ret)  # process_data(3) should return 3
+        ret = eval_uplc_value(source_code, 0)
+        self.assertEqual(0, ret)  # process_data(0) should return 0
+
+    def test_three_function_chain_depth_issue(self):
+        # Test for known runtime issue with function call chaining at depth >= 2
+        # This is separate from mutual recursion and affects any three-function chain
+        source_code = """
+def a(n: int) -> int:
+    if n <= 0:
+        return 1
+    else:
+        return b(n - 1)
+
+def b(n: int) -> int:
+    if n <= 0:
+        return 2
+    else:
+        return c(n - 1)
+
+def c(n: int) -> int:
+    if n <= 0:
+        return 3
+    else:
+        return 42  # No recursion, just return a constant
+
+def validator(n: int) -> int:
+    return a(n)
+        """
+        # This should work for n=0,1 but fails at n=2 with runtime error
+        ret = eval_uplc_value(source_code, 0)
+        self.assertEqual(1, ret)
+        ret = eval_uplc_value(source_code, 1)
+        self.assertEqual(2, ret)
+        # This line causes the runtime error
+        ret = eval_uplc_value(source_code, 42)
+        self.assertEqual(42, ret)
+
+    def test_three_function_chain_depth_issue_reverted(self):
+        # same as previous test but with function order reverted
+        # to ensure the issue is with the chain depth and not function order
+        source_code = """
+def c(n: int) -> int:
+    if n <= 0:
+        return 3
+    else:
+        return 42  # No recursion, just return a constant
+        
+def b(n: int) -> int:
+    if n <= 0:
+        return 2
+    else:
+        return c(n - 1)
+        
+def a(n: int) -> int:
+    if n <= 0:
+        return 1
+    else:
+        return b(n - 1)
+
+def validator(n: int) -> int:
+    return a(n)
+        """
+        # This should work for n=0,1 but fails at n=2 with runtime error
+        ret = eval_uplc_value(source_code, 0)
+        self.assertEqual(1, ret)
+        ret = eval_uplc_value(source_code, 1)
+        self.assertEqual(2, ret)
+        # This line causes the runtime error
+        ret = eval_uplc_value(source_code, 42)
+        self.assertEqual(42, ret)
+
     @unittest.expectedFailure
     def test_uninitialized_access(self):
         source_code = """
@@ -2779,3 +2963,23 @@ def validator(a: int) -> int:
             assert "int" in str(e) and "str" in str(
                 e
             ), "Type check did not fail with correct message"
+
+    def test_mutual_recursion(self):
+        source_code = """
+def even(n: int) -> bool:
+    if n == 0:
+        return True
+    else:
+        return odd(n - 1)
+        
+def odd(n: int) -> bool:
+    if n == 0:
+        return False
+    else:
+        return even(n - 1)
+
+def validator(a: int) -> int:
+    return 42 if even(a) else 0
+"""
+        res = eval_uplc_value(source_code, 2)
+        self.assertEqual(res, 42)
