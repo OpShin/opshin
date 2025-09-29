@@ -2779,3 +2779,21 @@ def validator(a: int) -> int:
             assert "int" in str(e) and "str" in str(
                 e
             ), "Type check did not fail with correct message"
+
+    def test_dict_union_keys(self):
+        source_code = """
+from opshin.prelude import *
+
+def validator(d: Dict[Union[int, bytes], int], switch: bool) -> int:
+    x: Union[int, bytes] = 0 if switch else b""
+    int_res = d[x]
+    assert int_res == (1 if switch else 2), "int key failed"
+    if switch:
+        return d[0]
+    else:
+        return d[b""]
+"""
+        res = eval_uplc_value(source_code, {0: 1, b"": 2}, True)
+        self.assertEqual(res, 1)
+        res = eval_uplc_value(source_code, {0: 1, b"": 2}, False)
+        self.assertEqual(res, 2)
