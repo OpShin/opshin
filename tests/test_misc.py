@@ -2806,3 +2806,32 @@ def validator(a: int) -> None:
         self.assertEqual(
             uplc.plutus_cbor_dumps(res), Unit().to_cbor(), "Invalid return"
         )
+
+    def test_assign_list(self):
+        source_code = """
+from opshin.prelude import *
+from typing import Self
+
+def validator(x: List[int]) -> int:
+    x = [1, 2, 3, 4]
+    x[0] += 1
+    return x
+"""
+        with self.assertRaises(CompilerError) as context:
+            builder._compile(source_code)
+        self.assertIn("assigning to", str(context.exception))
+        self.assertIn("list", str(context.exception))
+
+    def test_assign_dict(self):
+        source_code = """
+from opshin.prelude import *
+from typing import Self
+
+def validator(x: Dict[int, int]) -> int:
+    x[0] += 1
+    return x
+"""
+        with self.assertRaises(CompilerError) as context:
+            builder._compile(source_code)
+        self.assertIn("assigning to", str(context.exception))
+        self.assertIn("dict", str(context.exception))
