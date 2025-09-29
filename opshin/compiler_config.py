@@ -56,7 +56,7 @@ ARGPARSE_ARGS.update(
     {
         "constant_folding": {
             "__alts__": ["--cf"],
-            "help": "Enables experimental constant folding, including propagation and code execution.",
+            "help": "Enables experimental constant folding, including constant propagation and code execution.",
         },
         "allow_isinstance_anything": {
             "help": "Enables the use of isinstance(x, D) in the contract where x is of type Anything. This is not recommended as it only checks the constructor id and not the actual type of the data.",
