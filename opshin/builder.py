@@ -84,7 +84,7 @@ class PlutusContract:
     def blueprint(self):
         return {
             "$schema": "https://cips.cardano.org/cips/cip57/schemas/plutus-blueprint.json",
-            "$id": "https://github.com/aiken-lang/aiken/blob/main/examples/hello_world/plutus.json",
+            "$id": "<insert-url-to-contract-here>",
             "$vocabulary": {
                 "https://json-schema.org/draft/2020-12/vocab/core": True,
                 "https://json-schema.org/draft/2020-12/vocab/applicator": True,

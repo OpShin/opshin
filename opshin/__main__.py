@@ -423,6 +423,7 @@ Note that opshin errors may be overly restrictive as they aim to prevent code wi
         if purpose == Purpose.lib:
             script_arts = PlutusContract(
                 built_code,
+                title=pathlib.Path(input_file).stem,
             )
         else:
             script_arts = PlutusContract(
@@ -431,6 +432,7 @@ Note that opshin errors may be overly restrictive as they aim to prevent code wi
                 redeemer_type=onchain_params[1 if len(onchain_params) == 3 else 0],
                 parameter_types=param_types,
                 purpose=(purpose,),
+                title=pathlib.Path(input_file).stem,
             )
         script_arts.dump(target_dir)
 
