@@ -427,6 +427,14 @@ Note that opshin errors may be overly restrictive as they aim to prevent code wi
         print("------------------")
         assert isinstance(code, uplc.ast.Program)
         raw_ret = uplc.eval(code)
+        if raw_ret.logs:
+            print("Logs")
+            print("------------------")
+            for log in raw_ret.logs:
+                print(" * " + log)
+        else:
+            print("No logs")
+        print("------------------")
         if isinstance(raw_ret.result, Exception):
             print("An exception was raised")
             ret = raw_ret.result
@@ -435,7 +443,7 @@ Note that opshin errors may be overly restrictive as they aim to prevent code wi
             ret = uplc.dumps(raw_ret.result)
             print(f"CPU: {raw_ret.cost.cpu} | MEM: {raw_ret.cost.memory}")
         print("------------------")
-        print(ret)
+        print(" > " + str(ret))
 
 
 def parse_args():
