@@ -82,7 +82,7 @@ class TestParseUplcParam(unittest.TestCase):
         with self.assertRaises(ValueError) as context:
             parse_uplc_param(param)
         self.assertIn("Invalid parameter", str(context.exception))
-        self.assertIn("expected json value", str(context.exception))
+        self.assertIn("expected JSON value", str(context.exception))
 
     def test_invalid_json_syntax(self):
         """Test error handling for invalid JSON syntax"""

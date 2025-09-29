@@ -48,7 +48,11 @@ def parse_uplc_param(param: str):
             return uplc.ast.data_from_json_dict(json.loads(param))
         except json.JSONDecodeError as e:
             raise ValueError(
-                f"Invalid parameter for contract passed, expected json value, got {param}"
+                f"Invalid parameter for contract passed, expected JSON value, got {param}"
+            ) from e
+        except Exception as e:
+            raise ValueError(
+                f"Expected parameter for contract to be in valid Plutus data JSON format, got {param}"
             ) from e
     else:
         try:
@@ -308,9 +312,19 @@ def perform_command(args):
         parsed_params = []
         uplc_params = []
         for i, (c, a) in enumerate(zip(annotations, args.args)):
-            uplc_param = parse_uplc_param(a)
+            try:
+                uplc_param = parse_uplc_param(a)
+            except ValueError as e:
+                raise ValueError(
+                    f"Could not parse parameter {i} ('{a}') as UPLC data. Please provide the parameter either as JSON or CBOR (in hexadecimal notation). Detailed error: {e}"
+                ) from None
             uplc_params.append(uplc_param)
-            param = parse_plutus_param(c[1], a)
+            try:
+                param = parse_plutus_param(c[1], a)
+            except ValueError as e:
+                raise ValueError(
+                    f"Could not parse parameter {i} ('{a}') as type {c[1]}. Please provide the parameter either as JSON or CBOR (in hexadecimal notation). Detailed error: {e}"
+                ) from None
             parsed_params.append(param)
         onchain_params, param_types = check_params(
             command,
