@@ -568,3 +568,27 @@ def validator(a: int, b: int, c:int) -> bool:
 """
         ret = eval_uplc_value(source_code, 1, 2, 3)
         self.assertEqual(ret, True)
+
+    @given(x=st.integers(), y=st.integers())
+    @example(x=0, y=0)
+    def test_method_back_ref(self, x: int, y: int):
+        source_code = """
+from typing import Self
+from opshin.prelude import *
+@dataclass()
+class Foo(PlutusData):
+    a: int
+
+    def __ge__(self, other: Self) -> bool:
+        return self.a >= other.a
+
+def compare_foos(foo1: Foo, foo2: Foo) -> bool:
+    return foo1 >= foo2
+
+def validator(a: int, b: int) -> bool:
+    foo1 = Foo(a)
+    foo2 = Foo(b)
+    return compare_foos(foo1, foo2)
+"""
+        ret = eval_uplc_value(source_code, x, y)
+        self.assertEqual(ret, x >= y)
