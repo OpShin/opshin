@@ -1,8 +1,11 @@
 import inspect
 
 import argparse
+import io
 import logging
+import os
 import tempfile
+from contextlib import redirect_stdout
 
 import cbor2
 import enum
@@ -335,17 +338,16 @@ def perform_command(args):
             compiler_config.force_three_params,
         )
 
+    py_ret = Command.eval
     if command == Command.eval:
         assert purpose != Purpose.lib, "Can not evaluate a library"
-        print("Starting execution")
-        print("------------------")
-        try:
-            ret = sc.validator(*parsed_params)
-        except Exception as e:
-            print(f"Exception of type {type(e).__name__} caused")
-            ret = e
-        print("------------------")
-        print(ret)
+        print("Python execution started")
+        with redirect_stdout(open(os.devnull, "w")):
+            try:
+                py_ret = sc.validator(*parsed_params)
+            except Exception as e:
+                py_ret = e
+        command = Command.eval_uplc
 
     source_ast = compiler.parse(source_code, filename=input_file)
 
@@ -426,6 +428,9 @@ Note that opshin errors may be overly restrictive as they aim to prevent code wi
                 title=pathlib.Path(input_file).stem,
             )
         else:
+            assert (
+                onchain_params
+            ), "The validator function must have at least one on-chain parameters for non-library contracts."
             script_arts = PlutusContract(
                 built_code,
                 datum_type=onchain_params[0] if len(onchain_params) == 3 else None,
@@ -439,27 +444,27 @@ Note that opshin errors may be overly restrictive as they aim to prevent code wi
         print(f"Wrote script artifacts to {target_dir}/")
         return
     if command == Command.eval_uplc:
-        print("Starting execution")
-        print("------------------")
+        print("UPLC execution started")
         assert isinstance(code, uplc.ast.Program)
         raw_ret = uplc.eval(code)
+        print("------LOGS--------")
         if raw_ret.logs:
-            print("Logs")
-            print("------------------")
             for log in raw_ret.logs:
-                print(" * " + log)
+                print(" > " + log)
         else:
             print("No logs")
-        print("------------------")
+        print("------COST--------")
+        print(f"CPU: {raw_ret.cost.cpu} | MEM: {raw_ret.cost.memory}")
         if isinstance(raw_ret.result, Exception):
-            print("An exception was raised")
+            print("----EXCEPTION-----")
             ret = raw_ret.result
         else:
-            print("Execution succeeded")
+            print("-----SUCCESS------")
             ret = uplc.dumps(raw_ret.result)
-            print(f"CPU: {raw_ret.cost.cpu} | MEM: {raw_ret.cost.memory}")
-        print("------------------")
-        print(" > " + str(ret))
+        print(str(ret), end="")
+        if not isinstance(py_ret, Command):
+            print(" (Python: " + str(py_ret) + ")", end="")
+        print()
 
 
 def parse_args():
