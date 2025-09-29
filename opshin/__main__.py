@@ -337,6 +337,9 @@ def perform_command(args):
             parsed_params,
             compiler_config.force_three_params,
         )
+        assert (
+            onchain_params or purpose == Purpose.lib
+        ), "The validator function must have at least one on-chain parameter for non-library contracts."
 
     py_ret = Command.eval
     if command == Command.eval:
@@ -428,9 +431,6 @@ Note that opshin errors may be overly restrictive as they aim to prevent code wi
                 title=pathlib.Path(input_file).stem,
             )
         else:
-            assert (
-                onchain_params
-            ), "The validator function must have at least one on-chain parameters for non-library contracts."
             script_arts = PlutusContract(
                 built_code,
                 datum_type=onchain_params[0] if len(onchain_params) == 3 else None,
