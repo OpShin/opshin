@@ -21,7 +21,6 @@ from uplc import ast as uplc
 from . import PLUTUS_VM_PROFILE
 from opshin import prelude, builder, Purpose, PlutusContract, CompilerError
 from .utils import eval_uplc_value, Unit, eval_uplc, eval_uplc_raw, a_or_b, A, B
-from opshin.bridge import wraps_builtin
 from opshin.compiler_config import OPT_O2_CONFIG, DEFAULT_CONFIG
 
 hypothesis.settings.load_profile(PLUTUS_VM_PROFILE)
@@ -2797,3 +2796,13 @@ def validator(d: Dict[Union[int, bytes], int], switch: bool) -> int:
         self.assertEqual(res, 1)
         res = eval_uplc_value(source_code, {0: 1, b"": 2}, False)
         self.assertEqual(res, 2)
+
+    def test_return_none(self):
+        source_code = """
+def validator(a: int) -> None:
+    pass
+"""
+        res = eval_uplc(source_code, 1)
+        self.assertEqual(
+            uplc.plutus_cbor_dumps(res), Unit().to_cbor(), "Invalid return"
+        )

@@ -79,7 +79,7 @@ def parse_plutus_param(annotation, param: str):
             return plutus_data_from_cbor(annotation, param_bytes)
     except ValueError as e:
         raise ValueError(
-            f"Could not parse parameter {param} as type {annotation}. Please provide the parameter either as JSON or CBOR (in hexadecimal notation)."
+            f"Could not parse parameter {param} as type {annotation}. Please provide the parameter either as JSON or CBOR (in hexadecimal notation). Detailed error: {e}"
         ) from e
 
 
@@ -267,7 +267,13 @@ def perform_command(args):
         with tmp_input_file.open("w") as fp:
             fp.write(source_code)
         sys.path.append(str(pathlib.Path(tmp_input_file).parent.absolute()))
-        sc = importlib.import_module(pathlib.Path(tmp_input_file).stem)
+        try:
+            sc = importlib.import_module(pathlib.Path(tmp_input_file).stem)
+        except Exception as e:
+            # replace the traceback with an error pointing to the input file
+            raise SyntaxError(
+                f"Could not import the input file as python module. Make sure the input file is valid python code. Error: {e}",
+            ) from e
         sys.path.pop()
     # load the passed parameters if not a lib
     if purpose == Purpose.lib:

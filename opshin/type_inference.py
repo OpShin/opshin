@@ -661,27 +661,48 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                         func.name in ALL_DUNDERS
                     ), f"The following Dunder methods are supported {sorted(ALL_DUNDERS)}. Received {func.name} which is not supported"
                 func.name = f"{n.name}_+_{attribute.name}"
-                for arg in func.args.args:
-                    if not arg.annotation is None:
-                        if isinstance(arg.annotation, ast.Name):
-                            assert (
-                                arg.annotation.id != n.name
-                            ), "Invalid Python, class name is undefined at this stage."
-                        elif (
-                            isinstance(arg.annotation, ast.Subscript)
-                            and arg.annotation.value.id == "Union"
+
+                def does_literally_reference_self(arg):
+                    if arg is None:
+                        return False
+                    if isinstance(arg, Name) and arg.id == n.name:
+                        return True
+                    if (
+                        isinstance(arg, ast.Subscript)
+                        and isinstance(arg.value, Name)
+                        and arg.value.id in ("Union", "List", "Dict")
+                    ):
+                        # Only possible for List, Dict and Union
+                        if any(
+                            does_literally_reference_self(e) for e in arg.slice.elts
                         ):
-                            for s in arg.annotation.slice.elts:
-                                assert (
-                                    isinstance(s, Name) and s.id != n.name
-                                ) or isinstance(
-                                    s, Constant
-                                ), "Invalid Python, class name is undefined at this stage."
-                assert isinstance(func.returns, Constant) or (
-                    isinstance(func.returns, Name) and func.returns.id != n.name
-                ), "Invalid Python, class name is undefined at this stage"
+                            return True
+                    return False
+
+                for arg in func.args.args:
+                    assert not does_literally_reference_self(
+                        arg.annotation
+                    ), f"Argument '{arg.arg}' of method '{attribute.name}' in class '{n.name}' literally references the class itself. This is not allowed. If you want to reference the class itself, use 'Self' as type annotation."
+                assert not does_literally_reference_self(
+                    func.returns
+                ), f"Return type of method '{attribute.name}' in class '{n.name}' literally references the class itself. This is not allowed. If you want to reference the class itself, use 'Self' as type annotation."
                 ann = ast.Name(id=n.name, ctx=ast.Load())
+                if len(func.args.args) == 0:
+                    raise TypeError(
+                        f"Method '{attribute.orig_name}' in class '{n.orig_name}' must have at least one argument (self)"
+                    )
                 custom_fix_missing_locations(ann, attribute.args.args[0])
+                if func.args.args[0].orig_arg != "self":
+                    OPSHIN_LOGGER.warning(
+                        f"The first argument of method '{attribute.name}' in class '{n.orig_name}' should be named 'self', but found '{func.args.args[0].orig_arg}'. This is not enforced, but recommended."
+                    )
+                if func.args.args[0].annotation is not None and not (
+                    isinstance(func.args.args[0].annotation, Name)
+                    and func.args.args[0].annotation.id == "Self"
+                ):
+                    raise TypeError(
+                        f"The first argument of method '{attribute.name}' in class '{n.name}' must either not be annotated or be annotated with 'Self' to indicate that it is the instance of the class."
+                    )
                 ann.orig_id = attribute.args.args[0].orig_arg
                 func.args.args[0].annotation = ann
                 additional_functions.append(func)
