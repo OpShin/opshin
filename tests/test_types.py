@@ -461,3 +461,16 @@ def validator(x: int) -> Anything:
 """
     x = eval_uplc_value(source_code, y)
     assert x == y
+
+
+def test_empty_literal_list_reassignment():
+    source_code = """
+from opshin.prelude import *
+
+def validator(x: List[int]) -> Anything:
+    x = []
+    e = x[0] if len(x) > 0 else 2
+    return e
+"""
+    with pytest.raises(CompilerError, match=r"does not match inferred type"):
+        builder._compile(source_code)
