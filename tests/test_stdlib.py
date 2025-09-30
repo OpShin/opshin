@@ -239,7 +239,11 @@ def validator(x: None) -> None:
     return None
             """
         ret = eval_uplc(source_code, Unit())
-        self.assertEqual(ret, Unit(), "literal None returned wrong value")
+        self.assertEqual(
+            ret,
+            uplc.data_from_cbor(Unit().to_cbor()),
+            "literal None returned wrong value",
+        )
 
     @given(st.booleans())
     def test_constant_bool(self, x: bool):
