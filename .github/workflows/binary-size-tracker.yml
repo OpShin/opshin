@@ -11,16 +11,6 @@ on:
       - 'poetry.lock'
       - '.github/workflows/binary-size-tracker.yml'
       - 'scripts/binary_size_tracker.py'
-  push:
-    branches:
-      - '**'
-    paths:
-      - 'examples/**.py'
-      - 'opshin/**.py'
-      - 'pyproject.toml'
-      - 'poetry.lock'
-      - '.github/workflows/binary-size-tracker.yml'
-      - 'scripts/binary_size_tracker.py'
 
 jobs:
   get-python-versions:
