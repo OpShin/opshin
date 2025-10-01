@@ -110,7 +110,7 @@ jobs:
         github_token: '${{ secrets.GITHUB_TOKEN }}'
         org: OpShin
         repo: opshin
-        user: 'github-actions[bot]' #commented by the userid
+        user: 'github-actions' #commented by the userid
         issue: '${{github.event.number}}'
 
     - name: Comment on PR
