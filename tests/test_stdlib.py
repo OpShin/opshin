@@ -379,11 +379,13 @@ def validator(x: int) -> int:
     assert "subscript" in str(e.value)
 
 
-@given(st.data())
-def test_tuple_subscript(data):
-    x = data.draw(st.integers(min_value=1, max_value=10))
-    y = data.draw(st.integers())
-    i = data.draw(st.integers(min_value=-x * 2, max_value=(x - 1) * 2))
+@given(
+    st.integers(min_value=1, max_value=10),
+    st.integers(),
+    st.integers(min_value=-20, max_value=20),
+    st.booleans(),
+)
+def test_tuple_subscript(x, y, i, f):
     # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
     source_code = f"""
 def validator(y: int) -> int:
@@ -391,7 +393,9 @@ def validator(y: int) -> int:
     return x[{i}]
             """
     try:
-        ret = eval_uplc_value(source_code, y)
+        ret = eval_uplc_value(
+            source_code, y, config=compiler.DEFAULT_CONFIG.update(constant_folding=f)
+        )
     except CompilerError as e:
         ret = None
     try:
