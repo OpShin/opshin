@@ -452,7 +452,7 @@
                     return;
                 }
 
-                const latestRelease = this.releases[0];
+                const latestRelease = this.releases[1]; // assumes that dev is at 0
                 const oldestWithData = this.releases[this.releases.length - 1];
 
                 let stats = [
@@ -469,7 +469,7 @@
                 // Add contract-specific stats
                 if (this.selectedContract !== 'all' && latestRelease.binaryData?.contracts?.[this.selectedContract]) {
                     const contractData = latestRelease.binaryData.contracts[this.selectedContract];
-                    const optLevel = this.selectedOptLevels[0] || 'O2';
+                    const optLevel = this.selectedOptLevels[this.selectedOptLevels-1] || 'O2';
                     const currentSize = contractData.sizes?.[optLevel];
 
                     if (currentSize) {
@@ -493,7 +493,7 @@
                 } else if (this.selectedContract === 'all') {
                     // Show total size across all contracts
                     let totalSize = 0;
-                    const optLevel = this.selectedOptLevels[0] || 'O2';
+                    const optLevel = this.selectedOptLevels[this.selectedOptLevels-1] || 'O2';
 
                     Object.values(latestRelease.binaryData.contracts || {}).forEach(contract => {
                         if (contract.sizes?.[optLevel]) {

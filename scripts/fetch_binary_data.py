@@ -5,6 +5,8 @@ This script runs during docs build to avoid CORS issues in the browser.
 """
 
 import json
+import subprocess
+
 import requests
 import sys
 from pathlib import Path
@@ -84,6 +86,27 @@ const EMBEDDED_RELEASE_DATA = {json.dumps(releases_data, indent=2)};
     return True
 
 
+def fetch_current_dev_build_data():
+    subprocess.run("poetry run scripts/binary_size_tracker.py generate", shell=True)
+    current_dev_data_file = Path("binary_sizes_baseline.json")
+    if current_dev_data_file.exists():
+        try:
+            with open(current_dev_data_file, "r") as f:
+                current_dev_data = json.load(f)
+            return {
+                "tag_name": "dev",
+                "name": "Development Build",
+                "published_at": "N/A",
+                "html_url": "#",
+                "binary_data": current_dev_data,
+            }
+            print("Added current development build data")
+        except Exception as e:
+            print(f"Failed to load current development build data: {e}")
+    else:
+        print("Current development build data file not found")
+
+
 def main():
     """Main function to fetch data and generate HTML from template."""
     docs_dir = Path(__file__).parent.parent / "docs"
@@ -100,6 +123,11 @@ def main():
     if not releases_data:
         print("No release data found, creating empty dataset")
         releases_data = []
+
+    # Generate current dev build data
+    current_dev_data = fetch_current_dev_build_data()
+    if current_dev_data:
+        releases_data.insert(0, current_dev_data)
 
     # Generate HTML file from template
     if generate_html_from_template(releases_data, template_file, output_file):
