@@ -11,6 +11,7 @@ on:
       - 'poetry.lock'
       - '.github/workflows/binary-size-tracker.yml'
       - 'scripts/binary_size_tracker.py'
+    types: [opened, synchronize, reopened]
 
 jobs:
   get-python-versions:
@@ -72,7 +73,7 @@ jobs:
         git fetch origin
         git checkout origin/dev 2>/dev/null || git checkout origin/main 2>/dev/null || git checkout HEAD~10
         poetry install --no-interaction --with dev
-        python scripts/binary_size_tracker.py generate --baseline-file baseline.json
+        poetry run scripts/binary_size_tracker.py generate --baseline-file baseline.json
         # Switch back to PR branch
         git checkout ${{ github.sha }}
         poetry install --no-interaction --with dev
@@ -81,7 +82,7 @@ jobs:
       id: size-check
       run: |
         echo "Running binary size comparison..."
-        if python scripts/binary_size_tracker.py compare --baseline-file baseline.json > size_report.txt 2>&1; then
+        if poetry run scripts/binary_size_tracker.py compare --baseline-file baseline.json > size_report.txt 2>&1; then
           echo "has_significant_changes=false" >> $GITHUB_OUTPUT
         else
           echo "has_significant_changes=true" >> $GITHUB_OUTPUT
@@ -91,6 +92,7 @@ jobs:
         echo "REPORT<<EOF" >> $GITHUB_OUTPUT
         cat size_report.txt >> $GITHUB_OUTPUT
         echo "EOF" >> $GITHUB_OUTPUT
+        cat size_report.txt
 
     - name: Upload size report as artifact
       uses: actions/upload-artifact@v4
@@ -99,6 +101,17 @@ jobs:
         path: |
           size_report.txt
           baseline.json
+
+    - name: Delete previous bot comments
+      # only on PRs
+      if: github.event_name == 'pull_request'
+      uses: maheshrayas/action-pr-comment-delete@v3.0
+      with:
+        github_token: '${{ secrets.GITHUB_TOKEN }}'
+        org: OpShin
+        repo: opshin
+        user: 'github-actions' #commented by the userid
+        issue: '${{github.event.number}}'
 
     - name: Comment on PR
       uses: actions/github-script@v8
