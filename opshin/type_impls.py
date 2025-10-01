@@ -944,7 +944,7 @@ class UnionType(ClassType):
 
     def copy_only_attributes(self) -> plt.AST:
         copied_attributes = plt.TraceError(
-            f"Invalid CONSTR_ID for instance of {self.python_type()}]"
+            f"Invalid CONSTR_ID (no matching type in Union)"
         )
         for typ in self.typs:
             if not isinstance(typ, RecordType):
@@ -965,10 +965,7 @@ class UnionType(ClassType):
         def lambda_false(x: str):
             return OLambda(
                 ["_"],
-                plt.TraceError(
-                    "Invalid datatype not in Union. Expected one of: "
-                    + (", ".join(t.python_type() for t in self.typs) + ", got " + x)
-                ),
+                plt.TraceError("Invalid datatype not in Union, got " + x),
             )
 
         return OLambda(
@@ -1219,17 +1216,17 @@ class ListType(ClassType):
             plt.DelayedChooseData(
                 OVar("self"),
                 plt.TraceError(
-                    "IntegrityError: Expected a PlutusMap, but got PlutusData"
+                    "IntegrityError: Expected a PlutusList, but got PlutusData"
                 ),
                 plt.TraceError(
-                    "IntegrityError: Expected a PlutusMap, but got PlutusDict"
+                    "IntegrityError: Expected a PlutusList, but got PlutusMap"
                 ),
                 plt.ListData(mapped_attrs),
                 plt.TraceError(
-                    "IntegrityError: Expected a PlutusMap, but got PlutusInteger"
+                    "IntegrityError: Expected a PlutusList, but got PlutusInteger"
                 ),
                 plt.TraceError(
-                    "IntegrityError: Expected a PlutusMap, but got PlutusByteString"
+                    "IntegrityError: Expected a PlutusList, but got PlutusByteString"
                 ),
             ),
         )
