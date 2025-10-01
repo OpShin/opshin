@@ -73,7 +73,7 @@ jobs:
         git fetch origin
         git checkout origin/dev 2>/dev/null || git checkout origin/main 2>/dev/null || git checkout HEAD~10
         poetry install --no-interaction --with dev
-        python scripts/binary_size_tracker.py generate --baseline-file baseline.json
+        poetry run scripts/binary_size_tracker.py generate --baseline-file baseline.json
         # Switch back to PR branch
         git checkout ${{ github.sha }}
         poetry install --no-interaction --with dev
@@ -82,7 +82,7 @@ jobs:
       id: size-check
       run: |
         echo "Running binary size comparison..."
-        if python scripts/binary_size_tracker.py compare --baseline-file baseline.json > size_report.txt 2>&1; then
+        if poetry run scripts/binary_size_tracker.py compare --baseline-file baseline.json > size_report.txt 2>&1; then
           echo "has_significant_changes=false" >> $GITHUB_OUTPUT
         else
           echo "has_significant_changes=true" >> $GITHUB_OUTPUT
