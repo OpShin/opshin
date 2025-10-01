@@ -94,7 +94,7 @@ SAFE_GLOBALS = {x.__name__: x for x in SAFE_GLOBALS_LIST}
 
 
 class ShallowNameDefCollector(CompilingNodeVisitor):
-    step = "Collecting occuring variable names"
+    step = "Collecting occurring variable names"
 
     def __init__(self):
         self.vars = OrderedSet()
@@ -317,7 +317,7 @@ class OptimizeConstantFolding(CompilingNodeTransformer):
             # only evaluate expressions, not statements
             return node
         if isinstance(node, Constant):
-            # prevents unneccessary computations
+            # prevents unnecessary computations
             return node
         try:
             node_source = unparse(node)

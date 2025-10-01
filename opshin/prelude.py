@@ -9,7 +9,7 @@ class Nothing(PlutusData):
     Example value: Nothing()
     """
 
-    # The maximimum constructor ID for simple cbor types, chosen to minimize probability of collision while keeping the corresponding cbor small
+    # The maximum constructor ID for simple cbor types, chosen to minimize probability of collision while keeping the corresponding cbor small
     CONSTR_ID = 6
 
 

@@ -4,7 +4,7 @@ from copy import copy
 from ..util import CompilingNodeTransformer
 
 """
-Rewrites all occurences of augmented assignments
+Rewrites all occurrences of augmented assignments
 into normal assignments.
 """
 

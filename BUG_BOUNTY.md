@@ -16,7 +16,7 @@ The scope of our Bug Bounty Program includes, but is not limited to:
 
 - **Security Vulnerabilities:** Identifying and resolving potential security threats that could compromise the security, correctness or soundness of OpShin compiled smart contracts.
 - **Functional Bugs:** Solbing bugs that affect the functionality of our platform, leading to incorrect behavior or results.
-- **Feature Additions:** Adding new features or enhancements that improve the experience of interacting with the OpShin platoform.
+- **Feature Additions:** Adding new features or enhancements that improve the experience of interacting with the OpShin platform.
 
 Discovered issues and feature suggestions will be tagged with prices directly in the GitHub repository issues of [OpShin](https://github.com/opshin/opshin/issues) or any other part of the [OpShin ecosystem](https://github.com/opshin). These tags represent the monetary value of each task, based on its complexity and impact. The value is paid out to implemented solutions that are proposed as Pull Requests to the respective repository and accepted by a code maintainer.
 
@@ -61,7 +61,7 @@ The categories are (in increasing amount of allocated prize):
 | Minor Issues            | 200 - 400 ADA   | Minor issues with the UX or simple bugs that can be resolved by changing a single function in the source code.                                                                                   | https://github.com/OpShin/opshin/issues/336, https://github.com/OpShin/opshin/issues/338                                             |
 | Medium Issues           | 400 - 2000 ADA  | Most of the issues fall in this category. This covers bugs that require larger code base refactorings or additions of entire features that require additional modules.                           | https://github.com/OpShin/opshin/issues/333, https://github.com/OpShin/opshin/issues/301, https://github.com/OpShin/opshin/issues/68 |
 | Major Issues            | 2000 - 4000 ADA | Entirely independent projects or major components of a platform like an additional website, completely overhauled software architecture etc.                                                     | https://github.com/OpShin/opshin/issues/344, https://github.com/OpShin/opshin/issues/346                                             |
-| Security Vulnerabilites | 3000 - 4000 ADA | Newly discovered inconsistencies in the compiler, violations of the Python semantics preservation guarantee and similar issues that could lead to loss of user funds in production environments. | https://github.com/OpShin/opshin/pull/361, https://github.com/OpShin/opshin/pull/298                                                 |
+| Security Vulnerabilities | 3000 - 4000 ADA | Newly discovered inconsistencies in the compiler, violations of the Python semantics preservation guarantee and similar issues that could lead to loss of user funds in production environments. | https://github.com/OpShin/opshin/pull/361, https://github.com/OpShin/opshin/pull/298                                                 |
 
 ## Report on other Bug Bounty platforms
 

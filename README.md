@@ -128,7 +128,7 @@ opshin compile_pluto spending examples/smart_contracts/assert_sum.py
 
 Generally, all contributions on the code side are very welcome.
 To get an overview over the architecture and idea behind OpShin, check out [the Technical Documentation](./ARCHITECTURE.md).
-A bug bounty has been set up and funded by Project Catalyst, which awards [Github issue](https://github.com/OpShin/opshin/labels/bug%20bounty) resolution wiht ADA rewards.
+A bug bounty has been set up and funded by Project Catalyst, which awards [Github issue](https://github.com/OpShin/opshin/labels/bug%20bounty) resolution with ADA rewards.
 This is a great opportunity to get involved and earn some ADA.
 Check out the [detailed introduction to the bounty program](./BUG_BOUNTY.md) for more information.
 

@@ -76,7 +76,7 @@ class Type:
         """
         Returns a stringified version of the object
 
-        The recursive parameter informs the method whether it was invoked recursively from another invokation
+        The recursive parameter informs the method whether it was invoked recursively from another invocation
         """
         raise NotImplementedError(f"{self.python_type()} can not be stringified")
 
@@ -1126,7 +1126,7 @@ class ListType(ClassType):
                                         "ValueError: Did not find element in list"
                                     ),
                                     plt.Ite(
-                                        # the paramter x must have the same type as the list elements
+                                        # the parameter x must have the same type as the list elements
                                         plt.Apply(
                                             self.typ.cmp(ast.Eq(), self.typ),
                                             OVar("x"),

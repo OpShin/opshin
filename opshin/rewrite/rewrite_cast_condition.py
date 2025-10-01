@@ -5,7 +5,7 @@ from ast import *
 from ..util import CompilingNodeTransformer
 
 """
-Rewrites all occurences of conditions to an implicit cast to bool
+Rewrites all occurrences of conditions to an implicit cast to bool
 """
 
 SPECIAL_BOOL = "~bool"

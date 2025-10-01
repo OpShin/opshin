@@ -35,7 +35,7 @@ class BatchOrder(PlutusData):
     CONSTR_ID = 0
     sender: Address
     receiver: Address
-    # If some property might be ommited, just Union with Nothing and check for the instance at runtime!
+    # If some property might be omitted, just Union with Nothing and check for the instance at runtime!
     # Make sure the property is a PlutusData type, if not, wrap it
     receiver_datum_hash: Union[SomeHash, NoHash]
     order_step: OrderStep
@@ -45,7 +45,7 @@ class BatchOrder(PlutusData):
     script_version: bytes
 
 
-# If some parameter might be ommited, just Union with Nothing and check for the instance at runtime!
+# If some parameter might be omitted, just Union with Nothing and check for the instance at runtime!
 def validator(d: Union[Nothing, BatchOrder]) -> bytes:
     print(f"got datum {d}")
     if isinstance(d, Nothing):

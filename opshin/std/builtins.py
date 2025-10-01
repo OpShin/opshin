@@ -1,5 +1,5 @@
 """
-A special libary that gives direct access to UPLC built-ins
+A special library that gives direct access to UPLC built-ins
 It is valid code and parts of it may be copied if not all built-ins are required by the user.
 """
 
