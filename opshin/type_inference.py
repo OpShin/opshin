@@ -1145,11 +1145,28 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                 )
         elif isinstance(ts.value.typ.typ, PairType):
             if isinstance(ts.slice, Constant) and isinstance(ts.slice.value, int):
+                assert (
+                    -3 < ts.slice.value < 2
+                ), f"Can only access -2, -1, 0 or 1 index in pairs, found {ts.slice.value}"
                 ts.typ = (
                     ts.value.typ.typ.l_typ
-                    if ts.slice.value == 0
+                    if ts.slice.value % 2 == 0
                     else ts.value.typ.typ.r_typ
                 )
+            elif (
+                isinstance(ts.slice, UnaryOp)
+                and isinstance(ts.slice.op, USub)
+                and isinstance(ts.slice.operand, Constant)
+            ):
+                assert (
+                    ts.slice.operand.value < 3
+                ), f"Can only access -2, -1, 0 or 1 index in pairs, found -{ts.slice.operand.value}"
+                ts.typ = (
+                    ts.value.typ.typ.l_typ
+                    if ts.slice.operand.value % 2 == 0
+                    else ts.value.typ.typ.r_typ
+                )
+                ts.slice = self.visit(Constant(-ts.slice.operand.value))
             else:
                 raise TypeInferenceError(
                     f"Could not infer type of subscript of typ {ts.value.typ.python_type()}"

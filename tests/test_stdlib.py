@@ -399,3 +399,51 @@ def validator(y: int) -> int:
     except KeyError:
         exp = None
     assert ret == exp, "tuple[] returned wrong value"
+
+
+@given(
+    x=st.dictionaries(st.binary(), st.integers(), max_size=5),
+    i=st.sampled_from([-3, -2, -1, 0, 1, 2]),
+    f=st.booleans(),
+)
+@example(
+    x={b"first": 1, b"second": 2},
+    i=1,
+    f=False,
+)
+@example(
+    x={},
+    i=-2,
+    f=False,
+)
+@example(
+    x={},
+    i=2,
+    f=False,
+)
+def test_pair_subscript(x, i, f):
+    # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+    source_code = f"""
+from typing import Dict
+
+def validator(x: Dict[bytes, int]) -> {"bytes" if i %2 == 0 else "int"}:
+    y = {repr(b"") if i %2 == 0 else 0}
+    for pair in x.items():
+       y += pair[{i}]
+    return y
+"""
+    try:
+        ret = eval_uplc_value(
+            source_code, x, config=compiler.DEFAULT_CONFIG.update(constant_folding=f)
+        )
+    except (RuntimeError, CompilerError) as e:
+        ret = None
+    try:
+        if (i > 1 or i < -2) and not x:
+            raise IndexError()
+        exp = b"" if i % 2 == 0 else 0
+        for pair in x.items():
+            exp += pair[i]
+    except (KeyError, IndexError) as e:
+        exp = None
+    assert ret == exp, f"pair[] returned wrong value for {x}, {i}"

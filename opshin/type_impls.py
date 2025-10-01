@@ -101,7 +101,7 @@ class Type:
         Return the type of a binary operation between self and other
         """
         raise NotImplementedError(
-            f"{self.python_type()} does not implement {binop.__class__.__name__}"
+            f"{self.python_type()} does not implement {binop.__class__.__name__} with {other.python_type()}"
         )
 
     def binop(self, binop: ast.operator, other: "TypedAST") -> plt.AST:
@@ -120,7 +120,7 @@ class Type:
         Returns a binary function that implements the binary operation between self and other.
         """
         raise NotImplementedError(
-            f"{self.python_type()} can not be used with operation {binop.__class__.__name__}"
+            f"{self.python_type()} can not be used with operation {binop.__class__.__name__} with {other.type.python_type()}"
         )
 
     def unop_type(self, unop: ast.unaryop) -> "Type":
@@ -2561,7 +2561,7 @@ class ByteStringType(AtomicType):
         if isinstance(binop, ast.Mult):
             if other == IntegerInstanceType:
                 return ByteStringType()
-        return super().binop_type(binop, other)
+        return super()._binop_return_type(binop, other)
 
     def _binop_bin_fun(self, binop: ast.operator, other: "TypedAST"):
         if isinstance(binop, ast.Add):

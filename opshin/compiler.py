@@ -701,7 +701,7 @@ class PlutoCompiler(CompilingNodeTransformer):
             assert isinstance(node.ctx, Load), "Pairs are read-only"
             assert (
                 0 <= index < 2
-            ), f"Pairs only have 2 elements, index should be 0 or 1, is {node.slice.value}"
+            ), f"Pairs only have 2 elements, index should be -2, -1, 0 or 1, found {node.slice.value}"
             member_func = plt.FstPair if index == 0 else plt.SndPair
             # the content of pairs is always Data, so we need to unwrap
             member_typ = node.typ
