@@ -55,8 +55,6 @@ def validator(_: None) -> bytes:
     return b"\\x00\\x11"
 """
     res = eval_uplc_raw(source_code, Unit())
-    print(res)
     assert isinstance(res.result, Exception)
     res = eval_uplc_raw(source_code, Unit(), config=DEFAULT_CONFIG_REMOVE_TRACE)
-    print(res)
     assert isinstance(res.result, Exception)
