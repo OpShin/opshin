@@ -308,18 +308,20 @@ def convert_to_base(base: int, prefix: str):
 class PythonBuiltIn(Enum):
     all = OLambda(
         ["xs"],
-        plt.FoldList(
+        plt.FoldListAbort(
             OVar("xs"),
             OLambda(["x", "a"], plt.And(OVar("x"), OVar("a"))),
             plt.Bool(True),
+            OLambda(["a"], plt.Not(OVar("a"))),
         ),
     )
     any = OLambda(
         ["xs"],
-        plt.FoldList(
+        plt.FoldListAbort(
             OVar("xs"),
             OLambda(["x", "a"], plt.Or(OVar("x"), OVar("a"))),
             plt.Bool(False),
+            OLambda(["a"], OVar("a")),
         ),
     )
     abs = OLambda(

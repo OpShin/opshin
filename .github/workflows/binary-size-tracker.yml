@@ -11,6 +11,7 @@ on:
       - 'poetry.lock'
       - '.github/workflows/binary-size-tracker.yml'
       - 'scripts/binary_size_tracker.py'
+    types: [opened, synchronize, reopened]
 
 jobs:
   get-python-versions:
