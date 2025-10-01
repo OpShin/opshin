@@ -54,7 +54,7 @@ In particular, these steps are performed in the following modules:
 - compilation (Python -> pluthon): `opshin.compiler`
 - building (deriving script address and convenience functions): `opshin.builder`
 
-There are futher `opshin.rewrite` and `opshin.optimize` which perform various rewriting steps (that remove complexity from Python source code) and optimizations (that make sure performance is even better).
+There are further `opshin.rewrite` and `opshin.optimize` which perform various rewriting steps (that remove complexity from Python source code) and optimizations (that make sure performance is even better).
 
 ## Memory
 

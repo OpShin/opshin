@@ -4,7 +4,7 @@ from copy import deepcopy
 from ..util import CompilingNodeTransformer
 
 """
-Rewrites all occurences of comparison chaining into normal comparisons.
+Rewrites all occurrences of comparison chaining into normal comparisons.
 """
 
 

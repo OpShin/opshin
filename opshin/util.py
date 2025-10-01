@@ -184,7 +184,7 @@ _patterns_cached = {}
 
 
 def make_pattern(structure: plt.AST) -> plt.Pattern:
-    """Creates a shared pattern from the given lambda, cached so that it is re-used in subsequent calls"""
+    """Creates a shared pattern from the given lambda, cached so that it is reused in subsequent calls"""
     structure_serialized = structure.dumps()
     if _patterns_cached.get(structure_serialized) is None:
         # @dataclass
@@ -264,7 +264,7 @@ class NameReadCollector(CompilingNodeVisitor):
         self.visit(node.target)
 
     def visit_FunctionDef(self, node) -> None:
-        # ignore annotations of paramters and return
+        # ignore annotations of parameters and return
         for b in node.body:
             self.visit(b)
 

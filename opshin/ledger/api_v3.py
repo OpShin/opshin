@@ -678,7 +678,7 @@ class Publishing(PlutusData):
     custom script. This purpose is also triggered when de-registering such
     stake credentials.
 
-    The index is a 0-based index of the given `Certficate` in `certificates`.
+    The index is a 0-based index of the given `Certificate` in `certificates`.
     """
 
     CONSTR_ID = 3
