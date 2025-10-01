@@ -13,18 +13,6 @@ on:
       - '.github/workflows/tests.yml'
       - '.github/scripts/run-tests.sh'
       - '.github/actions/get-python-versions/**'
-  pull_request:
-    branches:
-      - '**'
-    paths:
-      - 'examples/**.py'
-      - 'opshin/**.py'
-      - 'tests/**.py'
-      - 'pyproject.toml'
-      - 'poetry.lock'
-      - '.github/workflows/tests.yml'
-      - '.github/scripts/run-tests.sh'
-      - '.github/actions/get-python-versions/**'
 
 jobs:
   get-python-versions:
