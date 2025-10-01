@@ -16,7 +16,7 @@ jobs:
   get-python-versions:
     runs-on: ubuntu-latest
     outputs:
-      primary-version: ${{ steps.get-versions.outputs.primary-version }}
+      maximum-version: ${{ steps.get-versions.outputs.maximum-version }}
     steps:
     - name: Checkout code
       uses: actions/checkout@v5
@@ -32,10 +32,10 @@ jobs:
     - name: Checkout PR code
       uses: actions/checkout@v5
 
-    - name: Set up Python
+    - name: Set up Python ${{ needs.get-python-versions.outputs.maximum-version }}
       uses: actions/setup-python@v6
       with:
-        python-version: ${{ needs.get-python-versions.outputs.primary-version }}
+        python-version: ${{ needs.get-python-versions.outputs.maximum-version }}
         cache: "pip"
 
     - name: Install Poetry
