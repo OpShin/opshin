@@ -392,11 +392,11 @@ def validator(y: int) -> int:
             """
     try:
         ret = eval_uplc_value(source_code, y)
-    except RuntimeError:
+    except CompilerError as e:
         ret = None
     try:
         exp = [y + j for j in range(x)][i]
-    except KeyError:
+    except IndexError:
         exp = None
     assert ret == exp, "tuple[] returned wrong value"
 
@@ -436,7 +436,7 @@ def validator(x: Dict[bytes, int]) -> {"bytes" if i %2 == 0 else "int"}:
         ret = eval_uplc_value(
             source_code, x, config=compiler.DEFAULT_CONFIG.update(constant_folding=f)
         )
-    except (RuntimeError, CompilerError) as e:
+    except CompilerError as e:
         ret = None
     try:
         if (i > 1 or i < -2) and not x:
@@ -444,6 +444,6 @@ def validator(x: Dict[bytes, int]) -> {"bytes" if i %2 == 0 else "int"}:
         exp = b"" if i % 2 == 0 else 0
         for pair in x.items():
             exp += pair[i]
-    except (KeyError, IndexError) as e:
+    except IndexError as e:
         exp = None
     assert ret == exp, f"pair[] returned wrong value for {x}, {i}"
