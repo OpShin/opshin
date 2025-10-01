@@ -101,6 +101,17 @@ jobs:
           size_report.txt
           baseline.json
 
+    - name: Delete previous bot comments
+      # only on PRs
+      if: github.event_name == 'pull_request'
+      uses: maheshrayas/action-pr-comment-delete@v3.0
+      with:
+        github_token: '${{ secrets.GITHUB_TOKEN }}'
+        org: OpShin
+        repo: opshin
+        user: 'github-actions[bot]' #commented by the userid
+        issue: '${{github.event.number}}'
+
     - name: Comment on PR
       uses: actions/github-script@v8
       # only on PRs
