@@ -40,3 +40,23 @@ def validator(_: None) -> bytes:
     assert res.result.value == b"\x00\x11"
     res = eval_uplc_raw(source_code, Unit(), config=DEFAULT_CONFIG_REMOVE_TRACE)
     assert res.result.value == b"\x00\x11"
+
+
+def test_trace_nonconstant():
+    source_code = """
+from opshin.prelude import *
+
+def foo(x: int) -> str:
+    assert False
+    return "2"
+
+def validator(_: None) -> bytes:
+    print("hello" + foo(2))
+    return b"\\x00\\x11"
+"""
+    res = eval_uplc_raw(source_code, Unit())
+    print(res)
+    assert isinstance(res.result, Exception)
+    res = eval_uplc_raw(source_code, Unit(), config=DEFAULT_CONFIG_REMOVE_TRACE)
+    print(res)
+    assert isinstance(res.result, Exception)
