@@ -29,6 +29,7 @@ hypothesis.settings.load_profile(PLUTUS_VM_PROFILE)
 from opshin.ledger.api_v2 import *
 
 DEFAULT_CONFIG_FORCE_THREE_PARAMS = DEFAULT_CONFIG.update(force_three_params=True)
+sys.setrecursionlimit(2000)
 
 ALL_EXAMPLES = [
     os.path.join(root, f)
