@@ -22,7 +22,7 @@ poetry run coverage run -a -m opshin build spending examples/smart_contracts/ass
 # Compile all example files
 for i in $(find examples -type f -name "*.py" -not \( -name "broken*" -o -name "extract*" \)); do
   echo "$i"
-  poetry run coverage run -a -m opshin compile any "$i" > /dev/null || exit
+  poetry run coverage run -a -m opshin compile any "$i" --recursion-limit 2000 > /dev/null || exit
 done
 
 # Parameterized build test
@@ -36,7 +36,7 @@ poetry run coverage run -a -m opshin build spending examples/smart_contracts/dua
 poetry run coverage run -a -m opshin build spending examples/smart_contracts/dual_use.py -fforce-three-params -O3
 
 # Wrapped token test
-poetry run coverage run -a -m opshin build spending examples/smart_contracts/wrapped_token.py '{"bytes": "ae810731b5d21c0d182d89c60a1eff7095dffd1c0dce8707a8611099"}' '{"bytes": "4d494c4b"}' '{"int": 1000000}' -fforce-three-params
+poetry run coverage run -a -m opshin build spending examples/smart_contracts/wrapped_token.py '{"bytes": "ae810731b5d21c0d182d89c60a1eff7095dffd1c0dce8707a8611099"}' '{"bytes": "4d494c4b"}' '{"int": 1000000}' -fforce-three-params --recursion-limit 2000
 
 # Lint tests
 test ! -n "$(poetry run coverage run -a -m opshin lint any examples/smart_contracts/always_true.py)"
@@ -50,7 +50,7 @@ poetry run coverage run -a -m opshin compile lib opshin/prelude.py -fno-remove-d
 # Compile all std and ledger files
 for i in $(find opshin/std opshin/ledger -type f -name "*.py" ! -name "*integrity.py"); do
   echo "$i"
-  poetry run coverage run -a -m opshin compile lib "$i" -fno-remove-dead-code > /dev/null || exit
+  poetry run coverage run -a -m opshin compile lib "$i" -fno-remove-dead-code --recursion-limit 2000 > /dev/null || exit
 done
 
 # Run linters (last so we see test failures first)
