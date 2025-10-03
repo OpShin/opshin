@@ -50,7 +50,7 @@ poetry run coverage run -a -m opshin compile lib opshin/prelude.py -fno-remove-d
 # Compile all std and ledger files
 for i in $(find opshin/std opshin/ledger -type f -name "*.py" ! -name "*integrity.py"); do
   echo "$i"
-  poetry run coverage run -a -m opshin compile lib "$i" -fno-remove-dead-code --recursion-limit 2000 > /dev/null || exit
+  poetry run coverage run -a -m opshin compile lib "$i" -fno-remove-dead-code > /dev/null || exit
 done
 
 # Run linters (last so we see test failures first)
