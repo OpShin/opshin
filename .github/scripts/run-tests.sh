@@ -36,13 +36,13 @@ poetry run coverage run -a -m opshin build spending examples/smart_contracts/dua
 poetry run coverage run -a -m opshin build spending examples/smart_contracts/dual_use.py -fforce-three-params -O3
 
 # Wrapped token test
-poetry run coverage run -a -m opshin build spending examples/smart_contracts/wrapped_token.py '{"bytes": "ae810731b5d21c0d182d89c60a1eff7095dffd1c0dce8707a8611099"}' '{"bytes": "4d494c4b"}' '{"int": 1000000}' -fforce-three-params --recursion-limit 2000
+poetry run coverage run -a -m opshin build spending examples/smart_contracts/wrapped_token.py '{"bytes": "ae810731b5d21c0d182d89c60a1eff7095dffd1c0dce8707a8611099"}' '{"bytes": "4d494c4b"}' '{"int": 1000000}' -fforce-three-params --recursion-limit 4000
 
 # Lint tests
-test ! -n "$(poetry run coverage run -a -m opshin lint any examples/smart_contracts/always_true.py)"
-test -n "$(poetry run coverage run -a -m opshin lint any examples/smart_contracts/wrapped_token.py)"
-test -n "$(poetry run coverage run -a -m opshin lint any examples/broken.py)"
-test -n "$(poetry run coverage run -a -m opshin lint any examples/broken.py --output-format-json)"
+test ! -n "$(poetry run coverage run -a -m opshin lint any examples/smart_contracts/always_true.py --recursion-limit 4000)"
+test -n "$(poetry run coverage run -a -m opshin lint any examples/smart_contracts/wrapped_token.py --recursion-limit 4000)"
+test -n "$(poetry run coverage run -a -m opshin lint any examples/broken.py --recursion-limit 4000)"
+test -n "$(poetry run coverage run -a -m opshin lint any examples/broken.py --output-format-json --recursion-limit 4000)"
 
 # Prelude compile test
 poetry run coverage run -a -m opshin compile lib opshin/prelude.py -fno-remove-dead-code
