@@ -22,7 +22,7 @@ poetry run coverage run -a -m opshin build spending examples/smart_contracts/ass
 # Compile all example files
 for i in $(find examples -type f -name "*.py" -not \( -name "broken*" -o -name "extract*" \)); do
   echo "$i"
-  poetry run coverage run -a -m opshin compile any "$i" --recursion-limit 2000 > /dev/null || exit
+  poetry run coverage run -a -m opshin compile any "$i" --recursion-limit 4000 > /dev/null || exit
 done
 
 # Parameterized build test
