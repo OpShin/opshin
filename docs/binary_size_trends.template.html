@@ -494,7 +494,12 @@
 
                             Object.values(release.binaryData.contracts).forEach(contract => {
                                 if (contract.sizes?.[optLevel]) {
-                                    totalSize += contract.sizes[optLevel];
+                                    let localSize = contract.sizes[optLevel];
+                                    // check if it has legacy style direct size or detailed size object
+                                    if (localSize && typeof localSize === 'object' && localSize.size) {
+                                        localSize = localSize.size;
+                                    }
+                                    totalSize += localSize || 0;
                                     contractCount++;
                                 }
                             });
@@ -516,7 +521,11 @@
                     this.selectedOptLevels.forEach(optLevel => {
                         const data = releases.map(release => {
                             const contract = release.binaryData?.contracts?.[this.selectedContract];
-                            return contract?.sizes?.[optLevel] || null;
+                            let sizes = contract?.sizes?.[optLevel];
+                            if (!sizes) return null;
+                            // check if it has legacy style direct size or detailed size object
+                            sizes = sizes.map(s => (typeof s === 'object' && s.size) ? s.size : s);
+                            return sizes;
                         });
 
                         datasets.push({
@@ -635,7 +644,11 @@
                 if (this.selectedContract !== 'all' && latestRelease.binaryData?.contracts?.[this.selectedContract]) {
                     const contractData = latestRelease.binaryData.contracts[this.selectedContract];
                     const optLevel = this.selectedOptLevels[this.selectedOptLevels-1] || 'O2';
-                    const currentSize = contractData.sizes?.[optLevel];
+                    let currentSize = contractData.sizes?.[optLevel];
+                    // check if it has legacy style direct size or detailed size object
+                    if (currentSize && typeof currentSize === 'object' && currentSize.size) {
+                        currentSize = currentSize.size;
+                    }
 
                     if (currentSize) {
                         stats.push({
@@ -645,7 +658,11 @@
 
                         // Calculate trend if we have historical data
                         if (this.releases.length > 1) {
-                            const historicalSize = this.releases[this.releases.length - 1].binaryData?.contracts?.[this.selectedContract]?.sizes?.[optLevel];
+                            let historicalSize = this.releases[this.releases.length - 1].binaryData?.contracts?.[this.selectedContract]?.sizes?.[optLevel];
+                            // check if it has legacy style direct size or detailed size object
+                            if (historicalSize && typeof historicalSize === 'object' && historicalSize.size) {
+                                historicalSize = historicalSize.size;
+                            }
                             if (historicalSize) {
                                 const change = ((currentSize - historicalSize) / historicalSize) * 100;
                                 stats.push({
@@ -662,7 +679,11 @@
 
                     Object.values(latestRelease.binaryData.contracts || {}).forEach(contract => {
                         if (contract.sizes?.[optLevel]) {
-                            totalSize += contract.sizes[optLevel];
+                            let localSize = contract.sizes[optLevel];
+                            if (localSize && typeof localSize === 'object' && localSize.size) {
+                                localSize = localSize.size;
+                            }
+                            totalSize += localSize || 0;
                         }
                     });
 
