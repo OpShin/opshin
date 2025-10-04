@@ -524,8 +524,10 @@
                             let sizes = contract?.sizes?.[optLevel];
                             if (!sizes) return null;
                             // check if it has legacy style direct size or detailed size object
-                            sizes = sizes.map(s => (typeof s === 'object' && s.size) ? s.size : s);
-                            return sizes;
+                            if (sizes && typeof sizes === 'object' && sizes.size) {
+                                sizes = sizes.size;
+                            }
+                            return sizes || null;
                         });
 
                         datasets.push({
