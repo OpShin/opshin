@@ -278,7 +278,7 @@ def compare_with_baseline(
             status = ""
             size_diff = current_size - baseline_size
             size_percent = (size_diff / baseline_size) * 100 if baseline_size > 0 else 0
-            increased = size_diff > 0
+            changed = size_diff != 0
 
             if size_percent > significant_threshold:
                 has_changes = True if not ignore_warnings else has_changes
@@ -288,8 +288,10 @@ def compare_with_baseline(
             elif size_percent > warning_threshold:
                 has_changes = True if not ignore_warnings else has_changes
                 status = " ⚠️" + (" (ignored)" if ignore_warnings else "")
+            elif size_percent < 0:
+                status = " ↘️ (size reduced)"
 
-            if increased:
+            if changed:
                 if not any_increase:
                     print_contract_info()
                 any_increase = True

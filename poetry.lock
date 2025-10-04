@@ -1100,14 +1100,14 @@ zoneinfo = ["tzdata (>=2025.2) ; sys_platform == \"win32\" or sys_platform == \"
 
 [[package]]
 name = "identify"
-version = "2.6.14"
+version = "2.6.15"
 description = "File identification library for Python"
 optional = false
 python-versions = ">=3.9"
 groups = ["dev"]
 files = [
-    {file = "identify-2.6.14-py2.py3-none-any.whl", hash = "sha256:11a073da82212c6646b1f39bb20d4483bfb9543bd5566fec60053c4bb309bf2e"},
-    {file = "identify-2.6.14.tar.gz", hash = "sha256:663494103b4f717cb26921c52f8751363dc89db64364cd836a9bf1535f53cd6a"},
+    {file = "identify-2.6.15-py2.py3-none-any.whl", hash = "sha256:1181ef7608e00704db228516541eb83a88a9f94433a8c80bb9b5bd54b1d81757"},
+    {file = "identify-2.6.15.tar.gz", hash = "sha256:e4f4864b96c6557ef2a1e1c951771838f4edc9df3a72ec7118b338801b11c7bf"},
 ]
 
 [package.extras]
@@ -1465,14 +1465,14 @@ testing = ["coverage", "pytest", "pytest-benchmark"]
 
 [[package]]
 name = "pluthon"
-version = "1.1.4"
+version = "1.2.0"
 description = "Pluto-like programming language for Cardano Smart Contracts in Python"
 optional = false
 python-versions = ">=3"
 groups = ["main"]
 files = [
-    {file = "pluthon-1.1.4-py3-none-any.whl", hash = "sha256:df573b85ac379df741144594ba2c71efd2a119d63382f6b603096eccd8ada810"},
-    {file = "pluthon-1.1.4.tar.gz", hash = "sha256:01985c963afd37ae3bb559681cce00918797247c67bb2968f5aafd0aac53c79d"},
+    {file = "pluthon-1.2.0-py3-none-any.whl", hash = "sha256:d948e9fcb16bf00e29d4854f32ae52e6351f2a242af398acf60ebcb28587837d"},
+    {file = "pluthon-1.2.0.tar.gz", hash = "sha256:e688c621a644a0f225ac538044cad880331619f6df2daafb767e1bdd7f176ce2"},
 ]
 
 [package.dependencies]
@@ -2273,14 +2273,14 @@ typing-extensions = ">=4.12.0"
 
 [[package]]
 name = "uplc"
-version = "1.0.13"
+version = "1.1.0"
 description = "Python implementation of untyped plutus language core"
 optional = false
 python-versions = "<4.0,>=3.9"
 groups = ["main"]
 files = [
-    {file = "uplc-1.0.13-py3-none-any.whl", hash = "sha256:6809d72cede9b3da101c59ca74e5253ce31b867b70bdd1928c74dc0649d0167a"},
-    {file = "uplc-1.0.13.tar.gz", hash = "sha256:efcb4a254c95b850871e5c003e738adfb4a46ddce7abd71cbf05643a450c4cbe"},
+    {file = "uplc-1.1.0-py3-none-any.whl", hash = "sha256:0039e7f97280a35ee0abe61159a407ec822662bcbbd36a34f8a00ddc734f7f57"},
+    {file = "uplc-1.1.0.tar.gz", hash = "sha256:c2bcc8803fb7f1714fa9455fdf06e0d2e0812c6adb932d883a7732403134712f"},
 ]
 
 [package.dependencies]
@@ -2550,4 +2550,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.9.0, <4.0"
-content-hash = "8154f74de1fff98742e156f5f0590925e58734de2be26008f1cde0a321386f0b"
+content-hash = "fab31b6e62673f904e70b762e8b0cfdb604259dabe333da261b356dff72dd5b1"

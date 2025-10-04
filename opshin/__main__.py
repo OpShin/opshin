@@ -523,7 +523,7 @@ def parse_args():
     )
     a.add_argument(
         "--recursion-limit",
-        default=sys.getrecursionlimit(),
+        default=max(sys.getrecursionlimit(), 4000),
         help="Modify the recursion limit (necessary for larger UPLC programs)",
         type=int,
     )

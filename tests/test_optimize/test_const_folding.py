@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from pycardano import PlutusData
 from uplc import ast as uplc
 
-from opshin import DEFAULT_CONFIG, builder
+from opshin import DEFAULT_CONFIG, builder, CompilerError
 from tests.utils import eval_uplc_value, Unit, eval_uplc
 
 DEFAULT_CONFIG_CONSTANT_FOLDING = DEFAULT_CONFIG.update(constant_folding=True)
@@ -23,7 +23,6 @@ def validator(_: None) -> bytes:
         )
         self.assertEqual(res, bytes.fromhex("0011"))
 
-    @unittest.expectedFailure
     def test_constant_folding_disabled(self):
         source_code = """
 from opshin.prelude import *
@@ -31,7 +30,8 @@ from opshin.prelude import *
 def validator(_: None) -> bytes:
     return bytes.fromhex("0011")
 """
-        eval_uplc(source_code, Unit(), constant_folding=False)
+        with self.assertRaises(CompilerError):
+            eval_uplc(source_code, Unit(), config=DEFAULT_CONFIG)
 
     def test_constant_folding_list(self):
         source_code = """
@@ -60,8 +60,10 @@ def validator(_: None) -> Dict[str, bool]:
         code = builder._compile(
             source_code, Unit(), config=DEFAULT_CONFIG_CONSTANT_FOLDING
         )
-        self.assertIn(
-            "(con (list (pair data data)) [(B #73, I 1), (B #6d, I 0)])", code.dumps()
+        code_dumped = code.dumps()
+        self.assertTrue(
+            "(con (list (pair data data)) [(B #73, I 1), (B #6d, I 0)])" in code_dumped
+            or "(con data (Map [(B #73, I 1), (B #6d, I 0)]))" in code_dumped
         )
         res = eval_uplc(source_code, Unit(), config=DEFAULT_CONFIG_CONSTANT_FOLDING)
         if isinstance(res, Exception):
@@ -155,7 +157,9 @@ def validator(_: None) -> int:
         code = builder._compile(
             source_code, Unit(), config=DEFAULT_CONFIG_CONSTANT_FOLDING
         )
-        self.assertIn("(con integer 55)", code.dumps())
+        self.assertTrue(
+            "(con integer 55)" in code.dumps() or "(con data (I 55))" in code.dumps()
+        )
         res = eval_uplc(source_code, Unit(), config=DEFAULT_CONFIG_CONSTANT_FOLDING)
         if isinstance(res, Exception):
             raise res
@@ -164,7 +168,6 @@ def validator(_: None) -> int:
             55,
         )
 
-    @unittest.expectedFailure
     def test_constant_folding_ifelse(self):
         source_code = """
 def validator(_: None) -> int:
@@ -172,29 +175,31 @@ def validator(_: None) -> int:
         a = 10
     return a
 """
-        eval_uplc(source_code, Unit(), config=DEFAULT_CONFIG_CONSTANT_FOLDING)
+        with self.assertRaises(RuntimeError):
+            eval_uplc(source_code, Unit(), config=DEFAULT_CONFIG_CONSTANT_FOLDING)
 
-    @unittest.expectedFailure
     def test_constant_folding_for(self):
         source_code = """
+from typing import List
 def validator(x: List[int]) -> int:
     for i in x:
         a = 10
     return a
 """
-        eval_uplc(source_code, [], config=DEFAULT_CONFIG_CONSTANT_FOLDING)
+        with self.assertRaises(RuntimeError):
+            eval_uplc(source_code, [], config=DEFAULT_CONFIG_CONSTANT_FOLDING)
 
-    @unittest.expectedFailure
     def test_constant_folding_for_target(self):
         source_code = """
+from typing import List
 def validator(x: List[int]) -> int:
     for i in x:
         a = 10
     return i
 """
-        eval_uplc(source_code, [], config=DEFAULT_CONFIG_CONSTANT_FOLDING)
+        with self.assertRaises(RuntimeError):
+            eval_uplc(source_code, [], config=DEFAULT_CONFIG_CONSTANT_FOLDING)
 
-    @unittest.expectedFailure
     def test_constant_folding_while(self):
         source_code = """
 def validator(_: None) -> int:
@@ -202,7 +207,8 @@ def validator(_: None) -> int:
         a = 10
     return a
 """
-        eval_uplc(source_code, Unit(), config=DEFAULT_CONFIG_CONSTANT_FOLDING)
+        with self.assertRaises(RuntimeError):
+            eval_uplc(source_code, Unit(), config=DEFAULT_CONFIG_CONSTANT_FOLDING)
 
     @unittest.skip("Fine from a guarantee perspective, but needs better inspection")
     def test_constant_folding_guaranteed_branch(self):
@@ -220,7 +226,6 @@ def validator(_: None) -> int:
         )
         self.assertIn("(con integer 40)", code.dumps())
 
-    @unittest.skip("Fine from a guarantee perspective, but needs better inspection")
     def test_constant_folding_scoping(self):
         source_code = """
 a = 4
@@ -232,9 +237,10 @@ def validator(_: None) -> int:
         code = builder._compile(
             source_code, Unit(), config=DEFAULT_CONFIG_CONSTANT_FOLDING
         )
-        self.assertIn("(con integer 10)", code.dumps())
+        self.assertTrue(
+            "(con integer 10)" in code.dumps() or "(con data (I 10))" in code.dumps()
+        )
 
-    @unittest.skip("Fine from a guarantee perspective, but needs better inspection")
     def test_constant_folding_no_scoping(self):
         source_code = """
 def validator(_: None) -> int:
@@ -246,7 +252,9 @@ def validator(_: None) -> int:
         code = builder._compile(
             source_code, Unit(), config=DEFAULT_CONFIG_CONSTANT_FOLDING
         )
-        self.assertIn("(con integer 10)", code.dumps())
+        self.assertTrue(
+            "(con integer 10)" in code.dumps() or "(con data (I 10))" in code.dumps()
+        )
 
     def test_constant_folding_repeated_assign(self):
         source_code = """
@@ -278,7 +286,10 @@ def validator(_: None) -> int:
 """
         code = builder._compile(source_code, config=DEFAULT_CONFIG_CONSTANT_FOLDING)
         code_src = code.dumps()
-        self.assertIn(f"(con integer {2**10})", code_src)
+        self.assertTrue(
+            f"(con integer {2**10})" in code_src
+            or f"(con data (I {2**10}))" in code_src
+        )
 
     def test_constant_folding_ignore_reassignment(self):
         source_code = """
@@ -314,7 +325,9 @@ def validator(_: None) -> int:
     a = 3
     return b()
         """
-        res = eval_uplc_value(source_code, Unit())
+        res = eval_uplc_value(
+            source_code, Unit(), config=DEFAULT_CONFIG_CONSTANT_FOLDING
+        )
         self.assertEqual(res, 2)
 
     def test_double_import_offset(self):

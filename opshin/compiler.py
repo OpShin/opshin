@@ -9,6 +9,7 @@ from pycardano import PlutusData
 from uplc.ast import data_from_cbor
 
 from .bridge import to_uplc_builtin
+from .optimize.optimize_remove_trace import OptimizeRemoveTrace
 from .prelude import Nothing
 from .type_impls import (
     InstanceType,
@@ -1188,6 +1189,7 @@ def compile(
         RewriteImportUPLCBuiltins(),
         RewriteRemoveTypeStuff(),
         # Apply optimizations
+        OptimizeRemoveTrace() if config.remove_trace else NoOp(),
         OptimizeRemoveDeadvars() if config.remove_dead_code else NoOp(),
         OptimizeRemoveDeadconstants() if config.remove_dead_code else NoOp(),
         OptimizeRemovePass(),
