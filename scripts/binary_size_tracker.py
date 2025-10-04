@@ -2,13 +2,13 @@
 """
 Binary Size Tracker for OpShin
 
-This script measures the binary sizes of compiled OpShin contracts and can:
+This script measures the binary sizes and execution costs of compiled OpShin contracts and can:
 1. Generate a baseline measurement file for release artifacts
-2. Compare current binary sizes against a baseline (for PRs)
-3. Report size changes in a human-readable format
+2. Compare current binary sizes and execution costs against a baseline (for PRs)
+3. Report size and cost changes in a human-readable format
 
 The script compiles a set of example contracts and measures their CBOR file sizes
-across different optimization levels.
+and execution costs (CPU/MEM) across different optimization levels.
 """
 
 import argparse
@@ -128,13 +128,86 @@ def compile_contract(
         return None
 
 
+def evaluate_contract(
+    contract_path: str,
+    purpose: str,
+    optimization: str,
+    test_inputs: Dict,
+    extra_flags: Optional[List[str]] = None,
+    work_dir: Optional[str] = None,
+) -> Optional[Dict]:
+    """
+    Evaluate a contract with given inputs and return execution costs.
+    Returns a dict with 'cpu' and 'memory' costs, or None if evaluation fails.
+    
+    test_inputs should have:
+        - test_case_name: str
+        - inputs_hex: List[str] - list of hex-encoded CBOR inputs
+    """
+    if work_dir is None:
+        work_dir = os.getcwd()
+
+    # Build command to evaluate the contract
+    cmd = [
+        "poetry",
+        "run",
+        "opshin",
+        "eval_uplc",
+        purpose,
+        contract_path,
+        f"-{optimization}",
+        "--recursion-limit",
+        "4000",
+    ]
+
+    if extra_flags:
+        cmd.extend(extra_flags)
+
+    # Add inputs as hex parameters
+    for input_hex in test_inputs.get("inputs_hex", []):
+        cmd.append(input_hex)
+
+    exit_code, stdout, stderr = run_command(cmd, cwd=work_dir)
+
+    if exit_code != 0:
+        print(f"Failed to evaluate {contract_path}: {stderr}")
+        return None
+
+    # Parse the output to extract CPU and MEM costs
+    # Expected format: "CPU: <number> | MEM: <number>"
+    try:
+        cost_line = None
+        for line in stdout.splitlines():
+            if "CPU:" in line and "MEM:" in line:
+                cost_line = line
+                break
+        
+        if cost_line is None:
+            print(f"Could not find cost information in output")
+            return None
+
+        # Parse "CPU: 12345 | MEM: 67890"
+        parts = cost_line.split("|")
+        cpu_str = parts[0].split(":")[1].strip()
+        mem_str = parts[1].split(":")[1].strip()
+        
+        return {
+            "cpu": int(cpu_str),
+            "memory": int(mem_str)
+        }
+    except Exception as e:
+        print(f"Failed to parse execution costs: {e}")
+        print(f"Output was: {stdout}")
+        return None
+
+
 def measure_contract_sizes(
     contracts: List[Dict],
     optimization_levels: List[str],
     work_dir: Optional[str] = None,
 ) -> Dict:
     """
-    Measure binary sizes for all contracts and optimization levels.
+    Measure binary sizes and execution costs for all contracts and optimization levels.
     Returns a dict with the measurements.
     """
     results = {
@@ -150,6 +223,7 @@ def measure_contract_sizes(
         path = contract["path"]
         purpose = contract["purpose"]
         extra_flags = contract.get("extra_flags", [])
+        test_inputs_list = contract.get("test_inputs", [])
 
         print(f"Measuring {name}...")
 
@@ -157,8 +231,34 @@ def measure_contract_sizes(
         for opt_level in optimization_levels:
             size = compile_contract(path, purpose, opt_level, extra_flags, work_dir)
             if size is not None:
-                contract_results[opt_level] = size
+                contract_results[opt_level] = {"size": size}
                 print(f"  {opt_level}: {size} bytes")
+                
+                # Measure execution costs if test inputs are provided
+                if test_inputs_list:
+                    execution_costs = []
+                    for test_inputs in test_inputs_list:
+                        test_case_name = test_inputs.get("test_case_name", "unnamed")
+                        print(f"    Evaluating test case: {test_case_name}")
+                        costs = evaluate_contract(
+                            path, purpose, opt_level, test_inputs, extra_flags, work_dir
+                        )
+                        if costs:
+                            execution_costs.append({
+                                "test_case": test_case_name,
+                                "cpu": costs["cpu"],
+                                "memory": costs["memory"]
+                            })
+                            print(f"      CPU: {costs['cpu']:,} | MEM: {costs['memory']:,}")
+                        else:
+                            execution_costs.append({
+                                "test_case": test_case_name,
+                                "cpu": None,
+                                "memory": None
+                            })
+                            print(f"      FAILED to evaluate")
+                    
+                    contract_results[opt_level]["execution_costs"] = execution_costs
             else:
                 print(f"  {opt_level}: FAILED")
                 contract_results[opt_level] = None
@@ -177,8 +277,8 @@ def measure_contract_sizes(
 def generate_baseline(
     output_file: str, work_dir: Optional[str] = None, config_file: Optional[str] = None
 ) -> None:
-    """Generate baseline measurements and save to file"""
-    print("Generating baseline binary size measurements...")
+    """Generate baseline measurements (sizes and execution costs) and save to file"""
+    print("Generating baseline binary size and execution cost measurements...")
 
     config = load_config(config_file)
     results = measure_contract_sizes(
@@ -197,7 +297,7 @@ def compare_with_baseline(
     config_file: Optional[str] = None,
 ) -> bool:
     """
-    Compare current measurements with baseline.
+    Compare current measurements (sizes and execution costs) with baseline.
     Returns True if there are significant changes, False otherwise.
     """
     if not os.path.exists(baseline_file):
@@ -212,13 +312,13 @@ def compare_with_baseline(
     with open(baseline_file, "r") as f:
         baseline = json.load(f)
 
-    print("Measuring current binary sizes...")
+    print("Measuring current binary sizes and execution costs...")
     current = measure_contract_sizes(
         config["contracts"], config["optimization_levels"], work_dir
     )
 
     print("\n" + "=" * 60)
-    print("BINARY SIZE COMPARISON REPORT")
+    print("BINARY SIZE AND EXECUTION COST COMPARISON REPORT")
     print("=" * 60)
 
     has_changes = False
@@ -241,15 +341,19 @@ def compare_with_baseline(
         any_increase = False
         prev_opt_level_size = float("inf")
         for opt_level in config["optimization_levels"]:
-            baseline_size = baseline_contract["sizes"].get(opt_level)
-            current_size = current_contract["sizes"].get(opt_level)
-            ignore_warnings = opt_level in config["ignore_warnings"]
+            baseline_data = baseline_contract["sizes"].get(opt_level)
+            current_data = current_contract["sizes"].get(opt_level)
+            ignore_warnings = opt_level in config.get("ignore_warnings", [])
+
+            # Handle both old format (int) and new format (dict with 'size' key)
+            baseline_size = baseline_data if isinstance(baseline_data, int) else (baseline_data.get("size") if baseline_data else None)
+            current_size = current_data if isinstance(current_data, int) else (current_data.get("size") if current_data else None)
 
             if current_size is not None:
                 size_diff = current_size - prev_opt_level_size
                 size_percent = (
                     (size_diff / prev_opt_level_size) * 100
-                    if prev_opt_level_size > 0
+                    if prev_opt_level_size > 0 and prev_opt_level_size != float("inf")
                     else 0
                 )
                 status = ""
@@ -262,16 +366,19 @@ def compare_with_baseline(
                 elif size_percent > warning_threshold:
                     has_changes = True if not ignore_warnings else has_changes
                     status = " ⚠️" + (" (ignored)" if ignore_warnings else "")
-                if increased:
+                if increased and prev_opt_level_size != float("inf"):
                     if not any_increase:
                         print_contract_info()
                     any_increase = True
                     print(
                         f"  {opt_level}: {prev_opt_level_size:,} → {current_size:,} bytes (increased from previous level by {size_diff:+,} bytes, {size_percent:+.1f}%) {status}"
                     )
-            prev_opt_level_size = current_size
+            prev_opt_level_size = current_size if current_size is not None else prev_opt_level_size
 
             if baseline_size is None or current_size is None:
+                if not any_increase:
+                    print_contract_info()
+                any_increase = True
                 print(f"  {opt_level}: MISSING DATA")
                 continue
 
@@ -302,17 +409,71 @@ def compare_with_baseline(
 
             total_size_change += size_diff
 
+            # Compare execution costs if available
+            if isinstance(current_data, dict) and "execution_costs" in current_data:
+                baseline_costs = baseline_data.get("execution_costs", []) if isinstance(baseline_data, dict) else []
+                current_costs = current_data.get("execution_costs", [])
+                
+                # Compare costs for each test case
+                for current_cost in current_costs:
+                    test_case = current_cost.get("test_case")
+                    current_cpu = current_cost.get("cpu")
+                    current_mem = current_cost.get("memory")
+                    
+                    if current_cpu is None or current_mem is None:
+                        continue
+                    
+                    # Find matching baseline test case
+                    baseline_cost = next(
+                        (bc for bc in baseline_costs if bc.get("test_case") == test_case),
+                        None
+                    )
+                    
+                    if baseline_cost and baseline_cost.get("cpu") is not None:
+                        baseline_cpu = baseline_cost.get("cpu")
+                        baseline_mem = baseline_cost.get("memory")
+                        
+                        cpu_diff = current_cpu - baseline_cpu
+                        mem_diff = current_mem - baseline_mem
+                        cpu_percent = (cpu_diff / baseline_cpu) * 100 if baseline_cpu > 0 else 0
+                        mem_percent = (mem_diff / baseline_mem) * 100 if baseline_mem > 0 else 0
+                        
+                        cost_status = ""
+                        if cpu_percent > significant_threshold or mem_percent > significant_threshold:
+                            has_changes = True if not ignore_warnings else has_changes
+                            cost_status = " ⚠️  SIGNIFICANT CHANGE" + (
+                                " (ignored)" if ignore_warnings else ""
+                            )
+                        elif cpu_percent > warning_threshold or mem_percent > warning_threshold:
+                            has_changes = True if not ignore_warnings else has_changes
+                            cost_status = " ⚠️" + (" (ignored)" if ignore_warnings else "")
+                        elif cpu_percent < 0 and mem_percent < 0:
+                            cost_status = " ↘️ (costs reduced)"
+                        
+                        if cpu_diff != 0 or mem_diff != 0:
+                            print(
+                                f"    Test '{test_case}': CPU {baseline_cpu:,} → {current_cpu:,} "
+                                f"({cpu_diff:+,}, {cpu_percent:+.1f}%) | "
+                                f"MEM {baseline_mem:,} → {current_mem:,} "
+                                f"({mem_diff:+,}, {mem_percent:+.1f}%){cost_status}"
+                            )
+                    else:
+                        # New test case with no baseline
+                        print(
+                            f"    Test '{test_case}' (new): CPU {current_cpu:,} | MEM {current_mem:,}"
+                        )
+
     print(
         f"\nTotal size change compared to previous release: {total_size_change:+,} bytes"
     )
 
     if has_changes:
-        print("\n⚠️  SIGNIFICANT BINARY SIZE CHANGES DETECTED")
+        print("\n⚠️  SIGNIFICANT CHANGES DETECTED")
         print(
-            "Please review the changes and consider optimization if sizes increased significantly."
+            "Please review the changes and consider optimization if sizes or costs increased significantly."
         )
     else:
-        print("\n✅ No significant binary size changes detected")
+        print("\n✅ No significant changes detected")
 
     print("=" * 60)
 
