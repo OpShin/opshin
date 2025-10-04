@@ -83,17 +83,16 @@ jobs:
       uses: actions/setup-python@v6
       with:
         python-version: ${{ needs.get-python-versions.outputs.primary-version }}
-        cache: "pip"
 
-    - name: Install Poetry
-      uses: snok/install-poetry@v1
+    - name: Install uv
+      uses: astral-sh/setup-uv@v6
 
     - name: Install project
-      run: poetry install --no-interaction --with dev
+      run: uv sync --dev
 
     - name: Generate binary size baseline
       run: |
-        python scripts/binary_size_tracker.py generate --baseline-file binary_sizes_baseline.json
+        uv run python scripts/binary_size_tracker.py generate --baseline-file binary_sizes_baseline.json
         echo "Generated baseline with $(jq -r '.metadata.total_contracts' binary_sizes_baseline.json) contracts"
 
     - name: Upload baseline as release asset
