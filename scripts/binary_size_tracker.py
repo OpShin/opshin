@@ -199,7 +199,6 @@ def evaluate_contract(
         print(f"Failed to parse execution costs: {e}")
         print(f"Output was: {stdout}")
         return None
-        return None
 
 
 def measure_contract_sizes(
