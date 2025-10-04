@@ -1,13 +1,20 @@
-[tool.poetry]
+[project]
 name = "opshin"
 version = "0.25.0"
 description = "A simple pythonic programming language for Smart Contracts on Cardano"
-authors = ["nielstron <niels@opshin.dev>"]
-license = "MIT"
+authors = [{ name = "nielstron", email = "niels@opshin.dev" }]
+requires-python = ">=3.9.0, <4.0"
 readme = "README.md"
-repository = "https://github.com/opshin/opshin"
-documentation = "https://opshin.opshin.dev/"
-keywords = ["python", "language", "programming-language", "compiler", "validator", "smart-contracts", "cardano"]
+license = "MIT"
+keywords = [
+    "python",
+    "language",
+    "programming-language",
+    "compiler",
+    "validator",
+    "smart-contracts",
+    "cardano",
+]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
@@ -19,32 +26,41 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
 ]
-packages = [{include = "opshin"}]
+dependencies = [
+    "uplc>=1.1.0",
+    "pluthon>=1.2.0",
+    "pycardano>=0.13.0",
+    "frozenlist2>=1.0.0",
+    "ordered-set>=4.1.0",
+]
 
-[tool.poetry.dependencies]
-python = ">=3.9.0, <4.0"
-uplc = ">=1.1.0"
-pluthon = ">=1.2.0"
-pycardano = ">=0.13.0"
-frozenlist2 = ">=1.0.0"
-ordered-set = ">=4.1.0"
+[project.urls]
+Repository = "https://github.com/opshin/opshin"
+Documentation = "https://opshin.opshin.dev/"
 
-
-[tool.poetry.group.dev.dependencies]
-hypothesis = ">=6.98.2"
-parameterized = ">=0.9.0"
-black = "^25.1.0"
-pre-commit = ">=3.3.2"
-coverage = ">=7.0"
-pytest = ">=7.3.1"
-pyyaml = "^6.0.3"
-
-[tool.poetry.scripts]
+[project.scripts]
 opshin = "opshin.__main__:main"
 
+[dependency-groups]
+dev = [
+    "hypothesis>=6.98.2",
+    "parameterized>=0.9.0",
+    "black>=25.1.0,<26",
+    "pre-commit>=3.3.2",
+    "coverage>=7.0",
+    "pytest>=7.3.1",
+    "pyyaml>=6.0.3,<7",
+]
+
+[tool.hatch.build.targets.sdist]
+include = ["opshin"]
+
+[tool.hatch.build.targets.wheel]
+include = ["opshin"]
+
 [build-system]
-requires = ["setuptools", "poetry-core"]
-build-backend = "poetry.core.masonry.api"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [tool.coverage.run]
 branch = true
