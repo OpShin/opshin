@@ -82,10 +82,23 @@
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
 
+        .charts-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
         .chart-wrapper {
             position: relative;
             height: 400px;
             margin-top: 20px;
+        }
+
+        @media (max-width: 1200px) {
+            .charts-grid {
+                grid-template-columns: 1fr;
+            }
         }
 
         .loading {
@@ -172,8 +185,8 @@
 </head>
 <body>
     <div class="header">
-        <h1>🚀 OpShin Binary Size Trends</h1>
-        <p>Track binary size changes across releases for OpShin smart contracts</p>
+        <h1>🚀 OpShin Binary Size & Execution Cost Trends</h1>
+        <p>Track binary size and execution cost changes across releases for OpShin smart contracts</p>
     </div>
 
     <div class="controls">
@@ -198,15 +211,30 @@
                     <option value="all">All releases</option>
                 </select>
             </div>
+            <div class="filter-item">
+                <label for="costMetricSelect">Execution Cost Metric:</label>
+                <select id="costMetricSelect">
+                    <option value="cpu">CPU</option>
+                    <option value="memory">Memory</option>
+                </select>
+            </div>
         </div>
     </div>
 
     <div class="stats" id="stats"></div>
 
-    <div class="chart-container">
-        <h3>📈 Binary Size Over Time</h3>
-        <div class="chart-wrapper">
-            <canvas id="sizeChart"></canvas>
+    <div class="charts-grid">
+        <div class="chart-container">
+            <h3>📈 Binary Size Over Time</h3>
+            <div class="chart-wrapper">
+                <canvas id="sizeChart"></canvas>
+            </div>
+        </div>
+        <div class="chart-container">
+            <h3>⚡ Execution Cost Over Time</h3>
+            <div class="chart-wrapper">
+                <canvas id="costChart"></canvas>
+            </div>
         </div>
     </div>
 
@@ -218,10 +246,12 @@
         class BinarySizeTrendViewer {
             constructor() {
                 this.releases = [];
-                this.chart = null;
+                this.sizeChart = null;
+                this.costChart = null;
                 this.selectedContract = 'all';
                 this.selectedOptLevels = ['O0', 'O1', 'O2', 'O3']; // Default to all optimization levels
                 this.releaseLimit = 20;
+                this.selectedCostMetric = 'cpu';
                 this.init();
             }
 
@@ -229,7 +259,7 @@
                 try {
                     await this.fetchReleases();
                     this.setupControls();
-                    this.updateChart();
+                    this.updateCharts();
                     this.updateStats();
                     document.getElementById('loading').style.display = 'none';
                 } catch (error) {
@@ -300,13 +330,18 @@
             setupEventListeners() {
                 document.getElementById('contractSelect').addEventListener('change', (e) => {
                     this.selectedContract = e.target.value;
-                    this.updateChart();
+                    this.updateCharts();
                     this.updateStats();
                 });
 
                 document.getElementById('releaseLimit').addEventListener('change', (e) => {
                     this.releaseLimit = e.target.value === 'all' ? 'all' : parseInt(e.target.value);
-                    this.updateChart();
+                    this.updateCharts();
+                });
+
+                document.getElementById('costMetricSelect').addEventListener('change', (e) => {
+                    this.selectedCostMetric = e.target.value;
+                    this.updateCostChart();
                 });
             }
 
@@ -323,19 +358,24 @@
                     btn.classList.toggle('active', this.selectedOptLevels.includes(btn.textContent));
                 });
 
-                this.updateChart();
+                this.updateCharts();
             }
 
-            updateChart() {
+            updateCharts() {
+                this.updateSizeChart();
+                this.updateCostChart();
+            }
+
+            updateSizeChart() {
                 const ctx = document.getElementById('sizeChart').getContext('2d');
 
-                if (this.chart) {
-                    this.chart.destroy();
+                if (this.sizeChart) {
+                    this.sizeChart.destroy();
                 }
 
-                const data = this.prepareChartData();
+                const data = this.prepareSizeChartData();
 
-                this.chart = new Chart(ctx, {
+                this.sizeChart = new Chart(ctx, {
                     type: 'line',
                     data: data,
                     options: {
@@ -375,7 +415,56 @@
                 });
             }
 
-            prepareChartData() {
+            updateCostChart() {
+                const ctx = document.getElementById('costChart').getContext('2d');
+
+                if (this.costChart) {
+                    this.costChart.destroy();
+                }
+
+                const data = this.prepareCostChartData();
+
+                this.costChart = new Chart(ctx, {
+                    type: 'line',
+                    data: data,
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        interaction: {
+                            mode: 'index',
+                            intersect: false,
+                        },
+                        plugins: {
+                            legend: {
+                                position: 'top',
+                            },
+                            title: {
+                                display: true,
+                                text: this.selectedContract === 'all'
+                                    ? `${this.selectedCostMetric.toUpperCase()} Execution Costs Across All Contracts`
+                                    : `${this.selectedCostMetric.toUpperCase()} Execution Costs for ${this.selectedContract}`
+                            }
+                        },
+                        scales: {
+                            x: {
+                                title: {
+                                    display: true,
+                                    text: 'Release'
+                                }
+                            },
+                            y: {
+                                title: {
+                                    display: true,
+                                    text: this.selectedCostMetric === 'cpu' ? 'CPU Cost' : 'Memory Cost'
+                                },
+                                beginAtZero: true
+                            }
+                        }
+                    }
+                });
+            }
+
+            prepareSizeChartData() {
                 let releases = this.releases.slice();
                 if (this.releaseLimit !== 'all') {
                     releases = releases.slice(0, this.releaseLimit);
@@ -428,6 +517,82 @@
                         const data = releases.map(release => {
                             const contract = release.binaryData?.contracts?.[this.selectedContract];
                             return contract?.sizes?.[optLevel] || null;
+                        });
+
+                        datasets.push({
+                            label: optLevel,
+                            data: data,
+                            borderColor: colors[optLevel],
+                            backgroundColor: colors[optLevel] + '20',
+                            fill: false,
+                            tension: 0.1
+                        });
+                    });
+                }
+
+                return { labels, datasets };
+            }
+
+            prepareCostChartData() {
+                let releases = this.releases.slice();
+                if (this.releaseLimit !== 'all') {
+                    releases = releases.slice(0, this.releaseLimit);
+                }
+
+                // Reverse to show oldest to newest
+                releases.reverse();
+
+                const labels = releases.map(r => r.tag_name);
+                const datasets = [];
+
+                const colors = {
+                    'O0': '#e74c3c',
+                    'O1': '#f39c12',
+                    'O2': '#2ecc71',
+                    'O3': '#3498db'
+                };
+
+                if (this.selectedContract === 'all') {
+                    // Show aggregated data across all contracts
+                    this.selectedOptLevels.forEach(optLevel => {
+                        const data = releases.map(release => {
+                            if (!release.binaryData?.contracts) return null;
+
+                            let totalCost = 0;
+                            let contractCount = 0;
+
+                            Object.values(release.binaryData.contracts).forEach(contract => {
+                                if (contract.sizes?.[optLevel]?.execution_costs?.length > 0) {
+                                    // Average all execution costs for this optimization level
+                                    const costs = contract.sizes[optLevel].execution_costs;
+                                    const avgCost = costs.reduce((sum, cost) => sum + cost[this.selectedCostMetric], 0) / costs.length;
+                                    totalCost += avgCost;
+                                    contractCount++;
+                                }
+                            });
+
+                            return contractCount > 0 ? totalCost : null;
+                        });
+
+                        datasets.push({
+                            label: optLevel,
+                            data: data,
+                            borderColor: colors[optLevel],
+                            backgroundColor: colors[optLevel] + '20',
+                            fill: false,
+                            tension: 0.1
+                        });
+                    });
+                } else {
+                    // Show data for specific contract
+                    this.selectedOptLevels.forEach(optLevel => {
+                        const data = releases.map(release => {
+                            const contract = release.binaryData?.contracts?.[this.selectedContract];
+                            if (!contract?.sizes?.[optLevel]?.execution_costs?.length) return null;
+
+                            // Average all execution costs for this optimization level
+                            const costs = contract.sizes[optLevel].execution_costs;
+                            return costs.reduce((sum, cost) => sum + cost[this.selectedCostMetric], 0) / costs.length;
                         });
 
                         datasets.push({
