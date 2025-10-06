@@ -45,7 +45,7 @@ opshin = "opshin.__main__:main"
 dev = [
     "hypothesis>=6.98.2",
     "parameterized>=0.9.0",
-    "black>=25.1.0,<26",
+    "ruff>=0.13.0",
     "pre-commit>=3.3.2",
     "coverage>=7.0",
     "pytest>=7.3.1",
@@ -94,4 +94,27 @@ exclude_also = [
     ]
 
 ignore_errors = true
+
+[tool.ruff]
+target-version = "py39"
+line-length = 88
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "UP",  # pyupgrade
+    "B",   # flake8-bugbear
+    "C4",  # flake8-comprehensions
+    "SIM", # flake8-simplify
+]
+ignore = [
+    "E501",  # Line too long (handled by formatter)
+]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
 
