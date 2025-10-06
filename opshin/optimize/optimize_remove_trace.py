@@ -1,8 +1,8 @@
 from ast import *
 
-from ..typed_ast import TypedCall, TypedAssert, TypedExpr
 from ..fun_impls import PrintImpl
 from ..type_impls import PolymorphicFunctionInstanceType
+from ..typed_ast import TypedAssert, TypedExpr
 from ..util import CompilingNodeTransformer
 
 """

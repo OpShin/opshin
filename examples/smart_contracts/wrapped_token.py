@@ -51,9 +51,9 @@ def all_tokens_locked_at_contract_address(
         if txo.address == address:
             res += txo.value.get(token.policy_id, {b"": 0}).get(token.token_name, 0)
             # enforce a small inlined datum
-            assert txo.datum == SomeOutputDatum(
-                b""
-            ), f"Does not attach correct datum to script output, got {txo.datum} but expected {b''}"
+            assert txo.datum == SomeOutputDatum(b""), (
+                f"Does not attach correct datum to script output, got {txo.datum} but expected {b''}"
+            )
     return res
 
 
@@ -83,7 +83,7 @@ def validator(
         own_pid = own_policy_id(own_utxo)
         own_addr = own_utxo.address
     else:
-        assert False, "Incorrect purpose given"
+        raise AssertionError("Incorrect purpose given")
     token = Token(token_policy_id, token_name)
     all_locked = all_tokens_locked_at_contract_address(
         ctx.tx_info.outputs, own_addr, token
@@ -95,6 +95,6 @@ def validator(
     print(f"unlocked from contract: {all_unlocked}")
     print(f"locked at contract: {all_locked}")
     print(f"minted: {all_minted}")
-    assert (
-        (all_locked - all_unlocked) * wrapping_factor
-    ) == all_minted, f"Wrong amount of tokens minted, difference: {(all_locked - all_unlocked) * wrapping_factor - all_minted}"
+    assert ((all_locked - all_unlocked) * wrapping_factor) == all_minted, (
+        f"Wrong amount of tokens minted, difference: {(all_locked - all_unlocked) * wrapping_factor - all_minted}"
+    )

@@ -3,8 +3,8 @@ A simple AMM pool contract that allows users to add and remove liquidity and swa
 DISCLAIMER: This is a simple example to demonstrate onchain based contract upgradeability and should not be used in production.
 """
 
-from opshin.prelude import *
 from opshin.ledger.interval import *
+from opshin.prelude import *
 from opshin.std.fractions import *
 from opshin.std.integrity import check_integrity
 
@@ -27,9 +27,9 @@ def check_greater_or_equal_value(a: Value, b: Value) -> None:
     """
     for policy_id, tokens in b.items():
         for token_name, amount in tokens.items():
-            assert (
-                a.get(policy_id, {b"": 0}).get(token_name, 0) >= amount
-            ), f"Value of {policy_id.hex()}.{token_name.hex()} is too low"
+            assert a.get(policy_id, {b"": 0}).get(token_name, 0) >= amount, (
+                f"Value of {policy_id.hex()}.{token_name.hex()} is too low"
+            )
 
 
 def check_mint_exactly_n_with_name(
@@ -62,7 +62,7 @@ def merge_without_duplicates(a: List[bytes], b: List[bytes]) -> List[bytes]:
     Rough estimate allows 1000 bytes / 32 bytes per policy id ~ 31 policy ids
     However for token names no lower bound on the length is given, so we assume 1000 bytes / 1 byte per token name ~ 1000 token names
     """
-    return [x for x in a if not x in b] + b
+    return [x for x in a if x not in b] + b
 
 
 def _subtract_token_names(
@@ -229,10 +229,7 @@ def compare_upper_lower_bound(a: UpperBoundPOSIXTime, b: LowerBoundPOSIXTime) ->
     if result == 0:
         a_closed = get_bool(a.closed)
         b_closed = get_bool(b.closed)
-        if a_closed and b_closed:
-            result = 0
-        else:
-            result = 1
+        result = 0 if a_closed and b_closed else 1
     return result
 
 
@@ -244,10 +241,7 @@ def compare_lower_upper_bound(a: LowerBoundPOSIXTime, b: UpperBoundPOSIXTime) ->
     if result == 0:
         a_closed = get_bool(a.closed)
         b_closed = get_bool(b.closed)
-        if a_closed and b_closed:
-            result = 0
-        else:
-            result = -1
+        result = 0 if a_closed and b_closed else -1
     return result
 
 
@@ -340,9 +334,9 @@ def check_valid_license_present(
     # note: no other licenses should be present in the input to ensure that this passes
     license_nft_name = license_input.value[license_policy_id].keys()[0]
     license_expiry_date = license_validity_from_name(license_nft_name)
-    assert before_ext(
-        tx_info.valid_range, FinitePOSIXTime(license_expiry_date)
-    ), "License is expired"
+    assert before_ext(tx_info.valid_range, FinitePOSIXTime(license_expiry_date)), (
+        "License is expired"
+    )
 
 
 def check_change_liquidity(
@@ -424,9 +418,9 @@ def check_change_liquidity(
     check_greater_or_equal_value(new_value, expected_new_value)
 
     # check that the new pool state is correct
-    assert (
-        own_output.address == own_input.address
-    ), "Liquidity change must not change address"
+    assert own_output.address == own_input.address, (
+        "Liquidity change must not change address"
+    )
     assert own_output.datum == SomeOutputDatum(
         PoolState(
             datum.im_pool_params,
@@ -511,9 +505,9 @@ def check_swap(
     check_greater_or_equal_value(new_value, expected_new_value)
 
     # check that the new pool state is correct
-    assert (
-        own_output.address == own_input.address
-    ), "Liquidity change must not change address"
+    assert own_output.address == own_input.address, (
+        "Liquidity change must not change address"
+    )
     assert own_output.datum == SomeOutputDatum(
         PoolState(
             datum.im_pool_params,
@@ -555,9 +549,9 @@ def check_upgrade(
     # check that this specific pool is being upgraded
     raw_old_pool_nft = pool_upgrade_params.old_pool_nft
     if isinstance(raw_old_pool_nft, Token):
-        assert (
-            raw_old_pool_nft == datum.im_pool_params.pool_nft
-        ), "Old pool nft does not match"
+        assert raw_old_pool_nft == datum.im_pool_params.pool_nft, (
+            "Old pool nft does not match"
+        )
     else:
         pass  # upgrade all pools
 
@@ -565,9 +559,9 @@ def check_upgrade(
     raw_new_pool_params = pool_upgrade_params.new_pool_params
     if isinstance(raw_new_pool_params, UpgradeablePoolParams):
         new_pool_params = raw_new_pool_params
-        assert (
-            new_pool_params.last_applied_proposal_id == tally_result.proposal_id
-        ), "Last applied proposal id must match the proposal id of the tally"
+        assert new_pool_params.last_applied_proposal_id == tally_result.proposal_id, (
+            "Last applied proposal id must match the proposal id of the tally"
+        )
     else:
         # preserve old parameters except for the proposal id
         new_pool_params = UpgradeablePoolParams(
@@ -590,9 +584,10 @@ def check_upgrade(
             own_input_info.out_ref,
         )
     ), "Pool params must match new pool params"
-    check_greater_or_equal_value(
-        own_output.value, own_input_info.resolved.value
-    ), "Value must not decrease in upgrade"
+    (
+        check_greater_or_equal_value(own_output.value, own_input_info.resolved.value),
+        "Value must not decrease in upgrade",
+    )
 
 
 def get_minting_purpose(context: ScriptContext) -> Minting:
@@ -614,12 +609,12 @@ def validator(datum: PoolState, redeemer: PoolAction, context: ScriptContext) ->
     """
     purpose = get_spending_purpose(context)
     own_input_info = context.tx_info.inputs[redeemer.pool_input_index]
-    assert (
-        own_input_info.out_ref == purpose.tx_out_ref
-    ), "Index of own input does not match purpose"
+    assert own_input_info.out_ref == purpose.tx_out_ref, (
+        "Index of own input does not match purpose"
+    )
 
     own_output = context.tx_info.outputs[redeemer.pool_output_index]
-    if isinstance(redeemer, AddLiquidity) or isinstance(redeemer, RemoveLiquidity):
+    if isinstance(redeemer, (AddLiquidity, RemoveLiquidity)):
         check_valid_license_present(
             redeemer.license_input_index,
             context.tx_info,
@@ -636,4 +631,4 @@ def validator(datum: PoolState, redeemer: PoolAction, context: ScriptContext) ->
     elif isinstance(redeemer, PoolUpgrade):
         check_upgrade(datum, redeemer, context, own_input_info, own_output)
     else:
-        assert False, "Unknown redeemer"
+        raise AssertionError("Unknown redeemer")

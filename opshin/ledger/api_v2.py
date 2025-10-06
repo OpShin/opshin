@@ -4,9 +4,10 @@ All classes involved in defining the ScriptContext passed by the node.
 """
 
 from dataclasses import dataclass
-from typing import Dict, List, Union
+from typing import Union
 
-from pycardano import Datum as Anything, PlutusData
+from pycardano import Datum as Anything
+from pycardano import PlutusData
 
 
 # Plutus V2
@@ -178,7 +179,7 @@ TokenName = bytes
 # the amount of the token that is being sent/minted/burned etc
 #
 # Lovelace is represented with policy id b"" and token name b""
-Value = Dict[PolicyId, Dict[TokenName, int]]
+Value = dict[PolicyId, dict[TokenName, int]]
 
 # A hash of a Datum
 DatumHash = bytes
@@ -462,17 +463,17 @@ class TxInfo(PlutusData):
     """
 
     CONSTR_ID = 0
-    inputs: List[TxInInfo]
-    reference_inputs: List[TxInInfo]
-    outputs: List[TxOut]
+    inputs: list[TxInInfo]
+    reference_inputs: list[TxInInfo]
+    outputs: list[TxOut]
     fee: Value
     mint: Value
-    dcert: List[DCert]
-    wdrl: Dict[StakingCredential, int]
+    dcert: list[DCert]
+    wdrl: dict[StakingCredential, int]
     valid_range: POSIXTimeRange
-    signatories: List[PubKeyHash]
-    redeemers: Dict[ScriptPurpose, Redeemer]
-    data: Dict[DatumHash, Datum]
+    signatories: list[PubKeyHash]
+    redeemers: dict[ScriptPurpose, Redeemer]
+    data: dict[DatumHash, Datum]
     id: TxId
 
 

@@ -1,51 +1,50 @@
-import typing
 from enum import Enum
 
-import uplc.ast as uplc
 import pluthon as plt
+import uplc.ast as uplc
 
-from .util import OLambda, OVar, SafeOLambda, OLet
 from .type_impls import (
-    PolymorphicFunction,
+    AnyType,
+    BoolInstanceType,
+    ByteStringInstanceType,
+    ByteStringType,
+    ClassType,
+    DictType,
+    FunctionType,
     InstanceType,
     IntegerInstanceType,
-    ByteStringInstanceType,
-    ListType,
-    DictType,
-    TupleType,
-    empty_list,
-    BoolInstanceType,
-    ClassType,
-    UnionType,
-    AnyType,
     IntegerType,
-    ByteStringType,
-    RecordType,
-    PowImpl,
-    StringInstanceType,
+    ListType,
+    PolymorphicFunction,
     PolymorphicFunctionType,
-    FunctionType,
+    PowImpl,
+    RecordType,
+    StringInstanceType,
+    TupleType,
+    Type,
+    UnionType,
+    empty_list,
 )
 from .typed_ast import *
-from .type_impls import Type
+from .util import OLambda, OLet, OVar, SafeOLambda
 
 
 class LenImpl(PolymorphicFunction):
-    def type_from_args(self, args: typing.List[Type]) -> FunctionType:
-        assert (
-            len(args) == 1
-        ), f"'len' takes only one argument, but {len(args)} were given"
-        assert isinstance(
-            args[0], InstanceType
-        ), "Can only determine length of instances"
+    def type_from_args(self, args: list[Type]) -> FunctionType:
+        assert len(args) == 1, (
+            f"'len' takes only one argument, but {len(args)} were given"
+        )
+        assert isinstance(args[0], InstanceType), (
+            "Can only determine length of instances"
+        )
         return FunctionType(args, IntegerInstanceType)
 
-    def impl_from_args(self, args: typing.List[Type]) -> plt.AST:
+    def impl_from_args(self, args: list[Type]) -> plt.AST:
         arg = args[0]
         assert isinstance(arg, InstanceType), "Can only determine length of instances"
         if arg == ByteStringInstanceType:
             return OLambda(["x"], plt.LengthOfByteString(OVar("x")))
-        elif isinstance(arg.typ, ListType) or isinstance(arg.typ, DictType):
+        elif isinstance(arg.typ, (ListType, DictType)):
             # simple list length function
             return OLambda(
                 ["x"],
@@ -64,17 +63,17 @@ class LenImpl(PolymorphicFunction):
 
 
 class ReversedImpl(PolymorphicFunction):
-    def type_from_args(self, args: typing.List[Type]) -> FunctionType:
-        assert (
-            len(args) == 1
-        ), f"'reversed' takes only one argument, but {len(args)} were given"
+    def type_from_args(self, args: list[Type]) -> FunctionType:
+        assert len(args) == 1, (
+            f"'reversed' takes only one argument, but {len(args)} were given"
+        )
         typ = args[0]
         assert isinstance(typ, InstanceType), "Can only reverse instances"
         assert isinstance(typ.typ, ListType), "Can only reverse instances of lists"
         # returns list of same type
         return FunctionType(args, typ)
 
-    def impl_from_args(self, args: typing.List[Type]) -> plt.AST:
+    def impl_from_args(self, args: list[Type]) -> plt.AST:
         arg = args[0]
         assert isinstance(arg, InstanceType), "Can only reverse instances"
         if isinstance(arg.typ, ListType):
@@ -91,18 +90,18 @@ class ReversedImpl(PolymorphicFunction):
 
 
 class PrintImpl(PolymorphicFunction):
-    def type_from_args(self, args: typing.List[Type]) -> FunctionType:
-        assert all(
-            isinstance(typ, InstanceType) for typ in args
-        ), "Can only print instances"
+    def type_from_args(self, args: list[Type]) -> FunctionType:
+        assert all(isinstance(typ, InstanceType) for typ in args), (
+            "Can only print instances"
+        )
         return FunctionType(args, NoneInstanceType)
 
-    def impl_from_args(self, args: typing.List[Type]) -> plt.AST:
+    def impl_from_args(self, args: list[Type]) -> plt.AST:
         if not args:
             return SafeOLambda([], plt.Trace(plt.Text("\n"), plt.NoneData()))
-        assert all(
-            isinstance(arg, InstanceType) for arg in args
-        ), "Can only stringify instances"
+        assert all(isinstance(arg, InstanceType) for arg in args), (
+            "Can only stringify instances"
+        )
         stringify_ops = [
             plt.Apply(arg.typ.stringify(), OVar(f"x{i}")) for i, arg in enumerate(args)
         ]
@@ -115,19 +114,17 @@ class PrintImpl(PolymorphicFunction):
 
 
 class IsinstanceImpl(PolymorphicFunction):
-    def type_from_args(self, args: typing.List[Type]) -> FunctionType:
-        assert (
-            len(args) == 2
-        ), f"isinstance takes two arguments [object, type], but {len(args)} were given"
+    def type_from_args(self, args: list[Type]) -> FunctionType:
+        assert len(args) == 2, (
+            f"isinstance takes two arguments [object, type], but {len(args)} were given"
+        )
         return FunctionType(args, BoolInstanceType)
 
-    def impl_from_args(self, args: typing.List[Type]) -> plt.AST:
+    def impl_from_args(self, args: list[Type]) -> plt.AST:
         instance: InstanceType = args[0]
         target: ClassType = args[1]
         assert isinstance(instance, InstanceType), "First argument must be an instance"
-        if not (
-            isinstance(instance.typ, UnionType) or isinstance(instance.typ, AnyType)
-        ):
+        if not (isinstance(instance.typ, (UnionType, AnyType))):
             if instance.typ == target:
                 return OLambda(["x"], plt.Bool(True))
             else:
@@ -202,7 +199,7 @@ class IsinstanceImpl(PolymorphicFunction):
             )
         else:
             raise NotImplementedError(
-                f"Only isinstance for byte, int, Plutus Dataclass types are supported"
+                "Only isinstance for byte, int, Plutus Dataclass types are supported"
             )
 
 

@@ -1,12 +1,12 @@
 """Rewrite rule to prevent asserting None values."""
 
 import ast
-from typing import Optional, cast
+from typing import Optional
 
-from .rewrite_cast_condition import SPECIAL_BOOL
+from ..type_impls import InstanceType, UnitInstanceType, UnitType
 from ..typed_ast import TypedAssert
-from ..type_impls import UnitInstanceType, InstanceType, UnitType
 from ..util import CompilingNodeTransformer
+from .rewrite_cast_condition import SPECIAL_BOOL
 
 
 class RewriteAssertNone(CompilingNodeTransformer):

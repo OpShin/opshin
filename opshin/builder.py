@@ -5,21 +5,20 @@ import functools
 import json
 import typing
 from ast import Module
-from typing import Optional, Any, Union
 from pathlib import Path
+from typing import Optional, Union
 
-from pycardano import PlutusV2Script, IndefiniteList, PlutusData, Datum
-
-from . import __version__, compiler
-
-import uplc.ast
-from uplc import flatten, ast as uplc_ast, eval as uplc_eval
 import cbor2
 import pycardano
+import uplc.ast
 from pluthon import compile as plt_compile
+from pycardano import Datum, IndefiniteList, PlutusData, PlutusV2Script
+from uplc import ast as uplc_ast
+from uplc import flatten
 
-from .util import datum_to_cbor
+from . import __version__, compiler
 from .compiler_config import DEFAULT_CONFIG
+from .util import datum_to_cbor
 
 
 class Purpose(enum.Enum):
@@ -34,10 +33,10 @@ class Purpose(enum.Enum):
 @dataclasses.dataclass
 class PlutusContract:
     contract: PlutusV2Script
-    datum_type: Optional[typing.Tuple[str, typing.Type[Datum]]] = None
-    redeemer_type: Optional[typing.Tuple[str, typing.Type[Datum]]] = None
-    parameter_types: typing.List[typing.Tuple[str, typing.Type[Datum]]] = (
-        dataclasses.field(default_factory=list)
+    datum_type: Optional[tuple[str, type[Datum]]] = None
+    redeemer_type: Optional[tuple[str, type[Datum]]] = None
+    parameter_types: list[tuple[str, type[Datum]]] = dataclasses.field(
+        default_factory=list
     )
     purpose: typing.Iterable[Purpose] = (Purpose.any,)
     version: Optional[str] = "1.0.0"
@@ -148,9 +147,9 @@ class PlutusContract:
         Returns a new OpShin Contract with the applied parameters
         """
         # update the parameters in the blueprint (remove applied parameters)
-        assert len(self.parameter_types) >= len(
-            args
-        ), f"Applying too many parameters to contract, allowed amount: {self.parameter_types}, but got {len(args)}"
+        assert len(self.parameter_types) >= len(args), (
+            f"Applying too many parameters to contract, allowed amount: {self.parameter_types}, but got {len(args)}"
+        )
         new_parameter_types = copy.copy(self.parameter_types)
         for _ in args:
             # TODO validate that the applied parameters are of the correct type
@@ -279,7 +278,7 @@ PURPOSE_MAP = {
 }
 
 
-def to_plutus_schema(cls: typing.Type[Datum]) -> dict:
+def to_plutus_schema(cls: type[Datum]) -> dict:
     """
     Convert to a dictionary representing a json schema according to CIP 57 Plutus Blueprint
     Reference of the core structure:
@@ -344,7 +343,7 @@ def to_plutus_schema(cls: typing.Type[Datum]) -> dict:
         return {}
 
 
-def from_plutus_schema(schema: dict) -> typing.Type[pycardano.Datum]:
+def from_plutus_schema(schema: dict) -> type[pycardano.Datum]:
     """
     Convert from a dictionary representing a json schema according to CIP 57 Plutus Blueprint
     """
@@ -365,9 +364,9 @@ def from_plutus_schema(schema: dict) -> typing.Type[pycardano.Datum]:
             return int
         elif typ == "list":
             if "items" in schema:
-                return typing.List[from_plutus_schema(schema["items"])]
+                return list[from_plutus_schema(schema["items"])]
             else:
-                return typing.List[pycardano.Datum]
+                return list[pycardano.Datum]
         elif typ == "map":
             key_t = (
                 from_plutus_schema(schema["keys"])
@@ -379,7 +378,7 @@ def from_plutus_schema(schema: dict) -> typing.Type[pycardano.Datum]:
                 if "values" in schema
                 else pycardano.Datum
             )
-            return typing.Dict[key_t, value_t]
+            return dict[key_t, value_t]
         elif typ == "constructor":
             fields = {}
             for field in schema["fields"]:
@@ -470,9 +469,9 @@ def load(contract_path: Union[Path, str]) -> PlutusContract:
                 title = contract["preamble"].get("title")
                 description = contract["preamble"].get("description")
                 license = contract["preamble"].get("license")
-                assert (
-                    contract["preamble"].get("plutusVersion") == "v2"
-                ), "Only Plutus V2 supported"
+                assert contract["preamble"].get("plutusVersion") == "v2", (
+                    "Only Plutus V2 supported"
+                )
                 return PlutusContract(
                     contract_cbor,
                     datum_type,
@@ -484,7 +483,7 @@ def load(contract_path: Union[Path, str]) -> PlutusContract:
                     description,
                     license,
                 )
-        except (ValueError, KeyError) as e:
+        except (ValueError, KeyError):
             pass
     contract_cbor = None
     for contract_file in contract_candidates:

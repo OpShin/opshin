@@ -19,10 +19,12 @@ f = a > b  # f is False
 ```
 
 """
+# ruff: noqa: F405 F403
 
 from dataclasses import dataclass
-from pycardano import Datum as Anything, PlutusData
-from typing import Dict, List, Union
+from typing import Union
+
+from pycardano import PlutusData
 
 from opshin.std.math import *
 

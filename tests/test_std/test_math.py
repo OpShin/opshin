@@ -1,11 +1,10 @@
 import fractions
+import math
 
 import hypothesis
 import hypothesis.strategies as hst
 
 from opshin.std import math as oc_math
-
-import math
 
 pos_int = hst.integers(min_value=0)
 

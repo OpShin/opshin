@@ -3,9 +3,11 @@ import unittest
 import hypothesis
 from hypothesis import given
 from hypothesis import strategies as st
-from .utils import eval_uplc_value
-from . import PLUTUS_VM_PROFILE
 
+from opshin import CompilerError
+
+from . import PLUTUS_VM_PROFILE
+from .utils import eval_uplc_value
 
 hypothesis.settings.load_profile(PLUTUS_VM_PROFILE)
 
@@ -55,8 +57,8 @@ def simple_example(x: int, y: int, z:int) -> int:
 def validator(a: int, b: int, c: int) -> int:
     return simple_example(x=a, y=b, c)
 """
-        with self.assertRaises(Exception):
-            ret = eval_uplc_value(source_code, 1, 2, 3)
+        with self.assertRaises(CompilerError):
+            eval_uplc_value(source_code, 1, 2, 3)
 
     def test_too_many_keywords_failure(self):
         source_code = """
@@ -66,8 +68,8 @@ def simple_example(x: int, y: int) -> int:
 def validator(a: int, b: int, c: int) -> int:
     return simple_example(x=a, y=b, z=c)
 """
-        with self.assertRaises(Exception):
-            ret = eval_uplc_value(source_code, 1, 2, 3)
+        with self.assertRaises(CompilerError):
+            eval_uplc_value(source_code, 1, 2, 3)
 
     def test_incorrect_keywords_failure(self):
         source_code = """
@@ -77,8 +79,8 @@ def simple_example(x: int, y: int, z: int) -> int:
 def validator(a: int, b: int, c: int) -> int:
     return simple_example(x=a, y=b, k=c)
 """
-        with self.assertRaises(Exception):
-            ret = eval_uplc_value(source_code, 1, 2, 3)
+        with self.assertRaises(CompilerError):
+            eval_uplc_value(source_code, 1, 2, 3)
 
     @given(x=st.integers(), y=st.integers(), z=st.integers())
     def test_correct_scope(self, x: int, y: int, z: int):
@@ -102,8 +104,8 @@ def simple_example(x: int, y: int, z: int) -> int:
 def validator(a: int, b: bytes, c: int) -> int:
     return simple_example(x=a, y=b, z=c)
 """
-        with self.assertRaises(Exception):
-            ret = eval_uplc_value(source_code, 1, 2, 3)
+        with self.assertRaises(CompilerError):
+            eval_uplc_value(source_code, 1, 2, 3)
 
     @given(x=st.integers())
     def test_class_keywords(self, x: int):
@@ -115,7 +117,7 @@ class A(PlutusData):
     x: int
     y: int
     z: int
-    
+
 
 
 def validator(a: int, b: int, c: int) -> int:
@@ -154,5 +156,5 @@ class A(PlutusData):
 def validator(a: int, b: bytes, c: int) -> int:
     return A(x=a, y=b, z=c).x
 """
-        with self.assertRaises(Exception):
-            ret = eval_uplc_value(source_code, 1, b"2", 3)
+        with self.assertRaises(CompilerError):
+            eval_uplc_value(source_code, 1, b"2", 3)

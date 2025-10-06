@@ -86,7 +86,7 @@ def resolve_datum_unsafe(txout: TxOut, tx_info: TxInfo) -> BuiltinData:
         res = attached_datum.datum
     else:
         # no datum attached
-        assert False, "No datum was attached to the given transaction output"
+        raise AssertionError("No datum was attached to the given transaction output")
     return res
 
 
@@ -140,8 +140,6 @@ def token_present_in_inputs(token: Token, inputs: List[TxInInfo]):
     Returns whether the given token is spent in one of the inputs of the transaction
     """
     return any(
-        [
-            x.resolved.value.get(token.policy_id, {b"": 0}).get(token.token_name, 0) > 0
-            for x in inputs
-        ]
+        x.resolved.value.get(token.policy_id, {b"": 0}).get(token.token_name, 0) > 0
+        for x in inputs
     )

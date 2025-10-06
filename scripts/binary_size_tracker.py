@@ -17,18 +17,19 @@ import os
 import shutil
 import subprocess
 import sys
-import yaml
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Optional
+
+import yaml
 
 
-def load_config(config_file: Optional[str] = None) -> Dict:
+def load_config(config_file: Optional[str] = None) -> dict:
     """Load configuration from YAML file"""
     if config_file is None:
         config_file = Path(__file__).parent / "binary_size_config.yaml"
 
     try:
-        with open(config_file, "r") as f:
+        with open(config_file) as f:
             config = yaml.safe_load(f)
         return config
     except Exception as e:
@@ -67,7 +68,7 @@ def load_config(config_file: Optional[str] = None) -> Dict:
         }
 
 
-def run_command(cmd: List[str], cwd: Optional[str] = None) -> Tuple[int, str, str]:
+def run_command(cmd: list[str], cwd: Optional[str] = None) -> tuple[int, str, str]:
     """Run a command and return exit code, stdout, stderr"""
     try:
         result = subprocess.run(
@@ -82,7 +83,7 @@ def compile_contract(
     contract_path: str,
     purpose: str,
     optimization: str,
-    extra_flags: Optional[List[str]] = None,
+    extra_flags: Optional[list[str]] = None,
     work_dir: Optional[str] = None,
 ) -> Optional[int]:
     """
@@ -132,10 +133,10 @@ def evaluate_contract(
     contract_path: str,
     purpose: str,
     optimization: str,
-    test_inputs: Dict,
-    extra_flags: Optional[List[str]] = None,
+    test_inputs: dict,
+    extra_flags: Optional[list[str]] = None,
     work_dir: Optional[str] = None,
-) -> Optional[Dict]:
+) -> Optional[dict]:
     """
     Evaluate a contract with given inputs and return execution costs.
     Returns a dict with 'cpu' and 'memory' costs, or None if evaluation fails.
@@ -186,7 +187,7 @@ def evaluate_contract(
                 break
 
         if cost_line is None:
-            print(f"Could not find cost information in output")
+            print("Could not find cost information in output")
             return None
 
         # Parse "CPU: 12345 | MEM: 67890"
@@ -202,10 +203,10 @@ def evaluate_contract(
 
 
 def measure_contract_sizes(
-    contracts: List[Dict],
-    optimization_levels: List[str],
+    contracts: list[dict],
+    optimization_levels: list[str],
     work_dir: Optional[str] = None,
-) -> Dict:
+) -> dict:
     """
     Measure binary sizes and execution costs for all contracts and optimization levels.
     Returns a dict with the measurements.
@@ -262,7 +263,7 @@ def measure_contract_sizes(
                                     "memory": None,
                                 }
                             )
-                            print(f"      FAILED to evaluate")
+                            print("      FAILED to evaluate")
 
                     contract_results[opt_level]["execution_costs"] = execution_costs
             else:
@@ -297,6 +298,12 @@ def generate_baseline(
     print(f"Baseline saved to {output_file}")
 
 
+def print_contract_info(name, current):
+    print(f"\nContract: {name}")
+    print(f"Description: {current['contracts'][name]['description']}")
+    print("-" * 40)
+
+
 def compare_with_baseline(
     baseline_file: str,
     work_dir: Optional[str] = None,
@@ -315,7 +322,7 @@ def compare_with_baseline(
     significant_threshold = config["thresholds"]["significant"]
 
     print("Loading baseline measurements...")
-    with open(baseline_file, "r") as f:
+    with open(baseline_file) as f:
         baseline = json.load(f)
 
     print("Measuring current binary sizes and execution costs...")
@@ -335,11 +342,6 @@ def compare_with_baseline(
         if name not in baseline["contracts"] or name not in current["contracts"]:
             print(f"\nContract {name}: MISSING in baseline or current")
             continue
-
-        def print_contract_info():
-            print(f"\nContract: {name}")
-            print(f"Description: {current['contracts'][name]['description']}")
-            print("-" * 40)
 
         baseline_contract = baseline["contracts"][name]
         current_contract = current["contracts"][name]
@@ -382,7 +384,7 @@ def compare_with_baseline(
                     status = " ⚠️" + (" (ignored)" if ignore_warnings else "")
                 if increased and prev_opt_level_size != float("inf"):
                     if not any_increase:
-                        print_contract_info()
+                        print_contract_info(name, current)
                     any_increase = True
                     print(
                         f"  {opt_level}: {prev_opt_level_size:,} → {current_size:,} bytes (increased from previous level by {size_diff:+,} bytes, {size_percent:+.1f}%) {status}"

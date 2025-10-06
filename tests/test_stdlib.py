@@ -1,15 +1,16 @@
-from dataclasses import dataclass
 import unittest
+from dataclasses import dataclass
 
 import pytest
 from hypothesis import example, given, settings
 from hypothesis import strategies as st
-from uplc import ast as uplc, eval as uplc_eval
 from pycardano import PlutusData
+from uplc import ast as uplc
+
+from opshin import CompilerError, builder, compiler
 
 from . import PLUTUS_VM_PROFILE
-from .utils import eval_uplc, eval_uplc_value, Unit
-from opshin import compiler, builder, CompilerError
+from .utils import Unit, eval_uplc, eval_uplc_value
 
 settings.load_profile(PLUTUS_VM_PROFILE)
 
@@ -64,7 +65,7 @@ def validator(x: List[int], z: int) -> int:
         )
         try:
             ret = eval_uplc_value(source_code, xs, z)
-        except RuntimeError as e:
+        except RuntimeError:
             ret = None
         try:
             exp = xs.index(z)
@@ -74,7 +75,7 @@ def validator(x: List[int], z: int) -> int:
 
     @given(st.integers(), st.binary(), st.integers(), st.binary())
     @example(1, b"abc", 2, b"def")
-    def test_list_index(self, a_x, a_y, b_x, b_y):
+    def test_list_index2(self, a_x, a_y, b_x, b_y):
         # ensure that (a_x, a_y) != (b_x, b_y)
         if a_x == b_x and a_y == b_y:
             b_x += 1
@@ -97,7 +98,7 @@ def validator(a_x: int, a_y: bytes, b_x: int, b_y: bytes) -> int:
 
         try:
             ret = eval_uplc_value(source_code, a_x, a_y, b_x, b_y)
-        except RuntimeError as e:
+        except RuntimeError:
             ret = None
         exp = 1
         self.assertEqual(ret, exp, "list.index returned wrong value")
@@ -234,7 +235,7 @@ def validator(x: None) -> str:
         self.assertEqual(ret, xs, "literal string returned wrong value")
 
     def test_constant_unit(self):
-        source_code = f"""
+        source_code = """
 def validator(x: None) -> None:
     return None
             """
@@ -256,7 +257,7 @@ def validator(x: None) -> bool:
 
     @given(st.integers(), st.binary())
     def test_plutusdata_to_cbor(self, x: int, y: bytes):
-        source_code = f"""
+        source_code = """
 from opshin.prelude import *
 
 @dataclass
@@ -280,7 +281,7 @@ def validator(x: int, y: bytes) -> bytes:
 
     @given(st.integers(), st.booleans())
     def test_union_to_cbor(self, x: int, z: bool):
-        source_code = f"""
+        source_code = """
 from opshin.prelude import *
 
 @dataclass
@@ -389,14 +390,14 @@ def test_tuple_subscript(x, y, i, f):
     # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
     source_code = f"""
 def validator(y: int) -> int:
-    x = ({','.join('y + ' + str(i) for i in range(x))},)
+    x = ({",".join("y + " + str(i) for i in range(x))},)
     return x[{i}]
             """
     try:
         ret = eval_uplc_value(
             source_code, y, config=compiler.DEFAULT_CONFIG.update(constant_folding=f)
         )
-    except CompilerError as e:
+    except CompilerError:
         ret = None
     try:
         exp = [y + j for j in range(x)][i]
@@ -430,8 +431,8 @@ def test_pair_subscript(x, i, f):
     source_code = f"""
 from typing import Dict
 
-def validator(x: Dict[bytes, int]) -> {"bytes" if i %2 == 0 else "int"}:
-    y = {repr(b"") if i %2 == 0 else 0}
+def validator(x: Dict[bytes, int]) -> {"bytes" if i % 2 == 0 else "int"}:
+    y = {repr(b"") if i % 2 == 0 else 0}
     for pair in x.items():
        y += pair[{i}]
     return y
@@ -440,7 +441,7 @@ def validator(x: Dict[bytes, int]) -> {"bytes" if i %2 == 0 else "int"}:
         ret = eval_uplc_value(
             source_code, x, config=compiler.DEFAULT_CONFIG.update(constant_folding=f)
         )
-    except CompilerError as e:
+    except CompilerError:
         ret = None
     try:
         if (i > 1 or i < -2) and not x:
@@ -448,6 +449,6 @@ def validator(x: Dict[bytes, int]) -> {"bytes" if i %2 == 0 else "int"}:
         exp = b"" if i % 2 == 0 else 0
         for pair in x.items():
             exp += pair[i]
-    except IndexError as e:
+    except IndexError:
         exp = None
     assert ret == exp, f"pair[] returned wrong value for {x}, {i}"

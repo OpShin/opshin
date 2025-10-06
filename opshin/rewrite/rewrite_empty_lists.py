@@ -1,6 +1,6 @@
 from ..type_impls import empty_list
-from ..util import CompilingNodeTransformer
 from ..typed_ast import *
+from ..util import CompilingNodeTransformer
 
 """
 Replaces empty lists with UPLC constants of empty lists

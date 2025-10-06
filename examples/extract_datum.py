@@ -16,10 +16,10 @@ class Listing(PlutusData):
 # Import the dataclass from the opshin python file
 
 from examples.smart_contracts.marketplace import (
-    Listing,
     Address,
-    PubKeyCredential,
+    Listing,
     NoStakingCredential,
+    PubKeyCredential,
 )
 
 # Create the datum structure in the correct order and print it to use in your transactions for locking unlocking in cardano-cli

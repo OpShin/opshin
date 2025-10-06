@@ -1,11 +1,5 @@
-import unittest
-from dataclasses import dataclass
-
-from pycardano import PlutusData
-from uplc import ast as uplc
-
-from opshin import DEFAULT_CONFIG, builder
-from tests.utils import eval_uplc_value, Unit, eval_uplc, eval_uplc_raw
+from opshin import DEFAULT_CONFIG
+from tests.utils import Unit, eval_uplc_raw
 
 DEFAULT_CONFIG_REMOVE_TRACE = DEFAULT_CONFIG.update(
     remove_trace=True, iterative_unfold_patterns=True

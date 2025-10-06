@@ -1,19 +1,19 @@
-import typing
-from _ast import ImportFrom, AST
+from _ast import AST, ImportFrom
 from typing import Optional
+
 import pluthon as plt
 
 from ..type_impls import (
-    PolymorphicFunction,
+    FunctionType,
     InstanceType,
+    PolymorphicFunction,
+    PolymorphicFunctionType,
     RecordType,
     UnionType,
-    PolymorphicFunctionType,
-    FunctionType,
 )
 from ..type_inference import INITIAL_SCOPE
-from ..util import CompilingNodeTransformer, OLambda, OVar
 from ..typed_ast import *
+from ..util import CompilingNodeTransformer, OLambda, OVar
 
 """
 Injects the integrity checker function if it is imported
@@ -23,18 +23,18 @@ FunctionName = "check_integrity"
 
 
 class IntegrityCheckImpl(PolymorphicFunction):
-    def type_from_args(self, args: typing.List[Type]) -> FunctionType:
-        assert (
-            len(args) == 1
-        ), f"'integrity_check' takes only one argument, but {len(args)} were given"
+    def type_from_args(self, args: list[Type]) -> FunctionType:
+        assert len(args) == 1, (
+            f"'integrity_check' takes only one argument, but {len(args)} were given"
+        )
         typ = args[0]
         assert isinstance(typ, InstanceType), "Can only check integrity of instances"
-        assert any(
-            isinstance(typ.typ, t) for t in (RecordType, UnionType)
-        ), "Can only check integrity of PlutusData and Union types"
+        assert any(isinstance(typ.typ, t) for t in (RecordType, UnionType)), (
+            "Can only check integrity of PlutusData and Union types"
+        )
         return FunctionType(args, NoneInstanceType)
 
-    def impl_from_args(self, args: typing.List[Type]) -> plt.AST:
+    def impl_from_args(self, args: list[Type]) -> plt.AST:
         arg = args[0]
         assert isinstance(arg, InstanceType), "Can only check integrity of instances"
         return OLambda(
@@ -57,13 +57,13 @@ class RewriteImportIntegrityCheck(CompilingNodeTransformer):
         if node.module != "opshin.std.integrity":
             return node
         for n in node.names:
-            assert (
-                n.name == FunctionName
-            ), "Imports something other from the integrity check than the integrity check builtin"
+            assert n.name == FunctionName, (
+                "Imports something other from the integrity check than the integrity check builtin"
+            )
             renamed = n.asname if n.asname is not None else n.name
-            assert (
-                renamed not in INITIAL_SCOPE or renamed == FunctionName
-            ), f"Name '{renamed}' is a reserved name, cannot import {FunctionName} with that name."
+            assert renamed not in INITIAL_SCOPE or renamed == FunctionName, (
+                f"Name '{renamed}' is a reserved name, cannot import {FunctionName} with that name."
+            )
             INITIAL_SCOPE[renamed] = InstanceType(
                 PolymorphicFunctionType(IntegrityCheckImpl())
             )

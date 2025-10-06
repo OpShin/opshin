@@ -1,6 +1,5 @@
-from copy import copy
-
 from ast import *
+from copy import copy
 
 from ..util import CompilingNodeTransformer
 

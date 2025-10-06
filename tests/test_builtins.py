@@ -1,14 +1,13 @@
+import unittest
 from dataclasses import dataclass
 
 import hypothesis
-import unittest
-
 from hypothesis import example, given
 from hypothesis import strategies as st
 from pycardano import PlutusData
 
 from . import PLUTUS_VM_PROFILE
-from .utils import eval_uplc, eval_uplc_value, Unit
+from .utils import Unit, eval_uplc, eval_uplc_value
 
 hypothesis.settings.load_profile(PLUTUS_VM_PROFILE)
 
@@ -63,7 +62,7 @@ def validator(x: List[int]) -> bytes:
             exp = None
         try:
             ret = eval_uplc_value(source_code, xs)
-        except:
+        except RuntimeError:
             ret = None
         self.assertEqual(ret, exp, "bytes (integer list) returned wrong value")
 
@@ -79,7 +78,7 @@ def validator(x: int) -> bytes:
             exp = None
         try:
             ret = eval_uplc_value(source_code, x)
-        except:
+        except RuntimeError:
             ret = None
         self.assertEqual(ret, exp, "bytes (integer) returned wrong value")
 
@@ -95,7 +94,7 @@ def validator(x: bytes) -> bytes:
             exp = None
         try:
             ret = eval_uplc_value(source_code, x)
-        except:
+        except RuntimeError:
             ret = None
         self.assertEqual(ret, exp, "bytes (bytes) returned wrong value")
 
@@ -114,7 +113,7 @@ def validator(x: int) -> str:
             i_unicode = None
         try:
             ret = eval_uplc_value(source_code, i)
-        except:
+        except RuntimeError:
             ret = None
         self.assertEqual(ret, i_unicode, "chr returned wrong value")
 
@@ -156,7 +155,7 @@ def validator(x: str) -> int:
             exp = None
         try:
             ret = eval_uplc_value(source_code, xs.encode("utf8"))
-        except Exception as e:
+        except Exception:
             ret = None
         self.assertEqual(ret, exp, "int (str) returned wrong value")
 
@@ -172,7 +171,7 @@ def validator(x: bool) -> int:
             exp = None
         try:
             ret = eval_uplc_value(source_code, xs)
-        except:
+        except RuntimeError:
             ret = None
         self.assertEqual(ret, exp, "int (bool) returned wrong value")
 
@@ -188,7 +187,7 @@ def validator(x: int) -> int:
             exp = None
         try:
             ret = eval_uplc_value(source_code, xs)
-        except:
+        except RuntimeError:
             ret = None
         self.assertEqual(ret, exp, "int (int) returned wrong value")
 
@@ -243,11 +242,11 @@ def validator(x: List[int]) -> int:
         """
         try:
             exp = max(xs)
-        except:
+        except ValueError:
             exp = None
         try:
             ret = eval_uplc_value(source_code, xs)
-        except:
+        except RuntimeError:
             ret = None
         self.assertEqual(ret, exp, "max returned wrong value")
 
@@ -265,7 +264,7 @@ def validator(x: List[int]) -> int:
             exp = None
         try:
             ret = eval_uplc_value(source_code, xs)
-        except:
+        except RuntimeError:
             ret = None
         self.assertEqual(ret, exp, "min returned wrong value")
 
@@ -281,7 +280,7 @@ def validator(x: int, y: int) -> int:
             exp = None
         try:
             ret = eval_uplc_value(source_code, x, y)
-        except:
+        except RuntimeError:
             ret = None
         self.assertEqual(ret, exp, "pow returned wrong value")
 
@@ -506,7 +505,7 @@ def validator(x: str) -> bytes:
         """
         try:
             ret = eval_uplc_value(source_code, i.encode("utf8"))
-        except RuntimeError as e:
+        except RuntimeError:
             ret = None
         try:
             exp = bytes.fromhex(i)

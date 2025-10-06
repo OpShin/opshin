@@ -1,6 +1,6 @@
 import pytest
 
-from opshin import builder, CompilerError
+from opshin import CompilerError, builder
 
 
 def test_dataclass_function_overwrite():

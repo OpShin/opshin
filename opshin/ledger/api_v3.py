@@ -4,9 +4,11 @@ All classes involved in defining the ScriptContext passed by the node.
 """
 
 from dataclasses import dataclass
-from typing import Dict, List, Union
+from typing import Union
 
-from pycardano import Datum as Anything, PlutusData
+from pycardano import Datum as Anything
+from pycardano import PlutusData
+
 from opshin.std.fractions import *
 
 
@@ -205,7 +207,7 @@ TokenName = bytes
 # the amount of the token that is being sent/minted/burned etc
 #
 # Lovelace is represented with policy id b"" and token name b""
-Value = Dict[PolicyId, Dict[TokenName, int]]
+Value = dict[PolicyId, dict[TokenName, int]]
 
 # A hash of a Datum
 DatumHash = bytes
@@ -548,7 +550,7 @@ class NoGovernanceActionId(PlutusData):
 # use the index -> value mapping from aiken
 # https://github.com/aiken-lang/stdlib/blob/2.2.0/lib/cardano/governance/protocol_parameters.ak
 # Explicit mapping functions may follow
-ProtocolParametersUpdate = Dict[int, Datum]
+ProtocolParametersUpdate = dict[int, Datum]
 
 MaybeGovernanceActionId = Union[SomeGovernanceActionId, NoGovernanceActionId]
 
@@ -594,7 +596,7 @@ class GATreasuryWithdrawal(PlutusData):
     CONSTR_ID = 2
     #  A collection of beneficiaries, which can be plain verification key
     #  hashes or script hashes (e.g. DAO).
-    beneficiaries: Dict[Credential, Lovelace]
+    beneficiaries: dict[Credential, Lovelace]
     # The optional guardrails script defined in the constitution. The script
     # is executed by the ledger in addition to the hard-coded ledger rules.
     #
@@ -617,11 +619,11 @@ class GAConstitutionalCommittee(PlutusData):
     # They must all / form a chain.
     ancestor: MaybeGovernanceActionId
     # Constitutional members to be removed.
-    evicted_members: List[Credential]
+    evicted_members: list[Credential]
     # Constitutional members to be added.
     # Int value is a "mandate", an epoch number after which constitutional committee member
     # mandate expires.
-    added_members: Dict[Credential, int]
+    added_members: dict[Credential, int]
     # The new quorum value, as a ratio of a numerator and a denominator.
     # The quorum specifies the threshold of 'Yes' votes necessary for the constitutional committee to accept a proposal procedure.
     quorum: Fraction
@@ -722,23 +724,23 @@ class TxInfo(PlutusData):
     """
 
     CONSTR_ID = 0
-    inputs: List[TxInInfo]
-    reference_inputs: List[TxInInfo]
-    outputs: List[TxOut]
+    inputs: list[TxInInfo]
+    reference_inputs: list[TxInInfo]
+    outputs: list[TxOut]
     fee: Lovelace
     mint: Value
-    certificates: List[Certificate]
+    certificates: list[Certificate]
     # NOTE: Withdrawals are ordered by ascending Credential. Yet, note that `Script` credentials are treated as **lower values** than `VerificationKey` credentials.
-    withdrawals: Dict[StakingCredential, int]
+    withdrawals: dict[StakingCredential, int]
     validity_range: POSIXTimeRange
     # NOTE: Redeemers are ordered by ascending ScriptPurpose.
-    signatories: List[PubKeyHash]
-    redeemers: Dict[ScriptPurpose, Redeemer]
-    datums: Dict[DatumHash, Datum]
+    signatories: list[PubKeyHash]
+    redeemers: dict[ScriptPurpose, Redeemer]
+    datums: dict[DatumHash, Datum]
     id: TxId
     # NOTE: Votes are ordered by ascending Voter and GovernanceActionId. First constructor variants in a type are treated as lower indices; except for Credential where `Script` credentials are treated as **lower values** than `VerificationKey` credentials.
-    votes: Dict[Voter, Dict[GovernanceActionId, Vote]]
-    proposal_procedures: List[ProposalProcedure]
+    votes: dict[Voter, dict[GovernanceActionId, Vote]]
+    proposal_procedures: list[ProposalProcedure]
     current_treasury_amount: OptionalLovelace
     treasury_donation: OptionalLovelace
 

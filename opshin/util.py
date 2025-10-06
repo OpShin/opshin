@@ -1,20 +1,17 @@
-from _ast import Name, Store, ClassDef, FunctionDef, Load
+import ast
+import logging
+import typing
+from _ast import ClassDef, FunctionDef, Load, Name, Store
 from collections import defaultdict
 from copy import deepcopy
-import logging
-
-import typing
-
-import ast
 from dataclasses import dataclass
+from hashlib import sha256
 
+import pluthon as plt
 import pycardano
+import uplc.ast as uplc
 from frozendict import frozendict
 from frozenlist2 import frozenlist
-
-import uplc.ast as uplc
-import pluthon as plt
-from hashlib import sha256
 
 OPSHIN_LOGGER = logging.getLogger("opshin")
 OPSHIN_LOG_HANDLER = logging.StreamHandler()
@@ -96,7 +93,7 @@ class CompilingNodeTransformer(TypedNodeTransformer):
         except Exception as e:
             if isinstance(e, CompilerError):
                 raise e
-            raise CompilerError(e, node, self.step)
+            raise CompilerError(e, node, self.step) from None
 
 
 class NoOp(CompilingNodeTransformer):
@@ -114,10 +111,10 @@ class CompilingNodeVisitor(TypedNodeVisitor):
         except Exception as e:
             if isinstance(e, CompilerError):
                 raise e
-            raise CompilerError(e, node, self.step)
+            raise CompilerError(e, node, self.step) from None
 
 
-def data_from_json(j: typing.Dict[str, typing.Any]) -> uplc.PlutusData:
+def data_from_json(j: dict[str, typing.Any]) -> uplc.PlutusData:
     if "bytes" in j:
         return uplc.PlutusByteString(bytes.fromhex(j["bytes"]))
     if "int" in j:
@@ -303,29 +300,29 @@ def OVar(name: str):
     return plt.Var(opshin_name_scheme_compatible_varname(name))
 
 
-def OLambda(names: typing.List[str], term: plt.AST):
+def OLambda(names: list[str], term: plt.AST):
     return plt.Lambda([opshin_name_scheme_compatible_varname(x) for x in names], term)
 
 
-def OLet(bindings: typing.List[typing.Tuple[str, plt.AST]], term: plt.AST):
+def OLet(bindings: list[tuple[str, plt.AST]], term: plt.AST):
     return plt.Let(
         [(opshin_name_scheme_compatible_varname(n), t) for n, t in bindings], term
     )
 
 
-def SafeLambda(vars: typing.List[str], term: plt.AST) -> plt.Lambda:
+def SafeLambda(vars: list[str], term: plt.AST) -> plt.Lambda:
     if not vars:
         return plt.Lambda(["0_"], term)
     return plt.Lambda(vars, term)
 
 
-def SafeOLambda(vars: typing.List[str], term: plt.AST) -> plt.Lambda:
+def SafeOLambda(vars: list[str], term: plt.AST) -> plt.Lambda:
     if not vars:
         return OLambda(["0_"], term)
     return OLambda(vars, term)
 
 
-def SafeApply(term: plt.AST, *vars: typing.List[plt.AST]) -> plt.Apply:
+def SafeApply(term: plt.AST, *vars: list[plt.AST]) -> plt.Apply:
     if not vars:
         return plt.Apply(term, plt.Delay(plt.Unit()))
     return plt.Apply(term, *vars)

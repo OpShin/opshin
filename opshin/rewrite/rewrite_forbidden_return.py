@@ -11,7 +11,7 @@ class RewriteForbiddenReturn(CompilingNodeTransformer):
     step = "Checking for forbidden return statements"
 
     def visit_Return(self, node):
-        raise SyntaxError(f"Forbidden return statement outside function")
+        raise SyntaxError("Forbidden return statement outside function")
 
     def visit_FunctionDef(self, node: Name) -> Name:
         # skip the content of the function definition

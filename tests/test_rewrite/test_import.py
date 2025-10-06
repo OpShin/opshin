@@ -13,7 +13,7 @@ def validator(a: int) -> int:
     """
     try:
         builder._compile(source_code)
-        assert False, "Expected compilation failure due to import without from"
+        raise AssertionError("Expected compilation failure due to import without from")
     except CompilerError as e:
         assert "import" in str(e).lower(), "Unexpected error message"
 
@@ -27,7 +27,7 @@ def validator(a: int) -> int:
     """
     try:
         builder._compile(source_code)
-        assert False, "Expected compilation failure due to import without from"
+        raise AssertionError("Expected compilation failure due to import without from")
     except CompilerError as e:
         assert "import" in str(e).lower(), "Unexpected error message"
 

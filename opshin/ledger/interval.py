@@ -45,10 +45,7 @@ def compare_extended(a: ExtendedPOSIXTime, b: ExtendedPOSIXTime) -> int:
 
 
 def get_bool(b: BoolData) -> bool:
-    if isinstance(b, TrueData):
-        result = True
-    else:
-        result = False
+    result = bool(isinstance(b, TrueData))
     return result
 
 

@@ -1,13 +1,13 @@
 import typing
-from _ast import ImportFrom, AST, Store
+from _ast import AST, ImportFrom, Store
 from dataclasses import dataclass
 from enum import Enum, auto
-import pluthon as plt
 
+import pluthon as plt
 from frozenlist2 import frozenlist
 
+from ..type_impls import ByteStringInstanceType, ClassType, FunctionType, InstanceType
 from ..typed_ast import *
-from ..type_impls import ClassType, InstanceType, ByteStringInstanceType, FunctionType
 from ..util import CompilingNodeTransformer, force_params
 
 """
@@ -84,7 +84,7 @@ class RewriteImportHashlib(CompilingNodeTransformer):
 
     imports_hashlib = False
 
-    def visit_ImportFrom(self, node: ImportFrom) -> typing.Union[typing.List[AST], AST]:
+    def visit_ImportFrom(self, node: ImportFrom) -> typing.Union[list[AST], AST]:
         if node.module != "hashlib":
             return node
         additional_assigns = []
@@ -93,9 +93,9 @@ class RewriteImportHashlib(CompilingNodeTransformer):
             for h in PythonHashlib:
                 if h.name == n.name:
                     imported_fun = h
-            assert (
-                imported_fun is not None
-            ), f"Unsupported function import from hashlib '{n.name}"
+            assert imported_fun is not None, (
+                f"Unsupported function import from hashlib '{n.name}"
+            )
             typ = PythonHashlibTypes[imported_fun]
             imported_name = n.name if n.asname is None else n.asname
             additional_assigns.append(

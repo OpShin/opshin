@@ -1,13 +1,13 @@
 from typing import Optional
 
-from ..typed_ast import (
-    TypedAssign,
-)
 from ..type_impls import (
     ClassType,
     InstanceType,
     PolymorphicFunctionType,
     TypeInferenceError,
+)
+from ..typed_ast import (
+    TypedAssign,
 )
 from ..util import CompilingNodeTransformer
 
@@ -22,9 +22,9 @@ class RewriteRemoveTypeStuff(CompilingNodeTransformer):
     step = "Removing class and polymorphic function re-assignments"
 
     def visit_Assign(self, node: TypedAssign) -> Optional[TypedAssign]:
-        assert (
-            len(node.targets) == 1
-        ), "Assignments to more than one variable not supported yet"
+        assert len(node.targets) == 1, (
+            "Assignments to more than one variable not supported yet"
+        )
         try:
             if isinstance(node.value.typ, ClassType):
                 try:

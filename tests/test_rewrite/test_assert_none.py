@@ -1,7 +1,4 @@
-import ast
 import pytest
-import sys
-from typing import Optional
 
 from opshin import builder
 from opshin.util import CompilerError
@@ -12,7 +9,7 @@ def test_assert_none_call():
     code = """
 def foo_test(x: int) -> None:
     assert 1 == x
-  
+
 def validator(x: int) -> bool:
     assert foo_test(x)  # always (unintentionally) fails
     return True
@@ -33,7 +30,7 @@ def test_assert_none_nested_call():
 def validator(x: int) -> bool:
     def foo_test(y: int) -> None:
         assert 1 == y
-    
+
     assert foo_test(x)  # always (unintentionally) fails
     return True
 """

@@ -1,13 +1,14 @@
 import unittest
 
 import hypothesis
-from hypothesis import given, example
+from hypothesis import example, given
 from hypothesis import strategies as st
 
 from opshin import builder
-from .utils import eval_uplc_value, Unit
-from . import PLUTUS_VM_PROFILE
 from opshin.util import CompilerError
+
+from . import PLUTUS_VM_PROFILE
+from .utils import Unit, eval_uplc_value
 
 hypothesis.settings.load_profile(PLUTUS_VM_PROFILE)
 
@@ -47,8 +48,8 @@ class Foo(PlutusData):
 def validator(a: int, b: int) -> int:
     return Foo.sum()
 """
-        with self.assertRaises(Exception):
-            ret = eval_uplc_value(source_code, x, y)
+        with self.assertRaises(CompilerError):
+            eval_uplc_value(source_code, x, y)
 
     @given(x=st.integers(), y=st.integers())
     def test_le_dunder(self, x: int, y: int):
@@ -84,7 +85,7 @@ def validator(a: int, b: int) -> bool:
     return foo1 >= foo2
 """
         with self.assertRaises(CompilerError):
-            ret = eval_uplc_value(source_code, x, y)
+            eval_uplc_value(source_code, x, y)
 
     @given(x=st.integers(), y=st.integers())
     def test_Self_arguments(self, x: int, y: int):
@@ -208,7 +209,7 @@ def validator(a:int, b:int) -> bool:
         self.assertEqual(ret, x < y)
 
     @given(x=st.integers(), y=st.integers())
-    def test_le_dunder(self, x: int, y: int):
+    def test_le_dunder2(self, x: int, y: int):
         source_code = """
 from typing import Self
 from opshin.prelude import *
@@ -399,7 +400,7 @@ from opshin.prelude import *
 class Foo(PlutusData):
     a: int
     b: int
-    
+
     def __matmul__(self, other:Self) -> int:
         return self.a * other.a + self.b*other.b
 
@@ -432,7 +433,7 @@ def validator(a:int, b:int) -> int:
     return foo1 + foo2
 """
         with self.assertRaises(CompilerError):
-            ret = eval_uplc_value(source_code, 5, 6)
+            eval_uplc_value(source_code, 5, 6)
 
     @given(x=st.integers(), y=st.integers().filter(lambda x: x != 0))
     def test_truediv_dunder(self, x: int, y: int):

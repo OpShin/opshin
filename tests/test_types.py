@@ -3,8 +3,16 @@ import hypothesis.strategies as hst
 import pytest
 
 from opshin import CompilerError, builder
-from opshin.type_impls import *
-from tests.utils import eval_uplc_value, a_or_b, A, B
+from opshin.type_impls import (
+    AnyType,
+    InstanceType,
+    IntegerInstanceType,
+    Record,
+    RecordType,
+    TupleType,
+    UnionType,
+)
+from tests.utils import B, a_or_b, eval_uplc_value
 
 
 def test_record_type_order():
@@ -398,7 +406,7 @@ from pycardano import Datum as Anything, PlutusData
 class A(PlutusData):
     CONSTR_ID = 0
     foo: int
-    
+
 def validator(x: Union[A]) -> bool:
     return True
 """

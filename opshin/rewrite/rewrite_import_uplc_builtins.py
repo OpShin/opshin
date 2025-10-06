@@ -1,12 +1,12 @@
 import re
-from _ast import ImportFrom, AST, Name
+from _ast import AST, ImportFrom, Name
 from copy import copy
 from typing import Optional
 
 import pluthon as plt
 
-from ..util import CompilingNodeTransformer
 from ..typed_ast import *
+from ..util import CompilingNodeTransformer
 
 """
 Checks that there was an import of wraps_builtin if there are any wrapped builtins
@@ -24,9 +24,9 @@ class RewriteImportUPLCBuiltins(CompilingNodeTransformer):
         if node.module != "opshin.bridge":
             return node
         for n in node.names:
-            assert (
-                n.name == DECORATOR_NAME
-            ), "Imports something other from the bridge than the builtin wrapper"
+            assert n.name == DECORATOR_NAME, (
+                "Imports something other from the bridge than the builtin wrapper"
+            )
             assert n.asname is None, "Renames the builtin wrapper. This is forbidden."
         self.imports_uplc_builtins = True
         return None
@@ -37,9 +37,9 @@ class RewriteImportUPLCBuiltins(CompilingNodeTransformer):
         is_wrapped = any(isinstance(n, Name) and n.id for n in node.decorator_list)
         if not is_wrapped:
             return node
-        assert (
-            self.imports_uplc_builtins
-        ), "To wrap builtin functions, you need to import the builtin function. Add `from opshin.bridge import wraps_builtin` to your code."
+        assert self.imports_uplc_builtins, (
+            "To wrap builtin functions, you need to import the builtin function. Add `from opshin.bridge import wraps_builtin` to your code."
+        )
         # we replace the body with a forwarded call to the wrapped builtin
         CamelCaseFunName = "".join(
             p.capitalize() for p in re.split(r"_(?!\d)", node.orig_name)

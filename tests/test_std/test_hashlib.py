@@ -1,6 +1,7 @@
+from hashlib import blake2b, sha3_256, sha256
+
 import hypothesis
 import hypothesis.strategies as hst
-from hashlib import sha256, sha3_256, blake2b
 
 from opshin import builder
 from tests.utils import eval_uplc_value
@@ -67,12 +68,12 @@ def validator(b: bytes) -> bytes:
 """
     try:
         builder._compile(source_code)
-        assert False, "Expected an error due to import conflict"
+        raise AssertionError("Expected an error due to import conflict")
     except Exception as e:
-        assert (
-            "import" in str(e).lower() and "hash" in str(e).lower()
-        ), "Expected a hint about import conflict"
+        assert "import" in str(e).lower() and "hash" in str(e).lower(), (
+            "Expected a hint about import conflict"
+        )
 
 
 def test_hashlib_import_all():
-    from opshin.std.hashlib import sha256, sha3_256, blake2b
+    pass

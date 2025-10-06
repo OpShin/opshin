@@ -1,20 +1,16 @@
 import unittest
+
 import hypothesis
-import pytest
 from hypothesis import given
 from hypothesis import strategies as st
-from opshin import builder
-from ..utils import eval_uplc_value, eval_uplc, eval_uplc_raw
+
+from opshin import DEFAULT_CONFIG
+
 from .. import PLUTUS_VM_PROFILE
-from opshin.util import CompilerError
+from ..test_misc import A
+from ..utils import eval_uplc_raw
 
 hypothesis.settings.load_profile(PLUTUS_VM_PROFILE)
-
-from ..test_misc import A
-from typing import List, Dict
-
-from opshin.ledger.api_v2 import *
-from opshin import DEFAULT_CONFIG
 
 
 def to_int(x):
@@ -24,9 +20,9 @@ def to_int(x):
         return 6
     elif isinstance(x, bytes):
         return 7
-    elif isinstance(x, List):
+    elif isinstance(x, list):
         return 8
-    elif isinstance(x, Dict):
+    elif isinstance(x, dict):
         return 9
     return False
 
@@ -310,7 +306,7 @@ def validator(x: {x}, y: {y} ) -> int:
 from typing import Dict, List, Union
 
 def foo(x: {x}, y: {y} ) -> int:
-    k = {'len(x)' if x=='bytes' else 'x'} + {'len(y)' if y == 'bytes' else 'y'}
+    k = {"len(x)" if x == "bytes" else "x"} + {"len(y)" if y == "bytes" else "y"}
     return k
 
 def validator(x: {x},  y: {y}) -> int:

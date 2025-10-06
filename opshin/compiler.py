@@ -1,7 +1,7 @@
 import ast
 import copy
 import typing
-from ast import Load, Name, Constant, Slice
+from ast import Constant, Load, Name, Slice
 
 import pluthon as plt
 import uplc.ast as uplc
@@ -9,36 +9,14 @@ from pycardano import PlutusData
 from uplc.ast import data_from_cbor
 
 from .bridge import to_uplc_builtin
-from .optimize.optimize_remove_trace import OptimizeRemoveTrace
-from .prelude import Nothing
-from .type_impls import (
-    InstanceType,
-    UnionType,
-    UnitType,
-    RecordType,
-    transform_ext_params_map,
-    AnyType,
-    transform_output_map,
-    ClassType,
-    PolymorphicFunctionInstanceType,
-    ListType,
-    TupleType,
-    PairType,
-    IntegerInstanceType,
-    empty_list,
-    DictType,
-    ByteStringType,
-    FunctionType,
-    OUnit,
-)
-from .type_inference import map_to_orig_name, AggressiveTypeInferencer
-from .typed_ast import *
-
 from .compiler_config import DEFAULT_CONFIG
 from .optimize.optimize_const_folding import OptimizeConstantFolding
 from .optimize.optimize_remove_deadconstants import OptimizeRemoveDeadconstants
+from .optimize.optimize_remove_deadvars import NameLoadCollector, OptimizeRemoveDeadvars
+from .optimize.optimize_remove_pass import OptimizeRemovePass
+from .optimize.optimize_remove_trace import OptimizeRemoveTrace
 from .optimize.optimize_union_expansion import OptimizeUnionExpansion
-
+from .prelude import Nothing
 from .rewrite.rewrite_assert_none import RewriteAssertNone
 from .rewrite.rewrite_augassign import RewriteAugAssign
 from .rewrite.rewrite_cast_condition import RewriteConditions
@@ -60,25 +38,44 @@ from .rewrite.rewrite_remove_type_stuff import RewriteRemoveTypeStuff
 from .rewrite.rewrite_scoping import RewriteScoping
 from .rewrite.rewrite_subscript38 import RewriteSubscript38
 from .rewrite.rewrite_tuple_assign import RewriteTupleAssign
-from .optimize.optimize_remove_pass import OptimizeRemovePass
-from .optimize.optimize_remove_deadvars import OptimizeRemoveDeadvars, NameLoadCollector
+from .type_impls import (
+    AnyType,
+    ByteStringType,
+    ClassType,
+    DictType,
+    FunctionType,
+    InstanceType,
+    IntegerInstanceType,
+    ListType,
+    OUnit,
+    PairType,
+    PolymorphicFunctionInstanceType,
+    RecordType,
+    TupleType,
+    UnionType,
+    UnitType,
+    empty_list,
+    transform_ext_params_map,
+    transform_output_map,
+)
+from .type_inference import AggressiveTypeInferencer, map_to_orig_name
+from .typed_ast import *
 from .util import (
+    OPSHIN_LOGGER,
     CompilingNodeTransformer,
     NoOp,
-    OVar,
     OLambda,
     OLet,
-    OPSHIN_LOGGER,
-    all_vars,
-    SafeOLambda,
-    opshin_name_scheme_compatible_varname,
-    force_params,
+    OVar,
     SafeApply,
     SafeLambda,
-    written_vars,
+    SafeOLambda,
+    all_vars,
     custom_fix_missing_locations,
+    force_params,
+    opshin_name_scheme_compatible_varname,
+    written_vars,
 )
-
 
 BoolOpMap = {
     ast.And: plt.And,
@@ -103,7 +100,7 @@ def rec_constant_map_data(c):
         return uplc.PlutusMap(
             dict(
                 zip(
-                    (rec_constant_map_data(ce) for ce in c.keys()),
+                    (rec_constant_map_data(ce) for ce in c),
                     (rec_constant_map_data(ce) for ce in c.values()),
                 )
             )
@@ -132,7 +129,7 @@ def rec_constant_map(c):
             [
                 uplc.BuiltinPair(*p)
                 for p in zip(
-                    (rec_constant_map_data(ce) for ce in c.keys()),
+                    (rec_constant_map_data(ce) for ce in c),
                     (rec_constant_map_data(ce) for ce in c.values()),
                 )
             ]
@@ -201,9 +198,9 @@ class PlutoCompiler(CompilingNodeTransformer):
             self.config.fast_access_skip is None or self.config.fast_access_skip > 1
         ), "Parameter fast-access-skip needs to be greater than 1 or omitted"
         # marked knowledge during compilation
-        self.current_function_typ: typing.List[FunctionType] = []
+        self.current_function_typ: list[FunctionType] = []
 
-    def visit_sequence(self, node_seq: typing.List[typedstmt]) -> CallAST:
+    def visit_sequence(self, node_seq: list[typedstmt]) -> CallAST:
         def g(s: plt.AST):
             for n in reversed(node_seq):
                 compiled_stmt = self.visit(n)
@@ -262,22 +259,22 @@ class PlutoCompiler(CompilingNodeTransformer):
                     and s.orig_name == self.validator_function_name
                 ):
                     main_fun = s
-            assert (
-                main_fun is not None
-            ), f"Could not find function named {self.validator_function_name}"
+            assert main_fun is not None, (
+                f"Could not find function named {self.validator_function_name}"
+            )
             main_fun_typ: FunctionType = main_fun.typ.typ
-            assert isinstance(
-                main_fun_typ, FunctionType
-            ), f"Variable named {self.validator_function_name} is not of type function"
+            assert isinstance(main_fun_typ, FunctionType), (
+                f"Variable named {self.validator_function_name} is not of type function"
+            )
 
             # check if this is a contract written to double function
             enable_double_func_mint_spend = False
             if len(main_fun_typ.argtyps) >= 3 and self.force_three_params:
                 # check if is possible
                 second_last_arg = main_fun_typ.argtyps[-2]
-                assert isinstance(
-                    second_last_arg, InstanceType
-                ), "Can not pass Class into validator"
+                assert isinstance(second_last_arg, InstanceType), (
+                    "Can not pass Class into validator"
+                )
                 if isinstance(second_last_arg.typ, UnionType):
                     possible_types = second_last_arg.typ.typs
                 else:
@@ -390,12 +387,12 @@ class PlutoCompiler(CompilingNodeTransformer):
         return plt.Unit()
 
     def visit_Assign(self, node: TypedAssign) -> CallAST:
-        assert (
-            len(node.targets) == 1
-        ), "Assignments to more than one variable not supported yet"
-        assert isinstance(
-            node.targets[0], Name
-        ), "Assignments to other things then names are not supported"
+        assert len(node.targets) == 1, (
+            "Assignments to more than one variable not supported yet"
+        )
+        assert isinstance(node.targets[0], Name), (
+            "Assignments to other things then names are not supported"
+        )
         compiled_e = self.visit(node.value)
         varname = node.targets[0].id
         if (hasattr(node.targets[0], "is_wrapped") and node.targets[0].is_wrapped) or (
@@ -418,23 +415,21 @@ class PlutoCompiler(CompilingNodeTransformer):
         )
 
     def visit_AnnAssign(self, node: TypedAnnAssign) -> CallAST:
-        assert isinstance(
-            node.target, Name
-        ), "Assignments to other things then names are not supported"
-        assert isinstance(
-            node.target.typ, InstanceType
-        ), "Can only assign instances to instances"
+        assert isinstance(node.target, Name), (
+            "Assignments to other things then names are not supported"
+        )
+        assert isinstance(node.target.typ, InstanceType), (
+            "Can only assign instances to instances"
+        )
         val = self.visit(node.value)
         if isinstance(node.value.typ, InstanceType) and (
-            isinstance(node.value.typ.typ, AnyType)
-            or isinstance(node.value.typ.typ, UnionType)
+            isinstance(node.value.typ.typ, (AnyType, UnionType))
         ):
             # we need to map this as it will originate from PlutusData
             # AnyType is the only type other than the builtin itself that can be cast to builtin values
             val = transform_ext_params_map(node.target.typ)(val)
         if isinstance(node.target.typ, InstanceType) and (
-            isinstance(node.target.typ.typ, AnyType)
-            or isinstance(node.target.typ.typ, UnionType)
+            isinstance(node.target.typ.typ, (AnyType, UnionType))
         ):
             # we need to map this back as it will be treated as PlutusData
             # AnyType is the only type other than the builtin itself that can be cast to from builtin values
@@ -483,7 +478,7 @@ class PlutoCompiler(CompilingNodeTransformer):
             ), "Can only call instances of functions"
             func_plt = self.visit(node.func)
             bind_self = node.func.typ.typ.bind_self
-        bound_vs = sorted(list(node.func.typ.typ.bound_vars.keys()))
+        bound_vs = sorted(node.func.typ.typ.bound_vars.keys())
         args = []
         for i, (a, t) in enumerate(zip(node.args, node.func.typ.typ.argtyps)):
             # now impl_from_args has been chosen, skip type arg
@@ -496,7 +491,7 @@ class PlutoCompiler(CompilingNodeTransformer):
             assert isinstance(t, InstanceType)
             # pass in all arguments evaluated with the statemonad
             a_int = self.visit(a)
-            if isinstance(t.typ, AnyType) or isinstance(t.typ, UnionType):
+            if isinstance(t.typ, (AnyType, UnionType)):
                 # if the function expects input of generic type data, wrap data before passing it inside
                 a_int = transform_output_map(a.typ)(a_int)
             args.append(a_int)
@@ -517,11 +512,8 @@ class PlutoCompiler(CompilingNodeTransformer):
     def visit_FunctionDef(self, node: TypedFunctionDef) -> CallAST:
         body = node.body.copy()
         # defaults to returning None if there is no return statement
-        if node.typ.typ.rettyp.typ == AnyType():
-            ret_val = OUnit
-        else:
-            ret_val = plt.Unit()
-        read_vs = sorted(list(node.typ.typ.bound_vars.keys()))
+        ret_val = OUnit if node.typ.typ.rettyp.typ == AnyType() else plt.Unit()
+        read_vs = sorted(node.typ.typ.bound_vars.keys())
         if node.typ.typ.bind_self is not None:
             read_vs.insert(0, node.typ.typ.bind_self)
         self.current_function_typ.append(node.typ.typ)
@@ -554,20 +546,20 @@ class PlutoCompiler(CompilingNodeTransformer):
         compiled_s = self.visit_sequence(node.body)
         written_vs = written_vars(node)
         pwritten_vs = [plt.Var(x) for x in written_vs]
-        s_fun = lambda x: plt.Lambda(
-            [opshin_name_scheme_compatible_varname("while")] + written_vs,
-            plt.Ite(
-                compiled_c,
-                compiled_s(
-                    plt.Apply(
-                        OVar("while"),
-                        OVar("while"),
-                        *copy.deepcopy(pwritten_vs),
-                    )
+
+        def s_fun(x):
+            return plt.Lambda(
+                [opshin_name_scheme_compatible_varname("while")] + written_vs,
+                plt.Ite(
+                    compiled_c,
+                    compiled_s(
+                        plt.Apply(
+                            OVar("while"), OVar("while"), *copy.deepcopy(pwritten_vs)
+                        )
+                    ),
+                    x,
                 ),
-                x,
-            ),
-        )
+            )
 
         return lambda x: OLet(
             [
@@ -590,35 +582,38 @@ class PlutoCompiler(CompilingNodeTransformer):
             return self.visit_sequence([cn] + node.orelse)
         assert isinstance(node.iter.typ, InstanceType)
         if isinstance(node.iter.typ.typ, ListType):
-            assert isinstance(
-                node.target, Name
-            ), "Can only assign value to singleton element"
+            assert isinstance(node.target, Name), (
+                "Can only assign value to singleton element"
+            )
             compiled_s = self.visit_sequence(node.body)
             compiled_iter = self.visit(node.iter)
             written_vs = written_vars(node)
             pwritten_vs = [plt.Var(x) for x in written_vs]
-            s_fun = lambda x: plt.Lambda(
-                [
-                    opshin_name_scheme_compatible_varname("for"),
-                    opshin_name_scheme_compatible_varname("iter"),
-                ]
-                + written_vs,
-                plt.IteNullList(
-                    OVar("iter"),
-                    x,
-                    plt.Let(
-                        [(node.target.id, plt.Delay(plt.HeadList(OVar("iter"))))],
-                        compiled_s(
-                            plt.Apply(
-                                OVar("for"),
-                                OVar("for"),
-                                plt.TailList(OVar("iter")),
-                                *copy.deepcopy(pwritten_vs),
-                            )
+
+            def s_fun(x):
+                return plt.Lambda(
+                    [
+                        opshin_name_scheme_compatible_varname("for"),
+                        opshin_name_scheme_compatible_varname("iter"),
+                    ]
+                    + written_vs,
+                    plt.IteNullList(
+                        OVar("iter"),
+                        x,
+                        plt.Let(
+                            [(node.target.id, plt.Delay(plt.HeadList(OVar("iter"))))],
+                            compiled_s(
+                                plt.Apply(
+                                    OVar("for"),
+                                    OVar("for"),
+                                    plt.TailList(OVar("iter")),
+                                    *copy.deepcopy(pwritten_vs),
+                                )
+                            ),
                         ),
                     ),
-                ),
-            )
+                )
+
             return lambda x: OLet(
                 [
                     ("adjusted_next", plt.Lambda([node.target.id] + written_vs, x)),
@@ -670,16 +665,16 @@ class PlutoCompiler(CompilingNodeTransformer):
         return lambda _: value_plt
 
     def visit_Subscript(self, node: TypedSubscript) -> plt.AST:
-        assert isinstance(
-            node.value.typ, InstanceType
-        ), "Can only access elements of instances, not classes"
+        assert isinstance(node.value.typ, InstanceType), (
+            "Can only access elements of instances, not classes"
+        )
         if isinstance(node.value.typ.typ, TupleType):
-            assert isinstance(
-                node.slice, Constant
-            ), "Only constant index access for tuples is supported"
-            assert isinstance(
-                node.slice.value, int
-            ), "Only constant index integer access for tuples is supported"
+            assert isinstance(node.slice, Constant), (
+                "Only constant index access for tuples is supported"
+            )
+            assert isinstance(node.slice.value, int), (
+                "Only constant index integer access for tuples is supported"
+            )
             index = node.slice.value
             if index < 0:
                 index += len(node.value.typ.typ.typs)
@@ -690,19 +685,19 @@ class PlutoCompiler(CompilingNodeTransformer):
                 len(node.value.typ.typ.typs),
             )
         if isinstance(node.value.typ.typ, PairType):
-            assert isinstance(
-                node.slice, Constant
-            ), "Only constant index access for pairs is supported"
-            assert isinstance(
-                node.slice.value, int
-            ), "Only constant index integer access for pairs is supported"
+            assert isinstance(node.slice, Constant), (
+                "Only constant index access for pairs is supported"
+            )
+            assert isinstance(node.slice.value, int), (
+                "Only constant index integer access for pairs is supported"
+            )
             index = node.slice.value
             if index < 0:
                 index += 2
             assert isinstance(node.ctx, Load), "Pairs are read-only"
-            assert (
-                0 <= index < 2
-            ), f"Pairs only have 2 elements, index should be -2, -1, 0 or 1, found {node.slice.value}"
+            assert 0 <= index < 2, (
+                f"Pairs only have 2 elements, index should be -2, -1, 0 or 1, found {node.slice.value}"
+            )
             member_func = plt.FstPair if index == 0 else plt.SndPair
             # the content of pairs is always Data, so we need to unwrap
             member_typ = node.typ
@@ -713,9 +708,9 @@ class PlutoCompiler(CompilingNodeTransformer):
             )
         if isinstance(node.value.typ.typ, ListType):
             if not isinstance(node.slice, Slice):
-                assert (
-                    node.slice.typ == IntegerInstanceType
-                ), "Only single element list index access supported"
+                assert node.slice.typ == IntegerInstanceType, (
+                    "Only single element list index access supported"
+                )
                 if isinstance(node.slice, Constant) and node.slice.value >= 0:
                     index = node.slice.value
                     return plt.ConstantIndexAccessListFast(
@@ -752,12 +747,12 @@ class PlutoCompiler(CompilingNodeTransformer):
                     ),
                 )
             else:
-                assert (
-                    node.slice.upper is not None
-                ), "Only slices with upper bound supported"
-                assert (
-                    node.slice.lower is not None
-                ), "Only slices with lower bound supported"
+                assert node.slice.upper is not None, (
+                    "Only slices with upper bound supported"
+                )
+                assert node.slice.lower is not None, (
+                    "Only slices with lower bound supported"
+                )
                 return OLet(
                     [
                         (
@@ -956,9 +951,9 @@ class PlutoCompiler(CompilingNodeTransformer):
         return lambda x: plt.Let([(node.name, plt.Delay(node.class_typ.constr()))], x)
 
     def visit_Attribute(self, node: TypedAttribute) -> plt.AST:
-        assert isinstance(
-            node.value.typ, InstanceType
-        ), "Can only access attributes of instances"
+        assert isinstance(node.value.typ, InstanceType), (
+            "Can only access attributes of instances"
+        )
         obj = self.visit(node.value)
         attr = node.value.typ.attribute(node.attr)
         return plt.Apply(attr, obj)
@@ -987,7 +982,7 @@ class PlutoCompiler(CompilingNodeTransformer):
         l = empty_list(el_typ)
         for e in reversed(node.elts):
             element = self.visit(e)
-            if isinstance(el_typ.typ, AnyType) or isinstance(el_typ.typ, UnionType):
+            if isinstance(el_typ.typ, (AnyType, UnionType)):
                 # if the function expects input of generic type data, wrap data before passing it inside
                 element = transform_output_map(e.typ)(element)
             l = plt.MkCons(element, l)
@@ -996,8 +991,6 @@ class PlutoCompiler(CompilingNodeTransformer):
     def visit_Dict(self, node: TypedDict) -> plt.AST:
         assert isinstance(node.typ, InstanceType)
         assert isinstance(node.typ.typ, DictType)
-        key_type = node.typ.typ.key_typ
-        value_type = node.typ.typ.value_typ
         l = plt.EmptyDataPairList()
         for k, v in zip(node.keys, node.values):
             l = plt.MkCons(
@@ -1033,9 +1026,9 @@ class PlutoCompiler(CompilingNodeTransformer):
         gen = node.generators[0]
         assert isinstance(gen.iter.typ, InstanceType), "Only lists are valid generators"
         assert isinstance(gen.iter.typ.typ, ListType), "Only lists are valid generators"
-        assert isinstance(
-            gen.target, Name
-        ), "Can only assign value to singleton element"
+        assert isinstance(gen.target, Name), (
+            "Can only assign value to singleton element"
+        )
         lst = self.visit(gen.iter)
         ifs = None
         for ifexpr in gen.ifs:
@@ -1077,9 +1070,9 @@ class PlutoCompiler(CompilingNodeTransformer):
         gen = node.generators[0]
         assert isinstance(gen.iter.typ, InstanceType), "Only lists are valid generators"
         assert isinstance(gen.iter.typ.typ, ListType), "Only lists are valid generators"
-        assert isinstance(
-            gen.target, Name
-        ), "Can only assign value to singleton element"
+        assert isinstance(gen.target, Name), (
+            "Can only assign value to singleton element"
+        )
         lst = self.visit(gen.iter)
         ifs = None
         for ifexpr in gen.ifs:

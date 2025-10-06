@@ -1,5 +1,3 @@
-from typing import Tuple
-
 import hypothesis
 import hypothesis.strategies as hst
 
@@ -9,9 +7,9 @@ from opshin.std import bitmap as oc_bitmap
 
 @hypothesis.given(hst.integers(min_value=0, max_value=1000))
 def test_init_bitmap(x: int):
-    assert (
-        len(oc_bitmap.init_bitmap(x)) * 8 >= x
-    ), "Insufficient size of initialized bitmap"
+    assert len(oc_bitmap.init_bitmap(x)) * 8 >= x, (
+        "Insufficient size of initialized bitmap"
+    )
 
 
 @hst.composite
@@ -22,14 +20,14 @@ def bytes_and_index(draw):
 
 
 @hypothesis.given(bytes_and_index())
-def test_test_bitmap(p: Tuple[bytes, int]):
+def test_test_bitmap(p: tuple[bytes, int]):
     a, i = p
     ith_bit = int.from_bytes(a, "big") & (1 << ((len(a) * 8) - i - 1))
     assert oc_bitmap.test_bitmap(a, i) == (ith_bit != 0), "Invalid isset check"
 
 
 @hypothesis.given(bytes_and_index(), hst.booleans())
-def test__set_bitmap(p: Tuple[bytes, int], v: bool):
+def test__set_bitmap(p: tuple[bytes, int], v: bool):
     a, i = p
     if v:
         set_bit = int.from_bytes(a, "big") | (1 << ((len(a) * 8) - i - 1))
@@ -40,7 +38,7 @@ def test__set_bitmap(p: Tuple[bytes, int], v: bool):
 
 
 @hypothesis.given(bytes_and_index())
-def test_set_bitmap(p: Tuple[bytes, int]):
+def test_set_bitmap(p: tuple[bytes, int]):
     a, i = p
     set_bit = int.from_bytes(a, "big") | (1 << ((len(a) * 8) - i - 1))
     set_bit = set_bit.to_bytes(len(a), byteorder="big")
@@ -48,7 +46,7 @@ def test_set_bitmap(p: Tuple[bytes, int]):
 
 
 @hypothesis.given(bytes_and_index())
-def test_reset_bitmap(p: Tuple[bytes, int]):
+def test_reset_bitmap(p: tuple[bytes, int]):
     a, i = p
     set_bit = int.from_bytes(a, "big") & (~(1 << ((len(a) * 8) - i - 1)))
     set_bit = set_bit.to_bytes(len(a), byteorder="big")
@@ -56,7 +54,7 @@ def test_reset_bitmap(p: Tuple[bytes, int]):
 
 
 @hypothesis.given(bytes_and_index())
-def test_flip_bitmap(p: Tuple[bytes, int]):
+def test_flip_bitmap(p: tuple[bytes, int]):
     a, i = p
     set_bit = int.from_bytes(a, "big") ^ (1 << ((len(a) * 8) - i - 1))
     set_bit = set_bit.to_bytes(len(a), byteorder="big")
@@ -70,45 +68,45 @@ def test_size_bitmap(x: bytes):
 
 @hypothesis.given(hst.binary())
 def test_all_bitmap(x: bytes):
-    assert oc_bitmap.all_bitmap(x) == all(
-        b == 0xFF for b in x
-    ), "All is incorrect for bitmap"
+    assert oc_bitmap.all_bitmap(x) == all(b == 0xFF for b in x), (
+        "All is incorrect for bitmap"
+    )
 
 
 @hypothesis.given(hst.binary())
 def test_any_bitmap(x: bytes):
-    assert oc_bitmap.any_bitmap(x) == any(
-        b != 0x00 for b in x
-    ), "Any is incorrect for bitmap"
+    assert oc_bitmap.any_bitmap(x) == any(b != 0x00 for b in x), (
+        "Any is incorrect for bitmap"
+    )
 
 
 @hypothesis.given(hst.binary())
 def test_none_bitmap(x: bytes):
-    assert oc_bitmap.none_bitmap(x) == all(
-        b == 0x00 for b in x
-    ), "None is incorrect for bitmap"
+    assert oc_bitmap.none_bitmap(x) == all(b == 0x00 for b in x), (
+        "None is incorrect for bitmap"
+    )
 
 
 @hypothesis.given(bytes_and_index())
-def test_flip_roundtrip(p: Tuple[bytes, int]):
+def test_flip_roundtrip(p: tuple[bytes, int]):
     a, i = p
-    assert (
-        oc_bitmap.flip_bitmap(oc_bitmap.flip_bitmap(a, i), i) == a
-    ), "Flipped bit incorrectly"
+    assert oc_bitmap.flip_bitmap(oc_bitmap.flip_bitmap(a, i), i) == a, (
+        "Flipped bit incorrectly"
+    )
 
 
 @hypothesis.given(bytes_and_index())
-def test_set_test(p: Tuple[bytes, int]):
+def test_set_test(p: tuple[bytes, int]):
     a, i = p
     assert oc_bitmap.test_bitmap(oc_bitmap.set_bitmap(a, i), i), "Set bit incorrectly"
 
 
 @hypothesis.given(bytes_and_index())
-def test_reset_test(p: Tuple[bytes, int]):
+def test_reset_test(p: tuple[bytes, int]):
     a, i = p
-    assert not oc_bitmap.test_bitmap(
-        oc_bitmap.reset_bitmap(a, i), i
-    ), "Reset bit incorrectly"
+    assert not oc_bitmap.test_bitmap(oc_bitmap.reset_bitmap(a, i), i), (
+        "Reset bit incorrectly"
+    )
 
 
 def test_compile():

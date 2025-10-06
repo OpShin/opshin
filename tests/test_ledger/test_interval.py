@@ -1,6 +1,29 @@
-from hypothesis import given, strategies as st
+from hypothesis import given
+from hypothesis import strategies as st
 
-from opshin.ledger.interval import *
+from opshin.ledger.api_v2 import (
+    FalseData,
+    LowerBoundPOSIXTime,
+    POSIXTimeRange,
+    TrueData,
+    UpperBoundPOSIXTime,
+)
+from opshin.ledger.interval import (
+    ExtendedPOSIXTime,
+    FinitePOSIXTime,
+    NegInfPOSIXTime,
+    PosInfPOSIXTime,
+    compare,
+    compare_extended,
+    compare_extended_helper,
+    compare_lower_bound,
+    compare_upper_bound,
+    contains,
+    get_bool,
+    make_from,
+    make_range,
+    make_to,
+)
 
 
 @given(a=st.integers(), b=st.integers(), c=st.integers())
@@ -52,7 +75,7 @@ def test_ordering_compare_extended(
 
 
 @given(a=compare_extended_operands, b=compare_extended_operands)
-def test_commutative_compare_extended(
+def test_commutative_compare_extended2(
     a: ExtendedPOSIXTime,
     b: ExtendedPOSIXTime,
 ) -> None:
@@ -190,10 +213,7 @@ def test_fuzz_compare_extended_helper(time: ExtendedPOSIXTime) -> None:
 
 @given(b=st.booleans())
 def test_get_bool(b: bool) -> None:
-    if b:
-        bool_data = TrueData()
-    else:
-        bool_data = FalseData()
+    bool_data = TrueData() if b else FalseData()
     assert get_bool(bool_data) == b
 
 

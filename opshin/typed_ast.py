@@ -1,5 +1,6 @@
 import ast as _ast
 import typing as _typing
+
 import pluthon as _plt
 
 from .type_impls import NoneInstanceType, Type
@@ -10,7 +11,7 @@ class TypedAST(_ast.AST):
 
 
 class typedexpr(TypedAST, _ast.expr):
-    def typechecks(self) -> _typing.Dict[str, "Type"]:
+    def typechecks(self) -> dict[str, "Type"]:
         """Successful typechecks if this expression evaluates to True"""
         return {}
 
@@ -25,28 +26,28 @@ class typedarg(TypedAST, _ast.arg):
 
 
 class typedarguments(TypedAST, _ast.arguments):
-    args: _typing.List[typedarg]
+    args: list[typedarg]
     vararg: _typing.Union[typedarg, None]
-    kwonlyargs: _typing.List[typedarg]
-    kw_defaults: _typing.List[_typing.Union[typedexpr, None]]
+    kwonlyargs: list[typedarg]
+    kw_defaults: list[_typing.Union[typedexpr, None]]
     kwarg: _typing.Union[typedarg, None]
-    defaults: _typing.List[typedexpr]
+    defaults: list[typedexpr]
 
 
 class TypedModule(typedstmt, _ast.Module):
-    body: _typing.List[typedstmt]
+    body: list[typedstmt]
 
 
 class TypedFunctionDef(typedstmt, _ast.FunctionDef):
-    body: _typing.List[typedstmt]
+    body: list[typedstmt]
     args: typedarguments
     orig_name: str
 
 
 class TypedIf(typedstmt, _ast.If):
     test: typedexpr
-    body: _typing.List[typedstmt]
-    orelse: _typing.List[typedstmt]
+    body: list[typedstmt]
+    orelse: list[typedstmt]
 
 
 class TypedReturn(typedstmt, _ast.Return):
@@ -59,7 +60,7 @@ class TypedExpression(typedstmt, _ast.Expression):
 
 class TypedCall(typedexpr, _ast.Call):
     func: typedexpr
-    args: _typing.List[typedexpr]
+    args: list[typedexpr]
 
 
 class TypedExpr(typedstmt, _ast.Expr):
@@ -67,7 +68,7 @@ class TypedExpr(typedstmt, _ast.Expr):
 
 
 class TypedAssign(typedstmt, _ast.Assign):
-    targets: _typing.List[typedexpr]
+    targets: list[typedexpr]
     value: typedexpr
 
 
@@ -83,15 +84,15 @@ class TypedAnnAssign(typedstmt, _ast.AnnAssign):
 
 class TypedWhile(typedstmt, _ast.While):
     test: typedexpr
-    body: _typing.List[typedstmt]
-    orelse: _typing.List[typedstmt]
+    body: list[typedstmt]
+    orelse: list[typedstmt]
 
 
 class TypedFor(typedstmt, _ast.For):
     target: typedexpr
     iter: typedexpr
-    body: _typing.List[typedstmt]
-    orelse: _typing.List[typedstmt]
+    body: list[typedstmt]
+    orelse: list[typedstmt]
 
 
 class TypedPass(typedstmt, _ast.Pass):
@@ -122,18 +123,18 @@ class TypedList(typedexpr, _ast.List):
 class typedcomprehension(typedexpr, _ast.comprehension):
     target: typedexpr
     iter: typedexpr
-    ifs: _typing.List[typedexpr]
+    ifs: list[typedexpr]
 
 
 class TypedListComp(typedexpr, _ast.ListComp):
     elt: typedexpr
-    generators: _typing.List[typedcomprehension]
+    generators: list[typedcomprehension]
 
 
 class TypedDictComp(typedexpr, _ast.DictComp):
     key: typedexpr
     value: typedexpr
-    generators: _typing.List[typedcomprehension]
+    generators: list[typedcomprehension]
 
 
 class TypedFormattedValue(typedexpr, _ast.FormattedValue):
@@ -143,7 +144,7 @@ class TypedFormattedValue(typedexpr, _ast.FormattedValue):
 
 
 class TypedJoinedStr(typedexpr, _ast.JoinedStr):
-    values: _typing.List[typedexpr]
+    values: list[typedexpr]
 
 
 class TypedDict(typedexpr, _ast.Dict):
@@ -158,8 +159,8 @@ class TypedIfExp(typedstmt, _ast.IfExp):
 
 class TypedCompare(typedexpr, _ast.Compare):
     left: typedexpr
-    ops: _typing.List[_ast.cmpop]
-    comparators: _typing.List[typedexpr]
+    ops: list[_ast.cmpop]
+    comparators: list[typedexpr]
 
 
 class TypedBinOp(typedexpr, _ast.BinOp):
@@ -168,7 +169,7 @@ class TypedBinOp(typedexpr, _ast.BinOp):
 
 
 class TypedBoolOp(typedexpr, _ast.BoolOp):
-    values: _typing.List[typedexpr]
+    values: list[typedexpr]
 
 
 class TypedUnaryOp(typedexpr, _ast.UnaryOp):

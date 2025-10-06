@@ -1,8 +1,9 @@
 from _ast import BoolOp, Call, FunctionDef, If, UnaryOp
 from ast import *
-from typing import Any, List
-from ..util import CompilingNodeTransformer
 from copy import deepcopy
+from typing import Any
+
+from ..util import CompilingNodeTransformer
 
 """
 Expand union types
@@ -163,7 +164,7 @@ class OptimizeUnionExpansion(CompilingNodeTransformer):
 
     def split_functions(
         self, stmt: FunctionDef, args: list, arg_types: dict, naming=""
-    ) -> List[FunctionDef]:
+    ) -> list[FunctionDef]:
         """
                 Recursively generate variants of a function with all possible combinations
         of expanded union types for its arguments.

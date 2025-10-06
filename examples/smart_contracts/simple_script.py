@@ -54,19 +54,13 @@ Script = Union[
 def validate_script(
     script_raw: Datum, signatories: List[bytes], valid_range: POSIXTimeRange
 ) -> bool:
-    script: Script = (
-        script_raw  # cast to Script in the type system to avoid recursive type definition
-    )
+    script: Script = script_raw  # cast to Script in the type system to avoid recursive type definition
     if isinstance(script, RequireSignature):
         res = script.vkeyhash in signatories
     elif isinstance(script, RequireAllOf):
-        res = all(
-            [validate_script(s, signatories, valid_range) for s in script.scripts]
-        )
+        res = all(validate_script(s, signatories, valid_range) for s in script.scripts)
     elif isinstance(script, RequireAnyOf):
-        res = any(
-            [validate_script(s, signatories, valid_range) for s in script.scripts]
-        )
+        res = any(validate_script(s, signatories, valid_range) for s in script.scripts)
     elif isinstance(script, RequireMOf):
         res = (
             sum(
@@ -104,7 +98,7 @@ def validate_script(
         elif isinstance(lower_limit, NegInfPOSIXTime):
             res = False
     else:
-        assert False, "Invalid simple script passed"
+        raise AssertionError("Invalid simple script passed")
     return res
 
 

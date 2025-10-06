@@ -1,14 +1,13 @@
 import dataclasses
-import functools
 import typing
 
 import pycardano
 import uplc.ast as uplc_ast
+from hypothesis import strategies as st
 from pycardano import PlutusData
 from uplc import eval as uplc_eval
-from hypothesis import strategies as st
 
-from opshin.builder import _compile, DEFAULT_CONFIG
+from opshin.builder import DEFAULT_CONFIG, _compile
 
 
 @dataclasses.dataclass

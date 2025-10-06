@@ -2,7 +2,7 @@ import hypothesis.strategies as st
 import pytest
 from hypothesis import given
 
-from opshin import builder, CompilerError
+from opshin import CompilerError, builder
 from tests.utils import eval_uplc_value
 
 
@@ -17,9 +17,9 @@ def validator(x: int) -> int:
         y += x
     return y
 """
-    assert (
-        eval_uplc_value(source_code, x) == 1 + x
-    ), "Invalid implementation of loop over tuple"
+    assert eval_uplc_value(source_code, x) == 1 + x, (
+        "Invalid implementation of loop over tuple"
+    )
 
 
 def test_loop_over_tuple_check():
@@ -33,11 +33,11 @@ def validator(x: int) -> int:
 """
     try:
         builder._compile(source_code)
-        assert False, "Should have raised SyntaxError"
+        raise AssertionError("Should have raised SyntaxError")
     except CompilerError as e:
-        assert (
-            "int" in str(e).lower() and "str" in str(e).lower()
-        ), "Unexpected error message"
+        assert "int" in str(e).lower() and "str" in str(e).lower(), (
+            "Unexpected error message"
+        )
 
 
 @given(

@@ -1,10 +1,8 @@
 import typing
-from collections import defaultdict
-import logging
-
 from ast import *
-from ordered_set import OrderedSet
+from collections import defaultdict
 
+from ordered_set import OrderedSet
 from pycardano import PlutusData
 
 try:
@@ -12,8 +10,8 @@ try:
 except NameError:
     from astunparse import unparse
 
-from ..util import CompilingNodeTransformer, CompilingNodeVisitor, OPSHIN_LOGGER
 from ..type_inference import INITIAL_SCOPE
+from ..util import OPSHIN_LOGGER, CompilingNodeTransformer, CompilingNodeVisitor
 
 """
 Pre-evaluates constant statements
@@ -173,12 +171,12 @@ class OptimizeConstantFolding(CompilingNodeTransformer):
         self.scopes_visible = [
             OrderedSet(INITIAL_SCOPE.keys()).difference(SAFE_GLOBALS.keys())
         ]
-        self.scopes_constants = [dict()]
+        self.scopes_constants = [{}]
         self.constants = OrderedSet()
 
     def enter_scope(self):
         self.scopes_visible.append(OrderedSet())
-        self.scopes_constants.append(dict())
+        self.scopes_constants.append({})
 
     def add_var_visible(self, var: str):
         self.scopes_visible[-1].add(var)

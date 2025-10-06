@@ -1,7 +1,7 @@
 import hypothesis
 from hypothesis import strategies as st
 
-from tests.utils import eval_uplc_value, eval_uplc_raw
+from tests.utils import eval_uplc_raw, eval_uplc_value
 
 
 @hypothesis.given(

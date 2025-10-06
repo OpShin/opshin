@@ -1,7 +1,7 @@
 import pytest
 
 from opshin import CompilerError, builder
-from tests.utils import eval_uplc_value, eval_uplc
+from tests.utils import eval_uplc
 
 
 def test_error_message_list_no_import():
@@ -9,7 +9,7 @@ def test_error_message_list_no_import():
 def validator(x: List[int]) -> None:
     assert isinstance(x[0], int)
         """
-    with pytest.raises(CompilerError, match="not imported") as e:
+    with pytest.raises(CompilerError, match="not imported"):
         builder._compile(source_code)
 
 
@@ -22,14 +22,14 @@ from pycardano import Datum as Anything, PlutusData
 @dataclass
 class A(PlutusData):
     foo: int
-    
+
     def bar(self) -> Self:
         return self
 
 def validator(x: A) -> None:
     assert isinstance(x, A)
         """
-    with pytest.raises(CompilerError, match="not imported") as e:
+    with pytest.raises(CompilerError, match="not imported"):
         builder._compile(source_code)
 
 
@@ -46,7 +46,7 @@ def bar(self) -> Self:
 def validator(x: A) -> None:
     assert isinstance(x, A)
         """
-    with pytest.raises(CompilerError, match="not imported") as e:
+    with pytest.raises(CompilerError, match="not imported"):
         builder._compile(source_code)
 
 
@@ -75,7 +75,7 @@ def validator(x: Union[int, bytes]) -> None:
     assert isinstance(x, int)
         """
     eval_uplc(source_code, 1)
-    with pytest.raises(RuntimeError, match="Execution") as e:
+    with pytest.raises(RuntimeError, match="Execution"):
         eval_uplc(source_code, b"hi")
 
 

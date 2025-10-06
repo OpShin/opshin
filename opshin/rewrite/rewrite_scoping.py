@@ -1,12 +1,11 @@
-import typing
 from ast import *
 from copy import copy
 
 from ordered_set import OrderedSet
 
-from .rewrite_forbidden_overwrites import FORBIDDEN_NAMES
 from ..type_inference import INITIAL_SCOPE
 from ..util import CompilingNodeTransformer, CompilingNodeVisitor
+from .rewrite_forbidden_overwrites import FORBIDDEN_NAMES
 
 """
 Rewrites all variable names to point to the definition in the nearest enclosing scope
@@ -39,8 +38,8 @@ class ShallowNameDefCollector(CompilingNodeVisitor):
 class RewriteScoping(CompilingNodeTransformer):
     step = "Rewrite all variables to inambiguously point to the definition in the nearest enclosing scope"
     latest_scope_id: int
-    scopes: typing.List[typing.Tuple[OrderedSet, int]]
-    current_Self: typing.Tuple[str, str]
+    scopes: list[tuple[OrderedSet, int]]
+    current_Self: tuple[str, str]
 
     def variable_scope_id(self, name: str) -> int:
         """find the id of the scope in which this variable is defined (closest to its usage)"""
@@ -149,9 +148,9 @@ class RecordScoper(NodeTransformer):
         return self.generic_visit(node_cp)
 
     def visit_AnnAssign(self, node: AnnAssign) -> AnnAssign:
-        assert isinstance(
-            node.target, Name
-        ), "Record elements must have named attributes"
+        assert isinstance(node.target, Name), (
+            "Record elements must have named attributes"
+        )
         node_cp = copy(node)
         node_cp.annotation = self._scoper.visit(node_cp.annotation)
         return node_cp

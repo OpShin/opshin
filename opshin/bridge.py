@@ -1,8 +1,7 @@
 """Bridging tools between uplc and opshin"""
 
-from functools import wraps
-
 import re
+from functools import wraps
 
 import uplc.ast
 from pycardano import PlutusData, RawCBOR
@@ -23,10 +22,8 @@ def to_uplc_builtin(a):
 
 
 def to_python(a):
-    if (
-        isinstance(a, uplc.ast.BuiltinInteger)
-        or isinstance(a, uplc.ast.BuiltinString)
-        or isinstance(a, uplc.ast.BuiltinByteString)
+    if isinstance(
+        a, (uplc.ast.BuiltinInteger, uplc.ast.BuiltinString, uplc.ast.BuiltinByteString)
     ):
         return a.value
     if isinstance(a, uplc.ast.BuiltinUnit):

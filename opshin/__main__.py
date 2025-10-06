@@ -1,38 +1,34 @@
-import inspect
-
 import argparse
-import io
+import ast
+import enum
+import importlib
+import inspect
+import json
 import logging
 import os
+import pathlib
+import sys
 import tempfile
+import typing
 from contextlib import redirect_stdout
 
 import cbor2
-import enum
-import importlib
-import json
-import pathlib
-import sys
-import typing
-import ast
-
 import pycardano
-
 import uplc
 import uplc.ast
 
 from . import (
-    compiler,
-    builder,
-    prelude,
-    __version__,
-    __copyright__,
-    Purpose,
     PlutusContract,
+    Purpose,
+    __copyright__,
+    __version__,
+    builder,
+    compiler,
+    prelude,
 )
-from .util import CompilerError, data_from_json, OPSHIN_LOG_HANDLER
-from .prelude import ScriptContext
 from .compiler_config import *
+from .prelude import ScriptContext
+from .util import OPSHIN_LOG_HANDLER, CompilerError
 
 
 class Command(enum.Enum):
@@ -90,7 +86,7 @@ def parse_plutus_param(annotation, param: str):
         ) from e
 
 
-def plutus_data_from_json(annotation: typing.Type, x: dict):
+def plutus_data_from_json(annotation: type, x: dict):
     try:
         if annotation == int:
             return int(x["int"])
@@ -148,7 +144,7 @@ def plutus_data_from_json(annotation: typing.Type, x: dict):
         )
 
 
-def plutus_data_from_cbor(annotation: typing.Type, x: bytes):
+def plutus_data_from_cbor(annotation: type, x: bytes):
     try:
         if annotation in (int, bytes):
             res = cbor2.loads(x)
@@ -213,9 +209,9 @@ def check_params(
         # The any purpose does not do any checks. Use only if you know what you are doing
         return onchain_params, param_types
     # expect the validator to return None
-    assert (
-        return_type is None or return_type == prelude.Anything
-    ), f"Expected contract to return None, but returns {return_type}"
+    assert return_type is None or return_type == prelude.Anything, (
+        f"Expected contract to return None, but returns {return_type}"
+    )
 
     required_onchain_parameters = 3 if purpose == Purpose.spending else 2
     if force_three_params:
@@ -227,21 +223,21 @@ def check_params(
             )
             or datum_type == prelude.Anything
             or datum_type == prelude.Nothing
-        ), f"Expected contract to accept Nothing or Anything as datum since it forces three parameters, but got {datum_type}"
+        ), (
+            f"Expected contract to accept Nothing or Anything as datum since it forces three parameters, but got {datum_type}"
+        )
 
-    assert (
-        len(onchain_params) == required_onchain_parameters
-    ), f"""\
+    assert len(onchain_params) == required_onchain_parameters, f"""\
 {purpose.value.capitalize()} validator must expect {required_onchain_parameters} parameters at evaluation (on-chain), but was specified to have {len(onchain_params)}.
-Make sure the validator expects parameters {'datum, ' if purpose == Purpose.spending else ''}redeemer and script context."""
+Make sure the validator expects parameters {"datum, " if purpose == Purpose.spending else ""}redeemer and script context."""
 
     if command in (Command.eval, Command.eval_uplc):
-        assert len(validator_params) == len(param_types) + len(
-            onchain_params
-        ), f"{purpose.value.capitalize()} validator expects {len(param_types) + len(onchain_params)} parameters for evaluation, but only got {len(validator_params)}."
-    assert (
-        onchain_params[-1][1] == ScriptContext
-    ), f"Last parameter of the validator has to be ScriptContext, but is {onchain_params[-1][1].__name__} here."
+        assert len(validator_params) == len(param_types) + len(onchain_params), (
+            f"{purpose.value.capitalize()} validator expects {len(param_types) + len(onchain_params)} parameters for evaluation, but only got {len(validator_params)}."
+        )
+    assert onchain_params[-1][1] == ScriptContext, (
+        f"Last parameter of the validator has to be ScriptContext, but is {onchain_params[-1][1].__name__} here."
+    )
     return onchain_params, param_types
 
 
@@ -250,7 +246,7 @@ def perform_command(args):
     compiler_config = DEFAULT_CONFIG
     compiler_config = compiler_config.update(OPT_CONFIGS[args.opt_level])
     overrides = {}
-    for k in ARGPARSE_ARGS.keys():
+    for k in ARGPARSE_ARGS:
         if getattr(args, k) is not None:
             overrides[k] = getattr(args, k)
     compiler_config = compiler_config.update(CompilationConfig(**overrides))
@@ -262,12 +258,12 @@ def perform_command(args):
     command = Command(args.command)
     purpose = Purpose(args.purpose)
     if purpose == Purpose.lib:
-        assert (
-            not compiler_config.remove_dead_code
-        ), "Libraries must have dead code removal disabled (-fno-remove-dead-code)"
+        assert not compiler_config.remove_dead_code, (
+            "Libraries must have dead code removal disabled (-fno-remove-dead-code)"
+        )
     input_file = args.input_file if args.input_file != "-" else sys.stdin
     # read and import the contract
-    with open(input_file, "r") as f:
+    with open(input_file) as f:
         source_code = f.read()
     with tempfile.TemporaryDirectory(prefix="build") as tmpdir:
         tmp_input_file = pathlib.Path(tmpdir).joinpath("__tmp_opshin.py")
@@ -300,7 +296,7 @@ def perform_command(args):
             )
             command_with_lib = f" or {command.value} using `opshin {command.value} lib {str(input_file)}`."
             raise AssertionError(
-                f"Contract has no function called 'validator'. Make sure the compiled contract contains one function called 'validator'"
+                "Contract has no function called 'validator'. Make sure the compiled contract contains one function called 'validator'"
                 + (command_with_lib if can_command_with_lib else ".")
             )
         annotations = [
@@ -337,9 +333,9 @@ def perform_command(args):
             parsed_params,
             compiler_config.force_three_params,
         )
-        assert (
-            onchain_params or purpose == Purpose.lib
-        ), "The validator function must have at least one on-chain parameter for non-library contracts."
+        assert onchain_params or purpose == Purpose.lib, (
+            "The validator function must have at least one on-chain parameter for non-library contracts."
+        )
 
     py_ret = Command.eval
     if command == Command.eval:
@@ -557,9 +553,9 @@ def parse_args():
             )
 
     a.add_argument(
-        f"-O",
+        "-O",
         type=int,
-        help=f"Optimization level from 0 (no optimization) to 3 (aggressive optimization). Defaults to 1.",
+        help="Optimization level from 0 (no optimization) to 3 (aggressive optimization). Defaults to 1.",
         default=2,
         choices=range(len(OPT_CONFIGS)),
         dest="opt_level",

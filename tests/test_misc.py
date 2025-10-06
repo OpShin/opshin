@@ -1,32 +1,36 @@
 import os
-
-import sys
-
 import subprocess
-
+import sys
 import tempfile
-
 import unittest
+from dataclasses import dataclass
+from typing import Union
 
 import frozendict
 import frozenlist2
 import hypothesis
-import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 from parameterized import parameterized
-
+from pycardano import PlutusData
 from uplc import ast as uplc
 
+from opshin import CompilerError, PlutusContract, Purpose, builder, prelude
+from opshin.compiler_config import DEFAULT_CONFIG, OPT_O2_CONFIG
+
+# these imports are required to eval the result of script context dumps
+from opshin.ledger.api_v2 import (
+    Anything,
+    ScriptContext,
+    SomeOutputDatum,
+    SomeOutputDatumHash,
+)
+
 from . import PLUTUS_VM_PROFILE
-from opshin import prelude, builder, Purpose, PlutusContract, CompilerError
-from .utils import eval_uplc_value, Unit, eval_uplc, eval_uplc_raw, a_or_b, A, B
-from opshin.compiler_config import OPT_O2_CONFIG, DEFAULT_CONFIG
+from .utils import A, B, Unit, a_or_b, eval_uplc, eval_uplc_raw, eval_uplc_value
 
 hypothesis.settings.load_profile(PLUTUS_VM_PROFILE)
 
-# these imports are required to eval the result of script context dumps
-from opshin.ledger.api_v2 import *
 
 DEFAULT_CONFIG_FORCE_THREE_PARAMS = DEFAULT_CONFIG.update(force_three_params=True)
 sys.setrecursionlimit(2000)
@@ -73,7 +77,7 @@ class MiscTest(unittest.TestCase):
         input_file = "examples/smart_contracts/assert_sum.py"
         with open(input_file) as fp:
             source_code = fp.read()
-        ret = eval_uplc(source_code, 0, 22, Unit())
+        eval_uplc(source_code, 0, 22, Unit())
 
     @given(
         a=st.integers(min_value=-10, max_value=10),
@@ -90,7 +94,7 @@ class MiscTest(unittest.TestCase):
         a=st.integers(min_value=-10, max_value=10),
         b=st.integers(min_value=0, max_value=10),
     )
-    def test_mult_for(self, a: int, b: int):
+    def test_mult_for2(self, a: int, b: int):
         input_file = "examples/mult_for.py"
         with open(input_file) as fp:
             source_code = fp.read()
@@ -129,7 +133,7 @@ class MiscTest(unittest.TestCase):
         input_file = "examples/hello_world.py"
         with open(input_file) as fp:
             source_code = fp.read()
-        ret = eval_uplc(source_code, Unit())
+        eval_uplc(source_code, Unit())
 
     def test_list_datum_correct_vals(self):
         input_file = "examples/list_datum.py"
@@ -194,9 +198,7 @@ class MiscTest(unittest.TestCase):
             uplc.PlutusConstr(0, []),
             uplc.data_from_cbor(
                 bytes.fromhex(
-                    (
-                        "d8799fd8799f9fd8799fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffd8799fd8799fd87a9f581cdbe769758f26efb21f008dc097bb194cffc622acc37fcefc5372eee3ffd87a80ffa140a1401a00989680d87a9f5820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dffd87a80ffffff809fd8799fd8799fd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd87a80ffa140a14000d87980d87a80ffd8799fd8799fd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd87a80ffa140a1401a000f4240d87980d87a80ffffa140a14000a140a1400080a0d8799fd8799fd87a9f1b000001836ac117d8ffd87a80ffd8799fd87b80d87a80ffff9f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffa1d87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffd87980a15820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd8799f5820c17c32f6433ae22c2acaebfb796bbfaee3993ff7ebb58a2bac6b4a3bdd2f6d28ffffd87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffff"
-                    )
+                    "d8799fd8799f9fd8799fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffd8799fd8799fd87a9f581cdbe769758f26efb21f008dc097bb194cffc622acc37fcefc5372eee3ffd87a80ffa140a1401a00989680d87a9f5820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dffd87a80ffffff809fd8799fd8799fd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd87a80ffa140a14000d87980d87a80ffd8799fd8799fd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd87a80ffa140a1401a000f4240d87980d87a80ffffa140a14000a140a1400080a0d8799fd8799fd87a9f1b000001836ac117d8ffd87a80ffd8799fd87b80d87a80ffff9f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffa1d87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffd87980a15820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd8799f5820c17c32f6433ae22c2acaebfb796bbfaee3993ff7ebb58a2bac6b4a3bdd2f6d28ffffd87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffff"
                 )
             ),
         )
@@ -208,7 +210,7 @@ class MiscTest(unittest.TestCase):
         with open(input_file) as fp:
             source_code = fp.read()
         # required sig missing int this script context
-        ret = eval_uplc(
+        eval_uplc(
             source_code,
             uplc.PlutusConstr(
                 0,
@@ -223,9 +225,7 @@ class MiscTest(unittest.TestCase):
             uplc.PlutusConstr(0, []),
             uplc.data_from_cbor(
                 bytes.fromhex(
-                    (
-                        "d8799fd8799f9fd8799fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffd8799fd8799fd87a9f581cdbe769758f26efb21f008dc097bb194cffc622acc37fcefc5372eee3ffd87a80ffa140a1401a00989680d87a9f5820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dffd87a80ffffff809fd8799fd8799fd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd87a80ffa140a14000d87980d87a80ffffa140a14000a140a1400080a0d8799fd8799fd87a9f1b000001836ac117d8ffd87a80ffd8799fd87b80d87a80ffff80a1d87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffd87980a15820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd8799f5820797a1e1720b63621c6b185088184cb8e23af6e46b55bd83e7a91024c823a6c2affffd87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffff"
-                    )
+                    "d8799fd8799f9fd8799fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffd8799fd8799fd87a9f581cdbe769758f26efb21f008dc097bb194cffc622acc37fcefc5372eee3ffd87a80ffa140a1401a00989680d87a9f5820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dffd87a80ffffff809fd8799fd8799fd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd87a80ffa140a14000d87980d87a80ffffa140a14000a140a1400080a0d8799fd8799fd87a9f1b000001836ac117d8ffd87a80ffd8799fd87b80d87a80ffff80a1d87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffd87980a15820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd8799f5820797a1e1720b63621c6b185088184cb8e23af6e46b55bd83e7a91024c823a6c2affffd87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffff"
                 )
             ),
         )
@@ -495,7 +495,7 @@ def validator(x: Token) -> bool:
     a = x.policy_id
     return True
         """
-        ret = eval_uplc(source_code, Unit())
+        eval_uplc(source_code, Unit())
 
     @unittest.expectedFailure
     def test_opt_shared_var(self):
@@ -508,7 +508,7 @@ def validator(x: Token) -> bool:
         a = y
     return True
         """
-        ret = eval_uplc(source_code, Unit())
+        eval_uplc(source_code, Unit())
 
     def test_list_expr(self):
         # this tests that the list expression is evaluated correctly
@@ -571,7 +571,7 @@ class A(PlutusData):
     CONSTR_ID = 0
     foo: int
     bar: int
-    
+
 def validator(x: int) -> int:
     a = A
     return a(x, 1).foo
@@ -650,7 +650,7 @@ from opshin.prelude import *
 class A(PlutusData):
     CONSTR_ID = 0
     foo: SomeOutputDatumHash
-    
+
 @dataclass()
 class B(PlutusData):
     CONSTR_ID = 1
@@ -689,13 +689,13 @@ class A(PlutusData):
 class B(PlutusData):
     CONSTR_ID = 1
     foo: SomeOutputDatum
-    
+
 @dataclass()
 class C(PlutusData):
     CONSTR_ID = 2
     bar: int
     foo: SomeOutputDatum
-    
+
 @dataclass()
 class D(PlutusData):
     CONSTR_ID = 3
@@ -733,7 +733,11 @@ def validator(x: Union[A, B, C, D]) -> Union[SomeOutputDatumHash, SomeOutputDatu
         x = (
             A(x)
             if isinstance(x, SomeOutputDatumHash)
-            else B(x) if y == 1 else C(0, x) if y == 2 else D(0, 0, x)
+            else B(x)
+            if y == 1
+            else C(0, x)
+            if y == 2
+            else D(0, 0, x)
         )
 
         ret = eval_uplc(source_code, x)
@@ -911,7 +915,7 @@ def validator(x: None) -> None:
     if True:
         b()
 """
-        ret = eval_uplc_value(source_code, 0)
+        eval_uplc_value(source_code, 0)
 
     def test_zero_ary_method(self):
         source_code = """
@@ -992,7 +996,7 @@ def validator(x: Token) -> bool:
     a: int = b
     return True
         """
-        ret = eval_uplc(source_code, Unit())
+        eval_uplc(source_code, Unit())
 
     def test_reassign_builtin(self):
         source_code = """
@@ -1113,8 +1117,8 @@ def validator(c: ScriptContext) -> str:
         """
         res = eval_uplc_value(source_code, context)
         # should not raise
-        from pycardano import RawPlutusData  # noqa: F401
         from cbor2 import CBORTag  # noqa: F401
+        from pycardano import RawPlutusData  # noqa: F401
 
         eval(res)
 
@@ -1200,7 +1204,7 @@ def validator(x: int) -> bool:
         self.assertEqual(bool(res), bool(x and x or (x or x)))
 
     @hypothesis.given(st.integers())
-    def test_cast_bool_ite(self, x):
+    def test_cast_bool_ite2(self, x):
         source_code = """
 def validator(x: int) -> None:
     assert x
@@ -1429,7 +1433,7 @@ def validator(x: Union[A, B]) -> int:
 """
         try:
             res = eval_uplc_value(source_code, x)
-        except:
+        except RuntimeError:
             res = None
         self.assertEqual(res, x.bar if isinstance(x, B) else None)
 
@@ -1475,7 +1479,7 @@ class B(PlutusData):
     CONSTR_ID = 1
     foobar: int
     bar: int
-    
+
 @dataclass()
 class C(PlutusData):
     CONSTR_ID = 2
@@ -1541,7 +1545,7 @@ class B(PlutusData):
     CONSTR_ID = 1
     foobar: int
     bar: int
-    
+
 def validator(x: Union[A, B]) -> int:
     if not isinstance(x, B):
         res = x.foo
@@ -2003,7 +2007,7 @@ def validator(
         with open(input_file) as fp:
             source_code = fp.read()
         code = builder._compile(source_code)
-        for i in range(10):
+        for _i in range(10):
             code_2 = builder._compile(source_code)
             self.assertEqual(code.dumps(), code_2.dumps())
 
@@ -2020,7 +2024,7 @@ def validator(
             ],
             capture_output=True,
         )
-        for i in range(10):
+        for _i in range(10):
             code_2 = subprocess.run(
                 [
                     sys.executable,
@@ -2375,8 +2379,8 @@ def validator(x: bool) -> None:
         a = b
     return a(x)
         """
-        res_true = eval_uplc(source_code, 1)
-        res_false = eval_uplc(source_code, 0)
+        eval_uplc(source_code, 1)
+        eval_uplc(source_code, 0)
 
     def test_print_reassign(self):
         source_code = """
@@ -2388,8 +2392,8 @@ def validator(x: bool) -> None:
     a = print
     return a(x)
         """
-        res_true = eval_uplc(source_code, 1)
-        res_false = eval_uplc(source_code, 0)
+        eval_uplc(source_code, 1)
+        eval_uplc(source_code, 0)
 
     def test_str_constr_reassign(self):
         source_code = """
@@ -2401,8 +2405,8 @@ def validator(x: bool) -> str:
     a = str
     return a(x)
         """
-        res_true = eval_uplc_value(source_code, 1)
-        res_false = eval_uplc_value(source_code, 0)
+        eval_uplc_value(source_code, 1)
+        eval_uplc_value(source_code, 0)
 
     @unittest.expectedFailure
     def test_class_attribute_access(self):
@@ -2449,7 +2453,7 @@ def validator(_: None) -> int:
             CONSTR_ID = 0
             a: int
             b: bytes
-            d: List[int]
+            d: list[int]
 
         @dataclass
         class C(PlutusData):
@@ -2459,7 +2463,7 @@ def validator(_: None) -> int:
         class B(PlutusData):
             a: int
             c: A
-            d: Dict[bytes, C]
+            d: dict[bytes, C]
             e: Union[A, C]
 
         source_code = """
@@ -2470,7 +2474,7 @@ from typing import Dict, List, Union
 @dataclass
 class Nothing(PlutusData):
     CONSTR_ID = 0
-    
+
 
 @dataclass
 class A(PlutusData):
@@ -2489,7 +2493,7 @@ class B(PlutusData):
     c: A
     d: Dict[bytes, C]
     e: Union[A, C]
-    
+
 def validator(_: None) -> int:
     return B(1, A(1, b"", [1, 2]), {b"": C(Nothing())}, C(Nothing())).CONSTR_ID
     """
@@ -2505,7 +2509,7 @@ def validator(_: None) -> int:
             CONSTR_ID = 0
             a: int
             b: bytes
-            d: List[int]
+            d: list[int]
 
         @dataclass
         class C(PlutusData):
@@ -2515,7 +2519,7 @@ def validator(_: None) -> int:
         class B(PlutusData):
             a: int
             c: A
-            d: Dict[bytes, C]
+            d: dict[bytes, C]
             e: Union[A, C]
 
         @dataclass
@@ -2585,7 +2589,7 @@ def validator(x: List[int]) -> int:
             exp = None
         try:
             ret = eval_uplc_value(source_code, xs)
-        except Exception as e:
+        except Exception:
             ret = None
         self.assertEqual(ret, exp, "list index returned wrong value")
 
@@ -2626,7 +2630,7 @@ def validator(a: bool, b:bool)-> int:
             else st.integers()
         )
         # test the optimization for list access when the index is known at compile time
-        source_code = f"""
+        source_code = """
 from typing import Dict, List, Union
 def validator(x: List[int], y: int) -> int:
     return x[y]
@@ -2639,7 +2643,7 @@ def validator(x: List[int], y: int) -> int:
         config.update(fast_access_skip=5)
         try:
             ret = eval_uplc_value(source_code, xs, y, config=config)
-        except Exception as e:
+        except Exception:
             ret = None
         self.assertEqual(ret, exp, "list index returned wrong value")
 
@@ -2647,7 +2651,7 @@ def validator(x: List[int], y: int) -> int:
         xs = list(range(1000))
         y = 250
         # test the optimization for list access when the list is long and we can skip entries
-        source_code = f"""
+        source_code = """
 from typing import Dict, List, Union
 def validator(x: List[int], y: int) -> int:
     return x[y]
@@ -2722,9 +2726,9 @@ def validator(a: int) -> None:
 def validator(a: int) -> int:
     t1 = (a, a, a)
     t2 = (a, a)
-    
+
     t3 = t1 if a else t2
-    
+
     return t3[2]
 """
         # this should fail during compilation because t3 is not guaranteed to have a third element
@@ -2752,7 +2756,7 @@ from opshin.std.integrity import check_integrity as bytes
 
 def validator(a: int) -> int:
     return a
-    
+
 """
         try:
             builder._compile(source_code)
@@ -2776,9 +2780,9 @@ def validator(a: int) -> int:
             builder._compile(source_code)
             self.fail("Type check did not fail")
         except Exception as e:
-            assert "int" in str(e) and "str" in str(
-                e
-            ), "Type check did not fail with correct message"
+            assert "int" in str(e) and "str" in str(e), (
+                "Type check did not fail with correct message"
+            )
 
     def test_dict_union_keys(self):
         source_code = """

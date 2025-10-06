@@ -5,11 +5,10 @@ from hypothesis import strategies as st
 
 from opshin import builder
 from opshin.util import CompilerError
-from tests.utils import eval_uplc_value, Unit
+from tests.utils import Unit, eval_uplc_value
 
 
 class TupleAssignTest(unittest.TestCase):
-
     def test_tuple_assign_too_many(self):
         source_code = """
 def validator(a: int) -> int:
@@ -175,7 +174,7 @@ def validator(xs) -> int:
             max_size=5,
         )
     )
-    def test_dict_items_values_deconstr(self, xs):
+    def test_dict_items_values_deconstr2(self, xs):
         # nested deconstruction with a Value-like object
         source_code = """
 from typing import Dict, List, Union

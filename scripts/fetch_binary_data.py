@@ -6,10 +6,10 @@ This script runs during docs build to avoid CORS issues in the browser.
 
 import json
 import subprocess
-
-import requests
 import sys
 from pathlib import Path
+
+import requests
 
 
 def fetch_release_data():
@@ -63,7 +63,7 @@ def generate_html_from_template(releases_data, template_path, output_path):
     """Generate the final HTML file from template with embedded data."""
 
     # Read the template file
-    with open(template_path, "r") as f:
+    with open(template_path) as f:
         template_content = f.read()
 
     # Create the JavaScript data embedding
@@ -94,7 +94,7 @@ def fetch_current_dev_build_data():
     current_dev_data_file = Path("binary_sizes_baseline.json")
     if current_dev_data_file.exists():
         try:
-            with open(current_dev_data_file, "r") as f:
+            with open(current_dev_data_file) as f:
                 current_dev_data = json.load(f)
             return {
                 "tag_name": "dev",

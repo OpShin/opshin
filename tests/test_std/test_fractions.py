@@ -1,16 +1,14 @@
-import hypothesis
-import hypothesis.strategies as hst
-from typing import Union
-
-from hypothesis.strategies import integers
-
-from opshin.std import fractions as oc_fractions
-from ..utils import eval_uplc, eval_uplc_value
-
 import fractions as native_fractions
 import math as native_math
+from typing import Union
 
+import hypothesis
+import hypothesis.strategies as hst
 from uplc.ast import PlutusConstr
+
+from opshin.std import fractions as oc_fractions
+
+from ..utils import eval_uplc
 
 non_null = hst.one_of(hst.integers(min_value=1), hst.integers(max_value=-1))
 denormalized_fractions = hst.builds(oc_fractions.Fraction, hst.integers(), non_null)
@@ -161,33 +159,33 @@ def test_pow_dunder(a: oc_fractions.Fraction, b: int):
 @hypothesis.given(denormalized_fractions)
 def test_ceil(a: oc_fractions.Fraction):
     oc_ceil = oc_fractions.ceil_fraction(a)
-    assert (
-        native_math.ceil(native_fraction_from_oc_fraction(a)) == oc_ceil
-    ), "Invalid ceil"
+    assert native_math.ceil(native_fraction_from_oc_fraction(a)) == oc_ceil, (
+        "Invalid ceil"
+    )
 
 
 @hypothesis.given(denormalized_fractions)
 def test_floor(a: oc_fractions.Fraction):
     oc_ceil = oc_fractions.floor_fraction(a)
-    assert (
-        native_math.floor(native_fraction_from_oc_fraction(a)) == oc_ceil
-    ), "Invalid ceil"
+    assert native_math.floor(native_fraction_from_oc_fraction(a)) == oc_ceil, (
+        "Invalid ceil"
+    )
 
 
 @hypothesis.given(denormalized_fractions)
 def test_ceil_method(a: oc_fractions.Fraction):
     oc_ceil = a.ceil()
-    assert (
-        native_math.ceil(native_fraction_from_oc_fraction(a)) == oc_ceil
-    ), "Invalid ceil"
+    assert native_math.ceil(native_fraction_from_oc_fraction(a)) == oc_ceil, (
+        "Invalid ceil"
+    )
 
 
 @hypothesis.given(denormalized_fractions)
 def test_floor_method(a: oc_fractions.Fraction):
     oc_ceil = a.floor()
-    assert (
-        native_math.floor(native_fraction_from_oc_fraction(a)) == oc_ceil
-    ), "Invalid ceil"
+    assert native_math.floor(native_fraction_from_oc_fraction(a)) == oc_ceil, (
+        "Invalid ceil"
+    )
 
 
 @hypothesis.given(
@@ -328,9 +326,9 @@ def test_rmul_dunder(a: int, b: oc_fractions.Fraction):
 def test_rtruediv_dunder(a: int, b: oc_fractions.Fraction):
     oc_divved = a / b
     oc_normalized = native_fraction_from_oc_fraction(oc_divved)
-    assert oc_normalized == (
-        a / native_fraction_from_oc_fraction(b)
-    ), "Invalid rtruediv"
+    assert oc_normalized == (a / native_fraction_from_oc_fraction(b)), (
+        "Invalid rtruediv"
+    )
 
 
 @hypothesis.given(hst.integers(), denormalized_fractions_non_null)

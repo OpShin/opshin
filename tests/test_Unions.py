@@ -1,20 +1,19 @@
 import unittest
+from dataclasses import dataclass
+
 import hypothesis
 import pytest
-from hypothesis import given
 from hypothesis import strategies as st
+from pycardano import PlutusData
+
 from opshin import builder
-from .utils import eval_uplc_value, eval_uplc, eval_uplc_raw
-from . import PLUTUS_VM_PROFILE
 from opshin.util import CompilerError
 
-hypothesis.settings.load_profile(PLUTUS_VM_PROFILE)
-
+from . import PLUTUS_VM_PROFILE
 from .test_misc import A
-from typing import List, Dict
+from .utils import eval_uplc, eval_uplc_value
 
-from opshin.ledger.api_v2 import *
-from opshin import DEFAULT_CONFIG
+hypothesis.settings.load_profile(PLUTUS_VM_PROFILE)
 
 
 def to_int(x):
@@ -24,9 +23,9 @@ def to_int(x):
         return 6
     elif isinstance(x, bytes):
         return 7
-    elif isinstance(x, List):
+    elif isinstance(x, list):
         return 8
-    elif isinstance(x, Dict):
+    elif isinstance(x, dict):
         return 9
     return False
 
@@ -118,7 +117,7 @@ def validator(x: Union[A, bytes,]) -> int:
     return k
 """
         with self.AssertRaises(CompilerError):
-            res = eval_uplc_value(source_code, 2)
+            eval_uplc_value(source_code, 2)
 
     def test_isinstance_Dict_subscript_fail(
         self,
@@ -148,7 +147,7 @@ def validator(x: Union[A, int, bytes, List[Anything], Dict[Anything, Anything]])
     return k
 """
         with self.assertRaises(CompilerError) as ce:
-            res = eval_uplc_value(source_code, [1, 2, 3])
+            eval_uplc_value(source_code, [1, 2, 3])
         self.assertIsInstance(ce.exception.orig_err, TypeError)
 
     def test_isinstance_List_subscript_fail(
@@ -179,7 +178,7 @@ def validator(x: Union[A, int, bytes, List[Anything], Dict[Anything, Anything]])
     return k
 """
         with self.assertRaises(CompilerError) as ce:
-            res = eval_uplc_value(source_code, [1, 2, 3])
+            eval_uplc_value(source_code, [1, 2, 3])
         self.assertIsInstance(ce.exception.orig_err, TypeError)
 
     def test_Union_list_is_anything(
@@ -211,7 +210,7 @@ def validator(x: Union[A, int, bytes, List[int], Dict[Anything, Anything]]) -> i
     return k
 """
         with self.assertRaises(CompilerError) as ce:
-            res = eval_uplc_value(source_code, [1, 2, 3])
+            eval_uplc_value(source_code, [1, 2, 3])
         self.assertIsInstance(ce.exception.orig_err, AssertionError)
 
     def test_Union_dict_is_anything(
@@ -243,7 +242,7 @@ def validator(x: Union[A, int, bytes, List[Anything], Dict[int, bytes]]) -> int:
     return k
 """
         with self.assertRaises(CompilerError) as ce:
-            res = eval_uplc_value(source_code, [1, 2, 3])
+            eval_uplc_value(source_code, [1, 2, 3])
         self.assertIsInstance(ce.exception.orig_err, AssertionError)
 
     def test_same_constructor_fail(self):
@@ -276,7 +275,7 @@ def validator(x: Union[B, C]) -> int:
     return 100
 """
         with self.assertRaises(CompilerError) as ce:
-            res = eval_uplc_value(source_code, B(0))
+            eval_uplc_value(source_code, B(0))
         self.assertIsInstance(ce.exception.orig_err, AssertionError)
 
     def test_str_fail(self):
@@ -293,7 +292,7 @@ def validator(x: Union[int, bytes, str]) -> int:
     return 100
 """
         with self.assertRaises(CompilerError) as ce:
-            res = eval_uplc_value(source_code, "test")
+            eval_uplc_value(source_code, "test")
         self.assertIsInstance(ce.exception.orig_err, AssertionError)
 
     def test_bool_fail(self):
@@ -310,7 +309,7 @@ def validator(x: Union[int, bytes, bool]) -> int:
     return 100
 """
         with self.assertRaises(CompilerError) as ce:
-            res = eval_uplc_value(source_code, True)
+            eval_uplc_value(source_code, True)
         self.assertIsInstance(ce.exception.orig_err, AssertionError)
 
     def test_any_fail(self):
@@ -328,7 +327,7 @@ def validator(x: Anything) -> int:
     return 100
 """
         with self.assertRaises(CompilerError) as ce:
-            res = eval_uplc_value(source_code, "test")
+            eval_uplc_value(source_code, "test")
         self.assertIsInstance(ce.exception.orig_err, AssertionError)
         self.assertIn("instance of raw Anything", str(ce.exception.orig_err))
 
@@ -415,7 +414,7 @@ class B(PlutusData):
     y: bytes
 
 def foo(x: Union[A, B]) -> int:
-    k: int = x.x + 1 if isinstance(x, A) else len(x.y) 
+    k: int = x.x + 1 if isinstance(x, A) else len(x.y)
     return k
 
 def validator(x: int) -> int:
@@ -437,7 +436,7 @@ from typing import Dict, List, Union
 from pycardano import Datum as Anything, PlutusData
 
 def foo(x: Union[int, bytes]) -> int:
-    k: int = x + 1 if isinstance(x, int) else len(x) 
+    k: int = x + 1 if isinstance(x, int) else len(x)
     return k
 
 def validator(x: int) -> int:
@@ -623,7 +622,7 @@ def validator(x: Union[A, int]) -> int:
         return 1
 """
         with self.assertRaises(CompilerError) as ce:
-            res = eval_uplc_value(source_code, 0)
+            eval_uplc_value(source_code, 0)
         self.assertIsInstance(ce.exception.orig_err, AssertionError)
 
     def test_Union_types_access_CONSTR_ID(self):
@@ -644,7 +643,7 @@ def validator(x: Union[A, int]) -> int:
         return 1
 """
         with self.assertRaises(CompilerError) as ce:
-            res = eval_uplc_value(source_code, 0)
+            eval_uplc_value(source_code, 0)
         self.assertIsInstance(ce.exception.orig_err, AssertionError)
 
     def test_Union_types_access_CONSTR_ID_2(self):
@@ -721,6 +720,7 @@ def validator(x: Union[A, B]) -> None:
 
         # This should work - isinstance(x, A) should make x.value accessible
         from dataclasses import dataclass
+
         from pycardano import PlutusData
 
         @dataclass()
@@ -855,7 +855,7 @@ def validator(a: Union[int, bytes]) -> Union[int, bytes]:
         b = convert(a)
         if isinstance(b, int):
             print(str(b))
-    
+
     return a
     """
 
@@ -1000,12 +1000,12 @@ def validator(x: Union[Union[A, B], C]) -> None:
         try:
             eval_uplc(source_code, A(b"test"))
             self.fail("Should have failed to execute due to type mismatch")
-        except RuntimeError as e:
+        except RuntimeError:
             pass
         try:
             eval_uplc(source_code, B(1, 2))
             self.fail("Should have failed to execute due to type mismatch")
-        except RuntimeError as e:
+        except RuntimeError:
             pass
         eval_uplc(source_code, C(1, 2))
 

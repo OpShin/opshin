@@ -1,15 +1,11 @@
 import unittest
-import json
-import typing
-from typing import List, Dict, Union
-
-import pycardano
-from pycardano import PlutusData
 from dataclasses import dataclass
+from typing import Union
 
-from uplc.ast import PlutusInteger, PlutusByteString, PlutusList, PlutusMap
+from pycardano import PlutusData
+from uplc.ast import PlutusByteString, PlutusInteger, PlutusList, PlutusMap
 
-from opshin.__main__ import parse_uplc_param, parse_plutus_param
+from opshin.__main__ import parse_plutus_param, parse_uplc_param
 
 
 @dataclass
@@ -146,13 +142,13 @@ class TestParsePlutusParam(unittest.TestCase):
     def test_parse_json_list(self):
         """Test parsing JSON list parameter"""
         param = '{"list": [{"int": 1}, {"int": 2}, {"int": 3}]}'
-        result = parse_plutus_param(List[int], param)
+        result = parse_plutus_param(list[int], param)
         self.assertEqual(result, [1, 2, 3])
 
     def test_parse_json_dict(self):
         """Test parsing JSON dictionary parameter"""
         param = '{"map": [{"k": {"int": 1}, "v": {"bytes": "48656c6c6f"}}]}'
-        result = parse_plutus_param(Dict[int, bytes], param)
+        result = parse_plutus_param(dict[int, bytes], param)
         expected = {1: b"Hello"}
         self.assertEqual(result, expected)
 
@@ -171,7 +167,7 @@ class TestParsePlutusParam(unittest.TestCase):
     def test_parse_cbor_list(self):
         """Test parsing CBOR list parameter"""
         param = "83010203"  # CBOR encoding of [1, 2, 3]
-        result = parse_plutus_param(List[int], param)
+        result = parse_plutus_param(list[int], param)
         self.assertEqual(result, [1, 2, 3])
 
     def test_parse_union_type_int(self):
@@ -239,7 +235,7 @@ class TestParsePlutusParam(unittest.TestCase):
         param = (
             '{"map": [{"k": {"int": 1}, "v": {"list": [{"int": 10}, {"int": 20}]}}]}'
         )
-        result = parse_plutus_param(Dict[int, List[int]], param)
+        result = parse_plutus_param(dict[int, list[int]], param)
         expected = {1: [10, 20]}
         self.assertEqual(result, expected)
 
@@ -271,19 +267,19 @@ class TestParsePlutusParam(unittest.TestCase):
     def test_empty_list(self):
         """Test parsing empty list"""
         param = '{"list": []}'
-        result = parse_plutus_param(List[int], param)
+        result = parse_plutus_param(list[int], param)
         self.assertEqual(result, [])
 
     def test_empty_dict(self):
         """Test parsing empty dictionary"""
         param = '{"map": []}'
-        result = parse_plutus_param(Dict[int, str], param)
+        result = parse_plutus_param(dict[int, str], param)
         self.assertEqual(result, {})
 
     def test_malformed_cbor(self):
         """Test error handling for malformed CBOR"""
         param = "ff"  # Invalid CBOR
-        with self.assertRaises(ValueError) as context:
+        with self.assertRaises(ValueError):
             parse_plutus_param(int, param)
         # Should raise an error when trying to parse invalid CBOR
 
@@ -376,7 +372,7 @@ class TestEdgeCasesAndCornerCases(unittest.TestCase):
         self.assertIn("Could not parse", str(context.exception))
         param = '{"int": 42}'
         with self.assertRaises(ValueError) as context:
-            parse_plutus_param(List[int], param)
+            parse_plutus_param(list[int], param)
         self.assertIn("Could not parse", str(context.exception))
 
 

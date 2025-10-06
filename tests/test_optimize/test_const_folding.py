@@ -1,11 +1,12 @@
+import contextlib
 import unittest
 from dataclasses import dataclass
 
 from pycardano import PlutusData
 from uplc import ast as uplc
 
-from opshin import DEFAULT_CONFIG, builder, CompilerError
-from tests.utils import eval_uplc_value, Unit, eval_uplc
+from opshin import DEFAULT_CONFIG, CompilerError, builder
+from tests.utils import Unit, eval_uplc, eval_uplc_value
 
 DEFAULT_CONFIG_CONSTANT_FOLDING = DEFAULT_CONFIG.update(constant_folding=True)
 
@@ -72,8 +73,8 @@ def validator(_: None) -> Dict[str, bool]:
             res,
             uplc.PlutusMap(
                 {
-                    uplc.PlutusByteString("s".encode()): uplc.PlutusInteger(1),
-                    uplc.PlutusByteString("m".encode()): uplc.PlutusInteger(0),
+                    uplc.PlutusByteString(b"s"): uplc.PlutusInteger(1),
+                    uplc.PlutusByteString(b"m"): uplc.PlutusInteger(0),
                 }
             ),
         )
@@ -90,7 +91,7 @@ def validator(_: None) -> Dict[str, List[Dict[bytes, int]]]:
             res,
             uplc.PlutusMap(
                 {
-                    uplc.PlutusByteString("s".encode()): uplc.PlutusList(
+                    uplc.PlutusByteString(b"s"): uplc.PlutusList(
                         [
                             uplc.PlutusMap(
                                 {uplc.PlutusByteString(b""): uplc.PlutusInteger(0)}
@@ -313,7 +314,7 @@ def validator(_: None) -> None:
 """
         code = builder._compile(source_code, config=DEFAULT_CONFIG_CONSTANT_FOLDING)
         code_src = code.dumps()
-        self.assertIn(f'(con string "hello")', code_src)
+        self.assertIn('(con string "hello")', code_src)
 
     def test_inner_outer_state_functions(self):
         source_code = """
@@ -460,9 +461,9 @@ def validator(x: bytes) -> int:
         code = builder._compile(
             source_code, Unit(), config=DEFAULT_CONFIG_CONSTANT_FOLDING
         )
-        assert (
-            "lengthOfByteString" not in code.dumps()
-        ), "Should be constant folded, can precompute that length not needed"
+        assert "lengthOfByteString" not in code.dumps(), (
+            "Should be constant folded, can precompute that length not needed"
+        )
 
     def test_constant_folding_bytestring_index_negative(self):
         source_code = """
@@ -474,9 +475,9 @@ def validator(x: bytes) -> int:
         code = builder._compile(
             source_code, Unit(), config=DEFAULT_CONFIG_CONSTANT_FOLDING
         )
-        assert (
-            "lengthOfByteString" in code.dumps()
-        ), "Should be constant folded, but still needs to check length at runtime"
+        assert "lengthOfByteString" in code.dumps(), (
+            "Should be constant folded, but still needs to check length at runtime"
+        )
 
     def test_constant_folding_check_integrity(self):
         """
@@ -524,10 +525,8 @@ def validator(x: B) -> None:
             source_code, Unit(), config=DEFAULT_CONFIG_CONSTANT_FOLDING
         )
         self.assertIn("ValueError", code.dumps())
-        try:
+        with contextlib.suppress(Exception):
             eval_uplc(source_code, Unit(), config=DEFAULT_CONFIG_CONSTANT_FOLDING)
-        except Exception as e:
-            pass
 
         @dataclass()
         class B(PlutusData):
@@ -537,5 +536,5 @@ def validator(x: B) -> None:
 
         try:
             eval_uplc(source_code, B(4, 5), config=DEFAULT_CONFIG_CONSTANT_FOLDING)
-        except Exception as e:
+        except Exception:
             self.fail("Should not raise")

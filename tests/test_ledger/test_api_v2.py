@@ -1,6 +1,6 @@
 from parameterized import parameterized
 
-from opshin.ledger.api_v2 import *
+from opshin.ledger.api_v2 import ScriptContext
 
 
 @parameterized.expand(

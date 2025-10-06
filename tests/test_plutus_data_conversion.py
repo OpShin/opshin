@@ -1,14 +1,12 @@
 import unittest
-import json
-import cbor2
-import typing
 from dataclasses import dataclass
-from typing import List, Dict, Union
+from typing import Union
 
+import cbor2
 import pycardano
 from pycardano import PlutusData
 
-from opshin.__main__ import plutus_data_from_json, plutus_data_from_cbor
+from opshin.__main__ import plutus_data_from_cbor, plutus_data_from_json
 
 
 @dataclass
@@ -25,7 +23,6 @@ class NestedPlutusData(PlutusData):
 
 
 class TestPlutusDataFromJson(unittest.TestCase):
-
     def test_int_conversion(self):
         """Test conversion of integer from JSON"""
         json_data = {"int": 42}
@@ -47,7 +44,7 @@ class TestPlutusDataFromJson(unittest.TestCase):
     def test_list_conversion(self):
         """Test conversion of List[int] from JSON"""
         json_data = {"list": [{"int": 1}, {"int": 2}, {"int": 3}]}
-        result = plutus_data_from_json(List[int], json_data)
+        result = plutus_data_from_json(list[int], json_data)
         self.assertEqual(result, [1, 2, 3])
 
     def test_nested_list_conversion(self):
@@ -58,7 +55,7 @@ class TestPlutusDataFromJson(unittest.TestCase):
                 {"list": [{"int": 3}, {"int": 4}]},
             ]
         }
-        result = plutus_data_from_json(List[List[int]], json_data)
+        result = plutus_data_from_json(list[list[int]], json_data)
         self.assertEqual(result, [[1, 2], [3, 4]])
 
     def test_dict_conversion(self):
@@ -69,7 +66,7 @@ class TestPlutusDataFromJson(unittest.TestCase):
                 {"k": {"int": 2}, "v": {"bytes": "576f726c64"}},
             ]
         }
-        result = plutus_data_from_json(Dict[int, bytes], json_data)
+        result = plutus_data_from_json(dict[int, bytes], json_data)
         expected = {1: b"Hello", 2: b"World"}
         self.assertEqual(result, expected)
 
@@ -148,7 +145,6 @@ class TestPlutusDataFromJson(unittest.TestCase):
 
 
 class TestPlutusDataFromCbor(unittest.TestCase):
-
     def test_int_conversion(self):
         """Test conversion of integer from CBOR"""
         cbor_data = cbor2.dumps(42)
@@ -179,21 +175,21 @@ class TestPlutusDataFromCbor(unittest.TestCase):
         """Test conversion of List[int] from CBOR"""
         test_list = [1, 2, 3, 4]
         cbor_data = cbor2.dumps(test_list)
-        result = plutus_data_from_cbor(List[int], cbor_data)
+        result = plutus_data_from_cbor(list[int], cbor_data)
         self.assertEqual(result, test_list)
 
     def test_nested_list_conversion(self):
         """Test conversion of nested lists from CBOR"""
         test_list = [[1, 2], [3, 4], [5, 6]]
         cbor_data = cbor2.dumps(test_list)
-        result = plutus_data_from_cbor(List[List[int]], cbor_data)
+        result = plutus_data_from_cbor(list[list[int]], cbor_data)
         self.assertEqual(result, test_list)
 
     def test_dict_conversion(self):
         """Test conversion of Dict[int, bytes] from CBOR"""
         test_dict = {1: b"Hello", 2: b"World", 3: b"Test"}
         cbor_data = cbor2.dumps(test_dict)
-        result = plutus_data_from_cbor(Dict[int, bytes], cbor_data)
+        result = plutus_data_from_cbor(dict[int, bytes], cbor_data)
         self.assertEqual(result, test_dict)
 
     def test_union_conversion_int(self):
@@ -253,7 +249,7 @@ class TestPlutusDataFromCbor(unittest.TestCase):
         """Test conversion of complex nested structure"""
         test_data = {1: [10, 20, 30], 2: [40, 50, 60], 3: [70, 80, 90]}
         cbor_data = cbor2.dumps(test_data)
-        result = plutus_data_from_cbor(Dict[int, List[int]], cbor_data)
+        result = plutus_data_from_cbor(dict[int, list[int]], cbor_data)
         self.assertEqual(result, test_data)
 
 
@@ -263,25 +259,25 @@ class TestEdgeCases(unittest.TestCase):
     def test_empty_list_json(self):
         """Test empty list conversion from JSON"""
         json_data = {"list": []}
-        result = plutus_data_from_json(List[int], json_data)
+        result = plutus_data_from_json(list[int], json_data)
         self.assertEqual(result, [])
 
     def test_empty_list_cbor(self):
         """Test empty list conversion from CBOR"""
         cbor_data = cbor2.dumps([])
-        result = plutus_data_from_cbor(List[int], cbor_data)
+        result = plutus_data_from_cbor(list[int], cbor_data)
         self.assertEqual(result, [])
 
     def test_empty_dict_json(self):
         """Test empty dict conversion from JSON"""
         json_data = {"map": []}
-        result = plutus_data_from_json(Dict[int, str], json_data)
+        result = plutus_data_from_json(dict[int, str], json_data)
         self.assertEqual(result, {})
 
     def test_empty_dict_cbor(self):
         """Test empty dict conversion from CBOR"""
         cbor_data = cbor2.dumps({})
-        result = plutus_data_from_cbor(Dict[int, bytes], cbor_data)
+        result = plutus_data_from_cbor(dict[int, bytes], cbor_data)
         self.assertEqual(result, {})
 
     def test_large_integers(self):

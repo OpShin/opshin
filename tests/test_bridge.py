@@ -1,5 +1,3 @@
-from typing import List, Dict
-
 import hypothesis
 from hypothesis import strategies as st
 
@@ -37,7 +35,7 @@ def test_bridge_add_strings(a, b):
 @hypothesis.given(st.lists(st.integers(), min_size=1))
 def test_head_list(lst):
     @wraps_builtin
-    def head_list(x: List[int]) -> int:
+    def head_list(x: list[int]) -> int:
         pass
 
     assert head_list(lst) == lst[0]
@@ -68,7 +66,7 @@ from opshin.bridge import wraps_builtin
 @wraps_builtin
 def append_byte_string(x: bytes, y: bytes) -> bytes:
     pass
-    
+
 def validator(x: bytes, y: bytes) -> bytes:
     return append_byte_string(x, y)
     """
@@ -84,7 +82,7 @@ from opshin.bridge import wraps_builtin
 @wraps_builtin
 def append_string(x: str, y: str) -> str:
     pass
-    
+
 def validator(x: str, y: str) -> str:
     return append_string(x, y)
     """
@@ -93,7 +91,7 @@ def validator(x: str, y: str) -> str:
 
 
 @hypothesis.given(st.lists(st.integers(), min_size=1))
-def test_head_list_uplc(lst: List[int]):
+def test_head_list_uplc(lst: list[int]):
     code = """
 from opshin.bridge import wraps_builtin
 from typing import Dict, List, Union
@@ -101,7 +99,7 @@ from typing import Dict, List, Union
 @wraps_builtin
 def head_list(x: List[int]) -> int:
     pass
-    
+
 def validator(x: List[int]) -> int:
     return head_list(x)
     """

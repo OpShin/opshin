@@ -1,41 +1,39 @@
 import unittest
 
 import cbor2
+import frozenlist as fl
 import hypothesis
 import pycardano
 from frozendict import frozendict
-import frozenlist as fl
 from hypothesis import example, given
 from hypothesis import strategies as st
-
-from uplc import ast as uplc, eval as uplc_eval
+from uplc import ast as uplc
 from uplc.ast import (
-    PlutusMap,
-    PlutusConstr,
-    PlutusList,
-    PlutusInteger,
     PlutusByteString,
+    PlutusConstr,
+    PlutusInteger,
+    PlutusList,
+    PlutusMap,
+)
+
+from opshin.ledger.api_v2 import (
+    FalseData,
+    FinitePOSIXTime,
+    PosInfPOSIXTime,
+    TrueData,
+    UpperBoundPOSIXTime,
 )
 
 from . import PLUTUS_VM_PROFILE
-from .utils import eval_uplc, eval_uplc_value, Unit
-from opshin import compiler
+from .utils import Unit, eval_uplc_value
 
 hypothesis.settings.load_profile(PLUTUS_VM_PROFILE)
 
-from opshin.ledger.api_v2 import (
-    FinitePOSIXTime,
-    PosInfPOSIXTime,
-    UpperBoundPOSIXTime,
-    FalseData,
-    TrueData,
-)
 
-
-def frozenlist(l):
-    l = fl.FrozenList(l)
-    l.freeze()
-    return l
+def frozenlist(listy):
+    listy = fl.FrozenList(listy)
+    listy.freeze()
+    return listy
 
 
 pos_int = st.integers(min_value=0, max_value=2**64 - 1)
@@ -250,7 +248,7 @@ def validator(x: bytes, y: int, z: int) -> bytes:
             exp = None
         try:
             ret = eval_uplc_value(source_code, x, y, z)
-        except:
+        except RuntimeError:
             ret = None
         self.assertEqual(ret, exp, "byte slice returned wrong value")
 
@@ -272,7 +270,7 @@ def validator(x: bytes, y: int) -> bytes:
             exp = None
         try:
             ret = eval_uplc_value(source_code, x, y)
-        except:
+        except RuntimeError:
             ret = None
         self.assertEqual(ret, exp, "byte slice returned wrong value")
 
@@ -294,7 +292,7 @@ def validator(x: bytes, y: int) -> bytes:
             exp = None
         try:
             ret = eval_uplc_value(source_code, x, y)
-        except:
+        except RuntimeError:
             ret = None
         self.assertEqual(ret, exp, "byte slice returned wrong value")
 
@@ -316,7 +314,7 @@ def validator(x: bytes) -> bytes:
             exp = None
         try:
             ret = eval_uplc_value(source_code, x)
-        except:
+        except RuntimeError:
             ret = None
         self.assertEqual(ret, exp, "byte slice returned wrong value")
 
@@ -335,7 +333,7 @@ def validator(x: bytes, y: int) -> int:
             exp = None
         try:
             ret = eval_uplc_value(source_code, x, y)
-        except:
+        except RuntimeError:
             ret = None
         self.assertEqual(ret, exp, "byte index returned wrong value")
 
@@ -360,7 +358,7 @@ def validator(x: List[int], y: int) -> int:
             exp = None
         try:
             ret = eval_uplc_value(source_code, xs, y)
-        except Exception as e:
+        except Exception:
             ret = None
         self.assertEqual(ret, exp, "list index returned wrong value")
 
@@ -383,7 +381,7 @@ def validator(x: List[int], y: int, z: int) -> List[int]:
             exp = None
         try:
             ret = eval_uplc_value(source_code, x, y, z)
-        except:
+        except RuntimeError:
             ret = None
         self.assertEqual(
             ret,
@@ -410,7 +408,7 @@ def validator(x: List[int], y: int) -> List[int]:
             exp = None
         try:
             ret = eval_uplc_value(source_code, x, y)
-        except:
+        except RuntimeError:
             ret = None
         self.assertEqual(
             ret,
@@ -437,7 +435,7 @@ def validator(x: List[int], y: int) -> List[int]:
             exp = None
         try:
             ret = eval_uplc_value(source_code, x, y)
-        except:
+        except RuntimeError:
             ret = None
         self.assertEqual(
             ret,
@@ -464,7 +462,7 @@ def validator(x: List[int]) -> List[int]:
             exp = None
         try:
             ret = eval_uplc_value(source_code, x)
-        except:
+        except RuntimeError:
             ret = None
         self.assertEqual(
             ret,
@@ -845,11 +843,11 @@ def validator({",".join(p + ": str" for p in params)}) -> str:
 
     @given(x=st.integers(), y=st.integers())
     def test_fmt_pair_int(self, x, y):
-        source_code = f"""
+        source_code = """
 def validator(x: int, y: int) -> str:
     a = ""
-    for p in {{x:y}}.items():
-        a = f"{{p}}"
+    for p in {x:y}.items():
+        a = f"{p}"
     return a
             """
         exp = f"{(x, y)}"
@@ -861,11 +859,11 @@ def validator(x: int, y: int) -> str:
     @given(x=formattable_text, y=formattable_text)
     def test_fmt_pair_str(self, x, y):
         # TODO strings are not properly escaped here
-        source_code = f"""
+        source_code = """
 def validator(x: str, y: str) -> str:
     a = ""
-    for p in {{x:y}}.items():
-        a = f"{{p}}"
+    for p in {x:y}.items():
+        a = f"{p}"
     return a
             """
         exp = f"{(x, y)}"
@@ -932,12 +930,12 @@ def validator(x: Dict[int, int], y: int) -> int:
             exp = None
         try:
             ret = eval_uplc_value(source_code, xs, y)
-        except Exception as e:
+        except Exception:
             ret = None
         self.assertEqual(ret, exp, "list index returned wrong value")
 
     @given(xs=st.dictionaries(formattable_text, st.integers()))
-    @example(dict())
+    @example({})
     @example({"": 0})
     def test_fmt_dict_int(self, xs):
         # TODO strings are not properly escaped here
@@ -972,8 +970,6 @@ def validator(x: Anything) -> str:
         exp = f"RawPlutusData(data={repr(x_data.data)})"
         ret = eval_uplc_value(source_code, pycardano.RawCBOR(x_cbor)).decode("utf8")
         if "\\'" in ret:
-            RawPlutusData = pycardano.RawPlutusData
-            CBORTag = cbor2.CBORTag
             self.assertEqual(
                 eval(ret), x_data, "raw cbor string formatting returned wrong value"
             )

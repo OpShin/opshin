@@ -1,12 +1,12 @@
 from ast import *
-from copy import copy
 from collections import defaultdict
+from copy import copy
 
 from ordered_set import OrderedSet
 
-from ..util import CompilingNodeVisitor, CompilingNodeTransformer
 from ..type_inference import INITIAL_SCOPE
-from ..typed_ast import TypedAnnAssign, TypedFunctionDef, TypedClassDef, TypedName
+from ..typed_ast import TypedAnnAssign, TypedClassDef, TypedFunctionDef, TypedName
+from ..util import CompilingNodeTransformer, CompilingNodeVisitor
 
 """
 Removes assignments to variables that are never read
@@ -31,7 +31,7 @@ class NameLoadCollector(CompilingNodeVisitor):
         # ignore the type hints of function arguments
         for s in node.body:
             self.visit(s)
-        for v in node.typ.typ.bound_vars.keys():
+        for v in node.typ.typ.bound_vars:
             self.loaded[v] += 1
         if node.typ.typ.bind_self is not None:
             self.loaded[node.typ.typ.bind_self] += 1
@@ -75,10 +75,7 @@ class OptimizeRemoveDeadvars(CompilingNodeTransformer):
 
     def guaranteed(self, name: str) -> bool:
         name = name
-        for scope in reversed(self.guaranteed_avail_names):
-            if name in scope:
-                return True
-        return False
+        return any(name in scope for scope in reversed(self.guaranteed_avail_names))
 
     def enter_scope(self):
         self.guaranteed_avail_names.append([])
@@ -154,9 +151,9 @@ class OptimizeRemoveDeadvars(CompilingNodeTransformer):
             )
         ):
             for t in node.targets:
-                assert isinstance(
-                    t, Name
-                ), "Need to have name for dead var remover to work"
+                assert isinstance(t, Name), (
+                    "Need to have name for dead var remover to work"
+                )
                 self.set_guaranteed(t.id)
             return self.generic_visit(node)
         return Pass()
@@ -171,9 +168,9 @@ class OptimizeRemoveDeadvars(CompilingNodeTransformer):
             # only upcasts are safe!
             or not node.target.typ >= node.value.typ
         ):
-            assert isinstance(
-                node.target, Name
-            ), "Need to have assignments to name for dead var remover to work"
+            assert isinstance(node.target, Name), (
+                "Need to have assignments to name for dead var remover to work"
+            )
             self.set_guaranteed(node.target.id)
             return self.generic_visit(node)
         return Pass()

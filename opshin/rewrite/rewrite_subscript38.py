@@ -1,5 +1,4 @@
 from ast import *
-import typing
 
 from ..util import CompilingNodeTransformer
 

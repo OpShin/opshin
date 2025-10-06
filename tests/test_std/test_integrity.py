@@ -1,11 +1,10 @@
-from parameterized import parameterized
 import dataclasses
 import unittest
-from typing import List, Dict
 
+from parameterized import parameterized
 from pycardano import PlutusData
+from uplc import ast as uplc
 
-from uplc import ast as uplc, eval as uplc_eval
 from ..utils import eval_uplc
 
 
@@ -67,7 +66,7 @@ from opshin.std.integrity import check_integrity
 @dataclass()
 class A(PlutusData):
     CONSTR_ID = 1
-    
+
 @dataclass()
 class C(PlutusData):
     CONSTR_ID = 0
@@ -86,7 +85,7 @@ def validator(x: B) -> None:
     )
     try:
         eval_uplc(source_code, obj)
-    except:
+    except RuntimeError:
         res = False
     else:
         res = True
@@ -100,7 +99,7 @@ def validator(x: B) -> None:
         [[0, 1, 2], [1, 0]],
     ]
 )
-def test_integrity_check_list(foobar, bar_constrs):
+def test_integrity_check_list2(foobar, bar_constrs):
     source_code = """
 from dataclasses import dataclass
 from typing import Dict, List, Union
@@ -138,7 +137,7 @@ def validator(x: B) -> None:
     )
     try:
         eval_uplc(source_code, obj)
-    except:
+    except RuntimeError:
         res = False
     else:
         res = True
@@ -192,7 +191,7 @@ def validator(x: B) -> None:
     )
     try:
         eval_uplc(source_code, obj)
-    except:
+    except RuntimeError:
         res = False
     else:
         res = True
@@ -224,7 +223,6 @@ def validator(x: B) -> None:
 
 
 class TestCopyOnlyAttributesBug(unittest.TestCase):
-
     def test_int_copy_only_attributes(self):
         """Test the bug report: ListType.copy_only_attributes() incorrectly converts items to/from data"""
         source_code = """
@@ -270,9 +268,9 @@ def validator(d: A) -> None:
         try:
             eval_uplc(source_code, A(b"test"))
         except Exception as e:
-            assert isinstance(
-                e, RuntimeError
-            ), "Expected a RuntimeError for invalid type"
+            assert isinstance(e, RuntimeError), (
+                "Expected a RuntimeError for invalid type"
+            )
 
     def test_wrong_constructor_copy_only_attributes(self):
         """Test the bug report: ListType.copy_only_attributes() incorrectly converts items to/from data"""
@@ -300,9 +298,9 @@ def validator(d: A) -> None:
             eval_uplc(source_code, A(42))
             self.fail("Expected a RuntimeError for invalid type")
         except Exception as e:
-            assert isinstance(
-                e, RuntimeError
-            ), "Expected a RuntimeError for invalid type"
+            assert isinstance(e, RuntimeError), (
+                "Expected a RuntimeError for invalid type"
+            )
 
     def test_list_int_copy_only_attributes(self):
         """Test the bug report: ListType.copy_only_attributes() incorrectly converts items to/from data"""
@@ -385,7 +383,7 @@ def validator(d: Union[B, int]) -> None:
         @dataclasses.dataclass
         class B(PlutusData):
             CONSTR_ID = 0
-            d: List[Dict[int, bytes]]
+            d: list[dict[int, bytes]]
 
         @dataclasses.dataclass
         class A(PlutusData):
@@ -398,15 +396,15 @@ def validator(d: Union[B, int]) -> None:
         try:
             eval_uplc(source_code, b"test")
         except Exception as e:
-            assert isinstance(
-                e, RuntimeError
-            ), "Expected a RuntimeError for invalid type"
+            assert isinstance(e, RuntimeError), (
+                "Expected a RuntimeError for invalid type"
+            )
         try:
             eval_uplc(source_code, A(42))
         except Exception as e:
-            assert isinstance(
-                e, RuntimeError
-            ), "Expected a RuntimeError for invalid type"
+            assert isinstance(e, RuntimeError), (
+                "Expected a RuntimeError for invalid type"
+            )
 
     def test_union_integrity(self):
         """Test the bug report: Dicts nested in Lists also have the same issue"""
@@ -434,7 +432,7 @@ def validator(d: Union[A, B, List[Anything], Dict[Anything,Anything], int, bytes
         @dataclasses.dataclass
         class B(PlutusData):
             CONSTR_ID = 0
-            d: List[Dict[int, bytes]]
+            d: list[dict[int, bytes]]
 
         @dataclasses.dataclass
         class A(PlutusData):

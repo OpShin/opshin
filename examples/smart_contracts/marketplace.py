@@ -47,9 +47,9 @@ def check_single_utxo_spent(txins: List[TxInInfo], addr: Address) -> None:
 
 
 def check_owner_signed(signatories: List[PubKeyHash], owner: PubKeyHash) -> None:
-    assert (
-        owner in signatories
-    ), f"Owner did not sign transaction, requires {owner.hex()} but got {[s.hex() for s in signatories]}"
+    assert owner in signatories, (
+        f"Owner did not sign transaction, requires {owner.hex()} but got {[s.hex() for s in signatories]}"
+    )
 
 
 def validator(datum: Listing, redeemer: ListingAction, context: ScriptContext) -> None:
@@ -66,4 +66,4 @@ def validator(datum: Listing, redeemer: ListingAction, context: ScriptContext) -
     elif isinstance(redeemer, Unlist):
         check_owner_signed(tx_info.signatories, datum.owner)
     else:
-        assert False, "Wrong redeemer"
+        raise AssertionError("Wrong redeemer")

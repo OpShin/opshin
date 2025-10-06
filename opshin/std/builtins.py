@@ -3,9 +3,9 @@ A special library that gives direct access to UPLC built-ins
 It is valid code and parts of it may be copied if not all built-ins are required by the user.
 """
 
+from pycardano import Datum as Anything
+
 from opshin.bridge import wraps_builtin
-from pycardano import Datum as Anything, PlutusData
-from typing import Dict, List, Union
 
 
 @wraps_builtin
@@ -180,7 +180,7 @@ def decode_utf8(x: bytes) -> str:
 
 
 @wraps_builtin
-def constr_data(x: int, y: List[Anything]) -> Anything:
+def constr_data(x: int, y: list[Anything]) -> Anything:
     """Create a datum with constructor id x and fields y."""
     pass
 

@@ -1,7 +1,5 @@
-from copy import copy
-
-import typing
 from ast import *
+from copy import copy
 
 from ..util import CompilingNodeTransformer
 
@@ -15,7 +13,7 @@ class RewriteTupleAssign(CompilingNodeTransformer):
 
     unique_id = 0
 
-    def visit_Assign(self, node: Assign) -> typing.List[stmt]:
+    def visit_Assign(self, node: Assign) -> list[stmt]:
         if not isinstance(node.targets[0], Tuple):
             return [node]
         uid = self.unique_id

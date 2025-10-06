@@ -1,11 +1,11 @@
 import ast
-
 import importlib
 import importlib.util
 import pathlib
-import typing
 import sys
+import typing
 from ast import *
+
 from ordered_set import OrderedSet
 
 from ..util import CompilingNodeTransformer
@@ -83,13 +83,13 @@ class RewriteImport(CompilingNodeTransformer):
 
     def visit_ImportFrom(
         self, node: ImportFrom
-    ) -> typing.Union[ImportFrom, typing.List[AST], None]:
+    ) -> typing.Union[ImportFrom, list[AST], None]:
         if node.module in SPECIAL_IMPORTS:
             return node
         error_msg = f"The import must have the form 'from <pkg> import *' or import from one of the special modules {', '.join(SPECIAL_IMPORTS)}"
         assert len(node.names) == 1, error_msg
         assert node.names[0].name == "*", error_msg
-        assert node.names[0].asname == None, error_msg
+        assert node.names[0].asname is None, error_msg
         # TODO set anchor point according to own package
         if self.filename:
             sys.path.append(str(pathlib.Path(self.filename).parent.absolute()))
@@ -103,9 +103,9 @@ class RewriteImport(CompilingNodeTransformer):
             # Import was already resolved and its names are visible
             return None
         self.resolved_imports.add(module_file)
-        assert (
-            module_file.suffix == ".py"
-        ), "The import must import a single python file."
+        assert module_file.suffix == ".py", (
+            "The import must import a single python file."
+        )
         # visit the imported file again - make sure that recursive imports are resolved accordingly
         with module_file.open("r") as fp:
             module_content = fp.read()

@@ -8,10 +8,11 @@ This downloads the latest baseline and compares against current code.
 
 import argparse
 import os
-import requests
 import sys
 import tempfile
 from pathlib import Path
+
+import requests
 
 
 def download_latest_baseline(repo: str = "OpShin/opshin") -> str:
@@ -45,12 +46,14 @@ def download_latest_baseline(repo: str = "OpShin/opshin") -> str:
         baseline_response.raise_for_status()
 
         # Save to temp file
-        temp_file = tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False)
-        temp_file.write(baseline_response.text)
-        temp_file.close()
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".json", delete=False
+        ) as temp_file:
+            temp_file.write(baseline_response.text)
+            temp_file.close()
 
-        print(f"Downloaded baseline from release {release_data['tag_name']}")
-        return temp_file.name
+            print(f"Downloaded baseline from release {release_data['tag_name']}")
+            return temp_file.name
 
     except Exception as e:
         print(f"Failed to download baseline: {e}")

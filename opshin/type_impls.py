@@ -1,18 +1,16 @@
+import ast
+import itertools
 import typing
 from dataclasses import dataclass, field
 from typing import Callable
 
-import itertools
-import ast
-
+import pluthon as plt
+import uplc.ast as uplc
 from frozendict import frozendict
 from frozenlist2 import frozenlist
 from ordered_set import OrderedSet
 
-import uplc.ast as uplc
-import pluthon as plt
-
-from .util import patternize, OVar, OLet, OLambda, OPSHIN_LOGGER, SafeOLambda, distinct
+from .util import OPSHIN_LOGGER, OLambda, OLet, OVar, SafeOLambda, distinct, patternize
 
 if typing.TYPE_CHECKING:
     from .typed_ast import TypedAST
@@ -179,7 +177,7 @@ class Record:
     name: str
     orig_name: str
     constructor: int
-    fields: typing.Union[typing.List[typing.Tuple[str, Type]], frozenlist]
+    fields: typing.Union[list[tuple[str, Type]], frozenlist]
 
     def __post_init__(self):
         object.__setattr__(self, "fields", frozenlist(self.fields))
@@ -235,11 +233,7 @@ class AnyType(ClassType):
     def cmp(self, op: ast.cmpop, o: "Type") -> plt.AST:
         """The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second the comparison."""
         # this will reject comparisons that will always be false - most likely due to faults during programming
-        if (
-            (isinstance(o, RecordType))
-            or isinstance(o, UnionType)
-            or isinstance(o, AnyType)
-        ):
+        if isinstance(o, (RecordType, UnionType, AnyType)):
             # Note that comparison with Record and UnionType is actually fine because both are Data
             if isinstance(op, ast.Eq):
                 return plt.BuiltIn(uplc.BuiltInFun.EqualsData)
@@ -683,7 +677,7 @@ class RecordType(ClassType):
 
     def copy_only_attributes(self) -> plt.AST:
         copied_attributes = plt.EmptyDataList()
-        for attr_name, attr_type in reversed(self.record.fields):
+        for _attr_name, attr_type in reversed(self.record.fields):
             copied_attributes = OLet(
                 [
                     ("f", plt.HeadList(OVar("fs"))),
@@ -727,7 +721,7 @@ class RecordType(ClassType):
 
 @dataclass(frozen=True, unsafe_hash=True)
 class UnionType(ClassType):
-    typs: typing.List[Type]
+    typs: list[Type]
 
     def __post_init__(self):
         object.__setattr__(self, "typs", frozenlist(self.typs))
@@ -944,7 +938,7 @@ class UnionType(ClassType):
 
     def copy_only_attributes(self) -> plt.AST:
         copied_attributes = plt.TraceError(
-            f"Invalid CONSTR_ID (no matching type in Union)"
+            "Invalid CONSTR_ID (no matching type in Union)"
         )
         for typ in self.typs:
             if not isinstance(typ, RecordType):
@@ -1002,7 +996,7 @@ class UnionType(ClassType):
 
 @dataclass(frozen=True, unsafe_hash=True)
 class TupleType(ClassType):
-    typs: typing.List[Type]
+    typs: list[Type]
 
     def __ge__(self, other):
         return (
@@ -1047,9 +1041,8 @@ class TupleType(ClassType):
         )
 
     def _binop_return_type(self, binop: ast.operator, other: "Type") -> "Type":
-        if isinstance(binop, ast.Add):
-            if isinstance(other, TupleType):
-                return TupleType(self.typs + other.typs)
+        if isinstance(binop, ast.Add) and isinstance(other, TupleType):
+            return TupleType(self.typs + other.typs)
         return super()._binop_return_type(binop, other)
 
     def python_type(self) -> str:
@@ -1288,23 +1281,25 @@ class ListType(ClassType):
         return super().cmp(op, o)
 
     def _binop_return_type(self, binop: ast.operator, other: "Type") -> "Type":
-        if isinstance(binop, ast.Add):
-            if isinstance(other, InstanceType) and isinstance(other.typ, ListType):
-                other_typ = other.typ
-                assert (
-                    self.typ >= other_typ.typ or other_typ.typ >= self.typ
-                ), f"Types of lists {self.typ} and {other_typ.typ} are not compatible"
-                return ListType(
-                    self.typ if self.typ >= other_typ.typ else other_typ.typ
-                )
+        if (
+            isinstance(binop, ast.Add)
+            and isinstance(other, InstanceType)
+            and isinstance(other.typ, ListType)
+        ):
+            other_typ = other.typ
+            assert self.typ >= other_typ.typ or other_typ.typ >= self.typ, (
+                f"Types of lists {self.typ} and {other_typ.typ} are not compatible"
+            )
+            return ListType(self.typ if self.typ >= other_typ.typ else other_typ.typ)
         return super()._binop_return_type(binop, other)
 
     def _binop_bin_fun(self, binop: ast.operator, other: "TypedAST"):
-        if isinstance(binop, ast.Add):
-            if isinstance(other.typ, InstanceType) and isinstance(
-                other.typ.typ, ListType
-            ):
-                return plt.AppendList
+        if (
+            isinstance(binop, ast.Add)
+            and isinstance(other.typ, InstanceType)
+            and isinstance(other.typ.typ, ListType)
+        ):
+            return plt.AppendList
         return super()._binop_bin_fun(binop, other)
 
     def _unop_return_type(self, unop: ast.unaryop) -> "Type":
@@ -1500,23 +1495,32 @@ class DictType(ClassType):
 
     def copy_only_attributes(self) -> plt.AST:
         def CustomMapFilterList(
-            l: plt.AST,
+            listy: plt.AST,
             filter_op: plt.AST,
             map_op: plt.AST,
-            empty_list=plt.EmptyDataList(),
+            empty_list=None,
         ):
             from pluthon import (
                 Apply,
-                Lambda as PLambda,
-                RecFun,
-                IteNullList,
-                Var as PVar,
                 HeadList,
                 Ite,
-                TailList,
+                IteNullList,
                 PrependList,
+                RecFun,
+                TailList,
+            )
+            from pluthon import (
+                Lambda as PLambda,
+            )
+            from pluthon import (
                 Let as PLet,
             )
+            from pluthon import (
+                Var as PVar,
+            )
+
+            if empty_list is None:
+                empty_list = plt.EmptyDataList()
 
             """
             Apply a filter and a map function on each element in a list (throws out all that evaluate to false)
@@ -1561,7 +1565,7 @@ class DictType(ClassType):
                 ),
                 filter_op,
                 map_op,
-                l,
+                listy,
             )
 
         mapped_attrs = CustomMapFilterList(
@@ -1629,10 +1633,10 @@ class DictType(ClassType):
 
 @dataclass(frozen=True, unsafe_hash=True)
 class FunctionType(ClassType):
-    argtyps: typing.List[Type]
+    argtyps: list[Type]
     rettyp: Type
     # A map from external variable names to their types when the function is defined
-    bound_vars: typing.Dict[str, Type] = field(default_factory=frozendict)
+    bound_vars: dict[str, Type] = field(default_factory=frozendict)
     # Whether and under which name the function binds itself
     # The type of this variable is "self"
     bind_self: typing.Optional[str] = None
@@ -1723,19 +1727,18 @@ class IntegerType(AtomicType):
 
     def cmp(self, op: ast.cmpop, o: "Type") -> plt.AST:
         """The implementation of comparing this type to type o via operator op. Returns a lambda that expects as first argument the object itself and as second the comparison."""
-        if isinstance(o, BoolType):
-            if isinstance(op, ast.Eq):
-                # 1 == True
-                # 0 == False
-                # all other comparisons are False
-                return OLambda(
-                    ["x", "y"],
-                    plt.Ite(
-                        OVar("y"),
-                        plt.EqualsInteger(OVar("x"), plt.Integer(1)),
-                        plt.EqualsInteger(OVar("x"), plt.Integer(0)),
-                    ),
-                )
+        if isinstance(o, BoolType) and isinstance(op, ast.Eq):
+            # 1 == True
+            # 0 == False
+            # all other comparisons are False
+            return OLambda(
+                ["x", "y"],
+                plt.Ite(
+                    OVar("y"),
+                    plt.EqualsInteger(OVar("x"), plt.Integer(1)),
+                    plt.EqualsInteger(OVar("x"), plt.Integer(0)),
+                ),
+            )
         if isinstance(o, IntegerType):
             if isinstance(op, ast.Eq):
                 return plt.BuiltIn(uplc.BuiltInFun.EqualsInteger)
@@ -1870,13 +1873,8 @@ class IntegerType(AtomicType):
     def _binop_return_type(self, binop: ast.operator, other: "Type") -> "Type":
         if isinstance(other, InstanceType) and isinstance(other.typ, RecordType):
             print("Ha")
-        if (
-            isinstance(binop, ast.Add)
-            or isinstance(binop, ast.Sub)
-            or isinstance(binop, ast.FloorDiv)
-            or isinstance(binop, ast.Mod)
-            or isinstance(binop, ast.Div)
-            or isinstance(binop, ast.Pow)
+        if isinstance(
+            binop, (ast.Add, ast.Sub, ast.FloorDiv, ast.Mod, ast.Div, ast.Pow)
         ):
             if other == IntegerInstanceType:
                 return IntegerType()
@@ -1939,9 +1937,7 @@ class IntegerType(AtomicType):
         return super()._binop_bin_fun(binop, other)
 
     def _unop_return_type(self, unop: ast.unaryop) -> "Type":
-        if isinstance(unop, ast.USub):
-            return IntegerType()
-        elif isinstance(unop, ast.UAdd):
+        if isinstance(unop, (ast.USub, ast.UAdd)):
             return IntegerType()
         elif isinstance(unop, ast.Not):
             return BoolType()
@@ -1962,17 +1958,17 @@ class IntegerType(AtomicType):
             plt.DelayedChooseData(
                 OVar("self"),
                 plt.TraceError(
-                    f"IntegrityError: Expected PlutusInteger but got PlutusData"
+                    "IntegrityError: Expected PlutusInteger but got PlutusData"
                 ),
                 plt.TraceError(
-                    f"IntegrityError: Expected PlutusInteger but got PlutusMap"
+                    "IntegrityError: Expected PlutusInteger but got PlutusMap"
                 ),
                 plt.TraceError(
-                    f"IntegrityError: Expected PlutusInteger but got PlutusList"
+                    "IntegrityError: Expected PlutusInteger but got PlutusList"
                 ),
                 OVar("self"),
                 plt.TraceError(
-                    f"IntegrityError: Expected PlutusInteger but got PlutusByteString"
+                    "IntegrityError: Expected PlutusInteger but got PlutusByteString"
                 ),
             ),
         )
@@ -1980,7 +1976,6 @@ class IntegerType(AtomicType):
 
 @dataclass(frozen=True, unsafe_hash=True)
 class StringType(AtomicType):
-
     def python_type(self):
         return "str"
 
@@ -2019,21 +2014,17 @@ class StringType(AtomicType):
             return OLambda(["self"], OVar("self"))
 
     def _binop_return_type(self, binop: ast.operator, other: "Type") -> "Type":
-        if isinstance(binop, ast.Add):
-            if other == StringInstanceType:
-                return StringType()
-        if isinstance(binop, ast.Mult):
-            if other == IntegerInstanceType:
-                return StringType()
+        if isinstance(binop, ast.Add) and other == StringInstanceType:
+            return StringType()
+        if isinstance(binop, ast.Mult) and other == IntegerInstanceType:
+            return StringType()
         return super()._binop_return_type(binop, other)
 
     def _binop_bin_fun(self, binop: ast.operator, other: "TypedAST"):
-        if isinstance(binop, ast.Add):
-            if other.typ == StringInstanceType:
-                return plt.AppendString
-        if isinstance(binop, ast.Mult):
-            if other.typ == IntegerInstanceType:
-                return StrIntMulImpl
+        if isinstance(binop, ast.Add) and other.typ == StringInstanceType:
+            return plt.AppendString
+        if isinstance(binop, ast.Mult) and other.typ == IntegerInstanceType:
+            return StrIntMulImpl
         return super()._binop_bin_fun(binop, other)
 
     def _unop_return_type(self, unop: ast.unaryop) -> "Type":
@@ -2054,16 +2045,16 @@ class StringType(AtomicType):
             plt.DelayedChooseData(
                 OVar("self"),
                 plt.TraceError(
-                    f"IntegrityError: Expected PlutusByteString but got PlutusData"
+                    "IntegrityError: Expected PlutusByteString but got PlutusData"
                 ),
                 plt.TraceError(
-                    f"IntegrityError: Expected PlutusByteString but got PlutusMap"
+                    "IntegrityError: Expected PlutusByteString but got PlutusMap"
                 ),
                 plt.TraceError(
-                    f"IntegrityError: Expected PlutusByteString but got PlutusList"
+                    "IntegrityError: Expected PlutusByteString but got PlutusList"
                 ),
                 plt.TraceError(
-                    f"IntegrityError: Expected PlutusByteString but got PlutusInteger"
+                    "IntegrityError: Expected PlutusByteString but got PlutusInteger"
                 ),
                 OVar("self"),
             ),
@@ -2552,21 +2543,17 @@ class ByteStringType(AtomicType):
         )
 
     def _binop_return_type(self, binop: ast.operator, other: "Type") -> "Type":
-        if isinstance(binop, ast.Add):
-            if other == ByteStringInstanceType:
-                return ByteStringType()
-        if isinstance(binop, ast.Mult):
-            if other == IntegerInstanceType:
-                return ByteStringType()
+        if isinstance(binop, ast.Add) and other == ByteStringInstanceType:
+            return ByteStringType()
+        if isinstance(binop, ast.Mult) and other == IntegerInstanceType:
+            return ByteStringType()
         return super()._binop_return_type(binop, other)
 
     def _binop_bin_fun(self, binop: ast.operator, other: "TypedAST"):
-        if isinstance(binop, ast.Add):
-            if other.typ == ByteStringInstanceType:
-                return plt.AppendByteString
-        if isinstance(binop, ast.Mult):
-            if other.typ == IntegerInstanceType:
-                return ByteStrIntMulImpl
+        if isinstance(binop, ast.Add) and other.typ == ByteStringInstanceType:
+            return plt.AppendByteString
+        if isinstance(binop, ast.Mult) and other.typ == IntegerInstanceType:
+            return ByteStrIntMulImpl
         return super()._binop_bin_fun(binop, other)
 
     def _unop_return_type(self, unop: ast.unaryop) -> "Type":
@@ -2587,16 +2574,16 @@ class ByteStringType(AtomicType):
             plt.DelayedChooseData(
                 OVar("self"),
                 plt.TraceError(
-                    f"IntegrityError: Expected PlutusByteString but got PlutusData"
+                    "IntegrityError: Expected PlutusByteString but got PlutusData"
                 ),
                 plt.TraceError(
-                    f"IntegrityError: Expected PlutusByteString but got PlutusMap"
+                    "IntegrityError: Expected PlutusByteString but got PlutusMap"
                 ),
                 plt.TraceError(
-                    f"IntegrityError: Expected PlutusByteString but got PlutusList"
+                    "IntegrityError: Expected PlutusByteString but got PlutusList"
                 ),
                 plt.TraceError(
-                    f"IntegrityError: Expected PlutusByteString but got PlutusInteger"
+                    "IntegrityError: Expected PlutusByteString but got PlutusInteger"
                 ),
                 OVar("self"),
             ),
@@ -2605,7 +2592,6 @@ class ByteStringType(AtomicType):
 
 @dataclass(frozen=True, unsafe_hash=True)
 class BoolType(AtomicType):
-
     def python_type(self):
         return "bool"
 
@@ -2672,17 +2658,17 @@ class BoolType(AtomicType):
             plt.DelayedChooseData(
                 OVar("self"),
                 plt.TraceError(
-                    f"IntegrityError: Expected PlutusByteInteger but got PlutusData"
+                    "IntegrityError: Expected PlutusByteInteger but got PlutusData"
                 ),
                 plt.TraceError(
-                    f"IntegrityError: Expected PlutusByteInteger but got PlutusMap"
+                    "IntegrityError: Expected PlutusByteInteger but got PlutusMap"
                 ),
                 plt.TraceError(
-                    f"IntegrityError: Expected PlutusByteInteger but got PlutusList"
+                    "IntegrityError: Expected PlutusByteInteger but got PlutusList"
                 ),
                 OVar("self"),
                 plt.TraceError(
-                    f"IntegrityError: Expected PlutusByteInteger but got PlutusByteString"
+                    "IntegrityError: Expected PlutusByteInteger but got PlutusByteString"
                 ),
             ),
         )
@@ -2810,33 +2796,33 @@ class PolymorphicFunction:
 
         return klass
 
-    def type_from_args(self, args: typing.List[Type]) -> FunctionType:
+    def type_from_args(self, args: list[Type]) -> FunctionType:
         raise NotImplementedError()
 
-    def impl_from_args(self, args: typing.List[Type]) -> plt.AST:
+    def impl_from_args(self, args: list[Type]) -> plt.AST:
         raise NotImplementedError()
 
 
 class StrImpl(PolymorphicFunction):
-    def type_from_args(self, args: typing.List[Type]) -> FunctionType:
-        assert (
-            len(args) == 1
-        ), f"'str' takes only one argument, but {len(args)} were given"
+    def type_from_args(self, args: list[Type]) -> FunctionType:
+        assert len(args) == 1, (
+            f"'str' takes only one argument, but {len(args)} were given"
+        )
         typ = args[0]
         assert isinstance(typ, InstanceType), "Can only stringify instances"
         return FunctionType(args, StringInstanceType)
 
-    def impl_from_args(self, args: typing.List[Type]) -> plt.AST:
+    def impl_from_args(self, args: list[Type]) -> plt.AST:
         arg = args[0]
         assert isinstance(arg, InstanceType), "Can only stringify instances"
         return arg.typ.stringify()
 
 
 class IntImpl(PolymorphicFunction):
-    def type_from_args(self, args: typing.List[Type]) -> FunctionType:
-        assert (
-            len(args) == 1
-        ), f"'int' takes only one argument, but {len(args)} were given"
+    def type_from_args(self, args: list[Type]) -> FunctionType:
+        assert len(args) == 1, (
+            f"'int' takes only one argument, but {len(args)} were given"
+        )
         typ = args[0]
         assert isinstance(typ, InstanceType), "Can only create ints from instances"
         assert any(
@@ -2844,7 +2830,7 @@ class IntImpl(PolymorphicFunction):
         ), "Can only create integers from int, str or bool"
         return FunctionType(args, IntegerInstanceType)
 
-    def impl_from_args(self, args: typing.List[Type]) -> plt.AST:
+    def impl_from_args(self, args: list[Type]) -> plt.AST:
         arg = args[0]
         assert isinstance(arg, InstanceType), "Can only create ints from instances"
         if isinstance(arg.typ, IntegerType):
@@ -2986,10 +2972,10 @@ class IntImpl(PolymorphicFunction):
 
 
 class BoolImpl(PolymorphicFunction):
-    def type_from_args(self, args: typing.List[Type]) -> FunctionType:
-        assert (
-            len(args) == 1
-        ), f"'bool' takes only one argument, but {len(args)} were given"
+    def type_from_args(self, args: list[Type]) -> FunctionType:
+        assert len(args) == 1, (
+            f"'bool' takes only one argument, but {len(args)} were given"
+        )
         typ = args[0]
         assert isinstance(typ, InstanceType), "Can only create bools from instances"
         assert any(
@@ -3006,7 +2992,7 @@ class BoolImpl(PolymorphicFunction):
         ), "Can only create bools from int, str, bool, bytes, None, list or dict"
         return FunctionType(args, BoolInstanceType)
 
-    def impl_from_args(self, args: typing.List[Type]) -> plt.AST:
+    def impl_from_args(self, args: list[Type]) -> plt.AST:
         arg = args[0]
         assert isinstance(arg, InstanceType), "Can only create bools from instances"
         if isinstance(arg.typ, BoolType):
@@ -3025,7 +3011,7 @@ class BoolImpl(PolymorphicFunction):
                 ["x"],
                 plt.NotEqualsInteger(plt.LengthOfByteString(OVar("x")), plt.Integer(0)),
             )
-        elif isinstance(arg.typ, ListType) or isinstance(arg.typ, DictType):
+        elif isinstance(arg.typ, (ListType, DictType)):
             return OLambda(["x"], plt.Not(plt.NullList(OVar("x"))))
         elif isinstance(arg.typ, UnitType):
             return OLambda(["x"], plt.Bool(False))
@@ -3036,14 +3022,14 @@ class BoolImpl(PolymorphicFunction):
 
 
 class BytesImpl(PolymorphicFunction):
-    def type_from_args(self, args: typing.List[Type]) -> FunctionType:
-        assert (
-            len(args) == 1
-        ), f"'bytes' takes only one argument, but {len(args)} were given"
+    def type_from_args(self, args: list[Type]) -> FunctionType:
+        assert len(args) == 1, (
+            f"'bytes' takes only one argument, but {len(args)} were given"
+        )
         typ = args[0]
-        assert isinstance(
-            typ, InstanceType
-        ), "Can only create bytes from instances, got ClassType"
+        assert isinstance(typ, InstanceType), (
+            "Can only create bytes from instances, got ClassType"
+        )
         assert any(
             isinstance(typ.typ, t)
             for t in (
@@ -3051,18 +3037,20 @@ class BytesImpl(PolymorphicFunction):
                 ByteStringType,
                 ListType,
             )
-        ), f"Can only create bytes from int, bytes or integer lists, got {typ.python_type()}"
+        ), (
+            f"Can only create bytes from int, bytes or integer lists, got {typ.python_type()}"
+        )
         if isinstance(typ.typ, ListType):
-            assert (
-                typ.typ.typ == IntegerInstanceType
-            ), f"Can only create bytes from integer lists but got a list with another type {typ.python_type()}"
+            assert typ.typ.typ == IntegerInstanceType, (
+                f"Can only create bytes from integer lists but got a list with another type {typ.python_type()}"
+            )
         return FunctionType(args, ByteStringInstanceType)
 
-    def impl_from_args(self, args: typing.List[Type]) -> plt.AST:
+    def impl_from_args(self, args: list[Type]) -> plt.AST:
         arg = args[0]
-        assert isinstance(
-            arg, InstanceType
-        ), "Can only create bytes from instances, got ClassType"
+        assert isinstance(arg, InstanceType), (
+            "Can only create bytes from instances, got ClassType"
+        )
         if isinstance(arg.typ, ByteStringType):
             return OLambda(["x"], OVar("x"))
         elif isinstance(arg.typ, IntegerType):
@@ -3142,11 +3130,7 @@ def empty_list(p: Type):
                 ),
             )
         )
-    if (
-        isinstance(p.typ, RecordType)
-        or isinstance(p.typ, AnyType)
-        or isinstance(p.typ, UnionType)
-    ):
+    if isinstance(p.typ, (RecordType, AnyType, UnionType)):
         return plt.EmptyDataList()
     raise NotImplementedError(f"Empty lists of type {p} can't be constructed yet")
 
@@ -3161,9 +3145,9 @@ TransformExtParamsMap = {
 
 
 def transform_ext_params_map(p: Type):
-    assert isinstance(
-        p, InstanceType
-    ), "Can only transform instances, not classes as input"
+    assert isinstance(p, InstanceType), (
+        "Can only transform instances, not classes as input"
+    )
     if p in TransformExtParamsMap:
         return TransformExtParamsMap[p]
     if isinstance(p.typ, ListType):
@@ -3194,10 +3178,10 @@ TransformOutputMap = {
 
 
 def transform_output_map(p: Type):
-    assert isinstance(
-        p, InstanceType
-    ), "Can only transform instances, not classes as input"
-    if isinstance(p.typ, FunctionType) or isinstance(p.typ, PolymorphicFunction):
+    assert isinstance(p, InstanceType), (
+        "Can only transform instances, not classes as input"
+    )
+    if isinstance(p.typ, (FunctionType, PolymorphicFunction)):
         raise NotImplementedError(
             "Can not map functions into PlutusData and hence not return them from a function as Anything"
         )
