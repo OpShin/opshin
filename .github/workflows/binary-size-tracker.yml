@@ -106,6 +106,8 @@ jobs:
       # only on PRs
       if: github.event_name == 'pull_request'
       uses: maheshrayas/action-pr-comment-delete@v3.0
+      # may fail for random reasons like permission issues
+      continue-on-error: true
       with:
         github_token: '${{ secrets.GITHUB_TOKEN }}'
         org: OpShin
@@ -117,6 +119,8 @@ jobs:
       uses: actions/github-script@v8
       # only on PRs
       if: github.event_name == 'pull_request'
+      # may fail for random reasons like permission issues
+      continue-on-error: true
       with:
         script: |
           const report = `${{ steps.size-check.outputs.REPORT }}`;
