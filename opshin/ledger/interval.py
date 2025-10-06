@@ -2,7 +2,7 @@
 A library to assist with interval handling
 """
 
-from opshin.ledger.api_v2 import *
+from opshin.ledger.api_v3 import *
 
 
 def compare(a: int, b: int) -> int:

@@ -516,13 +516,7 @@ class RecordType(ClassType):
         )
 
     def python_type(self):
-        return (
-            f"class {self.record.orig_name}(CONSTR_ID={self.record.constructor}, "
-            + ", ".join(
-                f"{name}: {type.python_type()}" for name, type in self.record.fields
-            )
-            + ")"
-        )
+        return f"class {self.record.orig_name}(CONSTR_ID={self.record.constructor}) "
 
     def constr_type(self) -> "InstanceType":
         return InstanceType(

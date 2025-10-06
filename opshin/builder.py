@@ -8,7 +8,7 @@ from ast import Module
 from typing import Optional, Any, Union
 from pathlib import Path
 
-from pycardano import PlutusV2Script, IndefiniteList, PlutusData, Datum
+from pycardano import IndefiniteList, PlutusData, Datum, PlutusV3Script
 
 from . import __version__, compiler
 
@@ -33,7 +33,7 @@ class Purpose(enum.Enum):
 
 @dataclasses.dataclass
 class PlutusContract:
-    contract: PlutusV2Script
+    contract: PlutusV3Script
     datum_type: Optional[typing.Tuple[str, typing.Type[Datum]]] = None
     redeemer_type: Optional[typing.Tuple[str, typing.Type[Datum]]] = None
     parameter_types: typing.List[typing.Tuple[str, typing.Type[Datum]]] = (
@@ -73,7 +73,7 @@ class PlutusContract:
     def plutus_json(self):
         return json.dumps(
             {
-                "type": "PlutusScriptV2",
+                "type": "PlutusScriptV3",
                 "description": self.description,
                 "cborHex": self.cbor_hex,
             },
@@ -93,7 +93,7 @@ class PlutusContract:
             },
             "preamble": {
                 "version": self.version,
-                "plutusVersion": "v2",
+                "plutusVersion": "v3",
                 "description": self.description,
                 "title": self.title,
                 **({"license": self.license} if self.license is not None else {}),
@@ -267,7 +267,7 @@ def build(
 def _build(contract: uplc.ast.Program):
     # create cbor file for use with pycardano/lucid
     cbor = flatten(contract)
-    return pycardano.PlutusV2Script(cbor)
+    return pycardano.PlutusV3Script(cbor)
 
 
 PURPOSE_MAP = {
@@ -391,7 +391,7 @@ def from_plutus_schema(schema: dict) -> typing.Type[pycardano.Datum]:
     raise ValueError(f"Cannot read schema (not supported yet) {schema}")
 
 
-def apply_parameters(script: PlutusV2Script, *args: pycardano.Datum):
+def apply_parameters(script: PlutusV3Script, *args: pycardano.Datum):
     """
     Expects a plutus script (compiled) and returns the compiled script from applying parameters to it
     """
@@ -441,7 +441,8 @@ def load(contract_path: Union[Path, str]) -> PlutusContract:
             if "validators" in contract:
                 assert len(contract["validators"]) == 1, "Only one validator supported"
                 validator = contract["validators"][0]
-                contract_cbor = PlutusV2Script(bytes.fromhex(validator["compiledCode"]))
+                # TODO this should be controlled by the version in the preamble
+                contract_cbor = PlutusV3Script(bytes.fromhex(validator["compiledCode"]))
                 datum_type = (
                     validator["datum"]["title"],
                     from_plutus_schema(validator["datum"]["schema"]),
@@ -471,8 +472,8 @@ def load(contract_path: Union[Path, str]) -> PlutusContract:
                 description = contract["preamble"].get("description")
                 license = contract["preamble"].get("license")
                 assert (
-                    contract["preamble"].get("plutusVersion") == "v2"
-                ), "Only Plutus V2 supported"
+                    contract["preamble"].get("plutusVersion") == "v3"
+                ), "Only Plutus V3 supported"
                 return PlutusContract(
                     contract_cbor,
                     datum_type,
@@ -518,4 +519,4 @@ def load(contract_path: Union[Path, str]) -> PlutusContract:
             pass
     if contract_cbor is None:
         raise ValueError(f"Could not load contract from file {contract_path}")
-    return PlutusContract(PlutusV2Script(contract_cbor))
+    return PlutusContract(PlutusV3Script(contract_cbor))

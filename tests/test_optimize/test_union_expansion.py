@@ -10,7 +10,7 @@ hypothesis.settings.load_profile(PLUTUS_VM_PROFILE)
 
 from ..test_misc import A
 
-from opshin.ledger.api_v2 import *
+from opshin.ledger.api_v3 import *
 from opshin import DEFAULT_CONFIG
 
 
