@@ -50,18 +50,23 @@ The inputs should match the contract's expected parameters:
 
 #### Getting Hex-Encoded Inputs
 
-You can get hex-encoded CBOR inputs from existing tests:
+You can get hex-encoded CBOR inputs using `uplc` or `pycardano` libraries:
 
 ```python
-import uplc
 
 # Example: encode an integer
-datum = 20
-hex_datum = uplc.PlutusInteger(datum).to_cbor().hex()
+import uplc.ast as uplc
+datum = uplc.PlutusInteger(20)
+hex_datum = uplc.plutus_cbor_dumps(datum).hex()
 
 # Example: encode a PlutusData structure
-from opshin.prelude import *
-datum = SomeDatum(field1=value1, field2=value2)
+from pycardano import PlutusData
+from dataclasses import dataclass
+@dataclass
+class PubKeyCredential(PlutusData):
+    CONSTR_ID = 0
+    credential_hash: bytes
+datum = PubKeyCredential(credential_hash=b"deadbeef")
 hex_datum = datum.to_cbor().hex()
 ```
 
