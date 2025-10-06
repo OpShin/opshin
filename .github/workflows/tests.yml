@@ -13,8 +13,35 @@ on:
       - '.github/workflows/tests.yml'
       - '.github/scripts/run-tests.sh'
       - '.github/actions/get-python-versions/**'
+  pull_request:
+    branches:
+      - '**'
+    paths:
+      - 'examples/**.py'
+      - 'opshin/**.py'
+      - 'tests/**.py'
+      - 'pyproject.toml'
+      - 'poetry.lock'
+      - '.github/workflows/tests.yml'
+      - '.github/scripts/run-tests.sh'
+      - '.github/actions/get-python-versions/**'
 
 jobs:
+  check-run:
+    # continue-on-error: true # Uncomment once integration is finished
+    runs-on: ubuntu-latest
+    # Map a step output to a job output
+    outputs:
+      should_skip: ${{ steps.skip_check.outputs.should_skip }}
+    steps:
+      - id: skip_check
+        uses: fkirc/skip-duplicate-actions@v5
+        with:
+          # All of these options are optional, so you can remove them if you are happy with the defaults
+          concurrent_skipping: 'same_content_newer'
+          skip_after_successful_duplicate: 'true'
+          do_not_skip: '["workflow_dispatch", "schedule"]'
+
   get-python-versions:
     runs-on: ubuntu-latest
     outputs:
@@ -30,7 +57,10 @@ jobs:
       uses: ./.github/actions/get-python-versions
 
   test-primary:
-    needs: get-python-versions
+    needs:
+      - get-python-versions
+      - check-run
+    if: needs.check-run.outputs.should_skip != 'true'
     runs-on: ubuntu-latest
     strategy:
       matrix:
