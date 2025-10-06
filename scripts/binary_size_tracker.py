@@ -95,7 +95,7 @@ def compile_contract(
     output_dir = f"size_test_{optimization}"
 
     cmd = [
-        "poetry",
+        "uv",
         "run",
         "opshin",
         "build",
@@ -149,7 +149,7 @@ def evaluate_contract(
 
     # Build command to evaluate the contract
     cmd = [
-        "poetry",
+        "uv",
         "run",
         "opshin",
         "eval_uplc",

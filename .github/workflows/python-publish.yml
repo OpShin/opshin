@@ -29,13 +29,21 @@ jobs:
           prerelease: false
           skipIfReleaseExists: true
       # Build and publish the package to pypi.
-      - name: Build and publish to pypi
-        uses: JRubics/poetry-publish@v2.1
+      - name: Set up Python
+        uses: actions/setup-python@v6
         with:
-          python_version: ${{ needs.get-python-versions.outputs.primary-version }}
-          pypi_token: ${{ secrets.PYPI_TOKEN }}
-          package_directory: "opshin"
-          poetry_install_options: "--without dev"
+          python-version: ${{ needs.get-python-versions.outputs.primary-version }}
+      
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+      
+      - name: Build and publish to PyPI
+        env:
+          UV_PUBLISH_TOKEN: ${{ secrets.PYPI_TOKEN }}
+        run: |
+          uv sync
+          uv build
+          uv publish
       # add executables to the release
       - name: Install jq
         uses: dcarbone/install-jq-action@v3.2.0
