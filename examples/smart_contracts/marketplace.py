@@ -1,5 +1,6 @@
 #!/usr/bin/env -S opshin eval spending
 from opshin.prelude import *
+from opshin.std.integrity import check_integrity
 
 
 @dataclass
@@ -52,9 +53,14 @@ def check_owner_signed(signatories: List[PubKeyHash], owner: PubKeyHash) -> None
     ), f"Owner did not sign transaction, requires {owner.hex()} but got {[s.hex() for s in signatories]}"
 
 
-def validator(datum: Listing, redeemer: ListingAction, context: ScriptContext) -> None:
+def validator(context: ScriptContext) -> None:
     purpose = context.purpose
-    tx_info = context.tx_info
+    datum: Listing = resolve_datum_unsafe(context, purpose)
+    check_integrity(datum)
+    redeemer: ListingAction = context.redeemer
+    check_integrity(redeemer)
+
+    tx_info = context.transaction
     assert isinstance(purpose, Spending), f"Wrong script purpose: {purpose}"
     own_utxo = resolve_spent_utxo(tx_info.inputs, purpose)
     own_addr = own_utxo.address

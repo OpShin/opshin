@@ -110,9 +110,7 @@ def validate_script(
 
 # to fully emulate simple script behaviour, compile with --force-three-params
 # the script is a contract parameter, pass it into the build command
-def validator(
-    script: Script, datum: None, redeemer: None, context: ScriptContext
-) -> None:
+def validator(script: Script, context: ScriptContext) -> None:
     assert validate_script(
-        script, context.tx_info.signatories, context.tx_info.valid_range
+        script, context.transaction.signatories, context.transaction.validity_range
     ), "Simple Script validation failed!"

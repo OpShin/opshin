@@ -68,8 +68,6 @@ def validator(
     token_policy_id: bytes,
     token_name: bytes,
     wrapping_factor: int,
-    _datum: Nothing,
-    _redeemer: NoRedeemer,
     ctx: ScriptContext,
 ) -> None:
     purpose = ctx.purpose
@@ -79,19 +77,19 @@ def validator(
         own_pid = purpose.policy_id
     elif isinstance(purpose, Spending):
         # whenever something is unlocked from the contract, the spending purpose will be triggered
-        own_utxo = own_spent_utxo(ctx.tx_info.inputs, purpose)
+        own_utxo = own_spent_utxo(ctx.transaction.inputs, purpose)
         own_pid = own_policy_id(own_utxo)
         own_addr = own_utxo.address
     else:
         assert False, "Incorrect purpose given"
     token = Token(token_policy_id, token_name)
     all_locked = all_tokens_locked_at_contract_address(
-        ctx.tx_info.outputs, own_addr, token
+        ctx.transaction.outputs, own_addr, token
     )
     all_unlocked = all_tokens_unlocked_from_contract_address(
-        ctx.tx_info.inputs, own_addr, token
+        ctx.transaction.inputs, own_addr, token
     )
-    all_minted = ctx.tx_info.mint.get(own_pid, {b"": 0}).get(b"w" + token_name, 0)
+    all_minted = ctx.transaction.mint.get(own_pid, {b"": 0}).get(b"w" + token_name, 0)
     print(f"unlocked from contract: {all_unlocked}")
     print(f"locked at contract: {all_locked}")
     print(f"minted: {all_minted}")

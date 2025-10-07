@@ -145,3 +145,15 @@ def token_present_in_inputs(token: Token, inputs: List[TxInInfo]):
             for x in inputs
         ]
     )
+
+
+def own_datum(context: ScriptContext) -> Anything:
+    """
+    Returns the datum attached to the UTxO being spent from this script address.
+    Raises an exception if no datum was attached.
+    """
+    purpose = context.purpose
+    assert isinstance(purpose, Spending)
+    own_utxo = own_spent_utxo(context.transaction.inputs, purpose)
+    datum = resolve_datum_unsafe(own_utxo, context.transaction)
+    return datum

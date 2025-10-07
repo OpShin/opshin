@@ -209,6 +209,7 @@ def check_params(
     if purpose == Purpose.any:
         # The any purpose does not do any checks. Use only if you know what you are doing
         if return_type is not None:
+            print(return_type)
             print(
                 f"Warning: {purpose.value} validator returns {return_type}, but it is recommended to return None. In PlutusV3, validators that do not return None always fail."
             )
@@ -299,7 +300,7 @@ def perform_command(args):
         ]
         return_annotation = (
             argspec.return_annotation
-            if argspec.return_annotation not in (None, argspec.empty)
+            if argspec.return_annotation is not argspec.empty
             else prelude.Anything
         )
         parsed_params = []
