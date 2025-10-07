@@ -292,7 +292,7 @@ class PlutoCompiler(CompilingNodeTransformer):
                     ),
                 ]
             )
-            self.current_function_typ.append(FunctionType([], InstanceType(AnyType())))
+            self.current_function_typ.append(FunctionType([], InstanceType(UnitType())))
             name_load_visitor = NameLoadCollector()
             name_load_visitor.visit(node)
             all_vs = sorted(set(all_vars(node)) | set(name_load_visitor.loaded.keys()))
