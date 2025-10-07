@@ -292,6 +292,7 @@ class PlutoCompiler(CompilingNodeTransformer):
                     ),
                 ]
             )
+            # TODO probably need to handle here when user wants to return something specific
             self.current_function_typ.append(FunctionType([], InstanceType(UnitType())))
             name_load_visitor = NameLoadCollector()
             name_load_visitor.visit(node)

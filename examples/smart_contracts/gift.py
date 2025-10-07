@@ -10,7 +10,7 @@ class WithdrawDatum(PlutusData):
 
 
 def validator(context: ScriptContext) -> None:
-    datum: WithdrawDatum = own_datum(context)
+    datum: WithdrawDatum = own_datum_unsafe(context)
     # check that the datum has correct structure (recommended for user inputs)
     # can be omitted if the datum can not make its way into a permanent script state (i.e., not stored in an output)
     check_integrity(datum)

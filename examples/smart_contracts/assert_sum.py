@@ -3,7 +3,7 @@ from opshin.prelude import *
 
 
 def validator(context: ScriptContext) -> None:
-    datum = own_datum(context)
+    datum = own_datum_unsafe(context)
     redeemer = context.redeemer
     assert (
         datum + redeemer == 42

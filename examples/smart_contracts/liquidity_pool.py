@@ -615,7 +615,7 @@ def validator(context: ScriptContext) -> None:
     purpose = get_spending_purpose(context)
     redeemer: PoolAction = context.redeemer
     check_integrity(redeemer)
-    datum: PoolState = own_datum(context)
+    datum: PoolState = own_datum_unsafe(context)
     check_integrity(datum)
     own_input_info = context.transaction.inputs[redeemer.pool_input_index]
     assert (
