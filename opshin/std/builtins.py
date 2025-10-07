@@ -192,6 +192,48 @@ def equals_data(x: Anything, y: Anything) -> bool:
 
 
 @wraps_builtin
+def integer_to_byte_string(a: int) -> bytes:
+    """Returns the integer represented by a bytestring."""
+    pass
+
+
+@wraps_builtin
+def byte_string_to_integer(a: bytes) -> int:
+    """Returns the representation of an integer as a bytestring. Undoes integer_to_byte_string."""
+    pass
+
+
+@wraps_builtin
+def and_byte_string(a: bytes, b: bytes) -> bytes:
+    """Returns the bitwise AND of two bytestrings, asserting they have the same length."""
+    pass
+
+
+@wraps_builtin
+def or_byte_string(a: bytes, b: bytes) -> bytes:
+    """Returns the bitwise OR of two bytestrings, asserting they have the same length."""
+    pass
+
+
+@wraps_builtin
+def xor_byte_string(a: bytes, b: bytes) -> bytes:
+    """Returns the bitwise XOR of two bytestrings, asserting they have the same length."""
+    pass
+
+
+@wraps_builtin
+def complement_byte_string(a: bytes) -> bytes:
+    """Returns the bitwise NOT of a bytestring."""
+    pass
+
+
+@wraps_builtin
 def serialise_data(x: Anything) -> bytes:
     """Serialize a datum into its CBOR representation."""
+    pass
+
+
+@wraps_builtin
+def replicate_byte(a: int, b: int) -> bytes:
+    """Returns a bytestring of length a with all bytes equal to b. Maximum length is 8192."""
     pass
