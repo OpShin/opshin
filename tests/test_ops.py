@@ -191,6 +191,7 @@ def validator(x: int, y: int) -> int:
         self.assertEqual(ret, exp, "% returned wrong value")
 
     @given(x=st.integers(), y=st.integers(min_value=0, max_value=20))
+    @example(x=1, y=1)
     def test_pow_int(self, x, y):
         source_code = """
 def validator(x: int, y: int) -> int:

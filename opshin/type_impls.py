@@ -2093,6 +2093,13 @@ class ByteStringType(AtomicType):
                     ByteStringInstanceType,
                 )
             )
+        if attr == "ljust" or attr == "rjust":
+            return InstanceType(
+                FunctionType(
+                    frozenlist([IntegerInstanceType, InstanceType(ByteStringType())]),
+                    ByteStringInstanceType,
+                )
+            )
         return super().attribute_type(attr)
 
     def attribute(self, attr) -> plt.AST:
@@ -2325,6 +2332,69 @@ class ByteStringType(AtomicType):
                     plt.Apply(OVar("splitlist"), plt.Integer(0)),
                 ),
             )
+        if attr == "ljust":
+            return OLambda(
+                ["x", "width", "fillchar"],
+                OLet(
+                    [
+                        ("fillchar", plt.Force(OVar("fillchar"))),
+                        ("width", plt.Force(OVar("width"))),
+                    ],
+                    plt.Ite(
+                        plt.NotEqualsInteger(
+                            plt.LengthOfByteString(OVar("fillchar")), plt.Integer(1)
+                        ),
+                        plt.TraceError("fillchar must be a single byte"),
+                        plt.Ite(
+                            plt.LessThanInteger(
+                                plt.LengthOfByteString(OVar("x")), OVar("width")
+                            ),
+                            plt.AppendByteString(
+                                OVar("x"),
+                                ByteStrIntMulImpl(
+                                    OVar("fillchar"),
+                                    plt.SubtractInteger(
+                                        OVar("width"), plt.LengthOfByteString(OVar("x"))
+                                    ),
+                                ),
+                            ),
+                            OVar("x"),
+                        ),
+                    ),
+                ),
+            )
+        if attr == "rjust":
+            return OLambda(
+                ["x", "width", "fillchar"],
+                OLet(
+                    [
+                        ("fillchar", plt.Force(OVar("fillchar"))),
+                        ("width", plt.Force(OVar("width"))),
+                    ],
+                    plt.Ite(
+                        plt.NotEqualsInteger(
+                            plt.LengthOfByteString(OVar("fillchar")), plt.Integer(1)
+                        ),
+                        plt.TraceError("fillchar must be a single byte"),
+                        plt.Ite(
+                            plt.LessThanInteger(
+                                plt.LengthOfByteString(OVar("x")), OVar("width")
+                            ),
+                            plt.AppendByteString(
+                                ByteStrIntMulImpl(
+                                    OVar("fillchar"),
+                                    plt.SubtractInteger(
+                                        OVar("width"), plt.LengthOfByteString(OVar("x"))
+                                    ),
+                                ),
+                                OVar("x"),
+                            ),
+                            OVar("x"),
+                        ),
+                    ),
+                ),
+            )
+
         return super().attribute(attr)
 
     def cmp(self, op: ast.cmpop, o: "Type") -> plt.AST:

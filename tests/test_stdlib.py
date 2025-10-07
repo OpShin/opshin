@@ -205,6 +205,47 @@ def validator(x: bytes) -> str:
         ret = eval_uplc_value(source_code, xs).decode()
         self.assertEqual(ret, xs.hex(), "bytes.hex returned wrong value")
 
+    @given(
+        xs=st.binary(),
+        y=st.one_of(st.binary(min_size=1, max_size=1), st.binary()),
+        z=st.integers(min_value=-20, max_value=20),
+    )
+    @example(b"hello", b"x", 10)
+    def test_bytes_ljust(self, xs: bytes, y: bytes, z: int):
+        source_code = """
+def validator(x: bytes, y: bytes, z: int) -> bytes:
+    return x.ljust(z, y)
+            """
+        try:
+            ret = eval_uplc_value(source_code, xs, y, z)
+        except RuntimeError:
+            ret = None
+        try:
+            exp = xs.ljust(z, y)
+        except TypeError:
+            exp = None
+        self.assertEqual(ret, exp), "bytes.ljust returned wrong value"
+
+    @given(
+        xs=st.binary(),
+        y=st.one_of(st.binary(min_size=1, max_size=1), st.binary()),
+        z=st.integers(min_value=-20, max_value=20),
+    )
+    def test_bytes_rjust(self, xs: bytes, y: int, z: int):
+        source_code = """
+def validator(x: bytes, y: bytes, z: int) -> bytes:
+    return x.rjust(z, y)
+            """
+        try:
+            ret = eval_uplc_value(source_code, xs, y, z)
+        except RuntimeError:
+            ret = None
+        try:
+            exp = xs.rjust(z, bytes(y))
+        except TypeError:
+            exp = None
+        self.assertEqual(ret, exp), "bytes.rjust returned wrong value"
+
     @given(xs=st.binary())
     @example(b"dc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2")
     def test_constant_bytestring(self, xs):

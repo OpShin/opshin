@@ -450,8 +450,8 @@ Note that opshin errors may be overly restrictive as they aim to prevent code wi
         assert isinstance(code, uplc.ast.Program)
         raw_ret = uplc.eval(
             code,
-            cek_machine_cost_model=cost_model.default_cek_machine_cost_model_plutus_v2(),
-            builtin_cost_model=cost_model.default_builtin_cost_model_plutus_v2(),
+            cek_machine_cost_model=cost_model.default_cek_machine_cost_model_plutus_v3(),
+            builtin_cost_model=cost_model.default_builtin_cost_model_plutus_v3(),
         )
         print("------LOGS--------")
         if raw_ret.logs:
