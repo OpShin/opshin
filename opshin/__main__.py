@@ -20,6 +20,7 @@ import pycardano
 
 import uplc
 import uplc.ast
+from uplc.cost_model import PlutusVersion
 
 from . import (
     compiler,
@@ -33,6 +34,7 @@ from . import (
 from .util import CompilerError, data_from_json, OPSHIN_LOG_HANDLER
 from .prelude import ScriptContext
 from .compiler_config import *
+from uplc import cost_model
 
 
 class Command(enum.Enum):
@@ -446,7 +448,11 @@ Note that opshin errors may be overly restrictive as they aim to prevent code wi
     if command == Command.eval_uplc:
         print("UPLC execution started")
         assert isinstance(code, uplc.ast.Program)
-        raw_ret = uplc.eval(code)
+        raw_ret = uplc.eval(
+            code,
+            cek_machine_cost_model=cost_model.default_cek_machine_cost_model_plutus_v2(),
+            builtin_cost_model=cost_model.default_builtin_cost_model_plutus_v2(),
+        )
         print("------LOGS--------")
         if raw_ret.logs:
             for log in raw_ret.logs:
