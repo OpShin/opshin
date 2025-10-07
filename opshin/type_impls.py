@@ -516,7 +516,7 @@ class RecordType(ClassType):
         )
 
     def python_type(self):
-        return f"class {self.record.orig_name}(CONSTR_ID={self.record.constructor}) "
+        return f"{self.record.orig_name}(CONSTR_ID={self.record.constructor}) "
 
     def constr_type(self) -> "InstanceType":
         return InstanceType(

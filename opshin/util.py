@@ -1,3 +1,4 @@
+import traceback
 from _ast import Name, Store, ClassDef, FunctionDef, Load
 from collections import defaultdict
 from copy import deepcopy
@@ -94,6 +95,7 @@ class CompilingNodeTransformer(TypedNodeTransformer):
         try:
             return super().visit(node)
         except Exception as e:
+            raise e
             if isinstance(e, CompilerError):
                 raise e
             raise CompilerError(e, node, self.step)

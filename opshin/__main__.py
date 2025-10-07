@@ -202,40 +202,28 @@ def check_params(
     validator_args,
     return_type,
     validator_params,
-    force_three_params=False,
 ):
-    num_onchain_params = (
-        3
-        if purpose == Purpose.spending or force_three_params or purpose == Purpose.any
-        else 2
-    )
+    num_onchain_params = 1
     onchain_params = validator_args[-num_onchain_params:]
     param_types = validator_args[:-num_onchain_params]
     if purpose == Purpose.any:
         # The any purpose does not do any checks. Use only if you know what you are doing
+        if return_type is not None:
+            print(
+                f"Warning: {purpose.value} validator returns {return_type}, but it is recommended to return None. In PlutusV3, validators that do not return None always fail."
+            )
         return onchain_params, param_types
     # expect the validator to return None
     assert (
-        return_type is None or return_type == prelude.Anything
-    ), f"Expected contract to return None, but returns {return_type}"
+        return_type is None,
+    ), f"Expected contract to return None, but returns {return_type}. Note the default return type, when omitting any annotations, is Anything. In PlutusV3, validators that do not return None always fail."
 
-    required_onchain_parameters = 3 if purpose == Purpose.spending else 2
-    if force_three_params:
-        datum_type = onchain_params[0][1]
-        assert (
-            (
-                typing.get_origin(datum_type) == typing.Union
-                and prelude.Nothing in typing.get_args(datum_type)
-            )
-            or datum_type == prelude.Anything
-            or datum_type == prelude.Nothing
-        ), f"Expected contract to accept Nothing or Anything as datum since it forces three parameters, but got {datum_type}"
-
+    required_onchain_parameters = 1
     assert (
         len(onchain_params) == required_onchain_parameters
     ), f"""\
 {purpose.value.capitalize()} validator must expect {required_onchain_parameters} parameters at evaluation (on-chain), but was specified to have {len(onchain_params)}.
-Make sure the validator expects parameters {'datum, ' if purpose == Purpose.spending else ''}redeemer and script context."""
+Make sure the validator expects just the script context."""
 
     if command in (Command.eval, Command.eval_uplc):
         assert len(validator_params) == len(param_types) + len(
@@ -337,7 +325,6 @@ def perform_command(args):
             annotations,
             return_annotation,
             parsed_params,
-            compiler_config.force_three_params,
         )
         assert (
             onchain_params or purpose == Purpose.lib

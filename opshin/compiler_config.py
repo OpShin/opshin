@@ -8,7 +8,6 @@ import pluthon
 class CompilationConfig(pluthon.CompilationConfig):
     constant_folding: Optional[bool] = None
     allow_isinstance_anything: Optional[bool] = None
-    force_three_params: Optional[bool] = None
     remove_dead_code: Optional[bool] = None
     fast_access_skip: Optional[int] = None
     expand_union_types: Optional[bool] = None
@@ -47,7 +46,6 @@ OPT_CONFIGS = [OPT_O0_CONFIG, OPT_O1_CONFIG, OPT_O2_CONFIG, OPT_O3_CONFIG]
 
 DEFAULT_CONFIG = CompilationConfig(
     allow_isinstance_anything=False,
-    force_three_params=False,
     expand_union_types=False,
 ).update(OPT_O2_CONFIG)
 
@@ -60,10 +58,6 @@ ARGPARSE_ARGS.update(
         },
         "allow_isinstance_anything": {
             "help": "Enables the use of isinstance(x, D) in the contract where x is of type Anything. This is not recommended as it only checks the constructor id and not the actual type of the data.",
-        },
-        "force_three_params": {
-            "__alts__": ["--ftp"],
-            "help": "Enforces that the contract is always called with three virtual parameters on-chain. Enable if the script should support spending and other purposes.",
         },
         "remove_dead_code": {
             "help": "Removes dead code and variables from the contract. Should be enabled for non-debugging purposes.",
