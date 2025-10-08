@@ -239,6 +239,7 @@ def perform_command(args):
     # configure logging
     if args.verbose:
         OPSHIN_LOG_HANDLER.setLevel(logging.DEBUG)
+    lib = args.lib
 
     # execute the command
     command = Command(args.command)
@@ -291,15 +292,16 @@ def perform_command(args):
                 f"Could not parse parameter {i} ('{a}') as type {c[1]}. Please provide the parameter either as JSON or CBOR (in hexadecimal notation). Detailed error: {e}"
             ) from None
         parsed_params.append(param)
-    onchain_params, param_types = check_params(
-        command,
-        annotations,
-        return_annotation,
-        parsed_params,
-    )
-    assert (
-        onchain_params
-    ), "The validator function must have at least one on-chain parameter. You can also add `_:None`."
+    if lib is None:
+        onchain_params, param_types = check_params(
+            command,
+            annotations,
+            return_annotation,
+            parsed_params,
+        )
+        assert (
+            onchain_params
+        ), "The validator function must have at least one on-chain parameter. You can also add `_:None`."
 
     py_ret = Command.eval
     if command == Command.eval:
@@ -321,7 +323,7 @@ def perform_command(args):
         code = compiler.compile(
             source_ast,
             filename=input_file,
-            validator_function_name="validator",
+            validator_function_name="validator" if lib is None else lib,
             # do not remove dead code when compiling a library - none of the code will be used
             config=compiler_config,
         )
@@ -374,6 +376,10 @@ Note that opshin errors may be overly restrictive as they aim to prevent code wi
         return
 
     if command == Command.build:
+        if lib is not None:
+            raise ValueError(
+                "Cannot build a library. Please remove the --lib flag when building a contract."
+            )
         if args.output_directory == "":
             if args.input_file == "-":
                 print(
@@ -456,6 +462,14 @@ def parse_args():
         "--output-format-json",
         action="store_true",
         help="Changes the output of the Linter to a json format.",
+    )
+    a.add_argument(
+        "--lib",
+        const="validator",
+        default=None,
+        nargs="?",
+        type=str,
+        help="Indicates that the input file should compile to a generic function, reusable by other contracts (not a smart contract itself). Discards corresponding typechecks. An optional name of the function to export can be given, by default it is validator. Use -fwrap_input and -fwrap_output to control whether the function expects or returns PlutusData (otherwise BuiltIn).",
     )
     a.add_argument(
         "--version",
