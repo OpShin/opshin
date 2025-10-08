@@ -64,17 +64,15 @@ class MiscTest(unittest.TestCase):
             source_code = fp.read()
         ret = eval_uplc(
             source_code,
-            20,
-            22,
             uplc.data_from_cbor(
                 bytes.fromhex(
                     # TODO need new script context
-                    "d8799fd8799f9fd8799fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffd8799fd8799fd87a9f581cdbe769758f26efb21f008dc097bb194cffc622acc37fcefc5372eee3ffd87a80ffa140a1401a00989680d87a9f5820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dffd87a80ffffff809fd8799fd8799fd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd87a80ffa140a14000d87980d87a80ffffa140a14000a140a1400080a0d8799fd8799fd87980d87a80ffd8799fd87b80d87a80ffff80a1d87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffd87980a15820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd8799f5820746957f0eb57f2b11119684e611a98f373afea93473fefbb7632d579af2f6259ffffd87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffff"
+                    "d8799fd8799f9fd8799fd8799f58205c25c47563872458e8607590c90c6ddadd0295f38c628426c4877185e721507a00ffd8799fd8799fd87a9f581c41582020bb0782bb76ce4fcd7ea2c2f3c565e1fd41a79ac7ddb3e145ffd87a80ffa140a1401a002dc6c0d87b9f14ffd87a80ffffff809fd8799fd8799fd8799f581c25d14bb0185eedffcaa02cdd3bfa779bfc9df3555c64b0e91ed41273ffd87a80ffa140a1401a002ae91fd87980d87a80ffff1a0002dda1a080a0d8799fd8799fd87a9f1b00000199c356d9a8ffd87a80ffd8799fd87a9f1b00000199c3661be8ffd87980ffff9f581c25d14bb0185eedffcaa02cdd3bfa779bfc9df3555c64b0e91ed41273ffa1d87a9fd8799f58205c25c47563872458e8607590c90c6ddadd0295f38c628426c4877185e721507a00ffff16a05820801ee2f936eb1dac69a6da43e17b09ade9bc8c3ed887066f350562d94c681573a080d87a80d87a80ff16d87a9fd8799f58205c25c47563872458e8607590c90c6ddadd0295f38c628426c4877185e721507a00ffd8799f14ffffff"
                 )
             ),
-            config=DEFAULT_TEST_CONFIG
+            config=DEFAULT_TEST_CONFIG.update(wrap_output=False),
         )
-        self.assertEqual(ret, uplc.PlutusConstr(0, []))
+        self.assertEqual(ret, uplc.BuiltinUnit())
 
     @unittest.expectedFailure
     def test_assert_sum_contract_fail(self):
