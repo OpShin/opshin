@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e
+set -ex
 
 # Run pytest with coverage
 uv run coverage run -m pytest tests
@@ -21,11 +21,10 @@ uv run coverage run -a -m opshin build examples/smart_contracts/assert_sum.py
 
 # Compile all example files
 for i in $(find examples/smart_contracts -type f -name "*.py" -not \( -name "broken*" -o -name "extract*" \)); do
-  echo "$i"
   uv run coverage run -a -m opshin compile "$i" --recursion-limit 4000 > /dev/null || exit
 done
+
 for i in $(find examples/ -type f -name "*.py" -not \( -name "broken*" -o -name "extract*" \)); do
-  echo "$i"
   uv run coverage run -a -m opshin compile "$i" --lib --recursion-limit 4000 > /dev/null || exit
 done
 
