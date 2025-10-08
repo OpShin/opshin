@@ -95,7 +95,6 @@ class CompilingNodeTransformer(TypedNodeTransformer):
         try:
             return super().visit(node)
         except Exception as e:
-            raise e
             if isinstance(e, CompilerError):
                 raise e
             raise CompilerError(e, node, self.step)

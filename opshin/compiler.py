@@ -281,8 +281,12 @@ class PlutoCompiler(CompilingNodeTransformer):
                             typ=main_fun_typ.rettyp,
                             args=[
                                 RawPlutoExpr(
-                                    expr=transform_ext_params_map(a)(
-                                        OVar(f"val_param{i}")
+                                    expr=(
+                                        transform_ext_params_map(a)(
+                                            OVar(f"val_param{i}")
+                                        )
+                                        if self.config.unwrap_input
+                                        else OVar(f"val_param{i}")
                                     ),
                                     typ=a,
                                 )
@@ -293,7 +297,14 @@ class PlutoCompiler(CompilingNodeTransformer):
                 ]
             )
             # TODO probably need to handle here when user wants to return something specific
-            self.current_function_typ.append(FunctionType([], InstanceType(UnitType())))
+            self.current_function_typ.append(
+                FunctionType(
+                    [],
+                    InstanceType(
+                        UnitType() if not self.config.wrap_output else AnyType()
+                    ),
+                )
+            )
             name_load_visitor = NameLoadCollector()
             name_load_visitor.visit(node)
             all_vs = sorted(set(all_vars(node)) | set(name_load_visitor.loaded.keys()))
@@ -1122,6 +1133,7 @@ def compile(
     filename=None,
     validator_function_name="validator",
     config=DEFAULT_CONFIG,
+    wrap_output=False,
 ) -> plt.Program:
     compile_pipeline = [
         # Important to call this one first - it imports all further files

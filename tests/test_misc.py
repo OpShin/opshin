@@ -30,14 +30,13 @@ from .utils import (
     B,
     DEFAULT_TEST_CONFIG,
 )
-from opshin.compiler_config import OPT_O2_CONFIG, DEFAULT_CONFIG
+from opshin.compiler_config import OPT_O2_CONFIG
 
 hypothesis.settings.load_profile(PLUTUS_VM_PROFILE)
 
 # these imports are required to eval the result of script context dumps
 from opshin.ledger.api_v2 import *
 
-DEFAULT_CONFIG_FORCE_THREE_PARAMS = DEFAULT_CONFIG.update(force_three_params=True)
 sys.setrecursionlimit(2000)
 
 ALL_EXAMPLES = [
@@ -73,7 +72,7 @@ class MiscTest(unittest.TestCase):
                     "d8799fd8799f9fd8799fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffd8799fd8799fd87a9f581cdbe769758f26efb21f008dc097bb194cffc622acc37fcefc5372eee3ffd87a80ffa140a1401a00989680d87a9f5820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dffd87a80ffffff809fd8799fd8799fd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd87a80ffa140a14000d87980d87a80ffffa140a14000a140a1400080a0d8799fd8799fd87980d87a80ffd8799fd87b80d87a80ffff80a1d87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffd87980a15820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd8799f5820746957f0eb57f2b11119684e611a98f373afea93473fefbb7632d579af2f6259ffffd87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffff"
                 )
             ),
-            config=DEFAULT_CONFIG.update(OPT_O2_CONFIG),
+            config=DEFAULT_TEST_CONFIG
         )
         self.assertEqual(ret, uplc.PlutusConstr(0, []))
 
@@ -379,14 +378,14 @@ def validator(_: None) -> int:
         input_file = "examples/smart_contracts/wrapped_token.py"
         with open(input_file) as fp:
             source_code = fp.read()
-        builder._compile(source_code, config=DEFAULT_CONFIG_FORCE_THREE_PARAMS)
+        builder._compile(source_code)
 
     def test_dual_use_compile(self):
         # TODO devise tests for this
         input_file = "examples/smart_contracts/dual_use.py"
         with open(input_file) as fp:
             source_code = fp.read()
-        builder._compile(source_code, config=DEFAULT_CONFIG_FORCE_THREE_PARAMS)
+        builder._compile(source_code)
 
     def test_marketplace_compile(self):
         # TODO devise tests for this
@@ -395,19 +394,12 @@ def validator(_: None) -> int:
             source_code = fp.read()
         builder._compile(source_code)
 
-    @unittest.expectedFailure
-    def test_marketplace_compile_fail(self):
-        input_file = "examples/smart_contracts/marketplace.py"
-        with open(input_file) as fp:
-            source_code = fp.read()
-        builder._compile(source_code, config=DEFAULT_CONFIG_FORCE_THREE_PARAMS)
-
     def test_parameterized_compile(self):
         # TODO devise tests for this
         input_file = "examples/smart_contracts/parameterized.py"
         with open(input_file) as fp:
             source_code = fp.read()
-        builder._compile(source_code, config=DEFAULT_CONFIG_FORCE_THREE_PARAMS)
+        builder._compile(source_code)
 
     def test_dict_datum(self):
         input_file = "examples/dict_datum.py"
@@ -1947,7 +1939,7 @@ def validator({param_string}) -> bool:
     def test_wrapping_contract_apply(self):
         # TODO devise tests for this
         input_file = "examples/smart_contracts/wrapped_token.py"
-        contract = builder.build(input_file, config=DEFAULT_CONFIG_FORCE_THREE_PARAMS)
+        contract = builder.build(input_file)
         artifacts = PlutusContract(
             contract,
             datum_type=("datum", prelude.Nothing),
@@ -1966,7 +1958,7 @@ def validator({param_string}) -> bool:
 
     def test_wrapping_contract_dump_load(self):
         input_file = "examples/smart_contracts/wrapped_token.py"
-        contract = builder.build(input_file, config=DEFAULT_CONFIG_FORCE_THREE_PARAMS)
+        contract = builder.build(input_file, config=DEFAULT_TEST_CONFIG)
         artifacts = PlutusContract(
             contract,
             datum_type=("datum", prelude.Nothing),
@@ -2645,7 +2637,7 @@ def validator(x: List[int], y: int) -> int:
             exp = xs[y]
         except IndexError:
             exp = None
-        config = DEFAULT_CONFIG
+        config = DEFAULT_TEST_CONFIG
         config.update(fast_access_skip=5)
         try:
             ret = eval_uplc_value(source_code, xs, y, config=config)
