@@ -198,7 +198,6 @@ def plutus_data_from_cbor(annotation: typing.Type, x: bytes):
 
 def check_params(
     command: Command,
-    purpose: Purpose,
     validator_args,
     return_type,
     validator_params,
@@ -206,30 +205,22 @@ def check_params(
     num_onchain_params = 1
     onchain_params = validator_args[-num_onchain_params:]
     param_types = validator_args[:-num_onchain_params]
-    if purpose == Purpose.any:
-        # The any purpose does not do any checks. Use only if you know what you are doing
-        if return_type is not None:
-            print(return_type)
-            print(
-                f"Warning: {purpose.value} validator returns {return_type}, but it is recommended to return None. In PlutusV3, validators that do not return None always fail."
-            )
-        return onchain_params, param_types
-    # expect the validator to return None
-    assert (
-        return_type is None,
-    ), f"Expected contract to return None, but returns {return_type}. Note the default return type, when omitting any annotations, is Anything. In PlutusV3, validators that do not return None always fail."
+    if return_type is not None:
+        print(
+            f"Warning: validator returns {return_type}, but it is recommended to return None. In PlutusV3, validators that do not return None always fail. This is most likely not what you want."
+        )
 
     required_onchain_parameters = 1
     assert (
         len(onchain_params) == required_onchain_parameters
     ), f"""\
-{purpose.value.capitalize()} validator must expect {required_onchain_parameters} parameters at evaluation (on-chain), but was specified to have {len(onchain_params)}.
+validator must expect {required_onchain_parameters} parameters at evaluation (on-chain), but was specified to have {len(onchain_params)}.
 Make sure the validator expects just the script context."""
 
     if command in (Command.eval, Command.eval_uplc):
         assert len(validator_params) == len(param_types) + len(
             onchain_params
-        ), f"{purpose.value.capitalize()} validator expects {len(param_types) + len(onchain_params)} parameters for evaluation, but only got {len(validator_params)}."
+        ), f"validator expects {len(param_types) + len(onchain_params)} parameters for evaluation, but only got {len(validator_params)}."
     assert (
         onchain_params[-1][1] == ScriptContext
     ), f"Last parameter of the validator has to be ScriptContext, but is {onchain_params[-1][1].__name__} here."
@@ -251,11 +242,6 @@ def perform_command(args):
 
     # execute the command
     command = Command(args.command)
-    purpose = Purpose(args.purpose)
-    if purpose == Purpose.lib:
-        assert (
-            not compiler_config.remove_dead_code
-        ), "Libraries must have dead code removal disabled (-fno-remove-dead-code)"
     input_file = args.input_file if args.input_file != "-" else sys.stdin
     # read and import the contract
     with open(input_file, "r") as f:
@@ -274,66 +260,60 @@ def perform_command(args):
             ) from e
         sys.path.pop()
     # load the passed parameters if not a lib
-    if purpose == Purpose.lib:
-        assert not args.args, "Can not pass arguments to a library"
-        parsed_params = []
-        uplc_params = []
-    else:
+    try:
+        argspec = inspect.signature(sc.validator)
+    except AttributeError:
+        can_command_with_lib = command in (
+            Command.compile,
+            Command.build,
+            Command.compile_pluto,
+            Command.parse,
+            Command.lint,
+        )
+        command_with_lib = (
+            f" or {command.value} using `opshin {command.value} lib {str(input_file)}`."
+        )
+        raise AssertionError(
+            f"Contract has no function called 'validator'. Make sure the compiled contract contains one function called 'validator'"
+            + (command_with_lib if can_command_with_lib else ".")
+        )
+    annotations = [
+        (x.name, x.annotation or prelude.Anything) for x in argspec.parameters.values()
+    ]
+    return_annotation = (
+        argspec.return_annotation
+        if argspec.return_annotation is not argspec.empty
+        else prelude.Anything
+    )
+    parsed_params = []
+    uplc_params = []
+    for i, (c, a) in enumerate(zip(annotations, args.args)):
         try:
-            argspec = inspect.signature(sc.validator)
-        except AttributeError:
-            can_command_with_lib = command in (
-                Command.compile,
-                Command.build,
-                Command.compile_pluto,
-                Command.parse,
-                Command.lint,
-            )
-            command_with_lib = f" or {command.value} using `opshin {command.value} lib {str(input_file)}`."
-            raise AssertionError(
-                f"Contract has no function called 'validator'. Make sure the compiled contract contains one function called 'validator'"
-                + (command_with_lib if can_command_with_lib else ".")
-            )
-        annotations = [
-            (x.name, x.annotation or prelude.Anything)
-            for x in argspec.parameters.values()
-        ]
-        return_annotation = (
-            argspec.return_annotation
-            if argspec.return_annotation is not argspec.empty
-            else prelude.Anything
-        )
-        parsed_params = []
-        uplc_params = []
-        for i, (c, a) in enumerate(zip(annotations, args.args)):
-            try:
-                uplc_param = parse_uplc_param(a)
-            except ValueError as e:
-                raise ValueError(
-                    f"Could not parse parameter {i} ('{a}') as UPLC data. Please provide the parameter either as JSON or CBOR (in hexadecimal notation). Detailed error: {e}"
-                ) from None
-            uplc_params.append(uplc_param)
-            try:
-                param = parse_plutus_param(c[1], a)
-            except ValueError as e:
-                raise ValueError(
-                    f"Could not parse parameter {i} ('{a}') as type {c[1]}. Please provide the parameter either as JSON or CBOR (in hexadecimal notation). Detailed error: {e}"
-                ) from None
-            parsed_params.append(param)
-        onchain_params, param_types = check_params(
-            command,
-            purpose,
-            annotations,
-            return_annotation,
-            parsed_params,
-        )
-        assert (
-            onchain_params or purpose == Purpose.lib
-        ), "The validator function must have at least one on-chain parameter for non-library contracts."
+            uplc_param = parse_uplc_param(a)
+        except ValueError as e:
+            raise ValueError(
+                f"Could not parse parameter {i} ('{a}') as UPLC data. Please provide the parameter either as JSON or CBOR (in hexadecimal notation). Detailed error: {e}"
+            ) from None
+        uplc_params.append(uplc_param)
+        try:
+            param = parse_plutus_param(c[1], a)
+        except ValueError as e:
+            raise ValueError(
+                f"Could not parse parameter {i} ('{a}') as type {c[1]}. Please provide the parameter either as JSON or CBOR (in hexadecimal notation). Detailed error: {e}"
+            ) from None
+        parsed_params.append(param)
+    onchain_params, param_types = check_params(
+        command,
+        annotations,
+        return_annotation,
+        parsed_params,
+    )
+    assert (
+        onchain_params
+    ), "The validator function must have at least one on-chain parameter for non-library contracts."
 
     py_ret = Command.eval
     if command == Command.eval:
-        assert purpose != Purpose.lib, "Can not evaluate a library"
         print("Python execution started")
         with redirect_stdout(open(os.devnull, "w")):
             try:
@@ -352,7 +332,7 @@ def perform_command(args):
         code = compiler.compile(
             source_ast,
             filename=input_file,
-            validator_function_name="validator" if purpose != Purpose.lib else None,
+            validator_function_name="validator",
             # do not remove dead code when compiling a library - none of the code will be used
             config=compiler_config,
         )
@@ -415,20 +395,14 @@ Note that opshin errors may be overly restrictive as they aim to prevent code wi
         else:
             target_dir = pathlib.Path(args.output_directory)
         built_code = builder._build(code)
-        if purpose == Purpose.lib:
-            script_arts = PlutusContract(
-                built_code,
-                title=pathlib.Path(input_file).stem,
-            )
-        else:
-            script_arts = PlutusContract(
-                built_code,
-                datum_type=onchain_params[0] if len(onchain_params) == 3 else None,
-                redeemer_type=onchain_params[1 if len(onchain_params) == 3 else 0],
-                parameter_types=param_types,
-                purpose=(purpose,),
-                title=pathlib.Path(input_file).stem,
-            )
+        script_arts = PlutusContract(
+            built_code,
+            datum_type=onchain_params[0] if len(onchain_params) == 3 else None,
+            redeemer_type=onchain_params[1 if len(onchain_params) == 3 else 0],
+            parameter_types=param_types,
+            purpose=(Purpose.any,),
+            title=pathlib.Path(input_file).stem,
+        )
         script_arts.dump(target_dir)
 
         print(f"Wrote script artifacts to {target_dir}/")
@@ -471,16 +445,6 @@ def parse_args():
         choices=Command.__members__.keys(),
         help="The command to execute on the input file.",
         default="eval",
-        nargs="?",
-    )
-    a.add_argument(
-        "purpose",
-        type=str,
-        choices=Purpose.__members__.keys(),
-        help="The intended script purpose. Determines the number of on-chain parameters "
-        "(spending = 3, minting, rewarding, certifying = 2, any = no checks). "
-        "This allows the compiler to check whether the correct amount of parameters was passed during compilation.",
-        default="any",
         nargs="?",
     )
     a.add_argument(

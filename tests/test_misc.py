@@ -35,7 +35,7 @@ from opshin.compiler_config import OPT_O2_CONFIG
 hypothesis.settings.load_profile(PLUTUS_VM_PROFILE)
 
 # these imports are required to eval the result of script context dumps
-from opshin.ledger.api_v2 import *
+from opshin.ledger.api_v3 import *
 
 sys.setrecursionlimit(2000)
 
@@ -66,7 +66,6 @@ class MiscTest(unittest.TestCase):
             source_code,
             uplc.data_from_cbor(
                 bytes.fromhex(
-                    # TODO need new script context
                     "d8799fd8799f9fd8799fd8799f58205c25c47563872458e8607590c90c6ddadd0295f38c628426c4877185e721507a00ffd8799fd8799fd87a9f581c41582020bb0782bb76ce4fcd7ea2c2f3c565e1fd41a79ac7ddb3e145ffd87a80ffa140a1401a002dc6c0d87b9f14ffd87a80ffffff809fd8799fd8799fd8799f581c25d14bb0185eedffcaa02cdd3bfa779bfc9df3555c64b0e91ed41273ffd87a80ffa140a1401a002ae91fd87980d87a80ffff1a0002dda1a080a0d8799fd8799fd87a9f1b00000199c356d9a8ffd87a80ffd8799fd87a9f1b00000199c3661be8ffd87980ffff9f581c25d14bb0185eedffcaa02cdd3bfa779bfc9df3555c64b0e91ed41273ffa1d87a9fd8799f58205c25c47563872458e8607590c90c6ddadd0295f38c628426c4877185e721507a00ffff16a05820801ee2f936eb1dac69a6da43e17b09ade9bc8c3ed887066f350562d94c681573a080d87a80d87a80ff16d87a9fd8799f58205c25c47563872458e8607590c90c6ddadd0295f38c628426c4877185e721507a00ffd8799f14ffffff"
                 )
             ),
