@@ -55,7 +55,7 @@ def check_owner_signed(signatories: List[PubKeyHash], owner: PubKeyHash) -> None
 
 def validator(context: ScriptContext) -> None:
     purpose = context.purpose
-    datum: Listing = resolve_datum_unsafe(context, purpose)
+    datum: Listing = own_datum_unsafe(context)
     check_integrity(datum)
     redeemer: ListingAction = context.redeemer
     check_integrity(redeemer)
