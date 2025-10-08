@@ -109,12 +109,14 @@ def resolve_datum(
 
 
 def own_spent_utxo(txins: List[TxInInfo], p: Spending) -> TxOut:
-    # obtain the resolved txout that is going to be spent from this contract address
+    # This throws an assertion error if the txout was not found
     for txi in txins:
         if txi.out_ref == p.tx_out_ref:
-            own_txout = txi.resolved
-    # This throws a name error if the txout was not found
-    return own_txout
+            return txi.resolved
+    assert (
+        False
+    ), "The UTxO being spent from this script address was not found in the transaction inputs"
+    return txi.resolved
 
 
 def own_policy_id(own_spent_utxo: TxOut) -> PolicyId:
@@ -164,8 +166,7 @@ def own_datum_unsafe(context: ScriptContext) -> Anything:
     Returns the datum attached to the UTxO being spent from this script address.
     Raises an exception if no datum was attached.
     """
-    purpose = context.purpose
-    assert isinstance(purpose, Spending)
+    purpose: Spending = context.purpose
     own_utxo = own_spent_utxo(context.transaction.inputs, purpose)
     datum = resolve_datum_unsafe(own_utxo, context.transaction)
     return datum
