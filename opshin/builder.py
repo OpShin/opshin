@@ -27,8 +27,9 @@ class Purpose(enum.Enum):
     minting = "minting"
     rewarding = "rewarding"
     certifying = "certifying"
+    voting = "voting"
+    proposing = "proposing"
     any = "any"
-    lib = "lib"
 
 
 @dataclasses.dataclass
@@ -271,11 +272,13 @@ def _build(contract: uplc.ast.Program):
 
 
 PURPOSE_MAP = {
-    Purpose.any: {"oneOf": ["spend", "mint", "withdraw", "publish"]},
+    Purpose.any: {"oneOf": ["spend", "mint", "withdraw", "publish", "vote", "propose"]},
     Purpose.spending: "spend",
     Purpose.minting: "mint",
     Purpose.rewarding: "withdraw",
     Purpose.certifying: "publish",
+    Purpose.voting: "vote",
+    Purpose.proposing: "propose",
 }
 
 

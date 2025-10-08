@@ -1,4 +1,4 @@
-from opshin.ledger.api_v2 import *
+from opshin.ledger.api_v3 import *
 from opshin.std.builtins import *
 from opshin.std.integrity import check_integrity
 from opshin.prelude import *
@@ -153,6 +153,8 @@ def validator(context: ScriptContext) -> None:
         ), f"Must inline attached datum, got {cont_datum}"
         # We cast the datum to payment channel (it is stored without structure in the ledger)
         cont_datum_content: PaymentChannel = cont_datum.datum
+        # Technically not needed because we compare for exact equality below, but good practice
+        check_integrity(cont_datum_content)
         # Ensure that the state is correctly updated
         assert cont_datum_content == PaymentChannel(
             balance_alice,

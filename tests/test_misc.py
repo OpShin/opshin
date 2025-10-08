@@ -186,53 +186,35 @@ class MiscTest(unittest.TestCase):
             source_code = fp.read()
         ret = eval_uplc(
             source_code,
-            uplc.PlutusConstr(
-                0,
-                [
-                    uplc.PlutusByteString(
-                        bytes.fromhex(
-                            "dc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2"
-                        )
-                    )
-                ],
-            ),
-            uplc.PlutusConstr(0, []),
             uplc.data_from_cbor(
                 bytes.fromhex(
                     (
-                        "d8799fd8799f9fd8799fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffd8799fd8799fd87a9f581cdbe769758f26efb21f008dc097bb194cffc622acc37fcefc5372eee3ffd87a80ffa140a1401a00989680d87a9f5820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dffd87a80ffffff809fd8799fd8799fd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd87a80ffa140a14000d87980d87a80ffd8799fd8799fd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd87a80ffa140a1401a000f4240d87980d87a80ffffa140a14000a140a1400080a0d8799fd8799fd87a9f1b000001836ac117d8ffd87a80ffd8799fd87b80d87a80ffff9f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffa1d87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffd87980a15820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd8799f5820c17c32f6433ae22c2acaebfb796bbfaee3993ff7ebb58a2bac6b4a3bdd2f6d28ffffd87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffff"
+                        "d8799fd8799f9fd8799fd8799f582019895b96b5da29ecb09e6043b7fff42ef16406a3442848298cb1e900f54da37800ffd8799fd8799fd87a9f581ce876ac436a77d58ba0e3d3a318bf94526a607b4c64f140ed5db9b0f3ffd87a80ffa140a1401a002dc6c0d87b9fd8799f581c25d14bb0185eedffcaa02cdd3bfa779bfc9df3555c64b0e91ed41273ffffd87a80ffffff809fd8799fd8799fd8799f581c25d14bb0185eedffcaa02cdd3bfa779bfc9df3555c64b0e91ed41273ffd87a80ffa140a1401a0029ebc7d87980d87a80ffff1a0003daf9a080a0d8799fd8799fd87a9f1b00000199c3745c58ffd87a80ffd8799fd87a9f1b00000199c3839e98ffd87980ffff9f581c25d14bb0185eedffcaa02cdd3bfa779bfc9df3555c64b0e91ed41273ffa1d87a9fd8799f582019895b96b5da29ecb09e6043b7fff42ef16406a3442848298cb1e900f54da37800ffff00a05820bf16a9ba49965f9eb23e13ff1af73df41d8cad82afabcd3dc59be9a40bd324f9a080d87a80d87a80ff00d87a9fd8799f582019895b96b5da29ecb09e6043b7fff42ef16406a3442848298cb1e900f54da37800ffd8799fd8799f581c25d14bb0185eedffcaa02cdd3bfa779bfc9df3555c64b0e91ed41273ffffffff"
                     )
                 )
             ),
+            config=TEST_DEFAULT_CONFIG.update(wrap_output=False),
         )
-        self.assertEqual(ret, uplc.PlutusConstr(0, []))
+        self.assertEqual(ret, uplc.BuiltinUnit())
 
-    @unittest.expectedFailure
     def test_gift_contract_fail(self):
         input_file = "examples/smart_contracts/gift.py"
         with open(input_file) as fp:
             source_code = fp.read()
         # required sig missing int this script context
-        ret = eval_uplc(
+        ret = eval_uplc_raw(
             source_code,
-            uplc.PlutusConstr(
-                0,
-                [
-                    uplc.PlutusByteString(
-                        bytes.fromhex(
-                            "dc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2"
-                        )
-                    )
-                ],
-            ),
-            uplc.PlutusConstr(0, []),
             uplc.data_from_cbor(
                 bytes.fromhex(
                     (
-                        "d8799fd8799f9fd8799fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffd8799fd8799fd87a9f581cdbe769758f26efb21f008dc097bb194cffc622acc37fcefc5372eee3ffd87a80ffa140a1401a00989680d87a9f5820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dffd87a80ffffff809fd8799fd8799fd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd87a80ffa140a14000d87980d87a80ffffa140a14000a140a1400080a0d8799fd8799fd87a9f1b000001836ac117d8ffd87a80ffd8799fd87b80d87a80ffff80a1d87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffd87980a15820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd8799f5820797a1e1720b63621c6b185088184cb8e23af6e46b55bd83e7a91024c823a6c2affffd87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffff"
+                        "d8799fd8799f9fd8799fd8799f582019895b96b5da29ecb09e6043b7fff42ef16406a3442848298cb1e900f54da37800ffd8799fd8799fd87a9f581ce876ac436a77d58ba0e3d3a318bf94526a607b4c64f140ed5db9b0f3ffd87a80ffa140a1401a002dc6c0d87b9fd8799f581c25d14bb0185eedffcaa02cdd3bfa779bfc9df3555c64b0e91ed41273ffffd87a80ffffff809fd8799fd8799fd8799f581c25d14bb0185eedffcaa02cdd3bfa779bfc9df3555c64b0e91ed41273ffd87a80ffa140a1401a0029f1cbd87980d87a80ffff1a0003d4f5a080a0d8799fd8799fd87a9f1b00000199c3752b60ffd87a80ffd8799fd87a9f1b00000199c3846da0ffd87980ffff80a1d87a9fd8799f582019895b96b5da29ecb09e6043b7fff42ef16406a3442848298cb1e900f54da37800ffff00a05820796df430b7069b3e1a354a533bdd1cf1d56c12c18a223a557d334454e951622ca080d87a80d87a80ff00d87a9fd8799f582019895b96b5da29ecb09e6043b7fff42ef16406a3442848298cb1e900f54da37800ffd8799fd8799f581c25d14bb0185eedffcaa02cdd3bfa779bfc9df3555c64b0e91ed41273ffffffff"
                     )
                 )
             ),
+        )
+        self.assertIsInstance(ret.result, RuntimeError)
+        self.assertTrue(
+            any(x.startswith("Required signature missing") for x in ret.logs)
         )
 
     def test_recursion_simple(self):
@@ -249,7 +231,6 @@ def validator(_: None) -> int:
         ret = eval_uplc_value(source_code, Unit())
         self.assertEqual(0, ret)
 
-    @unittest.expectedFailure
     def test_recursion_illegal(self):
         # this is now an illegal retyping because read variables dont match
         source_code = """
@@ -265,8 +246,8 @@ def validator(_: None) -> int:
       return 100
     return b(1)
         """
-        ret = eval_uplc_value(source_code, Unit())
-        self.assertEqual(100, ret)
+        with self.assertRaises(CompilerError):
+            eval_uplc_value(source_code, Unit())
 
     def test_recursion_legal(self):
         source_code = """
@@ -288,7 +269,6 @@ def validator(_: None) -> int:
         ret = eval_uplc_value(source_code, Unit())
         self.assertEqual(100, ret)
 
-    @unittest.expectedFailure
     def test_uninitialized_access(self):
         source_code = """
 def validator(_: None) -> int:
@@ -301,9 +281,9 @@ def validator(_: None) -> int:
         return a(n-1)
     return a(1)
         """
-        builder._compile(source_code)
+        with self.assertRaises(CompilerError):
+            builder._compile(source_code)
 
-    @unittest.expectedFailure
     def test_illegal_bind(self):
         source_code = """
 def validator(_: None) -> int:
@@ -317,9 +297,9 @@ def validator(_: None) -> int:
       return a(n-1)
     return a(2)
         """
-        builder._compile(source_code)
+        with self.assertRaises(CompilerError):
+            builder._compile(source_code)
 
-    @unittest.expectedFailure
     def test_type_reassignment_function_bound(self):
         # changing the type of a variable should be disallowed if the variable is bound by a function
         # it can be ok if the types can be merged (resulting in union type inside the function) but
@@ -332,9 +312,9 @@ def validator(_: None) -> int:
     b = b''
     return a(1)
         """
-        builder._compile(source_code)
+        with self.assertRaises(CompilerError):
+            builder._compile(source_code)
 
-    @unittest.expectedFailure
     def test_illegal_function_retype(self):
         source_code = """
 def validator(_: None) -> int:
@@ -349,7 +329,8 @@ def validator(_: None) -> int:
       return 100
     return b(1)
         """
-        builder._compile(source_code)
+        with self.assertRaises(CompilerError):
+            builder._compile(source_code)
 
     def test_datum_cast(self):
         input_file = "examples/datum_cast.py"
@@ -373,13 +354,6 @@ def validator(_: None) -> int:
     def test_wrapping_contract_compile(self):
         # TODO devise tests for this
         input_file = "examples/smart_contracts/wrapped_token.py"
-        with open(input_file) as fp:
-            source_code = fp.read()
-        builder._compile(source_code)
-
-    def test_dual_use_compile(self):
-        # TODO devise tests for this
-        input_file = "examples/smart_contracts/dual_use.py"
         with open(input_file) as fp:
             source_code = fp.read()
         builder._compile(source_code)
@@ -1985,7 +1959,6 @@ def validator({param_string}) -> bool:
         assert loaded.title == artifacts.title
         assert loaded.version == artifacts.version
 
-    @unittest.expectedFailure
     def test_forbidden_overwrite(self):
         source_code = """
 def validator(
@@ -1994,7 +1967,8 @@ def validator(
     PlutusData = d
     return d
 """
-        builder._compile(source_code)
+        with self.assertRaises(CompilerError) as e:
+            builder._compile(source_code)
 
     @parameterized.expand(ALL_EXAMPLES)
     def test_compilation_deterministic_local(self, input_file):
