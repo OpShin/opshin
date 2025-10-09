@@ -262,10 +262,10 @@ def perform_command(args):
         sys.path.pop()
     # load the passed parameters if not a lib
     try:
-        argspec = inspect.signature(sc.validator)
+        argspec = inspect.signature(sc.validator if lib is None else getattr(sc, lib))
     except AttributeError:
         raise AssertionError(
-            f"Contract has no function called 'validator'. Make sure the compiled contract contains one function called 'validator'."
+            f"Contract has no function called '{'validator' if lib is None else lib}'. Make sure the compiled contract contains one function called 'validator'."
         )
     annotations = [
         (x.name, x.annotation or prelude.Anything) for x in argspec.parameters.values()
@@ -357,7 +357,7 @@ Note that opshin errors may be overly restrictive as they aim to prevent code wi
             # we remove chaining so that users to not see the internal trace back,
         )
         err.orig_err = c.orig_err
-        raise err from None
+        raise err
 
     if command == Command.compile_pluto:
         print(code.dumps())
@@ -439,11 +439,17 @@ def parse_args():
         type=str,
         choices=Command.__members__.keys(),
         help="The command to execute on the input file.",
-        default="eval",
-        nargs="?",
     )
     a.add_argument(
         "input_file", type=str, help="The input program to parse. Set to - for stdin."
+    )
+    a.add_argument(
+        "--lib",
+        const="validator",
+        default=None,
+        nargs="?",
+        type=str,
+        help="Indicates that the input file should compile to a generic function, reusable by other contracts (not a smart contract itself). Discards corresponding typechecks. An optional name of the function to export can be given, by default it is validator. Use -fwrap_input and -fwrap_output to control whether the function expects or returns PlutusData (otherwise BuiltIn).",
     )
     a.add_argument(
         "-o",
@@ -462,14 +468,6 @@ def parse_args():
         "--output-format-json",
         action="store_true",
         help="Changes the output of the Linter to a json format.",
-    )
-    a.add_argument(
-        "--lib",
-        const="validator",
-        default=None,
-        nargs="?",
-        type=str,
-        help="Indicates that the input file should compile to a generic function, reusable by other contracts (not a smart contract itself). Discards corresponding typechecks. An optional name of the function to export can be given, by default it is validator. Use -fwrap_input and -fwrap_output to control whether the function expects or returns PlutusData (otherwise BuiltIn).",
     )
     a.add_argument(
         "--version",

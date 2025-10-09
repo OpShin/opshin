@@ -1167,7 +1167,11 @@ def compile(
         RewriteRemoveTypeStuff(),
         # Apply optimizations
         OptimizeRemoveTrace() if config.remove_trace else NoOp(),
-        OptimizeRemoveDeadvars() if config.remove_dead_code else NoOp(),
+        (
+            OptimizeRemoveDeadvars(validator_function_name=validator_function_name)
+            if config.remove_dead_code
+            else NoOp()
+        ),
         OptimizeRemoveDeadconstants() if config.remove_dead_code else NoOp(),
         OptimizeRemovePass(),
     ]
