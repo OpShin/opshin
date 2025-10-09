@@ -27,8 +27,8 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
 ]
 dependencies = [
-    "uplc>=1.2.0",
-    "pluthon>=1.2.0",
+    "uplc>=1.2.1",
+    "pluthon>=1.3.4",
     "pycardano>=0.13.0",
     "frozenlist2>=1.0.0",
     "ordered-set>=4.1.0",

@@ -41,7 +41,7 @@ OPT_O2_CONFIG = (
     )
 )
 OPT_O3_CONFIG = (
-    CompilationConfig().update(pluthon.OPT_O3_CONFIG).update(OPT_O2_CONFIG).update()
+    CompilationConfig().update(OPT_O2_CONFIG).update(pluthon.OPT_O3_CONFIG).update()
 )
 OPT_CONFIGS = [OPT_O0_CONFIG, OPT_O1_CONFIG, OPT_O2_CONFIG, OPT_O3_CONFIG]
 
