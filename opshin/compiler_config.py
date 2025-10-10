@@ -49,7 +49,7 @@ DEFAULT_CONFIG = CompilationConfig(
     allow_isinstance_anything=False,
     force_three_params=False,
     expand_union_types=False,
-).update(OPT_O1_CONFIG)
+).update(OPT_O2_CONFIG)
 
 ARGPARSE_ARGS = pluthon.ARGPARSE_ARGS.copy()
 ARGPARSE_ARGS.update(

@@ -3,15 +3,12 @@ import hypothesis
 import pytest
 from hypothesis import given
 from hypothesis import strategies as st
-from opshin import builder
-from ..utils import eval_uplc_value, eval_uplc, eval_uplc_raw
+from ..utils import eval_uplc_raw, DEFAULT_TEST_CONFIG
 from .. import PLUTUS_VM_PROFILE
-from opshin.util import CompilerError
 
 hypothesis.settings.load_profile(PLUTUS_VM_PROFILE)
 
 from ..test_misc import A
-from typing import List, Dict
 
 from opshin.ledger.api_v2 import *
 from opshin import DEFAULT_CONFIG
@@ -207,7 +204,7 @@ def foo(x: int) -> int:
 def validator(x: int) -> int:
     return foo(x)
     """
-        config = DEFAULT_CONFIG
+        config = DEFAULT_TEST_CONFIG
         euo_config = config.update(expand_union_types=True)
         source = eval_uplc_raw(source_code, x, config=euo_config)
         target = eval_uplc_raw(target_code, x, config=config)
@@ -242,7 +239,7 @@ def foo(x: int) -> int:
 def validator(x: int) -> int:
     return foo(x)
 """
-        config = DEFAULT_CONFIG
+        config = DEFAULT_TEST_CONFIG
         euo_config = config.update(expand_union_types=True)
         source = eval_uplc_raw(source_code, 4, config=euo_config)
         target = eval_uplc_raw(target_code, 4, config=config)
@@ -274,7 +271,7 @@ def foo(x: int) -> int:
 def validator(x: int) -> int:
     return foo(x)
 """
-        config = DEFAULT_CONFIG
+        config = DEFAULT_TEST_CONFIG
         euo_config = config.update(expand_union_types=True)
         source = eval_uplc_raw(source_code, 4, config=euo_config)
         target = eval_uplc_raw(target_code, 4, config=config)
@@ -316,7 +313,7 @@ def foo(x: {x}, y: {y} ) -> int:
 def validator(x: {x},  y: {y}) -> int:
     return foo(x, y)
 """
-        config = DEFAULT_CONFIG
+        config = DEFAULT_TEST_CONFIG
         euo_config = config.update(expand_union_types=True)
         source = eval_uplc_raw(source_code, x_in, y_in, config=euo_config)
         target = eval_uplc_raw(target_code, x_in, y_in, config=config)
@@ -324,3 +321,65 @@ def validator(x: {x},  y: {y}) -> int:
         self.assertEqual(source.result, target.result)
         self.assertEqual(source.cost.cpu, target.cost.cpu)
         self.assertEqual(source.cost.memory, target.cost.memory)
+
+    @hypothesis.given(st.sampled_from(range(4, 7)))
+    @hypothesis.example(4)
+    @hypothesis.example(5)
+    @hypothesis.example(6)
+    @pytest.mark.skip(
+        """
+        This fails because union expansion is broken. produces this code:
+
+    from typing import Dict, List, Union
+
+    def foo(x: Union[int, bytes]) -> int:
+        if isinstance(x, bytes) or isinstance(x, int):
+            k = 2
+        else:
+            k = len(x)
+        return k
+
+    def foo+_int(x: int) -> int:
+        k = 2
+        return k
+
+    def foo+_bytes(x: bytes) -> int:
+        k = 2
+        return k
+
+    def validator(x: int) -> int:
+        return foo(x)
+        """
+    )
+    def test_Union_expansion_BoolOp_or_all(self, x):
+        source_code = """
+from typing import Dict, List, Union
+
+def foo(x: Union[int, bytes]) -> int:
+    if isinstance(x, bytes) or isinstance(x, int):
+        k = 2
+    else:
+        k = len(x)
+    return k
+
+def validator(x: int) -> int:
+    return foo(x)
+    """
+        target_code = """
+from typing import Dict, List, Union
+
+def foo(x: int) -> int:
+    k = 2
+    return k
+
+def validator(x: int) -> int:
+    return foo(x)
+    """
+        config = DEFAULT_CONFIG.update(constant_folding=True)
+        euo_config = config.update(expand_union_types=True)
+        source = eval_uplc_raw(source_code, x, config=euo_config)
+        target = eval_uplc_raw(target_code, x, config=config)
+
+        self.assertEqual(source.result, target.result)
+        self.assertLessEqual(source.cost.cpu, target.cost.cpu)
+        self.assertLessEqual(source.cost.memory, target.cost.memory)

@@ -157,21 +157,28 @@ def constant_type(c):
         return StringInstanceType
     if isinstance(c, list):
         assert len(c) > 0, "Lists must be non-empty"
-        first_typ = constant_type(c[0])
-        assert all(
-            constant_type(ce) == first_typ for ce in c[1:]
-        ), "Constant lists must contain elements of a single type only"
+        types = [constant_type(x) for x in c]
+        first_typ = find_max_type([InstanceType(t) for t in types])
+        if first_typ is None:
+            raise ValueError(
+                f"All elements in a list must have a compatible type, found typs {tuple(t.python_type() for t in types)}"
+            )
         return InstanceType(ListType(first_typ))
     if isinstance(c, dict):
         assert len(c) > 0, "Dicts must be non-empty"
-        first_key_typ = constant_type(next(iter(c.keys())))
-        first_value_typ = constant_type(next(iter(c.values())))
-        assert all(
-            constant_type(ce) == first_key_typ for ce in c.keys()
-        ), "Constant dicts must contain keys of a single type only"
-        assert all(
-            constant_type(ce) == first_value_typ for ce in c.values()
-        ), "Constant dicts must contain values of a single type only"
+
+        key_types = [constant_type(k) for k in c.keys()]
+        value_types = [constant_type(v) for v in c.values()]
+        first_key_typ = find_max_type([InstanceType(t) for t in key_types])
+        first_value_typ = find_max_type([InstanceType(t) for t in value_types])
+        if first_key_typ is None:
+            raise ValueError(
+                f"All keys in a dict must have a compatible type, found typs {tuple(t.python_type() for t in key_types)}"
+            )
+        if first_value_typ is None:
+            raise ValueError(
+                f"All values in a dict must have a compatible type, found typs {tuple(t.python_type() for t in value_types)}"
+            )
         return InstanceType(DictType(first_key_typ, first_value_typ))
     if isinstance(c, PlutusData):
         return InstanceType(RecordType(record=record_from_plutusdata(c)))

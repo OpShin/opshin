@@ -1163,8 +1163,8 @@ def compile(
         RewriteImport(filename=filename),
         # Rewrites that simplify the python code
         RewriteForbiddenReturn(),
-        OptimizeConstantFolding() if config.constant_folding else NoOp(),
         OptimizeUnionExpansion() if config.expand_union_types else NoOp(),
+        OptimizeConstantFolding() if config.constant_folding else NoOp(),
         RewriteSubscript38(),
         RewriteAugAssign(),
         RewriteComparisonChaining(),
