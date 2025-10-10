@@ -50,6 +50,7 @@ dev = [
     "coverage>=7.0",
     "pytest>=7.3.1",
     "pyyaml>=6.0.3,<7",
+    "pytest-xdist",
 ]
 
 [tool.hatch.build.targets.sdist]

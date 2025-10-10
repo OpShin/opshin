@@ -193,7 +193,7 @@ class MiscTest(unittest.TestCase):
                     )
                 )
             ),
-            config=TEST_DEFAULT_CONFIG.update(wrap_output=False),
+            config=DEFAULT_TEST_CONFIG.update(wrap_output=False),
         )
         self.assertEqual(ret, uplc.BuiltinUnit())
 
