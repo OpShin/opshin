@@ -1,11 +1,14 @@
 import unittest
 from dataclasses import dataclass
+import hypothesis
+from hypothesis import given
+from hypothesis import strategies as st
 
 from pycardano import PlutusData
 from uplc import ast as uplc
 
 from opshin import DEFAULT_CONFIG, builder, CompilerError
-from tests.utils import eval_uplc_value, Unit, eval_uplc
+from tests.utils import eval_uplc_value, Unit, eval_uplc, eval_uplc_raw
 
 DEFAULT_CONFIG_CONSTANT_FOLDING = DEFAULT_CONFIG.update(constant_folding=True)
 
@@ -539,3 +542,119 @@ def validator(x: B) -> None:
             eval_uplc(source_code, B(4, 5), config=DEFAULT_CONFIG_CONSTANT_FOLDING)
         except Exception as e:
             self.fail("Should not raise")
+
+    @unittest.expectedFailure
+    def test_class_attribute_access(self):
+        source_code = """
+from dataclasses import dataclass
+from pycardano import Datum as Anything, PlutusData
+from typing import Dict, List, Union
+
+@dataclass
+class A(PlutusData):
+    CONSTR_ID = 0
+    a: int
+    b: bytes
+    d: List[int]
+
+def validator(_: None) -> int:
+    return A.CONSTR_ID
+    """
+        builder._compile(source_code)
+
+    def test_index_access_skip_faster(self):
+        xs = list(range(1000))
+        y = 250
+        # test the optimization for list access when the list is long and we can skip entries
+        source_code = f"""
+from typing import Dict, List, Union
+def validator(x: List[int], y: int) -> int:
+    return x[y]
+            """
+        exp = xs[y]
+        default_config = DEFAULT_CONFIG
+        raw_ret_noskip = eval_uplc_raw(source_code, xs, y, config=default_config)
+        skip_config = default_config.update(fast_access_skip=100)
+        raw_ret_skip = eval_uplc_raw(source_code, xs, y, config=skip_config)
+        self.assertEqual(
+            raw_ret_noskip.result.value, exp, "list index returned wrong value"
+        )
+        self.assertEqual(
+            raw_ret_skip.result.value, exp, "list index returned wrong value"
+        )
+        self.assertLess(
+            raw_ret_skip.cost.cpu,
+            raw_ret_noskip.cost.cpu,
+            "skipping had adverse effect on cpu",
+        )
+        self.assertLess(
+            raw_ret_skip.cost.memory,
+            raw_ret_noskip.cost.memory,
+            "skipping had adverse effect on memory",
+        )
+
+    @hypothesis.given(st.sampled_from(range(4, 7)))
+    def test_Union_expansion_BoolOp_or_all(self, x):
+        source_code = """
+from typing import Dict, List, Union
+
+def foo(x: Union[int, bytes]) -> int:
+    if isinstance(x, bytes) or isinstance(x, int):
+        k = 2
+    else:
+        k = len(x)
+    return k
+
+def validator(x: int) -> int:
+    return foo(x)
+    """
+        target_code = """
+from typing import Dict, List, Union
+
+def foo(x: int) -> int:
+    k = 2
+    return k
+
+def validator(x: int) -> int:
+    return foo(x)
+    """
+        config = DEFAULT_CONFIG
+        euo_config = config.update(expand_union_types=True)
+        source = eval_uplc_raw(source_code, x, config=euo_config)
+        target = eval_uplc_raw(target_code, x, config=config)
+
+        self.assertEqual(source.result, target.result)
+        self.assertEqual(source.cost.cpu, target.cost.cpu)
+        self.assertEqual(source.cost.memory, target.cost.memory)
+
+    def test_type_inference_list_3(self):
+        source_code = """
+from dataclasses import dataclass
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
+
+@dataclass()
+class A(PlutusData):
+    CONSTR_ID = 0
+    foo: int
+
+def validator(x: int) -> Union[int, bytes]:
+    l = [10, b"hello"]
+    return l[x]
+"""
+        # primarily test that this does not fail to compile
+        res = eval_uplc_value(source_code, 0)
+        self.assertEqual(res, 10)
+        res = eval_uplc_value(source_code, 1)
+        self.assertEqual(res, b"hello")
+
+    def test_compilation_deterministic_local_19_examples_smart_contracts_liquidity_pool_py(
+        self,
+    ):
+        input_file = "examples/smart_contracts/liquidity_pool.py"
+        with open(input_file) as fp:
+            source_code = fp.read()
+        code = builder._compile(source_code)
+        for i in range(10):
+            code_2 = builder._compile(source_code)
+            self.assertEqual(code.dumps(), code_2.dumps())
