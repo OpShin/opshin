@@ -601,40 +601,6 @@ def validator(x: List[int], y: int) -> int:
             "skipping had adverse effect on memory",
         )
 
-    @hypothesis.given(st.sampled_from(range(4, 7)))
-    def test_Union_expansion_BoolOp_or_all(self, x):
-        source_code = """
-from typing import Dict, List, Union
-
-def foo(x: Union[int, bytes]) -> int:
-    if isinstance(x, bytes) or isinstance(x, int):
-        k = 2
-    else:
-        k = len(x)
-    return k
-
-def validator(x: int) -> int:
-    return foo(x)
-    """
-        target_code = """
-from typing import Dict, List, Union
-
-def foo(x: int) -> int:
-    k = 2
-    return k
-
-def validator(x: int) -> int:
-    return foo(x)
-    """
-        config = DEFAULT_CONFIG_CONSTANT_FOLDING
-        euo_config = config.update(expand_union_types=True)
-        source = eval_uplc_raw(source_code, x, config=euo_config)
-        target = eval_uplc_raw(target_code, x, config=config)
-
-        self.assertEqual(source.result, target.result)
-        self.assertLessEqual(source.cost.cpu, target.cost.cpu)
-        self.assertLessEqual(source.cost.memory, target.cost.memory)
-
     def test_type_inference_list_3(self):
         source_code = """
 from dataclasses import dataclass

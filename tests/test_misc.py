@@ -20,7 +20,16 @@ from uplc import ast as uplc
 
 from . import PLUTUS_VM_PROFILE
 from opshin import prelude, builder, Purpose, PlutusContract, CompilerError
-from .utils import eval_uplc_value, Unit, eval_uplc, eval_uplc_raw, a_or_b, A, B
+from .utils import (
+    eval_uplc_value,
+    Unit,
+    eval_uplc,
+    eval_uplc_raw,
+    a_or_b,
+    A,
+    B,
+    DEFAULT_TEST_CONFIG,
+)
 from opshin.compiler_config import OPT_O2_CONFIG, DEFAULT_CONFIG
 
 hypothesis.settings.load_profile(PLUTUS_VM_PROFILE)
@@ -2422,7 +2431,7 @@ class A(PlutusData):
 def validator(_: None) -> int:
     return A.CONSTR_ID
     """
-        builder._compile(source_code)
+        builder._compile(source_code, config=DEFAULT_TEST_CONFIG)
 
     def test_constr_id_access(self):
         source_code = """
@@ -2654,7 +2663,7 @@ def validator(x: List[int], y: int) -> int:
     return x[y]
             """
         exp = xs[y]
-        default_config = DEFAULT_CONFIG
+        default_config = DEFAULT_TEST_CONFIG
         raw_ret_noskip = eval_uplc_raw(source_code, xs, y, config=default_config)
         skip_config = default_config.update(fast_access_skip=100)
         raw_ret_skip = eval_uplc_raw(source_code, xs, y, config=skip_config)
