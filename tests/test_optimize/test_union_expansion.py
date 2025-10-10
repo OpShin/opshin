@@ -1,17 +1,13 @@
 import unittest
 import hypothesis
-import pytest
 from hypothesis import given
 from hypothesis import strategies as st
-from opshin import builder
-from ..utils import eval_uplc_value, eval_uplc, eval_uplc_raw
+from ..utils import eval_uplc_raw, DEFAULT_TEST_CONFIG
 from .. import PLUTUS_VM_PROFILE
-from opshin.util import CompilerError
 
 hypothesis.settings.load_profile(PLUTUS_VM_PROFILE)
 
 from ..test_misc import A
-from typing import List, Dict
 
 from opshin.ledger.api_v2 import *
 from opshin import DEFAULT_CONFIG
@@ -207,7 +203,7 @@ def foo(x: int) -> int:
 def validator(x: int) -> int:
     return foo(x)
     """
-        config = DEFAULT_CONFIG
+        config = DEFAULT_TEST_CONFIG
         euo_config = config.update(expand_union_types=True)
         source = eval_uplc_raw(source_code, x, config=euo_config)
         target = eval_uplc_raw(target_code, x, config=config)
@@ -242,7 +238,7 @@ def foo(x: int) -> int:
 def validator(x: int) -> int:
     return foo(x)
 """
-        config = DEFAULT_CONFIG
+        config = DEFAULT_TEST_CONFIG
         euo_config = config.update(expand_union_types=True)
         source = eval_uplc_raw(source_code, 4, config=euo_config)
         target = eval_uplc_raw(target_code, 4, config=config)
@@ -274,7 +270,7 @@ def foo(x: int) -> int:
 def validator(x: int) -> int:
     return foo(x)
 """
-        config = DEFAULT_CONFIG
+        config = DEFAULT_TEST_CONFIG
         euo_config = config.update(expand_union_types=True)
         source = eval_uplc_raw(source_code, 4, config=euo_config)
         target = eval_uplc_raw(target_code, 4, config=config)
@@ -316,7 +312,7 @@ def foo(x: {x}, y: {y} ) -> int:
 def validator(x: {x},  y: {y}) -> int:
     return foo(x, y)
 """
-        config = DEFAULT_CONFIG
+        config = DEFAULT_TEST_CONFIG
         euo_config = config.update(expand_union_types=True)
         source = eval_uplc_raw(source_code, x_in, y_in, config=euo_config)
         target = eval_uplc_raw(target_code, x_in, y_in, config=config)

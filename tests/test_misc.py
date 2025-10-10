@@ -2002,6 +2002,7 @@ def validator(
     def test_compilation_deterministic_local(self, input_file):
         with open(input_file) as fp:
             source_code = fp.read()
+        sys.setrecursionlimit(4000)
         code = builder._compile(source_code)
         for i in range(10):
             code_2 = builder._compile(source_code)

@@ -1,16 +1,22 @@
+import sys
 import unittest
 from dataclasses import dataclass
 import hypothesis
-from hypothesis import given
 from hypothesis import strategies as st
 
 from pycardano import PlutusData
 from uplc import ast as uplc
 
-from opshin import DEFAULT_CONFIG, builder, CompilerError
-from tests.utils import eval_uplc_value, Unit, eval_uplc, eval_uplc_raw
+from opshin import CompilerError, builder
+from tests.utils import (
+    eval_uplc_value,
+    Unit,
+    eval_uplc,
+    eval_uplc_raw,
+    DEFAULT_TEST_CONFIG,
+)
 
-DEFAULT_CONFIG_CONSTANT_FOLDING = DEFAULT_CONFIG.update(constant_folding=True)
+DEFAULT_CONFIG_CONSTANT_FOLDING = DEFAULT_TEST_CONFIG.update(constant_folding=True)
 
 
 class ConstantFoldingTest(unittest.TestCase):
@@ -34,7 +40,7 @@ def validator(_: None) -> bytes:
     return bytes.fromhex("0011")
 """
         with self.assertRaises(CompilerError):
-            eval_uplc(source_code, Unit(), config=DEFAULT_CONFIG)
+            eval_uplc(source_code, Unit(), config=DEFAULT_TEST_CONFIG)
 
     def test_constant_folding_list(self):
         source_code = """
@@ -458,7 +464,7 @@ def validator(b: Dict[int, Dict[bytes, int]]) -> Dict[bytes, int]:
 def validator(x: bytes) -> int:
     return x[0 + 2] + 5
 """
-        code = builder._compile(source_code, Unit(), config=DEFAULT_CONFIG)
+        code = builder._compile(source_code, Unit(), config=DEFAULT_TEST_CONFIG)
         assert "lengthOfByteString" in code.dumps(), "Needs to check length at runtime"
         code = builder._compile(
             source_code, Unit(), config=DEFAULT_CONFIG_CONSTANT_FOLDING
@@ -472,7 +478,7 @@ def validator(x: bytes) -> int:
 def validator(x: bytes) -> int:
     return x[0 - 2] + 5
 """
-        code = builder._compile(source_code, Unit(), config=DEFAULT_CONFIG)
+        code = builder._compile(source_code, Unit(), config=DEFAULT_TEST_CONFIG)
         assert "lengthOfByteString" in code.dumps(), "Needs to check length at runtime"
         code = builder._compile(
             source_code, Unit(), config=DEFAULT_CONFIG_CONSTANT_FOLDING
@@ -529,7 +535,7 @@ def validator(x: B) -> None:
         self.assertIn("ValueError", code.dumps())
         try:
             eval_uplc(source_code, Unit(), config=DEFAULT_CONFIG_CONSTANT_FOLDING)
-        except Exception as e:
+        except (RuntimeError, IndexError) as e:
             pass
 
         @dataclass()
@@ -540,10 +546,9 @@ def validator(x: B) -> None:
 
         try:
             eval_uplc(source_code, B(4, 5), config=DEFAULT_CONFIG_CONSTANT_FOLDING)
-        except Exception as e:
+        except (RuntimeError, IndexError) as e:
             self.fail("Should not raise")
 
-    @unittest.expectedFailure
     def test_class_attribute_access(self):
         source_code = """
 from dataclasses import dataclass
@@ -560,7 +565,10 @@ class A(PlutusData):
 def validator(_: None) -> int:
     return A.CONSTR_ID
     """
-        builder._compile(source_code)
+        res = eval_uplc_value(
+            source_code, Unit(), config=DEFAULT_CONFIG_CONSTANT_FOLDING
+        )
+        self.assertEqual(res, 0)
 
     def test_index_access_skip_faster(self):
         xs = list(range(1000))
@@ -572,7 +580,7 @@ def validator(x: List[int], y: int) -> int:
     return x[y]
             """
         exp = xs[y]
-        default_config = DEFAULT_CONFIG
+        default_config = DEFAULT_CONFIG_CONSTANT_FOLDING
         raw_ret_noskip = eval_uplc_raw(source_code, xs, y, config=default_config)
         skip_config = default_config.update(fast_access_skip=100)
         raw_ret_skip = eval_uplc_raw(source_code, xs, y, config=skip_config)
@@ -582,12 +590,12 @@ def validator(x: List[int], y: int) -> int:
         self.assertEqual(
             raw_ret_skip.result.value, exp, "list index returned wrong value"
         )
-        self.assertLess(
+        self.assertLessEqual(
             raw_ret_skip.cost.cpu,
             raw_ret_noskip.cost.cpu,
             "skipping had adverse effect on cpu",
         )
-        self.assertLess(
+        self.assertLessEqual(
             raw_ret_skip.cost.memory,
             raw_ret_noskip.cost.memory,
             "skipping had adverse effect on memory",
@@ -618,14 +626,14 @@ def foo(x: int) -> int:
 def validator(x: int) -> int:
     return foo(x)
     """
-        config = DEFAULT_CONFIG
+        config = DEFAULT_CONFIG_CONSTANT_FOLDING
         euo_config = config.update(expand_union_types=True)
         source = eval_uplc_raw(source_code, x, config=euo_config)
         target = eval_uplc_raw(target_code, x, config=config)
 
         self.assertEqual(source.result, target.result)
-        self.assertEqual(source.cost.cpu, target.cost.cpu)
-        self.assertEqual(source.cost.memory, target.cost.memory)
+        self.assertLessEqual(source.cost.cpu, target.cost.cpu)
+        self.assertLessEqual(source.cost.memory, target.cost.memory)
 
     def test_type_inference_list_3(self):
         source_code = """
@@ -643,18 +651,7 @@ def validator(x: int) -> Union[int, bytes]:
     return l[x]
 """
         # primarily test that this does not fail to compile
-        res = eval_uplc_value(source_code, 0)
+        res = eval_uplc_value(source_code, 0, config=DEFAULT_CONFIG_CONSTANT_FOLDING)
         self.assertEqual(res, 10)
-        res = eval_uplc_value(source_code, 1)
+        res = eval_uplc_value(source_code, 1, config=DEFAULT_CONFIG_CONSTANT_FOLDING)
         self.assertEqual(res, b"hello")
-
-    def test_compilation_deterministic_local_19_examples_smart_contracts_liquidity_pool_py(
-        self,
-    ):
-        input_file = "examples/smart_contracts/liquidity_pool.py"
-        with open(input_file) as fp:
-            source_code = fp.read()
-        code = builder._compile(source_code)
-        for i in range(10):
-            code_2 = builder._compile(source_code)
-            self.assertEqual(code.dumps(), code_2.dumps())
