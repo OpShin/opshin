@@ -71,6 +71,28 @@ class BLS12381G1ElementType(ClassType):
                     return lambda x, y: plt.Bls12_381_G1_ScalarMul(y, x)
         return super()._binop_bin_fun(binop, other)
 
+    def attribute_type(self, attr) -> "Type":
+        if attr == "compress":
+            return InstanceType(FunctionType([], ByteStringInstanceType))
+        return super().attribute_type(attr)
+
+    def attribute(self, attr) -> plt.AST:
+        if attr == "compress":
+            return OLambda(["x", "_"], plt.Bls12_381_G1_Compress(OVar("x")))
+        return super().attribute(attr)
+
+    def _unop_return_type(self, unop: ast.unaryop) -> "Type":
+        if isinstance(unop, (ast.USub, ast.UAdd)):
+            return BLS12381G1ElementType()
+        return super()._unop_return_type(unop)
+
+    def _unop_fun(self, unop: ast.unaryop):
+        if isinstance(unop, ast.USub):
+            return plt.Bls12_381_G1_Neg
+        if isinstance(unop, ast.UAdd):
+            return lambda x: x
+        return super()._unop_fun(unop)
+
     def __ge__(self, other):
         return isinstance(other, BLS12381G1ElementType)
 
@@ -119,6 +141,28 @@ class BLS12381G2ElementType(ClassType):
                     return lambda x, y: plt.Bls12_381_G2_ScalarMul(y, x)
         return super()._binop_bin_fun(binop, other)
 
+    def attribute_type(self, attr) -> "Type":
+        if attr == "compress":
+            return InstanceType(FunctionType([], ByteStringInstanceType))
+        return super().attribute_type(attr)
+
+    def attribute(self, attr) -> plt.AST:
+        if attr == "compress":
+            return OLambda(["x", "_"], plt.Bls12_381_G2_Compress(OVar("x")))
+        return super().attribute(attr)
+
+    def _unop_return_type(self, unop: ast.unaryop) -> "Type":
+        if isinstance(unop, (ast.USub, ast.UAdd)):
+            return BLS12381G2ElementType()
+        return super()._unop_return_type(unop)
+
+    def _unop_fun(self, unop: ast.unaryop):
+        if isinstance(unop, ast.USub):
+            return plt.Bls12_381_G2_Neg
+        if isinstance(unop, ast.UAdd):
+            return lambda x: x
+        return super()._unop_fun(unop)
+
     def __ge__(self, other):
         return isinstance(other, BLS12381G2ElementType)
 
@@ -135,6 +179,22 @@ class BLS12381MlresultType(ClassType):
 
     def constr(self) -> plt.AST:
         return OLambda(["x"], OVar("x"))
+
+    def _binop_return_type(self, binop: ast.operator, other: "Type") -> "Type":
+        if isinstance(other, InstanceType):
+            other = other.typ
+            if isinstance(other, BLS12381MlresultType):
+                if isinstance(binop, ast.Mult):
+                    return BLS12381MlresultType()
+        return super()._binop_return_type(binop, other)
+
+    def _binop_bin_fun(self, binop: ast.operator, other: "TypedAST"):
+        if isinstance(other.typ, InstanceType):
+            other = other.typ.typ
+            if isinstance(other, BLS12381MlresultType):
+                if isinstance(binop, ast.Mult):
+                    return plt.Bls12_381_MulMlResult
+        return super()._binop_bin_fun(binop, other)
 
     def __ge__(self, other):
         return isinstance(other, BLS12381MlresultType)

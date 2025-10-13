@@ -274,7 +274,7 @@ def bls12_381_g2_scalar_mul(a: int, b: BLS12381G1Element) -> BLS12381G1Element:
 
 
 @wraps_builtin
-def bls12_381_g2_hash_to_group(a: bytes, b: bytes) -> BLS12381G1Element:
+def bls12_381_g2_hash_to_group(a: bytes, b: bytes) -> BLS12381G2Element:
     """Hash two bytestrings into the G1 group in BLS12_381."""
 
 
