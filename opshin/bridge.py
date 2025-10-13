@@ -9,6 +9,8 @@ from pycardano import PlutusData, RawCBOR
 
 
 def to_uplc_builtin(a):
+    if isinstance(a, bool):
+        return uplc.ast.BuiltinBool(a)
     if isinstance(a, int):
         return uplc.ast.BuiltinInteger(a)
     if isinstance(a, str):
@@ -27,6 +29,7 @@ def to_python(a):
         isinstance(a, uplc.ast.BuiltinInteger)
         or isinstance(a, uplc.ast.BuiltinString)
         or isinstance(a, uplc.ast.BuiltinByteString)
+        or isinstance(a, uplc.ast.BuiltinBool)
     ):
         return a.value
     if isinstance(a, uplc.ast.BuiltinUnit):

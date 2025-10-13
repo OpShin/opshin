@@ -30,7 +30,7 @@ def bytes_big_from_unsigned_int(b: int) -> bytes:
 
     For example, the integer 66051 will be converted to the bytestring b'\\x01\\x02\\x03'.
     """
-    return integer_to_byte_string(True, b, 0)
+    return integer_to_byte_string(True, 0, b)
 
 
 def ceil(a: int, b: int):
@@ -44,5 +44,5 @@ def floor(a: int, b: int):
 
 
 def and_bytestring(a: bytes, b: bytes) -> bytes:
-    """Returns the bitwise AND of two bytestrings, padding the shorter one with leading ones"""
+    """Returns the bitwise AND of two bytestrings, padding the shorter one with trailing ones"""
     return and_byte_string(True, a, b)
