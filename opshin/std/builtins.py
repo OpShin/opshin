@@ -6,6 +6,11 @@ It is valid code and parts of it may be copied if not all built-ins are required
 from opshin.bridge import wraps_builtin
 from pycardano import Datum as Anything, PlutusData
 from typing import Dict, List, Union
+from opshin.std.bls12_381 import (
+    BLS12381G1Element,
+    BLS12381G2Element,
+    BLS12381MillerLoopResult,
+)
 
 
 @wraps_builtin
@@ -192,6 +197,130 @@ def equals_data(x: Anything, y: Anything) -> bool:
 
 
 @wraps_builtin
+def serialise_data(x: Anything) -> bytes:
+    """Serialize a datum into its CBOR representation."""
+    pass
+
+
+@wraps_builtin
+def bls12_381_g1_uncompress(a: bytes) -> BLS12381G1Element:
+    """Uncompress an element of the G1 group in BLS12_381 from its binary representation."""
+    pass
+
+
+@wraps_builtin
+def bls12_381_g1_compress(a: BLS12381G1Element) -> bytes:
+    """Compress an element of the G1 group in BLS12_381 into its binary representation."""
+    pass
+
+
+@wraps_builtin
+def bls12_381_g1_add(a: BLS12381G1Element, b: BLS12381G1Element) -> BLS12381G1Element:
+    """Adds two elements of the G1 group in BLS12_381"""
+    pass
+
+
+@wraps_builtin
+def bls12_381_g1_neg(a: BLS12381G1Element) -> BLS12381G1Element:
+    """Negate an element of the G1 group in BLS12_381."""
+    pass
+
+
+@wraps_builtin
+def bls12_381_g1_scalar_mul(a: int, b: BLS12381G1Element) -> BLS12381G1Element:
+    """Multiply an element of the G1 group in BLS12_381 with a scalar integer"""
+    pass
+
+
+@wraps_builtin
+def bls12_381_g1_hash_to_group(a: bytes, b: bytes) -> BLS12381G1Element:
+    """Hash two bytestrings into the G1 group in BLS12_381."""
+
+
+@wraps_builtin
+def bls12_381_g1_equal(a: BLS12381G1Element, b: BLS12381G1Element) -> bool:
+    """Checks two elements of the G1 group in BLS12_381 for equality."""
+    pass
+
+
+@wraps_builtin
+def bls12_381_g2_uncompress(a: bytes) -> BLS12381G2Element:
+    """Uncompress an element of the G2 group in BLS12_381 from its binary representation."""
+    pass
+
+
+@wraps_builtin
+def bls12_381_g2_compress(a: BLS12381G2Element) -> bytes:
+    """Compress an element of the G2 group in BLS12_381 into its binary representation."""
+    pass
+
+
+@wraps_builtin
+def bls12_381_g2_add(a: BLS12381G1Element, b: BLS12381G1Element) -> BLS12381G1Element:
+    """Adds two elements of the G1 group in BLS12_381"""
+    pass
+
+
+@wraps_builtin
+def bls12_381_g2_neg(a: BLS12381G1Element) -> BLS12381G1Element:
+    """Negate an element of the G1 group in BLS12_381."""
+    pass
+
+
+@wraps_builtin
+def bls12_381_g2_scalar_mul(a: int, b: BLS12381G1Element) -> BLS12381G1Element:
+    """Multiply an element of the G1 group in BLS12_381 with a scalar integer"""
+    pass
+
+
+@wraps_builtin
+def bls12_381_g2_hash_to_group(a: bytes, b: bytes) -> BLS12381G1Element:
+    """Hash two bytestrings into the G1 group in BLS12_381."""
+
+
+@wraps_builtin
+def bls12_381_g2_equal(a: BLS12381G2Element, b: BLS12381G2Element) -> bool:
+    """Checks two elements of the G2 group in BLS12_381 for equality."""
+    pass
+
+
+@wraps_builtin
+def bls12_381_miller_loop(
+    a: BLS12381G1Element, b: BLS12381G2Element
+) -> BLS12381MillerLoopResult:
+    """Computes the Miller Loop based on G1 and G2 group elements from BLS12_381."""
+    pass
+
+
+@wraps_builtin
+def bls12_381_mul_ml_result(
+    a: BLS12381MillerLoopResult, b: BLS12381MillerLoopResult
+) -> BLS12381MillerLoopResult:
+    """Multiplies two Miller Loop results in BLS12_381."""
+    pass
+
+
+@wraps_builtin
+def bls12_381_final_verify(
+    a: BLS12381MillerLoopResult, b: BLS12381MillerLoopResult
+) -> bool:
+    """Verifies two Miller Loop results in BLS12_381."""
+    pass
+
+
+@wraps_builtin
+def keccak_256(a: bytes) -> bytes:
+    """Compute the Keccak 256 bit hash of a bytestring."""
+    pass
+
+
+@wraps_builtin
+def blake2b_224(a: bytes) -> bytes:
+    """Compute the Blake 2b 224 bit hash of a bytestring."""
+    pass
+
+
+@wraps_builtin
 def integer_to_byte_string(big_endian: bool, width: int, val: int) -> bytes:
     """Returns the integer represented by a bytestring.
     Width controls the number of bytes used. If width is 0, the minimum number of bytes is used.
@@ -230,12 +359,48 @@ def complement_byte_string(a: bytes) -> bytes:
 
 
 @wraps_builtin
-def serialise_data(x: Anything) -> bytes:
-    """Serialize a datum into its CBOR representation."""
+def read_bit(a: bytes, index: int) -> bool:
+    """Returns the bit at given index of the binary data."""
+    pass
+
+
+@wraps_builtin
+def write_bits(a: bytes, indices: List[int], value: bool) -> bytes:
+    """Sets the bits indicated by indices in the binary data to the given value."""
     pass
 
 
 @wraps_builtin
 def replicate_byte(a: int, b: int) -> bytes:
     """Returns a bytestring of length a with all bytes equal to b. Maximum length is 8192."""
+    pass
+
+
+@wraps_builtin
+def shift_byte_string(a: bytes, b: int) -> bytes:
+    """Returns a bytestring shifted by b bits (left shift for b > 0, right shift by -b for b < 0)"""
+    pass
+
+
+@wraps_builtin
+def rotate_byte_string(a: bytes, b: int) -> bytes:
+    """Returns a bytestring rotated by b bits (left rotate for b > 0, right rotate by -b for b < 0)"""
+    pass
+
+
+@wraps_builtin
+def count_set_bits(a: bytes) -> int:
+    """Returns the number of set bits (bits = 1) in a bytestring."""
+    pass
+
+
+@wraps_builtin
+def find_first_set_bit(a: bytes) -> int:
+    """Returns the 0-based index of the first set bit in a bytestring."""
+    pass
+
+
+@wraps_builtin
+def ripemd_160(a: bytes) -> bytes:
+    """Returns the RIPEMD-160 hash of a bytestring."""
     pass

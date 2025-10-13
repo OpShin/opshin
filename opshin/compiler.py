@@ -11,6 +11,7 @@ from uplc.ast import data_from_cbor
 from .bridge import to_uplc_builtin
 from .optimize.optimize_remove_trace import OptimizeRemoveTrace
 from .prelude import Nothing
+from .rewrite.rewrite_import_bls12_381 import RewriteImportBLS12381
 from .type_impls import (
     InstanceType,
     UnionType,
@@ -1146,6 +1147,7 @@ def compile(
         RewriteAugAssign(),
         RewriteComparisonChaining(),
         RewriteTupleAssign(),
+        RewriteImportBLS12381(),
         RewriteImportIntegrityCheck(),
         RewriteImportPlutusData(),
         RewriteImportHashlib(),

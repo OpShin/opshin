@@ -211,7 +211,7 @@ wheels = [
 
 [[package]]
 name = "cachetools"
-version = "6.2.0"
+version = "6.2.1"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version >= '3.14' and platform_python_implementation != 'PyPy'",
@@ -220,9 +220,9 @@ resolution-markers = [
     "python_full_version >= '3.10' and platform_python_implementation == 'PyPy'",
     "python_full_version >= '3.9.1' and python_full_version < '3.10' and platform_python_implementation == 'PyPy'",
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/9d/61/e4fad8155db4a04bfb4734c7c8ff0882f078f24294d42798b3568eb63bff/cachetools-6.2.0.tar.gz", hash = "sha256:38b328c0889450f05f5e120f56ab68c8abaf424e1275522b138ffc93253f7e32", size = 30988, upload-time = "2025-08-25T18:57:30.924Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/cc/7e/b975b5814bd36faf009faebe22c1072a1fa1168db34d285ef0ba071ad78c/cachetools-6.2.1.tar.gz", hash = "sha256:3f391e4bd8f8bf0931169baf7456cc822705f4e2a31f840d218f445b9a854201", size = 31325, upload-time = "2025-10-12T14:55:30.139Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/6c/56/3124f61d37a7a4e7cc96afc5492c78ba0cb551151e530b54669ddd1436ef/cachetools-6.2.0-py3-none-any.whl", hash = "sha256:1c76a8960c0041fcc21097e357f882197c79da0dbff766e7317890a65d7d8ba6", size = 11276, upload-time = "2025-08-25T18:57:29.684Z" },
+    { url = "https://files.pythonhosted.org/packages/96/c5/1e741d26306c42e2bf6ab740b2202872727e0f606033c9dd713f8b93f5a8/cachetools-6.2.1-py3-none-any.whl", hash = "sha256:09868944b6dde876dfd44e1d47e18484541eaf12f26f29b7af91b26cc892d701", size = 11280, upload-time = "2025-10-12T14:55:28.382Z" },
 ]
 
 [[package]]
@@ -1045,11 +1045,11 @@ wheels = [
 
 [[package]]
 name = "idna"
-version = "3.10"
+version = "3.11"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/f1/70/7703c29685631f5a7590aa73f1f1d3fa9a380e654b86af429e0934a32f7d/idna-3.10.tar.gz", hash = "sha256:12f65c9b470abda6dc35cf8e63cc574b1c52b11df2c86030af0ac09b01b13ea9", size = 190490, upload-time = "2024-09-15T18:07:39.745Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/6f/6d/0703ccc57f3a7233505399edb88de3cbd678da106337b9fcde432b65ed60/idna-3.11.tar.gz", hash = "sha256:795dafcc9c04ed0c1fb032c2aa73654d8e8c5023a7df64a53f39190ada629902", size = 194582, upload-time = "2025-10-12T14:55:20.501Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/76/c6/c88e154df9c4e1a2a66ccf0005a88dfb2650c1dffb6f5ce603dfbd452ce3/idna-3.10-py3-none-any.whl", hash = "sha256:946d195a0d259cbba61165e88e65941f16e9b36ea6ddb97f00452bae8b1287d3", size = 70442, upload-time = "2024-09-15T18:07:37.964Z" },
+    { url = "https://files.pythonhosted.org/packages/0e/61/66938bbb5fc52dbdf84594873d5b51fb1f7c7794e9c0f5bd885f30bc507b/idna-3.11-py3-none-any.whl", hash = "sha256:771a87f49d9defaf64091e6e6fe9c18d4833f140bd19464795bc32d966ca37ea", size = 71008, upload-time = "2025-10-12T14:55:18.883Z" },
 ]
 
 [[package]]
@@ -1057,7 +1057,7 @@ name = "importlib-metadata"
 version = "8.7.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "zipp", marker = "python_full_version < '3.10'" },
+    { name = "zipp", marker = "python_full_version < '3.14' or platform_python_implementation == 'PyPy'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/76/66/650a33bd90f786193e4de4b3ad86ea60b53c89b669a5c7be931fac31cdb0/importlib_metadata-8.7.0.tar.gz", hash = "sha256:d13b81ad223b890aa16c5471f2ac3056cf76c5f10f82d6f9292f0b415f389000", size = 56641, upload-time = "2025-04-27T15:29:01.736Z" }
 wheels = [
@@ -1133,7 +1133,7 @@ resolution-markers = [
     "python_full_version >= '3.9.1' and python_full_version < '3.10' and platform_python_implementation == 'PyPy'",
 ]
 dependencies = [
-    { name = "cachetools", version = "6.2.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.9.1'" },
+    { name = "cachetools", version = "6.2.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.9.1'" },
     { name = "cardano-tools", marker = "python_full_version >= '3.9.1'" },
     { name = "coloredlogs", marker = "python_full_version >= '3.9.1'" },
     { name = "orjson", marker = "python_full_version >= '3.9.1'" },
@@ -1469,7 +1469,7 @@ resolution-markers = [
 ]
 dependencies = [
     { name = "blockfrost-python", marker = "python_full_version >= '3.9.1'" },
-    { name = "cachetools", version = "6.2.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.9.1'" },
+    { name = "cachetools", version = "6.2.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.9.1'" },
     { name = "cbor2", marker = "python_full_version >= '3.9.1'" },
     { name = "cose", marker = "python_full_version >= '3.9.1'" },
     { name = "docker", marker = "python_full_version >= '3.9.1'" },
@@ -1765,11 +1765,11 @@ wheels = [
 
 [[package]]
 name = "python-secp256k1-cardano"
-version = "0.2.3"
+version = "0.2.4"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/2c/de/2d3f48319b6eeba14e0ec7bf139549088f00662e3854e70e9f8cb89abcc3/python-secp256k1-cardano-0.2.3.tar.gz", hash = "sha256:429b33cc1815c9942f3e6e4861d03aa9dbd73dbb7cc3dbc818e121f41d9f4c39", size = 35454, upload-time = "2023-02-15T15:05:33.185Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/9f/38/a3d5194f93d849e445fcbced39b0de6d79d5032e580c046493b723ab0440/python_secp256k1_cardano-0.2.4.tar.gz", hash = "sha256:69bb9a96294ca83851627877ac8489acfb82843078aa6edb5f2590821fd28873", size = 35534, upload-time = "2025-10-13T12:53:52.677Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/b1/09/5176a87ff7c07f5efd8484bd30c1bbd3fa010e11e3be8a55fd66363c36b4/python_secp256k1_cardano-0.2.3-py3-none-any.whl", hash = "sha256:b4c664a007eb339c509615ad54bd2ee05564879f17b0fef9a5cc619aedf3bfb8", size = 28307, upload-time = "2023-02-15T15:05:30.786Z" },
+    { url = "https://files.pythonhosted.org/packages/5a/67/d6a21cbdf1557b827f81130aa141d65d6b099166e702a0e63d9715fc75d7/python_secp256k1_cardano-0.2.4-py3-none-any.whl", hash = "sha256:1236fe1215ded06fc16e9437cb16d768088bb9e9f1410f05de50a8091e712d21", size = 28328, upload-time = "2025-10-13T12:53:51.189Z" },
 ]
 
 [[package]]
@@ -2170,7 +2170,7 @@ wheels = [
 
 [[package]]
 name = "virtualenv"
-version = "20.35.1"
+version = "20.35.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "distlib" },
@@ -2180,9 +2180,9 @@ dependencies = [
     { name = "platformdirs", version = "4.5.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
     { name = "typing-extensions", marker = "python_full_version < '3.11'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/b4/55/a15050669ab087762c2c63010ef54643032ac1b32b5e15cc4ba75897806b/virtualenv-20.35.1.tar.gz", hash = "sha256:041dac43b6899858a91838b616599e80000e545dee01a21172a6a46746472cb2", size = 6005687, upload-time = "2025-10-09T22:21:16.139Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/a4/d5/b0ccd381d55c8f45d46f77df6ae59fbc23d19e901e2d523395598e5f4c93/virtualenv-20.35.3.tar.gz", hash = "sha256:4f1a845d131133bdff10590489610c98c168ff99dc75d6c96853801f7f67af44", size = 6002907, upload-time = "2025-10-10T21:23:33.178Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/37/32/8ab08a0cf98bdc8e9fd7522111327e33089da79c7d6b05542626be34cbb8/virtualenv-20.35.1-py3-none-any.whl", hash = "sha256:1d9d93cd01d35b785476e2fa7af711a98d40d227a078941695bbae394f8737e2", size = 5984643, upload-time = "2025-10-09T22:21:13.739Z" },
+    { url = "https://files.pythonhosted.org/packages/27/73/d9a94da0e9d470a543c1b9d3ccbceb0f59455983088e727b8a1824ed90fb/virtualenv-20.35.3-py3-none-any.whl", hash = "sha256:63d106565078d8c8d0b206d48080f938a8b25361e19432d2c9db40d2899c810a", size = 5981061, upload-time = "2025-10-10T21:23:30.433Z" },
 ]
 
 [[package]]
