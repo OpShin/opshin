@@ -123,6 +123,42 @@ class Type:
             f"{self.python_type()} does not implement {binop.__class__.__name__} with {other.typ.python_type()}"
         )
 
+    def rbinop_type(self, binop: ast.operator, other: "Type") -> "Type":
+        """
+        Type of the reversed binary operation between self and other (other <binop> self)
+        """
+        return FunctionType(
+            [InstanceType(self), InstanceType(other)],
+            InstanceType(self._rbinop_return_type(binop, other)),
+        )
+
+    def _rbinop_return_type(self, binop: ast.operator, other: "Type") -> "Type":
+        """
+        Return the type of the reversed binary operation between self and other (other <binop> self)
+        """
+        raise NotImplementedError(
+            f"{self.python_type()} does not implement {binop.__class__.__name__} with {other.python_type()}"
+        )
+
+    def rbinop(self, binop: ast.operator, other: "TypedAST") -> plt.AST:
+        """
+        Implements the reverse binary operation between self and other (other <binop> self)
+        """
+        return OLambda(
+            ["other", "self"],
+            self._rbinop_bin_fun(binop, other)(OVar("other"), OVar("self")),
+        )
+
+    def _rbinop_bin_fun(
+        self, binop: ast.operator, other: "TypedAST"
+    ) -> Callable[[plt.AST, plt.AST], plt.AST]:
+        """
+        Returns a binary function that implements the binary operation between self and other (other <binop> self).
+        """
+        raise NotImplementedError(
+            f"{self.python_type()} does not implement {binop.__class__.__name__} with {other.typ.python_type()}"
+        )
+
     def unop_type(self, unop: ast.unaryop) -> "Type":
         """
         Type of a unary operation on self.
@@ -1693,6 +1729,12 @@ class InstanceType(Type):
 
     def binop(self, binop: ast.operator, other: "TypedAST") -> plt.AST:
         return self.typ.binop(binop, other)
+
+    def rbinop_type(self, binop: ast.operator, other: "Type") -> "Type":
+        return self.typ.rbinop_type(binop, other)
+
+    def rbinop(self, binop: ast.operator, other: "TypedAST") -> plt.AST:
+        return self.typ.rbinop(binop, other)
 
     def unop_type(self, unop: ast.unaryop) -> "Type":
         return self.typ.unop_type(unop)

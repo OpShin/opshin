@@ -1063,7 +1063,14 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         tb = copy(node)
         tb.left = self.visit(node.left)
         tb.right = self.visit(node.right)
-        binop_fun_typ: FunctionType = tb.left.typ.binop_type(tb.op, tb.right.typ)
+        try:
+            binop_fun_typ: FunctionType = tb.left.typ.binop_type(tb.op, tb.right.typ)
+        except NotImplementedError as e:
+            try:
+                # attempt reverse binop
+                binop_fun_typ = tb.right.typ.rbinop_type(tb.op, tb.left.typ)
+            except NotImplementedError:
+                raise e
         tb.typ = binop_fun_typ.rettyp
 
         return tb

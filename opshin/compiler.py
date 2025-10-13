@@ -213,7 +213,14 @@ class PlutoCompiler(CompilingNodeTransformer):
         return g
 
     def visit_BinOp(self, node: TypedBinOp) -> plt.AST:
-        op = node.left.typ.binop(node.op, node.right)
+        try:
+            op = node.left.typ.binop(node.op, node.right)
+        except NotImplementedError as e:
+            # try reverse binop
+            try:
+                op = node.right.typ.rbinop(node.op, node.left)
+            except NotImplementedError:
+                raise e
         return plt.Apply(
             op,
             self.visit(node.left),

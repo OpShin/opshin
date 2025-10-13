@@ -71,6 +71,22 @@ class BLS12381G1ElementType(ClassType):
                     return lambda x, y: plt.Bls12_381_G1_ScalarMul(y, x)
         return super()._binop_bin_fun(binop, other)
 
+    def _rbinop_return_type(self, binop: ast.operator, other: "Type") -> "Type":
+        if isinstance(other, InstanceType):
+            other = other.typ
+            if isinstance(other, IntegerType):
+                if isinstance(binop, ast.Mult):
+                    return BLS12381G1ElementType()
+        return super()._rbinop_return_type(binop, other)
+
+    def _rbinop_bin_fun(self, binop: ast.operator, other: "TypedAST"):
+        if isinstance(other.typ, InstanceType):
+            other = other.typ.typ
+            if isinstance(other, IntegerType):
+                if isinstance(binop, ast.Mult):
+                    return plt.Bls12_381_G1_ScalarMul
+        return super()._rbinop_bin_fun(binop, other)
+
     def attribute_type(self, attr) -> "Type":
         if attr == "compress":
             return InstanceType(FunctionType([], ByteStringInstanceType))
@@ -140,6 +156,22 @@ class BLS12381G2ElementType(ClassType):
                 if isinstance(binop, ast.Mult):
                     return lambda x, y: plt.Bls12_381_G2_ScalarMul(y, x)
         return super()._binop_bin_fun(binop, other)
+
+    def _rbinop_return_type(self, binop: ast.operator, other: "Type") -> "Type":
+        if isinstance(other, InstanceType):
+            other = other.typ
+            if isinstance(other, IntegerType):
+                if isinstance(binop, ast.Mult):
+                    return BLS12381G2ElementType()
+        return super()._rbinop_return_type(binop, other)
+
+    def _rbinop_bin_fun(self, binop: ast.operator, other: "TypedAST"):
+        if isinstance(other.typ, InstanceType):
+            other = other.typ.typ
+            if isinstance(other, IntegerType):
+                if isinstance(binop, ast.Mult):
+                    return plt.Bls12_381_G2_ScalarMul
+        return super()._rbinop_bin_fun(binop, other)
 
     def attribute_type(self, attr) -> "Type":
         if attr == "compress":
