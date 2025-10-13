@@ -120,7 +120,7 @@ class Type:
         Returns a binary function that implements the binary operation between self and other.
         """
         raise NotImplementedError(
-            f"{self.python_type()} can not be used with operation {binop.__class__.__name__} with {other.type.python_type()}"
+            f"{self.python_type()} does not implement {binop.__class__.__name__} with {other.typ.python_type()}"
         )
 
     def unop_type(self, unop: ast.unaryop) -> "Type":
@@ -1042,7 +1042,7 @@ class TupleType(ClassType):
 
     def _binop_return_type(self, binop: ast.operator, other: "Type") -> "Type":
         if isinstance(binop, ast.Add):
-            if isinstance(other, TupleType):
+            if isinstance(other, InstanceType) and isinstance(other.typ, TupleType):
                 return TupleType(self.typs + other.typs)
         return super()._binop_return_type(binop, other)
 
