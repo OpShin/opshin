@@ -2,7 +2,39 @@
 Module to check whether bls12-381 Object-oriented interface works correctly.
 """
 
+import importlib
+import pathlib
+import sys
+import tempfile
+import uuid
+
 from tests.utils import eval_uplc_value
+
+
+def eval_python_value(source_code: str, *args):
+    """Evaluate the given source code as a Python function and return the result"""
+    with tempfile.TemporaryDirectory(prefix="build") as tmpdir:
+        tmp_input_file = pathlib.Path(tmpdir).joinpath(f"__tmp_opshin{uuid.uuid4()}.py")
+        with tmp_input_file.open("w") as fp:
+            fp.write(source_code)
+        sys.path.append(str(pathlib.Path(tmp_input_file).parent.absolute()))
+        try:
+            sc = importlib.import_module(pathlib.Path(tmp_input_file).stem)
+        except Exception as e:
+            # replace the traceback with an error pointing to the input file
+            raise SyntaxError(
+                f"Could not import the input file as python module. Make sure the input file is valid python code. Error: {e}",
+            ) from e
+        sys.path.pop()
+    return sc.validator(*args)
+
+
+def eval_both_require_equal(source_code: str, *args):
+    """Evaluate the given source code as both Python and UPLC and require equal results"""
+    python_result = eval_python_value(source_code, *args)
+    uplc_result = eval_uplc_value(source_code, *args)
+    assert python_result == uplc_result
+    return python_result
 
 
 # ============================================================================
@@ -19,7 +51,7 @@ def validator(p: bytes) -> bytes:
     p_ = bls12_381_g1_uncompress(p)
     return p_.compress()
 """
-    res = eval_uplc_value(
+    res = eval_both_require_equal(
         source_code,
         bytes.fromhex(
             "950dfd33da2682260c76038dfb8bad6e84ae9d599a3c151815945ac1e6ef6b1027cd917f3907479d20d636ce437a41f5"
@@ -41,7 +73,7 @@ def validator(p: bytes, q: bytes) -> bytes:
     result = p_ + q_
     return bls12_381_g1_compress(result)
 """
-    res = eval_uplc_value(
+    res = eval_both_require_equal(
         source_code,
         bytes.fromhex(
             "abd61864f519748032551e42e0ac417fd828f079454e3e3c9891c5c29ed7f10bdecc046854e3931cb7002779bd76d71f"
@@ -68,7 +100,7 @@ def validator(p: bytes, q: bytes, r: bytes) -> bool:
     right = p_ + (q_ + r_)
     return left == right
 """
-    res = eval_uplc_value(
+    res = eval_both_require_equal(
         source_code,
         bytes.fromhex(
             "abd61864f519748032551e42e0ac417fd828f079454e3e3c9891c5c29ed7f10bdecc046854e3931cb7002779bd76d71f"
@@ -93,7 +125,7 @@ def validator(p: bytes, q: bytes) -> bool:
     q_ = bls12_381_g1_uncompress(q)
     return p_ + q_ == q_ + p_
 """
-    res = eval_uplc_value(
+    res = eval_both_require_equal(
         source_code,
         bytes.fromhex(
             "abd61864f519748032551e42e0ac417fd828f079454e3e3c9891c5c29ed7f10bdecc046854e3931cb7002779bd76d71f"
@@ -115,7 +147,7 @@ def validator(p: bytes) -> bytes:
     result = -p_
     return bls12_381_g1_compress(result)
 """
-    res = eval_uplc_value(
+    res = eval_both_require_equal(
         source_code,
         bytes.fromhex(
             "abd61864f519748032551e42e0ac417fd828f079454e3e3c9891c5c29ed7f10bdecc046854e3931cb7002779bd76d71f"
@@ -137,7 +169,7 @@ def validator(p: bytes, zero: bytes) -> bool:
     result = p_ + (-p_)
     return result == zero_
 """
-    res = eval_uplc_value(
+    res = eval_both_require_equal(
         source_code,
         bytes.fromhex(
             "abd61864f519748032551e42e0ac417fd828f079454e3e3c9891c5c29ed7f10bdecc046854e3931cb7002779bd76d71f"
@@ -159,7 +191,7 @@ def validator(p: bytes, scalar: int) -> bytes:
     result = p_ * scalar
     return bls12_381_g1_compress(result)
 """
-    res = eval_uplc_value(
+    res = eval_both_require_equal(
         source_code,
         bytes.fromhex(
             "abd61864f519748032551e42e0ac417fd828f079454e3e3c9891c5c29ed7f10bdecc046854e3931cb7002779bd76d71f"
@@ -181,7 +213,7 @@ def validator(p: bytes) -> bool:
     result = p_ * 1
     return result == p_
 """
-    res = eval_uplc_value(
+    res = eval_both_require_equal(
         source_code,
         bytes.fromhex(
             "abd61864f519748032551e42e0ac417fd828f079454e3e3c9891c5c29ed7f10bdecc046854e3931cb7002779bd76d71f"
@@ -201,7 +233,7 @@ def validator(p: bytes, zero: bytes) -> bool:
     result = p_ * 0
     return result == zero_
 """
-    res = eval_uplc_value(
+    res = eval_both_require_equal(
         source_code,
         bytes.fromhex(
             "abd61864f519748032551e42e0ac417fd828f079454e3e3c9891c5c29ed7f10bdecc046854e3931cb7002779bd76d71f"
@@ -223,7 +255,7 @@ def validator(p: bytes, scalar: int) -> bytes:
     result = scalar * p_
     return bls12_381_g1_compress(result)
 """
-    res = eval_uplc_value(
+    res = eval_both_require_equal(
         source_code,
         bytes.fromhex(
             "abd61864f519748032551e42e0ac417fd828f079454e3e3c9891c5c29ed7f10bdecc046854e3931cb7002779bd76d71f"
@@ -245,7 +277,7 @@ def validator(p: bytes, q: bytes) -> bool:
     q_ = bls12_381_g1_uncompress(q)
     return p_ == q_
 """
-    res = eval_uplc_value(
+    res = eval_both_require_equal(
         source_code,
         bytes.fromhex(
             "abd61864f519748032551e42e0ac417fd828f079454e3e3c9891c5c29ed7f10bdecc046854e3931cb7002779bd76d71f"
@@ -267,7 +299,7 @@ def validator(p: bytes, q: bytes) -> bool:
     q_ = bls12_381_g1_uncompress(q)
     return p_ == q_
 """
-    res = eval_uplc_value(
+    res = eval_both_require_equal(
         source_code,
         bytes.fromhex(
             "abd61864f519748032551e42e0ac417fd828f079454e3e3c9891c5c29ed7f10bdecc046854e3931cb7002779bd76d71f"
@@ -288,7 +320,7 @@ def validator(msg: bytes, dst: bytes) -> bytes:
     result = bls12_381_g1_hash_to_group(msg, dst)
     return bls12_381_g1_compress(result)
 """
-    res = eval_uplc_value(
+    res = eval_both_require_equal(
         source_code,
         b"abc",
         b"BLS_SIG_BLS12381G1_XMD:SHA-256_SSWU_RO_NUL_",
@@ -313,7 +345,7 @@ def validator(p: bytes) -> bytes:
     p_ = bls12_381_g2_uncompress(p)
     return p_.compress()
 """
-    res = eval_uplc_value(
+    res = eval_both_require_equal(
         source_code,
         bytes.fromhex(
             "b0629fa1158c2d23a10413fe91d381a84d25e31d041cd0377d25828498fd02011b35893938ced97535395e4815201e67108bcd4665e0db25d602d76fa791fab706c54abf5e1a9e44b4ac1e6badf3d2ac0328f5e30be341677c8bac5dda7682f1"
@@ -335,7 +367,7 @@ def validator(p: bytes, q: bytes) -> bytes:
     result = p_ + q_
     return bls12_381_g2_compress(result)
 """
-    res = eval_uplc_value(
+    res = eval_both_require_equal(
         source_code,
         bytes.fromhex(
             "8310bc97fc7ad9b1616e51226c6a521b9d7fdf03f7299833e6a208ae0399fec76045a43ceef846e0958d0cdf05cf2b1f00460ee6edd2778b413eb7c272bc5b94d12b910f8ac4eb1b55e50a93644714787417bc462349c5e0f6f357b9ac32262a"
@@ -362,7 +394,7 @@ def validator(p: bytes, q: bytes, r: bytes) -> bool:
     right = p_ + (q_ + r_)
     return left == right
 """
-    res = eval_uplc_value(
+    res = eval_both_require_equal(
         source_code,
         bytes.fromhex(
             "8310bc97fc7ad9b1616e51226c6a521b9d7fdf03f7299833e6a208ae0399fec76045a43ceef846e0958d0cdf05cf2b1f00460ee6edd2778b413eb7c272bc5b94d12b910f8ac4eb1b55e50a93644714787417bc462349c5e0f6f357b9ac32262a"
@@ -387,7 +419,7 @@ def validator(p: bytes, q: bytes) -> bool:
     q_ = bls12_381_g2_uncompress(q)
     return p_ + q_ == q_ + p_
 """
-    res = eval_uplc_value(
+    res = eval_both_require_equal(
         source_code,
         bytes.fromhex(
             "8310bc97fc7ad9b1616e51226c6a521b9d7fdf03f7299833e6a208ae0399fec76045a43ceef846e0958d0cdf05cf2b1f00460ee6edd2778b413eb7c272bc5b94d12b910f8ac4eb1b55e50a93644714787417bc462349c5e0f6f357b9ac32262a"
@@ -409,7 +441,7 @@ def validator(p: bytes) -> bytes:
     result = -p_
     return bls12_381_g2_compress(result)
 """
-    res = eval_uplc_value(
+    res = eval_both_require_equal(
         source_code,
         bytes.fromhex(
             "8310bc97fc7ad9b1616e51226c6a521b9d7fdf03f7299833e6a208ae0399fec76045a43ceef846e0958d0cdf05cf2b1f00460ee6edd2778b413eb7c272bc5b94d12b910f8ac4eb1b55e50a93644714787417bc462349c5e0f6f357b9ac32262a"
@@ -431,7 +463,7 @@ def validator(p: bytes, zero: bytes) -> bool:
     result = p_ + (-p_)
     return result == zero_
 """
-    res = eval_uplc_value(
+    res = eval_both_require_equal(
         source_code,
         bytes.fromhex(
             "8310bc97fc7ad9b1616e51226c6a521b9d7fdf03f7299833e6a208ae0399fec76045a43ceef846e0958d0cdf05cf2b1f00460ee6edd2778b413eb7c272bc5b94d12b910f8ac4eb1b55e50a93644714787417bc462349c5e0f6f357b9ac32262a"
@@ -453,7 +485,7 @@ def validator(p: bytes, scalar: int) -> bytes:
     result = p_ * scalar
     return bls12_381_g2_compress(result)
 """
-    res = eval_uplc_value(
+    res = eval_both_require_equal(
         source_code,
         bytes.fromhex(
             "8310bc97fc7ad9b1616e51226c6a521b9d7fdf03f7299833e6a208ae0399fec76045a43ceef846e0958d0cdf05cf2b1f00460ee6edd2778b413eb7c272bc5b94d12b910f8ac4eb1b55e50a93644714787417bc462349c5e0f6f357b9ac32262a"
@@ -475,7 +507,7 @@ def validator(p: bytes, scalar: int) -> bytes:
     result = scalar * p_
     return bls12_381_g2_compress(result)
 """
-    res = eval_uplc_value(
+    res = eval_both_require_equal(
         source_code,
         bytes.fromhex(
             "8310bc97fc7ad9b1616e51226c6a521b9d7fdf03f7299833e6a208ae0399fec76045a43ceef846e0958d0cdf05cf2b1f00460ee6edd2778b413eb7c272bc5b94d12b910f8ac4eb1b55e50a93644714787417bc462349c5e0f6f357b9ac32262a"
@@ -499,7 +531,7 @@ def validator(p: bytes, q: bytes) -> bytes:
     x = bls12_381_g2_compress(y)
     return x
 """
-    res = eval_uplc_value(
+    res = eval_both_require_equal(
         source_code,
         bytes.fromhex(
             "b0629fa1158c2d23a10413fe91d381a84d25e31d041cd0377d25828498fd02011b35893938ced97535395e4815201e67108bcd4665e0db25d602d76fa791fab706c54abf5e1a9e44b4ac1e6badf3d2ac0328f5e30be341677c8bac5dda7682f1"
@@ -523,7 +555,7 @@ def validator(p: bytes, q: bytes) -> bool:
     q_ = bls12_381_g2_uncompress(q)
     return p_ == q_
 """
-    res = eval_uplc_value(
+    res = eval_both_require_equal(
         source_code,
         bytes.fromhex(
             "8310bc97fc7ad9b1616e51226c6a521b9d7fdf03f7299833e6a208ae0399fec76045a43ceef846e0958d0cdf05cf2b1f00460ee6edd2778b413eb7c272bc5b94d12b910f8ac4eb1b55e50a93644714787417bc462349c5e0f6f357b9ac32262a"
@@ -545,7 +577,7 @@ def validator(p: bytes, q: bytes) -> bool:
     q_ = bls12_381_g2_uncompress(q)
     return p_ == q_
 """
-    res = eval_uplc_value(
+    res = eval_both_require_equal(
         source_code,
         bytes.fromhex(
             "8310bc97fc7ad9b1616e51226c6a521b9d7fdf03f7299833e6a208ae0399fec76045a43ceef846e0958d0cdf05cf2b1f00460ee6edd2778b413eb7c272bc5b94d12b910f8ac4eb1b55e50a93644714787417bc462349c5e0f6f357b9ac32262a"
@@ -566,7 +598,7 @@ def validator(msg: bytes, dst: bytes) -> bytes:
     result = bls12_381_g2_hash_to_group(msg, dst)
     return bls12_381_g2_compress(result)
 """
-    res = eval_uplc_value(
+    res = eval_both_require_equal(
         source_code,
         b"abc",
         b"BLS_SIG_BLS12381G2_XMD:SHA-256_SSWU_RO_NUL_",
@@ -599,7 +631,7 @@ def validator(p1: bytes, p2: bytes, q1: bytes, q2: bytes) -> bool:
     return bls12_381_final_verify(ml1, ml2)
 """
     # Test vectors for pairing check
-    res = eval_uplc_value(
+    res = eval_both_require_equal(
         source_code,
         bytes.fromhex(
             "abd61864f519748032551e42e0ac417fd828f079454e3e3c9891c5c29ed7f10bdecc046854e3931cb7002779bd76d71f"
@@ -637,7 +669,7 @@ def validator(p1: bytes, p2: bytes, q1: bytes, q2: bytes) -> bool:
     # This should be equivalent to doing final_verify on the product
     return True  # Just testing that multiplication works
 """
-    res = eval_uplc_value(
+    res = eval_both_require_equal(
         source_code,
         bytes.fromhex(
             "abd61864f519748032551e42e0ac417fd828f079454e3e3c9891c5c29ed7f10bdecc046854e3931cb7002779bd76d71f"

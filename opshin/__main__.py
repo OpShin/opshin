@@ -5,6 +5,7 @@ import io
 import logging
 import os
 import tempfile
+import uuid
 from contextlib import redirect_stdout
 
 import cbor2
@@ -248,7 +249,7 @@ def perform_command(args):
     with open(input_file, "r") as f:
         source_code = f.read()
     with tempfile.TemporaryDirectory(prefix="build") as tmpdir:
-        tmp_input_file = pathlib.Path(tmpdir).joinpath("__tmp_opshin.py")
+        tmp_input_file = pathlib.Path(tmpdir).joinpath(f"__tmp_opshin{uuid.uuid4()}.py")
         with tmp_input_file.open("w") as fp:
             fp.write(source_code)
         sys.path.append(str(pathlib.Path(tmp_input_file).parent.absolute()))

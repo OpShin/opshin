@@ -4,6 +4,7 @@ from copy import copy
 from typing import Optional
 
 import pluthon as plt
+from ..bridge import to_uplc_fun_name
 
 from ..util import CompilingNodeTransformer
 from ..typed_ast import *
@@ -41,20 +42,7 @@ class RewriteImportUPLCBuiltins(CompilingNodeTransformer):
             self.imports_uplc_builtins
         ), "To wrap builtin functions, you need to import the builtin function. Add `from opshin.bridge import wraps_builtin` to your code."
         # we replace the body with a forwarded call to the wrapped builtin
-        fun_parts = []
-        orig_name = node.orig_name
-        for match in re.finditer("[^_]+", orig_name):
-            # keep underscore if starts/ends with decimal
-            sub_part = match.group(0)
-            if re.match(r"\d", sub_part[0]) and fun_parts and fun_parts[-1] != "_":
-                fun_parts.append("_")
-            fun_parts.append(sub_part.capitalize())
-            if re.match(r"\d", sub_part[-1]):
-                fun_parts.append("_")
-        if fun_parts and fun_parts[-1] == "_":
-            fun_parts.pop(-1)
-
-        CamelCaseFunName = "".join(fun_parts)
+        CamelCaseFunName = to_uplc_fun_name(node.orig_name)
         if CamelCaseFunName.startswith("Verify") and CamelCaseFunName.endswith(
             "_Signature"
         ):
