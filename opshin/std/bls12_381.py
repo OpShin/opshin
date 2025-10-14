@@ -25,6 +25,16 @@ class BLS12381G1Element:
     def __neg__(self) -> "BLS12381G1Element":
         return BLS12381G1Element(value=-self._value)
 
+    def __pos__(self) -> "BLS12381G1Element":
+        return BLS12381G1Element(value=self._value)
+
+    def __sub__(self, other):
+        if not isinstance(other, BLS12381G1Element):
+            raise TypeError(
+                "Can only subtract BLS12381G1Element with BLS12381G1Element"
+            )
+        return BLS12381G1Element(value=self._value + (-other._value))
+
     def __mul__(self, other) -> "BLS12381G1Element":
         return self.scalar_mul(other)
 
@@ -58,8 +68,18 @@ class BLS12381G2Element:
             raise TypeError("Can only add BLS12381G2Element with BLS12381G2Element")
         return BLS12381G2Element(value=self._value + other._value)
 
+    def __sub__(self, other) -> "BLS12381G2Element":
+        if not isinstance(other, BLS12381G2Element):
+            raise TypeError(
+                "Can only subtract BLS12381G2Element with BLS12381G2Element"
+            )
+        return BLS12381G2Element(value=self._value + (-other._value))
+
     def __neg__(self) -> "BLS12381G2Element":
         return BLS12381G2Element(value=-self._value)
+
+    def __pos__(self) -> "BLS12381G2Element":
+        return BLS12381G2Element(value=self._value)
 
     def __mul__(self, other) -> "BLS12381G2Element":
         return self.scalar_mul(other)

@@ -7,7 +7,9 @@ import pathlib
 import sys
 import tempfile
 import uuid
+import pytest
 
+from opshin import CompilerError
 from tests.utils import eval_uplc_value
 
 
@@ -87,6 +89,31 @@ def validator(p: bytes, q: bytes) -> bytes:
     )
 
 
+def test_bls12_381_g1_sub():
+    """Test G1 addition using __add__ method"""
+    source_code = """
+from opshin.std.builtins import *
+
+def validator(p: bytes, q: bytes) -> bytes:
+    p_ = bls12_381_g1_uncompress(p)
+    q_ = bls12_381_g1_uncompress(q)
+    result = p_ - q_
+    return bls12_381_g1_compress(result)
+"""
+    res = eval_both_require_equal(
+        source_code,
+        bytes.fromhex(
+            "abd61864f519748032551e42e0ac417fd828f079454e3e3c9891c5c29ed7f10bdecc046854e3931cb7002779bd76d71f"
+        ),
+        bytes.fromhex(
+            "abd61864f519748032551e42e0ac417fd828f079454e3e3c9891c5c29ed7f10bdecc046854e3931cb7002779bd76d71f"
+        ),
+    )
+    assert res == bytes.fromhex(
+        "c00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+    )
+
+
 def test_bls12_381_g1_add_associative():
     """Test G1 addition associativity: (p + q) + r == p + (q + r)"""
     source_code = """
@@ -155,6 +182,27 @@ def validator(p: bytes) -> bytes:
     )
     assert res == bytes.fromhex(
         "8bd61864f519748032551e42e0ac417fd828f079454e3e3c9891c5c29ed7f10bdecc046854e3931cb7002779bd76d71f"
+    )
+
+
+def test_bls12_381_g1_pos():
+    """Test G1 preservation using unary +"""
+    source_code = """
+from opshin.std.builtins import *
+
+def validator(p: bytes) -> bytes:
+    p_ = bls12_381_g1_uncompress(p)
+    result = +p_
+    return bls12_381_g1_compress(result)
+"""
+    res = eval_both_require_equal(
+        source_code,
+        bytes.fromhex(
+            "abd61864f519748032551e42e0ac417fd828f079454e3e3c9891c5c29ed7f10bdecc046854e3931cb7002779bd76d71f"
+        ),
+    )
+    assert res == bytes.fromhex(
+        "abd61864f519748032551e42e0ac417fd828f079454e3e3c9891c5c29ed7f10bdecc046854e3931cb7002779bd76d71f"
     )
 
 
@@ -381,6 +429,31 @@ def validator(p: bytes, q: bytes) -> bytes:
     )
 
 
+def test_bls12_381_g2_sub():
+    """Test G2 addition using __add__ method"""
+    source_code = """
+from opshin.std.builtins import *
+
+def validator(p: bytes, q: bytes) -> bytes:
+    p_ = bls12_381_g2_uncompress(p)
+    q_ = bls12_381_g2_uncompress(q)
+    result = p_ - q_
+    return bls12_381_g2_compress(result)
+"""
+    res = eval_both_require_equal(
+        source_code,
+        bytes.fromhex(
+            "8310bc97fc7ad9b1616e51226c6a521b9d7fdf03f7299833e6a208ae0399fec76045a43ceef846e0958d0cdf05cf2b1f00460ee6edd2778b413eb7c272bc5b94d12b910f8ac4eb1b55e50a93644714787417bc462349c5e0f6f357b9ac32262a"
+        ),
+        bytes.fromhex(
+            "8310bc97fc7ad9b1616e51226c6a521b9d7fdf03f7299833e6a208ae0399fec76045a43ceef846e0958d0cdf05cf2b1f00460ee6edd2778b413eb7c272bc5b94d12b910f8ac4eb1b55e50a93644714787417bc462349c5e0f6f357b9ac32262a"
+        ),
+    )
+    assert res == bytes.fromhex(
+        "c00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+    )
+
+
 def test_bls12_381_g2_add_associative():
     """Test G2 addition associativity: (p + q) + r == p + (q + r)"""
     source_code = """
@@ -449,6 +522,27 @@ def validator(p: bytes) -> bytes:
     )
     assert res == bytes.fromhex(
         "a310bc97fc7ad9b1616e51226c6a521b9d7fdf03f7299833e6a208ae0399fec76045a43ceef846e0958d0cdf05cf2b1f00460ee6edd2778b413eb7c272bc5b94d12b910f8ac4eb1b55e50a93644714787417bc462349c5e0f6f357b9ac32262a"
+    )
+
+
+def test_bls12_381_g2_pos():
+    """Test G2 negation using __pos__ method"""
+    source_code = """
+from opshin.std.builtins import *
+
+def validator(p: bytes) -> bytes:
+    p_ = bls12_381_g2_uncompress(p)
+    result = +p_
+    return bls12_381_g2_compress(result)
+"""
+    res = eval_both_require_equal(
+        source_code,
+        bytes.fromhex(
+            "8310bc97fc7ad9b1616e51226c6a521b9d7fdf03f7299833e6a208ae0399fec76045a43ceef846e0958d0cdf05cf2b1f00460ee6edd2778b413eb7c272bc5b94d12b910f8ac4eb1b55e50a93644714787417bc462349c5e0f6f357b9ac32262a"
+        ),
+    )
+    assert res == bytes.fromhex(
+        "8310bc97fc7ad9b1616e51226c6a521b9d7fdf03f7299833e6a208ae0399fec76045a43ceef846e0958d0cdf05cf2b1f00460ee6edd2778b413eb7c272bc5b94d12b910f8ac4eb1b55e50a93644714787417bc462349c5e0f6f357b9ac32262a"
     )
 
 

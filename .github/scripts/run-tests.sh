@@ -25,7 +25,7 @@ for i in $(find examples/smart_contracts -type f -name "*.py" -not \( -name "bro
 done
 
 for i in $(find examples/ -type f -name "*.py" -not \( -name "broken*" -o -name "extract*" \)); do
-  uv run coverage run -a -m opshin compile "$i" --lib --recursion-limit 4000 > /dev/null || exit
+  uv run coverage run -a -m opshin compile "$i" --lib --recursion-limit 4000 -fno-unwrap-input -fno-wrap-output > /dev/null || exit
 done
 
 # Parameterized build test

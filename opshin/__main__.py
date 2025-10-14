@@ -145,7 +145,7 @@ def plutus_data_from_json(annotation: typing.Type, x: dict):
                     }
         if issubclass(annotation, pycardano.PlutusData):
             return annotation.from_dict(x)
-    except (KeyError, ValueError):
+    except (KeyError, ValueError, pycardano.DeserializeException):
         raise ValueError(
             f"Annotation {annotation} does not match provided plutus datum {json.dumps(x)}"
         )
@@ -191,7 +191,7 @@ def plutus_data_from_cbor(annotation: typing.Type, x: bytes):
                 )
         if issubclass(annotation, pycardano.PlutusData):
             return annotation.from_cbor(x)
-    except (KeyError, ValueError):
+    except (KeyError, ValueError, pycardano.DeserializeException):
         raise ValueError(
             f"Annotation {annotation} does not match provided plutus datum {x.hex()}"
         )

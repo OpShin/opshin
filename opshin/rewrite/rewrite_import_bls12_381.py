@@ -32,14 +32,6 @@ class BLS12381G1ElementType(ClassType):
     def python_type(self):
         return "BLS12381G1Element"
 
-    def constr_type(self):
-        return InstanceType(
-            FunctionType([BLS12381G1ElementInstance], BLS12381G1ElementInstance)
-        )
-
-    def constr(self) -> plt.AST:
-        return OLambda(["x"], OVar("x"))
-
     def cmp(self, op: ast.cmpop, o: "Type") -> plt.AST:
         if isinstance(op, ast.Eq) and isinstance(o, BLS12381G1ElementType):
             return plt.BuiltIn(uplc.ast.BuiltInFun.Bls12_381_G1_Equal)
@@ -118,14 +110,6 @@ class BLS12381G2ElementType(ClassType):
     def python_type(self):
         return "BLS12381G2Element"
 
-    def constr_type(self):
-        return InstanceType(
-            FunctionType([BLS12381G2ElementInstance], BLS12381G2ElementInstance)
-        )
-
-    def constr(self) -> plt.AST:
-        return OLambda(["x"], OVar("x"))
-
     def cmp(self, op: ast.cmpop, o: "Type") -> plt.AST:
         if isinstance(op, ast.Eq) and isinstance(o, BLS12381G2ElementType):
             return plt.BuiltIn(uplc.ast.BuiltInFun.Bls12_381_G2_Equal)
@@ -203,14 +187,6 @@ class BLS12381G2ElementType(ClassType):
 class BLS12381MlresultType(ClassType):
     def python_type(self):
         return "BLS12381MillerLoopResult"
-
-    def constr_type(self):
-        return InstanceType(
-            FunctionType([BLS12381MlresultInstance], BLS12381MlresultInstance)
-        )
-
-    def constr(self) -> plt.AST:
-        return OLambda(["x"], OVar("x"))
 
     def _binop_return_type(self, binop: ast.operator, other: "Type") -> "Type":
         if isinstance(other, InstanceType):

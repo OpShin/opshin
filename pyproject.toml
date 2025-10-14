@@ -92,6 +92,9 @@ exclude_also = [
 
     # Don't complain about wrapped builtins, they aren't run:
     "@wraps_builtin",
+
+    # Don't complain about super-class calls, they mostly just raise
+    "return super\\(.*\\)\\.\\w+\\(",
     ]
 
 ignore_errors = true
