@@ -56,17 +56,18 @@ Arguments to scripts are passed in as Plutus Data objects in JSON notation.
 You can run any of the following commands
 ```bash
 # Evaluate script in Python - this can be used to make sure there are no obvious errors
-opshin eval spending examples/smart_contracts/assert_sum.py "{\"int\": 4}" "{\"int\": 38}" d8799fd8799f9fd8799fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffd8799fd8799fd87a9f581cdbe769758f26efb21f008dc097bb194cffc622acc37fcefc5372eee3ffd87a80ffa140a1401a00989680d87a9f5820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dffd87a80ffffff809fd8799fd8799fd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd87a80ffa140a14000d87980d87a80ffffa140a14000a140a1400080a0d8799fd8799fd87980d87a80ffd8799fd87b80d87a80ffff80a1d87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffd87980a15820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd8799f5820746957f0eb57f2b11119684e611a98f373afea93473fefbb7632d579af2f6259ffffd87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffff
+# The parameter for smart contracts is the ScriptContext, which defines the entire transaction
+opshin eval examples/smart_contracts/assert_sum.py d8799fd8799f9fd8799fd8799f58205c25c47563872458e8607590c90c6ddadd0295f38c628426c4877185e721507a00ffd8799fd8799fd87a9f581c41582020bb0782bb76ce4fcd7ea2c2f3c565e1fd41a79ac7ddb3e145ffd87a80ffa140a1401a002dc6c0d87b9f14ffd87a80ffffff809fd8799fd8799fd8799f581c25d14bb0185eedffcaa02cdd3bfa779bfc9df3555c64b0e91ed41273ffd87a80ffa140a1401a002ae91fd87980d87a80ffff1a0002dda1a080a0d8799fd8799fd87a9f1b00000199c356d9a8ffd87a80ffd8799fd87a9f1b00000199c3661be8ffd87980ffff9f581c25d14bb0185eedffcaa02cdd3bfa779bfc9df3555c64b0e91ed41273ffa1d87a9fd8799f58205c25c47563872458e8607590c90c6ddadd0295f38c628426c4877185e721507a00ffff16a05820801ee2f936eb1dac69a6da43e17b09ade9bc8c3ed887066f350562d94c681573a080d87a80d87a80ff16d87a9fd8799f58205c25c47563872458e8607590c90c6ddadd0295f38c628426c4877185e721507a00ffd8799f14ffffff
 
 # Compile script to 'uplc', the Cardano Smart Contract assembly
-opshin compile spending examples/smart_contracts/assert_sum.py
+opshin compile examples/smart_contracts/assert_sum.py
 ```
 
 Furthermore, you can add a shebang to the first line of the python file to indicate that it represents an opshin smart contract.
 You can choose from the following options:
 
-- a general shebang: `#!opshin`, which represents `opshin eval any`
-- or a more specific purpose: `#!/usr/bin/env -S opshin eval minting`
+- a general shebang: `#!opshin`, which represents `opshin eval`
+- or a more specific purpose: `#!/usr/bin/env -S opshin eval`
 
 By doing so, you can transform your python file to an executable: `chmod +x your_file.py` and execute it with `./your_file.py`, which will run `opshin eval any ./your_file.py` under the hood.
 
@@ -77,7 +78,7 @@ The deploy process generates all artifacts required for usage with common librar
 
 ```bash
 # Automatically generate all artifacts needed for using this contract
-opshin build spending examples/smart_contracts/assert_sum.py
+opshin build examples/smart_contracts/assert_sum.py
 ```
 
 See the [tutorial by `pycardano`](https://pycardano.readthedocs.io/en/latest/guides/plutus.html) for explanations how to build transactions with `opshin` contracts.
@@ -115,10 +116,10 @@ For debugging purposes, you can also run the `eval_uplc` and `compile_pluto` com
 
 ```bash
 # Compile script to 'uplc', and evaluate the script in UPLC (for debugging purposes)
-opshin eval_uplc spending examples/smart_contracts/assert_sum.py "{\"int\": 4}" "{\"int\": 38}" d8799fd8799f9fd8799fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffd8799fd8799fd87a9f581cdbe769758f26efb21f008dc097bb194cffc622acc37fcefc5372eee3ffd87a80ffa140a1401a00989680d87a9f5820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dffd87a80ffffff809fd8799fd8799fd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd87a80ffa140a14000d87980d87a80ffffa140a14000a140a1400080a0d8799fd8799fd87980d87a80ffd8799fd87b80d87a80ffff80a1d87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffd87980a15820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd8799f5820746957f0eb57f2b11119684e611a98f373afea93473fefbb7632d579af2f6259ffffd87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffff
+opshin eval_uplc examples/smart_contracts/assert_sum.py d8799fd8799f9fd8799fd8799f58205c25c47563872458e8607590c90c6ddadd0295f38c628426c4877185e721507a00ffd8799fd8799fd87a9f581c41582020bb0782bb76ce4fcd7ea2c2f3c565e1fd41a79ac7ddb3e145ffd87a80ffa140a1401a002dc6c0d87b9f14ffd87a80ffffff809fd8799fd8799fd8799f581c25d14bb0185eedffcaa02cdd3bfa779bfc9df3555c64b0e91ed41273ffd87a80ffa140a1401a002ae91fd87980d87a80ffff1a0002dda1a080a0d8799fd8799fd87a9f1b00000199c356d9a8ffd87a80ffd8799fd87a9f1b00000199c3661be8ffd87980ffff9f581c25d14bb0185eedffcaa02cdd3bfa779bfc9df3555c64b0e91ed41273ffa1d87a9fd8799f58205c25c47563872458e8607590c90c6ddadd0295f38c628426c4877185e721507a00ffff16a05820801ee2f936eb1dac69a6da43e17b09ade9bc8c3ed887066f350562d94c681573a080d87a80d87a80ff16d87a9fd8799f58205c25c47563872458e8607590c90c6ddadd0295f38c628426c4877185e721507a00ffd8799f14ffffff
 
 # Compile script to 'pluto', an intermediate language (for debugging purposes)
-opshin compile_pluto spending examples/smart_contracts/assert_sum.py
+opshin compile_pluto examples/smart_contracts/assert_sum.py
 ```
 
 
@@ -158,10 +159,3 @@ You can sponsor the development of opshin through GitHub or [Patreon](https://pa
 <a href="https://github.com/MuesliSwapTeam/"><img  src="https://avatars.githubusercontent.com/u/91151317?v=4" width="50" /></a>
 <a href="https://github.com/AadaFinance/"><img  src="https://avatars.githubusercontent.com/u/89693711?v=4" width="50" /></a>
 <a href="https://github.com/kreate-community/"><img  src="https://avatars.githubusercontent.com/u/118675270?v=4" width="50" /></a>
-
-The main sponsor of this project is [Inversion](https://inversion.dev/cardano/). Here is a word from them!
-
-> At Inversion, we pride ourselves on our passion for life and our ability to create exceptional software solutions for our clients. Our team of experts, with over a century of cumulative experience, is dedicated to harnessing the power of the Cardano blockchain to bring innovative and scalable decentralized applications to life. We've successfully built applications for NFT management, staking and delegation, chain data monitoring, analytics, and web3 integrations, as well as countless non-blockchain systems. With a focus on security, transparency, and sustainability, our team is excited to contribute to the Cardano ecosystem, pushing the boundaries of decentralized technologies to improve lives worldwide. Trust Inversion to be your go-to partner for robust, effective, and forward-thinking solutions, whether blockchain based, traditional systems, or a mix of the two.
-
-They have recently started a podcast, called "Africa On Chain", which you can check out here:
-https://www.youtube.com/@africaonchain

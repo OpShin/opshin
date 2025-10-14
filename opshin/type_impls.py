@@ -120,7 +120,43 @@ class Type:
         Returns a binary function that implements the binary operation between self and other.
         """
         raise NotImplementedError(
-            f"{self.python_type()} can not be used with operation {binop.__class__.__name__} with {other.type.python_type()}"
+            f"{self.python_type()} does not implement {binop.__class__.__name__} with {other.typ.python_type()}"
+        )
+
+    def rbinop_type(self, binop: ast.operator, other: "Type") -> "Type":
+        """
+        Type of the reversed binary operation between self and other (other <binop> self)
+        """
+        return FunctionType(
+            [InstanceType(self), InstanceType(other)],
+            InstanceType(self._rbinop_return_type(binop, other)),
+        )
+
+    def _rbinop_return_type(self, binop: ast.operator, other: "Type") -> "Type":
+        """
+        Return the type of the reversed binary operation between self and other (other <binop> self)
+        """
+        raise NotImplementedError(
+            f"{self.python_type()} does not implement {binop.__class__.__name__} with {other.python_type()}"
+        )
+
+    def rbinop(self, binop: ast.operator, other: "TypedAST") -> plt.AST:
+        """
+        Implements the reverse binary operation between self and other (other <binop> self)
+        """
+        return OLambda(
+            ["other", "self"],
+            self._rbinop_bin_fun(binop, other)(OVar("other"), OVar("self")),
+        )
+
+    def _rbinop_bin_fun(
+        self, binop: ast.operator, other: "TypedAST"
+    ) -> Callable[[plt.AST, plt.AST], plt.AST]:
+        """
+        Returns a binary function that implements the binary operation between self and other (other <binop> self).
+        """
+        raise NotImplementedError(
+            f"{self.python_type()} does not implement {binop.__class__.__name__} with {other.typ.python_type()}"
         )
 
     def unop_type(self, unop: ast.unaryop) -> "Type":
@@ -516,13 +552,7 @@ class RecordType(ClassType):
         )
 
     def python_type(self):
-        return (
-            f"class {self.record.orig_name}(CONSTR_ID={self.record.constructor}, "
-            + ", ".join(
-                f"{name}: {type.python_type()}" for name, type in self.record.fields
-            )
-            + ")"
-        )
+        return f"{self.record.orig_name}(CONSTR_ID={self.record.constructor}) "
 
     def constr_type(self) -> "InstanceType":
         return InstanceType(
@@ -1048,7 +1078,7 @@ class TupleType(ClassType):
 
     def _binop_return_type(self, binop: ast.operator, other: "Type") -> "Type":
         if isinstance(binop, ast.Add):
-            if isinstance(other, TupleType):
+            if isinstance(other, InstanceType) and isinstance(other.typ, TupleType):
                 return TupleType(self.typs + other.typs)
         return super()._binop_return_type(binop, other)
 
@@ -1699,6 +1729,12 @@ class InstanceType(Type):
 
     def binop(self, binop: ast.operator, other: "TypedAST") -> plt.AST:
         return self.typ.binop(binop, other)
+
+    def rbinop_type(self, binop: ast.operator, other: "Type") -> "Type":
+        return self.typ.rbinop_type(binop, other)
+
+    def rbinop(self, binop: ast.operator, other: "TypedAST") -> plt.AST:
+        return self.typ.rbinop(binop, other)
 
     def unop_type(self, unop: ast.unaryop) -> "Type":
         return self.typ.unop_type(unop)

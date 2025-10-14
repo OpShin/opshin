@@ -1,4 +1,4 @@
-from opshin.ledger.api_v2 import *
+from opshin.ledger.api_v3 import *
 
 
 @dataclass(unsafe_hash=True)
@@ -81,7 +81,7 @@ def resolve_datum_unsafe(txout: TxOut, tx_info: TxInfo) -> BuiltinData:
     """
     attached_datum = txout.datum
     if isinstance(attached_datum, SomeOutputDatumHash):
-        res = tx_info.data[attached_datum.datum_hash]
+        res = tx_info.datums[attached_datum.datum_hash]
     elif isinstance(attached_datum, SomeOutputDatum):
         res = attached_datum.datum
     else:
@@ -101,7 +101,7 @@ def resolve_datum(
     attached_datum = txout.datum
     if isinstance(attached_datum, SomeOutputDatumHash):
         res: Union[SomeOutputDatum, NoOutputDatum] = SomeOutputDatum(
-            tx_info.data[attached_datum.datum_hash]
+            tx_info.datums[attached_datum.datum_hash]
         )
     else:
         res: Union[SomeOutputDatum, NoOutputDatum] = attached_datum
@@ -109,12 +109,14 @@ def resolve_datum(
 
 
 def own_spent_utxo(txins: List[TxInInfo], p: Spending) -> TxOut:
-    # obtain the resolved txout that is going to be spent from this contract address
+    # This throws an assertion error if the txout was not found
     for txi in txins:
         if txi.out_ref == p.tx_out_ref:
-            own_txout = txi.resolved
-    # This throws a name error if the txout was not found
-    return own_txout
+            return txi.resolved
+    assert (
+        False
+    ), "The UTxO being spent from this script address was not found in the transaction inputs"
+    return txi.resolved
 
 
 def own_policy_id(own_spent_utxo: TxOut) -> PolicyId:
@@ -145,3 +147,26 @@ def token_present_in_inputs(token: Token, inputs: List[TxInInfo]):
             for x in inputs
         ]
     )
+
+
+def own_datum(context: ScriptContext) -> Union[SomeOutputDatum, NoOutputDatum]:
+    """
+    Returns the datum attached to the UTxO being spent from this script address.
+    Returns NoOutputDatum if no datum was attached.
+    """
+    purpose = context.purpose
+    assert isinstance(purpose, Spending)
+    own_utxo = own_spent_utxo(context.transaction.inputs, purpose)
+    datum = resolve_datum(own_utxo, context.transaction)
+    return datum
+
+
+def own_datum_unsafe(context: ScriptContext) -> Anything:
+    """
+    Returns the datum attached to the UTxO being spent from this script address.
+    Raises an exception if no datum was attached.
+    """
+    purpose: Spending = context.purpose
+    own_utxo = own_spent_utxo(context.transaction.inputs, purpose)
+    datum = resolve_datum_unsafe(own_utxo, context.transaction)
+    return datum

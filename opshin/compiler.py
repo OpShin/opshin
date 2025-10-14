@@ -11,6 +11,7 @@ from uplc.ast import data_from_cbor
 from .bridge import to_uplc_builtin
 from .optimize.optimize_remove_trace import OptimizeRemoveTrace
 from .prelude import Nothing
+from .rewrite.rewrite_import_bls12_381 import RewriteImportBLS12381
 from .type_impls import (
     InstanceType,
     UnionType,
@@ -30,6 +31,7 @@ from .type_impls import (
     ByteStringType,
     FunctionType,
     OUnit,
+    UnitInstanceType,
 )
 from .type_inference import map_to_orig_name, AggressiveTypeInferencer
 from .typed_ast import *
@@ -189,12 +191,10 @@ class PlutoCompiler(CompilingNodeTransformer):
 
     def __init__(
         self,
-        force_three_params=False,
         validator_function_name="validator",
         config=DEFAULT_CONFIG,
     ):
         # parameters
-        self.force_three_params = force_three_params
         self.validator_function_name = validator_function_name
         self.config = config
         assert (
@@ -213,7 +213,14 @@ class PlutoCompiler(CompilingNodeTransformer):
         return g
 
     def visit_BinOp(self, node: TypedBinOp) -> plt.AST:
-        op = node.left.typ.binop(node.op, node.right)
+        try:
+            op = node.left.typ.binop(node.op, node.right)
+        except NotImplementedError as e:
+            # try reverse binop
+            try:
+                op = node.right.typ.rbinop(node.op, node.left)
+            except NotImplementedError:
+                raise e
         return plt.Apply(
             op,
             self.visit(node.left),
@@ -270,32 +277,6 @@ class PlutoCompiler(CompilingNodeTransformer):
                 main_fun_typ, FunctionType
             ), f"Variable named {self.validator_function_name} is not of type function"
 
-            # check if this is a contract written to double function
-            enable_double_func_mint_spend = False
-            if len(main_fun_typ.argtyps) >= 3 and self.force_three_params:
-                # check if is possible
-                second_last_arg = main_fun_typ.argtyps[-2]
-                assert isinstance(
-                    second_last_arg, InstanceType
-                ), "Can not pass Class into validator"
-                if isinstance(second_last_arg.typ, UnionType):
-                    possible_types = second_last_arg.typ.typs
-                else:
-                    possible_types = [second_last_arg.typ]
-                if any(isinstance(t, UnitType) for t in possible_types):
-                    OPSHIN_LOGGER.warning(
-                        "The redeemer is annotated to be 'None'. This value is usually encoded in PlutusData with constructor id 0 and no fields. If you want the script to double function as minting and spending script, annotate the second argument with 'NoRedeemer'."
-                    )
-                enable_double_func_mint_spend = not any(
-                    (isinstance(t, RecordType) and t.record.constructor == 0)
-                    or isinstance(t, UnitType)
-                    for t in possible_types
-                )
-                if not enable_double_func_mint_spend:
-                    OPSHIN_LOGGER.warning(
-                        "The second argument to the validator function potentially has constructor id 0. The validator will not be able to double function as minting script and spending script."
-                    )
-
             body = node.body + (
                 [
                     TypedReturn(
@@ -308,18 +289,30 @@ class PlutoCompiler(CompilingNodeTransformer):
                             typ=main_fun_typ.rettyp,
                             args=[
                                 RawPlutoExpr(
-                                    expr=transform_ext_params_map(a)(
-                                        OVar(f"val_param{i}")
+                                    expr=(
+                                        transform_ext_params_map(a)(
+                                            OVar(f"val_param{i}")
+                                        )
+                                        if self.config.unwrap_input
+                                        else OVar(f"val_param{i}")
                                     ),
                                     typ=a,
                                 )
                                 for i, a in enumerate(main_fun_typ.argtyps)
                             ],
                         )
-                    )
+                    ),
                 ]
             )
-            self.current_function_typ.append(FunctionType([], InstanceType(AnyType())))
+            # TODO probably need to handle here when user wants to return something specific
+            self.current_function_typ.append(
+                FunctionType(
+                    [],
+                    InstanceType(
+                        UnitType() if not self.config.wrap_output else AnyType()
+                    ),
+                )
+            )
             name_load_visitor = NameLoadCollector()
             name_load_visitor.visit(node)
             all_vs = sorted(set(all_vars(node)) | set(name_load_visitor.loaded.keys()))
@@ -338,19 +331,10 @@ class PlutoCompiler(CompilingNodeTransformer):
                         )
                         for x in all_vs
                     ],
-                    self.visit_sequence(body)(OUnit),
+                    self.visit_sequence(body)(plt.Unit()),
                 ),
             )
             self.current_function_typ.pop()
-            if enable_double_func_mint_spend:
-                validator = wrap_validator_double_function(
-                    validator, pass_through=len(main_fun_typ.argtyps) - 3
-                )
-            elif self.force_three_params:
-                # Error if the double function is enforced but not possible
-                raise RuntimeError(
-                    "The contract can not always detect if it was passed three or two parameters on-chain."
-                )
         else:
             name_load_visitor = NameLoadCollector()
             name_load_visitor.visit(node)
@@ -1157,6 +1141,7 @@ def compile(
     filename=None,
     validator_function_name="validator",
     config=DEFAULT_CONFIG,
+    wrap_output=False,
 ) -> plt.Program:
     compile_pipeline = [
         # Important to call this one first - it imports all further files
@@ -1169,6 +1154,7 @@ def compile(
         RewriteAugAssign(),
         RewriteComparisonChaining(),
         RewriteTupleAssign(),
+        RewriteImportBLS12381(),
         RewriteImportIntegrityCheck(),
         RewriteImportPlutusData(),
         RewriteImportHashlib(),
@@ -1190,7 +1176,11 @@ def compile(
         RewriteRemoveTypeStuff(),
         # Apply optimizations
         OptimizeRemoveTrace() if config.remove_trace else NoOp(),
-        OptimizeRemoveDeadvars() if config.remove_dead_code else NoOp(),
+        (
+            OptimizeRemoveDeadvars(validator_function_name=validator_function_name)
+            if config.remove_dead_code
+            else NoOp()
+        ),
         OptimizeRemoveDeadconstants() if config.remove_dead_code else NoOp(),
         OptimizeRemovePass(),
     ]
@@ -1200,7 +1190,6 @@ def compile(
 
     # the compiler runs last
     s = PlutoCompiler(
-        force_three_params=config.force_three_params,
         validator_function_name=validator_function_name,
         config=config,
     )

@@ -80,7 +80,6 @@ def run_command(cmd: List[str], cwd: Optional[str] = None) -> Tuple[int, str, st
 
 def compile_contract(
     contract_path: str,
-    purpose: str,
     optimization: str,
     extra_flags: Optional[List[str]] = None,
     work_dir: Optional[str] = None,
@@ -99,7 +98,6 @@ def compile_contract(
         "run",
         "opshin",
         "build",
-        purpose,
         contract_path,
         f"-{optimization}",
         "--recursion-limit",
@@ -115,7 +113,7 @@ def compile_contract(
 
     if exit_code != 0:
         print(f"Failed to compile {contract_path} with {optimization}: {stderr}")
-        return None
+        raise Exception(f"Compilation failed: {stderr}")
 
     cbor_file = Path(work_dir) / output_dir / "script.cbor"
     if cbor_file.exists():
@@ -130,7 +128,6 @@ def compile_contract(
 
 def evaluate_contract(
     contract_path: str,
-    purpose: str,
     optimization: str,
     test_inputs: Dict,
     extra_flags: Optional[List[str]] = None,
@@ -153,7 +150,6 @@ def evaluate_contract(
         "run",
         "opshin",
         "eval_uplc",
-        purpose,
         contract_path,
     ]
 
@@ -221,7 +217,6 @@ def measure_contract_sizes(
     for contract in contracts:
         name = contract["name"]
         path = contract["path"]
-        purpose = contract["purpose"]
         extra_flags = contract.get("extra_flags", [])
         test_inputs_list = contract.get("test_inputs", [])
 
@@ -229,7 +224,7 @@ def measure_contract_sizes(
 
         contract_results = {}
         for opt_level in optimization_levels:
-            size = compile_contract(path, purpose, opt_level, extra_flags, work_dir)
+            size = compile_contract(path, opt_level, extra_flags, work_dir)
             if size is not None:
                 contract_results[opt_level] = {"size": size}
                 print(f"  {opt_level}: {size} bytes")
@@ -241,7 +236,7 @@ def measure_contract_sizes(
                         test_case_name = test_inputs.get("test_case_name", "unnamed")
                         print(f"    Evaluating test case: {test_case_name}")
                         costs = evaluate_contract(
-                            path, purpose, opt_level, test_inputs, extra_flags, work_dir
+                            path, opt_level, test_inputs, extra_flags, work_dir
                         )
                         if costs:
                             execution_costs.append(
@@ -272,7 +267,6 @@ def measure_contract_sizes(
         results["contracts"][name] = {
             "sizes": contract_results,
             "path": path,
-            "purpose": purpose,
             "description": contract.get("description", ""),
             "extra_flags": extra_flags,
         }

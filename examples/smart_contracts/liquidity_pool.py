@@ -341,7 +341,7 @@ def check_valid_license_present(
     license_nft_name = license_input.value[license_policy_id].keys()[0]
     license_expiry_date = license_validity_from_name(license_nft_name)
     assert before_ext(
-        tx_info.valid_range, FinitePOSIXTime(license_expiry_date)
+        tx_info.validity_range, FinitePOSIXTime(license_expiry_date)
     ), "License is expired"
 
 
@@ -402,7 +402,7 @@ def check_change_liquidity(
         datum.global_liquidity_tokens + expected_minted_lp_tokens
     )
     check_mint_exactly_n_with_name(
-        context.tx_info.mint,
+        context.transaction.mint,
         expected_minted_lp_tokens,
         datum.im_pool_params.pool_lp_token.policy_id,
         datum.im_pool_params.pool_lp_token.token_name,
@@ -490,7 +490,7 @@ def check_swap(
 
     # no liquidity tokens must be minted
     check_mint_exactly_nothing(
-        context.tx_info.mint,
+        context.transaction.mint,
         datum.im_pool_params.pool_lp_token.policy_id,
         datum.im_pool_params.pool_lp_token.token_name,
     )
@@ -536,7 +536,7 @@ def check_upgrade(
     """
     # no liquidity tokens must be minted
     check_mint_exactly_nothing(
-        context.tx_info.mint,
+        context.transaction.mint,
         datum.im_pool_params.pool_lp_token.policy_id,
         datum.im_pool_params.pool_lp_token.token_name,
     )
@@ -544,7 +544,7 @@ def check_upgrade(
     tally_result = winning_tally_result(
         redeemer.tally_ref_index,
         datum.up_pool_params.auth_nft,
-        context.tx_info,
+        context.transaction,
         datum.up_pool_params.last_applied_proposal_id,
         True,
     )
@@ -607,29 +607,33 @@ def get_spending_purpose(context: ScriptContext) -> Spending:
     return purpose
 
 
-def validator(datum: PoolState, redeemer: PoolAction, context: ScriptContext) -> None:
+def validator(context: ScriptContext) -> None:
     """
     Validates that the pool is spent correctly
     DISCLAIMER: This is a simple example to demonstrate onchain based contract upgradeability and should not be used in production.
     """
     purpose = get_spending_purpose(context)
-    own_input_info = context.tx_info.inputs[redeemer.pool_input_index]
+    redeemer: PoolAction = context.redeemer
+    check_integrity(redeemer)
+    datum: PoolState = own_datum_unsafe(context)
+    check_integrity(datum)
+    own_input_info = context.transaction.inputs[redeemer.pool_input_index]
     assert (
         own_input_info.out_ref == purpose.tx_out_ref
     ), "Index of own input does not match purpose"
 
-    own_output = context.tx_info.outputs[redeemer.pool_output_index]
+    own_output = context.transaction.outputs[redeemer.pool_output_index]
     if isinstance(redeemer, AddLiquidity) or isinstance(redeemer, RemoveLiquidity):
         check_valid_license_present(
             redeemer.license_input_index,
-            context.tx_info,
+            context.transaction,
             datum.up_pool_params.license_policy_id,
         )
         check_change_liquidity(datum, redeemer, context, own_input_info, own_output)
     elif isinstance(redeemer, SwapAsset):
         check_valid_license_present(
             redeemer.license_input_index,
-            context.tx_info,
+            context.transaction,
             datum.up_pool_params.license_policy_id,
         )
         check_swap(datum, redeemer, context, own_input_info, own_output)

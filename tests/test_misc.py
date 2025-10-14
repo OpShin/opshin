@@ -30,14 +30,13 @@ from .utils import (
     B,
     DEFAULT_TEST_CONFIG,
 )
-from opshin.compiler_config import OPT_O2_CONFIG, DEFAULT_CONFIG
+from opshin.compiler_config import OPT_O2_CONFIG
 
 hypothesis.settings.load_profile(PLUTUS_VM_PROFILE)
 
 # these imports are required to eval the result of script context dumps
-from opshin.ledger.api_v2 import *
+from opshin.ledger.api_v3 import *
 
-DEFAULT_CONFIG_FORCE_THREE_PARAMS = DEFAULT_CONFIG.update(force_three_params=True)
 sys.setrecursionlimit(2000)
 
 ALL_EXAMPLES = [
@@ -65,17 +64,14 @@ class MiscTest(unittest.TestCase):
             source_code = fp.read()
         ret = eval_uplc(
             source_code,
-            20,
-            22,
             uplc.data_from_cbor(
                 bytes.fromhex(
-                    # TODO need new script context
-                    "d8799fd8799f9fd8799fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffd8799fd8799fd87a9f581cdbe769758f26efb21f008dc097bb194cffc622acc37fcefc5372eee3ffd87a80ffa140a1401a00989680d87a9f5820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dffd87a80ffffff809fd8799fd8799fd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd87a80ffa140a14000d87980d87a80ffffa140a14000a140a1400080a0d8799fd8799fd87980d87a80ffd8799fd87b80d87a80ffff80a1d87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffd87980a15820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd8799f5820746957f0eb57f2b11119684e611a98f373afea93473fefbb7632d579af2f6259ffffd87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffff"
+                    "d8799fd8799f9fd8799fd8799f58205c25c47563872458e8607590c90c6ddadd0295f38c628426c4877185e721507a00ffd8799fd8799fd87a9f581c41582020bb0782bb76ce4fcd7ea2c2f3c565e1fd41a79ac7ddb3e145ffd87a80ffa140a1401a002dc6c0d87b9f14ffd87a80ffffff809fd8799fd8799fd8799f581c25d14bb0185eedffcaa02cdd3bfa779bfc9df3555c64b0e91ed41273ffd87a80ffa140a1401a002ae91fd87980d87a80ffff1a0002dda1a080a0d8799fd8799fd87a9f1b00000199c356d9a8ffd87a80ffd8799fd87a9f1b00000199c3661be8ffd87980ffff9f581c25d14bb0185eedffcaa02cdd3bfa779bfc9df3555c64b0e91ed41273ffa1d87a9fd8799f58205c25c47563872458e8607590c90c6ddadd0295f38c628426c4877185e721507a00ffff16a05820801ee2f936eb1dac69a6da43e17b09ade9bc8c3ed887066f350562d94c681573a080d87a80d87a80ff16d87a9fd8799f58205c25c47563872458e8607590c90c6ddadd0295f38c628426c4877185e721507a00ffd8799f14ffffff"
                 )
             ),
-            config=DEFAULT_CONFIG.update(OPT_O2_CONFIG),
+            config=DEFAULT_TEST_CONFIG.update(wrap_output=False),
         )
-        self.assertEqual(ret, uplc.PlutusConstr(0, []))
+        self.assertEqual(ret, uplc.BuiltinUnit())
 
     @unittest.expectedFailure
     def test_assert_sum_contract_fail(self):
@@ -190,53 +186,35 @@ class MiscTest(unittest.TestCase):
             source_code = fp.read()
         ret = eval_uplc(
             source_code,
-            uplc.PlutusConstr(
-                0,
-                [
-                    uplc.PlutusByteString(
-                        bytes.fromhex(
-                            "dc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2"
-                        )
-                    )
-                ],
-            ),
-            uplc.PlutusConstr(0, []),
             uplc.data_from_cbor(
                 bytes.fromhex(
                     (
-                        "d8799fd8799f9fd8799fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffd8799fd8799fd87a9f581cdbe769758f26efb21f008dc097bb194cffc622acc37fcefc5372eee3ffd87a80ffa140a1401a00989680d87a9f5820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dffd87a80ffffff809fd8799fd8799fd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd87a80ffa140a14000d87980d87a80ffd8799fd8799fd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd87a80ffa140a1401a000f4240d87980d87a80ffffa140a14000a140a1400080a0d8799fd8799fd87a9f1b000001836ac117d8ffd87a80ffd8799fd87b80d87a80ffff9f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffa1d87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffd87980a15820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd8799f5820c17c32f6433ae22c2acaebfb796bbfaee3993ff7ebb58a2bac6b4a3bdd2f6d28ffffd87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffff"
+                        "d8799fd8799f9fd8799fd8799f582019895b96b5da29ecb09e6043b7fff42ef16406a3442848298cb1e900f54da37800ffd8799fd8799fd87a9f581ce876ac436a77d58ba0e3d3a318bf94526a607b4c64f140ed5db9b0f3ffd87a80ffa140a1401a002dc6c0d87b9fd8799f581c25d14bb0185eedffcaa02cdd3bfa779bfc9df3555c64b0e91ed41273ffffd87a80ffffff809fd8799fd8799fd8799f581c25d14bb0185eedffcaa02cdd3bfa779bfc9df3555c64b0e91ed41273ffd87a80ffa140a1401a0029ebc7d87980d87a80ffff1a0003daf9a080a0d8799fd8799fd87a9f1b00000199c3745c58ffd87a80ffd8799fd87a9f1b00000199c3839e98ffd87980ffff9f581c25d14bb0185eedffcaa02cdd3bfa779bfc9df3555c64b0e91ed41273ffa1d87a9fd8799f582019895b96b5da29ecb09e6043b7fff42ef16406a3442848298cb1e900f54da37800ffff00a05820bf16a9ba49965f9eb23e13ff1af73df41d8cad82afabcd3dc59be9a40bd324f9a080d87a80d87a80ff00d87a9fd8799f582019895b96b5da29ecb09e6043b7fff42ef16406a3442848298cb1e900f54da37800ffd8799fd8799f581c25d14bb0185eedffcaa02cdd3bfa779bfc9df3555c64b0e91ed41273ffffffff"
                     )
                 )
             ),
+            config=DEFAULT_TEST_CONFIG.update(wrap_output=False),
         )
-        self.assertEqual(ret, uplc.PlutusConstr(0, []))
+        self.assertEqual(ret, uplc.BuiltinUnit())
 
-    @unittest.expectedFailure
     def test_gift_contract_fail(self):
         input_file = "examples/smart_contracts/gift.py"
         with open(input_file) as fp:
             source_code = fp.read()
         # required sig missing int this script context
-        ret = eval_uplc(
+        ret = eval_uplc_raw(
             source_code,
-            uplc.PlutusConstr(
-                0,
-                [
-                    uplc.PlutusByteString(
-                        bytes.fromhex(
-                            "dc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2"
-                        )
-                    )
-                ],
-            ),
-            uplc.PlutusConstr(0, []),
             uplc.data_from_cbor(
                 bytes.fromhex(
                     (
-                        "d8799fd8799f9fd8799fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffd8799fd8799fd87a9f581cdbe769758f26efb21f008dc097bb194cffc622acc37fcefc5372eee3ffd87a80ffa140a1401a00989680d87a9f5820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dffd87a80ffffff809fd8799fd8799fd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd87a80ffa140a14000d87980d87a80ffffa140a14000a140a1400080a0d8799fd8799fd87a9f1b000001836ac117d8ffd87a80ffd8799fd87b80d87a80ffff80a1d87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffd87980a15820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd8799f5820797a1e1720b63621c6b185088184cb8e23af6e46b55bd83e7a91024c823a6c2affffd87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffff"
+                        "d8799fd8799f9fd8799fd8799f582019895b96b5da29ecb09e6043b7fff42ef16406a3442848298cb1e900f54da37800ffd8799fd8799fd87a9f581ce876ac436a77d58ba0e3d3a318bf94526a607b4c64f140ed5db9b0f3ffd87a80ffa140a1401a002dc6c0d87b9fd8799f581c25d14bb0185eedffcaa02cdd3bfa779bfc9df3555c64b0e91ed41273ffffd87a80ffffff809fd8799fd8799fd8799f581c25d14bb0185eedffcaa02cdd3bfa779bfc9df3555c64b0e91ed41273ffd87a80ffa140a1401a0029f1cbd87980d87a80ffff1a0003d4f5a080a0d8799fd8799fd87a9f1b00000199c3752b60ffd87a80ffd8799fd87a9f1b00000199c3846da0ffd87980ffff80a1d87a9fd8799f582019895b96b5da29ecb09e6043b7fff42ef16406a3442848298cb1e900f54da37800ffff00a05820796df430b7069b3e1a354a533bdd1cf1d56c12c18a223a557d334454e951622ca080d87a80d87a80ff00d87a9fd8799f582019895b96b5da29ecb09e6043b7fff42ef16406a3442848298cb1e900f54da37800ffd8799fd8799f581c25d14bb0185eedffcaa02cdd3bfa779bfc9df3555c64b0e91ed41273ffffffff"
                     )
                 )
             ),
+        )
+        self.assertIsInstance(ret.result, RuntimeError)
+        self.assertTrue(
+            any(x.startswith("Required signature missing") for x in ret.logs)
         )
 
     def test_recursion_simple(self):
@@ -253,7 +231,6 @@ def validator(_: None) -> int:
         ret = eval_uplc_value(source_code, Unit())
         self.assertEqual(0, ret)
 
-    @unittest.expectedFailure
     def test_recursion_illegal(self):
         # this is now an illegal retyping because read variables dont match
         source_code = """
@@ -269,8 +246,8 @@ def validator(_: None) -> int:
       return 100
     return b(1)
         """
-        ret = eval_uplc_value(source_code, Unit())
-        self.assertEqual(100, ret)
+        with self.assertRaises(CompilerError):
+            eval_uplc_value(source_code, Unit())
 
     def test_recursion_legal(self):
         source_code = """
@@ -292,7 +269,6 @@ def validator(_: None) -> int:
         ret = eval_uplc_value(source_code, Unit())
         self.assertEqual(100, ret)
 
-    @unittest.expectedFailure
     def test_uninitialized_access(self):
         source_code = """
 def validator(_: None) -> int:
@@ -305,9 +281,9 @@ def validator(_: None) -> int:
         return a(n-1)
     return a(1)
         """
-        builder._compile(source_code)
+        with self.assertRaises(CompilerError):
+            builder._compile(source_code)
 
-    @unittest.expectedFailure
     def test_illegal_bind(self):
         source_code = """
 def validator(_: None) -> int:
@@ -321,9 +297,9 @@ def validator(_: None) -> int:
       return a(n-1)
     return a(2)
         """
-        builder._compile(source_code)
+        with self.assertRaises(CompilerError):
+            builder._compile(source_code)
 
-    @unittest.expectedFailure
     def test_type_reassignment_function_bound(self):
         # changing the type of a variable should be disallowed if the variable is bound by a function
         # it can be ok if the types can be merged (resulting in union type inside the function) but
@@ -336,9 +312,9 @@ def validator(_: None) -> int:
     b = b''
     return a(1)
         """
-        builder._compile(source_code)
+        with self.assertRaises(CompilerError):
+            builder._compile(source_code)
 
-    @unittest.expectedFailure
     def test_illegal_function_retype(self):
         source_code = """
 def validator(_: None) -> int:
@@ -353,7 +329,8 @@ def validator(_: None) -> int:
       return 100
     return b(1)
         """
-        builder._compile(source_code)
+        with self.assertRaises(CompilerError):
+            builder._compile(source_code)
 
     def test_datum_cast(self):
         input_file = "examples/datum_cast.py"
@@ -379,14 +356,7 @@ def validator(_: None) -> int:
         input_file = "examples/smart_contracts/wrapped_token.py"
         with open(input_file) as fp:
             source_code = fp.read()
-        builder._compile(source_code, config=DEFAULT_CONFIG_FORCE_THREE_PARAMS)
-
-    def test_dual_use_compile(self):
-        # TODO devise tests for this
-        input_file = "examples/smart_contracts/dual_use.py"
-        with open(input_file) as fp:
-            source_code = fp.read()
-        builder._compile(source_code, config=DEFAULT_CONFIG_FORCE_THREE_PARAMS)
+        builder._compile(source_code)
 
     def test_marketplace_compile(self):
         # TODO devise tests for this
@@ -395,19 +365,12 @@ def validator(_: None) -> int:
             source_code = fp.read()
         builder._compile(source_code)
 
-    @unittest.expectedFailure
-    def test_marketplace_compile_fail(self):
-        input_file = "examples/smart_contracts/marketplace.py"
-        with open(input_file) as fp:
-            source_code = fp.read()
-        builder._compile(source_code, config=DEFAULT_CONFIG_FORCE_THREE_PARAMS)
-
     def test_parameterized_compile(self):
         # TODO devise tests for this
         input_file = "examples/smart_contracts/parameterized.py"
         with open(input_file) as fp:
             source_code = fp.read()
-        builder._compile(source_code, config=DEFAULT_CONFIG_FORCE_THREE_PARAMS)
+        builder._compile(source_code)
 
     def test_dict_datum(self):
         input_file = "examples/dict_datum.py"
@@ -1102,13 +1065,13 @@ def validator(_: None) -> None:
     @parameterized.expand(
         [
             (
-                "d8799fd8799f9fd8799fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffd8799fd8799fd87a9f581cdbe769758f26efb21f008dc097bb194cffc622acc37fcefc5372eee3ffd87a80ffa140a1401a00989680d87a9f5820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dffd87a80ffffff809fd8799fd8799fd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd87a80ffa140a14000d87980d87a80ffffa140a14000a140a1400080a0d8799fd8799fd87980d87a80ffd8799fd87b80d87a80ffff80a1d87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffd87980a15820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd8799f5820746957f0eb57f2b11119684e611a98f373afea93473fefbb7632d579af2f6259ffffd87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffff"
+                "d8799fd8799f81d8799fd8799f5820ec7874002d9b55a81e64eefcb3b41f8897eb36ad61c3392661f8a7c5a39879a500ffd8799fd8799fd87a9f581c4154af4452c57951a0d4e9bfd36ef809c6f49ed8a66967e51cbdc314ffd87a80ffa140a1401a002dc6c0d87b9fd87980ffd87a80ffff8081d8799fd8799fd8799f581c61299458bd6d3011669ac533b520ab07b94d7428903f61714babb582ffd87a80ffa140a1401a002b112bd87980d87a80ff1a0002b595a080a0d8799fd8799fd87a9f1b0000019667dbfac0ffd87a80ffd8799fd87a9f1b0000019667ead388ffd87980ffff80a1d87a9fd8799f5820ec7874002d9b55a81e64eefcb3b41f8897eb36ad61c3392661f8a7c5a39879a500ffff00a05820ffa18bad2d7b861a44b07af9df6c42b60414bf0e5279134293001aea66ead701a080d87a80d87a80ff00d87a9fd8799f5820ec7874002d9b55a81e64eefcb3b41f8897eb36ad61c3392661f8a7c5a39879a500ffd8799fd87980ffffff"
             ),
             (
-                "d8799fd8799f9fd8799fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffd8799fd8799fd87a9f581cdbe769758f26efb21f008dc097bb194cffc622acc37fcefc5372eee3ffd87a80ffa140a1401a00989680d87a9f5820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dffd87a80ffffff809fd8799fd8799fd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd87a80ffa140a14000d87980d87a80ffffa140a14000a140a1400080a0d8799fd8799fd87a9f1b000001836ac117d8ffd87a80ffd8799fd87b80d87a80ffff80a1d87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffd87980a15820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd8799f5820797a1e1720b63621c6b185088184cb8e23af6e46b55bd83e7a91024c823a6c2affffd87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffff"
+                "d8799fd8799f81d8799fd8799f5820ec7874002d9b55a81e64eefcb3b41f8897eb36ad61c3392661f8a7c5a39879a500ffd8799fd8799fd87a9f581c4154af4452c57951a0d4e9bfd36ef809c6f49ed8a66967e51cbdc314ffd87a80ffa140a1401a002dc6c0d87b9fd87980ffd87a80ffff8081d8799fd8799fd8799f581c61299458bd6d3011669ac533b520ab07b94d7428903f61714babb582ffd87a80ffa140a1401a002b041bd87980d87a80ff1a0002c2a5a080a0d8799fd8799fd87a9f1b0000019667f2af40ffd87a80ffd8799fd87a9f1b0000019668021890ffd87980ffff80a1d87a9fd8799f5820ec7874002d9b55a81e64eefcb3b41f8897eb36ad61c3392661f8a7c5a39879a500ffff00a05820bdb6e7f3d88a9e5b2c88fa78fee817c1f73c8a2edc48ede2ae4962a32de7b323a1d87a9fd8799f581c61299458bd6d3011669ac533b520ab07b94d7428903f61714babb582ffffa1d8799f5820ec7874002d9b55a81e64eefcb3b41f8897eb36ad61c3392661f8a7c5a39879a500ffd87a8080d87a80d87a80ff00d87a9fd8799f5820ec7874002d9b55a81e64eefcb3b41f8897eb36ad61c3392661f8a7c5a39879a500ffd8799fd87980ffffff"
             ),
             (
-                "d8799fd8799f9fd8799fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffd8799fd8799fd87a9f581cdbe769758f26efb21f008dc097bb194cffc622acc37fcefc5372eee3ffd87a80ffa140a1401a00989680d87a9f5820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dffd87a80ffffff809fd8799fd8799fd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd87a80ffa140a14000d87980d87a80ffd8799fd8799fd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd87a80ffa140a1401a000f4240d87980d87a80ffffa140a14000a140a1400080a0d8799fd8799fd87a9f1b000001836ac117d8ffd87a80ffd8799fd87b80d87a80ffff9f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffa1d87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffd87980a15820dfab81872ce2bbe6ee5af9bbfee4047f91c1f57db5e30da727d5fef1e7f02f4dd8799f581cdc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2ffd8799f5820c17c32f6433ae22c2acaebfb796bbfaee3993ff7ebb58a2bac6b4a3bdd2f6d28ffffd87a9fd8799fd8799f582055d353acacaab6460b37ed0f0e3a1a0aabf056df4a7fa1e265d21149ccacc527ff01ffffff"
+                "d8799fd8799f81d8799fd8799f5820ec7874002d9b55a81e64eefcb3b41f8897eb36ad61c3392661f8a7c5a39879a500ffd8799fd8799fd87a9f581c4154af4452c57951a0d4e9bfd36ef809c6f49ed8a66967e51cbdc314ffd87a80ffa140a1401a002dc6c0d87b9fd87980ffd87a80ffff8081d8799fd8799fd8799f581c61299458bd6d3011669ac533b520ab07b94d7428903f61714babb582ffd87a80ffa140a1401a002b020bd87980d87a80ff1a0002c4b5a080a0d8799fd8799fd87a9f1b0000019667fd4248ffd87a80ffd8799fd87a9f1b00000196680cab98ffd87980ffff80a1d87a9fd8799f5820ec7874002d9b55a81e64eefcb3b41f8897eb36ad61c3392661f8a7c5a39879a500ffff00a05820f77e175d767ce3b5b56e16fbfa7a8d97e67980ec4bd8784134e607a0584333bea1d87a9fd8799f581c61299458bd6d3011669ac533b520ab07b94d7428903f61714babb582ffffa1d8799f5820ec7874002d9b55a81e64eefcb3b41f8897eb36ad61c3392661f8a7c5a39879a500ffd87a8080d8799f1a00bc4ff2ffd8799f1a05f76804ffff00d87a9fd8799f5820ec7874002d9b55a81e64eefcb3b41f8897eb36ad61c3392661f8a7c5a39879a500ffd8799fd87980ffffff"
             ),
         ]
     )
@@ -1947,7 +1910,7 @@ def validator({param_string}) -> bool:
     def test_wrapping_contract_apply(self):
         # TODO devise tests for this
         input_file = "examples/smart_contracts/wrapped_token.py"
-        contract = builder.build(input_file, config=DEFAULT_CONFIG_FORCE_THREE_PARAMS)
+        contract = builder.build(input_file)
         artifacts = PlutusContract(
             contract,
             datum_type=("datum", prelude.Nothing),
@@ -1966,7 +1929,7 @@ def validator({param_string}) -> bool:
 
     def test_wrapping_contract_dump_load(self):
         input_file = "examples/smart_contracts/wrapped_token.py"
-        contract = builder.build(input_file, config=DEFAULT_CONFIG_FORCE_THREE_PARAMS)
+        contract = builder.build(input_file, config=DEFAULT_TEST_CONFIG)
         artifacts = PlutusContract(
             contract,
             datum_type=("datum", prelude.Nothing),
@@ -1996,7 +1959,6 @@ def validator({param_string}) -> bool:
         assert loaded.title == artifacts.title
         assert loaded.version == artifacts.version
 
-    @unittest.expectedFailure
     def test_forbidden_overwrite(self):
         source_code = """
 def validator(
@@ -2005,7 +1967,8 @@ def validator(
     PlutusData = d
     return d
 """
-        builder._compile(source_code)
+        with self.assertRaises(CompilerError) as e:
+            builder._compile(source_code)
 
     @parameterized.expand(ALL_EXAMPLES)
     def test_compilation_deterministic_local(self, input_file):
@@ -2645,7 +2608,7 @@ def validator(x: List[int], y: int) -> int:
             exp = xs[y]
         except IndexError:
             exp = None
-        config = DEFAULT_CONFIG
+        config = DEFAULT_TEST_CONFIG
         config.update(fast_access_skip=5)
         try:
             ret = eval_uplc_value(source_code, xs, y, config=config)

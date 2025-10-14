@@ -798,7 +798,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         for t in node.targets:
             assert isinstance(
                 t, Name
-            ), "Can only assign to variable names (e.g., x = 5). OpShin does not allow assigning to tuple deconstructors (e.g., a, b = (1, 2)) or to dicts, lists, or members (e.g., x[0] = 1; x.foo = 1)"
+            ), "Can only assign to variable names (e.g., x = 5 or a, b = 10, 20). OpShin does not allow assigning to dicts, lists, or members (e.g., x[0] = 1; x.foo = 1)"
             # Check compatibility to previous types -> variable can be bound in a function before and needs to maintain type
             self.set_variable_type(t.id, typed_ass.value.typ)
         typed_ass.targets = [self.visit(t) for t in node.targets]
@@ -1063,7 +1063,14 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         tb = copy(node)
         tb.left = self.visit(node.left)
         tb.right = self.visit(node.right)
-        binop_fun_typ: FunctionType = tb.left.typ.binop_type(tb.op, tb.right.typ)
+        try:
+            binop_fun_typ: FunctionType = tb.left.typ.binop_type(tb.op, tb.right.typ)
+        except NotImplementedError as e:
+            try:
+                # attempt reverse binop
+                binop_fun_typ = tb.right.typ.rbinop_type(tb.op, tb.left.typ)
+            except NotImplementedError:
+                raise e
         tb.typ = binop_fun_typ.rettyp
 
         return tb

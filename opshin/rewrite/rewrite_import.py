@@ -66,6 +66,7 @@ SPECIAL_IMPORTS = [
     "hashlib",
     "opshin.bridge",
     "opshin.std.integrity",
+    "opshin.std.bls12_381",
 ]
 
 

@@ -27,8 +27,8 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
 ]
 dependencies = [
-    "uplc>=1.2.1",
-    "pluthon>=1.3.4",
+    "uplc>=1.3.0",
+    "pluthon>=1.3.5",
     "pycardano>=0.13.0",
     "frozenlist2>=1.0.0",
     "ordered-set>=4.1.0",
@@ -50,6 +50,7 @@ dev = [
     "coverage>=7.0",
     "pytest>=7.3.1",
     "pyyaml>=6.0.3,<7",
+    "pytest-xdist",
 ]
 
 [tool.hatch.build.targets.sdist]
@@ -91,6 +92,9 @@ exclude_also = [
 
     # Don't complain about wrapped builtins, they aren't run:
     "@wraps_builtin",
+
+    # Don't complain about super-class calls, they mostly just raise
+    "return super\\(.*\\)\\.\\w+\\(",
     ]
 
 ignore_errors = true

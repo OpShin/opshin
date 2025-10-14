@@ -181,6 +181,7 @@ def validator(x: str) -> bytes:
         self.assertEqual(ret, xs.encode(), "str.encode returned wrong value")
 
     @given(xs=st.binary())
+    @example(b"\x80")
     def test_bytes_decode(self, xs):
         source_code = """
 def validator(x: bytes) -> str:
@@ -192,7 +193,7 @@ def validator(x: bytes) -> str:
             exp = None
         try:
             ret = eval_uplc_value(source_code, xs).decode()
-        except UnicodeDecodeError:
+        except (UnicodeDecodeError, RuntimeError):
             ret = None
         self.assertEqual(ret, exp, "bytes.decode returned wrong value")
 

@@ -341,7 +341,7 @@ def validator(_: None) -> int:
 
     def test_double_import_offset(self):
         source_code = """
-from opshin.ledger.api_v2 import *
+from opshin.ledger.api_v3 import *
 from opshin.prelude import *
 
 def validator(
