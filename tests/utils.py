@@ -17,7 +17,6 @@ DEFAULT_TEST_CONFIG = OPT_O1_CONFIG.update(
 )
 
 
-
 @dataclasses.dataclass
 class Unit(PlutusData):
     CONSTR_ID = 0

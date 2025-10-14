@@ -19,7 +19,6 @@ from tests.utils import (
 DEFAULT_CONFIG_CONSTANT_FOLDING = DEFAULT_TEST_CONFIG.update(constant_folding=True)
 
 
-
 class ConstantFoldingTest(unittest.TestCase):
     def test_constant_folding(self):
         source_code = """
