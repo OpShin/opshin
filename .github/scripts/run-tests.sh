@@ -20,11 +20,14 @@ uv run coverage run -a -m opshin compile_pluto examples/smart_contracts/assert_s
 uv run coverage run -a -m opshin build examples/smart_contracts/assert_sum.py
 
 # Compile all example files
-for i in $(find examples/smart_contracts -type f -name "*.py" -not \( -name "broken*" -o -name "extract*" \)); do
+for i in $(find examples/smart_contracts -type f -name "*.py" -not \( -name "broken*" -o -name "extract*" -o -name "wrapped_token*" -o -name "simple_script*" -o -name "parameterized*" \)); do
   uv run coverage run -a -m opshin compile "$i" --recursion-limit 4000 > /dev/null || exit
 done
+uv run coverage run -a -m opshin compile "examples/smart_contracts/wrapped_token.py" --recursion-limit 4000 --parameters 3 > /dev/null || exit
+uv run coverage run -a -m opshin compile "examples/smart_contracts/simple_script.py" --recursion-limit 4000 --parameters 1 > /dev/null || exit
+uv run coverage run -a -m opshin compile "examples/smart_contracts/parameterized.py" --recursion-limit 4000 --parameters 1 > /dev/null || exit
 
-for i in $(find examples/ -type f -name "*.py" -not \( -name "broken*" -o -name "extract*" \)); do
+for i in $(find examples -type f -name "*.py" -not \( -name "broken*" -o -name "extract*" -o -name "wrapped_token*" -o -name "simple_script*" -o -name "parameterized*" \)); do
   uv run coverage run -a -m opshin compile "$i" --lib --recursion-limit 4000 -fno-unwrap-input -fno-wrap-output > /dev/null || exit
 done
 

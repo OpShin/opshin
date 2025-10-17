@@ -1,12 +1,15 @@
 #!opshin
 from opshin.prelude import *
+from opshin.std.integrity import check_integrity
 from opshin.std.math import *
 
 
-def validator(datum: int, redeemer: int, context: ScriptContext) -> None:
+def validator(context: ScriptContext) -> None:
     """
     A contract that checks whether the bitwise AND of the datum and redeemer is zero.
     """
+    datum: int = own_datum_unsafe(context)
+    redeemer: int = context.redeemer
     datum_bytes = bytes_big_from_unsigned_int(datum)
     redeemer_bytes = bytes_big_from_unsigned_int(redeemer)
     # compute the bitwise AND of the two byte arrays
