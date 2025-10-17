@@ -199,9 +199,10 @@ def plutus_data_from_cbor(annotation: typing.Type, x: bytes):
 
 def check_params(
     command: Command,
-    validator_args,
-    return_type,
-    validator_params,
+    validator_args: typing.List[typing.Tuple[str, typing.Type]],
+    return_type: typing.Type,
+    validator_params: typing.List,
+    parameters: int,
 ):
     num_onchain_params = 1
     onchain_params = validator_args[-num_onchain_params:]
@@ -215,16 +216,23 @@ def check_params(
     assert (
         len(onchain_params) == required_onchain_parameters
     ), f"""\
-validator must expect {required_onchain_parameters} parameters at evaluation (on-chain), but was specified to have {len(onchain_params)}.
-Make sure the validator expects just the script context."""
+The validator must expect {required_onchain_parameters} parameters at evaluation (on-chain), but was specified to have {len(onchain_params)}.
+Make sure the validator expects exactly the script context (ScriptContext)."""
 
     if command in (Command.eval, Command.eval_uplc):
         assert len(validator_params) == len(param_types) + len(
             onchain_params
-        ), f"validator expects {len(param_types) + len(onchain_params)} parameters for evaluation, but only got {len(validator_params)}."
+        ), f"The validator expects {len(param_types) + len(onchain_params)} parameters for evaluation, but only got {len(validator_params)}."
+    else:
+        assert (
+            len(param_types) == parameters
+        ), f"""\
+The validator is specified to expect {len(param_types)} parameters for parameterization ({','.join(x[0] for x in param_types)}), but the command line arguments indicate {parameters} parameters (default is 0).
+Note that PlutusV3 validatators expect only the ScriptContext as on-chain parameter, so non-parameterized contracts should have only 1 parameter ({onchain_params[0][0]}).
+Make sure the number of parameters passed matches the number of parameters expected by the validator."""
     assert (
         onchain_params[-1][1] == ScriptContext
-    ), f"Last parameter of the validator has to be ScriptContext, but is {onchain_params[-1][1].__name__} here."
+    ), f"Last parameter of the validator ({onchain_params[-1][0]}) has to be of type ScriptContext, but is {onchain_params[-1][1].__name__}."
     return onchain_params, param_types
 
 
@@ -241,6 +249,7 @@ def perform_command(args):
     if args.verbose:
         OPSHIN_LOG_HANDLER.setLevel(logging.DEBUG)
     lib = args.lib
+    number_parameters = args.parameters
 
     # execute the command
     command = Command(args.command)
@@ -299,6 +308,7 @@ def perform_command(args):
             annotations,
             return_annotation,
             parsed_params,
+            number_parameters,
         )
         assert (
             onchain_params
@@ -463,12 +473,18 @@ def parse_args():
         "args",
         nargs="*",
         default=[],
-        help="Input parameters for the validator (parameterizes the contract for compile/build). Either json or CBOR notation.",
+        help="Input parameters for the validator (parameterizes the contract for compile/build, passes the values for eval/eval_uplc). Either json or CBOR notation.",
     )
     a.add_argument(
         "--output-format-json",
         action="store_true",
         help="Changes the output of the Linter to a json format.",
+    )
+    a.add_argument(
+        "--parameters",
+        type=int,
+        default=0,
+        help="Number of parameters that the contract supports. If not specified, 0 is assumed (i.e., the contract only expects the ScriptContext).",
     )
     a.add_argument(
         "--version",

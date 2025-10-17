@@ -242,3 +242,36 @@ def validator(context: ScriptContext) -> None:
         assert "SUCCESS" in result.stdout
         assert "con unit ()" in result.stdout
         assert "Python: None" in result.stdout
+
+
+def test_error_for_params_without_explicit_specification():
+    source_code = """
+from opshin.prelude import *
+
+def validator(datum: int, redeemer: int, context: ScriptContext) -> None:
+    pass
+"""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        with open(f"{tmpdir}/contract.py", "w") as f:
+            f.write(source_code)
+        import subprocess
+
+        result = subprocess.run(
+            ["opshin", "compile", f"{tmpdir}/contract.py"],
+            capture_output=True,
+            text=True,
+            cwd=tmpdir,
+        )
+        assert result.returncode != 0
+        assert (
+            "The validator is specified to expect 2 parameters for parameterization"
+            in result.stderr
+        )
+
+        result = subprocess.run(
+            ["opshin", "compile", f"{tmpdir}/contract.py", "--parameters", "2"],
+            capture_output=True,
+            text=True,
+            cwd=tmpdir,
+        )
+        assert result.returncode == 0
