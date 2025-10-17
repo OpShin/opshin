@@ -227,9 +227,11 @@ Make sure the validator expects exactly the script context (ScriptContext)."""
         assert (
             len(param_types) - len(validator_params) == parameters
         ), f"""\
-The validator is specified to expect {len(param_types)-len(validator_params)} parameters for parameterization ({','.join(x[0] for x in param_types)}, of which {len(onchain_params)} are bound by additional arguments), but the command line arguments indicate {parameters} parameters (default is 0).
+The validator is specified to expect {len(param_types)-len(validator_params)} parameters for parameterization ({','.join(x[0] for x in param_types)}, of which {len(validator_params)} are bound by additional arguments), but the command line arguments indicate {parameters} parameters (default is 0).
 Note that PlutusV3 validatators expect only the ScriptContext as on-chain parameter, so non-parameterized contracts should have only 1 parameter ({onchain_params[0][0]}).
-Make sure the number of parameters passed matches the number of parameters expected by the validator."""
+Make sure the number of parameters passed matches the number of parameters expected by the validator.
+Either remove extra parameters or specify them by passing `--parameters {len(param_types)-len(validator_params)}`.
+"""
     assert (
         onchain_params[-1][1] == ScriptContext
     ), f"Last parameter of the validator ({onchain_params[-1][0]}) has to be of type ScriptContext, but is {onchain_params[-1][1].__name__}."
