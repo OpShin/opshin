@@ -275,3 +275,66 @@ def validator(datum: int, redeemer: int, context: ScriptContext) -> None:
             cwd=tmpdir,
         )
         assert result.returncode == 0
+
+
+def test_error_for_params_bound_build():
+    source_code = """
+from opshin.prelude import *
+
+def validator(owner: bytes, context: ScriptContext) -> None:
+    pass
+"""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        with open(f"{tmpdir}/contract.py", "w") as f:
+            f.write(source_code)
+        import subprocess
+
+        result = subprocess.run(
+            ["opshin", "compile", f"{tmpdir}/contract.py"],
+            capture_output=True,
+            text=True,
+            cwd=tmpdir,
+        )
+        assert result.returncode != 0
+        assert (
+            "The validator is specified to expect 1 parameters for parameterization"
+            in result.stderr
+        )
+
+        result = subprocess.run(
+            ["opshin", "compile", f"{tmpdir}/contract.py", "--parameters", "1"],
+            capture_output=True,
+            text=True,
+            cwd=tmpdir,
+        )
+        assert result.returncode == 0
+        result = subprocess.run(
+            [
+                "opshin",
+                "compile",
+                f"{tmpdir}/contract.py",
+                "--parameters",
+                "1",
+                '{"bytes":"abcd"}',
+            ],
+            capture_output=True,
+            text=True,
+            cwd=tmpdir,
+        )
+        assert result.returncode != 0
+        assert "The validator is specified to expect 0 parameters" in result.stderr
+
+        result = subprocess.run(
+            [
+                "opshin",
+                "compile",
+                f"{tmpdir}/contract.py",
+                "--parameters",
+                "0",
+                '{"bytes":"abcd"}',
+            ],
+            capture_output=True,
+            text=True,
+            cwd=tmpdir,
+        )
+        assert result.returncode == 0

@@ -225,9 +225,9 @@ Make sure the validator expects exactly the script context (ScriptContext)."""
         ), f"The validator expects {len(param_types) + len(onchain_params)} parameters for evaluation, but only got {len(validator_params)}."
     else:
         assert (
-            len(param_types) == parameters
+            len(param_types) - len(validator_params) == parameters
         ), f"""\
-The validator is specified to expect {len(param_types)} parameters for parameterization ({','.join(x[0] for x in param_types)}), but the command line arguments indicate {parameters} parameters (default is 0).
+The validator is specified to expect {len(param_types)-len(validator_params)} parameters for parameterization ({','.join(x[0] for x in param_types)}, of which {len(onchain_params)} are bound by additional arguments), but the command line arguments indicate {parameters} parameters (default is 0).
 Note that PlutusV3 validatators expect only the ScriptContext as on-chain parameter, so non-parameterized contracts should have only 1 parameter ({onchain_params[0][0]}).
 Make sure the number of parameters passed matches the number of parameters expected by the validator."""
     assert (
