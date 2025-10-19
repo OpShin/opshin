@@ -91,7 +91,7 @@ jobs:
         echo "REPORT<<EOF" >> $GITHUB_OUTPUT
         cat size_report.txt >> $GITHUB_OUTPUT
         echo "EOF" >> $GITHUB_OUTPUT
-        cat size_report.txt
+        cat size_report.txt >> $GITHUB_STEP_SUMMARY
 
     - name: Upload size report as artifact
       uses: actions/upload-artifact@v4
