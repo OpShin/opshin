@@ -1207,7 +1207,7 @@ requires-dist = [
     { name = "ordered-set", specifier = ">=4.1.0" },
     { name = "pluthon", specifier = ">=1.3.5" },
     { name = "pycardano", specifier = ">=0.13.0" },
-    { name = "uplc", specifier = ">=1.3.0" },
+    { name = "uplc", specifier = ">=1.3.1" },
 ]
 
 [package.metadata.requires-dev]
@@ -2216,7 +2216,7 @@ wheels = [
 
 [[package]]
 name = "uplc"
-version = "1.3.0"
+version = "1.3.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "bitarray" },
@@ -2233,9 +2233,9 @@ dependencies = [
     { name = "regex" },
     { name = "rply" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/2c/b4/a8a2648dbfe93d537be95873f90b477d7759813c180b5652a0924ac5d5c2/uplc-1.3.0.tar.gz", hash = "sha256:e38159b95e839e5d29ea4adf26884ba4dfd80c8e5b2c970e600d7606c5cb1914", size = 44648, upload-time = "2025-10-14T11:09:51.944Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/db/35/dc3966208431c1f051303e4c2e3cf2421b9cf40cff97272c0ce2edd0d0b0/uplc-1.3.1.tar.gz", hash = "sha256:156f4166a4434c254c5f8377f5f23e67c94b722e9e6d5fc4574dff28d6e7c598", size = 44688, upload-time = "2025-10-19T12:46:20.968Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/5e/2c/f52e25ed4f40f1464e5b169973450fec177433be50fa7072fb9ce01a5e45/uplc-1.3.0-py3-none-any.whl", hash = "sha256:a0a729bbec2cf20525f02c4e0ec29384c88a898407ff6b4ebc723620c3f798b9", size = 52986, upload-time = "2025-10-14T11:09:50.614Z" },
+    { url = "https://files.pythonhosted.org/packages/bb/ff/e432f94fc8c514e5fb9a82c3657f7839bd6b19ac8ccdc9d75fc8f8e01105/uplc-1.3.1-py3-none-any.whl", hash = "sha256:ce423d5f3a5c94cedcf30c78f26df4ce55dbae5f80e0bbd65006690995ac40ac", size = 53024, upload-time = "2025-10-19T12:46:19.628Z" },
 ]
 
 [[package]]
