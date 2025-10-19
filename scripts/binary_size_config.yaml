@@ -39,6 +39,7 @@ contracts:
     path: "examples/smart_contracts/wrapped_token.py"
     purpose: "spending"
     description: "Dual-use contract to generate a wrapped token"
+    extra_flags: ["--parameters", "3"]
 
   - name: "micropayments"
     path: "examples/smart_contracts/micropayments.py"
