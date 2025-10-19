@@ -12,6 +12,16 @@ on:
       - '.github/workflows/binary-size-tracker.yml'
       - 'scripts/binary_size_tracker.py'
     types: [opened, synchronize, reopened]
+  push:
+    branches:
+      - '**'
+    paths:
+      - 'examples/**.py'
+      - 'opshin/**.py'
+      - 'pyproject.toml'
+      - 'uv.lock'
+      - '.github/workflows/binary-size-tracker.yml'
+      - 'scripts/binary_size_tracker.py'
 
 jobs:
   get-python-versions:
