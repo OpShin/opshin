@@ -21,6 +21,8 @@ import pycardano
 
 import uplc
 import uplc.ast
+import uplc.flat_encoder
+from uplc.ast import Program
 from uplc.cost_model import PlutusVersion
 
 from . import (
@@ -377,12 +379,23 @@ Note that opshin errors may be overly restrictive as they aim to prevent code wi
         return
     code = pluthon.compile(code, config=compiler_config)
 
+    # Add a marker for OpShin/version
+    code = uplc.ast.Program(
+        code.version,
+        uplc.ast.Apply(
+            uplc.ast.Lambda("_", code.term),
+            uplc.ast.BuiltinByteString(
+                bytes([ord("o"), *(int(x) for x in __version__.split("."))])
+            ),
+        ),
+    )
+
     # apply parameters from the command line to the contract (instantiates parameterized contract!)
     code = code.term
     # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
     for d in uplc_params:
         code = uplc.ast.Apply(code, d)
-    code = uplc.ast.Program((1, 0, 0), code)
+    code = uplc.ast.Program((1, 1, 0), code)
 
     if command == Command.compile:
         print(code.dumps())
