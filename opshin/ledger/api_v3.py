@@ -714,28 +714,39 @@ class Proposing(PlutusData):
 ScriptPurpose = Union[Minting, Spending, Withdrawing, Publishing, Voting, Proposing]
 
 
-@dataclass(unsafe_hash=True)
+@dataclass()
 class TxInfo(PlutusData):
     """
     A complex agglomeration of everything that could be of interest to the executed script, regarding the transaction
     that invoked the script
     """
 
-    CONSTR_ID = 0
+    # The input UTXOs of the transaction.
     inputs: List[TxInInfo]
+    # The reference UTXOs of the transaction.
     reference_inputs: List[TxInInfo]
+    # The output UTXOs created by the transaction.
     outputs: List[TxOut]
-    fee: Lovelace
+    # Transaction fee to be payed for the transaction.
+    fee: Value
+    # The value minted in the transaction.
     mint: Value
-    certificates: List[Certificate]
+    certificates: List[DCert]
+    # Withdrawals from specific stake keys
     # NOTE: Withdrawals are ordered by ascending Credential. Yet, note that `Script` credentials are treated as **lower values** than `VerificationKey` credentials.
     withdrawals: Dict[StakingCredential, int]
+    # The range of time in which this transaction is valid
     validity_range: POSIXTimeRange
-    # NOTE: Redeemers are ordered by ascending ScriptPurpose.
+    # The signatures for the transaction.
     signatories: List[PubKeyHash]
+    # All redeemers passed to all script invocations
+    # NOTE: Redeemers are ordered by ascending ScriptPurpose.
     redeemers: Dict[ScriptPurpose, Redeemer]
-    datums: Dict[DatumHash, Datum]
+    # All datums present in any inputs
+    data: Dict[DatumHash, Datum]
+    # The ID of the transaction.
     id: TxId
+    # metadata for governance actions
     # NOTE: Votes are ordered by ascending Voter and GovernanceActionId. First constructor variants in a type are treated as lower indices; except for Credential where `Script` credentials are treated as **lower values** than `VerificationKey` credentials.
     votes: Dict[Voter, Dict[GovernanceActionId, Vote]]
     proposal_procedures: List[ProposalProcedure]
