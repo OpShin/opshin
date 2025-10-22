@@ -38,7 +38,7 @@ This document will just outline the basic usage of the tool.
 
 ### Installation
 
-Install Python 3.9 - 3.14 Then run
+Install any of the supported Python versions. Then run 
 
 ```bash
 python -m pip install opshin
