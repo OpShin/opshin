@@ -38,10 +38,10 @@ This document will just outline the basic usage of the tool.
 
 ### Installation
 
-Install Python 3.8, 3.9, 3.10 or 3.11. Then run
+Install Python 3.9 - 3.14 Then run
 
 ```bash
-python3 -m pip install opshin
+python -m pip install opshin
 ```
 
 ### Writing a Smart Contract
