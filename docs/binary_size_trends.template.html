@@ -504,7 +504,7 @@
                                 }
                             });
 
-                            return contractCount > 0 ? totalSize : null;
+                            return contractCount > 0 ? totalSize/2 : null;
                         });
 
                         datasets.push({
@@ -527,7 +527,7 @@
                             if (sizes && typeof sizes === 'object' && sizes.size) {
                                 sizes = sizes.size;
                             }
-                            return sizes || null;
+                            return sizes/2 || null;
                         });
 
                         datasets.push({
@@ -654,7 +654,7 @@
 
                     if (currentSize) {
                         stats.push({
-                            value: this.formatBytes(currentSize),
+                            value: this.formatBytes(currentSize/2),
                             label: `Current Size (${optLevel})`
                         });
 
@@ -666,7 +666,7 @@
                                 historicalSize = historicalSize.size;
                             }
                             if (historicalSize) {
-                                const change = ((currentSize - historicalSize) / historicalSize) * 100;
+                                const change = (((currentSize - historicalSize) / historicalSize) * 100)/2;
                                 stats.push({
                                     value: `${change > 0 ? '+' : ''}${change.toFixed(1)}%`,
                                     label: 'Change Since First'
@@ -691,7 +691,7 @@
 
                     if (totalSize > 0) {
                         stats.push({
-                            value: this.formatBytes(totalSize),
+                            value: this.formatBytes(totalSize/2),
                             label: `Total Size (${optLevel})`
                         });
                     }
