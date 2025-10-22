@@ -721,6 +721,8 @@ class TxInfo(PlutusData):
     that invoked the script
     """
 
+    CONSTR_ID = 0
+
     # The input UTXOs of the transaction.
     inputs: List[TxInInfo]
     # The reference UTXOs of the transaction.
@@ -728,10 +730,10 @@ class TxInfo(PlutusData):
     # The output UTXOs created by the transaction.
     outputs: List[TxOut]
     # Transaction fee to be payed for the transaction.
-    fee: Value
+    fee: Lovelace
     # The value minted in the transaction.
     mint: Value
-    certificates: List[DCert]
+    certificates: List[Certificate]
     # Withdrawals from specific stake keys
     # NOTE: Withdrawals are ordered by ascending Credential. Yet, note that `Script` credentials are treated as **lower values** than `VerificationKey` credentials.
     withdrawals: Dict[StakingCredential, int]
@@ -743,7 +745,7 @@ class TxInfo(PlutusData):
     # NOTE: Redeemers are ordered by ascending ScriptPurpose.
     redeemers: Dict[ScriptPurpose, Redeemer]
     # All datums present in any inputs
-    data: Dict[DatumHash, Datum]
+    datums: Dict[DatumHash, Datum]
     # The ID of the transaction.
     id: TxId
     # metadata for governance actions
