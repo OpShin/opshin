@@ -45,21 +45,21 @@ class CastImpl(PolymorphicFunction):
             len(args) == 2
         ), f"'cast' takes exactly 2 arguments (type and value), but {len(args)} were given"
         
-        target_type = args[0]  # The type we're casting TO
-        value_type = args[1]   # The type of the value being cast
+        target_type = args[0]  # The type we're casting TO (a ClassType)
+        value_type = args[1]   # The type of the value being cast (an InstanceType)
         
-        # Both must be instance types
-        assert isinstance(target_type, InstanceType), "Target type must be an instance type"
+        # target_type is a ClassType (like IntegerType), value_type is an InstanceType
         assert isinstance(value_type, InstanceType), "Can only cast instance types"
         
         # Check type compatibility (X <= actual_type or actual_type <= X)
         # This is the same check as in AnnAssign (typed assignments)
+        target_instance = InstanceType(target_type)
         assert (
-            target_type >= value_type or value_type >= target_type
-        ), f"Cannot cast between unrelated types: cannot cast {value_type.python_type()} to {target_type.python_type()}"
+            target_instance >= value_type or value_type >= target_instance
+        ), f"Cannot cast between unrelated types: cannot cast {value_type.python_type()} to {target_instance.python_type()}"
         
-        # Return a function that takes the value and returns the target type
-        return FunctionType([value_type], target_type)
+        # Return a function type with both arguments, but returning the target type as InstanceType
+        return FunctionType(args, target_instance)
 
     def impl_from_args(self, args: typing.List[Type]) -> plt.AST:
         # cast is an identity function at runtime - just returns the value unchanged
