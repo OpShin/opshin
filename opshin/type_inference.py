@@ -1293,6 +1293,22 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             ), f"Could not match the keywords {[keyword.arg for keyword in keywords]} to any argument"
             tc.args = args
             tc.keywords = []
+        # Special handling for cast - first argument is a type annotation
+        elif isinstance(node.func, Name) and node.func.orig_id == "cast":
+            assert len(node.args) == 2, f"cast() takes exactly 2 arguments ({len(node.args)} given)"
+            assert not node.keywords, "cast() does not accept keyword arguments"
+            
+            # Create a pseudo-node for the type argument
+            # We visit it as a type annotation, not as an expression
+            target_type = self.type_from_annotation(node.args[0])
+            type_node = copy(node.args[0])
+            type_node.typ = target_type
+            
+            # Visit the value normally
+            value_node = self.visit(node.args[1])
+            
+            # Set args to [type, value] so the polymorphic function can process them
+            tc.args = [type_node, value_node]
         else:
             tc.args = [self.visit(a) for a in node.args]
 

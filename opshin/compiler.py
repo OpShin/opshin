@@ -12,6 +12,7 @@ from .bridge import to_uplc_builtin
 from .optimize.optimize_remove_trace import OptimizeRemoveTrace
 from .prelude import Nothing
 from .rewrite.rewrite_import_bls12_381 import RewriteImportBLS12381
+from .rewrite.rewrite_import_cast import RewriteImportCast
 from .type_impls import (
     InstanceType,
     UnionType,
@@ -480,6 +481,13 @@ class PlutoCompiler(CompilingNodeTransformer):
                 hasattr(node.func, "orig_id")
                 and node.func.orig_id == "isinstance"
                 and i == 1
+            ):
+                continue
+            # For cast, skip the first argument (the type annotation)
+            if (
+                hasattr(node.func, "orig_id")
+                and node.func.orig_id == "cast"
+                and i == 0
             ):
                 continue
             assert isinstance(t, InstanceType)
@@ -1161,6 +1169,7 @@ def compile(
         RewriteTupleAssign(),
         RewriteImportBLS12381(),
         RewriteImportIntegrityCheck(),
+        RewriteImportCast(),
         RewriteImportPlutusData(),
         RewriteImportHashlib(),
         RewriteImportTyping(),
