@@ -8,7 +8,7 @@ Checks that there was an import of dataclass if there are any class definitions
 """
 
 
-ALLOWED_TYPING_IMPORTS = {"Dict", "List", "Union", "Self"}
+ALLOWED_TYPING_IMPORTS = {"Dict", "List", "Union", "Self", "cast"}
 
 
 class RewriteImportTyping(CompilingNodeTransformer):

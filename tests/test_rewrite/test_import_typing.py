@@ -86,3 +86,53 @@ def validator(x: Dict[int, int], y: List[bytes]) -> None:
     assert isinstance(x[0], int)
         """
     eval_uplc(source_code, {1: 1, 2: 0, 0: 1}, [b"hi"])
+
+
+def test_error_message_cast_no_import():
+    source_code = """
+def validator(x: int) -> int:
+    return cast(int, x)
+        """
+    with pytest.raises(CompilerError, match="not imported") as e:
+        builder._compile(source_code)
+
+
+def test_cast_int_to_int():
+    source_code = """
+from typing import cast
+def validator(x: int) -> int:
+    return cast(int, x)
+        """
+    assert eval_uplc_value(source_code, 42) == 42
+
+
+def test_cast_anything_to_int():
+    source_code = """
+from typing import cast
+from pycardano import Datum as Anything
+def validator(x: Anything) -> int:
+    y = cast(int, x)
+    return y + 1
+        """
+    assert eval_uplc_value(source_code, 41) == 42
+
+
+def test_cast_int_to_anything():
+    source_code = """
+from typing import cast
+from pycardano import Datum as Anything
+def validator(x: int) -> Anything:
+    return cast(Anything, x)
+        """
+    assert eval_uplc_value(source_code, 42) == 42
+
+
+def test_cast_int_to_str_fails():
+    # This should not compile - int and str are unrelated types
+    source_code = """
+from typing import cast
+def validator(x: int) -> str:
+    return cast(str, x)
+        """
+    with pytest.raises(CompilerError, match="Cannot cast") as e:
+        builder._compile(source_code)

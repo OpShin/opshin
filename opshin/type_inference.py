@@ -1242,6 +1242,31 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
 
     def visit_Call(self, node: Call) -> TypedCall:
         tc = copy(node)
+        
+        # Handle cast() specially - first arg is a type annotation, not an expression
+        if isinstance(node.func, Name) and node.func.orig_id == "cast":
+            assert len(node.args) == 2, f"cast() takes exactly 2 arguments ({len(node.args)} given)"
+            assert not node.keywords, "cast() does not accept keyword arguments"
+            
+            # Parse first argument as type annotation
+            target_type = self.type_from_annotation(node.args[0])
+            
+            # Visit second argument normally (the value to cast)
+            tc.args = [self.visit(node.args[1])]
+            tc.func = self.visit(node.func)
+            
+            # Check type compatibility (X <= actual_type or actual_type <= X)
+            actual_type = tc.args[0].typ
+            target_instance_type = InstanceType(target_type)
+            
+            assert (
+                target_instance_type >= actual_type or actual_type >= target_instance_type
+            ), f"Cannot cast between unrelated types: cannot cast {actual_type.python_type()} to {target_instance_type.python_type()}"
+            
+            # Return the target type
+            tc.typ = target_instance_type
+            return tc
+        
         if node.keywords:
             assert (
                 node.func.id in self.FUNCTION_ARGUMENT_REGISTRY

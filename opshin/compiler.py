@@ -450,6 +450,11 @@ class PlutoCompiler(CompilingNodeTransformer):
         return lambda x: plt.Apply(OLambda(["0"], x), self.visit(node.value))
 
     def visit_Call(self, node: TypedCall) -> plt.AST:
+        # Handle cast() - it's an identity function at runtime
+        if hasattr(node.func, "orig_id") and node.func.orig_id == "cast":
+            # cast(Type, value) just returns value
+            return self.visit(node.args[0])
+        
         # compiled_args = " ".join(f"({self.visit(a)} {STATEMONAD})" for a in node.args)
         # return rf"(\{STATEMONAD} -> ({self.visit(node.func)} {compiled_args})"
         # TODO function is actually not of type polymorphic function type here anymore
