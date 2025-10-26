@@ -294,6 +294,8 @@ def to_plutus_schema(cls: typing.Type[Datum]) -> dict:
     Returns:
         dict: a dict representing the schema of this class.
     """
+    if cls == Datum:
+        return {}
     if hasattr(cls, "__origin__") and cls.__origin__ is list:
         return {
             "dataType": "list",
