@@ -76,7 +76,7 @@ class PlutusContract:
             {
                 "type": "PlutusScriptV3",
                 "description": self.description,
-                "cborHex": self.cbor_hex,
+                "cborHex": cbor2.dumps(bytes.fromhex(self.cbor_hex)).hex(),
             },
             indent=2,
         )
