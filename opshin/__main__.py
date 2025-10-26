@@ -22,6 +22,7 @@ import pycardano
 import uplc
 import uplc.ast
 import uplc.flat_encoder
+from pycardano import Datum
 from uplc.ast import Program
 from uplc.cost_model import PlutusVersion
 
@@ -418,8 +419,9 @@ Note that opshin errors may be overly restrictive as they aim to prevent code wi
         built_code = builder._build(code)
         script_arts = PlutusContract(
             built_code,
-            datum_type=onchain_params[0] if len(onchain_params) == 3 else None,
-            redeemer_type=onchain_params[1 if len(onchain_params) == 3 else 0],
+            # TODO this actually does not work anymore
+            datum_type=Datum,
+            redeemer_type=Datum,
             parameter_types=param_types,
             purpose=(Purpose.any,),
             title=pathlib.Path(input_file).stem,
