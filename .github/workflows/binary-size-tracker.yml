@@ -104,7 +104,7 @@ jobs:
         cat size_report.txt >> $GITHUB_STEP_SUMMARY
 
     - name: Upload size report as artifact
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v5
       with:
         name: binary-size-report
         path: |
