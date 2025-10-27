@@ -420,8 +420,8 @@ Note that opshin errors may be overly restrictive as they aim to prevent code wi
         script_arts = PlutusContract(
             built_code,
             # TODO this actually does not work anymore
-            datum_type=Datum,
-            redeemer_type=Datum,
+            datum_type=None,
+            redeemer_type=None,
             parameter_types=param_types,
             purpose=(Purpose.any,),
             title=pathlib.Path(input_file).stem,
