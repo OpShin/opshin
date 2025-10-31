@@ -335,21 +335,15 @@ def SafeApply(term: plt.AST, *vars: typing.List[plt.AST]) -> plt.Apply:
 
 
 def get_class_annotations(cls: type) -> typing.Dict[str, type]:
-    if sys.version_info[0] <= 2 or (
-        sys.version_info[0] <= 3 and sys.version_info[1] <= 9
-    ):
+    try:
+        ann = inspect.get_annotations(cls)
+    except AttributeError:
         # in python 3.9 use __dict__
         ann = cls.__dict__.get("__annotations__", {})
-    else:
-        # in python3.10 and later use inspect.getannotations()
-        ann = inspect.get_annotations(cls)
     return ann
 
 
 def set_class_annotations(cls: type, field_name: str, annotation: type) -> None:
-    if sys.version_info[0] <= 2 or (
-        sys.version_info[0] <= 3 and sys.version_info[1] <= 9
-    ):
-        cls.__dict__.get("__annotations__", {})[field_name] = annotation
-    else:
-        cls.__annotations__[field_name] = annotation
+    if getattr(cls, "__annotations__", None) is None:
+        setattr(cls, "__annotations__", {})
+    cls.__annotations__[field_name] = annotation
