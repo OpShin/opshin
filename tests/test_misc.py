@@ -19,7 +19,14 @@ from parameterized import parameterized
 from uplc import ast as uplc
 
 from . import PLUTUS_VM_PROFILE
-from opshin import prelude, builder, Purpose, PlutusContract, CompilerError
+from opshin import (
+    prelude,
+    builder,
+    Purpose,
+    PlutusContract,
+    CompilerError,
+    get_class_annotations,
+)
 from .utils import (
     eval_uplc_value,
     Unit,
@@ -1951,27 +1958,27 @@ def validator({param_string}) -> bool:
         assert loaded.datum_type[1].__name__ == artifacts.datum_type[1].__name__
         assert loaded.datum_type[0] == artifacts.datum_type[0]
         assert loaded.datum_type[1].CONSTR_ID == artifacts.datum_type[1].CONSTR_ID
-        assert len(loaded.datum_type[1].__annotations__) == len(
-            prelude.StakingHash.__annotations__
-        )
-        assert list(loaded.datum_type[1].__annotations__.keys()) == list(
-            prelude.StakingHash.__annotations__.keys()
+        datum_type_annotations = get_class_annotations(loaded.datum_type[1])
+        staking_hash_annotations = get_class_annotations(prelude.StakingHash)
+        assert len(datum_type_annotations) == len(staking_hash_annotations)
+        assert list(datum_type_annotations.keys()) == list(
+            datum_type_annotations.keys()
         )
         assert (
             loaded.datum_type[1](
-                loaded.datum_type[1].__annotations__["value"].__args__[0](b"123")
+                datum_type_annotations["value"].__args__[0](b"123")
             ).to_cbor()
             == prelude.StakingHash(prelude.PubKeyCredential(b"123")).to_cbor()
         )
 
+        redeemer_type_annotations = get_class_annotations(loaded.redeemer_type[1])
+        staking_ptr_annotations = get_class_annotations(prelude.StakingPtr)
         assert loaded.redeemer_type[1].__name__ == artifacts.redeemer_type[1].__name__
         assert loaded.redeemer_type[0] == artifacts.redeemer_type[0]
         assert loaded.redeemer_type[1].CONSTR_ID == artifacts.redeemer_type[1].CONSTR_ID
-        assert len(loaded.redeemer_type[1].__annotations__) == len(
-            prelude.StakingPtr.__annotations__
-        )
-        assert list(loaded.redeemer_type[1].__annotations__.keys()) == list(
-            prelude.StakingPtr.__annotations__.keys()
+        assert len(redeemer_type_annotations) == len(staking_ptr_annotations)
+        assert list(redeemer_type_annotations.keys()) == list(
+            staking_ptr_annotations.keys()
         )
         assert (
             loaded.redeemer_type[1](1, 2, 3).to_cbor()

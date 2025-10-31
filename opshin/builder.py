@@ -19,7 +19,7 @@ import cbor2
 import pycardano
 from pluthon import compile as plt_compile
 
-from .util import datum_to_cbor
+from .util import datum_to_cbor, get_class_annotations, set_class_annotations
 from .compiler_config import DEFAULT_CONFIG
 
 
@@ -328,7 +328,7 @@ def to_plutus_schema(cls: typing.Type[Datum]) -> dict:
         }
     elif issubclass(cls, PlutusData):
         fields = []
-        for field in cls.__annotations__.items():
+        for field in get_class_annotations(cls).items():
             field_name, field_value = field
             field_schema = to_plutus_schema(field_value)
             field_schema["title"] = field_name
@@ -391,7 +391,7 @@ def from_plutus_schema(schema: dict) -> typing.Type[pycardano.Datum]:
             fields["CONSTR_ID"] = schema["index"]
             cls = type(schema["title"], (pycardano.PlutusData,), fields)
             for field in schema["fields"]:
-                cls.__annotations__[field["title"]] = from_plutus_schema(field)
+                set_class_annotations(cls, field["title"], from_plutus_schema(field))
             cls = dataclasses.dataclass(cls)
             return cls
     raise ValueError(f"Cannot read schema (not supported yet) {schema}")
