@@ -2,6 +2,7 @@ import copy
 import dataclasses
 import enum
 import functools
+import inspect
 import json
 import typing
 from ast import Module
@@ -327,11 +328,10 @@ def to_plutus_schema(cls: typing.Type[Datum]) -> dict:
         }
     elif issubclass(cls, PlutusData):
         fields = []
-        for field_value in cls.__dataclass_fields__.values():
-            if field_value.name == "CONSTR_ID":
-                continue
-            field_schema = to_plutus_schema(field_value.type)
-            field_schema["title"] = field_value.name
+        for field in cls.__annotations__.items():
+            field_name, field_value = field
+            field_schema = to_plutus_schema(field_value)
+            field_schema["title"] = field_name
             fields.append(field_schema)
         return {
             "dataType": "constructor",
@@ -353,7 +353,8 @@ def from_plutus_schema(schema: dict) -> typing.Type[pycardano.Datum]:
     """
     Convert from a dictionary representing a json schema according to CIP 57 Plutus Blueprint
     """
-    if schema == {}:
+    if schema == {} or set(schema.keys()) == {"title"}:
+        # CIP57 allows eliding type metadata for unconstrained Datum fields
         return pycardano.Datum
     if "anyOf" in schema:
         if len(schema["anyOf"]) == 0:
@@ -387,12 +388,12 @@ def from_plutus_schema(schema: dict) -> typing.Type[pycardano.Datum]:
             return typing.Dict[key_t, value_t]
         elif typ == "constructor":
             fields = {}
-            for field in schema["fields"]:
-                fields[field["title"]] = from_plutus_schema(field)
             fields["CONSTR_ID"] = schema["index"]
-            return dataclasses.dataclass(
-                type(schema["title"], (pycardano.PlutusData,), fields)
-            )
+            cls = type(schema["title"], (pycardano.PlutusData,), fields)
+            for field in schema["fields"]:
+                cls.__annotations__[field["title"]] = from_plutus_schema(field)
+            cls = dataclasses.dataclass(cls)
+            return cls
     raise ValueError(f"Cannot read schema (not supported yet) {schema}")
 
 

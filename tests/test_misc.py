@@ -1932,8 +1932,8 @@ def validator({param_string}) -> bool:
         contract = builder.build(input_file, config=DEFAULT_TEST_CONFIG)
         artifacts = PlutusContract(
             contract,
-            datum_type=("datum", prelude.Nothing),
-            redeemer_type=("redeemer", prelude.ScriptContext),
+            datum_type=("datum", prelude.StakingHash),
+            redeemer_type=("redeemer", prelude.StakingPtr),
             parameter_types=[
                 ("token_policy_id", bytes),
                 ("token_name", bytes),
@@ -1947,12 +1947,37 @@ def validator({param_string}) -> bool:
         artifacts.dump(target_dir.name)
         loaded = builder.load(target_dir.name)
         assert len(loaded.parameter_types) == len(artifacts.parameter_types)
+
         assert loaded.datum_type[1].__name__ == artifacts.datum_type[1].__name__
         assert loaded.datum_type[0] == artifacts.datum_type[0]
         assert loaded.datum_type[1].CONSTR_ID == artifacts.datum_type[1].CONSTR_ID
+        assert len(loaded.datum_type[1].__annotations__) == len(
+            prelude.StakingHash.__annotations__
+        )
+        assert list(loaded.datum_type[1].__annotations__.keys()) == list(
+            prelude.StakingHash.__annotations__.keys()
+        )
+        assert (
+            loaded.datum_type[1](
+                loaded.datum_type[1].__annotations__["value"].__args__[0](b"123")
+            ).to_cbor()
+            == prelude.StakingHash(prelude.PubKeyCredential(b"123")).to_cbor()
+        )
+
         assert loaded.redeemer_type[1].__name__ == artifacts.redeemer_type[1].__name__
         assert loaded.redeemer_type[0] == artifacts.redeemer_type[0]
         assert loaded.redeemer_type[1].CONSTR_ID == artifacts.redeemer_type[1].CONSTR_ID
+        assert len(loaded.redeemer_type[1].__annotations__) == len(
+            prelude.StakingPtr.__annotations__
+        )
+        assert list(loaded.redeemer_type[1].__annotations__.keys()) == list(
+            prelude.StakingPtr.__annotations__.keys()
+        )
+        assert (
+            loaded.redeemer_type[1](1, 2, 3).to_cbor()
+            == prelude.StakingPtr(1, 2, 3).to_cbor()
+        )
+
         assert loaded.purpose == artifacts.purpose
         assert loaded.description == artifacts.description
         assert loaded.license == artifacts.license
