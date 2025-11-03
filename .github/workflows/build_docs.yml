@@ -1,23 +1,68 @@
 name: website
 
-# build the documentation whenever there are new commits on main
+# build the documentation whenever there are new commits on dev, or when triggered manually
 on:
   push:
     branches:
       - dev
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Git reference (branch/tag/SHA) to build documentation from'
+        required: false
+        default: dev
+  repository_dispatch:
+    types: [trigger_website_build]
 
 # security: restrict permissions for CI jobs.
 permissions:
   contents: read
 
 jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      ref: ${{ steps.resolve.outputs.ref }}
+    steps:
+    - name: Resolve ref
+      id: resolve
+      shell: bash
+      env:
+        EVENT_NAME: ${{ github.event_name }}
+        INPUT_REF: ${{ github.event.inputs.ref }}
+        PAYLOAD_REF: ${{ github.event.client_payload.ref }}
+        GITHUB_SHA: ${{ github.sha }}
+      run: |
+        set -euo pipefail
+        if [[ "${EVENT_NAME}" == "push" ]]; then
+          echo "ref=${GITHUB_SHA}" >> "${GITHUB_OUTPUT}"
+        elif [[ "${EVENT_NAME}" == "workflow_dispatch" ]]; then
+          if [[ -z "${INPUT_REF}" ]]; then
+            echo "Manual runs require the ref input." >&2
+            exit 1
+          fi
+          echo "ref=${INPUT_REF}" >> "${GITHUB_OUTPUT}"
+        elif [[ "${EVENT_NAME}" == "repository_dispatch" ]]; then
+          if [[ -z "${PAYLOAD_REF}" ]]; then
+            echo "Repository dispatch events must include client_payload.ref." >&2
+            exit 1
+          fi
+          echo "ref=${PAYLOAD_REF}" >> "${GITHUB_OUTPUT}"
+        else
+          echo "Unsupported event ${EVENT_NAME}" >&2
+          exit 1
+        fi
+
   get-python-versions:
+    needs: prepare
     runs-on: ubuntu-latest
     outputs:
       primary-version: ${{ steps.get-versions.outputs.primary-version }}
     steps:
     - name: Checkout code
       uses: actions/checkout@v5
+      with:
+        ref: ${{ needs.prepare.outputs.ref }}
     
     - name: Get Python versions
       id: get-versions
@@ -25,11 +70,13 @@ jobs:
 
   # Build the documentation and upload the static HTML files as an artifact.
   build:
-    needs: get-python-versions
+    needs: [prepare, get-python-versions]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.prepare.outputs.ref }}
 
       - uses: actions/setup-python@v6
         with:
