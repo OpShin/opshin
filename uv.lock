@@ -1178,7 +1178,7 @@ wheels = [
 
 [[package]]
 name = "opshin"
-version = "0.27.0"
+version = "0.27.1"
 source = { editable = "." }
 dependencies = [
     { name = "frozenlist2" },
