@@ -30,7 +30,7 @@ jobs:
       maximum-version: ${{ steps.get-versions.outputs.maximum-version }}
     steps:
     - name: Checkout code
-      uses: actions/checkout@v5
+      uses: actions/checkout@v6
     
     - name: Get Python versions
       id: get-versions
@@ -41,7 +41,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout PR code
-      uses: actions/checkout@v5
+      uses: actions/checkout@v6
 
     - name: Set up Python ${{ needs.get-python-versions.outputs.maximum-version }}
       uses: actions/setup-python@v6
