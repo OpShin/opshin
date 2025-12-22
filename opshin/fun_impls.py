@@ -159,8 +159,11 @@ class IsinstanceImpl(PolymorphicFunction):
             )
         elif isinstance(target, RecordType):
             # default: all fields in union are records, so we can safely access CONSTR_ID
+            attr_source: ClassType = (
+                target if isinstance(instance.typ, AnyType) else instance.typ
+            )
             node = plt.EqualsInteger(
-                plt.Apply(instance.typ.attribute("CONSTR_ID"), OVar("x")),
+                plt.Apply(attr_source.attribute("CONSTR_ID"), OVar("x")),
                 plt.Integer(target.record.constructor),
             )
 
@@ -202,7 +205,7 @@ class IsinstanceImpl(PolymorphicFunction):
             )
         else:
             raise NotImplementedError(
-                f"Only isinstance for byte, int, Plutus Dataclass types are supported"
+                f"Only isinstance for byte, int, Plutus Dataclass, List and Dict types are supported"
             )
 
 

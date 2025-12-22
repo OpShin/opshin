@@ -826,6 +826,58 @@ def validator(x: Anything) -> int:
         ret = eval_uplc_value(source_code, 1)
         self.assertEqual(ret, 2)
 
+    def test_assert_isinstance_anything_bytes(self):
+        source_code = """
+def validator(x: Anything) -> int:
+    y = x
+    assert isinstance(y, bytes), "Wrong type"
+    return len(y)
+"""
+        ret = eval_uplc_value(source_code, b"abc")
+        self.assertEqual(ret, 3)
+
+    def test_assert_isinstance_anything_list(self):
+        source_code = """
+from typing import List
+
+def validator(x: Anything) -> int:
+    y = x
+    assert isinstance(y, List), "Wrong type"
+    return len(y)
+"""
+        ret = eval_uplc_value(source_code, [1, 2, 3])
+        self.assertEqual(ret, 3)
+
+    def test_assert_isinstance_anything_dict(self):
+        source_code = """
+from typing import Dict
+
+def validator(x: Anything) -> int:
+    y = x
+    assert isinstance(y, Dict), "Wrong type"
+    return len(y)
+"""
+        ret = eval_uplc_value(source_code, {1: 2, 3: 4})
+        self.assertEqual(ret, 2)
+
+    def test_assert_isinstance_anything_user_defined_type(self):
+        source_code = """
+from opshin.prelude import *
+
+@dataclass()
+class Foo(PlutusData):
+    CONSTR_ID = 0
+    value: int
+
+def validator(x: Anything) -> int:
+    y = x
+    assert isinstance(y, Foo), "Wrong type"
+    return y.value + 2
+"""
+        datum = uplc.PlutusConstr(0, [uplc.PlutusInteger(5)])
+        ret = eval_uplc_value(source_code, datum)
+        self.assertEqual(ret, 7)
+
     def test_typecast_int_anything(self):
         # this should compile, it happens implicitly anyways when calling a function with Any parameters
         source_code = """
