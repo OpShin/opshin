@@ -816,6 +816,16 @@ def validator(x: Anything) -> int:
         ret = eval_uplc_value(source_code, 0)
         self.assertEqual(ret, 0)
 
+    def test_assert_isinstance_anything_int(self):
+        source_code = """
+def validator(x: Anything) -> int:
+    y = x
+    assert isinstance(y, int), "Wrong type"
+    return y + 1
+"""
+        ret = eval_uplc_value(source_code, 1)
+        self.assertEqual(ret, 2)
+
     def test_typecast_int_anything(self):
         # this should compile, it happens implicitly anyways when calling a function with Any parameters
         source_code = """

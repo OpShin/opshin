@@ -295,6 +295,9 @@ class TypeCheckVisitor(TypedNodeVisitor):
             return self.visit(node.args[0])
         if not (isinstance(node.func, Name) and node.func.orig_id == "isinstance"):
             return ({}, {})
+        allow_anything = self.allow_isinstance_anything or getattr(
+            node, "allow_isinstance_anything", False
+        )
         # special case for Union
         if not isinstance(node.args[0], Name):
             OPSHIN_LOGGER.warning(
@@ -318,7 +321,7 @@ class TypeCheckVisitor(TypedNodeVisitor):
             union_without_target_class = union_types(
                 *(x for x in inst_class.typ.typs if x != target_class)
             )
-        elif isinstance(inst_class.typ, AnyType) and self.allow_isinstance_anything:
+        elif isinstance(inst_class.typ, AnyType) and allow_anything:
             union_without_target_class = AnyType()
         else:
             assert (
@@ -399,6 +402,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
 
         # A stack of dictionaries for storing scoped knowledge of variable types
         self.scopes = [INITIAL_SCOPE]
+        self._assert_depth = 0
 
     # Obtain the type of a variable name in the current scope
     def variable_type(self, name: str) -> Type:
@@ -446,6 +450,9 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                 f"Type '{self.scopes[-1][name].python_type()}' of variable '{map_to_orig_name(name)}' in local scope does not match inferred type '{typ.python_type()}'"
             )
         self.scopes[-1][name] = typ
+
+    def _allows_isinstance_anything_here(self) -> bool:
+        return self.allow_isinstance_anything or self._assert_depth > 0
 
     def implement_typechecks(self, typchecks: TypeMap):
         prevtyps = {}
@@ -730,8 +737,12 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                     stmt.test
                 )
                 # for the time after this assert, the variable has the specialized type
-                prevtyps.update(self.implement_typechecks(typchecks))
-        self.implement_typechecks(prevtyps)
+                wrapped = self.implement_typechecks(typchecks)
+                prevtyps.update(wrapped)
+                self.wrapped.extend(wrapped.keys())
+        if prevtyps:
+            self.wrapped = [x for x in self.wrapped if x not in prevtyps.keys()]
+            self.implement_typechecks(prevtyps)
         return stmts
 
     def visit_ClassDef(self, node: ClassDef) -> TypedClassDef:
@@ -1273,33 +1284,32 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
 
         # might be isinstance
         # Subscripts are not allowed in isinstance calls
-        if (
-            isinstance(tc.func, Name)
-            and tc.func.orig_id == "isinstance"
-            and isinstance(tc.args[1], Subscript)
-        ):
+        is_isinstance_call = (
+            isinstance(tc.func, Name) and tc.func.orig_id == "isinstance"
+        )
+        if is_isinstance_call and isinstance(tc.args[1], Subscript):
             raise TypeError(
                 "Subscripted generics cannot be used with class and instance checks"
             )
 
+        if is_isinstance_call:
+            tc.allow_isinstance_anything = self._allows_isinstance_anything_here()
+
         # Need to handle the presence of PlutusData classes
-        if (
-            isinstance(tc.func, Name)
-            and tc.func.orig_id == "isinstance"
-            and not isinstance(
-                tc.args[1].typ, (ByteStringType, IntegerType, ListType, DictType)
-            )
+        if is_isinstance_call and not isinstance(
+            tc.args[1].typ, (ByteStringType, IntegerType, ListType, DictType)
         ):
+            allow_anything_here = tc.allow_isinstance_anything
             if (
                 isinstance(tc.args[0].typ, InstanceType)
                 and isinstance(tc.args[0].typ.typ, AnyType)
-                and not self.allow_isinstance_anything
+                and not allow_anything_here
             ):
                 raise AssertionError(
                     "OpShin does not permit checking the instance of raw Anything/Datum objects as this only checks the equality of the constructor id and nothing more. "
                     "If you are certain of what you are doing, please use the flag '--allow-isinstance-anything'."
                 )
-            tc.typechecks = TypeCheckVisitor(self.allow_isinstance_anything).visit(tc)
+            tc.typechecks = TypeCheckVisitor(allow_anything_here).visit(tc)
 
         # Check for expanded Union funcs
         if isinstance(node.func, ast.Name):
@@ -1394,7 +1404,11 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
 
     def visit_Assert(self, node: Assert) -> TypedAssert:
         ta = copy(node)
-        ta.test = self.visit(node.test)
+        self._assert_depth += 1
+        try:
+            ta.test = self.visit(node.test)
+        finally:
+            self._assert_depth -= 1
         assert (
             ta.test.typ == BoolInstanceType
         ), "Assertions must result in a boolean type"
