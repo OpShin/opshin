@@ -295,9 +295,6 @@ class TypeCheckVisitor(TypedNodeVisitor):
             return self.visit(node.args[0])
         if not (isinstance(node.func, Name) and node.func.orig_id == "isinstance"):
             return ({}, {})
-        allow_anything = self.allow_isinstance_anything or getattr(
-            node, "allow_isinstance_anything", False
-        )
         # special case for Union
         if not isinstance(node.args[0], Name):
             OPSHIN_LOGGER.warning(
@@ -321,7 +318,7 @@ class TypeCheckVisitor(TypedNodeVisitor):
             union_without_target_class = union_types(
                 *(x for x in inst_class.typ.typs if x != target_class)
             )
-        elif isinstance(inst_class.typ, AnyType) and allow_anything:
+        elif isinstance(inst_class.typ, AnyType) and self.allow_isinstance_anything:
             union_without_target_class = AnyType()
         else:
             assert (
@@ -449,9 +446,6 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                 f"Type '{self.scopes[-1][name].python_type()}' of variable '{map_to_orig_name(name)}' in local scope does not match inferred type '{typ.python_type()}'"
             )
         self.scopes[-1][name] = typ
-
-    def _allows_isinstance_anything_here(self) -> bool:
-        return self.allow_isinstance_anything
 
     def implement_typechecks(self, typchecks: TypeMap):
         prevtyps = {}
@@ -1291,24 +1285,20 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                 "Subscripted generics cannot be used with class and instance checks"
             )
 
-        if is_isinstance_call:
-            tc.allow_isinstance_anything = self._allows_isinstance_anything_here()
-
         # Need to handle the presence of PlutusData classes
         if is_isinstance_call and not isinstance(
             tc.args[1].typ, (ByteStringType, IntegerType, ListType, DictType)
         ):
-            allow_anything_here = tc.allow_isinstance_anything
             if (
                 isinstance(tc.args[0].typ, InstanceType)
                 and isinstance(tc.args[0].typ.typ, AnyType)
-                and not allow_anything_here
+                and not self.allow_isinstance_anything
             ):
                 raise AssertionError(
                     "OpShin does not permit checking the instance of raw Anything/Datum objects as this only checks the equality of the constructor id and nothing more. "
                     "If you are certain of what you are doing, please use the flag '--allow-isinstance-anything'."
                 )
-            tc.typechecks = TypeCheckVisitor(allow_anything_here).visit(tc)
+            tc.typechecks = TypeCheckVisitor(self.allow_isinstance_anything).visit(tc)
 
         # Check for expanded Union funcs
         if isinstance(node.func, ast.Name):
