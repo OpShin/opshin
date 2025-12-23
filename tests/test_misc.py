@@ -63,6 +63,8 @@ def fib(n):
 
 some_output = st.sampled_from([SomeOutputDatum(b"0"), SomeOutputDatumHash(b"1")])
 
+ASSERT_ANYTHING_CONFIG = DEFAULT_TEST_CONFIG.update(allow_isinstance_anything=True)
+
 
 def _assert_isinstance_anything_int_program():
     return """
@@ -70,6 +72,16 @@ def validator(x: Anything) -> int:
     y = x
     assert isinstance(y, int), "Wrong type"
     return y + 1
+"""
+
+
+def _assert_isinstance_anything_int_program_cast_if():
+    return """
+def validator(x: Anything) -> int:
+    y = x
+    if isinstance(y, int):
+        return y + 1
+    return 0
 """
 
 
@@ -874,54 +886,78 @@ def validator(x: Anything) -> int:
 
     def test_assert_isinstance_anything_int(self):
         source_code = _assert_isinstance_anything_int_program()
-        ret = eval_uplc_value(source_code, 1)
+        ret = eval_uplc_value(source_code, 1, config=ASSERT_ANYTHING_CONFIG)
         self.assertEqual(ret, 2)
+
+    def test_assert_isinstance_anything_int_cast_if(self):
+        source_code = _assert_isinstance_anything_int_program_cast_if()
+        ret = eval_uplc_value(source_code, 1, config=ASSERT_ANYTHING_CONFIG)
+        self.assertEqual(ret, 2)
+
+    def test_assert_isinstance_anything_int_cast_if_wrong_config(self):
+        source_code = _assert_isinstance_anything_int_program_cast_if()
+        with self.assertRaises(CompilerError):
+            ret = eval_uplc_value(source_code, 1, config=DEFAULT_TEST_CONFIG)
+
+    def test_assert_isinstance_anything_int_wrong_config(self):
+        source_code = _assert_isinstance_anything_int_program()
+        with self.assertRaises(CompilerError):
+            ret = eval_uplc_value(source_code, 1, config=DEFAULT_TEST_CONFIG)
 
     def test_assert_isinstance_anything_int_illegal(self):
         source_code = _assert_isinstance_anything_int_program()
         with self.assertRaises(RuntimeError):
-            eval_uplc_value(source_code, b"\x01")
+            eval_uplc_value(source_code, b"\x01", config=ASSERT_ANYTHING_CONFIG)
 
     def test_assert_isinstance_anything_bytes(self):
         source_code = _assert_isinstance_anything_bytes_program()
-        ret = eval_uplc_value(source_code, b"abc")
+        ret = eval_uplc_value(source_code, b"abc", config=ASSERT_ANYTHING_CONFIG)
         self.assertEqual(ret, 3)
 
     def test_assert_isinstance_anything_bytes_illegal(self):
         source_code = _assert_isinstance_anything_bytes_program()
         with self.assertRaises(RuntimeError):
-            eval_uplc_value(source_code, 1)
+            eval_uplc_value(source_code, 1, config=ASSERT_ANYTHING_CONFIG)
 
     def test_assert_isinstance_anything_list(self):
         source_code = _assert_isinstance_anything_list_program()
-        ret = eval_uplc_value(source_code, [1, 2, 3])
-        self.assertEqual(ret, 3)
+        ret = eval_uplc_value(source_code, [1, 2, 3], config=ASSERT_ANYTHING_CONFIG)
+        self.assertEqual(
+            ret,
+            3,
+        )
 
     def test_assert_isinstance_anything_list_illegal(self):
         source_code = _assert_isinstance_anything_list_program()
         with self.assertRaises(RuntimeError):
-            eval_uplc_value(source_code, {1: 2})
+            eval_uplc_value(source_code, {1: 2}, config=ASSERT_ANYTHING_CONFIG)
 
     def test_assert_isinstance_anything_dict(self):
         source_code = _assert_isinstance_anything_dict_program()
-        ret = eval_uplc_value(source_code, {1: 2, 3: 4})
+        ret = eval_uplc_value(source_code, {1: 2, 3: 4}, config=ASSERT_ANYTHING_CONFIG)
         self.assertEqual(ret, 2)
 
     def test_assert_isinstance_anything_dict_illegal(self):
         source_code = _assert_isinstance_anything_dict_program()
         with self.assertRaises(RuntimeError):
-            eval_uplc_value(source_code, [1, 2])
+            eval_uplc_value(source_code, [1, 2], config=ASSERT_ANYTHING_CONFIG)
 
     def test_assert_isinstance_anything_user_defined_type(self):
         source_code = _assert_isinstance_anything_user_defined_program()
         datum = uplc.PlutusConstr(0, [uplc.PlutusInteger(5)])
-        ret = eval_uplc_value(source_code, datum)
+        ret = eval_uplc_value(source_code, datum, config=ASSERT_ANYTHING_CONFIG)
         self.assertEqual(ret, 7)
+
+    def test_assert_isinstance_anything_user_defined_type_wrong_config(self):
+        source_code = _assert_isinstance_anything_user_defined_program()
+        datum = uplc.PlutusConstr(0, [uplc.PlutusInteger(5)])
+        with self.assertRaises(CompilerError):
+            eval_uplc_value(source_code, datum, config=DEFAULT_TEST_CONFIG)
 
     def test_assert_isinstance_anything_user_defined_type_illegal(self):
         source_code = _assert_isinstance_anything_user_defined_program()
         with self.assertRaises(RuntimeError):
-            eval_uplc_value(source_code, 1)
+            eval_uplc_value(source_code, 1, config=ASSERT_ANYTHING_CONFIG)
 
     def test_typecast_int_anything(self):
         # this should compile, it happens implicitly anyways when calling a function with Any parameters

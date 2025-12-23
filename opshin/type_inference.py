@@ -402,7 +402,6 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
 
         # A stack of dictionaries for storing scoped knowledge of variable types
         self.scopes = [INITIAL_SCOPE]
-        self._assert_depth = 0
 
     # Obtain the type of a variable name in the current scope
     def variable_type(self, name: str) -> Type:
@@ -452,7 +451,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         self.scopes[-1][name] = typ
 
     def _allows_isinstance_anything_here(self) -> bool:
-        return self.allow_isinstance_anything or self._assert_depth > 0
+        return self.allow_isinstance_anything
 
     def implement_typechecks(self, typchecks: TypeMap):
         prevtyps = {}
@@ -1404,11 +1403,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
 
     def visit_Assert(self, node: Assert) -> TypedAssert:
         ta = copy(node)
-        self._assert_depth += 1
-        try:
-            ta.test = self.visit(node.test)
-        finally:
-            self._assert_depth -= 1
+        ta.test = self.visit(node.test)
         assert (
             ta.test.typ == BoolInstanceType
         ), "Assertions must result in a boolean type"
