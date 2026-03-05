@@ -33,7 +33,12 @@ from .type_impls import (
     OUnit,
     UnitInstanceType,
 )
-from .type_inference import map_to_orig_name, AggressiveTypeInferencer
+from .type_inference import (
+    map_to_orig_name,
+    AggressiveTypeInferencer,
+    DUNDER_MAP,
+    DUNDER_REVERSE_MAP,
+)
 from .typed_ast import *
 
 from .compiler_config import DEFAULT_CONFIG
@@ -202,6 +207,7 @@ class PlutoCompiler(CompilingNodeTransformer):
         # marked knowledge during compilation
         self.current_function_typ: typing.List[FunctionType] = []
         self._cmp_chain_counter = 0
+        self._function_typ_by_name: typing.Dict[str, FunctionType] = {}
 
     def visit_sequence(self, node_seq: typing.List[typedstmt]) -> CallAST:
         def g(s: plt.AST):
@@ -249,21 +255,65 @@ class PlutoCompiler(CompilingNodeTransformer):
         assert len(node.ops) == len(node.comparators), "Malformed chained comparison"
 
         expressions = [node.left] + node.comparators
-        op_impls = getattr(node, "op_impls", [None for _ in node.ops])
-        assert len(op_impls) == len(node.ops), "Malformed compare impl metadata"
+
+        def resolve_dunder_impl(
+            left_expr: typedexpr, op: ast.cmpop, right_expr: typedexpr
+        ) -> typing.Optional[typing.Dict[str, typing.Any]]:
+            right_typ = right_expr.typ
+
+            # `x in y` and `x not in y` dispatch to y.__contains__(x)
+            if isinstance(op, (ast.In, ast.NotIn)):
+                if isinstance(right_typ, InstanceType) and isinstance(
+                    right_typ.typ, RecordType
+                ):
+                    method_name = f"{right_typ.typ.record.name}_+___contains__"
+                    if method_name in self._function_typ_by_name:
+                        return {
+                            "method_name": method_name,
+                            "reverse": True,
+                            "negate": isinstance(op, ast.NotIn),
+                        }
+                return None
+
+            left_typ = left_expr.typ
+            if (
+                op.__class__ in DUNDER_MAP
+                and isinstance(left_typ, InstanceType)
+                and isinstance(left_typ.typ, RecordType)
+            ):
+                dunder = DUNDER_MAP[op.__class__]
+                method_name = f"{left_typ.typ.record.name}_+_{dunder}"
+                if method_name in self._function_typ_by_name:
+                    return {
+                        "method_name": method_name,
+                        "reverse": False,
+                        "negate": False,
+                    }
+
+            if (
+                op.__class__ in DUNDER_REVERSE_MAP
+                and isinstance(right_typ, InstanceType)
+                and isinstance(right_typ.typ, RecordType)
+            ):
+                dunder = DUNDER_REVERSE_MAP[op.__class__]
+                method_name = f"{right_typ.typ.record.name}_+_{dunder}"
+                if method_name in self._function_typ_by_name:
+                    return {
+                        "method_name": method_name,
+                        "reverse": True,
+                        "negate": False,
+                    }
+
+            return None
 
         def compile_dunder_call(
             impl: typing.Dict[str, typing.Any], left_term: plt.AST, right_term: plt.AST
         ) -> plt.AST:
-            func_node = impl["func"]
+            method_name = impl["method_name"]
             reverse = impl.get("reverse", False)
             negate = impl.get("negate", False)
 
-            assert isinstance(func_node.typ, InstanceType) and isinstance(
-                func_node.typ.typ, FunctionType
-            ), "Dunder impl must resolve to a function"
-
-            functyp = func_node.typ.typ
+            functyp = self._function_typ_by_name[method_name]
             bind_self = functyp.bind_self
             bound_vs = sorted(list(functyp.bound_vars.keys()))
             args = [right_term, left_term] if reverse else [left_term, right_term]
@@ -271,7 +321,7 @@ class PlutoCompiler(CompilingNodeTransformer):
             call = OLet(
                 [(f"p{i}", arg) for i, arg in enumerate(args)],
                 SafeApply(
-                    self.visit(func_node),
+                    plt.Force(plt.Var(method_name)),
                     *([plt.Var(bind_self)] if bind_self is not None else []),
                     *[plt.Var(n) for n in bound_vs],
                     *[plt.Delay(OVar(f"p{i}")) for i in range(len(args))],
@@ -280,10 +330,15 @@ class PlutoCompiler(CompilingNodeTransformer):
             return plt.Not(call) if negate else call
 
         def compile_link(idx: int, left_term: plt.AST, right_term: plt.AST) -> plt.AST:
-            impl = op_impls[idx]
-            if impl is not None:
+            left_expr = expressions[idx]
+            right_expr = expressions[idx + 1]
+            try:
+                cmp_op = left_expr.typ.cmp(node.ops[idx], right_expr.typ)
+            except NotImplementedError as e:
+                impl = resolve_dunder_impl(left_expr, node.ops[idx], right_expr)
+                if impl is None:
+                    raise e
                 return compile_dunder_call(impl, left_term, right_term)
-            cmp_op = expressions[idx].typ.cmp(node.ops[idx], expressions[idx + 1].typ)
             return plt.Apply(cmp_op, left_term, right_term)
 
         def compile_chain(idx: int, left_term: plt.AST) -> plt.AST:
@@ -307,6 +362,14 @@ class PlutoCompiler(CompilingNodeTransformer):
         return compile_chain(0, self.visit(node.left))
 
     def visit_Module(self, node: TypedModule) -> plt.AST:
+        self._function_typ_by_name = {
+            s.name: s.typ.typ
+            for s in node.body
+            if isinstance(s, ast.FunctionDef)
+            and isinstance(s.typ, InstanceType)
+            and isinstance(s.typ.typ, FunctionType)
+        }
+
         # extract actually read variables by each function
         if self.validator_function_name is not None:
             # for validators find main function

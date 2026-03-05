@@ -5,7 +5,8 @@ from collections import defaultdict
 from ordered_set import OrderedSet
 
 from ..util import CompilingNodeVisitor, CompilingNodeTransformer
-from ..type_inference import INITIAL_SCOPE
+from ..type_inference import INITIAL_SCOPE, DUNDER_MAP, DUNDER_REVERSE_MAP
+from ..type_impls import InstanceType, RecordType
 from ..typed_ast import TypedAnnAssign, TypedFunctionDef, TypedClassDef, TypedName
 
 """
@@ -38,12 +39,41 @@ class NameLoadCollector(CompilingNodeVisitor):
 
     def visit_Compare(self, node: Compare):
         self.generic_visit(node)
-        for impl in getattr(node, "op_impls", []):
-            if impl is None:
+
+        expressions = [node.left] + node.comparators
+        for op, left_expr, right_expr in zip(node.ops, expressions, expressions[1:]):
+            try:
+                left_expr.typ.cmp(op, right_expr.typ)
                 continue
-            func = impl.get("func")
-            if func is not None and hasattr(func, "id"):
-                self.loaded[func.id] += 1
+            except NotImplementedError:
+                pass
+
+            method_name = None
+            right_typ = right_expr.typ
+            if isinstance(op, (In, NotIn)):
+                if isinstance(right_typ, InstanceType) and isinstance(
+                    right_typ.typ, RecordType
+                ):
+                    method_name = f"{right_typ.typ.record.name}_+___contains__"
+            else:
+                left_typ = left_expr.typ
+                if (
+                    op.__class__ in DUNDER_MAP
+                    and isinstance(left_typ, InstanceType)
+                    and isinstance(left_typ.typ, RecordType)
+                ):
+                    dunder = DUNDER_MAP[op.__class__]
+                    method_name = f"{left_typ.typ.record.name}_+_{dunder}"
+                elif (
+                    op.__class__ in DUNDER_REVERSE_MAP
+                    and isinstance(right_typ, InstanceType)
+                    and isinstance(right_typ.typ, RecordType)
+                ):
+                    dunder = DUNDER_REVERSE_MAP[op.__class__]
+                    method_name = f"{right_typ.typ.record.name}_+_{dunder}"
+
+            if method_name is not None:
+                self.loaded[method_name] += 1
 
 
 class SafeOperationVisitor(CompilingNodeVisitor):

@@ -237,10 +237,24 @@ class Foo(PlutusData):
     def __lt__(self, other: Self) -> bool:
         return self.a < other.a
 
+def mk(v: int, label: str) -> Foo:
+    print(label)
+    return Foo(v)
+
 def validator(a: int, b: int, c: int) -> bool:
-    return Foo(a) < Foo(b) < Foo(c)
+    return mk(a, "a") < mk(b, "b") < mk(c, "c")
 """
 
-    for a, b, c in [(-1, 0, 1), (3, 2, 1), (1, 1, 2), (4, 5, 5)]:
-        ret = eval_uplc_value(source_code, a, b, c)
-        assert bool(ret) == (a < b < c)
+    # Full chain evaluates each operand exactly once.
+    res_true = eval_uplc_raw(source_code, 1, 2, 3)
+    assert bool(res_true.result.value) is True
+    assert res_true.logs.count("a") == 1
+    assert res_true.logs.count("b") == 1
+    assert res_true.logs.count("c") == 1
+
+    # Short-circuit after first failed comparison: third operand is not evaluated.
+    res_false = eval_uplc_raw(source_code, 3, 2, 1)
+    assert bool(res_false.result.value) is False
+    assert res_false.logs.count("a") == 1
+    assert res_false.logs.count("b") == 1
+    assert res_false.logs.count("c") == 0

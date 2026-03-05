@@ -532,17 +532,21 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                 return self.visit_Call(call)
         return None
 
-    def dunder_compare_impl(
+    def dunder_compare_supported(
         self, left: typedexpr, operation: ast.cmpop, right: typedexpr
-    ) -> typing.Optional[typing.Dict[str, typing.Any]]:
-        """
-        Resolve dunder dispatch metadata for a comparison link.
+    ) -> bool:
+        right_typ = right.typ
 
-        For chained comparisons we cannot rewrite to plain boolops without risking
-        duplicate evaluation of middle operands. Instead, visit_Compare stores
-        per-link dispatch metadata that the compiler can use while preserving
-        chain evaluation order.
-        """
+        # `x in y` and `x not in y` dispatch to y.__contains__(x)
+        if isinstance(operation, (ast.In, ast.NotIn)):
+            if isinstance(right_typ, InstanceType) and isinstance(
+                right_typ.typ, RecordType
+            ):
+                method_name = f"{right_typ.typ.record.name}_+___contains__"
+                if self.is_defined_in_current_scope(method_name):
+                    return True
+            return False
+
         left_typ = left.typ
         if (
             operation.__class__ in DUNDER_MAP
@@ -552,17 +556,8 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             dunder = DUNDER_MAP[operation.__class__]
             method_name = f"{left_typ.typ.record.name}_+_{dunder}"
             if self.is_defined_in_current_scope(method_name):
-                n = ast.Name(id=method_name, ctx=ast.Load())
-                n.orig_id = dunder
-                typed_func = self.visit(n)
-                typed_func.orig_id = dunder
-                return {
-                    "func": typed_func,
-                    "reverse": False,
-                    "negate": isinstance(operation, ast.NotIn),
-                }
+                return True
 
-        right_typ = right.typ
         if (
             operation.__class__ in DUNDER_REVERSE_MAP
             and isinstance(right_typ, InstanceType)
@@ -571,17 +566,9 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             dunder = DUNDER_REVERSE_MAP[operation.__class__]
             method_name = f"{right_typ.typ.record.name}_+_{dunder}"
             if self.is_defined_in_current_scope(method_name):
-                n = ast.Name(id=method_name, ctx=ast.Load())
-                n.orig_id = dunder
-                typed_func = self.visit(n)
-                typed_func.orig_id = dunder
-                return {
-                    "func": typed_func,
-                    "reverse": True,
-                    "negate": False,
-                }
+                return True
 
-        return None
+        return False
 
     def type_from_annotation(self, ann: expr):
         if isinstance(ann, Constant):
@@ -1010,32 +997,19 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         tk.value = self.visit(node.value)
         return tk
 
-    def visit_Compare(self, node: Compare) -> Union[TypedCompare, TypedCall]:
-        dunder_node = None
-        if len(node.ops) == 1 and len(node.comparators) == 1:
-            dunder_node = self.dunder_override(node)
-        if dunder_node is not None:
-            return dunder_node
-
+    def visit_Compare(self, node: Compare) -> TypedCompare:
         typed_cmp = copy(node)
         typed_cmp.left = self.visit(node.left)
         typed_cmp.comparators = [self.visit(s) for s in node.comparators]
         typed_cmp.typ = BoolInstanceType
 
-        # For chained comparisons, carry per-link dunder dispatch metadata so the
-        # compiler can preserve Python single-evaluation semantics while still
-        # supporting class dunder comparisons.
-        typed_cmp.op_impls = []
         left_expr = typed_cmp.left
         for op, right_expr in zip(typed_cmp.ops, typed_cmp.comparators):
-            op_impl = None
             try:
                 left_expr.typ.cmp(op, right_expr.typ)
             except NotImplementedError:
-                op_impl = self.dunder_compare_impl(left_expr, op, right_expr)
-                if op_impl is None:
+                if not self.dunder_compare_supported(left_expr, op, right_expr):
                     raise
-            typed_cmp.op_impls.append(op_impl)
             left_expr = right_expr
 
         return typed_cmp
