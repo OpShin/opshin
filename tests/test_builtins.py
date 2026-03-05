@@ -139,8 +139,13 @@ def validator(x: int) -> str:
                 st.integers().map(str),
                 st.text(alphabet=" \t\n\r\v\f", max_size=4),
             ),
-            # Random ASCII strings to stress rejection/acceptance parity
-            st.text(alphabet=st.characters(max_codepoint=127), max_size=24),
+            # Random Unicode-heavy strings to stress rejection behavior beyond ASCII.
+            st.text(
+                alphabet=st.characters(
+                    blacklist_categories=("Nd", "Zs", "Zl", "Zp", "Cc", "Cs")
+                ),
+                max_size=24,
+            ),
         )
     )
     @example("")
