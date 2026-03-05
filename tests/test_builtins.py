@@ -140,12 +140,7 @@ def validator(x: int) -> str:
                 st.text(alphabet=" \t\n\r\v\f", max_size=4),
             ),
             # Random Unicode-heavy strings to stress rejection behavior beyond ASCII.
-            st.text(
-                alphabet=st.characters(
-                   
-                ),
-                max_size=24,
-            ),
+            st.text(),
         )
     )
     @example("")
