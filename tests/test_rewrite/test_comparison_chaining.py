@@ -52,7 +52,34 @@ def validator(x: int) -> bool:
 """
     for x in [0, 5, 10, 15]:
         res = eval_uplc_raw(source_code, x)
-        # inspect the logs to check that foo() is only called once
-        # TODO: we skip this now because its not supported yet
-        # assert res.logs.count("hello") == 1
+        # middle expression in a comparison chain must be evaluated only once
+        assert res.logs.count("hello") == 1
         assert bool(res.result.value) == (x < 5 < 10)
+
+
+def test_comparison_chaining_short_circuits_later_operands():
+    source_code = """
+
+def foo(y: int) -> int:
+    print("foo")
+    return 5
+
+def bar(y: int) -> int:
+    print("bar")
+    return 15
+
+def validator(x: int) -> bool:
+    return x < foo(x) < bar(x) < 20
+"""
+
+    # First comparison fails (10 < 5 is false): bar(x) must not be evaluated.
+    res_false = eval_uplc_raw(source_code, 10)
+    assert bool(res_false.result.value) is False
+    assert res_false.logs.count("foo") == 1
+    assert res_false.logs.count("bar") == 0
+
+    # Full chain succeeds: each function is evaluated exactly once.
+    res_true = eval_uplc_raw(source_code, 0)
+    assert bool(res_true.result.value) is True
+    assert res_true.logs.count("foo") == 1
+    assert res_true.logs.count("bar") == 1

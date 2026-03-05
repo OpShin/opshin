@@ -202,6 +202,7 @@ class PlutoCompiler(CompilingNodeTransformer):
         ), "Parameter fast-access-skip needs to be greater than 1 or omitted"
         # marked knowledge during compilation
         self.current_function_typ: typing.List[FunctionType] = []
+        self._cmp_chain_counter = 0
 
     def visit_sequence(self, node_seq: typing.List[typedstmt]) -> CallAST:
         def g(s: plt.AST):
@@ -246,16 +247,30 @@ class PlutoCompiler(CompilingNodeTransformer):
         )
 
     def visit_Compare(self, node: TypedCompare) -> plt.AST:
-        assert len(node.ops) == 1, "Only single comparisons are supported"
-        assert len(node.comparators) == 1, "Only single comparisons are supported"
-        cmpop = node.ops[0]
-        comparator = node.comparators[0].typ
-        op = node.left.typ.cmp(cmpop, comparator)
-        return plt.Apply(
-            op,
-            self.visit(node.left),
-            self.visit(node.comparators[0]),
-        )
+        assert len(node.ops) == len(node.comparators), "Malformed chained comparison"
+
+        expressions = [node.left] + node.comparators
+
+        def compile_chain(idx: int, left_term: plt.AST) -> plt.AST:
+            right_node = expressions[idx + 1]
+            cmp_op = expressions[idx].typ.cmp(node.ops[idx], right_node.typ)
+
+            if idx == len(node.ops) - 1:
+                return plt.Apply(cmp_op, left_term, self.visit(right_node))
+
+            # For chained comparisons, middle expressions must be evaluated once
+            # and only when previous links succeeded.
+            self._cmp_chain_counter += 1
+            tmp_name = f"cmp_chain_{idx + 1}_{self._cmp_chain_counter}"
+            tmp_var = OVar(tmp_name)
+            first_cmp = plt.Apply(cmp_op, left_term, tmp_var)
+            remaining = compile_chain(idx + 1, tmp_var)
+            return OLet(
+                [(tmp_name, self.visit(right_node))],
+                plt.And(first_cmp, remaining),
+            )
+
+        return compile_chain(0, self.visit(node.left))
 
     def visit_Module(self, node: TypedModule) -> plt.AST:
         # extract actually read variables by each function

@@ -467,6 +467,10 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             operation = node.op
             args = [self.visit(node.right)]
         elif isinstance(node, Compare):
+            # Chained comparisons are handled directly during compilation.
+            # Dunder override dispatch only supports a single comparison op.
+            if len(node.ops) != 1 or len(node.comparators) != 1:
+                return None
             operation = node.ops[0]
             if any([isinstance(operation, x) for x in [ast.In, ast.NotIn]]):
                 operand = self.visit(node.comparators[0])
@@ -474,7 +478,6 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             else:
                 operand = self.visit(node.left)
                 args = [self.visit(c) for c in node.comparators]
-            assert len(node.ops) == 1, "Only support one op at a time"
         operand_type = operand.typ
         if (
             operation.__class__ in DUNDER_MAP
