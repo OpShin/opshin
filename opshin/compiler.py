@@ -249,20 +249,55 @@ class PlutoCompiler(CompilingNodeTransformer):
         assert len(node.ops) == len(node.comparators), "Malformed chained comparison"
 
         expressions = [node.left] + node.comparators
+        op_impls = getattr(node, "op_impls", [None for _ in node.ops])
+        assert len(op_impls) == len(node.ops), "Malformed compare impl metadata"
+
+        def compile_dunder_call(
+            impl: typing.Dict[str, typing.Any], left_term: plt.AST, right_term: plt.AST
+        ) -> plt.AST:
+            func_node = impl["func"]
+            reverse = impl.get("reverse", False)
+            negate = impl.get("negate", False)
+
+            assert isinstance(func_node.typ, InstanceType) and isinstance(
+                func_node.typ.typ, FunctionType
+            ), "Dunder impl must resolve to a function"
+
+            functyp = func_node.typ.typ
+            bind_self = functyp.bind_self
+            bound_vs = sorted(list(functyp.bound_vars.keys()))
+            args = [right_term, left_term] if reverse else [left_term, right_term]
+
+            call = OLet(
+                [(f"p{i}", arg) for i, arg in enumerate(args)],
+                SafeApply(
+                    self.visit(func_node),
+                    *([plt.Var(bind_self)] if bind_self is not None else []),
+                    *[plt.Var(n) for n in bound_vs],
+                    *[plt.Delay(OVar(f"p{i}")) for i in range(len(args))],
+                ),
+            )
+            return plt.Not(call) if negate else call
+
+        def compile_link(idx: int, left_term: plt.AST, right_term: plt.AST) -> plt.AST:
+            impl = op_impls[idx]
+            if impl is not None:
+                return compile_dunder_call(impl, left_term, right_term)
+            cmp_op = expressions[idx].typ.cmp(node.ops[idx], expressions[idx + 1].typ)
+            return plt.Apply(cmp_op, left_term, right_term)
 
         def compile_chain(idx: int, left_term: plt.AST) -> plt.AST:
             right_node = expressions[idx + 1]
-            cmp_op = expressions[idx].typ.cmp(node.ops[idx], right_node.typ)
 
             if idx == len(node.ops) - 1:
-                return plt.Apply(cmp_op, left_term, self.visit(right_node))
+                return compile_link(idx, left_term, self.visit(right_node))
 
             # For chained comparisons, middle expressions must be evaluated once
             # and only when previous links succeeded.
             self._cmp_chain_counter += 1
             tmp_name = f"cmp_chain_{idx + 1}_{self._cmp_chain_counter}"
             tmp_var = OVar(tmp_name)
-            first_cmp = plt.Apply(cmp_op, left_term, tmp_var)
+            first_cmp = compile_link(idx, left_term, tmp_var)
             remaining = compile_chain(idx + 1, tmp_var)
             return OLet(
                 [(tmp_name, self.visit(right_node))],

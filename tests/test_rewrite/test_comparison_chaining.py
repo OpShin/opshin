@@ -223,3 +223,24 @@ def validator(a: int, b: int) -> bool:
     for a, b in [(-5, -4), (0, 0), (7, 3)]:
         ret = eval_uplc_value(source_code, a, b)
         assert bool(ret) == (a <= b)
+
+
+def test_comparison_multi_op_dunder_override_supported():
+    source_code = """
+from typing import Self
+from opshin.prelude import *
+
+@dataclass()
+class Foo(PlutusData):
+    a: int
+
+    def __lt__(self, other: Self) -> bool:
+        return self.a < other.a
+
+def validator(a: int, b: int, c: int) -> bool:
+    return Foo(a) < Foo(b) < Foo(c)
+"""
+
+    for a, b, c in [(-1, 0, 1), (3, 2, 1), (1, 1, 2), (4, 5, 5)]:
+        ret = eval_uplc_value(source_code, a, b, c)
+        assert bool(ret) == (a < b < c)

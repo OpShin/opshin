@@ -36,6 +36,15 @@ class NameLoadCollector(CompilingNodeVisitor):
         if node.typ.typ.bind_self is not None:
             self.loaded[node.typ.typ.bind_self] += 1
 
+    def visit_Compare(self, node: Compare):
+        self.generic_visit(node)
+        for impl in getattr(node, "op_impls", []):
+            if impl is None:
+                continue
+            func = impl.get("func")
+            if func is not None and hasattr(func, "id"):
+                self.loaded[func.id] += 1
+
 
 class SafeOperationVisitor(CompilingNodeVisitor):
     step = "Collecting computations that can not throw errors"
