@@ -2988,9 +2988,7 @@ class IntImpl(PolymorphicFunction):
                                     ["f", "i"],
                                     plt.Ite(
                                         plt.And(
-                                            plt.LessThanInteger(
-                                                OVar("i"), OVar("len")
-                                            ),
+                                            plt.LessThanInteger(OVar("i"), OVar("len")),
                                             plt.Apply(
                                                 OVar("is_whitespace"),
                                                 plt.IndexByteString(
@@ -3001,9 +2999,7 @@ class IntImpl(PolymorphicFunction):
                                         plt.Apply(
                                             OVar("f"),
                                             OVar("f"),
-                                            plt.AddInteger(
-                                                OVar("i"), plt.Integer(1)
-                                            ),
+                                            plt.AddInteger(OVar("i"), plt.Integer(1)),
                                         ),
                                         OVar("i"),
                                     ),
@@ -3016,9 +3012,7 @@ class IntImpl(PolymorphicFunction):
                                 OLambda(
                                     ["f", "i"],
                                     plt.Ite(
-                                        plt.LessThanInteger(
-                                            OVar("i"), plt.Integer(0)
-                                        ),
+                                        plt.LessThanInteger(OVar("i"), plt.Integer(0)),
                                         OVar("i"),
                                         plt.Ite(
                                             plt.Apply(
