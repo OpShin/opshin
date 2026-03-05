@@ -171,11 +171,7 @@ def test_comparison_chaining_side_effect_eval_order(case):
     values, ops = case
 
     fn_defs = "\n\n".join(
-        (
-            f"def v{i}() -> int:\n"
-            f"    print(\"v{i}\")\n"
-            f"    return {value}"
-        )
+        (f"def v{i}() -> int:\n" f'    print("v{i}")\n' f"    return {value}")
         for i, value in enumerate(values)
     )
 
