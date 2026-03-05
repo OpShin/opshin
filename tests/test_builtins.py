@@ -139,8 +139,8 @@ def validator(x: int) -> str:
                 st.integers().map(str),
                 st.text(alphabet=" \t\n\r\v\f", max_size=4),
             ),
-            # Random ASCII-ish strings to stress rejection/acceptance parity
-            st.text(alphabet="0123456789+-_ abcdefXYZ\t\n\r\v\f", max_size=24),
+            # Random ASCII strings to stress rejection/acceptance parity
+            st.text(alphabet=st.characters(max_codepoint=127), max_size=24),
         )
     )
     @example("")
@@ -155,6 +155,12 @@ def validator(x: int) -> str:
     @example("\t-7\n")
     @example(" 42 ")
     @example("\r\f+99\v")
+    @example("+ 1")
+    @example("- 1")
+    @example("1 2")
+    @example("1\t2")
+    @example("+\t1")
+    @example("-\n1")
     def test_int_string(self, xs: str):
         source_code = """
 def validator(x: str) -> int:

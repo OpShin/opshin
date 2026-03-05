@@ -2960,6 +2960,17 @@ class IntImpl(PolymorphicFunction):
                 ["x"], plt.IfThenElse(OVar("x"), plt.Integer(1), plt.Integer(0))
             )
         elif isinstance(arg.typ, StringType):
+            whitespace_ordinals = [ord(c) for c in (" ", "\t", "\n", "\v", "\f", "\r")]
+
+            is_whitespace_expr = plt.EqualsInteger(
+                OVar("b"), plt.Integer(whitespace_ordinals[0])
+            )
+            for whitespace_ordinal in whitespace_ordinals[1:]:
+                is_whitespace_expr = plt.Or(
+                    is_whitespace_expr,
+                    plt.EqualsInteger(OVar("b"), plt.Integer(whitespace_ordinal)),
+                )
+
             return OLambda(
                 ["x"],
                 OLet(
@@ -2968,37 +2979,7 @@ class IntImpl(PolymorphicFunction):
                         ("len", plt.LengthOfByteString(OVar("e"))),
                         (
                             "is_whitespace",
-                            OLambda(
-                                ["b"],
-                                plt.Or(
-                                    plt.Or(
-                                        plt.EqualsInteger(
-                                            OVar("b"), plt.Integer(ord(" "))
-                                        ),
-                                        plt.EqualsInteger(
-                                            OVar("b"), plt.Integer(ord("\t"))
-                                        ),
-                                    ),
-                                    plt.Or(
-                                        plt.Or(
-                                            plt.EqualsInteger(
-                                                OVar("b"), plt.Integer(ord("\n"))
-                                            ),
-                                            plt.EqualsInteger(
-                                                OVar("b"), plt.Integer(ord("\v"))
-                                            ),
-                                        ),
-                                        plt.Or(
-                                            plt.EqualsInteger(
-                                                OVar("b"), plt.Integer(ord("\f"))
-                                            ),
-                                            plt.EqualsInteger(
-                                                OVar("b"), plt.Integer(ord("\r"))
-                                            ),
-                                        ),
-                                    ),
-                                ),
-                            ),
+                            OLambda(["b"], is_whitespace_expr),
                         ),
                         (
                             "strip_left",
