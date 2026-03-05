@@ -132,8 +132,15 @@ def validator(x: int) -> str:
 
     @given(
         xs=st.one_of(
-            st.builds(lambda x: str(x), st.integers()),
-            st.from_regex(r"\A(?!\s).*(?<!\s)\Z", fullmatch=True),
+            # Python-accepted integer strings wrapped in random ASCII whitespace
+            st.builds(
+                lambda left_ws, x, right_ws: f"{left_ws}{x}{right_ws}",
+                st.text(alphabet=" \t\n\r\v\f", max_size=4),
+                st.integers().map(str),
+                st.text(alphabet=" \t\n\r\v\f", max_size=4),
+            ),
+            # Random ASCII-ish strings to stress rejection/acceptance parity
+            st.text(alphabet="0123456789+-_ abcdefXYZ\t\n\r\v\f", max_size=24),
         )
     )
     @example("")
@@ -147,6 +154,7 @@ def validator(x: int) -> str:
     @example("0\n")
     @example("\t-7\n")
     @example(" 42 ")
+    @example("\r\f+99\v")
     def test_int_string(self, xs: str):
         source_code = """
 def validator(x: str) -> int:
