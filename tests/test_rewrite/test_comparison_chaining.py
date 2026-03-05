@@ -83,3 +83,51 @@ def validator(x: int) -> bool:
     assert bool(res_true.result.value) is True
     assert res_true.logs.count("foo") == 1
     assert res_true.logs.count("bar") == 1
+
+
+def test_comparison_chaining_mixed_operators_single_eval():
+    source_code = """
+
+def foo(y: int) -> int:
+    print("foo")
+    return 5
+
+def bar(y: int) -> int:
+    print("bar")
+    return 8
+
+def validator(x: int) -> bool:
+    return x < foo(x) <= bar(x) != 9
+"""
+
+    res = eval_uplc_raw(source_code, 0)
+    assert bool(res.result.value) is True
+    assert res.logs.count("foo") == 1
+    assert res.logs.count("bar") == 1
+
+
+def test_comparison_chaining_mixed_operators_short_circuit_tail():
+    source_code = """
+
+def foo(y: int) -> int:
+    print("foo")
+    return 5
+
+def bar(y: int) -> int:
+    print("bar")
+    return 4
+
+def baz(y: int) -> int:
+    print("baz")
+    return 10
+
+def validator(x: int) -> bool:
+    return x < foo(x) <= bar(x) != baz(x)
+"""
+
+    # First link succeeds, second fails (5 <= 4 is false), so tail must not run.
+    res = eval_uplc_raw(source_code, 0)
+    assert bool(res.result.value) is False
+    assert res.logs.count("foo") == 1
+    assert res.logs.count("bar") == 1
+    assert res.logs.count("baz") == 0

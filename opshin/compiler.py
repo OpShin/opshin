@@ -44,7 +44,6 @@ from .optimize.optimize_union_expansion import OptimizeUnionExpansion
 from .rewrite.rewrite_assert_none import RewriteAssertNone
 from .rewrite.rewrite_augassign import RewriteAugAssign
 from .rewrite.rewrite_cast_condition import RewriteConditions
-from .rewrite.rewrite_comparison_chaining import RewriteComparisonChaining
 from .rewrite.rewrite_empty_dicts import RewriteEmptyDicts
 from .rewrite.rewrite_empty_lists import RewriteEmptyLists
 from .rewrite.rewrite_forbidden_overwrites import RewriteForbiddenOverwrites
@@ -1167,7 +1166,6 @@ def compile(
         OptimizeConstantFolding() if config.constant_folding else NoOp(),
         RewriteSubscript38(),
         RewriteAugAssign(),
-        RewriteComparisonChaining(),
         RewriteTupleAssign(),
         RewriteImportBLS12381(),
         RewriteImportIntegrityCheck(),
