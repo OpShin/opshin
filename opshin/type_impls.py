@@ -2967,26 +2967,144 @@ class IntImpl(PolymorphicFunction):
                         ("e", plt.EncodeUtf8(OVar("x"))),
                         ("len", plt.LengthOfByteString(OVar("e"))),
                         (
+                            "is_whitespace",
+                            OLambda(
+                                ["b"],
+                                plt.Or(
+                                    plt.Or(
+                                        plt.EqualsInteger(
+                                            OVar("b"), plt.Integer(ord(" "))
+                                        ),
+                                        plt.EqualsInteger(
+                                            OVar("b"), plt.Integer(ord("\t"))
+                                        ),
+                                    ),
+                                    plt.Or(
+                                        plt.Or(
+                                            plt.EqualsInteger(
+                                                OVar("b"), plt.Integer(ord("\n"))
+                                            ),
+                                            plt.EqualsInteger(
+                                                OVar("b"), plt.Integer(ord("\v"))
+                                            ),
+                                        ),
+                                        plt.Or(
+                                            plt.EqualsInteger(
+                                                OVar("b"), plt.Integer(ord("\f"))
+                                            ),
+                                            plt.EqualsInteger(
+                                                OVar("b"), plt.Integer(ord("\r"))
+                                            ),
+                                        ),
+                                    ),
+                                ),
+                            ),
+                        ),
+                        (
+                            "strip_left",
+                            plt.RecFun(
+                                OLambda(
+                                    ["f", "i"],
+                                    plt.Ite(
+                                        plt.And(
+                                            plt.LessThanInteger(
+                                                OVar("i"), OVar("len")
+                                            ),
+                                            plt.Apply(
+                                                OVar("is_whitespace"),
+                                                plt.IndexByteString(
+                                                    OVar("e"), OVar("i")
+                                                ),
+                                            ),
+                                        ),
+                                        plt.Apply(
+                                            OVar("f"),
+                                            OVar("f"),
+                                            plt.AddInteger(
+                                                OVar("i"), plt.Integer(1)
+                                            ),
+                                        ),
+                                        OVar("i"),
+                                    ),
+                                )
+                            ),
+                        ),
+                        (
+                            "strip_right",
+                            plt.RecFun(
+                                OLambda(
+                                    ["f", "i"],
+                                    plt.Ite(
+                                        plt.LessThanInteger(
+                                            OVar("i"), plt.Integer(0)
+                                        ),
+                                        OVar("i"),
+                                        plt.Ite(
+                                            plt.Apply(
+                                                OVar("is_whitespace"),
+                                                plt.IndexByteString(
+                                                    OVar("e"), OVar("i")
+                                                ),
+                                            ),
+                                            plt.Apply(
+                                                OVar("f"),
+                                                OVar("f"),
+                                                plt.SubtractInteger(
+                                                    OVar("i"), plt.Integer(1)
+                                                ),
+                                            ),
+                                            OVar("i"),
+                                        ),
+                                    ),
+                                )
+                            ),
+                        ),
+                        ("start", plt.Apply(OVar("strip_left"), plt.Integer(0))),
+                        (
+                            "end",
+                            plt.Apply(
+                                OVar("strip_right"),
+                                plt.SubtractInteger(OVar("len"), plt.Integer(1)),
+                            ),
+                        ),
+                        (
+                            "trimmed_len",
+                            plt.AddInteger(
+                                plt.SubtractInteger(OVar("end"), OVar("start")),
+                                plt.Integer(1),
+                            ),
+                        ),
+                        (
                             "first_int",
                             plt.Ite(
-                                plt.LessThanInteger(plt.Integer(0), OVar("len")),
-                                plt.IndexByteString(OVar("e"), plt.Integer(0)),
+                                plt.LessThanInteger(
+                                    plt.Integer(0), OVar("trimmed_len")
+                                ),
+                                plt.IndexByteString(OVar("e"), OVar("start")),
                                 plt.Integer(ord("_")),
                             ),
                         ),
                         (
                             "last_int",
-                            plt.IndexByteString(
-                                OVar("e"),
-                                plt.SubtractInteger(OVar("len"), plt.Integer(1)),
+                            plt.Ite(
+                                plt.LessThanInteger(
+                                    plt.Integer(0), OVar("trimmed_len")
+                                ),
+                                plt.IndexByteString(OVar("e"), OVar("end")),
+                                plt.Integer(ord("_")),
                             ),
                         ),
                         (
                             "fold_start",
                             OLambda(
-                                ["start"],
+                                ["relative_start"],
                                 plt.FoldList(
-                                    plt.Range(OVar("len"), OVar("start")),
+                                    plt.Range(
+                                        plt.AddInteger(OVar("end"), plt.Integer(1)),
+                                        plt.AddInteger(
+                                            OVar("start"), OVar("relative_start")
+                                        ),
+                                    ),
                                     OLambda(
                                         ["s", "i"],
                                         OLet(
@@ -3038,26 +3156,33 @@ class IntImpl(PolymorphicFunction):
                     ],
                     plt.Ite(
                         plt.Or(
-                            plt.Or(
-                                plt.EqualsInteger(
-                                    OVar("first_int"),
-                                    plt.Integer(ord("_")),
-                                ),
-                                plt.EqualsInteger(
-                                    OVar("last_int"),
-                                    plt.Integer(ord("_")),
-                                ),
+                            plt.LessThanEqualsInteger(
+                                OVar("trimmed_len"), plt.Integer(0)
                             ),
-                            plt.And(
-                                plt.EqualsInteger(OVar("len"), plt.Integer(1)),
+                            plt.Or(
                                 plt.Or(
                                     plt.EqualsInteger(
                                         OVar("first_int"),
-                                        plt.Integer(ord("-")),
+                                        plt.Integer(ord("_")),
                                     ),
                                     plt.EqualsInteger(
-                                        OVar("first_int"),
-                                        plt.Integer(ord("+")),
+                                        OVar("last_int"),
+                                        plt.Integer(ord("_")),
+                                    ),
+                                ),
+                                plt.And(
+                                    plt.EqualsInteger(
+                                        OVar("trimmed_len"), plt.Integer(1)
+                                    ),
+                                    plt.Or(
+                                        plt.EqualsInteger(
+                                            OVar("first_int"),
+                                            plt.Integer(ord("-")),
+                                        ),
+                                        plt.EqualsInteger(
+                                            OVar("first_int"),
+                                            plt.Integer(ord("+")),
+                                        ),
                                     ),
                                 ),
                             ),

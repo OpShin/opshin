@@ -144,7 +144,9 @@ def validator(x: int) -> str:
     @example("+123")
     @example("-_")
     @example("0_")
-    # @example("0\n")  # stripping is broken
+    @example("0\n")
+    @example("\t-7\n")
+    @example(" 42 ")
     def test_int_string(self, xs: str):
         source_code = """
 def validator(x: str) -> int:
