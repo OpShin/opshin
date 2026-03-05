@@ -142,7 +142,7 @@ def validator(x: int) -> str:
             # Random Unicode-heavy strings to stress rejection behavior beyond ASCII.
             st.text(
                 alphabet=st.characters(
-                    blacklist_categories=("Nd", "Zs", "Zl", "Zp", "Cc", "Cs")
+                   
                 ),
                 max_size=24,
             ),
