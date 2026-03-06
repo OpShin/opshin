@@ -879,6 +879,8 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                     if dep_node is None:
                         continue
                     for dep_req_name in symbol_bound[id(dep_node)]:
+                        if dep_req_name not in function_names:
+                            continue
                         dep_bind_index = first_binding_index.get(dep_req_name)
                         if (
                             dep_bind_index is not None
