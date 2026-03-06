@@ -10,11 +10,10 @@ Expand union types
 """
 
 
-def type_to_suffix(typ: expr) -> str:
-    try:
-        raw = unparse(typ)
-    except Exception:
-        return "UnknownType"
+UNION_SPECIALIZATION_SEPARATOR = "+"
+
+
+def _sanitize_type_suffix(raw: str) -> str:
     return (
         raw.replace(" ", "")
         .replace("__", "___")
@@ -23,6 +22,63 @@ def type_to_suffix(typ: expr) -> str:
         .replace(",", "_c_")
         .replace(".", "_d_")
     )
+
+
+def type_to_suffix(typ: expr) -> str:
+    try:
+        raw = unparse(typ)
+    except Exception:
+        return "UnknownType"
+    return _sanitize_type_suffix(raw)
+
+
+def type_to_specialization_suffix(typ: Any) -> str:
+    if isinstance(typ, expr):
+        if isinstance(typ, Name):
+            return _sanitize_type_suffix(typ.id)
+        return type_to_suffix(typ)
+
+    concrete_typ = getattr(typ, "typ", typ)
+    if hasattr(concrete_typ, "record") and hasattr(concrete_typ.record, "orig_name"):
+        return _sanitize_type_suffix(concrete_typ.record.orig_name)
+    if hasattr(concrete_typ, "python_type"):
+        return _sanitize_type_suffix(concrete_typ.python_type())
+    return _sanitize_type_suffix(str(concrete_typ))
+
+
+def get_specialized_function_name_from_suffixes(
+    base_name: str, suffixes: list[str]
+) -> str:
+    base_name_no_scope, scope_suffix = base_name, None
+    if "_" in base_name:
+        candidate_base, candidate_scope = base_name.rsplit("_", 1)
+        if candidate_scope.isdigit():
+            base_name_no_scope, scope_suffix = candidate_base, candidate_scope
+
+    specialized_name = base_name_no_scope + UNION_SPECIALIZATION_SEPARATOR + "".join(
+        f"_{suffix}" for suffix in suffixes
+    )
+    if scope_suffix is not None:
+        return f"{specialized_name}_{scope_suffix}"
+    return specialized_name
+
+
+def get_specialized_function_name_for_types(
+    base_name: str,
+    argument_types: list[Any],
+    specialized_argument_positions: list[int] | None = None,
+) -> str:
+    if specialized_argument_positions is None:
+        specialized_argument_positions = list(range(len(argument_types)))
+    selected_types = [argument_types[i] for i in specialized_argument_positions]
+    suffixes = [type_to_specialization_suffix(t) for t in selected_types]
+    return get_specialized_function_name_from_suffixes(base_name, suffixes)
+
+
+def split_specialized_function_name(function_name: str) -> tuple[str, str] | None:
+    if UNION_SPECIALIZATION_SEPARATOR not in function_name:
+        return None
+    return function_name.split(UNION_SPECIALIZATION_SEPARATOR, 1)
 
 
 class RemoveDeadCode(CompilingNodeTransformer):
@@ -151,38 +207,6 @@ class RemoveDeadCode(CompilingNodeTransformer):
 class OptimizeUnionExpansion(CompilingNodeTransformer):
     step = "Expanding Unions"
 
-    class _RewriteExpandedCalls(NodeTransformer):
-        def __init__(
-            self,
-            union_arg_positions: dict[str, list[int]],
-            known_var_types: dict[str, str],
-        ):
-            self.union_arg_positions = union_arg_positions
-            self.known_var_types = known_var_types
-
-        def _known_type_suffix(self, node: expr) -> str:
-            if isinstance(node, Name):
-                return self.known_var_types.get(node.id)
-            return None
-
-        def visit_Call(self, node: Call):
-            node = self.generic_visit(node)
-            if not isinstance(node.func, Name):
-                return node
-            base_name = node.func.id
-            if base_name not in self.union_arg_positions:
-                return node
-            suffixes = []
-            for arg_pos in self.union_arg_positions[base_name]:
-                if arg_pos >= len(node.args):
-                    return node
-                suffix = self._known_type_suffix(node.args[arg_pos])
-                if suffix is None:
-                    return node
-                suffixes.append(suffix)
-            node.func.id = base_name + "+" + "".join(f"_{s}" for s in suffixes)
-            return node
-
     def visit(self, node):
         if hasattr(node, "body") and isinstance(node.body, list):
             node.body = self.visit_sequence(node.body)
@@ -198,16 +222,6 @@ class OptimizeUnionExpansion(CompilingNodeTransformer):
                 return ann.slice.elts
         return False
 
-    def _arg_type_suffixes(self, stmt: FunctionDef) -> dict[str, str]:
-        known_types = {}
-        for arg in stmt.args.args:
-            if arg.annotation is None:
-                continue
-            if self.is_Union_annotation(arg.annotation):
-                continue
-            known_types[arg.arg] = getattr(arg.annotation, "id", type_to_suffix(arg.annotation))
-        return known_types
-
     def _union_arg_positions(self, stmt: FunctionDef) -> list[int]:
         positions = []
         for i, arg in enumerate(stmt.args.args):
@@ -216,7 +230,7 @@ class OptimizeUnionExpansion(CompilingNodeTransformer):
         return positions
 
     def _specialized_name(self, base_name: str, suffixes: list[str]) -> str:
-        return base_name + "+" + "".join(f"_{s}" for s in suffixes)
+        return get_specialized_function_name_from_suffixes(base_name, suffixes)
 
     def _expanded_dispatch_call(
         self, base_name: str, suffixes: list[str], args: list[arg]
@@ -303,15 +317,6 @@ class OptimizeUnionExpansion(CompilingNodeTransformer):
         return new_functions
 
     def visit_sequence(self, body):
-        union_arg_positions: dict[str, list[int]] = {}
-        for stmt in body:
-            if not isinstance(stmt, FunctionDef):
-                continue
-            positions = self._union_arg_positions(stmt)
-            if positions:
-                union_arg_positions[stmt.name] = positions
-        self.union_arg_positions = union_arg_positions
-
         new_body = []
         for stmt in body:
             if not isinstance(stmt, FunctionDef):
@@ -336,13 +341,4 @@ class OptimizeUnionExpansion(CompilingNodeTransformer):
             )
             new_body.append(stmt)
             new_body.extend(new_funcs)
-
-        for stmt in new_body:
-            if not isinstance(stmt, FunctionDef):
-                continue
-            known_var_types = self._arg_type_suffixes(stmt)
-            rewriter = self._RewriteExpandedCalls(
-                self.union_arg_positions, known_var_types
-            )
-            stmt.body = [rewriter.visit(s) for s in stmt.body]
         return new_body

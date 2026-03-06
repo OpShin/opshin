@@ -1581,27 +1581,6 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                 )
             tc.typechecks = TypeCheckVisitor(self.allow_isinstance_anything).visit(tc)
 
-        # Check for expanded Union funcs
-        if isinstance(node.func, ast.Name):
-            expanded_unions = {
-                k: v
-                for scope in self.scopes
-                for k, v in scope.items()
-                if k.startswith(f"{node.func.orig_id}+")
-            }
-            for k, v in expanded_unions.items():
-                argtyps = v.typ.argtyps
-                if len(tc.args) != len(argtyps):
-                    continue
-                for a, ap in zip(tc.args, argtyps):
-                    if ap != a.typ:
-                        break
-                else:
-                    node.func = ast.Name(
-                        id=k, orig_id=f"unknown orig_id for {k}", ctx=ast.Load()
-                    )
-                    break
-
         subbed_method = False
         if isinstance(tc.func, Attribute):
             # might be a method, test whether the variable is a record and if the method exists

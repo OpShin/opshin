@@ -411,3 +411,5 @@ def validator(x: bytes, n: int) -> int:
         target = eval_uplc_raw(target_code, b, n, config=config)
 
         self.assertEqual(source.result, target.result)
+        self.assertLessEqual(source.cost.cpu, target.cost.cpu)
+        self.assertLessEqual(source.cost.memory, target.cost.memory)
