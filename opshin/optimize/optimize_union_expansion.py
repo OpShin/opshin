@@ -159,7 +159,7 @@ class OptimizeUnionExpansion(CompilingNodeTransformer):
 
         def _known_type_suffix(self, node: expr) -> str:
             if isinstance(node, Name):
-                return self.known_var_types.get(node.id, "Union")
+                return self.known_var_types.get(node.id)
             if isinstance(node, Constant):
                 if isinstance(node.value, bool):
                     return "bool"
@@ -171,7 +171,7 @@ class OptimizeUnionExpansion(CompilingNodeTransformer):
                     return "str"
                 if node.value is None:
                     return "None"
-            return "Union"
+            return None
 
         def visit_Call(self, node: Call):
             node = self.generic_visit(node)
@@ -183,9 +183,11 @@ class OptimizeUnionExpansion(CompilingNodeTransformer):
             suffixes = []
             for arg_pos in self.union_arg_positions[base_name]:
                 if arg_pos >= len(node.args):
-                    suffixes.append("Union")
-                    continue
-                suffixes.append(self._known_type_suffix(node.args[arg_pos]))
+                    return node
+                suffix = self._known_type_suffix(node.args[arg_pos])
+                if suffix is None:
+                    return node
+                suffixes.append(suffix)
             candidate = base_name + "+" + "".join(f"_{s}" for s in suffixes)
             if candidate in self.generated_names:
                 node.func.id = candidate
@@ -227,6 +229,7 @@ class OptimizeUnionExpansion(CompilingNodeTransformer):
                 new_arg_types = deepcopy(arg_types)
                 new_arg_types[stmt.args.args[i].arg] = typ_str
                 new_f = RemoveDeadCode(new_arg_types).visit(new_f)
+                new_f._union_expansion_known_types = deepcopy(new_arg_types)
                 new_functions.append(new_f)
                 new_functions.extend(
                     self.split_functions(new_f, n_args, new_arg_types, new_f.name)
@@ -274,6 +277,9 @@ class OptimizeUnionExpansion(CompilingNodeTransformer):
             for arg in stmt.args.args:
                 if isinstance(arg.annotation, Name):
                     known_var_types[arg.arg] = arg.annotation.id
+            known_var_types.update(
+                getattr(stmt, "_union_expansion_known_types", {})
+            )
             rewriter = self._RewriteExpandedCalls(
                 union_arg_positions, generated_names, known_var_types
             )
