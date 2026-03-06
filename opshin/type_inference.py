@@ -730,8 +730,12 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                     stmt.test
                 )
                 # for the time after this assert, the variable has the specialized type
-                prevtyps.update(self.implement_typechecks(typchecks))
-        self.implement_typechecks(prevtyps)
+                wrapped = self.implement_typechecks(typchecks)
+                prevtyps.update(wrapped)
+                self.wrapped.extend(wrapped.keys())
+        if prevtyps:
+            self.wrapped = [x for x in self.wrapped if x not in prevtyps.keys()]
+            self.implement_typechecks(prevtyps)
         return stmts
 
     def visit_ClassDef(self, node: ClassDef) -> TypedClassDef:
@@ -1273,22 +1277,17 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
 
         # might be isinstance
         # Subscripts are not allowed in isinstance calls
-        if (
-            isinstance(tc.func, Name)
-            and tc.func.orig_id == "isinstance"
-            and isinstance(tc.args[1], Subscript)
-        ):
+        is_isinstance_call = (
+            isinstance(tc.func, Name) and tc.func.orig_id == "isinstance"
+        )
+        if is_isinstance_call and isinstance(tc.args[1], Subscript):
             raise TypeError(
                 "Subscripted generics cannot be used with class and instance checks"
             )
 
         # Need to handle the presence of PlutusData classes
-        if (
-            isinstance(tc.func, Name)
-            and tc.func.orig_id == "isinstance"
-            and not isinstance(
-                tc.args[1].typ, (ByteStringType, IntegerType, ListType, DictType)
-            )
+        if is_isinstance_call and not isinstance(
+            tc.args[1].typ, (ByteStringType, IntegerType, ListType, DictType)
         ):
             if (
                 isinstance(tc.args[0].typ, InstanceType)
