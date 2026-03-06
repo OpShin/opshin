@@ -1,5 +1,6 @@
 from _ast import BoolOp, Call, FunctionDef, If, UnaryOp
 from ast import *
+from itertools import product
 from typing import Any, List
 from ..util import CompilingNodeTransformer
 from copy import deepcopy
@@ -38,11 +39,15 @@ class RemoveDeadCode(CompilingNodeTransformer):
             s = self.visit(stmt)
             if isinstance(s, If) and isinstance(s.test, Constant):
                 if s.test.value:
-                    new_stmts.extend(s.body)
+                    emitted_stmts = s.body
                 else:
-                    new_stmts.extend(s.orelse)
+                    emitted_stmts = s.orelse
             else:
-                new_stmts.append(s)
+                emitted_stmts = [s]
+            for emitted in emitted_stmts:
+                new_stmts.append(emitted)
+                if isinstance(emitted, (Return, Raise)):
+                    return new_stmts
         return new_stmts
 
     def visit_If(self, node: If) -> Any:
@@ -198,72 +203,146 @@ class OptimizeUnionExpansion(CompilingNodeTransformer):
         for arg in stmt.args.args:
             if arg.annotation is None:
                 continue
+            if self.is_Union_annotation(arg.annotation):
+                continue
             known_types[arg.arg] = getattr(arg.annotation, "id", type_to_suffix(arg.annotation))
         return known_types
 
-    def split_functions(
-        self, stmt: FunctionDef, args: list, arg_types: dict, naming=""
-    ) -> List[FunctionDef]:
-        """
-                Recursively generate variants of a function with all possible combinations
-        of expanded union types for its arguments.
-        """
-        new_functions = []
-        for i, arg in enumerate(args):
-            if not arg:
-                continue
-            n_args = deepcopy(args)
-            n_args[i] = False
-            for typ in arg:
-                new_f = deepcopy(stmt)
-                new_f.args.args[i].annotation = typ
-                typ_str = getattr(typ, "id", type_to_suffix(typ))
-                new_f.name = f"{naming}_{typ_str}"
-                new_arg_types = deepcopy(arg_types)
-                new_arg_types[stmt.args.args[i].arg] = typ_str
-                new_f = RemoveDeadCode(new_arg_types).visit(new_f)
-                known_var_types = self._arg_type_suffixes(new_f)
-                known_var_types.update(new_arg_types)
-                rewriter = self._RewriteExpandedCalls(
-                    self.union_arg_positions, known_var_types
-                )
-                new_f.body = [rewriter.visit(s) for s in new_f.body]
-                new_functions.append(new_f)
-                new_functions.extend(
-                    self.split_functions(new_f, n_args, new_arg_types, new_f.name)
-                )
-            # Look for variation where this arg is still Union
-            new_functions.extend(
-                self.split_functions(stmt, n_args, arg_types, f"{naming}_Union")
-            )
-            # Handle only one Union per recursion level
-            break
+    def _union_arg_positions(self, stmt: FunctionDef) -> list[int]:
+        positions = []
+        for i, arg in enumerate(stmt.args.args):
+            if self.is_Union_annotation(arg.annotation):
+                positions.append(i)
+        return positions
 
+    def _specialized_name(self, base_name: str, suffixes: list[str]) -> str:
+        return base_name + "+" + "".join(f"_{s}" for s in suffixes)
+
+    def _expanded_dispatch_call(
+        self, base_name: str, suffixes: list[str], args: list[arg]
+    ) -> Return:
+        return Return(
+            value=Call(
+                func=Name(id=self._specialized_name(base_name, suffixes), ctx=Load()),
+                args=[Name(id=a.arg, ctx=Load()) for a in args],
+                keywords=[],
+            )
+        )
+
+    def _build_dispatch_tree(
+        self,
+        stmt: FunctionDef,
+        union_positions: list[int],
+        union_type_options: list[list[expr]],
+        depth: int,
+        chosen_suffixes: list[str],
+    ) -> list[stmt]:
+        if depth >= len(union_positions):
+            return [
+                self._expanded_dispatch_call(
+                    stmt.name,
+                    chosen_suffixes,
+                    stmt.args.args,
+                )
+            ]
+
+        arg_idx = union_positions[depth]
+        arg_name = stmt.args.args[arg_idx].arg
+        options = union_type_options[depth]
+
+        def build_option_chain(option_index: int) -> list[stmt]:
+            typ = options[option_index]
+            typ_suffix = getattr(typ, "id", type_to_suffix(typ))
+            branch_body = self._build_dispatch_tree(
+                stmt,
+                union_positions,
+                union_type_options,
+                depth + 1,
+                [*chosen_suffixes, typ_suffix],
+            )
+            if option_index == len(options) - 1:
+                return branch_body
+            return [
+                If(
+                    test=Call(
+                        func=Name(id="isinstance", ctx=Load()),
+                        args=[Name(id=arg_name, ctx=Load()), deepcopy(typ)],
+                        keywords=[],
+                    ),
+                    body=branch_body,
+                    orelse=build_option_chain(option_index + 1),
+                )
+            ]
+
+        return build_option_chain(0)
+
+    def _specialize_function(
+        self,
+        stmt: FunctionDef,
+        union_positions: list[int],
+        union_type_options: list[list[expr]],
+    ) -> List[FunctionDef]:
+        new_functions = []
+        seen_names = set()
+        for concrete_types in product(*union_type_options):
+            new_f = deepcopy(stmt)
+            suffixes = []
+            known_union_types = {}
+            for i, typ in zip(union_positions, concrete_types):
+                concrete_type = deepcopy(typ)
+                new_f.args.args[i].annotation = concrete_type
+                typ_suffix = getattr(concrete_type, "id", type_to_suffix(concrete_type))
+                suffixes.append(typ_suffix)
+                known_union_types[new_f.args.args[i].arg] = typ_suffix
+            new_f.name = self._specialized_name(stmt.name, suffixes)
+            if new_f.name in seen_names:
+                continue
+            seen_names.add(new_f.name)
+            new_f = RemoveDeadCode(known_union_types).visit(new_f)
+            new_functions.append(new_f)
         return new_functions
 
     def visit_sequence(self, body):
-        union_arg_positions = {}
+        union_arg_positions: dict[str, list[int]] = {}
         for stmt in body:
             if not isinstance(stmt, FunctionDef):
                 continue
-            positions = []
-            for i, arg in enumerate(stmt.args.args):
-                if self.is_Union_annotation(arg.annotation):
-                    positions.append(i)
+            positions = self._union_arg_positions(stmt)
             if positions:
                 union_arg_positions[stmt.name] = positions
         self.union_arg_positions = union_arg_positions
 
         new_body = []
         for stmt in body:
+            if not isinstance(stmt, FunctionDef):
+                new_body.append(stmt)
+                continue
+
+            union_positions = self._union_arg_positions(stmt)
+            if not union_positions:
+                new_body.append(stmt)
+                continue
+
+            union_type_options = [
+                self.is_Union_annotation(stmt.args.args[i].annotation)
+                for i in union_positions
+            ]
+            new_funcs = self._specialize_function(
+                stmt, union_positions, union_type_options
+            )
+            stmt.expanded_variants = [f.name for f in new_funcs]
+            stmt.body = self._build_dispatch_tree(
+                stmt, union_positions, union_type_options, 0, []
+            )
             new_body.append(stmt)
-            if isinstance(stmt, FunctionDef):
-                args = [
-                    self.is_Union_annotation(arg.annotation) for arg in stmt.args.args
-                ]
-                # number prefix here should guarantee naming uniqueness
-                new_funcs = self.split_functions(stmt, args, {}, stmt.name + "+")
-                # track variants
-                new_body[-1].expanded_variants = [f.name for f in new_funcs]
-                new_body.extend(new_funcs)
+            new_body.extend(new_funcs)
+
+        for stmt in new_body:
+            if not isinstance(stmt, FunctionDef):
+                continue
+            known_var_types = self._arg_type_suffixes(stmt)
+            rewriter = self._RewriteExpandedCalls(
+                self.union_arg_positions, known_var_types
+            )
+            stmt.body = [rewriter.visit(s) for s in stmt.body]
         return new_body
