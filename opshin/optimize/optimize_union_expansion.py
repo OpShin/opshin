@@ -150,27 +150,14 @@ class OptimizeUnionExpansion(CompilingNodeTransformer):
         def __init__(
             self,
             union_arg_positions: dict[str, list[int]],
-            generated_names: set[str],
             known_var_types: dict[str, str],
         ):
             self.union_arg_positions = union_arg_positions
-            self.generated_names = generated_names
             self.known_var_types = known_var_types
 
         def _known_type_suffix(self, node: expr) -> str:
             if isinstance(node, Name):
                 return self.known_var_types.get(node.id)
-            if isinstance(node, Constant):
-                if isinstance(node.value, bool):
-                    return "bool"
-                if isinstance(node.value, int):
-                    return "int"
-                if isinstance(node.value, bytes):
-                    return "bytes"
-                if isinstance(node.value, str):
-                    return "str"
-                if node.value is None:
-                    return "None"
             return None
 
         def visit_Call(self, node: Call):
@@ -188,9 +175,7 @@ class OptimizeUnionExpansion(CompilingNodeTransformer):
                 if suffix is None:
                     return node
                 suffixes.append(suffix)
-            candidate = base_name + "+" + "".join(f"_{s}" for s in suffixes)
-            if candidate in self.generated_names:
-                node.func.id = candidate
+            node.func.id = base_name + "+" + "".join(f"_{s}" for s in suffixes)
             return node
 
     def visit(self, node):
@@ -207,6 +192,14 @@ class OptimizeUnionExpansion(CompilingNodeTransformer):
             if ann.value.id == "Union":
                 return ann.slice.elts
         return False
+
+    def _arg_type_suffixes(self, stmt: FunctionDef) -> dict[str, str]:
+        known_types = {}
+        for arg in stmt.args.args:
+            if arg.annotation is None:
+                continue
+            known_types[arg.arg] = getattr(arg.annotation, "id", type_to_suffix(arg.annotation))
+        return known_types
 
     def split_functions(
         self, stmt: FunctionDef, args: list, arg_types: dict, naming=""
@@ -229,7 +222,12 @@ class OptimizeUnionExpansion(CompilingNodeTransformer):
                 new_arg_types = deepcopy(arg_types)
                 new_arg_types[stmt.args.args[i].arg] = typ_str
                 new_f = RemoveDeadCode(new_arg_types).visit(new_f)
-                new_f._union_expansion_known_types = deepcopy(new_arg_types)
+                known_var_types = self._arg_type_suffixes(new_f)
+                known_var_types.update(new_arg_types)
+                rewriter = self._RewriteExpandedCalls(
+                    self.union_arg_positions, known_var_types
+                )
+                new_f.body = [rewriter.visit(s) for s in new_f.body]
                 new_functions.append(new_f)
                 new_functions.extend(
                     self.split_functions(new_f, n_args, new_arg_types, new_f.name)
@@ -254,6 +252,7 @@ class OptimizeUnionExpansion(CompilingNodeTransformer):
                     positions.append(i)
             if positions:
                 union_arg_positions[stmt.name] = positions
+        self.union_arg_positions = union_arg_positions
 
         new_body = []
         for stmt in body:
@@ -267,19 +266,4 @@ class OptimizeUnionExpansion(CompilingNodeTransformer):
                 # track variants
                 new_body[-1].expanded_variants = [f.name for f in new_funcs]
                 new_body.extend(new_funcs)
-        generated_names = {
-            stmt.name for stmt in new_body if isinstance(stmt, FunctionDef)
-        }
-        for stmt in new_body:
-            if not isinstance(stmt, FunctionDef):
-                continue
-            known_var_types = {}
-            for arg in stmt.args.args:
-                if isinstance(arg.annotation, Name):
-                    known_var_types[arg.arg] = arg.annotation.id
-            known_var_types.update(getattr(stmt, "_union_expansion_known_types", {}))
-            rewriter = self._RewriteExpandedCalls(
-                union_arg_positions, generated_names, known_var_types
-            )
-            stmt.body = [rewriter.visit(s) for s in stmt.body]
         return new_body
