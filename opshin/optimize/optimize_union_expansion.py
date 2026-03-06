@@ -232,64 +232,6 @@ class OptimizeUnionExpansion(CompilingNodeTransformer):
     def _specialized_name(self, base_name: str, suffixes: list[str]) -> str:
         return get_specialized_function_name_from_suffixes(base_name, suffixes)
 
-    def _expanded_dispatch_call(
-        self, base_name: str, suffixes: list[str], args: list[arg]
-    ) -> Return:
-        return Return(
-            value=Call(
-                func=Name(id=self._specialized_name(base_name, suffixes), ctx=Load()),
-                args=[Name(id=a.arg, ctx=Load()) for a in args],
-                keywords=[],
-            )
-        )
-
-    def _build_dispatch_tree(
-        self,
-        stmt: FunctionDef,
-        union_positions: list[int],
-        union_type_options: list[list[expr]],
-        depth: int,
-        chosen_suffixes: list[str],
-    ) -> list[stmt]:
-        if depth >= len(union_positions):
-            return [
-                self._expanded_dispatch_call(
-                    stmt.name,
-                    chosen_suffixes,
-                    stmt.args.args,
-                )
-            ]
-
-        arg_idx = union_positions[depth]
-        arg_name = stmt.args.args[arg_idx].arg
-        options = union_type_options[depth]
-
-        def build_option_chain(option_index: int) -> list[stmt]:
-            typ = options[option_index]
-            typ_suffix = getattr(typ, "id", type_to_suffix(typ))
-            branch_body = self._build_dispatch_tree(
-                stmt,
-                union_positions,
-                union_type_options,
-                depth + 1,
-                [*chosen_suffixes, typ_suffix],
-            )
-            if option_index == len(options) - 1:
-                return branch_body
-            return [
-                If(
-                    test=Call(
-                        func=Name(id="isinstance", ctx=Load()),
-                        args=[Name(id=arg_name, ctx=Load()), deepcopy(typ)],
-                        keywords=[],
-                    ),
-                    body=branch_body,
-                    orelse=build_option_chain(option_index + 1),
-                )
-            ]
-
-        return build_option_chain(0)
-
     def _specialize_function(
         self,
         stmt: FunctionDef,
@@ -336,9 +278,6 @@ class OptimizeUnionExpansion(CompilingNodeTransformer):
                 stmt, union_positions, union_type_options
             )
             stmt.expanded_variants = [f.name for f in new_funcs]
-            stmt.body = self._build_dispatch_tree(
-                stmt, union_positions, union_type_options, 0, []
-            )
             new_body.append(stmt)
             new_body.extend(new_funcs)
         return new_body
