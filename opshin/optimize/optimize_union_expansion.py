@@ -1,7 +1,7 @@
 from _ast import BoolOp, Call, FunctionDef, If, UnaryOp
 from ast import *
 from itertools import product
-from typing import Any, List
+from typing import Any, List, Optional
 from ..util import CompilingNodeTransformer
 from copy import deepcopy
 
@@ -66,7 +66,7 @@ def get_specialized_function_name_from_suffixes(
 def get_specialized_function_name_for_types(
     base_name: str,
     argument_types: list[Any],
-    specialized_argument_positions: list[int] | None = None,
+    specialized_argument_positions: Optional[list[int]] = None,
 ) -> str:
     if specialized_argument_positions is None:
         specialized_argument_positions = list(range(len(argument_types)))
@@ -75,7 +75,9 @@ def get_specialized_function_name_for_types(
     return get_specialized_function_name_from_suffixes(base_name, suffixes)
 
 
-def split_specialized_function_name(function_name: str) -> tuple[str, str] | None:
+def split_specialized_function_name(
+    function_name: str,
+) -> Optional[tuple[str, str]]:
     if UNION_SPECIALIZATION_SEPARATOR not in function_name:
         return None
     return function_name.split(UNION_SPECIALIZATION_SEPARATOR, 1)
@@ -229,9 +231,6 @@ class OptimizeUnionExpansion(CompilingNodeTransformer):
                 positions.append(i)
         return positions
 
-    def _specialized_name(self, base_name: str, suffixes: list[str]) -> str:
-        return get_specialized_function_name_from_suffixes(base_name, suffixes)
-
     def _specialize_function(
         self,
         stmt: FunctionDef,
@@ -250,7 +249,9 @@ class OptimizeUnionExpansion(CompilingNodeTransformer):
                 typ_suffix = getattr(concrete_type, "id", type_to_suffix(concrete_type))
                 suffixes.append(typ_suffix)
                 known_union_types[new_f.args.args[i].arg] = typ_suffix
-            new_f.name = self._specialized_name(stmt.name, suffixes)
+            new_f.name = get_specialized_function_name_from_suffixes(
+                stmt.name, suffixes
+            )
             if new_f.name in seen_names:
                 continue
             seen_names.add(new_f.name)
