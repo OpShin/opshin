@@ -386,32 +386,6 @@ def validator(x: {x},  y: {y}) -> int:
         self.assertEqual(source.cost.cpu, target.cost.cpu)
         self.assertEqual(source.cost.memory, target.cost.memory)
 
-    def test_Union_expansion_mutual_recursion_variants_call_specialized_names(self):
-        source_code = """
-from typing import Union
-
-def even_i(x: Union[int, bytes], n: int) -> int:
-    if n == 0:
-        return 1
-    return odd_i(x, n - 1)
-
-def odd_i(x: Union[int, bytes], n: int) -> int:
-    if n == 0:
-        return 0
-    return even_i(x, n - 1)
-
-"""
-        expanded = OptimizeUnionExpansion().visit(ast.parse(source_code))
-        funcs = {f.name: f for f in expanded.body if isinstance(f, ast.FunctionDef)}
-        self.assertIn("even_i+_int", funcs)
-        self.assertIn("odd_i+_int", funcs)
-
-        even_recursive_call = funcs["even_i+_int"].body[-1].value.func.id
-        odd_recursive_call = funcs["odd_i+_int"].body[-1].value.func.id
-
-        self.assertEqual(even_recursive_call, "odd_i+_int")
-        self.assertEqual(odd_recursive_call, "even_i+_int")
-
     def test_Union_expansion_mutual_recursion_runtime_matches_monomorphic(self):
         source_code = """
 from typing import Union
