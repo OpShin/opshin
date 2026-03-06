@@ -959,6 +959,132 @@ def validator(x: Anything) -> int:
         with self.assertRaises(RuntimeError):
             eval_uplc_value(source_code, 1, config=ASSERT_ANYTHING_CONFIG)
 
+    def test_mutual_recursion_forward_declaration(self):
+        source_code = """
+def even(n: int) -> bool:
+    if n == 0:
+        return True
+    return odd(n - 1)
+
+def odd(n: int) -> bool:
+    if n == 0:
+        return False
+    return even(n - 1)
+
+def validator(n: int) -> int:
+    return 1 if even(n) else 0
+        """
+        self.assertEqual(1, eval_uplc_value(source_code, 4))
+        self.assertEqual(0, eval_uplc_value(source_code, 3))
+
+    def test_nested_mutual_recursion_forward_declaration(self):
+        source_code = """
+def validator(n: int) -> int:
+    def even(x: int) -> bool:
+        if x == 0:
+            return True
+        return odd(x - 1)
+
+    def odd(x: int) -> bool:
+        if x == 0:
+            return False
+        return even(x - 1)
+
+    return 1 if even(n) else 0
+        """
+        self.assertEqual(1, eval_uplc_value(source_code, 4))
+        self.assertEqual(0, eval_uplc_value(source_code, 3))
+
+    def test_three_function_recursion_cycle(self):
+        source_code = """
+def a(n: int) -> int:
+    if n <= 0:
+        return 1
+    return b(n - 1)
+
+def b(n: int) -> int:
+    if n <= 0:
+        return 2
+    return c(n - 1)
+
+def c(n: int) -> int:
+    if n <= 0:
+        return 3
+    return a(n - 1)
+
+def validator(n: int) -> int:
+    return a(n)
+        """
+        self.assertEqual(1, eval_uplc_value(source_code, 0))
+        self.assertEqual(2, eval_uplc_value(source_code, 1))
+        self.assertEqual(3, eval_uplc_value(source_code, 2))
+        self.assertEqual(1, eval_uplc_value(source_code, 3))
+
+    def test_five_function_recursion_cycle(self):
+        source_code = """
+def a(n: int) -> int:
+    if n <= 0:
+        return 1
+    return b(n - 1)
+
+def b(n: int) -> int:
+    if n <= 0:
+        return 2
+    return c(n - 1)
+
+def c(n: int) -> int:
+    if n <= 0:
+        return 3
+    return d(n - 1)
+
+def d(n: int) -> int:
+    if n <= 0:
+        return 4
+    return e(n - 1)
+
+def e(n: int) -> int:
+    if n <= 0:
+        return 5
+    return a(n - 1)
+
+def validator(n: int) -> int:
+    return a(n)
+        """
+        self.assertEqual(1, eval_uplc_value(source_code, 0))
+        self.assertEqual(2, eval_uplc_value(source_code, 1))
+        self.assertEqual(3, eval_uplc_value(source_code, 2))
+        self.assertEqual(4, eval_uplc_value(source_code, 3))
+        self.assertEqual(5, eval_uplc_value(source_code, 4))
+        self.assertEqual(1, eval_uplc_value(source_code, 5))
+
+    def test_forward_global_variable_in_function(self):
+        source_code = """
+def read_x() -> int:
+    return x + 1
+
+x: int = 41
+
+def validator(_: None) -> int:
+    return read_x()
+        """
+        self.assertEqual(42, eval_uplc_value(source_code, Unit()))
+
+    def test_forward_class_reference_in_function(self):
+        source_code = """
+from opshin.prelude import *
+
+def mk(v: int) -> MyData:
+    return MyData(v)
+
+@dataclass()
+class MyData(PlutusData):
+    value: int
+
+def validator(_: None) -> int:
+    return mk(2).value
+        """
+        self.assertEqual(2, eval_uplc_value(source_code, Unit()))
+
     def test_typecast_int_anything(self):
         # this should compile, it happens implicitly anyways when calling a function with Any parameters
         source_code = """
@@ -1291,6 +1417,19 @@ def validator(x: int) -> bool:
         self.assertEqual(res, bool(x))
 
     @hypothesis.given(st.integers())
+    def test_cast_bool_ite(self, x):
+        source_code = """
+def validator(x: int) -> None:
+    assert x
+"""
+        try:
+            eval_uplc(source_code, x)
+            res = True
+        except Exception:
+            res = False
+        self.assertEqual(res, bool(x))
+
+    @hypothesis.given(st.integers())
     def test_cast_bool_ite_expr(self, x):
         source_code = """
 def validator(x: int) -> bool:
@@ -1320,19 +1459,6 @@ def validator(x: int) -> bool:
 """
         res = eval_uplc_value(source_code, x)
         self.assertEqual(bool(res), bool(x and x or (x or x)))
-
-    @hypothesis.given(st.integers())
-    def test_cast_bool_ite(self, x):
-        source_code = """
-def validator(x: int) -> None:
-    assert x
-"""
-        try:
-            eval_uplc(source_code, x)
-            res = True
-        except Exception:
-            res = False
-        self.assertEqual(res, bool(x))
 
     @hypothesis.given(a_or_b)
     def test_isinstance_cast_if(self, x):

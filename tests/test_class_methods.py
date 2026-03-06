@@ -50,6 +50,25 @@ def validator(a: int, b: int) -> int:
         with self.assertRaises(Exception):
             ret = eval_uplc_value(source_code, x, y)
 
+    def test_method_calls_later_method(self):
+        source_code = """
+from opshin.prelude import *
+@dataclass()
+class Foo(PlutusData):
+    a: int
+
+    def first(self) -> int:
+        return self.second()
+
+    def second(self) -> int:
+        return self.a
+
+def validator(a: int) -> int:
+    return Foo(a).first()
+"""
+        ret = eval_uplc_value(source_code, 5)
+        self.assertEqual(ret, 5)
+
     @given(x=st.integers(), y=st.integers())
     def test_le_dunder(self, x: int, y: int):
         source_code = """
