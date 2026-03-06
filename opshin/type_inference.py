@@ -793,57 +793,106 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         self, node_seq: typing.List[stmt]
     ) -> typing.Dict[int, typing.Set[str]]:
         function_nodes = [n for n in node_seq if isinstance(n, FunctionDef)]
-        function_names = {n.name for n in function_nodes}
+        if not function_nodes:
+            return {}
+
+        first_binding_index = {}
+        for i, stmt_node in enumerate(node_seq):
+            if isinstance(stmt_node, FunctionDef):
+                first_binding_index.setdefault(stmt_node.name, i)
+            elif isinstance(stmt_node, ClassDef):
+                first_binding_index.setdefault(stmt_node.name, i)
+            elif isinstance(stmt_node, Assign):
+                for target in stmt_node.targets:
+                    if isinstance(target, Name):
+                        first_binding_index.setdefault(target.id, i)
+            elif isinstance(stmt_node, AnnAssign):
+                if isinstance(stmt_node.target, Name):
+                    first_binding_index.setdefault(stmt_node.target.id, i)
+            elif isinstance(stmt_node, Import):
+                for imported in stmt_node.names:
+                    bound_name = imported.asname or imported.name.split(".")[0]
+                    first_binding_index.setdefault(bound_name, i)
+            elif isinstance(stmt_node, ImportFrom):
+                for imported in stmt_node.names:
+                    bound_name = imported.asname or imported.name
+                    first_binding_index.setdefault(bound_name, i)
+
+        function_stmt_index = {
+            id(stmt_node): i
+            for i, stmt_node in enumerate(node_seq)
+            if isinstance(stmt_node, FunctionDef)
+        }
+
+        first_def_index = {}
+        first_def_node_by_name = {}
+        for i, node in enumerate(function_nodes):
+            if node.name in first_def_index:
+                continue
+            first_def_index[node.name] = i
+            first_def_node_by_name[node.name] = node
+        function_names = set(first_def_index.keys())
+
         direct_nonfunc = {}
-        direct_func = {}
+        direct_called_funcs = {}
+        required_direct_funcs = {}
         for node in function_nodes:
+            node_id = id(node)
             direct = {
                 v for v in externally_bound_vars(node) if v not in ["List", "Dict"]
             }
-            self_reads_name = node.name in read_vars(node)
-            direct_func[id(node)] = {v for v in direct if v in function_names}
-            if self_reads_name:
-                direct_func[id(node)].add(node.name)
-            if "_+_" in node.name:
-                class_name = node.name.split("_+_", 1)[0]
-                # Lowered methods are dispatched by name rewrite during call inference.
-                # Capture sibling methods so forward method calls have the required closure vars.
-                direct_func[id(node)].update(
-                    {
-                        fn_name
-                        for fn_name in function_names
-                        if fn_name.startswith(f"{class_name}_+_")
-                    }
-                )
-            direct_nonfunc[id(node)] = direct.difference(direct_func[id(node)])
-        symbol_bound: typing.Dict[str, typing.Set[str]] = {
-            name: set() for name in function_names
+            called_funcs = {v for v in direct if v in function_names}
+            direct_called_funcs[node_id] = called_funcs
+            direct_nonfunc[node_id] = direct.difference(called_funcs)
+
+            required = set()
+            if node.name in read_vars(node):
+                # Self-recursion needs explicit self binding in function parameters.
+                required.add(node.name)
+            for fn_name in called_funcs:
+                # Backward references are available via lexical scoping.
+                # Forward references need runtime binding through closure parameters.
+                if first_def_index[fn_name] > first_def_index[node.name]:
+                    required.add(fn_name)
+            for sibling_name in getattr(node, "self_called_method_names", set()):
+                if sibling_name in function_names and (
+                    first_def_index[sibling_name] > first_def_index[node.name]
+                ):
+                    required.add(sibling_name)
+            required_direct_funcs[node_id] = required
+
+        symbol_bound: typing.Dict[int, typing.Set[str]] = {
+            id(node): set(direct_nonfunc[id(node)]).union(required_direct_funcs[id(node)])
+            for node in function_nodes
         }
         changed = True
         while changed:
             changed = False
-            new_symbol_bound = {name: set() for name in function_names}
+            new_symbol_bound = {}
             for node in function_nodes:
-                resolved = set(direct_nonfunc[id(node)]).union(direct_func[id(node)])
-                for dep in direct_func[id(node)]:
-                    resolved.update(symbol_bound.get(dep, set()))
-                new_symbol_bound[node.name].update(resolved)
+                node_id = id(node)
+                resolved = set(direct_nonfunc[node_id]).union(
+                    required_direct_funcs[node_id]
+                )
+                for dep_name in direct_called_funcs[node_id]:
+                    dep_node = first_def_node_by_name.get(dep_name)
+                    if dep_node is None:
+                        continue
+                    for dep_req_name in symbol_bound[id(dep_node)]:
+                        dep_bind_index = first_binding_index.get(dep_req_name)
+                        if (
+                            dep_bind_index is not None
+                            and dep_bind_index < function_stmt_index[node_id]
+                        ):
+                            continue
+                        resolved.add(dep_req_name)
+                new_symbol_bound[node_id] = resolved
             changed = any(
-                new_symbol_bound[name] != symbol_bound[name] for name in function_names
+                new_symbol_bound[id(node)] != symbol_bound[id(node)]
+                for node in function_nodes
             )
             symbol_bound = new_symbol_bound
-        return {
-            id(node): set(direct_nonfunc[id(node)])
-            .union(direct_func[id(node)])
-            .union(
-                set().union(
-                    *(symbol_bound.get(dep, set()) for dep in direct_func[id(node)])
-                )
-                if direct_func[id(node)]
-                else set()
-            )
-            for node in function_nodes
-        }
+        return {id(node): symbol_bound[id(node)] for node in function_nodes}
 
     def lower_class_methods_in_sequence(self, node_seq: typing.List[stmt]) -> typing.List[stmt]:
         node_seq_cp = list(node_seq)
@@ -851,6 +900,11 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         for n in node_seq_cp:
             if not isinstance(n, ast.ClassDef):
                 continue
+            method_names = {
+                attribute.name
+                for attribute in n.body
+                if isinstance(attribute, ast.FunctionDef)
+            }
             non_method_attributes = []
             for attribute in n.body:
                 if not isinstance(attribute, ast.FunctionDef):
@@ -906,6 +960,29 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                     )
                 ann.orig_id = attribute.args.args[0].orig_arg
                 func.args.args[0].annotation = ann
+
+                self_arg_name = attribute.args.args[0].arg
+
+                class SelfMethodCallCollector(NodeVisitor):
+                    def __init__(self):
+                        self.called = set()
+
+                    def visit_Call(self, node: Call):
+                        if (
+                            isinstance(node.func, Attribute)
+                            and isinstance(node.func.value, Name)
+                            and node.func.value.id == self_arg_name
+                            and node.func.attr in method_names
+                        ):
+                            self.called.add(node.func.attr)
+                        self.generic_visit(node)
+
+                called_self_methods = SelfMethodCallCollector()
+                called_self_methods.visit(attribute)
+                func.self_called_method_names = {
+                    f"{n.name}_+_{method_name}"
+                    for method_name in called_self_methods.called
+                }
                 additional_functions.append(func)
             n.body = non_method_attributes
         if additional_functions:
