@@ -247,15 +247,6 @@ class PlutoCompiler(CompilingNodeTransformer):
 
     def visit_Compare(self, node: TypedCompare) -> plt.AST:
         operands = [node.left] + node.comparators
-        if len(node.ops) == 1:
-            cmpop = node.ops[0]
-            comparator = node.comparators[0].typ
-            op = node.left.typ.cmp(cmpop, comparator)
-            return plt.Apply(
-                op,
-                self.visit(node.left),
-                self.visit(node.comparators[0]),
-            )
         dunder_overrides = getattr(node, "dunder_overrides", [])
         operand_names = [
             f"__chain_cmp_value_{node.lineno}_{node.col_offset}_{i}"
