@@ -351,140 +351,63 @@ def validator(x: {x},  y: {y}) -> int:
         self.assertEqual(source.cost.cpu, target.cost.cpu)
         self.assertEqual(source.cost.memory, target.cost.memory)
 
-    def test_Union_expansion_mutual_recursion_runtime_matches_monomorphic(self):
-        source_code = """
-from typing import Union
-
-def even_i(x: Union[int, bytes], n: int) -> int:
-    if n == 0:
-        return 1
-    return odd_i(x, n - 1)
-
-def odd_i(x: Union[int, bytes], n: int) -> int:
-    if n == 0:
-        return 0
-    return even_i(x, n - 1)
-
-def validator(x: int, n: int) -> int:
-    return even_i(x, n)
-"""
-        target_code = """
-def even_i(x: int, n: int) -> int:
-    if n == 0:
-        return 1
-    return odd_i(x, n - 1)
-
-def odd_i(x: int, n: int) -> int:
-    if n == 0:
-        return 0
-    return even_i(x, n - 1)
-
-def validator(x: int, n: int) -> int:
-    return even_i(x, n)
-"""
-        config = DEFAULT_TEST_CONFIG
-        euo_config = config.update(expand_union_types=True)
-        source = eval_uplc_raw(source_code, 2, 2, config=euo_config)
-        target = eval_uplc_raw(target_code, 2, 2, config=config)
-
-        self.assertEqual(source.result, target.result)
-        self.assertGreater(source.cost.cpu, 0)
-        self.assertGreater(source.cost.memory, 0)
-
     @given(st.sampled_from([0, 1, 2, 3]), st.sampled_from([b"", b"ab", b"abcd"]))
-    def test_Union_expansion_cross_mutual_runtime_matches_monomorphic_bytes(
-        self, n, b
-    ):
+    def test_Union_expansion_mutual_recursion(self, n, b):
         source_code = """
 from typing import Union
 
 def even_i(x: Union[int, bytes], n: int) -> int:
-    if n == 0 and isinstance(x, int):
-        return x
-    if n == 0 and isinstance(x, bytes):
-        return len(x)
+    if n == 0:
+        if isinstance(x, int):
+            return x
+        if isinstance(x, bytes):
+            return len(x)
     if isinstance(x, bytes):
         return odd_i(x[2:], n - 1)
-    return odd_i(x + 1, n - 1)
+    else:
+        return odd_i(x + 1, n - 1)
 
 def odd_i(x: Union[int, bytes], n: int) -> int:
-    if n == 0 and isinstance(x, int):
-        return x + 100
-    if n == 0 and isinstance(x, bytes):
-        return len(x) + 100
+    if n == 0:
+        if isinstance(x, int):
+            return x + 100
+        if isinstance(x, bytes):
+            return len(x) + 100
     if isinstance(x, bytes):
-        return even_i(x[2:], n - 1)
-    return even_i(x + 1, n - 1)
+        return even_i(len(x[2:]), n - 1)
+    else:
+        return even_i(bytes([x + 1]), n - 1)
 
 def validator(x: bytes, n: int) -> int:
     return even_i(x, n)
 """
         target_code = """
-def even_i(x: bytes, n: int) -> int:
+def even_i_int(x: int, n: int) -> int:
+    if n == 0:
+        return x
+    return odd_i_int(x + 1, n - 1)
+
+def odd_i_int(x: int, n: int) -> int:
+    if n == 0:
+        return x + 100
+    return even_i_bytes(bytes([x + 1]), n - 1)
+    
+def even_i_bytes(x: bytes, n: int) -> int:
     if n == 0:
         return len(x)
-    return odd_i(x[2:], n - 1)
+    return odd_i_bytes(x[2:], n - 1)
 
-def odd_i(x: bytes, n: int) -> int:
+def odd_i_bytes(x: bytes, n: int) -> int:
     if n == 0:
         return len(x) + 100
-    return even_i(x[2:], n - 1)
+    return even_i_int(len(x[2:]), n - 1)
 
 def validator(x: bytes, n: int) -> int:
-    return even_i(x, n)
+    return even_i_bytes(x, n)
 """
         config = DEFAULT_TEST_CONFIG
         euo_config = config.update(expand_union_types=True)
         source = eval_uplc_raw(source_code, b, n, config=euo_config)
         target = eval_uplc_raw(target_code, b, n, config=config)
-
-        self.assertEqual(source.result, target.result)
-
-    @given(st.sampled_from([0, 1, 2, 3]), st.sampled_from([0, 1, 2]))
-    def test_Union_expansion_cross_mutual_runtime_matches_monomorphic_int(
-        self, n, x
-    ):
-        source_code = """
-from typing import Union
-
-def even_i(x: Union[int, bytes], n: int) -> int:
-    if n == 0 and isinstance(x, int):
-        return x
-    if n == 0 and isinstance(x, bytes):
-        return len(x)
-    if isinstance(x, bytes):
-        return odd_i(x[2:], n - 1)
-    return odd_i(x + 1, n - 1)
-
-def odd_i(x: Union[int, bytes], n: int) -> int:
-    if n == 0 and isinstance(x, int):
-        return x + 100
-    if n == 0 and isinstance(x, bytes):
-        return len(x) + 100
-    if isinstance(x, bytes):
-        return even_i(x[2:], n - 1)
-    return even_i(x + 1, n - 1)
-
-def validator(x: int, n: int) -> int:
-    return even_i(x, n)
-"""
-        target_code = """
-def even_i(x: int, n: int) -> int:
-    if n == 0:
-        return x
-    return odd_i(x + 1, n - 1)
-
-def odd_i(x: int, n: int) -> int:
-    if n == 0:
-        return x + 100
-    return even_i(x + 1, n - 1)
-
-def validator(x: int, n: int) -> int:
-    return even_i(x, n)
-"""
-        config = DEFAULT_TEST_CONFIG
-        euo_config = config.update(expand_union_types=True)
-        source = eval_uplc_raw(source_code, x, n, config=euo_config)
-        target = eval_uplc_raw(target_code, x, n, config=config)
 
         self.assertEqual(source.result, target.result)
