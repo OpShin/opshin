@@ -324,7 +324,7 @@ def validator(x: {x},  y: {y}) -> int:
         self.assertEqual(source.cost.cpu, target.cost.cpu)
         self.assertEqual(source.cost.memory, target.cost.memory)
 
-    def test_Union_expansion_mutual_recursion_variants_call_unspecialized_names(self):
+    def test_Union_expansion_mutual_recursion_variants_call_specialized_names(self):
         source_code = """
 from typing import Union
 
@@ -349,11 +349,10 @@ def odd_i(x: Union[int, bytes], n: int) -> int:
         even_recursive_call = funcs["even_i+_int"].body[-1].value.func.id
         odd_recursive_call = funcs["odd_i+_int"].body[-1].value.func.id
 
-        # Current bug: recursive edges in specialized variants still target unspecialized names.
-        self.assertEqual(even_recursive_call, "odd_i")
-        self.assertEqual(odd_recursive_call, "even_i")
+        self.assertEqual(even_recursive_call, "odd_i+_int")
+        self.assertEqual(odd_recursive_call, "even_i+_int")
 
-    def test_Union_expansion_mutual_recursion_runtime_failure_is_error(self):
+    def test_Union_expansion_mutual_recursion_runtime_matches_monomorphic(self):
         source_code = """
 from typing import Union
 
@@ -389,9 +388,9 @@ def validator(x: int, n: int) -> int:
         source = eval_uplc_raw(source_code, 2, 2, config=euo_config)
         target = eval_uplc_raw(target_code, 2, 2, config=config)
 
-        self.assertIsInstance(source.result, RuntimeError)
-        self.assertIn("Execution called Error", str(source.result))
-        self.assertEqual(target.result.value, 1)
+        self.assertEqual(source.result, target.result)
+        self.assertGreater(source.cost.cpu, 0)
+        self.assertGreater(source.cost.memory, 0)
 
     @hypothesis.given(st.sampled_from(range(4, 7)))
     @hypothesis.example(4)

@@ -146,6 +146,51 @@ class RemoveDeadCode(CompilingNodeTransformer):
 class OptimizeUnionExpansion(CompilingNodeTransformer):
     step = "Expanding Unions"
 
+    class _RewriteExpandedCalls(NodeTransformer):
+        def __init__(
+            self,
+            union_arg_positions: dict[str, list[int]],
+            generated_names: set[str],
+            known_var_types: dict[str, str],
+        ):
+            self.union_arg_positions = union_arg_positions
+            self.generated_names = generated_names
+            self.known_var_types = known_var_types
+
+        def _known_type_suffix(self, node: expr) -> str:
+            if isinstance(node, Name):
+                return self.known_var_types.get(node.id, "Union")
+            if isinstance(node, Constant):
+                if isinstance(node.value, bool):
+                    return "bool"
+                if isinstance(node.value, int):
+                    return "int"
+                if isinstance(node.value, bytes):
+                    return "bytes"
+                if isinstance(node.value, str):
+                    return "str"
+                if node.value is None:
+                    return "None"
+            return "Union"
+
+        def visit_Call(self, node: Call):
+            node = self.generic_visit(node)
+            if not isinstance(node.func, Name):
+                return node
+            base_name = node.func.id
+            if base_name not in self.union_arg_positions:
+                return node
+            suffixes = []
+            for arg_pos in self.union_arg_positions[base_name]:
+                if arg_pos >= len(node.args):
+                    suffixes.append("Union")
+                    continue
+                suffixes.append(self._known_type_suffix(node.args[arg_pos]))
+            candidate = base_name + "+" + "".join(f"_{s}" for s in suffixes)
+            if candidate in self.generated_names:
+                node.func.id = candidate
+            return node
+
     def visit(self, node):
         if hasattr(node, "body") and isinstance(node.body, list):
             node.body = self.visit_sequence(node.body)
@@ -196,6 +241,17 @@ class OptimizeUnionExpansion(CompilingNodeTransformer):
         return new_functions
 
     def visit_sequence(self, body):
+        union_arg_positions = {}
+        for stmt in body:
+            if not isinstance(stmt, FunctionDef):
+                continue
+            positions = []
+            for i, arg in enumerate(stmt.args.args):
+                if self.is_Union_annotation(arg.annotation):
+                    positions.append(i)
+            if positions:
+                union_arg_positions[stmt.name] = positions
+
         new_body = []
         for stmt in body:
             new_body.append(stmt)
@@ -208,4 +264,18 @@ class OptimizeUnionExpansion(CompilingNodeTransformer):
                 # track variants
                 new_body[-1].expanded_variants = [f.name for f in new_funcs]
                 new_body.extend(new_funcs)
+        generated_names = {
+            stmt.name for stmt in new_body if isinstance(stmt, FunctionDef)
+        }
+        for stmt in new_body:
+            if not isinstance(stmt, FunctionDef):
+                continue
+            known_var_types = {}
+            for arg in stmt.args.args:
+                if isinstance(arg.annotation, Name):
+                    known_var_types[arg.arg] = arg.annotation.id
+            rewriter = self._RewriteExpandedCalls(
+                union_arg_positions, generated_names, known_var_types
+            )
+            stmt.body = [rewriter.visit(s) for s in stmt.body]
         return new_body
