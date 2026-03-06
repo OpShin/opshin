@@ -52,7 +52,61 @@ def validator(x: int) -> bool:
 """
     for x in [0, 5, 10, 15]:
         res = eval_uplc_raw(source_code, x)
-        # inspect the logs to check that foo() is only called once
-        # TODO: we skip this now because its not supported yet
-        # assert res.logs.count("hello") == 1
+        assert res.logs.count("hello") == 1
         assert bool(res.result.value) == (x < 5 < 10)
+
+
+def test_comparison_chaining_short_circuit_late_operand():
+    source_code = """
+
+def foo(y: int) -> int:
+    print("foo")
+    return 5
+
+def bar() -> int:
+    print("bar")
+    return 10
+
+def validator(x: int) -> bool:
+    return x < foo(x) < bar()
+"""
+    res = eval_uplc_raw(source_code, 10)
+    assert bool(res.result.value) is False
+    assert res.logs.count("foo") == 1
+    assert res.logs.count("bar") == 0
+
+    res = eval_uplc_raw(source_code, 0)
+    assert bool(res.result.value) is True
+    assert res.logs.count("foo") == 1
+    assert res.logs.count("bar") == 1
+
+
+def test_comparison_chaining_dunder_once():
+    source_code = """
+from typing import Self
+from opshin.prelude import *
+
+@dataclass()
+class Foo(PlutusData):
+    a: int
+
+    def __lt__(self, other: Self) -> bool:
+        print("cmp")
+        return self.a < other.a
+
+def mk(x: int) -> Foo:
+    print("mk")
+    return Foo(x)
+
+def validator(x: int, y: int, z: int) -> bool:
+    return mk(x) < mk(y) < mk(z)
+"""
+    res = eval_uplc_raw(source_code, 0, 1, 2)
+    assert bool(res.result.value) is True
+    assert res.logs.count("mk") == 3
+    assert res.logs.count("cmp") == 2
+
+    res = eval_uplc_raw(source_code, 2, 1, 0)
+    assert bool(res.result.value) is False
+    assert res.logs.count("mk") == 2
+    assert res.logs.count("cmp") == 1
