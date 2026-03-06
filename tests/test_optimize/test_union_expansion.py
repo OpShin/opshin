@@ -340,9 +340,7 @@ def odd_i(x: Union[int, bytes], n: int) -> int:
 
 """
         expanded = OptimizeUnionExpansion().visit(ast.parse(source_code))
-        funcs = {
-            f.name: f for f in expanded.body if isinstance(f, ast.FunctionDef)
-        }
+        funcs = {f.name: f for f in expanded.body if isinstance(f, ast.FunctionDef)}
         self.assertIn("even_i+_int", funcs)
         self.assertIn("odd_i+_int", funcs)
 

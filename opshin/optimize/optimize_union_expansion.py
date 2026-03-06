@@ -277,9 +277,7 @@ class OptimizeUnionExpansion(CompilingNodeTransformer):
             for arg in stmt.args.args:
                 if isinstance(arg.annotation, Name):
                     known_var_types[arg.arg] = arg.annotation.id
-            known_var_types.update(
-                getattr(stmt, "_union_expansion_known_types", {})
-            )
+            known_var_types.update(getattr(stmt, "_union_expansion_known_types", {}))
             rewriter = self._RewriteExpandedCalls(
                 union_arg_positions, generated_names, known_var_types
             )

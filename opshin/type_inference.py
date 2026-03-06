@@ -862,7 +862,9 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             required_direct_funcs[node_id] = required
 
         symbol_bound: typing.Dict[int, typing.Set[str]] = {
-            id(node): set(direct_nonfunc[id(node)]).union(required_direct_funcs[id(node)])
+            id(node): set(direct_nonfunc[id(node)]).union(
+                required_direct_funcs[id(node)]
+            )
             for node in function_nodes
         }
         changed = True
@@ -896,7 +898,9 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             symbol_bound = new_symbol_bound
         return {id(node): symbol_bound[id(node)] for node in function_nodes}
 
-    def lower_class_methods_in_sequence(self, node_seq: typing.List[stmt]) -> typing.List[stmt]:
+    def lower_class_methods_in_sequence(
+        self, node_seq: typing.List[stmt]
+    ) -> typing.List[stmt]:
         node_seq_cp = list(node_seq)
         additional_functions = []
         for n in node_seq_cp:
