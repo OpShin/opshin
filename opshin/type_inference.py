@@ -135,6 +135,18 @@ DUNDER_REVERSE_MAP = {
 ALL_DUNDERS = set(DUNDER_MAP.values()).union(set(DUNDER_REVERSE_MAP.values()))
 
 
+def method_name(class_name: str, method_attr: str) -> str:
+    return f"{class_name}_+_{method_attr}"
+
+
+def expanded_union_function_prefix(function_name: str) -> str:
+    return f"{function_name}+"
+
+
+def is_expanded_union_function(candidate_name: str, original_name: str) -> bool:
+    return candidate_name.startswith(expanded_union_function_prefix(original_name))
+
+
 def record_from_plutusdata(c: PlutusData):
     return Record(
         name=c.__class__.__name__,
@@ -483,8 +495,8 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         ):
             dunder = DUNDER_MAP[operation.__class__]
             operand_class_name = operand_type.typ.record.name
-            method_name = f"{operand_class_name}_+_{dunder}"
-            if any([method_name in scope for scope in self.scopes]):
+            resolved_method_name = method_name(operand_class_name, dunder)
+            if any([resolved_method_name in scope for scope in self.scopes]):
                 call = ast.Call(
                     func=ast.Attribute(
                         value=operand,
@@ -495,7 +507,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                     keywords=[],
                 )
                 call.func.orig_id = f"{operand_class_name}.{dunder}"
-                call.func.id = method_name
+                call.func.id = resolved_method_name
                 call = self.visit_Call(call)
                 if (dunder == "__contains__" and isinstance(operation, ast.NotIn)) or (
                     dunder == "__bool__" and isinstance(operation, ast.Not)
@@ -516,8 +528,8 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         ):
             dunder = DUNDER_REVERSE_MAP[operation.__class__]
             right_class_name = right_op_typ.typ.record.name
-            method_name = f"{right_class_name}_+_{dunder}"
-            if any([method_name in scope for scope in self.scopes]):
+            resolved_method_name = method_name(right_class_name, dunder)
+            if any([resolved_method_name in scope for scope in self.scopes]):
                 call = ast.Call(
                     func=ast.Attribute(
                         value=args[0],
@@ -528,7 +540,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                     keywords=[],
                 )
                 call.func.orig_id = f"{right_class_name}.{dunder}"
-                call.func.id = method_name
+                call.func.id = resolved_method_name
                 return self.visit_Call(call)
         return None
 
@@ -667,7 +679,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                     assert (
                         func.name in ALL_DUNDERS
                     ), f"The following Dunder methods are supported {sorted(ALL_DUNDERS)}. Received {func.name} which is not supported"
-                func.name = f"{n.name}_+_{attribute.name}"
+                func.name = method_name(n.name, attribute.name)
 
                 def does_literally_reference_self(arg):
                     if arg is None:
@@ -1306,7 +1318,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                 k: v
                 for scope in self.scopes
                 for k, v in scope.items()
-                if k.startswith(f"{node.func.orig_id}+")
+                if is_expanded_union_function(k, node.func.orig_id)
             }
             for k, v in expanded_unions.items():
                 argtyps = v.typ.argtyps
@@ -1331,10 +1343,10 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                 and tc.func.attr != "to_cbor"
             ):
                 class_name = accessed_var.typ.typ.record.name
-                method_name = f"{class_name}_+_{tc.func.attr}"
+                resolved_method_name = method_name(class_name, tc.func.attr)
                 # If method_name found then use this.
-                if self.is_defined_in_current_scope(method_name):
-                    n = ast.Name(id=method_name, ctx=ast.Load())
+                if self.is_defined_in_current_scope(resolved_method_name):
+                    n = ast.Name(id=resolved_method_name, ctx=ast.Load())
                     n.orig_id = node.func.attr
                     tc.func = self.visit(n)
                     tc.func.orig_id = node.func.attr
