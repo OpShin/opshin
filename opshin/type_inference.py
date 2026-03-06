@@ -494,7 +494,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             "argument": argument,
         }
 
-    def dunder_override(self, node: Union[BinOp, Compare, UnaryOp]):
+    def dunder_override(self, node: Union[BinOp, UnaryOp]):
         # Check for potential dunder_method override
         operand = None
         operation = None
@@ -506,27 +506,6 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             operand = self.visit(node.left)
             operation = node.op
             args = [self.visit(node.right)]
-        elif isinstance(node, Compare):
-            if len(node.ops) != 1:
-                return None
-            operation = node.ops[0]
-            left_operand = self.visit(node.left)
-            right_operand = self.visit(node.comparators[0])
-            dunder_details = self.resolve_compare_dunder(
-                operation, left_operand, right_operand
-            )
-            if dunder_details is None:
-                return None
-            call = ast.Call(
-                func=ast.Name(id=dunder_details["method_name"], ctx=ast.Load()),
-                args=[dunder_details["receiver"], dunder_details["argument"]],
-                keywords=[],
-            )
-            call.func.orig_id = dunder_details["dunder_name"]
-            call = self.visit_Call(call)
-            if dunder_details["negate_result"]:
-                return TypedUnaryOp(op=ast.Not(), operand=call, typ=BoolInstanceType)
-            return call
         operand_type = operand.typ
         if (
             operation.__class__ in DUNDER_MAP
@@ -1011,21 +990,16 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         tk.value = self.visit(node.value)
         return tk
 
-    def visit_Compare(self, node: Compare) -> Union[TypedCompare, TypedCall]:
-        if len(node.ops) == 1:
-            dunder_node = self.dunder_override(node)
-            if dunder_node is not None:
-                return dunder_node
+    def visit_Compare(self, node: Compare) -> TypedCompare:
         typed_cmp = copy(node)
         typed_cmp.left = self.visit(node.left)
         typed_cmp.comparators = [self.visit(s) for s in node.comparators]
         typed_cmp.typ = BoolInstanceType
-        if len(node.ops) > 1:
-            operands = [typed_cmp.left] + typed_cmp.comparators
-            typed_cmp.dunder_overrides = [
-                self.resolve_compare_dunder(op, operands[i], operands[i + 1])
-                for i, op in enumerate(node.ops)
-            ]
+        operands = [typed_cmp.left] + typed_cmp.comparators
+        typed_cmp.dunder_overrides = [
+            self.resolve_compare_dunder(op, operands[i], operands[i + 1])
+            for i, op in enumerate(node.ops)
+        ]
 
         return typed_cmp
 
