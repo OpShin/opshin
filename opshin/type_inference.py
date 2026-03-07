@@ -869,10 +869,69 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                     required.add(sibling_name)
             required_direct_funcs[node_id] = required
 
+        node_by_id = {id(node): node for node in function_nodes}
+        graph = {
+            id(node): [
+                id(first_def_node_by_name[fn_name])
+                for fn_name in direct_called_funcs[id(node)]
+                if fn_name in first_def_node_by_name
+            ]
+            for node in function_nodes
+        }
+
+        index = 0
+        stack = []
+        stack_members = set()
+        indices = {}
+        lowlinks = {}
+        recursive_component_names = {}
+
+        def strongconnect(node_id: int):
+            nonlocal index
+            indices[node_id] = index
+            lowlinks[node_id] = index
+            index += 1
+            stack.append(node_id)
+            stack_members.add(node_id)
+
+            for dep_id in graph[node_id]:
+                if dep_id not in indices:
+                    strongconnect(dep_id)
+                    lowlinks[node_id] = min(lowlinks[node_id], lowlinks[dep_id])
+                elif dep_id in stack_members:
+                    lowlinks[node_id] = min(lowlinks[node_id], indices[dep_id])
+
+            if lowlinks[node_id] != indices[node_id]:
+                return
+
+            component = []
+            while True:
+                member = stack.pop()
+                stack_members.remove(member)
+                component.append(member)
+                if member == node_id:
+                    break
+
+            if len(component) > 1 or node_id in graph[node_id]:
+                component_names = {node_by_id[member].name for member in component}
+            else:
+                component_names = set()
+            for member in component:
+                recursive_component_names[member] = component_names
+
+        for node in function_nodes:
+            node_id = id(node)
+            if node_id not in indices:
+                strongconnect(node_id)
+
+        for node in function_nodes:
+            node_id = id(node)
+            recursive_component_names.setdefault(node_id, set())
+
         symbol_bound: typing.Dict[int, typing.Set[str]] = {
-            id(node): set(direct_nonfunc[id(node)]).union(
-                required_direct_funcs[id(node)]
-            )
+            id(node): set(direct_nonfunc[id(node)])
+            .union(required_direct_funcs[id(node)])
+            .union(recursive_component_names[id(node)])
             for node in function_nodes
         }
         changed = True
@@ -891,12 +950,12 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                     for dep_req_name in symbol_bound[id(dep_node)]:
                         if dep_req_name not in function_names:
                             continue
-                        dep_bind_index = first_binding_index.get(dep_req_name)
-                        if (
-                            dep_bind_index is not None
-                            and dep_bind_index < function_stmt_index[node_id]
-                        ):
-                            continue
+                        # Transitive function dependencies must still be threaded
+                        # through the caller even if the original symbol is
+                        # defined earlier in the module. Once the callee closes
+                        # over that function, callers need to supply the same
+                        # runtime binding to keep recursive call signatures
+                        # aligned.
                         resolved.add(dep_req_name)
                 new_symbol_bound[node_id] = resolved
             changed = any(
