@@ -678,6 +678,14 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         for scope in reversed(self.function_bound_name_scopes):
             if id(node) in scope:
                 return scope[id(node)]
+        source_node_id = getattr(node, "bound_name_source_id", None)
+        if source_node_id is not None:
+            transformed_bound_names = {
+                v for v in externally_bound_vars(node) if v not in ["List", "Dict"]
+            }
+            for scope in reversed(self.function_bound_name_scopes):
+                if source_node_id in scope:
+                    return set(scope[source_node_id]).union(transformed_bound_names)
         return {v for v in externally_bound_vars(node) if v not in ["List", "Dict"]}
 
     def function_needs_self_binding(self, node: FunctionDef) -> bool:
@@ -1287,6 +1295,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
     def visit_FunctionDef(self, node: FunctionDef) -> TypedFunctionDef:
         resolved_node = self.resolve_self_annotations(node)
         tfd = copy(resolved_node)
+        tfd.bound_name_source_id = id(node)
         wraps_builtin = (
             all(
                 isinstance(o, Name) and o.orig_id == "wraps_builtin"
@@ -1316,13 +1325,10 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             # We need the function type inside for (co-)recursion.
             self.set_variable_type(resolved_node.name, tfd.typ, force=True)
             tfd.body = self.visit_sequence(resolved_node.body)
-            # Check that return type and annotated return type match
-            rets_extractor = ReturnExtractor(functyp.rettyp)
-            rets_extractor.check_fulfills(tfd)
             # Recompute closure bindings from the transformed body.
             # Dunder rewrites can introduce additional free names that are not visible
             # in the original AST shape used during pre-declaration.
-            tfd.typ = InstanceType(
+            updated_typ = InstanceType(
                 self.build_function_type(
                     resolved_node,
                     arg_types=arg_types,
@@ -1330,6 +1336,24 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                     bound_var_source_node=tfd,
                 )
             )
+            if updated_typ != tfd.typ:
+                # Revisit the body with the final function shape so recursive call sites
+                # receive the same closure parameters as external call sites.
+                tfd.typ = updated_typ
+                self.set_variable_type(resolved_node.name, tfd.typ, force=True)
+                tfd.body = self.visit_sequence(resolved_node.body)
+                updated_typ = InstanceType(
+                    self.build_function_type(
+                        resolved_node,
+                        arg_types=arg_types,
+                        allow_uninitialized_bound_vars=wraps_builtin,
+                        bound_var_source_node=tfd,
+                    )
+                )
+            tfd.typ = updated_typ
+            # Check that return type and annotated return type match
+            rets_extractor = ReturnExtractor(functyp.rettyp)
+            rets_extractor.check_fulfills(tfd)
 
         self.exit_scope()
         is_first_definition = (

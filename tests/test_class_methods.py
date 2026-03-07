@@ -686,6 +686,7 @@ def validator(a: int) -> bool:
 
     @given(x=st.integers(), y=st.integers())
     @example(x=0, y=0)
+    @example(x=1, y=0)
     def test_method_back_ref(self, x: int, y: int):
         source_code = """
 from typing import Self
@@ -706,4 +707,46 @@ def validator(a: int, b: int) -> bool:
     return compare_foos(foo1, foo2)
 """
         ret = eval_uplc_value(source_code, x, y)
+
+        def compare_foos(x, y):
+            if x > y:
+                return compare_foos(y, x) or True
+            return False
+
         self.assertEqual(ret, x >= y)
+
+    @given(x=st.integers(), y=st.integers())
+    @example(x=0, y=0)
+    @example(x=1, y=0)
+    def test_method_back_ref_2(self, x: int, y: int):
+        source_code = """
+from typing import Self
+from opshin.prelude import *
+@dataclass()
+class Foo(PlutusData):
+    a: int
+
+    def __ge__(self, other: Self) -> bool:
+        return self.a >= other.a
+        
+    def __gt__(self, other: Self) -> bool:
+        return self.a > other.a
+
+def compare_foos(foo1: Foo, foo2: Foo) -> bool:
+    if foo1 > foo2:
+        return compare_foos(foo2, foo1) or True
+    return False
+
+def validator(a: int, b: int) -> bool:
+    foo1 = Foo(a)
+    foo2 = Foo(b)
+    return compare_foos(foo1, foo2)
+"""
+        ret = eval_uplc_value(source_code, x, y)
+
+        def compare_foos(x, y):
+            if x > y:
+                return compare_foos(y, x) or True
+            return False
+
+        self.assertEqual(ret, x > y)
