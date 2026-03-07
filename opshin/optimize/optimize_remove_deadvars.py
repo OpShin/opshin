@@ -25,9 +25,9 @@ class NameLoadCollector(CompilingNodeVisitor):
 
     def visit_Compare(self, node: Compare):
         self.generic_visit(node)
-        for dunder_override in getattr(node, "dunder_overrides", []):
+        for dunder_override in node.dunder_overrides:
             if dunder_override is not None:
-                self.loaded[dunder_override["method_name"]] += 1
+                self.loaded[dunder_override.method_name] += 1
 
     def visit_ClassDef(self, node: TypedClassDef):
         # ignore the content (i.e. attribute names) of class definitions
