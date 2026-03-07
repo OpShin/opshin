@@ -247,7 +247,7 @@ class PlutoCompiler(CompilingNodeTransformer):
 
     def visit_Compare(self, node: TypedCompare) -> plt.AST:
         operands = [node.left] + node.comparators
-        dunder_overrides = getattr(node, "dunder_overrides", [])
+        dunder_overrides = node.dunder_overrides
         operand_names = [
             f"__chain_cmp_value_{node.lineno}_{node.col_offset}_{i}"
             for i in range(len(operands))
