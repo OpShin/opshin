@@ -1310,6 +1310,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         self.enter_scope()
         tfd.args = self.visit(resolved_node.args)
         arg_types = [t.typ for t in tfd.args.args]
+        base_scope = copy(self.scopes[-1])
 
         functyp = self.build_function_type(
             resolved_node,
@@ -1323,6 +1324,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             pass
         else:
             # We need the function type inside for (co-)recursion.
+            self.scopes[-1] = copy(base_scope)
             self.set_variable_type(resolved_node.name, tfd.typ, force=True)
             tfd.body = self.visit_sequence(resolved_node.body)
             # Recompute closure bindings from the transformed body.
@@ -1340,6 +1342,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                 # Revisit the body with the final function shape so recursive call sites
                 # receive the same closure parameters as external call sites.
                 tfd.typ = updated_typ
+                self.scopes[-1] = copy(base_scope)
                 self.set_variable_type(resolved_node.name, tfd.typ, force=True)
                 tfd.body = self.visit_sequence(resolved_node.body)
                 updated_typ = InstanceType(

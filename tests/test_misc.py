@@ -2538,6 +2538,45 @@ def validator(x: Union[A, B]) -> int:
         """
         builder._compile(source_code)
 
+    def test_revisit_function_body_resets_local_union_scope(self):
+        source_code = """
+from typing import Union
+from pycardano import Datum as Anything, PlutusData
+from dataclasses import dataclass
+
+def helper(x: int) -> int:
+    return x + 1
+
+@dataclass()
+class A(PlutusData):
+    CONSTR_ID = 0
+    a: int
+
+@dataclass()
+class B(PlutusData):
+    CONSTR_ID = 1
+    b: int
+
+@dataclass()
+class C(PlutusData):
+    CONSTR_ID = 2
+    c: int
+
+def validator(x: Union[A, B, C]) -> int:
+    y: Union[A, B, C] = x
+    z = 0
+    if isinstance(y, A):
+        z = helper(y.a)
+    elif isinstance(y, B):
+        z = helper(y.b)
+    elif isinstance(y, C):
+        z = helper(y.c)
+    else:
+        assert False, "bad"
+    return z
+        """
+        builder._compile(source_code)
+
     @unittest.expectedFailure
     def test_union_superset_call(self):
         source_code = """
