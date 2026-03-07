@@ -1300,10 +1300,11 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
 
         self.enter_scope()
         tfd.args = self.visit(resolved_node.args)
+        arg_types = [t.typ for t in tfd.args.args]
 
         functyp = self.build_function_type(
             resolved_node,
-            arg_types=[t.typ for t in tfd.args.args],
+            arg_types=arg_types,
             allow_uninitialized_bound_vars=wraps_builtin,
             bound_var_source_node=node,
         )
@@ -1318,6 +1319,17 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             # Check that return type and annotated return type match
             rets_extractor = ReturnExtractor(functyp.rettyp)
             rets_extractor.check_fulfills(tfd)
+            # Recompute closure bindings from the transformed body.
+            # Dunder rewrites can introduce additional free names that are not visible
+            # in the original AST shape used during pre-declaration.
+            tfd.typ = InstanceType(
+                self.build_function_type(
+                    resolved_node,
+                    arg_types=arg_types,
+                    allow_uninitialized_bound_vars=wraps_builtin,
+                    bound_var_source_node=tfd,
+                )
+            )
 
         self.exit_scope()
         is_first_definition = (
