@@ -463,7 +463,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         operation: ast.cmpop,
         left_operand: typedexpr,
         right_operand: typedexpr,
-    ) -> typing.Optional[typing.Dict[str, typing.Any]]:
+    ) -> typing.Optional[DunderCompareOverride]:
         if isinstance(operation, (ast.In, ast.NotIn)):
             receiver = right_operand
             argument = left_operand
@@ -484,15 +484,15 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         resolved_method_name = method_name(receiver_class_name, dunder_name)
         if not any(resolved_method_name in scope for scope in self.scopes):
             return None
-        return {
-            "method_name": resolved_method_name,
-            "function_type": self.variable_type(resolved_method_name),
-            "dunder_name": dunder_name,
-            "receiver_right": receiver_right,
-            "negate_result": isinstance(operation, ast.NotIn),
-            "receiver": receiver,
-            "argument": argument,
-        }
+        return DunderCompareOverride(
+            method_name=resolved_method_name,
+            function_type=self.variable_type(resolved_method_name),
+            dunder_name=dunder_name,
+            receiver_right=receiver_right,
+            negate_result=isinstance(operation, ast.NotIn),
+            receiver=receiver,
+            argument=argument,
+        )
 
     def dunder_override(self, node: Union[BinOp, UnaryOp]):
         # Check for potential dunder_method override

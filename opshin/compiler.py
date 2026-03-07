@@ -259,14 +259,14 @@ class PlutoCompiler(CompilingNodeTransformer):
             )
             if dunder_override is not None:
                 dunder_function = TypedName(
-                    id=dunder_override["method_name"],
+                    id=dunder_override.method_name,
                     ctx=Load(),
-                    typ=dunder_override["function_type"],
+                    typ=dunder_override.function_type,
                 )
-                dunder_function.orig_id = dunder_override["dunder_name"]
+                dunder_function.orig_id = dunder_override.dunder_name
                 arg_indices = (
                     [index + 1, index]
-                    if dunder_override["receiver_right"]
+                    if dunder_override.receiver_right
                     else [index, index + 1]
                 )
                 dunder_call = TypedCall(
@@ -282,7 +282,7 @@ class PlutoCompiler(CompilingNodeTransformer):
                     typ=BoolInstanceType,
                 )
                 dunder_call_result = self.visit_Call(dunder_call)
-                if dunder_override["negate_result"]:
+                if dunder_override.negate_result:
                     return plt.Not(dunder_call_result)
                 return dunder_call_result
             op = operands[index].typ.cmp(node.ops[index], operands[index + 1].typ)
