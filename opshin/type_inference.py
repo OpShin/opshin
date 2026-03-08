@@ -764,6 +764,8 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                 wrapped = self.implement_typechecks(typchecks)
                 prevtyps.update(wrapped)
                 self.wrapped.extend(wrapped.keys())
+            if not getattr(stmt, "can_fall_through", True):
+                break
         if prevtyps:
             self.wrapped = [x for x in self.wrapped if x not in prevtyps.keys()]
             self.implement_typechecks(prevtyps)
