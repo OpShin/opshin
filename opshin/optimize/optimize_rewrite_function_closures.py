@@ -29,6 +29,9 @@ class _DirectFunctionCallCollector(CompilingNodeVisitor):
         self.generic_visit(node)
 
     def visit_Compare(self, node: Compare):
+        # Compare nodes can lower to lifted dunder functions during
+        # compilation, so those call-like dependencies need to participate in
+        # the same closure analysis as explicit Call nodes.
         for dunder_override in getattr(node, "dunder_overrides", []):
             if dunder_override is None:
                 continue
@@ -47,6 +50,9 @@ class _DirectFunctionCallCollector(CompilingNodeVisitor):
 
 
 class OptimizeRewriteFunctionClosures(CompilingNodeTransformer):
+    # Function values are compiled as explicit closures. This pass computes
+    # which names each function must receive so recursive calls, aliases and
+    # lifted methods all see the same environment the type checker inferred.
     step = "Resolving function dependencies"
 
     def _merge_envs(
@@ -176,6 +182,9 @@ class OptimizeRewriteFunctionClosures(CompilingNodeTransformer):
     def _refresh_sequence_binding_uses_with_env(
         self, body: list[stmt], inherited_env: dict[str, InstanceType]
     ) -> dict[str, InstanceType]:
+        # Re-thread the current function-valued environment through the local
+        # statement sequence so aliases like `f = odd` pick up the final
+        # closure type before later dependency collection runs.
         current_env = dict(inherited_env)
         for stmt in body:
             if isinstance(stmt, FunctionDef):
@@ -290,6 +299,10 @@ class OptimizeRewriteFunctionClosures(CompilingNodeTransformer):
                 collector.visit(stmt)
             called_function_targets[function_id] = set(collector.called.values())
             direct_required_names[function_id].update(collector.called.keys())
+
+        # Solve closure requirements as a fixed point over the local call graph:
+        # if `f` calls `g`, then `f` must be able to supply everything `g`
+        # needs when `g` is invoked at runtime.
         required_names = copy(direct_required_names)
         changed = True
         while changed:

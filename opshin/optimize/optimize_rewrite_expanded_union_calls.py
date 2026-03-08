@@ -17,6 +17,9 @@ class _ExpandedVariant:
 
 
 class OptimizeRewriteExpandedUnionCalls(CompilingNodeTransformer):
+    # This pass keeps track of specialized union variants in the current nested
+    # statement sequence, so calls can be rewritten even when the expanded
+    # functions live inside another function or control-flow block.
     step = "Rewriting expanded union calls"
 
     def __init__(self):
@@ -79,6 +82,8 @@ class OptimizeRewriteExpandedUnionCalls(CompilingNodeTransformer):
         )
         try:
             rewritten = [self.visit(stmt) for stmt in body]
+            # Once every call in this sequence points at a specialized variant,
+            # the unspecialized union-typed base function is dead weight.
             read_names = set(read_vars(Module(body=rewritten, type_ignores=[])))
             return [
                 stmt
@@ -98,6 +103,9 @@ class OptimizeRewriteExpandedUnionCalls(CompilingNodeTransformer):
         if not isinstance(node.func, Name):
             return node
 
+        # Re-dispatch the call based on the typed argument list instead of the
+        # original source name. This lets specialization work after type
+        # inference has renamed or nested the functions.
         specialized_positions = self.specialized_arg_positions_by_base_name.get(
             node.func.id
         )

@@ -717,6 +717,8 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         bound_vars: typing.Optional[typing.Dict[str, Type]] = None,
         bind_self: typing.Optional[str] = None,
     ) -> FunctionType:
+        # Function types carry both the signature and the closure contract used
+        # by later closure rewriting and code generation.
         return FunctionType(
             frozenlist(arg_types),
             InstanceType(self.type_from_annotation(node.returns)),
@@ -728,6 +730,9 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
     def infer_function_closure(
         self, node: FunctionDef
     ) -> tuple[typing.Dict[str, Type], typing.Optional[str]]:
+        # Seed the function type with the closure implied directly by the
+        # syntax. Later optimizer passes may widen this for mutual recursion or
+        # function aliases, but starting here keeps forward references typed.
         bound_vars = {
             v: self.variable_type(v)
             for v in externally_bound_vars(node)
@@ -1212,6 +1217,9 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         base_scope = copy(self.scopes[-1])
         bound_vars, bind_self = self.infer_function_closure(resolved_node)
 
+        # Publish a first approximation of the function type before visiting
+        # the body so recursive and forward references have something stable to
+        # point at during inference.
         functyp = self.build_function_type(
             resolved_node,
             arg_types=arg_types,

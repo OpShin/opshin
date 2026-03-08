@@ -1,3 +1,7 @@
+"""
+Auxiliary patch to fix large repr rendering in hypothesis failures.
+"""
+
 import dataclasses
 import os
 from collections.abc import Mapping, Sequence
@@ -51,6 +55,8 @@ def _render_sequence(
     budget: Optional[int],
     seen: set[int],
 ) -> str:
+    # Render containers incrementally so deep UPLC terms fail with a useful
+    # prefix instead of exploding assertion messages.
     container = opener + closer
     if budget is not None and budget <= len(container):
         return _truncate_text(container, budget)
@@ -83,6 +89,8 @@ def _render_mapping(
     budget: Optional[int],
     seen: set[int],
 ) -> str:
+    # Mappings can appear in bound-state nodes; split the remaining budget
+    # between key and value to keep both sides visible in truncated output.
     container = opener + closer
     if budget is not None and budget <= len(container):
         return _truncate_text(container, budget)
@@ -119,6 +127,8 @@ def _render_mapping(
 
 
 def _render_ast(node: uplc_ast.AST, budget: Optional[int], seen: set[int]) -> str:
+    # UPLC ASTs are deeply recursive dataclasses. This renderer keeps reprs
+    # deterministic, bounded and cycle-safe so type errors stay readable.
     node_id = id(node)
     cls_name = type(node).__name__
     if node_id in seen:
@@ -176,6 +186,8 @@ def _bounded_uplc_repr(self) -> str:
 
 
 def _iter_ast_classes():
+    # Patch every concrete AST subclass once so repr behavior stays consistent
+    # no matter which node type an error happens to touch.
     stack = [uplc_ast.AST]
     seen = set()
     while stack:
@@ -188,6 +200,8 @@ def _iter_ast_classes():
 
 
 def patch_uplc_ast_reprs() -> None:
+    # Test imports call this once at startup. Keeping the patch idempotent makes
+    # it safe to import from multiple test modules.
     global _PATCHED
     if _PATCHED:
         return
