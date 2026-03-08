@@ -28,6 +28,20 @@ class _DirectFunctionCallCollector(CompilingNodeVisitor):
             self.called[node.func.id] = node.func.typ.typ.function_id
         self.generic_visit(node)
 
+    def visit_Compare(self, node: Compare):
+        for dunder_override in getattr(node, "dunder_overrides", []):
+            if dunder_override is None:
+                continue
+            function_type = getattr(dunder_override, "function_type", None)
+            if not (
+                isinstance(function_type, InstanceType)
+                and isinstance(function_type.typ, FunctionType)
+                and function_type.typ.function_id in self.function_ids
+            ):
+                continue
+            self.called[dunder_override.method_name] = function_type.typ.function_id
+        self.generic_visit(node)
+
     def visit_FunctionDef(self, node: FunctionDef):
         return None
 
@@ -99,6 +113,19 @@ class OptimizeRewriteFunctionClosures(CompilingNodeTransformer):
                 ):
                     self.types.setdefault(node.id, node.typ)
 
+            def visit_Compare(self, node: Compare) -> None:
+                for dunder_override in getattr(node, "dunder_overrides", []):
+                    if (
+                        dunder_override is not None
+                        and dunder_override.method_name in self.target_names
+                        and isinstance(dunder_override.function_type, InstanceType)
+                        and isinstance(dunder_override.function_type.typ, FunctionType)
+                    ):
+                        self.types.setdefault(
+                            dunder_override.method_name, dunder_override.function_type
+                        )
+                self.generic_visit(node)
+
             def visit_ClassDef(self, node: ClassDef):
                 pass
 
@@ -127,6 +154,19 @@ class OptimizeRewriteFunctionClosures(CompilingNodeTransformer):
                 ):
                     node.typ = self.current_env[node.id]
                 return node
+
+            def visit_Compare(self, node: Compare):
+                for dunder_override in getattr(node, "dunder_overrides", []):
+                    if dunder_override is None:
+                        continue
+                    method_name = dunder_override.method_name
+                    if (
+                        method_name in self.current_env
+                        and isinstance(self.current_env[method_name], InstanceType)
+                        and isinstance(self.current_env[method_name].typ, FunctionType)
+                    ):
+                        dunder_override.function_type = self.current_env[method_name]
+                return self.generic_visit(node)
 
         SequenceBindingRefresher(env).visit(node)
 
@@ -249,6 +289,7 @@ class OptimizeRewriteFunctionClosures(CompilingNodeTransformer):
             for stmt in function.body:
                 collector.visit(stmt)
             called_function_targets[function_id] = set(collector.called.values())
+            direct_required_names[function_id].update(collector.called.keys())
         required_names = copy(direct_required_names)
         changed = True
         while changed:
