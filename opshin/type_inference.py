@@ -1753,6 +1753,9 @@ class ReturnExtractor(TypedNodeVisitor):
         ), f"Function annotated return type does not match actual return type, expected {self.func_rettyp.python_type()} but got {node.typ.python_type()}"
         return True
 
+    def visit_Assert(self, node: Assert) -> bool:
+        return not getattr(node, "can_fall_through", True)
+
     def check_fulfills(self, node: FunctionDef):
         all_paths_covered = self.visit_sequence(node.body)
         if not all_paths_covered:

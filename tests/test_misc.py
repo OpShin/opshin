@@ -38,7 +38,7 @@ from .utils import (
     B,
     DEFAULT_TEST_CONFIG,
 )
-from opshin.compiler_config import OPT_O2_CONFIG
+from opshin.compiler_config import OPT_O0_CONFIG, OPT_O2_CONFIG
 from opshin.util import NoOp
 
 hypothesis.settings.load_profile(PLUTUS_VM_PROFILE)
@@ -149,6 +149,18 @@ class MiscTest(unittest.TestCase):
             config=DEFAULT_TEST_CONFIG.update(wrap_output=False),
         )
         self.assertEqual(ret, uplc.BuiltinUnit())
+
+    def test_assert_false_return_analysis_compile_o0(self):
+        source_code = """
+from typing import List
+
+def validator(xs: List[int], n: int) -> int:
+    for x in xs:
+        if x == n:
+            return x
+    assert False, "missing"
+"""
+        builder._compile(source_code, config=OPT_O0_CONFIG)
 
     @unittest.expectedFailure
     def test_assert_sum_contract_fail(self):
@@ -2432,7 +2444,7 @@ def validator(v: Union[int, bytes], n: int) -> int:
         x = len(v)
     else:
         return 2
-    return x + 1
+    return x if x > 0 else 0
 """
         folded_source_code = """
 from typing import Union
@@ -2440,7 +2452,7 @@ from typing import Union
 def validator(v: Union[int, bytes], n: int) -> int:
     if isinstance(v, bytes):
         x = len(v)
-        return x + 1
+        return x if x > 0 else 0
     else:
         return 2
 """
