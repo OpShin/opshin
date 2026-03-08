@@ -2346,6 +2346,53 @@ def validator(v: Union[int, bytes], xs: List[int]) -> int:
 """
         builder._compile(source_code)
 
+    def test_opt_remove_unreachable_after_return(self):
+        source_code = """
+def validator(_: None) -> int:
+    return 1
+    assert False, "dead-after-return"
+"""
+        code = builder._compile(source_code)
+        self.assertNotIn("dead-after-return", code.dumps())
+
+    def test_opt_remove_unreachable_after_if_both_branches_return(self):
+        source_code = """
+def validator(x: int) -> int:
+    if x > 0:
+        return 1
+    else:
+        return 2
+    assert False, "dead-after-if"
+"""
+        code = builder._compile(source_code)
+        self.assertNotIn("dead-after-if", code.dumps())
+
+    def test_opt_remove_unreachable_after_while_else_return(self):
+        source_code = """
+def validator(x: int) -> int:
+    while x > 0:
+        x -= 1
+    else:
+        return 2
+    assert False, "dead-after-while"
+"""
+        code = builder._compile(source_code)
+        self.assertNotIn("dead-after-while", code.dumps())
+
+    def test_opt_remove_unreachable_after_for_else_return(self):
+        source_code = """
+from typing import List
+
+def validator(xs: List[int]) -> int:
+    for _ in xs:
+        pass
+    else:
+        return 2
+    assert False, "dead-after-for"
+"""
+        code = builder._compile(source_code)
+        self.assertNotIn("dead-after-for", code.dumps())
+
     @unittest.expectedFailure
     def test_return_in_if_same_type(self):
         source_code = """

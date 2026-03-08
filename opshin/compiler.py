@@ -40,6 +40,7 @@ from .typed_ast import *
 from .compiler_config import DEFAULT_CONFIG
 from .optimize.optimize_const_folding import OptimizeConstantFolding
 from .optimize.optimize_remove_deadconstants import OptimizeRemoveDeadconstants
+from .optimize.optimize_remove_unreachable import OptimizeRemoveUnreachable
 from .optimize.optimize_union_expansion import OptimizeUnionExpansion
 
 from .rewrite.rewrite_assert_none import RewriteAssertNone
@@ -1238,6 +1239,7 @@ def compile(
         RewriteRemoveTypeStuff(),
         # Apply optimizations
         OptimizeRemoveTrace() if config.remove_trace else NoOp(),
+        OptimizeRemoveUnreachable() if config.remove_dead_code else NoOp(),
         (
             OptimizeRemoveDeadvars(validator_function_name=validator_function_name)
             if config.remove_dead_code
