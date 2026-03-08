@@ -2,11 +2,13 @@ import unittest
 from typing import Dict, List
 
 import hypothesis
+import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
 from opshin import DEFAULT_CONFIG
 from opshin.ledger.api_v3 import *
+from opshin.std.fractions import Fraction as StdFraction
 
 from .. import PLUTUS_VM_PROFILE
 from ..test_misc import A
@@ -36,6 +38,25 @@ union_types = st.sampled_from([A(0), 10, b"foo", [1, 2, 3, 4, 5], {1: 2, 2: 3}])
 
 
 class Union_tests(unittest.TestCase):
+    @pytest.mark.xfail(
+        reason="Union expansion currently does not correctly handle dunder method calls with Union-typed arguments.",
+        strict=True,
+    )
+    def test_Union_expansion_dunder_method_union_argument(self):
+        source_code = """
+from opshin.std.fractions import *
+from typing import Union
+
+def validator(a: Fraction, b: int) -> Fraction:
+    return a + b
+    """
+        config = DEFAULT_TEST_CONFIG
+        euo_config = config.update(expand_union_types=True)
+        source = eval_uplc_raw(source_code, StdFraction(1, 2), 3, config=euo_config)
+        target = eval_uplc_raw(source_code, StdFraction(1, 2), 3, config=config)
+
+        self.assertEqual(source.result, target.result)
+
     def test_Union_expansion(
         self,
     ):
@@ -313,6 +334,42 @@ def validator(x: {x},  y: {y}) -> int:
         euo_config = config.update(expand_union_types=True)
         source = eval_uplc_raw(source_code, x_in, y_in, config=euo_config)
         target = eval_uplc_raw(target_code, x_in, y_in, config=config)
+
+        self.assertEqual(source.result, target.result)
+        self.assertEqual(source.cost.cpu, target.cost.cpu)
+        self.assertEqual(source.cost.memory, target.cost.memory)
+
+    @pytest.mark.skip("Currently not supported")
+    def test_Union_expansion_ifimplicit(
+        self,
+    ):
+        source_code = """
+from typing import Dict, List, Union
+
+def foo(x: Union[int, bytes]) -> int:
+    if isinstance(x, int):
+        return x + 1
+    return len(x)
+
+def validator(x: int, y: bytes) -> int:
+    return foo(x) + foo(y)
+    """
+        target_code = """
+from typing import Dict, List, Union
+
+def foo_int(x: int) -> int:
+    return x + 1
+    
+def foo_bytes(x: bytes) -> int:
+    return len(x)
+
+def validator(x: int, y: bytes) -> int:
+    return foo_int(x) + foo_bytes(y)
+    """
+        config = DEFAULT_CONFIG
+        euo_config = config.update(expand_union_types=True)
+        source = eval_uplc_raw(source_code, 4, b"hello", config=euo_config)
+        target = eval_uplc_raw(target_code, 4, b"hello", config=config)
 
         self.assertEqual(source.result, target.result)
         self.assertEqual(source.cost.cpu, target.cost.cpu)
