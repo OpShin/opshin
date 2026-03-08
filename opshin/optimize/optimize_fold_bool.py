@@ -10,7 +10,7 @@ Pre-evaluates ~bool to constants
 
 
 class OptimizeFoldBoolCast(CompilingNodeTransformer):
-    step = "Removing ~bool calls to constants"
+    step = "Removing ~bool calls to bools"
 
     def visit_Call(self, node: Call) -> Call:
         if (
