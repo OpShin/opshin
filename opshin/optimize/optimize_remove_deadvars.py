@@ -23,6 +23,12 @@ class NameLoadCollector(CompilingNodeVisitor):
         if isinstance(node.ctx, Load):
             self.loaded[node.id] += 1
 
+    def visit_Compare(self, node: Compare):
+        self.generic_visit(node)
+        for dunder_override in node.dunder_overrides:
+            if dunder_override is not None:
+                self.loaded[dunder_override.method_name] += 1
+
     def visit_ClassDef(self, node: TypedClassDef):
         # ignore the content (i.e. attribute names) of class definitions
         pass
@@ -66,6 +72,10 @@ class SafeOperationVisitor(CompilingNodeVisitor):
 class OptimizeRemoveDeadvars(CompilingNodeTransformer):
     step = "Removing unused variables"
 
+    def __init__(self, validator_function_name: str):
+        self.validator_function_name = validator_function_name
+        super().__init__()
+
     loaded_vars = None
     # names that are guaranteed to be available to the current node
     # this acts differently to the type inferencer! in particular, ite/while/for all produce their own scope
@@ -99,7 +109,9 @@ class OptimizeRemoveDeadvars(CompilingNodeTransformer):
             # collect all variable names
             collector = NameLoadCollector()
             collector.visit(node_cp)
-            loaded_vars = OrderedSet(collector.loaded.keys()) | {"validator_0"}
+            loaded_vars = OrderedSet(collector.loaded.keys()) | {
+                self.validator_function_name + "_0"
+            }
             # break if the set of loaded vars did not change -> set of vars to remove does also not change
             if loaded_vars == self.loaded_vars:
                 break

@@ -1,3 +1,6 @@
+import inspect
+import sys
+import traceback
 from _ast import Name, Store, ClassDef, FunctionDef, Load
 from collections import defaultdict
 from copy import deepcopy
@@ -184,7 +187,7 @@ _patterns_cached = {}
 
 
 def make_pattern(structure: plt.AST) -> plt.Pattern:
-    """Creates a shared pattern from the given lambda, cached so that it is re-used in subsequent calls"""
+    """Creates a shared pattern from the given lambda, cached so that it is reused in subsequent calls"""
     structure_serialized = structure.dumps()
     if _patterns_cached.get(structure_serialized) is None:
         # @dataclass
@@ -264,7 +267,7 @@ class NameReadCollector(CompilingNodeVisitor):
         self.visit(node.target)
 
     def visit_FunctionDef(self, node) -> None:
-        # ignore annotations of paramters and return
+        # ignore annotations of parameters and return
         for b in node.body:
             self.visit(b)
 
@@ -329,3 +332,18 @@ def SafeApply(term: plt.AST, *vars: typing.List[plt.AST]) -> plt.Apply:
     if not vars:
         return plt.Apply(term, plt.Delay(plt.Unit()))
     return plt.Apply(term, *vars)
+
+
+def get_class_annotations(cls: type) -> typing.Dict[str, type]:
+    try:
+        ann = inspect.get_annotations(cls)
+    except AttributeError:
+        # in python 3.9 use __dict__
+        ann = cls.__dict__.get("__annotations__", {})
+    return ann
+
+
+def set_class_annotations(cls: type, field_name: str, annotation: type) -> None:
+    if getattr(cls, "__annotations__", None) is None:
+        setattr(cls, "__annotations__", {})
+    cls.__annotations__[field_name] = annotation

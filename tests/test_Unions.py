@@ -13,7 +13,7 @@ hypothesis.settings.load_profile(PLUTUS_VM_PROFILE)
 from .test_misc import A
 from typing import List, Dict
 
-from opshin.ledger.api_v2 import *
+from opshin.ledger.api_v3 import *
 from opshin import DEFAULT_CONFIG
 
 
@@ -281,6 +281,8 @@ def validator(x: Union[B, C]) -> int:
 
     def test_str_fail(self):
         source_code = """
+from typing import Union
+
 def validator(x: Union[int, bytes, str]) -> int:
     if isinstance(x, int):
         return 5
@@ -296,6 +298,8 @@ def validator(x: Union[int, bytes, str]) -> int:
 
     def test_bool_fail(self):
         source_code = """
+from typing import Union
+
 def validator(x: Union[int, bytes, bool]) -> int:
     if isinstance(x, int):
         return 5
@@ -1004,3 +1008,68 @@ def validator(x: Union[Union[A, B], C]) -> None:
         except RuntimeError as e:
             pass
         eval_uplc(source_code, C(1, 2))
+
+    def test_error_message_dict_union(self):
+        source_code = """
+from opshin.prelude import *
+
+def validator(x: Union[int, Dict]) -> None:
+    assert isinstance(x, int)
+        """
+        with self.assertRaises(CompilerError) as e:
+            builder._compile(source_code)
+        self.assertIn(
+            "Dict is not allowed",
+            str(e.exception.orig_err),
+            "Expected error about Dict without subscript not found",
+        )
+
+        def test_error_message_list_union(self):
+            source_code = """
+    from opshin.prelude import *
+
+    def validator(x: Union[int, List]) -> None:
+        assert isinstance(x, int)
+            """
+            with self.assertRaises(CompilerError) as e:
+                builder._compile(source_code)
+            self.assertIn(
+                "List is not allowed",
+                str(e.exception.orig_err),
+                "Expected error about List with subscript not found",
+            )
+
+    def test_error_message_list_union_2(self):
+        source_code = """
+from opshin.prelude import *
+
+def validator(x: Union[int, List[int]]) -> None:
+    assert isinstance(x, int)
+        """
+        with self.assertRaises(CompilerError) as e:
+            builder._compile(source_code)
+        self.assertIn(
+            "Only List[Any",
+            str(e.exception.orig_err),
+            "Expected error about List with subscript not found",
+        )
+
+    def test_error_message_list_union_indirect(self):
+        """
+        Test that duplicate constructor ids in nested unions are rejected correctly
+        """
+        source_code = """
+from opshin.prelude import *
+
+T = List[int]
+
+def validator(x: Union[int, T]) -> None:
+    assert isinstance(x, int)
+        """
+        with self.assertRaises(CompilerError) as e:
+            builder._compile(source_code)
+        self.assertIn(
+            "only lists of Any",
+            str(e.exception.orig_err),
+            "Expected error about List with subscript not found",
+        )

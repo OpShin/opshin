@@ -3,24 +3,92 @@ name: Build binaries & add as release assets
 on:
   repository_dispatch:
     types: [trigger_binary_build]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version for which to trigger the build (e.g. 0.27.1)'
+        required: true
 
 jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      ref: ${{ steps.resolve-ref.outputs.ref }}
+      upload_url: ${{ steps.resolve-upload.outputs.upload_url }}
+    steps:
+    - name: Resolve ref
+      id: resolve-ref
+      shell: bash
+      env:
+        EVENT_NAME: ${{ github.event_name }}
+        INPUT_VERSION: ${{ github.event.inputs.version }}
+        PAYLOAD_REF: ${{ github.event.client_payload.ref }}
+      run: |
+        set -euo pipefail
+        if [[ "${EVENT_NAME}" == "workflow_dispatch" ]]; then
+          if [[ -z "${INPUT_VERSION}" ]]; then
+            echo "Manual runs require the version input." >&2
+            exit 1
+          fi
+          echo "ref=${INPUT_VERSION}" >> "${GITHUB_OUTPUT}"
+        else
+          if [[ -z "${PAYLOAD_REF}" ]]; then
+            echo "Repository dispatch events must include client_payload.ref." >&2
+            exit 1
+          fi
+          echo "ref=${PAYLOAD_REF}" >> "${GITHUB_OUTPUT}"
+        fi
+
+    - name: Resolve release upload URL
+      id: resolve-upload
+      shell: bash
+      env:
+        EVENT_NAME: ${{ github.event_name }}
+        CLIENT_UPLOAD_URL: ${{ github.event.client_payload.upload_url }}
+        REF: ${{ steps.resolve-ref.outputs.ref }}
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        REPO: ${{ github.repository }}
+      run: |
+        set -euo pipefail
+        if [[ "${EVENT_NAME}" == "workflow_dispatch" ]]; then
+          api_url="https://api.github.com/repos/${REPO}/releases/tags/${REF}"
+          response=$(curl -sS -L \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "${api_url}")
+          upload_url=$(echo "${response}" | jq -r '.upload_url')
+          if [[ -z "${upload_url}" || "${upload_url}" == "null" ]]; then
+            echo "Unable to find release upload URL for tag ${REF}." >&2
+            echo "${response}" >&2
+            exit 1
+          fi
+          echo "upload_url=${upload_url}" >> "${GITHUB_OUTPUT}"
+        else
+          if [[ -z "${CLIENT_UPLOAD_URL}" ]]; then
+            echo "Repository dispatch events must include client_payload.upload_url." >&2
+            exit 1
+          fi
+          echo "upload_url=${CLIENT_UPLOAD_URL}" >> "${GITHUB_OUTPUT}"
+        fi
+
   get-python-versions:
+    needs: prepare
     runs-on: ubuntu-latest
     outputs:
       primary-version: ${{ steps.get-versions.outputs.primary-version }}
     steps:
     - name: Checkout code
-      uses: actions/checkout@v5
+      uses: actions/checkout@v6
       with:
-        ref: ${{ github.event.client_payload.ref }}
+        ref: ${{ needs.prepare.outputs.ref }}
     
     - name: Get Python versions
       id: get-versions
       uses: ./.github/actions/get-python-versions
 
   build:
-    needs: get-python-versions
+    needs: [prepare, get-python-versions]
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -38,12 +106,12 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v5
+      uses: actions/checkout@v6
       with:
-        ref: ${{ github.event.client_payload.ref }}
+        ref: ${{ needs.prepare.outputs.ref }}
 
     - name: Set up Python
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v6
       with:
         python-version: ${{ needs.get-python-versions.outputs.primary-version }}
         cache: "pip"
@@ -65,7 +133,59 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        upload_url: ${{ github.event.client_payload.upload_url }}
+        upload_url: ${{ needs.prepare.outputs.upload_url }}
         asset_path: ${{ matrix.executable_path }}
         asset_name: ${{ matrix.executable }}
         asset_content_type: application/octet-stream
+
+  generate-baseline:
+    needs: [prepare, get-python-versions]
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v6
+      with:
+        ref: ${{ needs.prepare.outputs.ref }}
+
+    - name: Set up Python
+      uses: actions/setup-python@v6
+      with:
+        python-version: ${{ needs.get-python-versions.outputs.primary-version }}
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v7
+
+    - name: Install project
+      run: uv sync --dev
+
+    - name: Generate binary size baseline
+      run: |
+        uv run python scripts/binary_size_tracker.py generate --baseline-file binary_sizes_baseline.json
+        echo "Generated baseline with $(jq -r '.metadata.total_contracts' binary_sizes_baseline.json) contracts"
+
+    - name: Upload baseline as release asset
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ needs.prepare.outputs.upload_url }}
+        asset_path: ./binary_sizes_baseline.json
+        asset_name: binary_sizes_baseline.json
+        asset_content_type: application/json
+
+    - name: Trigger website build
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        REF: ${{ needs.prepare.outputs.ref }}
+        REPO: ${{ github.repository }}
+      run: |
+        set -euo pipefail
+        payload=$(jq -cn --arg ref "${REF}" '{"event_type":"trigger_website_build","client_payload":{"ref":$ref}}')
+        curl -sS -L \
+          -X POST \
+          -H "Accept: application/vnd.github+json" \
+          -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+          -H "X-GitHub-Api-Version: 2022-11-28" \
+          https://api.github.com/repos/${REPO}/dispatches \
+          -d "${payload}"

@@ -9,4 +9,4 @@ class D2(PlutusData):
 
 
 def validator(d: D2) -> bool:
-    return b"\x01" == d.list_field[0]
+    return d.list_field[0] == b"\x01"

@@ -2,5 +2,5 @@
 from opshin.prelude import *
 
 
-def validator(datum: Anything, redeemer: Anything, context: ScriptContext) -> None:
+def validator(context: ScriptContext) -> None:
     pass

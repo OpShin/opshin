@@ -76,7 +76,7 @@ class Type:
         """
         Returns a stringified version of the object
 
-        The recursive parameter informs the method whether it was invoked recursively from another invokation
+        The recursive parameter informs the method whether it was invoked recursively from another invocation
         """
         raise NotImplementedError(f"{self.python_type()} can not be stringified")
 
@@ -101,7 +101,7 @@ class Type:
         Return the type of a binary operation between self and other
         """
         raise NotImplementedError(
-            f"{self.python_type()} does not implement {binop.__class__.__name__}"
+            f"{self.python_type()} does not implement {binop.__class__.__name__} with {other.python_type()}"
         )
 
     def binop(self, binop: ast.operator, other: "TypedAST") -> plt.AST:
@@ -120,7 +120,43 @@ class Type:
         Returns a binary function that implements the binary operation between self and other.
         """
         raise NotImplementedError(
-            f"{self.python_type()} can not be used with operation {binop.__class__.__name__}"
+            f"{self.python_type()} does not implement {binop.__class__.__name__} with {other.typ.python_type()}"
+        )
+
+    def rbinop_type(self, binop: ast.operator, other: "Type") -> "Type":
+        """
+        Type of the reversed binary operation between self and other (other <binop> self)
+        """
+        return FunctionType(
+            [InstanceType(self), InstanceType(other)],
+            InstanceType(self._rbinop_return_type(binop, other)),
+        )
+
+    def _rbinop_return_type(self, binop: ast.operator, other: "Type") -> "Type":
+        """
+        Return the type of the reversed binary operation between self and other (other <binop> self)
+        """
+        raise NotImplementedError(
+            f"{self.python_type()} does not implement {binop.__class__.__name__} with {other.python_type()}"
+        )
+
+    def rbinop(self, binop: ast.operator, other: "TypedAST") -> plt.AST:
+        """
+        Implements the reverse binary operation between self and other (other <binop> self)
+        """
+        return OLambda(
+            ["other", "self"],
+            self._rbinop_bin_fun(binop, other)(OVar("other"), OVar("self")),
+        )
+
+    def _rbinop_bin_fun(
+        self, binop: ast.operator, other: "TypedAST"
+    ) -> Callable[[plt.AST, plt.AST], plt.AST]:
+        """
+        Returns a binary function that implements the binary operation between self and other (other <binop> self).
+        """
+        raise NotImplementedError(
+            f"{self.python_type()} does not implement {binop.__class__.__name__} with {other.typ.python_type()}"
         )
 
     def unop_type(self, unop: ast.unaryop) -> "Type":
@@ -516,13 +552,7 @@ class RecordType(ClassType):
         )
 
     def python_type(self):
-        return (
-            f"class {self.record.orig_name}(CONSTR_ID={self.record.constructor}, "
-            + ", ".join(
-                f"{name}: {type.python_type()}" for name, type in self.record.fields
-            )
-            + ")"
-        )
+        return f"{self.record.orig_name}(CONSTR_ID={self.record.constructor}) "
 
     def constr_type(self) -> "InstanceType":
         return InstanceType(
@@ -944,7 +974,7 @@ class UnionType(ClassType):
 
     def copy_only_attributes(self) -> plt.AST:
         copied_attributes = plt.TraceError(
-            f"Invalid CONSTR_ID for instance of {self.python_type()}]"
+            f"Invalid CONSTR_ID (no matching type in Union)"
         )
         for typ in self.typs:
             if not isinstance(typ, RecordType):
@@ -965,10 +995,7 @@ class UnionType(ClassType):
         def lambda_false(x: str):
             return OLambda(
                 ["_"],
-                plt.TraceError(
-                    "Invalid datatype not in Union. Expected one of: "
-                    + (", ".join(t.python_type() for t in self.typs) + ", got " + x)
-                ),
+                plt.TraceError("Invalid datatype not in Union, got " + x),
             )
 
         return OLambda(
@@ -1051,7 +1078,7 @@ class TupleType(ClassType):
 
     def _binop_return_type(self, binop: ast.operator, other: "Type") -> "Type":
         if isinstance(binop, ast.Add):
-            if isinstance(other, TupleType):
+            if isinstance(other, InstanceType) and isinstance(other.typ, TupleType):
                 return TupleType(self.typs + other.typs)
         return super()._binop_return_type(binop, other)
 
@@ -1129,7 +1156,7 @@ class ListType(ClassType):
                                         "ValueError: Did not find element in list"
                                     ),
                                     plt.Ite(
-                                        # the paramter x must have the same type as the list elements
+                                        # the parameter x must have the same type as the list elements
                                         plt.Apply(
                                             self.typ.cmp(ast.Eq(), self.typ),
                                             OVar("x"),
@@ -1219,17 +1246,17 @@ class ListType(ClassType):
             plt.DelayedChooseData(
                 OVar("self"),
                 plt.TraceError(
-                    "IntegrityError: Expected a PlutusMap, but got PlutusData"
+                    "IntegrityError: Expected a PlutusList, but got PlutusData"
                 ),
                 plt.TraceError(
-                    "IntegrityError: Expected a PlutusMap, but got PlutusDict"
+                    "IntegrityError: Expected a PlutusList, but got PlutusMap"
                 ),
                 plt.ListData(mapped_attrs),
                 plt.TraceError(
-                    "IntegrityError: Expected a PlutusMap, but got PlutusInteger"
+                    "IntegrityError: Expected a PlutusList, but got PlutusInteger"
                 ),
                 plt.TraceError(
-                    "IntegrityError: Expected a PlutusMap, but got PlutusByteString"
+                    "IntegrityError: Expected a PlutusList, but got PlutusByteString"
                 ),
             ),
         )
@@ -1703,6 +1730,12 @@ class InstanceType(Type):
     def binop(self, binop: ast.operator, other: "TypedAST") -> plt.AST:
         return self.typ.binop(binop, other)
 
+    def rbinop_type(self, binop: ast.operator, other: "Type") -> "Type":
+        return self.typ.rbinop_type(binop, other)
+
+    def rbinop(self, binop: ast.operator, other: "TypedAST") -> plt.AST:
+        return self.typ.rbinop(binop, other)
+
     def unop_type(self, unop: ast.unaryop) -> "Type":
         return self.typ.unop_type(unop)
 
@@ -2096,6 +2129,13 @@ class ByteStringType(AtomicType):
                     ByteStringInstanceType,
                 )
             )
+        if attr == "ljust" or attr == "rjust":
+            return InstanceType(
+                FunctionType(
+                    frozenlist([IntegerInstanceType, InstanceType(ByteStringType())]),
+                    ByteStringInstanceType,
+                )
+            )
         return super().attribute_type(attr)
 
     def attribute(self, attr) -> plt.AST:
@@ -2328,6 +2368,69 @@ class ByteStringType(AtomicType):
                     plt.Apply(OVar("splitlist"), plt.Integer(0)),
                 ),
             )
+        if attr == "ljust":
+            return OLambda(
+                ["x", "width", "fillchar"],
+                OLet(
+                    [
+                        ("fillchar", plt.Force(OVar("fillchar"))),
+                        ("width", plt.Force(OVar("width"))),
+                    ],
+                    plt.Ite(
+                        plt.NotEqualsInteger(
+                            plt.LengthOfByteString(OVar("fillchar")), plt.Integer(1)
+                        ),
+                        plt.TraceError("fillchar must be a single byte"),
+                        plt.Ite(
+                            plt.LessThanInteger(
+                                plt.LengthOfByteString(OVar("x")), OVar("width")
+                            ),
+                            plt.AppendByteString(
+                                OVar("x"),
+                                ByteStrIntMulImpl(
+                                    OVar("fillchar"),
+                                    plt.SubtractInteger(
+                                        OVar("width"), plt.LengthOfByteString(OVar("x"))
+                                    ),
+                                ),
+                            ),
+                            OVar("x"),
+                        ),
+                    ),
+                ),
+            )
+        if attr == "rjust":
+            return OLambda(
+                ["x", "width", "fillchar"],
+                OLet(
+                    [
+                        ("fillchar", plt.Force(OVar("fillchar"))),
+                        ("width", plt.Force(OVar("width"))),
+                    ],
+                    plt.Ite(
+                        plt.NotEqualsInteger(
+                            plt.LengthOfByteString(OVar("fillchar")), plt.Integer(1)
+                        ),
+                        plt.TraceError("fillchar must be a single byte"),
+                        plt.Ite(
+                            plt.LessThanInteger(
+                                plt.LengthOfByteString(OVar("x")), OVar("width")
+                            ),
+                            plt.AppendByteString(
+                                ByteStrIntMulImpl(
+                                    OVar("fillchar"),
+                                    plt.SubtractInteger(
+                                        OVar("width"), plt.LengthOfByteString(OVar("x"))
+                                    ),
+                                ),
+                                OVar("x"),
+                            ),
+                            OVar("x"),
+                        ),
+                    ),
+                ),
+            )
+
         return super().attribute(attr)
 
     def cmp(self, op: ast.cmpop, o: "Type") -> plt.AST:
@@ -2857,6 +2960,17 @@ class IntImpl(PolymorphicFunction):
                 ["x"], plt.IfThenElse(OVar("x"), plt.Integer(1), plt.Integer(0))
             )
         elif isinstance(arg.typ, StringType):
+            whitespace_ordinals = [ord(c) for c in (" ", "\t", "\n", "\v", "\f", "\r")]
+
+            is_whitespace_expr = plt.EqualsInteger(
+                OVar("b"), plt.Integer(whitespace_ordinals[0])
+            )
+            for whitespace_ordinal in whitespace_ordinals[1:]:
+                is_whitespace_expr = plt.Or(
+                    is_whitespace_expr,
+                    plt.EqualsInteger(OVar("b"), plt.Integer(whitespace_ordinal)),
+                )
+
             return OLambda(
                 ["x"],
                 OLet(
@@ -2864,26 +2978,108 @@ class IntImpl(PolymorphicFunction):
                         ("e", plt.EncodeUtf8(OVar("x"))),
                         ("len", plt.LengthOfByteString(OVar("e"))),
                         (
+                            "is_whitespace",
+                            OLambda(["b"], is_whitespace_expr),
+                        ),
+                        (
+                            "strip_left",
+                            plt.RecFun(
+                                OLambda(
+                                    ["f", "i"],
+                                    plt.Ite(
+                                        plt.And(
+                                            plt.LessThanInteger(OVar("i"), OVar("len")),
+                                            plt.Apply(
+                                                OVar("is_whitespace"),
+                                                plt.IndexByteString(
+                                                    OVar("e"), OVar("i")
+                                                ),
+                                            ),
+                                        ),
+                                        plt.Apply(
+                                            OVar("f"),
+                                            OVar("f"),
+                                            plt.AddInteger(OVar("i"), plt.Integer(1)),
+                                        ),
+                                        OVar("i"),
+                                    ),
+                                )
+                            ),
+                        ),
+                        (
+                            "strip_right",
+                            plt.RecFun(
+                                OLambda(
+                                    ["f", "i"],
+                                    plt.Ite(
+                                        plt.LessThanInteger(OVar("i"), plt.Integer(0)),
+                                        OVar("i"),
+                                        plt.Ite(
+                                            plt.Apply(
+                                                OVar("is_whitespace"),
+                                                plt.IndexByteString(
+                                                    OVar("e"), OVar("i")
+                                                ),
+                                            ),
+                                            plt.Apply(
+                                                OVar("f"),
+                                                OVar("f"),
+                                                plt.SubtractInteger(
+                                                    OVar("i"), plt.Integer(1)
+                                                ),
+                                            ),
+                                            OVar("i"),
+                                        ),
+                                    ),
+                                )
+                            ),
+                        ),
+                        ("start", plt.Apply(OVar("strip_left"), plt.Integer(0))),
+                        (
+                            "end",
+                            plt.Apply(
+                                OVar("strip_right"),
+                                plt.SubtractInteger(OVar("len"), plt.Integer(1)),
+                            ),
+                        ),
+                        (
+                            "trimmed_len",
+                            plt.AddInteger(
+                                plt.SubtractInteger(OVar("end"), OVar("start")),
+                                plt.Integer(1),
+                            ),
+                        ),
+                        (
                             "first_int",
                             plt.Ite(
-                                plt.LessThanInteger(plt.Integer(0), OVar("len")),
-                                plt.IndexByteString(OVar("e"), plt.Integer(0)),
+                                plt.LessThanInteger(
+                                    plt.Integer(0), OVar("trimmed_len")
+                                ),
+                                plt.IndexByteString(OVar("e"), OVar("start")),
                                 plt.Integer(ord("_")),
                             ),
                         ),
                         (
                             "last_int",
-                            plt.IndexByteString(
-                                OVar("e"),
-                                plt.SubtractInteger(OVar("len"), plt.Integer(1)),
+                            plt.Ite(
+                                plt.LessThanInteger(
+                                    plt.Integer(0), OVar("trimmed_len")
+                                ),
+                                plt.IndexByteString(OVar("e"), OVar("end")),
+                                plt.Integer(ord("_")),
                             ),
                         ),
                         (
                             "fold_start",
                             OLambda(
-                                ["start"],
+                                ["relative_start"],
                                 plt.FoldList(
-                                    plt.Range(OVar("len"), OVar("start")),
+                                    plt.Range(
+                                        plt.AddInteger(OVar("end"), plt.Integer(1)),
+                                        plt.AddInteger(
+                                            OVar("start"), OVar("relative_start")
+                                        ),
+                                    ),
                                     OLambda(
                                         ["s", "i"],
                                         OLet(
@@ -2935,26 +3131,33 @@ class IntImpl(PolymorphicFunction):
                     ],
                     plt.Ite(
                         plt.Or(
-                            plt.Or(
-                                plt.EqualsInteger(
-                                    OVar("first_int"),
-                                    plt.Integer(ord("_")),
-                                ),
-                                plt.EqualsInteger(
-                                    OVar("last_int"),
-                                    plt.Integer(ord("_")),
-                                ),
+                            plt.LessThanEqualsInteger(
+                                OVar("trimmed_len"), plt.Integer(0)
                             ),
-                            plt.And(
-                                plt.EqualsInteger(OVar("len"), plt.Integer(1)),
+                            plt.Or(
                                 plt.Or(
                                     plt.EqualsInteger(
                                         OVar("first_int"),
-                                        plt.Integer(ord("-")),
+                                        plt.Integer(ord("_")),
                                     ),
                                     plt.EqualsInteger(
-                                        OVar("first_int"),
-                                        plt.Integer(ord("+")),
+                                        OVar("last_int"),
+                                        plt.Integer(ord("_")),
+                                    ),
+                                ),
+                                plt.And(
+                                    plt.EqualsInteger(
+                                        OVar("trimmed_len"), plt.Integer(1)
+                                    ),
+                                    plt.Or(
+                                        plt.EqualsInteger(
+                                            OVar("first_int"),
+                                            plt.Integer(ord("-")),
+                                        ),
+                                        plt.EqualsInteger(
+                                            OVar("first_int"),
+                                            plt.Integer(ord("+")),
+                                        ),
                                     ),
                                 ),
                             ),

@@ -221,6 +221,9 @@ class SomeDatumHash(PlutusData):
     datum_hash: DatumHash
 
 
+ScriptHash = bytes
+
+
 @dataclass(unsafe_hash=True)
 class SomeScriptHash(PlutusData):
     """
@@ -228,7 +231,7 @@ class SomeScriptHash(PlutusData):
     """
 
     CONSTR_ID = 0
-    script_hash: DatumHash
+    script_hash: ScriptHash
 
 
 MaybeScriptHash = Union[SomeScriptHash, NoScriptHash]
@@ -556,7 +559,7 @@ MaybeGovernanceActionId = Union[SomeGovernanceActionId, NoGovernanceActionId]
 
 
 @dataclass(unsafe_hash=True)
-class GAProtocolParameters(PlutusData):
+class GAParameterChange(PlutusData):
     CONSTR_ID = 0
     # The last governance action of type 'ProtocolParameters'. They must all form a chain.
     ancestor: MaybeGovernanceActionId
@@ -576,7 +579,7 @@ class ProtocolVersion(PlutusData):
 
 
 @dataclass(unsafe_hash=True)
-class GAHardFork(PlutusData):
+class GAHardForkInitiation(PlutusData):
     CONSTR_ID = 1
     # The last governance action of type 'HardFork'. They must all form a chain.
     ancestor: MaybeGovernanceActionId
@@ -590,11 +593,11 @@ class GAHardFork(PlutusData):
 
 
 @dataclass(unsafe_hash=True)
-class GATreasuryWithdrawal(PlutusData):
+class GATreasuryWithdrawals(PlutusData):
     CONSTR_ID = 2
     #  A collection of beneficiaries, which can be plain verification key
     #  hashes or script hashes (e.g. DAO).
-    beneficiaries: Dict[Credential, Lovelace]
+    treasury_withdrawals: Dict[Credential, Lovelace]
     # The optional guardrails script defined in the constitution. The script
     # is executed by the ledger in addition to the hard-coded ledger rules.
     #
@@ -611,7 +614,7 @@ class GANoConfidence(PlutusData):
 
 
 @dataclass(unsafe_hash=True)
-class GAConstitutionalCommittee(PlutusData):
+class GAUpdateCommittee(PlutusData):
     CONSTR_ID = 4
     # The last governance action of type `NoConfidence` or `ConstitutionalCommittee`.
     # They must all / form a chain.
@@ -627,9 +630,25 @@ class GAConstitutionalCommittee(PlutusData):
     quorum: Fraction
 
 
+AnchorDataHash = bytes
+
+
+@dataclass(unsafe_hash=True)
+class Anchor(PlutusData):
+    """
+    Represents a proposal procedure in governance.
+    """
+
+    CONSTR_ID = 0
+    url: bytes
+    data_hash: AnchorDataHash
+
+
 @dataclass(unsafe_hash=True)
 class Constitution(PlutusData):
     CONSTR_ID = 0
+    # Anchor
+    anchor: Anchor
     # Guardrails for operations as a script
     guardrails: MaybeScriptHash
 
@@ -650,11 +669,11 @@ class GAInfo(PlutusData):
 
 
 GovernanceAction = Union[
-    GAProtocolParameters,
-    GAHardFork,
-    GATreasuryWithdrawal,
+    GAParameterChange,
+    GAHardForkInitiation,
+    GATreasuryWithdrawals,
     GANoConfidence,
-    GAConstitutionalCommittee,
+    GAUpdateCommittee,
     GANewConstitution,
     GAInfo,
 ]
@@ -666,9 +685,12 @@ class ProposalProcedure(PlutusData):
     Represents a proposal procedure in governance.
     """
 
+    CONSTR_ID = 0
+
     deposit: Lovelace
-    return_address: Credential
+    reward_account: Credential
     governance_action: GovernanceAction
+    anchor: Anchor
 
 
 @dataclass(unsafe_hash=True)
@@ -678,7 +700,7 @@ class Publishing(PlutusData):
     custom script. This purpose is also triggered when de-registering such
     stake credentials.
 
-    The index is a 0-based index of the given `Certficate` in `certificates`.
+    The index is a 0-based index of the given `Certificate` in `certificates`.
     """
 
     CONSTR_ID = 3
@@ -714,7 +736,7 @@ class Proposing(PlutusData):
 ScriptPurpose = Union[Minting, Spending, Withdrawing, Publishing, Voting, Proposing]
 
 
-@dataclass(unsafe_hash=True)
+@dataclass()
 class TxInfo(PlutusData):
     """
     A complex agglomeration of everything that could be of interest to the executed script, regarding the transaction
@@ -722,20 +744,33 @@ class TxInfo(PlutusData):
     """
 
     CONSTR_ID = 0
+
+    # The input UTXOs of the transaction.
     inputs: List[TxInInfo]
+    # The reference UTXOs of the transaction.
     reference_inputs: List[TxInInfo]
+    # The output UTXOs created by the transaction.
     outputs: List[TxOut]
+    # Transaction fee to be payed for the transaction.
     fee: Lovelace
+    # The value minted in the transaction.
     mint: Value
     certificates: List[Certificate]
+    # Withdrawals from specific stake keys
     # NOTE: Withdrawals are ordered by ascending Credential. Yet, note that `Script` credentials are treated as **lower values** than `VerificationKey` credentials.
     withdrawals: Dict[StakingCredential, int]
+    # The range of time in which this transaction is valid
     validity_range: POSIXTimeRange
-    # NOTE: Redeemers are ordered by ascending ScriptPurpose.
+    # The signatures for the transaction.
     signatories: List[PubKeyHash]
+    # All redeemers passed to all script invocations
+    # NOTE: Redeemers are ordered by ascending ScriptPurpose.
     redeemers: Dict[ScriptPurpose, Redeemer]
+    # All datums present in any inputs
     datums: Dict[DatumHash, Datum]
+    # The ID of the transaction.
     id: TxId
+    # metadata for governance actions
     # NOTE: Votes are ordered by ascending Voter and GovernanceActionId. First constructor variants in a type are treated as lower indices; except for Credential where `Script` credentials are treated as **lower values** than `VerificationKey` credentials.
     votes: Dict[Voter, Dict[GovernanceActionId, Vote]]
     proposal_procedures: List[ProposalProcedure]

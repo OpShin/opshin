@@ -2,13 +2,14 @@ import copy
 import dataclasses
 import enum
 import functools
+import inspect
 import json
 import typing
 from ast import Module
 from typing import Optional, Any, Union
 from pathlib import Path
 
-from pycardano import PlutusV2Script, IndefiniteList, PlutusData, Datum
+from pycardano import IndefiniteList, PlutusData, Datum, PlutusV3Script
 
 from . import __version__, compiler
 
@@ -18,7 +19,7 @@ import cbor2
 import pycardano
 from pluthon import compile as plt_compile
 
-from .util import datum_to_cbor
+from .util import datum_to_cbor, get_class_annotations, set_class_annotations
 from .compiler_config import DEFAULT_CONFIG
 
 
@@ -27,13 +28,14 @@ class Purpose(enum.Enum):
     minting = "minting"
     rewarding = "rewarding"
     certifying = "certifying"
+    voting = "voting"
+    proposing = "proposing"
     any = "any"
-    lib = "lib"
 
 
 @dataclasses.dataclass
 class PlutusContract:
-    contract: PlutusV2Script
+    contract: PlutusV3Script
     datum_type: Optional[typing.Tuple[str, typing.Type[Datum]]] = None
     redeemer_type: Optional[typing.Tuple[str, typing.Type[Datum]]] = None
     parameter_types: typing.List[typing.Tuple[str, typing.Type[Datum]]] = (
@@ -73,9 +75,9 @@ class PlutusContract:
     def plutus_json(self):
         return json.dumps(
             {
-                "type": "PlutusScriptV2",
+                "type": "PlutusScriptV3",
                 "description": self.description,
-                "cborHex": self.cbor_hex,
+                "cborHex": cbor2.dumps(bytes.fromhex(self.cbor_hex)).hex(),
             },
             indent=2,
         )
@@ -84,7 +86,7 @@ class PlutusContract:
     def blueprint(self):
         return {
             "$schema": "https://cips.cardano.org/cips/cip57/schemas/plutus-blueprint.json",
-            "$id": "https://github.com/aiken-lang/aiken/blob/main/examples/hello_world/plutus.json",
+            "$id": "<insert-url-to-contract-here>",
             "$vocabulary": {
                 "https://json-schema.org/draft/2020-12/vocab/core": True,
                 "https://json-schema.org/draft/2020-12/vocab/applicator": True,
@@ -93,7 +95,7 @@ class PlutusContract:
             },
             "preamble": {
                 "version": self.version,
-                "plutusVersion": "v2",
+                "plutusVersion": "v3",
                 "description": self.description,
                 "title": self.title,
                 **({"license": self.license} if self.license is not None else {}),
@@ -267,15 +269,17 @@ def build(
 def _build(contract: uplc.ast.Program):
     # create cbor file for use with pycardano/lucid
     cbor = flatten(contract)
-    return pycardano.PlutusV2Script(cbor)
+    return pycardano.PlutusV3Script(cbor)
 
 
 PURPOSE_MAP = {
-    Purpose.any: {"oneOf": ["spend", "mint", "withdraw", "publish"]},
+    Purpose.any: {"oneOf": ["spend", "mint", "withdraw", "publish", "vote", "propose"]},
     Purpose.spending: "spend",
     Purpose.minting: "mint",
     Purpose.rewarding: "withdraw",
     Purpose.certifying: "publish",
+    Purpose.voting: "vote",
+    Purpose.proposing: "propose",
 }
 
 
@@ -291,6 +295,8 @@ def to_plutus_schema(cls: typing.Type[Datum]) -> dict:
     Returns:
         dict: a dict representing the schema of this class.
     """
+    if cls == Datum:
+        return {}
     if hasattr(cls, "__origin__") and cls.__origin__ is list:
         return {
             "dataType": "list",
@@ -322,11 +328,10 @@ def to_plutus_schema(cls: typing.Type[Datum]) -> dict:
         }
     elif issubclass(cls, PlutusData):
         fields = []
-        for field_value in cls.__dataclass_fields__.values():
-            if field_value.name == "CONSTR_ID":
-                continue
-            field_schema = to_plutus_schema(field_value.type)
-            field_schema["title"] = field_value.name
+        for field in get_class_annotations(cls).items():
+            field_name, field_value = field
+            field_schema = to_plutus_schema(field_value)
+            field_schema["title"] = field_name
             fields.append(field_schema)
         return {
             "dataType": "constructor",
@@ -348,7 +353,8 @@ def from_plutus_schema(schema: dict) -> typing.Type[pycardano.Datum]:
     """
     Convert from a dictionary representing a json schema according to CIP 57 Plutus Blueprint
     """
-    if schema == {}:
+    if schema == {} or set(schema.keys()) == {"title"}:
+        # CIP57 allows eliding type metadata for unconstrained Datum fields
         return pycardano.Datum
     if "anyOf" in schema:
         if len(schema["anyOf"]) == 0:
@@ -382,16 +388,16 @@ def from_plutus_schema(schema: dict) -> typing.Type[pycardano.Datum]:
             return typing.Dict[key_t, value_t]
         elif typ == "constructor":
             fields = {}
-            for field in schema["fields"]:
-                fields[field["title"]] = from_plutus_schema(field)
             fields["CONSTR_ID"] = schema["index"]
-            return dataclasses.dataclass(
-                type(schema["title"], (pycardano.PlutusData,), fields)
-            )
+            cls = type(schema["title"], (pycardano.PlutusData,), fields)
+            for field in schema["fields"]:
+                set_class_annotations(cls, field["title"], from_plutus_schema(field))
+            cls = dataclasses.dataclass(cls)
+            return cls
     raise ValueError(f"Cannot read schema (not supported yet) {schema}")
 
 
-def apply_parameters(script: PlutusV2Script, *args: pycardano.Datum):
+def apply_parameters(script: PlutusV3Script, *args: pycardano.Datum):
     """
     Expects a plutus script (compiled) and returns the compiled script from applying parameters to it
     """
@@ -441,7 +447,8 @@ def load(contract_path: Union[Path, str]) -> PlutusContract:
             if "validators" in contract:
                 assert len(contract["validators"]) == 1, "Only one validator supported"
                 validator = contract["validators"][0]
-                contract_cbor = PlutusV2Script(bytes.fromhex(validator["compiledCode"]))
+                # TODO this should be controlled by the version in the preamble
+                contract_cbor = PlutusV3Script(bytes.fromhex(validator["compiledCode"]))
                 datum_type = (
                     validator["datum"]["title"],
                     from_plutus_schema(validator["datum"]["schema"]),
@@ -471,8 +478,8 @@ def load(contract_path: Union[Path, str]) -> PlutusContract:
                 description = contract["preamble"].get("description")
                 license = contract["preamble"].get("license")
                 assert (
-                    contract["preamble"].get("plutusVersion") == "v2"
-                ), "Only Plutus V2 supported"
+                    contract["preamble"].get("plutusVersion") == "v3"
+                ), "Only Plutus V3 supported"
                 return PlutusContract(
                     contract_cbor,
                     datum_type,
@@ -518,4 +525,4 @@ def load(contract_path: Union[Path, str]) -> PlutusContract:
             pass
     if contract_cbor is None:
         raise ValueError(f"Could not load contract from file {contract_path}")
-    return PlutusContract(PlutusV2Script(contract_cbor))
+    return PlutusContract(PlutusV3Script(contract_cbor))

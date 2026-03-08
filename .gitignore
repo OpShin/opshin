@@ -1,3 +1,6 @@
+.DS_Store
+binary_sizes_baseline.json
+baseline.json
 trigger.sh
 datafile.json
 venv

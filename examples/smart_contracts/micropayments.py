@@ -1,5 +1,7 @@
-from opshin.ledger.api_v2 import *
+from opshin.ledger.api_v3 import *
 from opshin.std.builtins import *
+from opshin.std.integrity import check_integrity
+from opshin.prelude import *
 
 """
 A micropayment channel between Alice and Bob that lets users exchange funds simply by exchanging signed numbers (off-chain).
@@ -62,19 +64,26 @@ class TearDown(PlutusData):
 ChannelAction = Union[Micropayments, TearDown]
 
 
-def validator(
-    datum: PaymentChannel, redeemer: ChannelAction, context: ScriptContext
-) -> None:
+def validator(context: ScriptContext) -> None:
+    redeemer: ChannelAction = context.redeemer
+    # Ensure that the redeemer is well formed
+    check_integrity(redeemer)
+    purpose = context.purpose
+    assert isinstance(purpose, Spending), "Can only spend from the contract"
+    own_utxo = own_spent_utxo(context.transaction.inputs, purpose)
+    datum: PaymentChannel = resolve_datum_unsafe(own_utxo, context.transaction)
+    check_integrity(datum)
+
     if isinstance(redeemer, TearDown):
         # Ensure that either party signed this request
         assert (
-            datum.pubkeyhash_alice in context.tx_info.signatories
-            or datum.pubkeyhash_bob in context.tx_info.signatories
-        ), f"Neither Alice nor Bob signed the transaction, signatory list: {context.tx_info.signatories}"
+            datum.pubkeyhash_alice in context.transaction.signatories
+            or datum.pubkeyhash_bob in context.transaction.signatories
+        ), f"Neither Alice nor Bob signed the transaction, signatory list: {context.transaction.signatories}"
         # Ensure that all participants receive their amounts
         amount_alice = 0
         amount_bob = 0
-        for o in context.tx_info.outputs:
+        for o in context.transaction.outputs:
             # Note: in a real world scenario, you will want to make sure the stake key hash matches too!
             pkh = o.address.payment_credential.credential_hash
             if pkh == datum.pubkeyhash_alice:
@@ -125,13 +134,13 @@ def validator(
         purpose: Spending = context.purpose
         own_tx_out_ref = purpose.tx_out_ref
         # this stunt is just to find the output that goes to the same address as the input we are validating to be spent
-        own_tx_out = [i for i in context.tx_info.inputs if i.out_ref == own_tx_out_ref][
-            0
-        ].resolved
+        own_tx_out = [
+            i for i in context.transaction.inputs if i.out_ref == own_tx_out_ref
+        ][0].resolved
         own_address = own_tx_out.address
-        cont_tx_out = [o for o in context.tx_info.outputs if o.address == own_address][
-            0
-        ]
+        cont_tx_out = [
+            o for o in context.transaction.outputs if o.address == own_address
+        ][0]
         # The value = locked tokens must not change
         for pid, tn_dict in own_tx_out.value.items():
             for tokenname, amount in tn_dict.items():
@@ -144,6 +153,8 @@ def validator(
         ), f"Must inline attached datum, got {cont_datum}"
         # We cast the datum to payment channel (it is stored without structure in the ledger)
         cont_datum_content: PaymentChannel = cont_datum.datum
+        # Technically not needed because we compare for exact equality below, but good practice
+        check_integrity(cont_datum_content)
         # Ensure that the state is correctly updated
         assert cont_datum_content == PaymentChannel(
             balance_alice,

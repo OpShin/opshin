@@ -3,7 +3,9 @@ import unittest
 import hypothesis
 from hypothesis import given, example
 from hypothesis import strategies as st
-from .utils import eval_uplc_value
+
+from opshin import builder
+from .utils import eval_uplc_value, Unit
 from . import PLUTUS_VM_PROFILE
 from opshin.util import CompilerError
 
@@ -12,6 +14,7 @@ hypothesis.settings.load_profile(PLUTUS_VM_PROFILE)
 
 class Classmethod_tests(unittest.TestCase):
     @given(x=st.integers(), y=st.integers())
+    @example(x=1, y=2)
     def test_accessible_attributes(self, x: int, y: int):
         source_code = """
 from opshin.prelude import *
@@ -568,3 +571,96 @@ def validator(a: int, b: int, c:int) -> bool:
 """
         ret = eval_uplc_value(source_code, 1, 2, 3)
         self.assertEqual(ret, True)
+
+    def test_no_return_type_method(self):
+        source_code = """
+from opshin.prelude import *
+
+@dataclass()
+class MyClass(PlutusData):
+    def my_method(self):
+        pass
+
+def validator(_: None):
+    c = MyClass()
+    c.my_method()
+    return 2
+"""
+        ret = eval_uplc_value(source_code, Unit())
+        self.assertEqual(ret, 2)
+
+    def test_missing_self(self):
+        source_code = """
+from opshin.prelude import *
+from typing import Self
+
+@dataclass
+class A(PlutusData):
+
+    def foo(x: int) -> int:
+        return 0
+
+def validator(a: int) -> bool:
+    return A().foo(a) == 1
+"""
+        with self.assertRaises(CompilerError) as cm:
+            builder._compile(source_code)
+        self.assertIn("Self", str(cm.exception))
+        self.assertIn("instance of the class", str(cm.exception))
+
+    def test_missing_params(self):
+        source_code = """
+from opshin.prelude import *
+from typing import Self
+
+@dataclass
+class A(PlutusData):
+
+    def foo() -> int:
+        return 0
+
+def validator(a: int) -> bool:
+    return A().foo(a) == 1
+"""
+        with self.assertRaises(CompilerError) as cm:
+            builder._compile(source_code)
+        self.assertIn("self", str(cm.exception))
+        self.assertIn("must have at least one", str(cm.exception))
+
+    def test_dict_self_method(self):
+        source_code = """
+from opshin.prelude import *
+from typing import Self
+
+@dataclass
+class A(PlutusData):
+
+    def foo(self, x: Dict[A, int]) -> int:
+        return x[A()]
+
+def validator(a: int) -> bool:
+    return A().foo({A(): a}) == 0
+"""
+        with self.assertRaises(CompilerError) as cm:
+            builder._compile(source_code)
+        self.assertIn("literally references the class itself", str(cm.exception))
+        self.assertIn("Self", str(cm.exception))
+
+    def test_dict_self_ret_method(self):
+        source_code = """
+from opshin.prelude import *
+from typing import Self
+
+@dataclass
+class A(PlutusData):
+
+    def foo(self, x: int) -> Dict[A, int]:
+        return {A(): x}
+
+def validator(a: int) -> bool:
+    return A().foo(a)[A()] == 0
+"""
+        with self.assertRaises(CompilerError) as cm:
+            builder._compile(source_code)
+        self.assertIn("literally references the class itself", str(cm.exception))
+        self.assertIn("Self", str(cm.exception))

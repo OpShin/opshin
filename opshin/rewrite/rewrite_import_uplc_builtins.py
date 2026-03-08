@@ -4,6 +4,7 @@ from copy import copy
 from typing import Optional
 
 import pluthon as plt
+from ..bridge import to_uplc_fun_name
 
 from ..util import CompilingNodeTransformer
 from ..typed_ast import *
@@ -41,9 +42,11 @@ class RewriteImportUPLCBuiltins(CompilingNodeTransformer):
             self.imports_uplc_builtins
         ), "To wrap builtin functions, you need to import the builtin function. Add `from opshin.bridge import wraps_builtin` to your code."
         # we replace the body with a forwarded call to the wrapped builtin
-        CamelCaseFunName = "".join(
-            p.capitalize() for p in re.split(r"_(?!\d)", node.orig_name)
-        )
+        CamelCaseFunName = to_uplc_fun_name(node.orig_name)
+        if CamelCaseFunName.startswith("Verify") and CamelCaseFunName.endswith(
+            "_Signature"
+        ):
+            CamelCaseFunName = CamelCaseFunName.removesuffix("_Signature") + "Signature"
         uplc_fun = plt.__dict__[CamelCaseFunName]
         pluto_expression = RawPlutoExpr(
             typ=node.typ.typ.rettyp,

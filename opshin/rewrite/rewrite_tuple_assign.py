@@ -6,7 +6,7 @@ from ast import *
 from ..util import CompilingNodeTransformer
 
 """
-Rewrites all occurences of assignments to tuples to assignments to single values
+Rewrites all occurrences of assignments to tuples to assignments to single values
 """
 
 

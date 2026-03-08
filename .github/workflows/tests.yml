@@ -5,9 +5,11 @@ on:
     branches:
       - '**'
     paths:
-      - '**.py'
+      - 'examples/**.py'
+      - 'opshin/**.py'
+      - 'tests/**.py'
       - 'pyproject.toml'
-      - 'poetry.lock'
+      - 'uv.lock'
       - '.github/workflows/tests.yml'
       - '.github/scripts/run-tests.sh'
       - '.github/actions/get-python-versions/**'
@@ -15,7 +17,9 @@ on:
     branches:
       - '**'
     paths:
-      - '**.py'
+      - 'examples/**.py'
+      - 'opshin/**.py'
+      - 'tests/**.py'
       - 'pyproject.toml'
       - 'poetry.lock'
       - '.github/workflows/tests.yml'
@@ -23,6 +27,21 @@ on:
       - '.github/actions/get-python-versions/**'
 
 jobs:
+  check-run:
+    # continue-on-error: true # Uncomment once integration is finished
+    runs-on: ubuntu-latest
+    # Map a step output to a job output
+    outputs:
+      should_skip: ${{ steps.skip_check.outputs.should_skip }}
+    steps:
+      - id: skip_check
+        uses: fkirc/skip-duplicate-actions@v5
+        with:
+          # All of these options are optional, so you can remove them if you are happy with the defaults
+          concurrent_skipping: 'same_content_newer'
+          skip_after_successful_duplicate: 'true'
+          do_not_skip: '["workflow_dispatch", "schedule"]'
+
   get-python-versions:
     runs-on: ubuntu-latest
     outputs:
@@ -31,14 +50,17 @@ jobs:
       other-versions: ${{ steps.get-versions.outputs.other-versions }}
     steps:
     - name: Checkout code
-      uses: actions/checkout@v5
+      uses: actions/checkout@v6
     
     - name: Get Python versions
       id: get-versions
       uses: ./.github/actions/get-python-versions
 
   test-primary:
-    needs: get-python-versions
+    needs:
+      - get-python-versions
+      - check-run
+    if: needs.check-run.outputs.should_skip != 'true'
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -47,27 +69,26 @@ jobs:
           - "${{ needs.get-python-versions.outputs.minimum-version }}"
     steps:
     - name: Checkout code
-      uses: actions/checkout@v5
+      uses: actions/checkout@v6
 
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v6
       with:
         python-version: ${{ matrix.python-version }}
-        cache: "pip"
 
-    - name: Install Poetry
-      uses: snok/install-poetry@v1
+    - name: Install uv
+      uses: astral-sh/setup-uv@v7
 
     - name: Install project
-      run: poetry install --no-interaction --with dev
+      run: uv sync --dev
 
     - name: Run tests
       run: bash .github/scripts/run-tests.sh
 
     - name: Upload coverage data to coveralls.io
       run: |
-        poetry run pip install --upgrade coveralls || true
-        poetry run coveralls || true
+        uv pip install --upgrade coveralls || true
+        uv run coveralls || true
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         COVERALLS_FLAG_NAME: ${{ matrix.python-version }}
@@ -82,26 +103,26 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v5
+      uses: actions/checkout@v6
 
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v6
       with:
         python-version: ${{ matrix.python-version }}
 
-    - name: Install Poetry
-      uses: snok/install-poetry@v1
+    - name: Install uv
+      uses: astral-sh/setup-uv@v7
 
     - name: Install project
-      run: poetry install --no-interaction --with dev
+      run: uv sync --dev
 
     - name: Run tests
       run: bash .github/scripts/run-tests.sh
 
     - name: Upload coverage data to coveralls.io
       run: |
-        poetry run pip install --upgrade coveralls || true
-        poetry run coveralls || true
+        uv pip install --upgrade coveralls || true
+        uv run coveralls || true
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         COVERALLS_FLAG_NAME: ${{ matrix.python-version }}

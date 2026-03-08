@@ -1,20 +1,18 @@
 import unittest
+from typing import Dict, List
+
 import hypothesis
-import pytest
 from hypothesis import given
 from hypothesis import strategies as st
-from opshin import builder
-from ..utils import eval_uplc_value, eval_uplc, eval_uplc_raw
+
+from opshin import DEFAULT_CONFIG
+from opshin.ledger.api_v3 import *
+
 from .. import PLUTUS_VM_PROFILE
-from opshin.util import CompilerError
+from ..test_misc import A
+from ..utils import DEFAULT_TEST_CONFIG, eval_uplc_raw
 
 hypothesis.settings.load_profile(PLUTUS_VM_PROFILE)
-
-from ..test_misc import A
-from typing import List, Dict
-
-from opshin.ledger.api_v2 import *
-from opshin import DEFAULT_CONFIG
 
 _DEFAULT_CONFIG = DEFAULT_CONFIG
 _DEFAULT_UNFOLD_CONFIG = DEFAULT_CONFIG.update(expand_union_types=True)
@@ -202,12 +200,14 @@ def foo(x: int) -> int:
 def validator(x: int) -> int:
     return foo(x)
     """
-        source = eval_uplc_raw(source_code, x, config=_DEFAULT_UNFOLD_CONFIG)
-        target = eval_uplc_raw(target_code, x, config=_DEFAULT_CONFIG)
+        config = DEFAULT_TEST_CONFIG
+        euo_config = config.update(expand_union_types=True)
+        source = eval_uplc_raw(source_code, x, config=euo_config)
+        target = eval_uplc_raw(target_code, x, config=config)
 
         self.assertEqual(source.result, target.result)
-        self.assertLessEqual(source.cost.cpu, target.cost.cpu)
-        self.assertLessEqual(source.cost.memory, target.cost.memory)
+        self.assertEqual(source.cost.cpu, target.cost.cpu)
+        self.assertEqual(source.cost.memory, target.cost.memory)
 
     def test_Union_expansion_UnaryOp(
         self,
@@ -235,12 +235,14 @@ def foo(x: int) -> int:
 def validator(x: int) -> int:
     return foo(x)
 """
-        source = eval_uplc_raw(source_code, 4, config=_DEFAULT_UNFOLD_CONFIG)
-        target = eval_uplc_raw(target_code, 4, config=_DEFAULT_CONFIG)
+        config = DEFAULT_TEST_CONFIG
+        euo_config = config.update(expand_union_types=True)
+        source = eval_uplc_raw(source_code, 4, config=euo_config)
+        target = eval_uplc_raw(target_code, 4, config=config)
 
         self.assertEqual(source.result, target.result)
-        self.assertLessEqual(source.cost.cpu, target.cost.cpu)
-        self.assertLessEqual(source.cost.memory, target.cost.memory)
+        self.assertEqual(source.cost.cpu, target.cost.cpu)
+        self.assertEqual(source.cost.memory, target.cost.memory)
 
     def test_Union_expansion_IfExp(
         self,
@@ -265,12 +267,14 @@ def foo(x: int) -> int:
 def validator(x: int) -> int:
     return foo(x)
 """
-        source = eval_uplc_raw(source_code, 4, config=_DEFAULT_UNFOLD_CONFIG)
-        target = eval_uplc_raw(target_code, 4, config=_DEFAULT_CONFIG)
+        config = DEFAULT_TEST_CONFIG
+        euo_config = config.update(expand_union_types=True)
+        source = eval_uplc_raw(source_code, 4, config=euo_config)
+        target = eval_uplc_raw(target_code, 4, config=config)
 
         self.assertEqual(source.result, target.result)
-        self.assertLessEqual(source.cost.cpu, target.cost.cpu)
-        self.assertLessEqual(source.cost.memory, target.cost.memory)
+        self.assertEqual(source.cost.cpu, target.cost.cpu)
+        self.assertEqual(source.cost.memory, target.cost.memory)
 
     @given(x_in=st.sampled_from([4, b"123"]), y_in=st.sampled_from([4, b"123"]))
     def test_Union_expansion_multiple(self, x_in, y_in):
@@ -299,15 +303,17 @@ def validator(x: {x}, y: {y} ) -> int:
 from typing import Dict, List, Union
 
 def foo(x: {x}, y: {y} ) -> int:
-    k = {'len(x)' if x=='bytes' else 'x'} + {'len(y)' if y == 'bytes' else 'y'}
+    k = {'len(x)' if x == 'bytes' else 'x'} + {'len(y)' if y == 'bytes' else 'y'}
     return k
 
 def validator(x: {x},  y: {y}) -> int:
     return foo(x, y)
 """
-        source = eval_uplc_raw(source_code, x_in, y_in, config=_DEFAULT_UNFOLD_CONFIG)
-        target = eval_uplc_raw(target_code, x_in, y_in, config=_DEFAULT_CONFIG)
+        config = DEFAULT_TEST_CONFIG
+        euo_config = config.update(expand_union_types=True)
+        source = eval_uplc_raw(source_code, x_in, y_in, config=euo_config)
+        target = eval_uplc_raw(target_code, x_in, y_in, config=config)
 
         self.assertEqual(source.result, target.result)
-        self.assertLessEqual(source.cost.cpu, target.cost.cpu)
-        self.assertLessEqual(source.cost.memory, target.cost.memory)
+        self.assertEqual(source.cost.cpu, target.cost.cpu)
+        self.assertEqual(source.cost.memory, target.cost.memory)

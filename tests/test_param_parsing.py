@@ -82,7 +82,7 @@ class TestParseUplcParam(unittest.TestCase):
         with self.assertRaises(ValueError) as context:
             parse_uplc_param(param)
         self.assertIn("Invalid parameter", str(context.exception))
-        self.assertIn("expected json value", str(context.exception))
+        self.assertIn("expected JSON value", str(context.exception))
 
     def test_invalid_json_syntax(self):
         """Test error handling for invalid JSON syntax"""
@@ -363,6 +363,21 @@ class TestEdgeCasesAndCornerCases(unittest.TestCase):
         self.assertEqual(cbor_result, expected)
         # They should be equal to each other
         self.assertEqual(json_result, cbor_result)
+
+    def test_invalid_json(self):
+        """Test parsing JSON integer parameter"""
+        param = '"int": 42}'
+        with self.assertRaises(ValueError) as context:
+            parse_plutus_param(int, param)
+        self.assertIn("Could not parse", str(context.exception))
+        param = "0P"
+        with self.assertRaises(ValueError) as context:
+            parse_plutus_param(int, param)
+        self.assertIn("Could not parse", str(context.exception))
+        param = '{"int": 42}'
+        with self.assertRaises(ValueError) as context:
+            parse_plutus_param(List[int], param)
+        self.assertIn("Could not parse", str(context.exception))
 
 
 if __name__ == "__main__":

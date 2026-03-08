@@ -7,5 +7,6 @@ from opshin.prelude import *
 # this contract can be parameterized at compile time. Pass the parameter with the build command
 #
 # $ opshin build examples/smart_contracts/parameterized.py '{"int": 42}'
-def validator(parameter: int, _: Nothing, r: int, ctx: ScriptContext) -> None:
+def validator(parameter: int, ctx: ScriptContext) -> None:
+    r: int = ctx.redeemer
     assert r == parameter, "Wrong redeemer"

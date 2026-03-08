@@ -18,6 +18,7 @@ class StdlibTest(unittest.TestCase):
     @given(st.data())
     def test_dict_get(self, data):
         source_code = """
+from typing import Dict, List, Union
 def validator(x: Dict[int, bytes], y: int, z: bytes) -> bytes:
     return x.get(y, z)
             """
@@ -31,6 +32,7 @@ def validator(x: Dict[int, bytes], y: int, z: bytes) -> bytes:
     @given(st.data())
     def test_dict_subscript(self, data):
         source_code = """
+from typing import Dict, List, Union
 def validator(x: Dict[int, bytes], y: int) -> bytes:
     return x[y]
             """
@@ -50,6 +52,7 @@ def validator(x: Dict[int, bytes], y: int) -> bytes:
     @given(st.data())
     def test_list_index(self, data):
         source_code = """
+from typing import Dict, List, Union
 def validator(x: List[int], z: int) -> int:
     return x.index(z)
             """
@@ -123,6 +126,7 @@ def validator(b: int) -> int:
     @given(xs=st.dictionaries(st.integers(), st.binary()))
     def test_dict_keys(self, xs):
         source_code = """
+from typing import Dict, List, Union
 def validator(x: Dict[int, bytes]) -> List[int]:
     return x.keys()
             """
@@ -133,6 +137,7 @@ def validator(x: Dict[int, bytes]) -> List[int]:
     @given(xs=st.dictionaries(st.integers(), st.binary()))
     def test_dict_values(self, xs):
         source_code = """
+from typing import Dict, List, Union
 def validator(x: Dict[int, bytes]) -> List[bytes]:
     return x.values()
             """
@@ -143,6 +148,7 @@ def validator(x: Dict[int, bytes]) -> List[bytes]:
     @given(xs=st.dictionaries(st.integers(), st.binary()))
     def test_dict_items_keys_sum(self, xs):
         source_code = """
+from typing import Dict, List, Union
 def validator(xs: Dict[int, bytes]) -> int:
     sum_keys = 0
     for x in xs.items():
@@ -155,6 +161,7 @@ def validator(xs: Dict[int, bytes]) -> int:
     @given(xs=st.dictionaries(st.integers(), st.binary()))
     def test_dict_items_values_sum(self, xs):
         source_code = """
+from typing import Dict, List, Union
 def validator(xs: Dict[int, bytes]) -> bytes:
     sum_values = b""
     for x in xs.items():
@@ -174,6 +181,7 @@ def validator(x: str) -> bytes:
         self.assertEqual(ret, xs.encode(), "str.encode returned wrong value")
 
     @given(xs=st.binary())
+    @example(b"\x80")
     def test_bytes_decode(self, xs):
         source_code = """
 def validator(x: bytes) -> str:
@@ -185,7 +193,7 @@ def validator(x: bytes) -> str:
             exp = None
         try:
             ret = eval_uplc_value(source_code, xs).decode()
-        except UnicodeDecodeError:
+        except (UnicodeDecodeError, RuntimeError):
             ret = None
         self.assertEqual(ret, exp, "bytes.decode returned wrong value")
 
@@ -197,6 +205,47 @@ def validator(x: bytes) -> str:
             """
         ret = eval_uplc_value(source_code, xs).decode()
         self.assertEqual(ret, xs.hex(), "bytes.hex returned wrong value")
+
+    @given(
+        xs=st.binary(),
+        y=st.one_of(st.binary(min_size=1, max_size=1), st.binary()),
+        z=st.integers(min_value=-20, max_value=20),
+    )
+    @example(b"hello", b"x", 10)
+    def test_bytes_ljust(self, xs: bytes, y: bytes, z: int):
+        source_code = """
+def validator(x: bytes, y: bytes, z: int) -> bytes:
+    return x.ljust(z, y)
+            """
+        try:
+            ret = eval_uplc_value(source_code, xs, y, z)
+        except RuntimeError:
+            ret = None
+        try:
+            exp = xs.ljust(z, y)
+        except TypeError:
+            exp = None
+        self.assertEqual(ret, exp), "bytes.ljust returned wrong value"
+
+    @given(
+        xs=st.binary(),
+        y=st.one_of(st.binary(min_size=1, max_size=1), st.binary()),
+        z=st.integers(min_value=-20, max_value=20),
+    )
+    def test_bytes_rjust(self, xs: bytes, y: int, z: int):
+        source_code = """
+def validator(x: bytes, y: bytes, z: int) -> bytes:
+    return x.rjust(z, y)
+            """
+        try:
+            ret = eval_uplc_value(source_code, xs, y, z)
+        except RuntimeError:
+            ret = None
+        try:
+            exp = xs.rjust(z, bytes(y))
+        except TypeError:
+            exp = None
+        self.assertEqual(ret, exp), "bytes.rjust returned wrong value"
 
     @given(xs=st.binary())
     @example(b"dc315c289fee4484eda07038393f21dc4e572aff292d7926018725c2")
@@ -233,7 +282,9 @@ def validator(x: None) -> None:
             """
         ret = eval_uplc(source_code, Unit())
         self.assertEqual(
-            ret, uplc.PlutusConstr(0, []), "literal None returned wrong value"
+            ret,
+            uplc.data_from_cbor(Unit().to_cbor()),
+            "literal None returned wrong value",
         )
 
     @given(st.booleans())
@@ -368,3 +419,77 @@ def validator(x: int) -> int:
     with pytest.raises(CompilerError) as e:
         eval_uplc_value(source_code, 5)
     assert "subscript" in str(e.value)
+
+
+@given(
+    st.integers(min_value=1, max_value=10),
+    st.integers(),
+    st.integers(min_value=-20, max_value=20),
+    st.booleans(),
+)
+def test_tuple_subscript(x, y, i, f):
+    # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+    source_code = f"""
+def validator(y: int) -> int:
+    x = ({','.join('y + ' + str(i) for i in range(x))},)
+    return x[{i}]
+            """
+    try:
+        ret = eval_uplc_value(
+            source_code, y, config=compiler.DEFAULT_CONFIG.update(constant_folding=f)
+        )
+    except CompilerError as e:
+        ret = None
+    try:
+        exp = [y + j for j in range(x)][i]
+    except IndexError:
+        exp = None
+    assert ret == exp, "tuple[] returned wrong value"
+
+
+@given(
+    x=st.dictionaries(st.binary(), st.integers(), max_size=5),
+    i=st.sampled_from([-3, -2, -1, 0, 1, 2]),
+    f=st.booleans(),
+)
+@example(
+    x={b"first": 1, b"second": 2},
+    i=1,
+    f=False,
+)
+@example(
+    x={},
+    i=-2,
+    f=False,
+)
+@example(
+    x={},
+    i=2,
+    f=False,
+)
+def test_pair_subscript(x, i, f):
+    # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+    source_code = f"""
+from typing import Dict
+
+def validator(x: Dict[bytes, int]) -> {"bytes" if i %2 == 0 else "int"}:
+    y = {repr(b"") if i %2 == 0 else 0}
+    for pair in x.items():
+       y += pair[{i}]
+    return y
+"""
+    try:
+        ret = eval_uplc_value(
+            source_code, x, config=compiler.DEFAULT_CONFIG.update(constant_folding=f)
+        )
+    except CompilerError as e:
+        ret = None
+    try:
+        if (i > 1 or i < -2) and not x:
+            raise IndexError()
+        exp = b"" if i % 2 == 0 else 0
+        for pair in x.items():
+            exp += pair[i]
+    except IndexError as e:
+        exp = None
+    assert ret == exp, f"pair[] returned wrong value for {x}, {i}"

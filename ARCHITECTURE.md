@@ -36,7 +36,6 @@ The following deviations from Python semantics are known and code that involves 
 - `int(...)` does not automatically trim preceding and trailing space characters. `int("  123  ")` will fail.
 - `bytes.fromhex(...)` does not automatically remove space characters. `bytes.fromhex("00 11\t")` will fail.
 - `pow(x, y)` and `x ** y` do not work and fail when `y` is negative (floats are not supported in opshin)
-- `x <= y <= z` (and all other chained comparisons) will evaluate `y` twice (the official semantic is to execute it only once). Note that this has practically no effect because the only side-effects in OpShin are traces/print statements.
  
 ## Architecture
 
@@ -54,7 +53,7 @@ In particular, these steps are performed in the following modules:
 - compilation (Python -> pluthon): `opshin.compiler`
 - building (deriving script address and convenience functions): `opshin.builder`
 
-There are futher `opshin.rewrite` and `opshin.optimize` which perform various rewriting steps (that remove complexity from Python source code) and optimizations (that make sure performance is even better).
+There are further `opshin.rewrite` and `opshin.optimize` which perform various rewriting steps (that remove complexity from Python source code) and optimizations (that make sure performance is even better).
 
 ## Memory
 

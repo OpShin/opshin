@@ -1,6 +1,6 @@
 import hypothesis
+import hypothesis.strategies as hst
 import pytest
-from pycardano import PlutusData
 
 from opshin import CompilerError, builder
 from opshin.type_impls import *
@@ -332,8 +332,7 @@ def validator(x: Union[A, B]) -> bool:
     assert res == (a_or_b not in [B(1, 2)]), f"Expected {a_or_b != B(1, 2)}, got {res}"
 
 
-@hypothesis.given(a_or_b)
-def test_geq(a_or_b):
+def test_geq():
     source_code = """
 from dataclasses import dataclass
 from typing import Dict, List, Union
@@ -354,4 +353,124 @@ def validator(x: Union[A, B]) -> bool:
 """
     # should fail to compile because > is not supported
     with pytest.raises(CompilerError, match="Can not compare"):
+        builder._compile(source_code)
+
+
+def test_error_pure_list():
+    source_code = """
+from typing import Dict, List, Union
+
+def validator(_: List) -> bool:
+    return True
+"""
+    with pytest.raises(CompilerError, match=r"List\[Anything\]"):
+        builder._compile(source_code)
+
+
+def test_error_pure_dict():
+    source_code = """
+from typing import Dict, List, Union
+
+def validator(_: Dict) -> bool:
+    return True
+"""
+    with pytest.raises(CompilerError, match=r"Dict\[Anything, Anything\]"):
+        builder._compile(source_code)
+
+
+def test_error_pure_union():
+    source_code = """
+from typing import Dict, List, Union
+
+def validator(_: Union) -> bool:
+    return True
+"""
+    with pytest.raises(CompilerError, match=r"Union\["):
+        builder._compile(source_code)
+
+
+def test_single_union():
+    source_code = """
+from dataclasses import dataclass
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
+@dataclass()
+class A(PlutusData):
+    CONSTR_ID = 0
+    foo: int
+    
+def validator(x: Union[A]) -> bool:
+    return True
+"""
+    builder._compile(source_code)
+
+
+@hypothesis.given(hst.integers(min_value=0, max_value=10))
+def test_empty_literal_dict(y):
+    source_code = """
+from opshin.prelude import *
+
+def my_len_fn(d: Dict[Anything, Anything]) -> int:
+    return len(d)
+
+def validator(x: int) -> bool:
+    return my_len_fn({}) == x
+"""
+    x = eval_uplc_value(source_code, y)
+    assert bool(x) == (y == 0)
+
+
+@hypothesis.given(hst.integers(min_value=0, max_value=10))
+def test_empty_literal_dict_assignment(y):
+    source_code = """
+from opshin.prelude import *
+
+def validator(x: int) -> Anything:
+    d = {}
+    e = d.get(1, x)
+    return e
+"""
+    x = eval_uplc_value(source_code, y)
+    assert x == y
+
+
+@hypothesis.given(hst.integers(min_value=0, max_value=10))
+def test_empty_literal_list(y):
+    source_code = """
+from opshin.prelude import *
+
+def my_len_fn(d: List[Anything]) -> int:
+    return len(d)
+
+def validator(x: int) -> bool:
+    return my_len_fn([]) == x
+"""
+    x = eval_uplc_value(source_code, y)
+    assert bool(x) == (y == 0)
+
+
+@hypothesis.given(hst.integers(min_value=0, max_value=10))
+def test_empty_literal_list_assignment(y):
+    source_code = """
+from opshin.prelude import *
+
+def validator(x: int) -> Anything:
+    d = []
+    e = d[0] if len(d) > 0 else x
+    return e
+"""
+    x = eval_uplc_value(source_code, y)
+    assert x == y
+
+
+def test_empty_literal_list_reassignment():
+    source_code = """
+from opshin.prelude import *
+
+def validator(x: List[int]) -> Anything:
+    x = []
+    e = x[0] if len(x) > 0 else 2
+    return e
+"""
+    with pytest.raises(CompilerError, match=r"does not match inferred type"):
         builder._compile(source_code)
