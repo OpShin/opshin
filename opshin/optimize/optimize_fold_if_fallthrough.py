@@ -29,9 +29,7 @@ class OptimizeFoldIfFallthrough(CompilingNodeTransformer):
                 continue
             if isinstance(stmt, If):
                 body_can_fall_through = getattr(stmt, "body_can_fall_through", True)
-                orelse_can_fall_through = getattr(
-                    stmt, "orelse_can_fall_through", True
-                )
+                orelse_can_fall_through = getattr(stmt, "orelse_can_fall_through", True)
                 if body_can_fall_through != orelse_can_fall_through and i + 1 < len(
                     statements
                 ):
