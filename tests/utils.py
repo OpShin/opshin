@@ -8,7 +8,13 @@ from pycardano import PlutusData
 from uplc import eval as uplc_eval
 from hypothesis import strategies as st
 
-from opshin.builder import _compile, DEFAULT_CONFIG
+from opshin.builder import _compile
+from opshin.compiler_config import OPT_O1_CONFIG
+
+DEFAULT_TEST_CONFIG = OPT_O1_CONFIG.update(
+    wrap_output=True,
+    unwrap_input=True,
+)
 
 
 @dataclasses.dataclass
@@ -21,7 +27,7 @@ def eval_uplc_raw(
     *args: typing.Union[pycardano.Datum, uplc_ast.Constant],
     contract_file: str = "<unknown>",
     validator_function_name="validator",
-    config=DEFAULT_CONFIG,
+    config=DEFAULT_TEST_CONFIG,
 ):
     code = _compile(
         source_code,
@@ -38,7 +44,7 @@ def eval_uplc(
     *args: typing.Union[pycardano.Datum, uplc_ast.Constant],
     contract_file: str = "<unknown>",
     validator_function_name="validator",
-    config=DEFAULT_CONFIG,
+    config=DEFAULT_TEST_CONFIG,
 ):
     ret = eval_uplc_raw(
         source_code,
@@ -57,7 +63,7 @@ def eval_uplc_value(
     *args: typing.Union[pycardano.Datum, uplc_ast.Constant],
     contract_file: str = "<unknown>",
     validator_function_name="validator",
-    config=DEFAULT_CONFIG,
+    config=DEFAULT_TEST_CONFIG,
 ):
     return eval_uplc(
         source_code,

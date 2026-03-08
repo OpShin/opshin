@@ -1,4 +1,5 @@
 import ast as _ast
+import dataclasses as _dataclasses
 import typing as _typing
 import pluthon as _plt
 
@@ -156,10 +157,24 @@ class TypedIfExp(typedstmt, _ast.IfExp):
     orelse: typedexpr
 
 
+@_dataclasses.dataclass
+class DunderCompareOverride:
+    """Metadata for a dunder method override used in a comparison expression."""
+
+    method_name: str
+    function_type: "Type"
+    dunder_name: str
+    receiver_right: bool
+    negate_result: bool
+    receiver: "typedexpr"
+    argument: "typedexpr"
+
+
 class TypedCompare(typedexpr, _ast.Compare):
     left: typedexpr
     ops: _typing.List[_ast.cmpop]
     comparators: _typing.List[typedexpr]
+    dunder_overrides: _typing.List[_typing.Optional[DunderCompareOverride]]
 
 
 class TypedBinOp(typedexpr, _ast.BinOp):
