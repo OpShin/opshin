@@ -2,6 +2,8 @@ from ast import *
 from copy import copy
 
 from ..type_impls import FunctionType, InstanceType
+from ..rewrite.rewrite_cast_condition import SPECIAL_BOOL
+from ..type_inference import INITIAL_SCOPE, union_types
 from ..util import (
     CompilingNodeTransformer,
     CompilingNodeVisitor,
@@ -32,6 +34,32 @@ class _DirectFunctionCallCollector(CompilingNodeVisitor):
 
 class OptimizeRewriteFunctionClosures(CompilingNodeTransformer):
     step = "Resolving function dependencies"
+
+    def _merge_envs(
+        self, s1: dict[str, InstanceType], s2: dict[str, InstanceType]
+    ) -> dict[str, InstanceType]:
+        merged = dict(s1)
+        for key, value in s2.items():
+            if key not in merged:
+                merged[key] = value
+                continue
+            if merged[key] == value:
+                continue
+            if isinstance(merged[key], InstanceType) and isinstance(
+                value, InstanceType
+            ):
+                if isinstance(merged[key].typ, FunctionType) and isinstance(
+                    value.typ, FunctionType
+                ):
+                    if merged[key].typ >= value.typ:
+                        continue
+                    if value.typ >= merged[key].typ:
+                        merged[key] = value
+                        continue
+                merged[key] = InstanceType(union_types(merged[key].typ, value.typ))
+                continue
+            merged[key] = value
+        return merged
 
     def _collect_typed_functions(self, body: list[stmt]) -> list[FunctionDef]:
         functions = []
@@ -93,6 +121,8 @@ class OptimizeRewriteFunctionClosures(CompilingNodeTransformer):
                 if (
                     isinstance(node.ctx, Load)
                     and node.id in self.current_env
+                    and isinstance(self.current_env[node.id], InstanceType)
+                    and isinstance(self.current_env[node.id].typ, FunctionType)
                     and hasattr(node, "typ")
                 ):
                     node.typ = self.current_env[node.id]
@@ -101,169 +131,166 @@ class OptimizeRewriteFunctionClosures(CompilingNodeTransformer):
         SequenceBindingRefresher(env).visit(node)
 
     def _refresh_sequence_binding_uses(self, body: list[stmt]):
-        current_env = {}
+        self._refresh_sequence_binding_uses_with_env(body, {})
+
+    def _refresh_sequence_binding_uses_with_env(
+        self, body: list[stmt], inherited_env: dict[str, InstanceType]
+    ) -> dict[str, InstanceType]:
+        current_env = dict(inherited_env)
         for stmt in body:
             if isinstance(stmt, FunctionDef):
                 current_env[stmt.name] = stmt.typ
+
+        for stmt in body:
+            if isinstance(stmt, FunctionDef):
                 continue
+            current_env = self._refresh_statement_binding_uses(stmt, current_env)
 
-            self._refresh_node_types_from_env(stmt, current_env)
+        for stmt in body:
+            if not isinstance(stmt, FunctionDef):
+                continue
+            function_env = dict(current_env)
+            for arg in stmt.args.args:
+                if hasattr(arg, "typ"):
+                    function_env[arg.arg] = arg.typ
+            self._refresh_sequence_binding_uses_with_env(stmt.body, function_env)
 
-            if isinstance(stmt, Assign):
-                for target in stmt.targets:
-                    if isinstance(target, Name) and hasattr(stmt.value, "typ"):
-                        target.typ = stmt.value.typ
-                        current_env[target.id] = stmt.value.typ
-            elif isinstance(stmt, AnnAssign):
-                if isinstance(stmt.target, Name) and hasattr(stmt.value, "typ"):
-                    stmt.target.typ = stmt.value.typ
-                    current_env[stmt.target.id] = stmt.value.typ
+        return current_env
+
+    def _refresh_statement_binding_uses(
+        self, stmt: stmt, current_env: dict[str, InstanceType]
+    ) -> dict[str, InstanceType]:
+        self._refresh_node_types_from_env(stmt, current_env)
+
+        if isinstance(stmt, Assign):
+            for target in stmt.targets:
+                if (
+                    isinstance(target, Name)
+                    and hasattr(stmt.value, "typ")
+                    and isinstance(stmt.value.typ, InstanceType)
+                    and isinstance(stmt.value.typ.typ, FunctionType)
+                ):
+                    target.typ = stmt.value.typ
+                    current_env[target.id] = stmt.value.typ
+            return current_env
+
+        if isinstance(stmt, AnnAssign):
+            if (
+                isinstance(stmt.target, Name)
+                and hasattr(stmt.value, "typ")
+                and isinstance(stmt.value.typ, InstanceType)
+                and isinstance(stmt.value.typ.typ, FunctionType)
+            ):
+                stmt.target.typ = stmt.value.typ
+                current_env[stmt.target.id] = stmt.value.typ
+            return current_env
+
+        if isinstance(stmt, If):
+            body_env = self._refresh_sequence_binding_uses_with_env(
+                stmt.body, dict(current_env)
+            )
+            else_env = self._refresh_sequence_binding_uses_with_env(
+                stmt.orelse, dict(current_env)
+            )
+            return self._merge_envs(body_env, else_env)
+
+        if isinstance(stmt, (While, For)):
+            body_env = self._refresh_sequence_binding_uses_with_env(
+                stmt.body, dict(current_env)
+            )
+            else_env = self._refresh_sequence_binding_uses_with_env(
+                stmt.orelse, dict(current_env)
+            )
+            return self._merge_envs(body_env, else_env)
+
+        return current_env
 
     def _update_function_bound_vars(self, body: list[stmt]):
         function_nodes = self._collect_typed_functions(body)
         if not function_nodes:
             return
 
-        function_indices = {}
         function_node_by_id = {}
-        for i, function in enumerate(function_nodes):
+        function_type_by_name = {}
+        for function in function_nodes:
             function_id = function.typ.typ.function_id
             assert function_id is not None, "Function type is missing function_id"
-            function_indices[function_id] = i
             function_node_by_id[function_id] = function
+            function_type_by_name[function.name] = function.typ
 
-        function_names = {function.name for function in function_nodes}
         function_types = {
             function_id: node.typ for function_id, node in function_node_by_id.items()
         }
         function_ids = set(function_types.keys())
 
-        required_direct_funcs = {}
-        direct_non_function_bound_vars = {}
+        direct_external_bound_vars = {}
+        direct_required_names = {}
         called_function_targets = {}
         for function in function_nodes:
             function_id = function.typ.typ.function_id
             assert function_id is not None, "Function type is missing function_id"
-            direct = {
+            direct_external_names = {
                 name
                 for name in externally_bound_vars(function)
                 if name not in ["List", "Dict"]
+                and name not in INITIAL_SCOPE
+                and not name.startswith(SPECIAL_BOOL)
             }
-            direct_non_function_names = direct.difference(function_names)
-            direct_non_function_bound_vars[function_id] = (
-                self._collect_external_name_types(function, direct_non_function_names)
+            direct_external_bound_vars[function_id] = self._collect_external_name_types(
+                function, direct_external_names
             )
+            direct_required_names[function_id] = set(
+                direct_external_bound_vars[function_id]
+            )
+            if function.typ.typ.bind_self is not None:
+                direct_required_names[function_id].add(function.name)
 
             collector = _DirectFunctionCallCollector(function_ids)
             for stmt in function.body:
                 collector.visit(stmt)
             called_function_targets[function_id] = set(collector.called.values())
-
-            required_funcs = set()
-            if function_id in called_function_targets[function_id]:
-                required_funcs.add(function_id)
-            for called_id in called_function_targets[function_id]:
-                if function_indices[called_id] > function_indices[function_id]:
-                    required_funcs.add(called_id)
-            required_direct_funcs[function_id] = required_funcs
-
-        graph = {
-            function_id: set(targets)
-            for function_id, targets in called_function_targets.items()
-        }
-
-        index = 0
-        stack = []
-        stack_members = set()
-        indices = {}
-        lowlinks = {}
-        recursive_component_names = {}
-
-        def strongconnect(node_id: int):
-            nonlocal index
-            indices[node_id] = index
-            lowlinks[node_id] = index
-            index += 1
-            stack.append(node_id)
-            stack_members.add(node_id)
-
-            for dep_id in graph[node_id]:
-                if dep_id not in indices:
-                    strongconnect(dep_id)
-                    lowlinks[node_id] = min(lowlinks[node_id], lowlinks[dep_id])
-                elif dep_id in stack_members:
-                    lowlinks[node_id] = min(lowlinks[node_id], indices[dep_id])
-
-            if lowlinks[node_id] != indices[node_id]:
-                return
-
-            component = []
-            while True:
-                member = stack.pop()
-                stack_members.remove(member)
-                component.append(member)
-                if member == node_id:
-                    break
-
-            if len(component) > 1 or node_id in graph[node_id]:
-                component_names = {
-                    function_node_by_id[member].name for member in component
-                }
-            else:
-                component_names = set()
-            for member in component:
-                recursive_component_names[member] = component_names
-
-        for function_id in function_types:
-            if function_id not in indices:
-                strongconnect(function_id)
-
-        for function_id in function_types:
-            recursive_component_names.setdefault(function_id, set())
-
-        required_func_closure = copy(required_direct_funcs)
+        required_names = copy(direct_required_names)
         changed = True
         while changed:
             changed = False
-            new_required_func_closure = {}
+            new_required_names = {}
             for function_id in function_types:
-                resolved = set(required_direct_funcs[function_id]).union(
-                    recursive_component_names[function_id]
-                )
+                resolved = set(direct_required_names[function_id])
                 for dep_id in called_function_targets[function_id]:
-                    for dep_name in required_func_closure[dep_id]:
-                        resolved.add(dep_name)
-                new_required_func_closure[function_id] = resolved
+                    resolved.update(required_names[dep_id])
+                new_required_names[function_id] = resolved
             changed = any(
-                new_required_func_closure[function_id]
-                != required_func_closure[function_id]
+                new_required_names[function_id] != required_names[function_id]
                 for function_id in function_types
             )
-            required_func_closure = new_required_func_closure
+            required_names = new_required_names
+
+        available_name_types: dict[str, InstanceType] = dict(function_type_by_name)
+        for bound_vars in direct_external_bound_vars.values():
+            for name, typ in bound_vars.items():
+                if name in function_type_by_name:
+                    available_name_types[name] = function_type_by_name[name]
+                    continue
+                if name not in available_name_types:
+                    available_name_types[name] = typ
+                    continue
+                available_name_types = self._merge_envs(
+                    available_name_types, {name: typ}
+                )
 
         for function in function_nodes:
             function_id = function.typ.typ.function_id
             assert function_id is not None, "Function type is missing function_id"
             old_function_type = function.typ.typ
-            new_bound_vars = dict(direct_non_function_bound_vars[function_id])
+            function_required_names = required_names[function_id]
             bind_self = (
-                function.name
-                if function_id in required_func_closure[function_id]
-                else None
+                function.name if function.name in function_required_names else None
             )
-            for dep_id in sorted(required_func_closure[function_id]):
-                if bind_self is not None and dep_id == function_id:
-                    continue
-                dep_function = function_node_by_id.get(dep_id)
-                dep_type = function_types.get(dep_id)
-                if dep_function is None or dep_type is None:
-                    continue
-                dep_name = dep_function.name
-                if dep_name in new_bound_vars and new_bound_vars[dep_name] == dep_type:
-                    continue
-                if dep_name in new_bound_vars:
-                    continue
-                new_bound_vars[dep_name] = dep_type
+            new_bound_vars = {
+                name: available_name_types[name]
+                for name in function_required_names
+                if name != function.name and name in available_name_types
+            }
             function.typ = InstanceType(
                 FunctionType(
                     argtyps=list(old_function_type.argtyps),

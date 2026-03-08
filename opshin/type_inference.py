@@ -32,6 +32,7 @@ from .util import (
     TypedNodeVisitor,
     OPSHIN_LOGGER,
     custom_fix_missing_locations,
+    externally_bound_vars,
     read_vars,
 )
 from .fun_impls import PythonBuiltInTypes
@@ -713,14 +714,29 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         self,
         node: FunctionDef,
         arg_types: typing.Iterable[Type],
+        bound_vars: typing.Optional[typing.Dict[str, Type]] = None,
+        bind_self: typing.Optional[str] = None,
     ) -> FunctionType:
         return FunctionType(
             frozenlist(arg_types),
             InstanceType(self.type_from_annotation(node.returns)),
-            bound_vars={},
-            bind_self=None,
+            bound_vars={} if bound_vars is None else bound_vars,
+            bind_self=bind_self,
             function_id=self.ensure_function_id(node),
         )
+
+    def infer_function_closure(
+        self, node: FunctionDef
+    ) -> tuple[typing.Dict[str, Type], typing.Optional[str]]:
+        bound_vars = {
+            v: self.variable_type(v)
+            for v in externally_bound_vars(node)
+            if v not in ["List", "Dict"]
+            and v not in INITIAL_SCOPE
+            and not v.startswith(SPECIAL_BOOL)
+        }
+        bind_self = node.name if node.name in read_vars(node) else None
+        return bound_vars, bind_self
 
     def declare_class_type(self, node: ClassDef, force: bool) -> RecordType:
         class_record = RecordReader(self).extract(node)
@@ -1194,10 +1210,13 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         tfd.args = self.visit(resolved_node.args)
         arg_types = [t.typ for t in tfd.args.args]
         base_scope = copy(self.scopes[-1])
+        bound_vars, bind_self = self.infer_function_closure(resolved_node)
 
         functyp = self.build_function_type(
             resolved_node,
             arg_types=arg_types,
+            bound_vars=bound_vars,
+            bind_self=bind_self,
         )
         tfd.typ = InstanceType(functyp)
         if wraps_builtin:
