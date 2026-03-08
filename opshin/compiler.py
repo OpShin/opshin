@@ -25,6 +25,7 @@ from .type_impls import (
     ListType,
     TupleType,
     PairType,
+    BoolInstanceType,
     IntegerInstanceType,
     empty_list,
     DictType,
@@ -50,7 +51,6 @@ from .optimize.optimize_union_expansion import OptimizeUnionExpansion
 from .rewrite.rewrite_assert_none import RewriteAssertNone
 from .rewrite.rewrite_augassign import RewriteAugAssign
 from .rewrite.rewrite_cast_condition import RewriteConditions
-from .rewrite.rewrite_comparison_chaining import RewriteComparisonChaining
 from .rewrite.rewrite_empty_dicts import RewriteEmptyDicts
 from .rewrite.rewrite_empty_lists import RewriteEmptyLists
 from .rewrite.rewrite_forbidden_overwrites import RewriteForbiddenOverwrites
@@ -252,15 +252,76 @@ class PlutoCompiler(CompilingNodeTransformer):
         )
 
     def visit_Compare(self, node: TypedCompare) -> plt.AST:
-        assert len(node.ops) == 1, "Only single comparisons are supported"
-        assert len(node.comparators) == 1, "Only single comparisons are supported"
-        cmpop = node.ops[0]
-        comparator = node.comparators[0].typ
-        op = node.left.typ.cmp(cmpop, comparator)
-        return plt.Apply(
-            op,
-            self.visit(node.left),
-            self.visit(node.comparators[0]),
+        operands = [node.left] + node.comparators
+        dunder_overrides = node.dunder_overrides
+        operand_names = [
+            f"__chain_cmp_value_{node.lineno}_{node.col_offset}_{i}"
+            for i in range(len(operands))
+        ]
+
+        def compile_single_comparison(index: int) -> plt.AST:
+            dunder_override = (
+                dunder_overrides[index] if index < len(dunder_overrides) else None
+            )
+            if dunder_override is not None:
+                dunder_function = TypedName(
+                    id=dunder_override.method_name,
+                    ctx=Load(),
+                    typ=dunder_override.function_type,
+                )
+                dunder_function.orig_id = dunder_override.dunder_name
+                arg_indices = (
+                    [index + 1, index]
+                    if dunder_override.receiver_right
+                    else [index, index + 1]
+                )
+                dunder_call = TypedCall(
+                    func=dunder_function,
+                    args=[
+                        RawPlutoExpr(
+                            expr=OVar(operand_names[arg_index]),
+                            typ=operands[arg_index].typ,
+                        )
+                        for arg_index in arg_indices
+                    ],
+                    keywords=[],
+                    typ=BoolInstanceType,
+                )
+                dunder_call_result = self.visit_Call(dunder_call)
+                if dunder_override.negate_result:
+                    return plt.Not(dunder_call_result)
+                return dunder_call_result
+            op = operands[index].typ.cmp(node.ops[index], operands[index + 1].typ)
+            return plt.Apply(
+                op,
+                OVar(operand_names[index]),
+                OVar(operand_names[index + 1]),
+            )
+
+        def compile_chain(index: int) -> plt.AST:
+            comparison_result = compile_single_comparison(index)
+            if index == len(node.ops) - 1:
+                return comparison_result
+            return plt.Ite(
+                comparison_result,
+                OLet(
+                    [
+                        (
+                            operand_names[index + 2],
+                            self.visit(operands[index + 2]),
+                        )
+                    ],
+                    compile_chain(index + 1),
+                ),
+                plt.Bool(False),
+            )
+
+        return OLet(
+            [
+                (operand_names[0], self.visit(operands[0])),
+                (operand_names[1], self.visit(operands[1])),
+            ],
+            compile_chain(0),
         )
 
     def visit_Module(self, node: TypedModule) -> plt.AST:
@@ -1158,7 +1219,6 @@ def compile(
         OptimizeConstantFolding() if config.constant_folding else NoOp(),
         RewriteSubscript38(),
         RewriteAugAssign(),
-        RewriteComparisonChaining(),
         RewriteTupleAssign(),
         RewriteImportBLS12381(),
         RewriteImportIntegrityCheck(),
