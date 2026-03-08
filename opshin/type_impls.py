@@ -1666,6 +1666,8 @@ class FunctionType(ClassType):
     # Whether and under which name the function binds itself
     # The type of this variable is "self"
     bind_self: typing.Optional[str] = None
+    # Stable compiler-assigned identity for a concrete function definition.
+    function_id: typing.Optional[str] = None
 
     def __post_init__(self):
         object.__setattr__(self, "argtyps", frozenlist(self.argtyps))

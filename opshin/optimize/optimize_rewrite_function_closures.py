@@ -10,14 +10,24 @@ from ..util import (
 
 
 class _DirectFunctionCallCollector(CompilingNodeVisitor):
-    def __init__(self, function_names: set[str]):
-        self.function_names = function_names
-        self.called = set()
+    def __init__(self, function_ids: set[str]):
+        self.function_ids = function_ids
+        self.called: dict[str, str] = {}
 
     def visit_Call(self, node: Call):
-        if isinstance(node.func, Name) and node.func.id in self.function_names:
-            self.called.add(node.func.id)
+        if (
+            isinstance(node.func, Name)
+            and hasattr(node.func, "typ")
+            and isinstance(node.func.typ, InstanceType)
+            and isinstance(node.func.typ.typ, FunctionType)
+            and node.func.typ.typ.function_id is not None
+            and node.func.typ.typ.function_id in self.function_ids
+        ):
+            self.called[node.func.id] = node.func.typ.typ.function_id
         self.generic_visit(node)
+
+    def visit_FunctionDef(self, node: FunctionDef):
+        return None
 
 
 class OptimizeRewriteFunctionClosures(CompilingNodeTransformer):
@@ -114,62 +124,52 @@ class OptimizeRewriteFunctionClosures(CompilingNodeTransformer):
         if not function_nodes:
             return
 
-        function_indices = {
-            id(function): i for i, function in enumerate(function_nodes)
-        }
-        last_def_index = {}
-        last_def_node_by_name = {}
+        function_indices = {}
+        function_node_by_id = {}
         for i, function in enumerate(function_nodes):
-            last_def_index[function.name] = i
-            last_def_node_by_name[function.name] = function
+            function_id = function.typ.typ.function_id
+            assert function_id is not None, "Function type is missing function_id"
+            function_indices[function_id] = i
+            function_node_by_id[function_id] = function
 
-        function_names = set(last_def_index.keys())
+        function_names = {function.name for function in function_nodes}
         function_types = {
-            name: node.typ for name, node in last_def_node_by_name.items()
+            function_id: node.typ for function_id, node in function_node_by_id.items()
         }
+        function_ids = set(function_types.keys())
 
         required_direct_funcs = {}
         direct_non_function_bound_vars = {}
         called_function_targets = {}
         for function in function_nodes:
+            function_id = function.typ.typ.function_id
+            assert function_id is not None, "Function type is missing function_id"
             direct = {
                 name
                 for name in externally_bound_vars(function)
                 if name not in ["List", "Dict"]
             }
             direct_non_function_names = direct.difference(function_names)
-            direct_non_function_bound_vars[id(function)] = (
+            direct_non_function_bound_vars[function_id] = (
                 self._collect_external_name_types(function, direct_non_function_names)
             )
 
-            collector = _DirectFunctionCallCollector(function_names)
-            collector.visit(function)
-            called_function_targets[id(function)] = [
-                id(last_def_node_by_name[called_name])
-                for called_name in collector.called
-                if called_name in last_def_node_by_name
-            ]
+            collector = _DirectFunctionCallCollector(function_ids)
+            for stmt in function.body:
+                collector.visit(stmt)
+            called_function_targets[function_id] = set(collector.called.values())
 
             required_funcs = set()
-            if (
-                function.name in collector.called
-                and last_def_node_by_name[function.name] is function
-            ):
-                required_funcs.add(function.name)
-            for called_name in collector.called:
-                if last_def_index[called_name] > function_indices[id(function)]:
-                    required_funcs.add(called_name)
-            for sibling_name in getattr(function, "self_called_method_names", set()):
-                if sibling_name in function_names and (
-                    last_def_index[sibling_name] > function_indices[id(function)]
-                ):
-                    required_funcs.add(sibling_name)
-            required_direct_funcs[id(function)] = required_funcs
+            if function_id in called_function_targets[function_id]:
+                required_funcs.add(function_id)
+            for called_id in called_function_targets[function_id]:
+                if function_indices[called_id] > function_indices[function_id]:
+                    required_funcs.add(called_id)
+            required_direct_funcs[function_id] = required_funcs
 
-        node_by_id = {id(function): function for function in function_nodes}
         graph = {
-            id(function): called_function_targets[id(function)]
-            for function in function_nodes
+            function_id: set(targets)
+            for function_id, targets in called_function_targets.items()
         }
 
         index = 0
@@ -206,57 +206,62 @@ class OptimizeRewriteFunctionClosures(CompilingNodeTransformer):
                     break
 
             if len(component) > 1 or node_id in graph[node_id]:
-                component_names = {node_by_id[member].name for member in component}
+                component_names = {
+                    function_node_by_id[member].name for member in component
+                }
             else:
                 component_names = set()
             for member in component:
                 recursive_component_names[member] = component_names
 
-        for function in function_nodes:
-            node_id = id(function)
-            if node_id not in indices:
-                strongconnect(node_id)
+        for function_id in function_types:
+            if function_id not in indices:
+                strongconnect(function_id)
 
-        for function in function_nodes:
-            recursive_component_names.setdefault(id(function), set())
+        for function_id in function_types:
+            recursive_component_names.setdefault(function_id, set())
 
         required_func_closure = copy(required_direct_funcs)
         changed = True
         while changed:
             changed = False
             new_required_func_closure = {}
-            for function in function_nodes:
-                node_id = id(function)
-                resolved = set(required_direct_funcs[node_id]).union(
-                    recursive_component_names[node_id]
+            for function_id in function_types:
+                resolved = set(required_direct_funcs[function_id]).union(
+                    recursive_component_names[function_id]
                 )
-                for dep_id in called_function_targets[node_id]:
+                for dep_id in called_function_targets[function_id]:
                     for dep_name in required_func_closure[dep_id]:
                         resolved.add(dep_name)
-                new_required_func_closure[node_id] = resolved
+                new_required_func_closure[function_id] = resolved
             changed = any(
-                new_required_func_closure[id(function)]
-                != required_func_closure[id(function)]
-                for function in function_nodes
+                new_required_func_closure[function_id]
+                != required_func_closure[function_id]
+                for function_id in function_types
             )
             required_func_closure = new_required_func_closure
 
         for function in function_nodes:
+            function_id = function.typ.typ.function_id
+            assert function_id is not None, "Function type is missing function_id"
             old_function_type = function.typ.typ
-            new_bound_vars = dict(direct_non_function_bound_vars[id(function)])
+            new_bound_vars = dict(direct_non_function_bound_vars[function_id])
             bind_self = (
                 function.name
-                if (
-                    function.name in required_func_closure[id(function)]
-                    and last_def_node_by_name[function.name] is function
-                )
+                if function_id in required_func_closure[function_id]
                 else None
             )
-            for dep_name in sorted(required_func_closure[id(function)]):
-                if bind_self is not None and dep_name == function.name:
+            for dep_id in sorted(required_func_closure[function_id]):
+                if bind_self is not None and dep_id == function_id:
                     continue
-                dep_type = function_types.get(dep_name)
-                if dep_type is None:
+                dep_function = function_node_by_id.get(dep_id)
+                dep_type = function_types.get(dep_id)
+                if dep_function is None or dep_type is None:
+                    continue
+                dep_name = dep_function.name
+                if dep_name in new_bound_vars and new_bound_vars[dep_name] == dep_type:
+                    continue
+                if dep_name in new_bound_vars:
                     continue
                 new_bound_vars[dep_name] = dep_type
             function.typ = InstanceType(
@@ -265,6 +270,7 @@ class OptimizeRewriteFunctionClosures(CompilingNodeTransformer):
                     rettyp=old_function_type.rettyp,
                     bound_vars=new_bound_vars,
                     bind_self=bind_self,
+                    function_id=old_function_type.function_id,
                 )
             )
 

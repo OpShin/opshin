@@ -396,6 +396,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         self.FUNCTION_ARGUMENT_REGISTRY = {}
         self.wrapped = []
         self.first_function_definition_scopes: typing.List[typing.Set[int]] = []
+        self._function_id_counter = 0
 
         # A stack of dictionaries for storing scoped knowledge of variable types
         self.scopes = [INITIAL_SCOPE]
@@ -669,6 +670,14 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             node_cp.returns.id = self_ann.id
         return node_cp
 
+    def ensure_function_id(self, node: FunctionDef) -> str:
+        function_id = getattr(node, "function_id", None)
+        if function_id is None:
+            function_id = f"fn_{self._function_id_counter}"
+            self._function_id_counter += 1
+            node.function_id = function_id
+        return function_id
+
     def build_function_type(
         self,
         node: FunctionDef,
@@ -679,6 +688,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             InstanceType(self.type_from_annotation(node.returns)),
             bound_vars={},
             bind_self=None,
+            function_id=self.ensure_function_id(node),
         )
 
     def declare_class_type(self, node: ClassDef, force: bool) -> RecordType:
@@ -724,7 +734,9 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                 # Keep first-definition semantics for compatibility checks.
                 continue
             try:
+                self.ensure_function_id(stmt)
                 resolved = self.resolve_self_annotations(stmt)
+                resolved.function_id = stmt.function_id
                 arg_types = [
                     InstanceType(self.type_from_annotation(arg.annotation))
                     for arg in resolved.args.args
@@ -1129,8 +1141,11 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         return ta
 
     def visit_FunctionDef(self, node: FunctionDef) -> TypedFunctionDef:
+        self.ensure_function_id(node)
         resolved_node = self.resolve_self_annotations(node)
+        resolved_node.function_id = node.function_id
         tfd = copy(resolved_node)
+        tfd.function_id = node.function_id
         wraps_builtin = (
             all(
                 isinstance(o, Name) and o.orig_id == "wraps_builtin"
