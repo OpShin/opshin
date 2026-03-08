@@ -4,7 +4,6 @@ from dataclasses import dataclass
 
 from ..type_impls import FunctionType, InstanceType, UnionType
 from ..util import CompilingNodeTransformer
-from .optimize_rewrite_function_closures import OptimizeRewriteFunctionClosures
 from .optimize_union_expansion import (
     get_specialized_function_name_for_types,
     split_specialized_function_name,
@@ -17,13 +16,27 @@ class _ExpandedVariant:
     typ: InstanceType
 
 
-class OptimizeRewriteExpandedUnionCalls(OptimizeRewriteFunctionClosures):
+class OptimizeRewriteExpandedUnionCalls(CompilingNodeTransformer):
     step = "Rewriting expanded union calls"
 
     def __init__(self):
         super().__init__()
         self.variants_by_name = {}
         self.specialized_arg_positions_by_base_name = {}
+
+    def _collect_typed_functions(self, body: list[stmt]) -> list[FunctionDef]:
+        functions = []
+        for s in body:
+            if not isinstance(s, FunctionDef):
+                continue
+            if not (
+                hasattr(s, "typ")
+                and isinstance(s.typ, InstanceType)
+                and isinstance(s.typ.typ, FunctionType)
+            ):
+                continue
+            functions.append(s)
+        return functions
 
     def _collect_expanded_variants(self, body: list[stmt]):
         variants_by_name = {}
@@ -94,5 +107,4 @@ class OptimizeRewriteExpandedUnionCalls(OptimizeRewriteFunctionClosures):
 
         self._collect_expanded_variants(module.body)
         module.body = [self.visit(stmt) for stmt in module.body]
-        self._update_function_bound_vars(module.body)
         return module

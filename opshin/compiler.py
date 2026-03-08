@@ -1174,8 +1174,8 @@ def compile(
         RewriteScoping(),
         # The type inference needs to be run after complex python operations were rewritten
         AggressiveTypeInferencer(config.allow_isinstance_anything),
-        OptimizeRewriteFunctionClosures(),
         (OptimizeRewriteExpandedUnionCalls() if config.expand_union_types else NoOp()),
+        OptimizeRewriteFunctionClosures(),
         # Rewrites that circumvent the type inference or use its results
         RewriteAssertNone(),
         RewriteEmptyLists(),

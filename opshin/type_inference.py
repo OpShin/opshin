@@ -33,7 +33,6 @@ from .util import (
     OPSHIN_LOGGER,
     custom_fix_missing_locations,
     read_vars,
-    externally_bound_vars,
 )
 from .fun_impls import PythonBuiltInTypes
 from .rewrite.rewrite_cast_condition import SPECIAL_BOOL
@@ -396,10 +395,6 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         self.allow_isinstance_anything = allow_isinstance_anything
         self.FUNCTION_ARGUMENT_REGISTRY = {}
         self.wrapped = []
-        # Per-sequence metadata used to derive transitive closure environments for functions.
-        self.function_bound_name_scopes: typing.List[
-            typing.Dict[int, typing.Set[str]]
-        ] = []
         self.first_function_definition_scopes: typing.List[typing.Set[int]] = []
 
         # A stack of dictionaries for storing scoped knowledge of variable types
@@ -674,61 +669,16 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             node_cp.returns.id = self_ann.id
         return node_cp
 
-    def function_bound_names(self, node: FunctionDef) -> typing.Set[str]:
-        for scope in reversed(self.function_bound_name_scopes):
-            if id(node) in scope:
-                return scope[id(node)]
-        source_node_id = getattr(node, "bound_name_source_id", None)
-        if source_node_id is not None:
-            transformed_bound_names = {
-                v for v in externally_bound_vars(node) if v not in ["List", "Dict"]
-            }
-            for scope in reversed(self.function_bound_name_scopes):
-                if source_node_id in scope:
-                    return set(scope[source_node_id]).union(transformed_bound_names)
-        return {v for v in externally_bound_vars(node) if v not in ["List", "Dict"]}
-
-    def function_needs_self_binding(self, node: FunctionDef) -> bool:
-        return node.name in self.function_bound_names(node)
-
-    def function_bound_var_types(
-        self, node: FunctionDef, allow_uninitialized: bool
-    ) -> typing.Dict[str, Type]:
-        needs_self_binding = self.function_needs_self_binding(node)
-        bound_vars = {}
-        for name in sorted(self.function_bound_names(node)):
-            if name in ["List", "Dict"]:
-                continue
-            if needs_self_binding and name == node.name:
-                continue
-            try:
-                bound_vars[name] = self.variable_type(name)
-            except TypeInferenceError:
-                if not allow_uninitialized:
-                    raise
-                # Provisionally type forward references; the final pass overwrites this.
-                bound_vars[name] = InstanceType(AnyType())
-        return bound_vars
-
     def build_function_type(
         self,
         node: FunctionDef,
         arg_types: typing.Iterable[Type],
-        allow_uninitialized_bound_vars: bool,
-        bound_var_source_node: typing.Optional[FunctionDef] = None,
     ) -> FunctionType:
-        source_node = (
-            bound_var_source_node if bound_var_source_node is not None else node
-        )
         return FunctionType(
             frozenlist(arg_types),
             InstanceType(self.type_from_annotation(node.returns)),
-            bound_vars=self.function_bound_var_types(
-                source_node, allow_uninitialized=allow_uninitialized_bound_vars
-            ),
-            bind_self=(
-                node.name if self.function_needs_self_binding(source_node) else None
-            ),
+            bound_vars={},
+            bind_self=None,
         )
 
     def declare_class_type(self, node: ClassDef, force: bool) -> RecordType:
@@ -782,8 +732,6 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                 functyp = self.build_function_type(
                     resolved,
                     arg_types=arg_types,
-                    allow_uninitialized_bound_vars=True,
-                    bound_var_source_node=stmt,
                 )
                 self.set_variable_type(stmt.name, InstanceType(functyp), force=True)
                 self.FUNCTION_ARGUMENT_REGISTRY[stmt.name] = stmt.args.args
@@ -796,174 +744,6 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
     def predeclare_sequence_symbols(self, node_seq: typing.List[stmt]):
         self.predeclare_class_symbols(node_seq)
         self.predeclare_function_symbols(node_seq)
-
-    def compute_transitive_function_bound_names(
-        self, node_seq: typing.List[stmt]
-    ) -> typing.Dict[int, typing.Set[str]]:
-        function_nodes = [n for n in node_seq if isinstance(n, FunctionDef)]
-        if not function_nodes:
-            return {}
-
-        first_binding_index = {}
-        for i, stmt_node in enumerate(node_seq):
-            if isinstance(stmt_node, FunctionDef):
-                first_binding_index.setdefault(stmt_node.name, i)
-            elif isinstance(stmt_node, ClassDef):
-                first_binding_index.setdefault(stmt_node.name, i)
-            elif isinstance(stmt_node, Assign):
-                for target in stmt_node.targets:
-                    if isinstance(target, Name):
-                        first_binding_index.setdefault(target.id, i)
-            elif isinstance(stmt_node, AnnAssign):
-                if isinstance(stmt_node.target, Name):
-                    first_binding_index.setdefault(stmt_node.target.id, i)
-            elif isinstance(stmt_node, Import):
-                for imported in stmt_node.names:
-                    bound_name = imported.asname or imported.name.split(".")[0]
-                    first_binding_index.setdefault(bound_name, i)
-            elif isinstance(stmt_node, ImportFrom):
-                for imported in stmt_node.names:
-                    bound_name = imported.asname or imported.name
-                    first_binding_index.setdefault(bound_name, i)
-
-        function_stmt_index = {
-            id(stmt_node): i
-            for i, stmt_node in enumerate(node_seq)
-            if isinstance(stmt_node, FunctionDef)
-        }
-
-        first_def_index = {}
-        first_def_node_by_name = {}
-        for i, node in enumerate(function_nodes):
-            if node.name in first_def_index:
-                continue
-            first_def_index[node.name] = i
-            first_def_node_by_name[node.name] = node
-        function_names = set(first_def_index.keys())
-
-        direct_nonfunc = {}
-        direct_called_funcs = {}
-        required_direct_funcs = {}
-        for node in function_nodes:
-            node_id = id(node)
-            direct = {
-                v for v in externally_bound_vars(node) if v not in ["List", "Dict"]
-            }
-            called_funcs = {v for v in direct if v in function_names}
-            direct_called_funcs[node_id] = called_funcs
-            direct_nonfunc[node_id] = direct.difference(called_funcs)
-
-            required = set()
-            if node.name in read_vars(node):
-                # Self-recursion needs explicit self binding in function parameters.
-                required.add(node.name)
-            for fn_name in called_funcs:
-                # Backward references are available via lexical scoping.
-                # Forward references need runtime binding through closure parameters.
-                if first_def_index[fn_name] > first_def_index[node.name]:
-                    required.add(fn_name)
-            for sibling_name in getattr(node, "self_called_method_names", set()):
-                if sibling_name in function_names and (
-                    first_def_index[sibling_name] > first_def_index[node.name]
-                ):
-                    required.add(sibling_name)
-            required_direct_funcs[node_id] = required
-
-        node_by_id = {id(node): node for node in function_nodes}
-        graph = {
-            id(node): [
-                id(first_def_node_by_name[fn_name])
-                for fn_name in direct_called_funcs[id(node)]
-                if fn_name in first_def_node_by_name
-            ]
-            for node in function_nodes
-        }
-
-        index = 0
-        stack = []
-        stack_members = set()
-        indices = {}
-        lowlinks = {}
-        recursive_component_names = {}
-
-        def strongconnect(node_id: int):
-            nonlocal index
-            indices[node_id] = index
-            lowlinks[node_id] = index
-            index += 1
-            stack.append(node_id)
-            stack_members.add(node_id)
-
-            for dep_id in graph[node_id]:
-                if dep_id not in indices:
-                    strongconnect(dep_id)
-                    lowlinks[node_id] = min(lowlinks[node_id], lowlinks[dep_id])
-                elif dep_id in stack_members:
-                    lowlinks[node_id] = min(lowlinks[node_id], indices[dep_id])
-
-            if lowlinks[node_id] != indices[node_id]:
-                return
-
-            component = []
-            while True:
-                member = stack.pop()
-                stack_members.remove(member)
-                component.append(member)
-                if member == node_id:
-                    break
-
-            if len(component) > 1 or node_id in graph[node_id]:
-                component_names = {node_by_id[member].name for member in component}
-            else:
-                component_names = set()
-            for member in component:
-                recursive_component_names[member] = component_names
-
-        for node in function_nodes:
-            node_id = id(node)
-            if node_id not in indices:
-                strongconnect(node_id)
-
-        for node in function_nodes:
-            node_id = id(node)
-            recursive_component_names.setdefault(node_id, set())
-
-        symbol_bound: typing.Dict[int, typing.Set[str]] = {
-            id(node): set(direct_nonfunc[id(node)])
-            .union(required_direct_funcs[id(node)])
-            .union(recursive_component_names[id(node)])
-            for node in function_nodes
-        }
-        changed = True
-        while changed:
-            changed = False
-            new_symbol_bound = {}
-            for node in function_nodes:
-                node_id = id(node)
-                resolved = set(direct_nonfunc[node_id]).union(
-                    required_direct_funcs[node_id]
-                )
-                for dep_name in direct_called_funcs[node_id]:
-                    dep_node = first_def_node_by_name.get(dep_name)
-                    if dep_node is None:
-                        continue
-                    for dep_req_name in symbol_bound[id(dep_node)]:
-                        if dep_req_name not in function_names:
-                            continue
-                        # Transitive function dependencies must still be threaded
-                        # through the caller even if the original symbol is
-                        # defined earlier in the module. Once the callee closes
-                        # over that function, callers need to supply the same
-                        # runtime binding to keep recursive call signatures
-                        # aligned.
-                        resolved.add(dep_req_name)
-                new_symbol_bound[node_id] = resolved
-            changed = any(
-                new_symbol_bound[id(node)] != symbol_bound[id(node)]
-                for node in function_nodes
-            )
-            symbol_bound = new_symbol_bound
-        return {id(node): symbol_bound[id(node)] for node in function_nodes}
 
     def lower_class_methods_in_sequence(
         self, node_seq: typing.List[stmt]
@@ -1066,14 +846,12 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
 
     def visit_sequence(self, node_seq: typing.List[stmt]) -> plt.AST:
         node_seq = self.lower_class_methods_in_sequence(node_seq)
-        function_bound_names = self.compute_transitive_function_bound_names(node_seq)
         first_function_defs = set()
         seen_function_names = set()
         for node in node_seq:
             if isinstance(node, FunctionDef) and node.name not in seen_function_names:
                 first_function_defs.add(id(node))
                 seen_function_names.add(node.name)
-        self.function_bound_name_scopes.append(function_bound_names)
         self.first_function_definition_scopes.append(first_function_defs)
         try:
             self.predeclare_sequence_symbols(node_seq)
@@ -1101,18 +879,9 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                 if isinstance(node, FunctionDef):
                     typed_stmts[i] = self.visit(node)
 
-            seen_function_def = False
-            for i, node in enumerate(node_seq):
-                if isinstance(node, FunctionDef):
-                    seen_function_def = True
-                    continue
-                if seen_function_def:
-                    typed_stmts[i] = self.visit(node)
-
             return typed_stmts
         finally:
             self.first_function_definition_scopes.pop()
-            self.function_bound_name_scopes.pop()
 
     def visit_ClassDef(self, node: ClassDef) -> TypedClassDef:
         typ = self.declare_class_type(node, force=True)
@@ -1362,7 +1131,6 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
     def visit_FunctionDef(self, node: FunctionDef) -> TypedFunctionDef:
         resolved_node = self.resolve_self_annotations(node)
         tfd = copy(resolved_node)
-        tfd.bound_name_source_id = id(node)
         wraps_builtin = (
             all(
                 isinstance(o, Name) and o.orig_id == "wraps_builtin"
@@ -1382,8 +1150,6 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         functyp = self.build_function_type(
             resolved_node,
             arg_types=arg_types,
-            allow_uninitialized_bound_vars=wraps_builtin,
-            bound_var_source_node=node,
         )
         tfd.typ = InstanceType(functyp)
         if wraps_builtin:
@@ -1394,33 +1160,6 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             self.scopes[-1] = copy(base_scope)
             self.set_variable_type(resolved_node.name, tfd.typ, force=True)
             tfd.body = self.visit_sequence(resolved_node.body)
-            # Recompute closure bindings from the transformed body.
-            # Dunder rewrites can introduce additional free names that are not visible
-            # in the original AST shape used during pre-declaration.
-            updated_typ = InstanceType(
-                self.build_function_type(
-                    resolved_node,
-                    arg_types=arg_types,
-                    allow_uninitialized_bound_vars=wraps_builtin,
-                    bound_var_source_node=tfd,
-                )
-            )
-            if updated_typ != tfd.typ:
-                # Revisit the body with the final function shape so recursive call sites
-                # receive the same closure parameters as external call sites.
-                tfd.typ = updated_typ
-                self.scopes[-1] = copy(base_scope)
-                self.set_variable_type(resolved_node.name, tfd.typ, force=True)
-                tfd.body = self.visit_sequence(resolved_node.body)
-                updated_typ = InstanceType(
-                    self.build_function_type(
-                        resolved_node,
-                        arg_types=arg_types,
-                        allow_uninitialized_bound_vars=wraps_builtin,
-                        bound_var_source_node=tfd,
-                    )
-                )
-            tfd.typ = updated_typ
             # Check that return type and annotated return type match
             rets_extractor = ReturnExtractor(functyp.rettyp)
             rets_extractor.check_fulfills(tfd)
