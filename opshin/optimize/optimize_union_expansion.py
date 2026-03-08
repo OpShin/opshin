@@ -55,8 +55,10 @@ def get_specialized_function_name_from_suffixes(
         if candidate_scope.isdigit():
             base_name_no_scope, scope_suffix = candidate_base, candidate_scope
 
-    specialized_name = base_name_no_scope + UNION_SPECIALIZATION_SEPARATOR + "".join(
-        f"_{suffix}" for suffix in suffixes
+    specialized_name = (
+        base_name_no_scope
+        + UNION_SPECIALIZATION_SEPARATOR
+        + "".join(f"_{suffix}" for suffix in suffixes)
     )
     if scope_suffix is not None:
         return f"{specialized_name}_{scope_suffix}"
