@@ -1291,6 +1291,19 @@ def validator(x: int) -> bool:
         self.assertEqual(res, bool(x))
 
     @hypothesis.given(st.integers())
+    def test_cast_bool_ite(self, x):
+        source_code = """
+def validator(x: int) -> None:
+    assert x
+"""
+        try:
+            eval_uplc(source_code, x)
+            res = True
+        except Exception:
+            res = False
+        self.assertEqual(res, bool(x))
+
+    @hypothesis.given(st.integers())
     def test_cast_bool_ite_expr(self, x):
         source_code = """
 def validator(x: int) -> bool:
@@ -1320,19 +1333,6 @@ def validator(x: int) -> bool:
 """
         res = eval_uplc_value(source_code, x)
         self.assertEqual(bool(res), bool(x and x or (x or x)))
-
-    @hypothesis.given(st.integers())
-    def test_cast_bool_ite(self, x):
-        source_code = """
-def validator(x: int) -> None:
-    assert x
-"""
-        try:
-            eval_uplc(source_code, x)
-            res = True
-        except Exception:
-            res = False
-        self.assertEqual(res, bool(x))
 
     @hypothesis.given(a_or_b)
     def test_isinstance_cast_if(self, x):
@@ -2229,6 +2229,122 @@ def validator(_: None) -> int:
         """
         res = eval_uplc_value(source_code, Unit())
         self.assertEqual(res, 1, "Invalid return")
+
+    def test_assert_if_return(self):
+        source_code = """
+from typing import Union
+
+def validator(v: Union[int, bytes], n: int) -> int:
+    if isinstance(v, bytes):
+        return 2
+    return v + 2
+"""
+        builder._compile(source_code)
+
+    def test_assert_if_return_nested_if_all_paths_return(self):
+        source_code = """
+from typing import Union
+
+def validator(v: Union[int, bytes], a: int, b: int) -> int:
+    if isinstance(v, bytes):
+        if a > b:
+            return 2
+        else:
+            return 3
+    return v + 2
+"""
+        builder._compile(source_code)
+
+    def test_assert_if_return_nested_if_then_return(self):
+        source_code = """
+from typing import Union
+
+def validator(v: Union[int, bytes], a: int, b: int) -> int:
+    if isinstance(v, bytes):
+        if a > b:
+            return 2
+        return 3
+    return v + 2
+"""
+        builder._compile(source_code)
+
+    def test_assert_if_return_nested_in_else(self):
+        source_code = """
+from typing import Union
+
+def validator(v: Union[int, bytes], a: int, b: int) -> int:
+    if isinstance(v, bytes):
+        return 2
+    else:
+        if a > b:
+            return v + 2
+        return v + 3
+"""
+        builder._compile(source_code)
+
+    def test_assert_if_else_does_not_fall_through(self):
+        source_code = """
+from typing import Union
+
+def validator(v: Union[int, bytes], n: int) -> int:
+    if isinstance(v, bytes):
+        return len(v)
+    else:
+        return 2
+"""
+        builder._compile(source_code)
+
+    def test_assert_if_else_does_not_fall_through_then_use_narrowed_type(self):
+        source_code = """
+from typing import Union
+
+def validator(v: Union[int, bytes], n: int) -> int:
+    if isinstance(v, bytes):
+        x = len(v)
+    else:
+        return 2
+    return x + 1
+"""
+        builder._compile(source_code)
+
+    def test_assert_if_assert_false_does_not_fall_through(self):
+        source_code = """
+from typing import Union
+
+def validator(v: Union[int, bytes], n: int) -> int:
+    if isinstance(v, bytes):
+        assert False, "boom"
+    return v + 2
+"""
+        builder._compile(source_code)
+
+    def test_assert_if_while_else_return_does_not_fall_through(self):
+        source_code = """
+from typing import Union
+
+def validator(v: Union[int, bytes], n: int) -> int:
+    if isinstance(v, bytes):
+        while n > 0:
+            n -= 1
+        else:
+            return 2
+    return v + 2
+"""
+        builder._compile(source_code)
+
+    def test_assert_if_for_else_return_does_not_fall_through(self):
+        source_code = """
+from typing import List, Union
+
+def validator(v: Union[int, bytes], xs: List[int]) -> int:
+    if isinstance(v, bytes):
+        for _ in xs:
+            pass
+        else:
+            return 2
+    return v + 2
+"""
+        builder._compile(source_code)
 
     @unittest.expectedFailure
     def test_return_in_if_same_type(self):
