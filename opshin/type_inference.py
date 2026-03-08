@@ -1101,6 +1101,14 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                 if isinstance(node, FunctionDef):
                     typed_stmts[i] = self.visit(node)
 
+            seen_function_def = False
+            for i, node in enumerate(node_seq):
+                if isinstance(node, FunctionDef):
+                    seen_function_def = True
+                    continue
+                if seen_function_def:
+                    typed_stmts[i] = self.visit(node)
+
             return typed_stmts
         finally:
             self.first_function_definition_scopes.pop()
