@@ -40,9 +40,12 @@ from .typed_ast import *
 from .compiler_config import DEFAULT_CONFIG
 from .optimize.optimize_const_folding import OptimizeConstantFolding
 from .optimize.optimize_remove_deadconstants import OptimizeRemoveDeadconstants
+from .optimize.optimize_fold_if_fallthrough import OptimizeFoldIfFallthrough
+from .optimize.optimize_remove_unreachable import OptimizeRemoveUnreachable
 from .optimize.optimize_union_expansion import OptimizeUnionExpansion
 
 from .rewrite.rewrite_assert_none import RewriteAssertNone
+from .rewrite.rewrite_annotate_fallthrough import RewriteAnnotateFallthrough
 from .rewrite.rewrite_augassign import RewriteAugAssign
 from .rewrite.rewrite_cast_condition import RewriteConditions
 from .rewrite.rewrite_empty_dicts import RewriteEmptyDicts
@@ -1226,6 +1229,7 @@ def compile(
         # Save the original names of variables
         RewriteOrigName(),
         RewriteScoping(),
+        RewriteAnnotateFallthrough(),
         # The type inference needs to be run after complex python operations were rewritten
         AggressiveTypeInferencer(config.allow_isinstance_anything),
         # Rewrites that circumvent the type inference or use its results
@@ -1236,6 +1240,8 @@ def compile(
         RewriteRemoveTypeStuff(),
         # Apply optimizations
         OptimizeRemoveTrace() if config.remove_trace else NoOp(),
+        OptimizeFoldIfFallthrough() if config.remove_dead_code else NoOp(),
+        OptimizeRemoveUnreachable() if config.remove_dead_code else NoOp(),
         (
             OptimizeRemoveDeadvars(validator_function_name=validator_function_name)
             if config.remove_dead_code
