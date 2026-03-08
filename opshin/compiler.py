@@ -41,6 +41,9 @@ from .optimize.optimize_const_folding import OptimizeConstantFolding
 from .optimize.optimize_rewrite_expanded_union_calls import (
     OptimizeRewriteExpandedUnionCalls,
 )
+from .optimize.optimize_rewrite_function_closures import (
+    OptimizeRewriteFunctionClosures,
+)
 from .optimize.optimize_remove_deadconstants import OptimizeRemoveDeadconstants
 from .optimize.optimize_union_expansion import OptimizeUnionExpansion
 
@@ -1171,11 +1174,8 @@ def compile(
         RewriteScoping(),
         # The type inference needs to be run after complex python operations were rewritten
         AggressiveTypeInferencer(config.allow_isinstance_anything),
-        (
-            OptimizeRewriteExpandedUnionCalls()
-            if config.expand_union_types
-            else NoOp()
-        ),
+        OptimizeRewriteFunctionClosures(),
+        (OptimizeRewriteExpandedUnionCalls() if config.expand_union_types else NoOp()),
         # Rewrites that circumvent the type inference or use its results
         RewriteAssertNone(),
         RewriteEmptyLists(),
