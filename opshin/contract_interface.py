@@ -1,0 +1,233 @@
+import dataclasses
+import inspect
+import typing
+
+from .ledger.api_v3 import Minting, Publishing, Proposing, Spending, Voting, Withdrawing
+from .prelude import ScriptContext, own_datum_unsafe
+
+
+@dataclasses.dataclass(frozen=True)
+class ContractMethodSpec:
+    method_name: str
+    purpose_class: type
+    purpose_name: str
+    onchain_argument_count: int
+
+
+CONTRACT_METHOD_SPECS = (
+    ContractMethodSpec("spend", Spending, "spending", 3),
+    ContractMethodSpec("mint", Minting, "minting", 2),
+    ContractMethodSpec("withdraw", Withdrawing, "rewarding", 2),
+    ContractMethodSpec("publish", Publishing, "certifying", 2),
+    ContractMethodSpec("vote", Voting, "voting", 2),
+    ContractMethodSpec("propose", Proposing, "proposing", 2),
+)
+
+CONTRACT_METHOD_SPEC_MAP = {
+    contract_method.method_name: contract_method
+    for contract_method in CONTRACT_METHOD_SPECS
+}
+
+
+@dataclasses.dataclass(frozen=True)
+class ContractMethodDetails:
+    spec: ContractMethodSpec
+    method: typing.Callable
+    argument_names: typing.Tuple[str, ...]
+    datum_type: typing.Optional[type]
+    redeemer_type: typing.Optional[type]
+    return_type: typing.Any
+
+
+@dataclasses.dataclass(frozen=True)
+class ContractModuleInfo:
+    validator: typing.Callable
+    parameter_types: typing.List[typing.Tuple[str, typing.Any]]
+    method_details: typing.Tuple[ContractMethodDetails, ...]
+
+    @property
+    def purpose_names(self) -> typing.Tuple[str, ...]:
+        return tuple(detail.spec.purpose_name for detail in self.method_details)
+
+    @property
+    def datum_type(self) -> typing.Optional[typing.Tuple[str, typing.Any]]:
+        spending_methods = [
+            detail
+            for detail in self.method_details
+            if detail.spec.method_name == "spend"
+        ]
+        if not spending_methods:
+            return None
+        detail = spending_methods[0]
+        if detail.datum_type is inspect.Signature.empty:
+            return None
+        return ("datum", detail.datum_type)
+
+    @property
+    def redeemer_type(self) -> typing.Optional[typing.Tuple[str, typing.Any]]:
+        redeemer_types = []
+        for detail in self.method_details:
+            if detail.redeemer_type is inspect.Signature.empty:
+                return None
+            redeemer_types.append(detail.redeemer_type)
+        if not redeemer_types:
+            return None
+        first = redeemer_types[0]
+        if any(redeemer_type != first for redeemer_type in redeemer_types[1:]):
+            return None
+        return ("redeemer", first)
+
+
+def _contract_parameter_types(
+    contract_class: type,
+) -> typing.List[typing.Tuple[str, typing.Any]]:
+    annotations = inspect.get_annotations(contract_class)
+    return [
+        (field_name, field_type)
+        for field_name, field_type in annotations.items()
+        if field_name != "CONSTR_ID"
+    ]
+
+
+def _method_annotations(
+    method: typing.Callable, onchain_argument_count: int
+) -> typing.Tuple[typing.Tuple[str, ...], typing.Any, typing.Any]:
+    signature = inspect.signature(method)
+    parameters = list(signature.parameters.values())
+    assert (
+        parameters
+    ), f"Contract method '{method.__name__}' must accept self as first parameter."
+    assert (
+        parameters[0].name == "self"
+    ), f"Contract method '{method.__name__}' must accept self as first parameter."
+    expected_parameter_count = onchain_argument_count + 1
+    assert len(parameters) == expected_parameter_count, (
+        f"Contract method '{method.__name__}' must accept self plus "
+        f"{onchain_argument_count} on-chain parameters."
+    )
+    method_parameters = parameters[1:]
+    context_parameter = method_parameters[-1]
+    if context_parameter.annotation is not inspect.Signature.empty:
+        assert (
+            context_parameter.annotation == ScriptContext
+        ), f"Contract method '{method.__name__}' must annotate context as ScriptContext."
+    datum_type = (
+        method_parameters[0].annotation if onchain_argument_count == 3 else None
+    )
+    redeemer_type = method_parameters[-2].annotation
+    return (
+        tuple(parameter.name for parameter in method_parameters),
+        datum_type,
+        redeemer_type,
+    )
+
+
+def _make_unique_name(preferred_name: str, used_names: typing.Set[str]) -> str:
+    if preferred_name not in used_names:
+        return preferred_name
+    suffix = 0
+    while f"{preferred_name}_{suffix}" in used_names:
+        suffix += 1
+    return f"{preferred_name}_{suffix}"
+
+
+def _build_contract_validator(
+    contract_class: type,
+    parameter_types: typing.List[typing.Tuple[str, typing.Any]],
+    method_details: typing.Tuple[ContractMethodDetails, ...],
+):
+    context_parameter_name = _make_unique_name(
+        method_details[0].argument_names[-1],
+        {field_name for field_name, _ in parameter_types},
+    )
+
+    def validator(*args):
+        contract_parameter_count = len(parameter_types)
+        contract = contract_class(*args[:contract_parameter_count])
+        context = args[contract_parameter_count]
+        purpose = context.purpose
+        for detail in method_details:
+            if not isinstance(purpose, detail.spec.purpose_class):
+                continue
+            if detail.spec.method_name == "spend":
+                return detail.method(
+                    contract, own_datum_unsafe(context), context.redeemer, context
+                )
+            return detail.method(contract, context.redeemer, context)
+        assert False, "Unsupported script purpose for Contract"
+
+    validator.__name__ = "validator"
+    return_annotations = [detail.return_type for detail in method_details]
+    if return_annotations and any(
+        return_type != return_annotations[0] for return_type in return_annotations[1:]
+    ):
+        raise AssertionError(
+            "All Contract entrypoint methods must have the same return annotation."
+        )
+    validator.__signature__ = inspect.Signature(
+        parameters=[
+            inspect.Parameter(
+                name=field_name,
+                kind=inspect.Parameter.POSITIONAL_OR_KEYWORD,
+                annotation=field_type,
+            )
+            for field_name, field_type in parameter_types
+        ]
+        + [
+            inspect.Parameter(
+                name=context_parameter_name,
+                kind=inspect.Parameter.POSITIONAL_OR_KEYWORD,
+                annotation=ScriptContext,
+            )
+        ],
+        return_annotation=(
+            return_annotations[0] if return_annotations else inspect.Signature.empty
+        ),
+    )
+    validator.__annotations__ = {
+        field_name: field_type for field_name, field_type in parameter_types
+    }
+    validator.__annotations__[context_parameter_name] = ScriptContext
+    if return_annotations and return_annotations[0] is not inspect.Signature.empty:
+        validator.__annotations__["return"] = return_annotations[0]
+    return validator
+
+
+def discover_contract_module(module) -> typing.Optional[ContractModuleInfo]:
+    validator = getattr(module, "validator", None)
+    if callable(validator):
+        return None
+    contract_class = getattr(module, "Contract", None)
+    if contract_class is None or not inspect.isclass(contract_class):
+        return None
+    parameter_types = _contract_parameter_types(contract_class)
+    method_details = []
+    for spec in CONTRACT_METHOD_SPECS:
+        method = getattr(contract_class, spec.method_name, None)
+        if method is None:
+            continue
+        argument_names, datum_type, redeemer_type = _method_annotations(
+            method, spec.onchain_argument_count
+        )
+        method_details.append(
+            ContractMethodDetails(
+                spec=spec,
+                method=method,
+                argument_names=argument_names,
+                datum_type=datum_type,
+                redeemer_type=redeemer_type,
+                return_type=inspect.signature(method).return_annotation,
+            )
+        )
+    if not method_details:
+        return None
+    generated_validator = _build_contract_validator(
+        contract_class,
+        parameter_types,
+        tuple(method_details),
+    )
+    return ContractModuleInfo(
+        validator=generated_validator,
+        parameter_types=parameter_types,
+        method_details=tuple(method_details),
+    )

@@ -59,6 +59,7 @@ from .rewrite.rewrite_assert_none import RewriteAssertNone
 from .rewrite.rewrite_annotate_fallthrough import RewriteAnnotateFallthrough
 from .rewrite.rewrite_augassign import RewriteAugAssign
 from .rewrite.rewrite_cast_condition import RewriteConditions
+from .rewrite.rewrite_contract_methods import RewriteContractMethods
 from .rewrite.rewrite_empty_dicts import RewriteEmptyDicts
 from .rewrite.rewrite_empty_lists import RewriteEmptyLists
 from .rewrite.rewrite_destructuring_assign import RewriteDestructuringAssign
@@ -1451,6 +1452,7 @@ def compile(
         RewriteImportTyping(),
         RewriteForbiddenOverwrites(),
         RewriteImportDataclasses(),
+        RewriteContractMethods(),
         RewriteInjectBuiltins(),
         RewriteConditions(),
         # Save the original names of variables
