@@ -4,6 +4,8 @@ import unittest
 from pathlib import Path
 from unittest.mock import Mock, patch
 
+REPO_ROOT = Path(__file__).resolve().parents[1]
+
 
 def load_module(module_name: str, path: str):
     spec = importlib.util.spec_from_file_location(module_name, path)
@@ -14,10 +16,10 @@ def load_module(module_name: str, path: str):
 
 
 CHECK_BINARY_SIZES = load_module(
-    "check_binary_sizes", "/Users/niels/git/opshin/scripts/check_binary_sizes.py"
+    "check_binary_sizes", str(REPO_ROOT / "scripts" / "check_binary_sizes.py")
 )
 BINARY_SIZE_TRACKER = load_module(
-    "binary_size_tracker", "/Users/niels/git/opshin/scripts/binary_size_tracker.py"
+    "binary_size_tracker", str(REPO_ROOT / "scripts" / "binary_size_tracker.py")
 )
 
 
@@ -31,7 +33,7 @@ class BinarySizeToolTests(unittest.TestCase):
             size = BINARY_SIZE_TRACKER.compile_contract(
                 "examples/smart_contracts/assert_sum.py",
                 "O1",
-                work_dir="/Users/niels/git/opshin",
+                work_dir=str(REPO_ROOT),
             )
         self.assertIsNone(size)
 
