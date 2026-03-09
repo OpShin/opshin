@@ -52,6 +52,41 @@ class _DirectFunctionCallCollector(CompilingNodeVisitor):
         return None
 
 
+class _FunctionTypeRewriter(NodeTransformer):
+    def __init__(self, function_types_by_id: dict[str, FunctionType]):
+        self.function_types_by_id = function_types_by_id
+
+    def _rewrite_function_instance_type(
+        self, typ: InstanceType | None
+    ) -> InstanceType | None:
+        if not (
+            isinstance(typ, InstanceType)
+            and isinstance(typ.typ, FunctionType)
+            and typ.typ.function_id is not None
+        ):
+            return typ
+        resolved = self.function_types_by_id.get(typ.typ.function_id)
+        if resolved is None:
+            return typ
+        return InstanceType(resolved)
+
+    def generic_visit(self, node: AST):
+        node = super().generic_visit(node)
+        if hasattr(node, "typ"):
+            node.typ = self._rewrite_function_instance_type(node.typ)
+        return node
+
+    def visit_Compare(self, node: Compare):
+        node = self.generic_visit(node)
+        for dunder_override in getattr(node, "dunder_overrides", []):
+            if dunder_override is None:
+                continue
+            dunder_override.function_type = self._rewrite_function_instance_type(
+                dunder_override.function_type
+            )
+        return node
+
+
 class OptimizeRewriteFunctionClosures(ScopedSequenceNodeTransformer):
     # Function values are compiled as explicit closures. This pass computes
     # which names each function must receive so recursive calls, aliases and
@@ -229,7 +264,23 @@ class OptimizeRewriteFunctionClosures(ScopedSequenceNodeTransformer):
                 )
             )
 
+    def _reassign_function_types(self, body: list[stmt]):
+        module = Module(body=body, type_ignores=[])
+        function_types_by_id = {}
+        for node in walk(module):
+            if not (
+                isinstance(node, FunctionDef)
+                and hasattr(node, "typ")
+                and isinstance(node.typ, InstanceType)
+                and isinstance(node.typ.typ, FunctionType)
+                and node.typ.typ.function_id is not None
+            ):
+                continue
+            function_types_by_id[node.typ.typ.function_id] = node.typ.typ
+        _FunctionTypeRewriter(function_types_by_id).visit(module)
+
     def visit_sequence(self, body: list[stmt]) -> list[stmt]:
         rewritten_body = super().visit_sequence(body)
         self._update_function_bound_vars(rewritten_body)
+        self._reassign_function_types(rewritten_body)
         return rewritten_body

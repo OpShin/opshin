@@ -213,35 +213,6 @@ class PlutoCompiler(CompilingNodeTransformer):
         ), "Parameter fast-access-skip needs to be greater than 1 or omitted"
         # marked knowledge during compilation
         self.current_function_typ: typing.List[FunctionType] = []
-        self.function_types_by_id: typing.Dict[str, FunctionType] = {}
-
-    def _populate_function_type_index(self, node: ast.AST) -> None:
-        self.function_types_by_id = {}
-        for candidate in ast.walk(node):
-            if (
-                isinstance(candidate, ast.FunctionDef)
-                and hasattr(candidate, "typ")
-                and isinstance(candidate.typ, InstanceType)
-                and isinstance(candidate.typ.typ, FunctionType)
-                and candidate.typ.typ.function_id is not None
-            ):
-                self.function_types_by_id[candidate.typ.typ.function_id] = (
-                    candidate.typ.typ
-                )
-
-    def _resolve_function_instance_type(
-        self, typ: typing.Union[InstanceType, PolymorphicFunctionInstanceType]
-    ) -> typing.Union[InstanceType, PolymorphicFunctionInstanceType]:
-        if not (
-            isinstance(typ, InstanceType)
-            and isinstance(typ.typ, FunctionType)
-            and typ.typ.function_id is not None
-        ):
-            return typ
-        resolved = self.function_types_by_id.get(typ.typ.function_id)
-        if resolved is None:
-            return typ
-        return InstanceType(resolved)
 
     def visit_sequence(self, node_seq: typing.List[typedstmt]) -> CallAST:
         def g(s: plt.AST):
@@ -298,13 +269,10 @@ class PlutoCompiler(CompilingNodeTransformer):
                 dunder_overrides[index] if index < len(dunder_overrides) else None
             )
             if dunder_override is not None:
-                dunder_function_type = self._resolve_function_instance_type(
-                    dunder_override.function_type
-                )
                 dunder_function = TypedName(
                     id=dunder_override.method_name,
                     ctx=Load(),
-                    typ=dunder_function_type,
+                    typ=dunder_override.function_type,
                 )
                 dunder_function.orig_id = dunder_override.dunder_name
                 arg_indices = (
@@ -362,7 +330,6 @@ class PlutoCompiler(CompilingNodeTransformer):
         )
 
     def visit_Module(self, node: TypedModule) -> plt.AST:
-        self._populate_function_type_index(node)
         # extract actually read variables by each function
         if self.validator_function_name is not None:
             # for validators find main function
@@ -560,22 +527,21 @@ class PlutoCompiler(CompilingNodeTransformer):
         # TODO function is actually not of type polymorphic function type here anymore
         if isinstance(node.func.typ, PolymorphicFunctionInstanceType):
             # edge case for weird builtins that are polymorphic
-            function_type = node.func.typ.typ
             func_plt = force_params(
-                node.func.typ.polymorphic_function.impl_from_args(function_type.argtyps)
+                node.func.typ.polymorphic_function.impl_from_args(
+                    node.func.typ.typ.argtyps
+                )
             )
             bind_self = None
         else:
-            function_instance = self._resolve_function_instance_type(node.func.typ)
-            assert isinstance(function_instance, InstanceType) and isinstance(
-                function_instance.typ, FunctionType
+            assert isinstance(node.func.typ, InstanceType) and isinstance(
+                node.func.typ.typ, FunctionType
             ), "Can only call instances of functions"
-            function_type = function_instance.typ
             func_plt = self.visit(node.func)
-            bind_self = function_type.bind_self
-        bound_vs = sorted(list(function_type.bound_vars.keys()))
+            bind_self = node.func.typ.typ.bind_self
+        bound_vs = sorted(list(node.func.typ.typ.bound_vars.keys()))
         args = []
-        for i, (a, t) in enumerate(zip(node.args, function_type.argtyps)):
+        for i, (a, t) in enumerate(zip(node.args, node.func.typ.typ.argtyps)):
             # now impl_from_args has been chosen, skip type arg
             if (
                 hasattr(node.func, "orig_id")
