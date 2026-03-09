@@ -48,8 +48,6 @@ class OptimizeRemoveDeadConditions(FlatteningScopedSequenceNodeTransformer):
             return node.orelse
         return node
 
-    # Expression simplification logic
-
     def visit_IfExp(self, node: IfExp) -> expr:
         ex = copy(node)
         ex.test = self.visit(ex.test)
