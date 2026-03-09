@@ -128,112 +128,6 @@ class OptimizeRewriteFunctionClosures(ScopedSequenceNodeTransformer):
         collector.visit(function)
         return collector.types
 
-    def _refresh_node_types_from_env(self, node: AST, env: dict[str, InstanceType]):
-        class SequenceBindingRefresher(NodeTransformer):
-            def __init__(self, current_env: dict[str, InstanceType]):
-                self.current_env = current_env
-
-            def visit_FunctionDef(self, node: FunctionDef):
-                return node
-
-            def visit_ClassDef(self, node: ClassDef):
-                return node
-
-            def visit_Name(self, node: Name):
-                if (
-                    isinstance(node.ctx, Load)
-                    and node.id in self.current_env
-                    and isinstance(self.current_env[node.id], InstanceType)
-                    and isinstance(self.current_env[node.id].typ, FunctionType)
-                    and hasattr(node, "typ")
-                ):
-                    node.typ = self.current_env[node.id]
-                return node
-
-            def visit_Compare(self, node: Compare):
-                for dunder_override in getattr(node, "dunder_overrides", []):
-                    if dunder_override is None:
-                        continue
-                    method_name = dunder_override.method_name
-                    if (
-                        method_name in self.current_env
-                        and isinstance(self.current_env[method_name], InstanceType)
-                        and isinstance(self.current_env[method_name].typ, FunctionType)
-                    ):
-                        dunder_override.function_type = self.current_env[method_name]
-                return self.generic_visit(node)
-
-        SequenceBindingRefresher(env).visit(node)
-
-    def _refresh_sequence_binding_uses(self, body: list[stmt]):
-        self._refresh_sequence_binding_uses_with_env(body, {})
-
-    def _refresh_sequence_binding_uses_with_env(
-        self, body: list[stmt], inherited_env: dict[str, InstanceType]
-    ) -> dict[str, InstanceType]:
-        # Re-thread the current function-valued environment through the local
-        # statement sequence so aliases like `f = odd` pick up the final
-        # closure type before later dependency collection runs.
-        current_env = dict(inherited_env)
-        for stmt in body:
-            if isinstance(stmt, FunctionDef):
-                current_env[stmt.name] = stmt.typ
-
-        for stmt in body:
-            if isinstance(stmt, FunctionDef):
-                continue
-            current_env = self._refresh_statement_binding_uses(stmt, current_env)
-
-        for stmt in body:
-            if not isinstance(stmt, FunctionDef):
-                continue
-            function_env = dict(current_env)
-            for arg in stmt.args.args:
-                if hasattr(arg, "typ"):
-                    function_env[arg.arg] = arg.typ
-            self._refresh_sequence_binding_uses_with_env(stmt.body, function_env)
-
-        return current_env
-
-    def _refresh_statement_binding_uses(
-        self, stmt: stmt, current_env: dict[str, InstanceType]
-    ) -> dict[str, InstanceType]:
-        self._refresh_node_types_from_env(stmt, current_env)
-
-        if isinstance(stmt, Assign):
-            for target in stmt.targets:
-                if (
-                    isinstance(target, Name)
-                    and hasattr(stmt.value, "typ")
-                    and isinstance(stmt.value.typ, InstanceType)
-                    and isinstance(stmt.value.typ.typ, FunctionType)
-                ):
-                    target.typ = stmt.value.typ
-                    current_env[target.id] = stmt.value.typ
-            return current_env
-
-        if isinstance(stmt, AnnAssign):
-            if (
-                isinstance(stmt.target, Name)
-                and hasattr(stmt.value, "typ")
-                and isinstance(stmt.value.typ, InstanceType)
-                and isinstance(stmt.value.typ.typ, FunctionType)
-            ):
-                stmt.target.typ = stmt.value.typ
-                current_env[stmt.target.id] = stmt.value.typ
-            return current_env
-
-        if isinstance(stmt, (If, While, For)):
-            body_env = self._refresh_sequence_binding_uses_with_env(
-                stmt.body, dict(current_env)
-            )
-            else_env = self._refresh_sequence_binding_uses_with_env(
-                stmt.orelse, dict(current_env)
-            )
-            return self._merge_envs(body_env, else_env)
-
-        return current_env
-
     def _update_function_bound_vars(self, body: list[stmt]):
         function_nodes = collect_typed_functions(body)
         if not function_nodes:
@@ -334,19 +228,6 @@ class OptimizeRewriteFunctionClosures(ScopedSequenceNodeTransformer):
                     function_id=old_function_type.function_id,
                 )
             )
-
-        refreshed_function_types = {
-            function.name: function.typ for function in function_nodes
-        }
-        for node in walk(Module(body=body, type_ignores=[])):
-            if (
-                isinstance(node, Name)
-                and isinstance(node.ctx, Load)
-                and node.id in refreshed_function_types
-            ):
-                node.typ = refreshed_function_types[node.id]
-
-        self._refresh_sequence_binding_uses(body)
 
     def visit_sequence(self, body: list[stmt]) -> list[stmt]:
         rewritten_body = super().visit_sequence(body)
