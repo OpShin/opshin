@@ -55,15 +55,29 @@ class ExpressionSimplifier(CompilingNodeTransformer):
             elif isinstance(ex.op, Or):
                 return Constant(value=any(values))
         if isinstance(ex.op, Or):
-            for i, value in enumerate(ex.values):
+            new_values = []
+            for value in ex.values:
                 if isinstance(value, Constant) and value.value:
-                    ex.values = ex.values[: i + 1]
+                    new_values.append(value)
+                    ex.values = new_values
                     break
+                if isinstance(value, Constant):
+                    continue
+                new_values.append(value)
+            else:
+                ex.values = new_values
         elif isinstance(ex.op, And):
-            for i, value in enumerate(ex.values):
+            new_values = []
+            for value in ex.values:
                 if isinstance(value, Constant) and not value.value:
-                    ex.values = ex.values[: i + 1]
+                    new_values.append(value)
+                    ex.values = new_values
                     break
+                if isinstance(value, Constant):
+                    continue
+                new_values.append(value)
+            else:
+                ex.values = new_values
         if len(ex.values) == 1:
             return ex.values[0]
         return ex

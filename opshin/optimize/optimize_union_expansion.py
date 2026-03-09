@@ -3,6 +3,7 @@ from ast import *
 from typing import Any, List
 from ..util import CompilingNodeTransformer
 from copy import deepcopy
+from .optimize_remove_deadconds import OptimizeRemoveDeadConditions
 
 """
 Expand union types
@@ -85,6 +86,9 @@ class OptimizeUnionExpansion(CompilingNodeTransformer):
                 new_arg_types = deepcopy(arg_types)
                 new_arg_types[stmt.args.args[i].arg] = typ_str
                 new_f = SimplifyIsInstance(new_arg_types).visit(new_f)
+                # Specializing a union argument turns matching isinstance checks into
+                # constants; prune the resulting dead branches before type inference.
+                new_f = OptimizeRemoveDeadConditions().visit(new_f)
                 new_functions.append(new_f)
                 new_functions.extend(
                     self.split_functions(new_f, n_args, new_arg_types, new_f.name)
