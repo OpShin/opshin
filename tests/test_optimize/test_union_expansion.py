@@ -7,7 +7,7 @@ import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
-from opshin import DEFAULT_CONFIG
+from opshin import DEFAULT_CONFIG, builder
 from opshin.ledger.api_v3 import *
 
 from .. import PLUTUS_VM_PROFILE
@@ -35,6 +35,21 @@ union_types = st.sampled_from([A(0), 10, b"foo", [1, 2, 3, 4, 5], {1: 2, 2: 3}])
 
 
 class Union_tests(unittest.TestCase):
+    def test_Union_expansion_dead_base_removed_by_deadvar_pass(self):
+        source_code = """
+from typing import Union
+
+def foo(x: Union[int, bytes]) -> int:
+    if isinstance(x, int):
+        return x + 1
+    return len(x)
+
+def validator(x: int) -> int:
+    return foo(x)
+"""
+        config = DEFAULT_TEST_CONFIG.update(expand_union_types=True)
+        builder._compile(source_code, 4, config=config)
+
     def test_Union_expansion(
         self,
     ):

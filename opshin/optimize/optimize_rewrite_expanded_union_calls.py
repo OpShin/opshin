@@ -6,7 +6,6 @@ from ..typed_util import (
     ScopedSequenceNodeTransformer,
     collect_typed_functions,
 )
-from ..util import read_vars
 from .optimize_union_expansion import (
     get_specialized_function_name_for_types,
     split_specialized_function_name,
@@ -70,19 +69,7 @@ class OptimizeRewriteExpandedUnionCalls(ScopedSequenceNodeTransformer):
             specialized_arg_positions_by_base_name
         )
         try:
-            rewritten = super().visit_sequence(body)
-            # Once every call in this sequence points at a specialized variant,
-            # the unspecialized union-typed base function is dead weight.
-            read_names = set(read_vars(Module(body=rewritten, type_ignores=[])))
-            return [
-                stmt
-                for stmt in rewritten
-                if not (
-                    isinstance(stmt, FunctionDef)
-                    and hasattr(stmt, "expanded_variants")
-                    and stmt.name not in read_names
-                )
-            ]
+            return super().visit_sequence(body)
         finally:
             self.variants_by_name = prev_variants
             self.specialized_arg_positions_by_base_name = prev_positions
