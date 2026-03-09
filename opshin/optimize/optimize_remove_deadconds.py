@@ -83,7 +83,6 @@ def simplify_expression(ex: expr) -> expr:
 
 
 class OptimizeRemoveDeadConditions(CompilingNodeTransformer):
-
     def visit_FunctionDef(self, node: FunctionDef) -> Any:
         node = copy(node)
         node.body = self.visit_sequence(node.body)

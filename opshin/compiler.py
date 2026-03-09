@@ -1215,7 +1215,6 @@ def compile(
         # Rewrites that simplify the python code
         RewriteForbiddenReturn(),
         OptimizeUnionExpansion() if config.expand_union_types else NoOp(),
-        OptimizeRemoveDeadConditions() if config.remove_dead_code else NoOp(),
         OptimizeConstantFolding() if config.constant_folding else NoOp(),
         RewriteSubscript38(),
         RewriteAugAssign(),

@@ -1,5 +1,7 @@
+import pytest
+
 from opshin.compiler_config import DEFAULT_CONFIG
-from tests.utils import eval_uplc_raw
+from tests.utils import Unit, eval_uplc, eval_uplc_raw
 
 _DEFAULT_CONFIG = DEFAULT_CONFIG
 _DEFAULT_UNFOLD_CONFIG = DEFAULT_CONFIG.update(remove_dead_code=True)
@@ -62,3 +64,25 @@ def validator(x: int) -> int:
     assert source.result == target.result
     assert source.cost.cpu >= target.cost.cpu
     assert source.cost.memory >= target.cost.memory
+
+
+def test_remove_dead_conds_preserve_if_local_scoping():
+    source_code = """
+def validator(_: None) -> int:
+    if False:
+        a = 10
+    return a
+"""
+    with pytest.raises(RuntimeError):
+        eval_uplc(source_code, Unit(), config=_DEFAULT_UNFOLD_CONFIG)
+
+
+def test_remove_dead_conds_preserve_while_local_scoping():
+    source_code = """
+def validator(_: None) -> int:
+    while False:
+        a = 10
+    return a
+"""
+    with pytest.raises(RuntimeError):
+        eval_uplc(source_code, Unit(), config=_DEFAULT_UNFOLD_CONFIG)
