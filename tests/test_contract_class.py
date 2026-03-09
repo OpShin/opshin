@@ -2,9 +2,11 @@ import subprocess
 import tempfile
 import types
 import unittest
+import ast
 
 from opshin.contract_interface import discover_contract_module
 from opshin.prelude import *
+from opshin.rewrite.rewrite_contract_methods import RewriteContractMethods
 from opshin.util import CompilerError
 from .utils import eval_uplc_value
 
@@ -181,6 +183,20 @@ class Contract:
         return unwrapped_datum + redeemer
 """
 
+HELPER_METHOD_CONTRACT_SOURCE = """
+from opshin.prelude import *
+
+@dataclass()
+class Contract:
+    offset: int
+
+    def add_offset(self, value: int) -> int:
+        return self.offset + value
+
+    def mint(self, redeemer: int, context: ScriptContext) -> int:
+        return self.add_offset(redeemer)
+"""
+
 
 class ContractClassTests(unittest.TestCase):
     def test_contract_spend_dispatches_through_validator(self):
@@ -214,6 +230,10 @@ class ContractClassTests(unittest.TestCase):
         )
         self.assertEqual(with_datum, 5)
         self.assertEqual(without_datum, 3)
+
+    def test_contract_helper_methods_are_lifted(self):
+        ret = eval_uplc_value(HELPER_METHOD_CONTRACT_SOURCE, 5, make_minting_context(4))
+        self.assertEqual(ret, 9)
 
     def test_runtime_contract_discovery_builds_validator(self):
         module = types.ModuleType("contract_module")
@@ -285,3 +305,12 @@ class ContractClassTests(unittest.TestCase):
         exec(INVALID_UNANNOTATED_FIELD_CONTRACT_SOURCE, module.__dict__)
         with self.assertRaises(AssertionError):
             discover_contract_module(module)
+
+    def test_contract_rewrite_removes_contract_class(self):
+        rewritten_module = RewriteContractMethods().visit(ast.parse(CONTRACT_SOURCE))
+        self.assertFalse(
+            any(
+                isinstance(statement, ast.ClassDef) and statement.name == "Contract"
+                for statement in rewritten_module.body
+            )
+        )

@@ -2,7 +2,48 @@ import ast
 from copy import deepcopy
 
 from ..contract_interface import CONTRACT_METHOD_SPECS
-from ..util import CompilingNodeTransformer
+from ..util import CompilingNodeTransformer, custom_fix_missing_locations
+
+
+class _RewriteContractSelfReferences(ast.NodeTransformer):
+    def __init__(self, field_names, helper_function_names):
+        self.field_names = tuple(field_names)
+        self._field_name_set = set(field_names)
+        self.helper_function_names = dict(helper_function_names)
+
+    def visit_Attribute(self, node: ast.Attribute):
+        if isinstance(node.value, ast.Name) and node.value.id == "self":
+            assert isinstance(
+                node.ctx, ast.Load
+            ), "Contract fields are immutable and may not be assigned through self."
+            if node.attr in self._field_name_set:
+                return ast.copy_location(ast.Name(id=node.attr, ctx=ast.Load()), node)
+            if node.attr in self.helper_function_names:
+                return ast.copy_location(
+                    ast.Name(id=self.helper_function_names[node.attr], ctx=ast.Load()),
+                    node,
+                )
+            assert False, f"Contract has no field or method named '{node.attr}'."
+        return self.generic_visit(node)
+
+    def visit_Call(self, node: ast.Call):
+        node = self.generic_visit(node)
+        if not isinstance(node.func, ast.Name):
+            return node
+        if node.func.id not in self.helper_function_names.values():
+            return node
+        return ast.copy_location(
+            ast.Call(
+                func=node.func,
+                args=[
+                    ast.Name(id=field_name, ctx=ast.Load())
+                    for field_name in self.field_names
+                ]
+                + node.args,
+                keywords=node.keywords,
+            ),
+            node,
+        )
 
 
 class RewriteContractMethods(CompilingNodeTransformer):
@@ -38,6 +79,119 @@ class RewriteContractMethods(CompilingNodeTransformer):
         ]
         if not supported_methods:
             return node
+        self._check_contract_class(contract_class, supported_methods, contract_methods)
+        field_annotations = self._field_annotations(contract_class)
+        module_names = self._module_bound_names(node)
+        helper_function_names = self._helper_function_names(
+            contract_methods, module_names
+        )
+        supported_method_names = {
+            supported_method.method_name for supported_method in supported_methods
+        }
+        referenced_methods = self._self_method_references(contract_methods.values())
+        lifted_methods = [
+            self._lift_contract_method(
+                method,
+                field_annotations,
+                helper_function_names,
+            )
+            for method in contract_methods.values()
+            if method.name not in supported_method_names
+            or method.name in referenced_methods
+        ]
+        rewritten_entrypoint_bodies = {
+            supported_method.method_name: self._rewrite_method_body(
+                contract_methods[supported_method.method_name],
+                field_annotations,
+                helper_function_names,
+            )
+            for supported_method in supported_methods
+        }
+        used_names = (
+            {field_name for field_name, _ in field_annotations}
+            | set(helper_function_names.values())
+            | module_names
+        )
+        context_argument_name = self._make_unique_name(
+            contract_methods[supported_methods[0].method_name].args.args[-1].arg,
+            used_names,
+        )
+        return_annotation = deepcopy(
+            contract_methods[supported_methods[0].method_name].returns
+        )
+        for supported_method in supported_methods[1:]:
+            candidate = contract_methods[supported_method.method_name].returns
+            assert ast.dump(candidate) == ast.dump(
+                return_annotation
+            ), "All Contract entrypoint methods must have the same return annotation."
+        validator_function = ast.FunctionDef(
+            name="validator",
+            args=ast.arguments(
+                posonlyargs=[],
+                args=[
+                    ast.arg(arg=field_name, annotation=deepcopy(annotation))
+                    for field_name, annotation in field_annotations
+                ]
+                + [
+                    ast.arg(
+                        arg=context_argument_name,
+                        annotation=ast.Name(id="ScriptContext", ctx=ast.Load()),
+                    )
+                ],
+                kwonlyargs=[],
+                kw_defaults=[],
+                defaults=[],
+            ),
+            body=self._validator_body(
+                field_annotations,
+                supported_methods,
+                contract_methods,
+                rewritten_entrypoint_bodies,
+                context_argument_name,
+            ),
+            decorator_list=[],
+            returns=return_annotation,
+            type_comment=None,
+        )
+        validator_function = custom_fix_missing_locations(
+            ast.copy_location(validator_function, contract_class), contract_class
+        )
+        rewritten_body = []
+        for statement in node.body:
+            if statement is contract_class:
+                rewritten_body.extend(lifted_methods)
+                rewritten_body.append(validator_function)
+            else:
+                rewritten_body.append(statement)
+        node.body = rewritten_body
+        return node
+
+    def _module_bound_names(self, node: ast.Module):
+        bound_names = set()
+        for statement in node.body:
+            if isinstance(
+                statement, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)
+            ):
+                bound_names.add(statement.name)
+            elif isinstance(statement, ast.Import):
+                for alias in statement.names:
+                    bound_names.add(alias.asname or alias.name.split(".")[0])
+            elif isinstance(statement, ast.ImportFrom):
+                for alias in statement.names:
+                    bound_names.add(alias.asname or alias.name)
+            elif isinstance(statement, ast.Assign):
+                for target in statement.targets:
+                    if isinstance(target, ast.Name):
+                        bound_names.add(target.id)
+            elif isinstance(statement, ast.AnnAssign) and isinstance(
+                statement.target, ast.Name
+            ):
+                bound_names.add(statement.target.id)
+        return bound_names
+
+    def _check_contract_class(
+        self, contract_class, supported_methods, contract_methods
+    ):
         if any(
             contract_method.method_name == "raw"
             for contract_method in supported_methods
@@ -69,6 +223,8 @@ class RewriteContractMethods(CompilingNodeTransformer):
             and any(isinstance(target, ast.Name) for target in statement.targets)
             for statement in contract_class.body
         ), "Contract fields must be annotated; unannotated Contract fields are not supported."
+
+    def _field_annotations(self, contract_class):
         field_annotations = []
         for statement in contract_class.body:
             if not isinstance(statement, ast.AnnAssign):
@@ -79,49 +235,82 @@ class RewriteContractMethods(CompilingNodeTransformer):
             field_annotations.append(
                 (statement.target.id, deepcopy(statement.annotation))
             )
-        context_argument_name = self._make_unique_name(
-            contract_methods[supported_methods[0].method_name].args.args[-1].arg,
-            {field_name for field_name, _ in field_annotations},
+        return field_annotations
+
+    def _helper_function_names(self, contract_methods, module_names):
+        helper_function_names = {}
+        used_names = set(module_names)
+        for method_name in contract_methods:
+            helper_function_name = self._make_unique_name(
+                f"contract_{method_name}", used_names
+            )
+            helper_function_names[method_name] = helper_function_name
+            used_names.add(helper_function_name)
+        return helper_function_names
+
+    def _self_method_references(self, methods):
+        referenced_methods = set()
+        for method in methods:
+            for node in ast.walk(method):
+                if not isinstance(node, ast.Call):
+                    continue
+                if not isinstance(node.func, ast.Attribute):
+                    continue
+                if not (
+                    isinstance(node.func.value, ast.Name)
+                    and node.func.value.id == "self"
+                ):
+                    continue
+                referenced_methods.add(node.func.attr)
+        return referenced_methods
+
+    def _rewrite_method_body(self, method, field_annotations, helper_function_names):
+        field_names = [field_name for field_name, _ in field_annotations]
+        body_rewriter = _RewriteContractSelfReferences(
+            field_names, helper_function_names
         )
-        return_annotation = deepcopy(
-            contract_methods[supported_methods[0].method_name].returns
-        )
-        for supported_method in supported_methods[1:]:
-            candidate = contract_methods[supported_method.method_name].returns
-            assert ast.dump(candidate) == ast.dump(
-                return_annotation
-            ), "All Contract entrypoint methods must have the same return annotation."
-        validator_function = ast.FunctionDef(
-            name="validator",
+        return [body_rewriter.visit(deepcopy(statement)) for statement in method.body]
+
+    def _lift_contract_method(
+        self,
+        method: ast.FunctionDef,
+        field_annotations,
+        helper_function_names,
+    ) -> ast.FunctionDef:
+        assert not method.decorator_list, "Contract methods must not have decorators."
+        assert (
+            not method.args.posonlyargs
+            and not method.args.vararg
+            and not method.args.kwonlyargs
+            and not method.args.kwarg
+            and not method.args.defaults
+            and not method.args.kw_defaults
+        ), "Contract methods must use plain positional parameters without defaults."
+        lifted_method = ast.FunctionDef(
+            name=helper_function_names[method.name],
             args=ast.arguments(
                 posonlyargs=[],
                 args=[
-                    ast.arg(arg=field_name, annotation=annotation)
+                    ast.arg(arg=field_name, annotation=deepcopy(annotation))
                     for field_name, annotation in field_annotations
                 ]
-                + [
-                    ast.arg(
-                        arg=context_argument_name,
-                        annotation=ast.Name(id="ScriptContext", ctx=ast.Load()),
-                    )
-                ],
+                + [deepcopy(argument) for argument in method.args.args[1:]],
                 kwonlyargs=[],
                 kw_defaults=[],
                 defaults=[],
             ),
-            body=self._validator_body(
+            body=self._rewrite_method_body(
+                method,
                 field_annotations,
-                supported_methods,
-                contract_methods,
-                context_argument_name,
+                helper_function_names,
             ),
             decorator_list=[],
-            returns=return_annotation,
-            type_comment=None,
+            returns=deepcopy(method.returns),
+            type_comment=method.type_comment,
         )
-        validator_function = ast.copy_location(validator_function, contract_class)
-        node.body.append(validator_function)
-        return node
+        return custom_fix_missing_locations(
+            ast.copy_location(lifted_method, method), method
+        )
 
     def _make_unique_name(self, preferred_name: str, used_names):
         if preferred_name not in used_names:
@@ -132,6 +321,14 @@ class RewriteContractMethods(CompilingNodeTransformer):
         return f"{preferred_name}_{suffix}"
 
     def _check_method_signature(self, method: ast.FunctionDef, supported_method):
+        assert (
+            not method.args.posonlyargs
+            and not method.args.vararg
+            and not method.args.kwonlyargs
+            and not method.args.kwarg
+            and not method.args.defaults
+            and not method.args.kw_defaults
+        ), f"Contract method '{method.name}' must use plain positional parameters without defaults."
         actual_arguments = tuple(argument.arg for argument in method.args.args)
         assert (
             actual_arguments
@@ -152,6 +349,8 @@ class RewriteContractMethods(CompilingNodeTransformer):
             ), f"Contract method '{method.name}' must annotate context as ScriptContext."
 
     def _annotation_union_members(self, annotation):
+        if isinstance(annotation, ast.Name) and annotation.id == "OutputDatum":
+            return [annotation]
         if (
             isinstance(annotation, ast.Subscript)
             and isinstance(annotation.value, ast.Name)
@@ -338,35 +537,13 @@ class RewriteContractMethods(CompilingNodeTransformer):
         field_annotations,
         supported_methods,
         contract_methods,
+        rewritten_entrypoint_bodies,
         context_argument_name,
     ):
-        used_names = {field_name for field_name, _ in field_annotations}
-        used_names.add(context_argument_name)
-        contract_name = self._make_unique_name("contract", used_names)
-        used_names.add(contract_name)
-        purpose_name = self._make_unique_name("purpose", used_names)
-        used_names.add(purpose_name)
-        body = [
-            ast.Assign(
-                targets=[ast.Name(id=contract_name, ctx=ast.Store())],
-                value=ast.Call(
-                    func=ast.Name(id="Contract", ctx=ast.Load()),
-                    args=[
-                        ast.Name(id=field_name, ctx=ast.Load())
-                        for field_name, _ in field_annotations
-                    ],
-                    keywords=[],
-                ),
-            ),
-            ast.Assign(
-                targets=[ast.Name(id=purpose_name, ctx=ast.Store())],
-                value=ast.Attribute(
-                    value=ast.Name(id=context_argument_name, ctx=ast.Load()),
-                    attr="purpose",
-                    ctx=ast.Load(),
-                ),
-            ),
-        ]
+        used_names = {field_name for field_name, _ in field_annotations} | {
+            context_argument_name
+        }
+        body = []
         if supported_methods[0].method_name == "raw":
             method = contract_methods["raw"]
             context_name = method.args.args[1].arg
@@ -377,29 +554,33 @@ class RewriteContractMethods(CompilingNodeTransformer):
                         value=ast.Name(id=context_argument_name, ctx=ast.Load()),
                     )
                 )
-            body.append(
-                ast.Return(
-                    value=ast.Call(
-                        func=ast.Attribute(
-                            value=ast.Name(id=contract_name, ctx=ast.Load()),
-                            attr="raw",
-                            ctx=ast.Load(),
-                        ),
-                        args=[ast.Name(id=context_name, ctx=ast.Load())],
-                        keywords=[],
-                    )
-                )
-            )
+            body.extend(deepcopy(rewritten_entrypoint_bodies["raw"]))
             return body
+        purpose_name = self._make_unique_name("purpose", used_names)
+        used_names.add(purpose_name)
+        body.append(
+            ast.Assign(
+                targets=[ast.Name(id=purpose_name, ctx=ast.Store())],
+                value=ast.Attribute(
+                    value=ast.Name(id=context_argument_name, ctx=ast.Load()),
+                    attr="purpose",
+                    ctx=ast.Load(),
+                ),
+            )
+        )
+        current_branch = None
         for index, supported_method in enumerate(supported_methods):
             method = contract_methods[supported_method.method_name]
             method_argument_names = [argument.arg for argument in method.args.args[1:]]
             branch_names = {}
             branch_used_names = set(used_names)
             for argument_name in method_argument_names:
-                unique_argument_name = self._make_unique_name(
-                    argument_name, branch_used_names
-                )
+                if argument_name == method_argument_names[-1]:
+                    unique_argument_name = context_argument_name
+                else:
+                    unique_argument_name = self._make_unique_name(
+                        argument_name, branch_used_names
+                    )
                 branch_names[argument_name] = unique_argument_name
                 branch_used_names.add(unique_argument_name)
             branch_body = []
@@ -469,121 +650,81 @@ class RewriteContractMethods(CompilingNodeTransformer):
                     unwrapped_datum_name = self._make_unique_name(
                         "unwrapped_datum", branch_used_names
                     )
-                    branch_used_names.add(unwrapped_datum_name)
                     raw_datum_annotation = self._annotation_without_member(
                         datum_annotation, "NoOutputDatum"
                     )
-                    branch_body.extend(
-                        [
-                            ast.If(
-                                test=ast.Call(
-                                    func=ast.Name(id="isinstance", ctx=ast.Load()),
-                                    args=[
-                                        ast.Name(
+                    branch_body.append(
+                        ast.If(
+                            test=ast.Call(
+                                func=ast.Name(id="isinstance", ctx=ast.Load()),
+                                args=[
+                                    ast.Name(id=resolved_datum_name, ctx=ast.Load()),
+                                    ast.Name(id="SomeOutputDatum", ctx=ast.Load()),
+                                ],
+                                keywords=[],
+                            ),
+                            body=[
+                                ast.AnnAssign(
+                                    target=ast.Name(
+                                        id=unwrapped_datum_name, ctx=ast.Store()
+                                    ),
+                                    annotation=raw_datum_annotation,
+                                    value=ast.Attribute(
+                                        value=ast.Name(
                                             id=resolved_datum_name, ctx=ast.Load()
                                         ),
-                                        ast.Name(id="SomeOutputDatum", ctx=ast.Load()),
-                                    ],
-                                    keywords=[],
+                                        attr="datum",
+                                        ctx=ast.Load(),
+                                    ),
+                                    simple=1,
                                 ),
-                                body=[
-                                    ast.AnnAssign(
-                                        target=ast.Name(
-                                            id=unwrapped_datum_name, ctx=ast.Store()
-                                        ),
-                                        annotation=raw_datum_annotation,
-                                        value=ast.Attribute(
-                                            value=ast.Name(
+                                ast.AnnAssign(
+                                    target=ast.Name(id=datum_name, ctx=ast.Store()),
+                                    annotation=deepcopy(datum_annotation),
+                                    value=ast.Name(
+                                        id=unwrapped_datum_name, ctx=ast.Load()
+                                    ),
+                                    simple=1,
+                                ),
+                            ]
+                            + deepcopy(
+                                rewritten_entrypoint_bodies[
+                                    supported_method.method_name
+                                ]
+                            ),
+                            orelse=[
+                                ast.Assert(
+                                    test=ast.Call(
+                                        func=ast.Name(id="isinstance", ctx=ast.Load()),
+                                        args=[
+                                            ast.Name(
                                                 id=resolved_datum_name,
                                                 ctx=ast.Load(),
                                             ),
-                                            attr="datum",
-                                            ctx=ast.Load(),
-                                        ),
-                                        simple=1,
-                                    ),
-                                    ast.AnnAssign(
-                                        target=ast.Name(id=datum_name, ctx=ast.Store()),
-                                        annotation=deepcopy(datum_annotation),
-                                        value=ast.Name(
-                                            id=unwrapped_datum_name, ctx=ast.Load()
-                                        ),
-                                        simple=1,
-                                    ),
-                                    ast.Return(
-                                        value=ast.Call(
-                                            func=ast.Attribute(
-                                                value=ast.Name(
-                                                    id=contract_name, ctx=ast.Load()
-                                                ),
-                                                attr=supported_method.method_name,
+                                            ast.Name(
+                                                id="NoOutputDatum",
                                                 ctx=ast.Load(),
                                             ),
-                                            args=[
-                                                ast.Name(id=datum_name, ctx=ast.Load()),
-                                                ast.Name(
-                                                    id=redeemer_name, ctx=ast.Load()
-                                                ),
-                                                ast.Name(
-                                                    id=context_name, ctx=ast.Load()
-                                                ),
-                                            ],
-                                            keywords=[],
-                                        )
+                                        ],
+                                        keywords=[],
                                     ),
-                                ],
-                                orelse=[
-                                    ast.Assert(
-                                        test=ast.Call(
-                                            func=ast.Name(
-                                                id="isinstance", ctx=ast.Load()
-                                            ),
-                                            args=[
-                                                ast.Name(
-                                                    id=resolved_datum_name,
-                                                    ctx=ast.Load(),
-                                                ),
-                                                ast.Name(
-                                                    id="NoOutputDatum",
-                                                    ctx=ast.Load(),
-                                                ),
-                                            ],
-                                            keywords=[],
-                                        ),
-                                        msg=None,
+                                    msg=None,
+                                ),
+                                ast.AnnAssign(
+                                    target=ast.Name(id=datum_name, ctx=ast.Store()),
+                                    annotation=deepcopy(datum_annotation),
+                                    value=ast.Name(
+                                        id=resolved_datum_name, ctx=ast.Load()
                                     ),
-                                    ast.AnnAssign(
-                                        target=ast.Name(id=datum_name, ctx=ast.Store()),
-                                        annotation=deepcopy(datum_annotation),
-                                        value=ast.Name(
-                                            id=resolved_datum_name, ctx=ast.Load()
-                                        ),
-                                        simple=1,
-                                    ),
-                                    ast.Return(
-                                        value=ast.Call(
-                                            func=ast.Attribute(
-                                                value=ast.Name(
-                                                    id=contract_name, ctx=ast.Load()
-                                                ),
-                                                attr=supported_method.method_name,
-                                                ctx=ast.Load(),
-                                            ),
-                                            args=[
-                                                ast.Name(id=datum_name, ctx=ast.Load()),
-                                                ast.Name(
-                                                    id=redeemer_name, ctx=ast.Load()
-                                                ),
-                                                ast.Name(
-                                                    id=context_name, ctx=ast.Load()
-                                                ),
-                                            ],
-                                            keywords=[],
-                                        )
-                                    ),
-                                ],
-                            ),
-                        ]
+                                    simple=1,
+                                ),
+                            ],
+                        )
+                    )
+                    branch_body[-1].orelse.extend(
+                        deepcopy(
+                            rewritten_entrypoint_bodies[supported_method.method_name]
+                        )
                     )
                 else:
                     branch_body.append(
@@ -614,21 +755,9 @@ class RewriteContractMethods(CompilingNodeTransformer):
                         )
                     )
                 if datum_loading_strategy != "optional_raw":
-                    branch_body.append(
-                        ast.Return(
-                            value=ast.Call(
-                                func=ast.Attribute(
-                                    value=ast.Name(id=contract_name, ctx=ast.Load()),
-                                    attr=supported_method.method_name,
-                                    ctx=ast.Load(),
-                                ),
-                                args=[
-                                    ast.Name(id=datum_name, ctx=ast.Load()),
-                                    ast.Name(id=redeemer_name, ctx=ast.Load()),
-                                    ast.Name(id=context_name, ctx=ast.Load()),
-                                ],
-                                keywords=[],
-                            )
+                    branch_body.extend(
+                        deepcopy(
+                            rewritten_entrypoint_bodies[supported_method.method_name]
                         )
                     )
             else:
@@ -647,21 +776,10 @@ class RewriteContractMethods(CompilingNodeTransformer):
                             ),
                             simple=1,
                         ),
-                        ast.Return(
-                            value=ast.Call(
-                                func=ast.Attribute(
-                                    value=ast.Name(id=contract_name, ctx=ast.Load()),
-                                    attr=supported_method.method_name,
-                                    ctx=ast.Load(),
-                                ),
-                                args=[
-                                    ast.Name(id=redeemer_name, ctx=ast.Load()),
-                                    ast.Name(id=context_name, ctx=ast.Load()),
-                                ],
-                                keywords=[],
-                            )
-                        ),
                     ]
+                    + deepcopy(
+                        rewritten_entrypoint_bodies[supported_method.method_name]
+                    )
                 )
             branch = ast.If(
                 test=ast.Call(
