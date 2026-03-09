@@ -4,8 +4,11 @@ from copy import copy
 from ..type_impls import FunctionType, InstanceType
 from ..rewrite.rewrite_cast_condition import SPECIAL_BOOL
 from ..type_inference import INITIAL_SCOPE, union_types
+from ..typed_util import (
+    ScopedSequenceNodeTransformer,
+    collect_typed_functions,
+)
 from ..util import (
-    CompilingNodeTransformer,
     CompilingNodeVisitor,
     externally_bound_vars,
 )
@@ -49,7 +52,7 @@ class _DirectFunctionCallCollector(CompilingNodeVisitor):
         return None
 
 
-class OptimizeRewriteFunctionClosures(CompilingNodeTransformer):
+class OptimizeRewriteFunctionClosures(ScopedSequenceNodeTransformer):
     # Function values are compiled as explicit closures. This pass computes
     # which names each function must receive so recursive calls, aliases and
     # lifted methods all see the same environment the type checker inferred.
@@ -80,20 +83,6 @@ class OptimizeRewriteFunctionClosures(CompilingNodeTransformer):
                 continue
             merged[key] = value
         return merged
-
-    def _collect_typed_functions(self, body: list[stmt]) -> list[FunctionDef]:
-        functions = []
-        for s in body:
-            if not isinstance(s, FunctionDef):
-                continue
-            if not (
-                hasattr(s, "typ")
-                and isinstance(s.typ, InstanceType)
-                and isinstance(s.typ.typ, FunctionType)
-            ):
-                continue
-            functions.append(s)
-        return functions
 
     def _collect_external_name_types(
         self, function: FunctionDef, external_names: set[str]
@@ -255,7 +244,7 @@ class OptimizeRewriteFunctionClosures(CompilingNodeTransformer):
         return current_env
 
     def _update_function_bound_vars(self, body: list[stmt]):
-        function_nodes = self._collect_typed_functions(body)
+        function_nodes = collect_typed_functions(body)
         if not function_nodes:
             return
 
@@ -368,36 +357,7 @@ class OptimizeRewriteFunctionClosures(CompilingNodeTransformer):
 
         self._refresh_sequence_binding_uses(body)
 
-    def _rewrite_sequence(self, body: list[stmt]) -> list[stmt]:
-        rewritten_body = [self.visit(stmt) for stmt in body]
+    def visit_sequence(self, body: list[stmt]) -> list[stmt]:
+        rewritten_body = super().visit_sequence(body)
         self._update_function_bound_vars(rewritten_body)
         return rewritten_body
-
-    def visit_Module(self, node: Module) -> Module:
-        module = copy(node)
-        module.body = self._rewrite_sequence(list(node.body))
-        module.type_ignores = list(getattr(node, "type_ignores", []))
-        return module
-
-    def visit_FunctionDef(self, node: FunctionDef) -> FunctionDef:
-        function = copy(node)
-        function.body = self._rewrite_sequence(list(node.body))
-        return function
-
-    def visit_If(self, node: If) -> If:
-        typed_if = copy(node)
-        typed_if.body = self._rewrite_sequence(list(node.body))
-        typed_if.orelse = self._rewrite_sequence(list(node.orelse))
-        return typed_if
-
-    def visit_While(self, node: While) -> While:
-        typed_while = copy(node)
-        typed_while.body = self._rewrite_sequence(list(node.body))
-        typed_while.orelse = self._rewrite_sequence(list(node.orelse))
-        return typed_while
-
-    def visit_For(self, node: For) -> For:
-        typed_for = copy(node)
-        typed_for.body = self._rewrite_sequence(list(node.body))
-        typed_for.orelse = self._rewrite_sequence(list(node.orelse))
-        return typed_for

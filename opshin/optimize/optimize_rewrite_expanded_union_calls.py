@@ -1,9 +1,12 @@
 from ast import *
-from copy import copy
 from dataclasses import dataclass
 
-from ..type_impls import FunctionType, InstanceType, UnionType
-from ..util import CompilingNodeTransformer, read_vars
+from ..type_impls import InstanceType, UnionType
+from ..typed_util import (
+    ScopedSequenceNodeTransformer,
+    collect_typed_functions,
+)
+from ..util import read_vars
 from .optimize_union_expansion import (
     get_specialized_function_name_for_types,
     split_specialized_function_name,
@@ -16,7 +19,7 @@ class _ExpandedVariant:
     typ: InstanceType
 
 
-class OptimizeRewriteExpandedUnionCalls(CompilingNodeTransformer):
+class OptimizeRewriteExpandedUnionCalls(ScopedSequenceNodeTransformer):
     # This pass keeps track of specialized union variants in the current nested
     # statement sequence, so calls can be rewritten even when the expanded
     # functions live inside another function or control-flow block.
@@ -27,25 +30,11 @@ class OptimizeRewriteExpandedUnionCalls(CompilingNodeTransformer):
         self.variants_by_name = {}
         self.specialized_arg_positions_by_base_name = {}
 
-    def _collect_typed_functions(self, body: list[stmt]) -> list[FunctionDef]:
-        functions = []
-        for s in body:
-            if not isinstance(s, FunctionDef):
-                continue
-            if not (
-                hasattr(s, "typ")
-                and isinstance(s.typ, InstanceType)
-                and isinstance(s.typ.typ, FunctionType)
-            ):
-                continue
-            functions.append(s)
-        return functions
-
     def _collect_expanded_variants(self, body: list[stmt]):
         variants_by_name = {}
         specialized_arg_positions_by_base_name = {}
 
-        typed_functions = self._collect_typed_functions(body)
+        typed_functions = collect_typed_functions(body)
         for function in typed_functions:
             if split_specialized_function_name(function.name) is None:
                 continue
@@ -70,7 +59,7 @@ class OptimizeRewriteExpandedUnionCalls(CompilingNodeTransformer):
 
         return variants_by_name, specialized_arg_positions_by_base_name
 
-    def _rewrite_sequence(self, body: list[stmt]) -> list[stmt]:
+    def visit_sequence(self, body: list[stmt]) -> list[stmt]:
         prev_variants = dict(self.variants_by_name)
         prev_positions = dict(self.specialized_arg_positions_by_base_name)
         variants_by_name, specialized_arg_positions_by_base_name = (
@@ -81,7 +70,7 @@ class OptimizeRewriteExpandedUnionCalls(CompilingNodeTransformer):
             specialized_arg_positions_by_base_name
         )
         try:
-            rewritten = [self.visit(stmt) for stmt in body]
+            rewritten = super().visit_sequence(body)
             # Once every call in this sequence points at a specialized variant,
             # the unspecialized union-typed base function is dead weight.
             read_names = set(read_vars(Module(body=rewritten, type_ignores=[])))
@@ -130,33 +119,3 @@ class OptimizeRewriteExpandedUnionCalls(CompilingNodeTransformer):
         node.func.id = variant.name
         node.func.typ = variant.typ
         return node
-
-    def visit_Module(self, node: Module) -> Module:
-        module = copy(node)
-        module.body = list(node.body)
-        module.type_ignores = list(getattr(node, "type_ignores", []))
-        module.body = self._rewrite_sequence(module.body)
-        return module
-
-    def visit_FunctionDef(self, node: FunctionDef) -> FunctionDef:
-        function = copy(node)
-        function.body = self._rewrite_sequence(list(node.body))
-        return function
-
-    def visit_If(self, node: If) -> If:
-        typed_if = copy(node)
-        typed_if.body = self._rewrite_sequence(list(node.body))
-        typed_if.orelse = self._rewrite_sequence(list(node.orelse))
-        return typed_if
-
-    def visit_While(self, node: While) -> While:
-        typed_while = copy(node)
-        typed_while.body = self._rewrite_sequence(list(node.body))
-        typed_while.orelse = self._rewrite_sequence(list(node.orelse))
-        return typed_while
-
-    def visit_For(self, node: For) -> For:
-        typed_for = copy(node)
-        typed_for.body = self._rewrite_sequence(list(node.body))
-        typed_for.orelse = self._rewrite_sequence(list(node.orelse))
-        return typed_for

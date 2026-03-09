@@ -2,30 +2,14 @@ from ast import *
 from copy import deepcopy, copy
 from typing import Any, Union
 
-from ..util import CompilingNodeTransformer
+from ..typed_util import FlatteningScopedSequenceNodeTransformer
 
 """
 Removes if/while branches that are never executed
 """
 
 
-class OptimizeRemoveDeadConditions(CompilingNodeTransformer):
-    def visit_FunctionDef(self, node: FunctionDef) -> Any:
-        node = copy(node)
-        node.body = self.visit_sequence(node.body)
-        return node
-
-    def visit_sequence(self, stmts):
-        new_stmts = []
-        for stmt in stmts:
-            s = self.visit(stmt)
-            if s is None:
-                continue
-            if isinstance(s, list):
-                new_stmts.extend(s)
-            else:
-                new_stmts.append(s)
-        return new_stmts
+class OptimizeRemoveDeadConditions(FlatteningScopedSequenceNodeTransformer):
 
     def visit_If(self, node: If) -> Any:
         node = copy(node)

@@ -1,5 +1,5 @@
 import ast
-from _ast import FunctionDef
+from _ast import ClassDef, FunctionDef
 from copy import copy
 
 from .type_impls import FunctionType, InstanceType
@@ -21,7 +21,15 @@ class ScopedSequenceNodeTransformer(CompilingNodeTransformer):
     """Rewrite nested statement sequences while preserving the surrounding node."""
 
     def visit_sequence(self, body: list[ast.stmt]) -> list[ast.stmt]:
-        return [self.visit(node) for node in body]
+        rewritten = []
+        for node in body:
+            if node is None:
+                continue
+            updated = self.visit(node)
+            if updated is None:
+                continue
+            rewritten.append(updated)
+        return rewritten
 
     def visit_Module(self, node: ast.Module) -> ast.Module:
         module = copy(node)
@@ -33,6 +41,11 @@ class ScopedSequenceNodeTransformer(CompilingNodeTransformer):
         function = copy(node)
         function.body = self.visit_sequence(list(node.body))
         return function
+
+    def visit_ClassDef(self, node: ClassDef) -> ClassDef:
+        class_def = copy(node)
+        class_def.body = self.visit_sequence(list(node.body))
+        return class_def
 
     def visit_If(self, node: ast.If) -> ast.If:
         typed_if = copy(node)
@@ -51,3 +64,21 @@ class ScopedSequenceNodeTransformer(CompilingNodeTransformer):
         typed_for.body = self.visit_sequence(list(node.body))
         typed_for.orelse = self.visit_sequence(list(node.orelse))
         return typed_for
+
+
+class FlatteningScopedSequenceNodeTransformer(ScopedSequenceNodeTransformer):
+    """Like ScopedSequenceNodeTransformer, but flatten list-valued statement rewrites."""
+
+    def visit_sequence(self, body: list[ast.stmt]) -> list[ast.stmt]:
+        rewritten = []
+        for node in body:
+            if node is None:
+                continue
+            updated = self.visit(node)
+            if updated is None:
+                continue
+            if isinstance(updated, list):
+                rewritten.extend(updated)
+                continue
+            rewritten.append(updated)
+        return rewritten
