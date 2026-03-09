@@ -1,5 +1,6 @@
 from ast import *
 from copy import copy
+from typing import Optional
 
 from ..type_impls import CLOSURE_PLACEHOLDER, FunctionType, InstanceType
 from ..rewrite.rewrite_cast_condition import SPECIAL_BOOL
@@ -58,8 +59,8 @@ class _FunctionTypeRewriter(NodeTransformer):
         self.function_types_by_id = function_types_by_id
 
     def _rewrite_function_instance_type(
-        self, typ: InstanceType | None
-    ) -> InstanceType | None:
+        self, typ: Optional[InstanceType]
+    ) -> Optional[InstanceType]:
         if not (
             isinstance(typ, InstanceType)
             and isinstance(typ.typ, FunctionType)
