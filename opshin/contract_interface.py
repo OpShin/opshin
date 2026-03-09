@@ -3,18 +3,24 @@ import inspect
 import typing
 
 from .ledger.api_v3 import Minting, Publishing, Proposing, Spending, Voting, Withdrawing
-from .prelude import ScriptContext, own_datum_unsafe
+from .prelude import (
+    NoOutputDatum,
+    ScriptContext,
+    SomeOutputDatum,
+    SomeOutputDatumHash,
+)
 
 
 @dataclasses.dataclass(frozen=True)
 class ContractMethodSpec:
     method_name: str
-    purpose_class: type
+    purpose_class: typing.Optional[type]
     purpose_name: str
     onchain_argument_count: int
 
 
 CONTRACT_METHOD_SPECS = (
+    ContractMethodSpec("raw", None, "any", 1),
     ContractMethodSpec("spend", Spending, "spending", 3),
     ContractMethodSpec("mint", Minting, "minting", 2),
     ContractMethodSpec("withdraw", Withdrawing, "rewarding", 2),
@@ -37,6 +43,51 @@ class ContractMethodDetails:
     datum_type: typing.Optional[type]
     redeemer_type: typing.Optional[type]
     return_type: typing.Any
+
+
+def _annotation_union_members(annotation: typing.Any) -> typing.Tuple[typing.Any, ...]:
+    origin = typing.get_origin(annotation)
+    if origin is typing.Union:
+        return typing.get_args(annotation)
+    return ()
+
+
+def _datum_loading_strategy(annotation: typing.Any) -> str:
+    union_members = _annotation_union_members(annotation)
+    if not union_members:
+        return "unsafe_raw"
+    if NoOutputDatum not in union_members:
+        return "unsafe_raw"
+    attachment_types = {NoOutputDatum, SomeOutputDatum, SomeOutputDatumHash}
+    if all(member in attachment_types for member in union_members):
+        return "attachment"
+    return "optional_raw"
+
+
+def _resolve_spent_output(context: ScriptContext):
+    purpose = context.purpose
+    assert isinstance(
+        purpose, Spending
+    ), "Contract spend entrypoints require a spending script context."
+    return [
+        tx_input.resolved
+        for tx_input in context.transaction.inputs
+        if tx_input.out_ref == purpose.tx_out_ref
+    ][0]
+
+
+def _resolve_output_datum(context: ScriptContext):
+    attached_datum = _resolve_spent_output(context).datum
+    if isinstance(attached_datum, SomeOutputDatumHash):
+        return SomeOutputDatum(context.transaction.datums[attached_datum.datum_hash])
+    return attached_datum
+
+
+def _resolve_output_datum_unsafe(context: ScriptContext):
+    attached_datum = _resolve_output_datum(context)
+    if isinstance(attached_datum, SomeOutputDatum):
+        return attached_datum.datum
+    assert False, "No datum was attached to the UTxO being spent by this Contract."
 
 
 @dataclasses.dataclass(frozen=True)
@@ -67,6 +118,8 @@ class ContractModuleInfo:
     def redeemer_type(self) -> typing.Optional[typing.Tuple[str, typing.Any]]:
         redeemer_types = []
         for detail in self.method_details:
+            if detail.spec.method_name == "raw":
+                continue
             if detail.redeemer_type is inspect.Signature.empty:
                 return None
             redeemer_types.append(detail.redeemer_type)
@@ -111,10 +164,13 @@ def _method_annotations(
         assert (
             context_parameter.annotation == ScriptContext
         ), f"Contract method '{method.__name__}' must annotate context as ScriptContext."
-    datum_type = (
-        method_parameters[0].annotation if onchain_argument_count == 3 else None
-    )
-    redeemer_type = method_parameters[-2].annotation
+    datum_type = None
+    redeemer_type = None
+    if onchain_argument_count == 3:
+        datum_type = method_parameters[0].annotation
+        redeemer_type = method_parameters[1].annotation
+    elif onchain_argument_count == 2:
+        redeemer_type = method_parameters[0].annotation
     return (
         tuple(parameter.name for parameter in method_parameters),
         datum_type,
@@ -145,14 +201,34 @@ def _build_contract_validator(
         contract_parameter_count = len(parameter_types)
         contract = contract_class(*args[:contract_parameter_count])
         context = args[contract_parameter_count]
+        raw_methods = [
+            detail for detail in method_details if detail.spec.method_name == "raw"
+        ]
+        if raw_methods:
+            assert (
+                len(raw_methods) == 1
+            ), "Contract may only define one raw entrypoint method."
+            return raw_methods[0].method(contract, context)
         purpose = context.purpose
         for detail in method_details:
+            assert (
+                detail.spec.purpose_class is not None
+            ), "Non-raw Contract entrypoint methods must define a script purpose."
             if not isinstance(purpose, detail.spec.purpose_class):
                 continue
             if detail.spec.method_name == "spend":
-                return detail.method(
-                    contract, own_datum_unsafe(context), context.redeemer, context
-                )
+                datum_loading_strategy = _datum_loading_strategy(detail.datum_type)
+                if datum_loading_strategy == "attachment":
+                    datum = _resolve_output_datum(context)
+                elif datum_loading_strategy == "optional_raw":
+                    attached_datum = _resolve_output_datum(context)
+                    if isinstance(attached_datum, SomeOutputDatum):
+                        datum = attached_datum.datum
+                    else:
+                        datum = attached_datum
+                else:
+                    datum = _resolve_output_datum_unsafe(context)
+                return detail.method(contract, datum, context.redeemer, context)
             return detail.method(contract, context.redeemer, context)
         assert False, "Unsupported script purpose for Contract"
 
@@ -221,6 +297,13 @@ def discover_contract_module(module) -> typing.Optional[ContractModuleInfo]:
         )
     if not method_details:
         return None
+    raw_methods = [
+        detail for detail in method_details if detail.spec.method_name == "raw"
+    ]
+    if raw_methods:
+        assert (
+            len(method_details) == 1
+        ), "Contract may define either raw or purpose-specific entrypoints, not both."
     generated_validator = _build_contract_validator(
         contract_class,
         parameter_types,

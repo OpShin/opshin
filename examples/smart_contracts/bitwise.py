@@ -1,22 +1,18 @@
 #!opshin
 from opshin.prelude import *
-from opshin.std.integrity import check_integrity
 from opshin.std.math import *
 
 
-def validator(context: ScriptContext) -> None:
-    """
-    A contract that checks whether the bitwise AND of the datum and redeemer is zero.
-    """
-    maybe_datum = own_datum(context)
-    # it is possible that no datum is attached (new in PlutusV3)
-    if isinstance(maybe_datum, NoOutputDatum):
-        # in that case, no datum was attached and we accept the transaction
-        return
-    else:
-        datum: int = maybe_datum.datum
-        # In plutus v3, the redeemer is in the script context
-        redeemer: int = context.redeemer
+@dataclass()
+class Contract:
+    def spend(
+        self, datum: Union[int, NoOutputDatum], redeemer: int, _context: ScriptContext
+    ) -> None:
+        """
+        A contract that checks whether the bitwise AND of the datum and redeemer is zero.
+        """
+        if isinstance(datum, NoOutputDatum):
+            return
         datum_bytes = bytes_big_from_unsigned_int(datum)
         redeemer_bytes = bytes_big_from_unsigned_int(redeemer)
         # compute the bitwise XOR of the two byte arrays

@@ -56,6 +56,30 @@ def make_spending_context(datum, redeemer):
     )
 
 
+def make_spending_context_without_datum(redeemer):
+    out_ref = TxOutRef(id=b"\x05" * 32, idx=0)
+    purpose = Spending(tx_out_ref=out_ref)
+    inputs = [
+        TxInInfo(
+            out_ref=out_ref,
+            resolved=TxOut(
+                address=Address(
+                    payment_credential=ScriptCredential(b"\x06" * 28),
+                    staking_credential=NoStakingCredential(),
+                ),
+                value={b"": {b"": 0}},
+                datum=NoOutputDatum(),
+                reference_script=NoScriptHash(),
+            ),
+        )
+    ]
+    return ScriptContext(
+        transaction=make_tx_info(inputs, purpose, redeemer),
+        redeemer=redeemer,
+        purpose=purpose,
+    )
+
+
 def make_minting_context(redeemer):
     purpose = Minting(policy_id=b"\x04" * 28)
     return ScriptContext(
@@ -79,6 +103,18 @@ class Contract:
         return redeemer * self.offset
 """
 
+RAW_CONTRACT_SOURCE = """
+from opshin.prelude import *
+
+@dataclass()
+class Contract:
+    offset: int
+
+    def raw(self, script_context: ScriptContext) -> int:
+        redeemer: int = script_context.redeemer
+        return self.offset + redeemer
+"""
+
 COLLIDING_NAMES_CONTRACT_SOURCE = """
 from opshin.prelude import *
 
@@ -91,6 +127,37 @@ class Contract:
         return self.context + self.redeemer + policy_redeemer
 """
 
+OPTIONAL_DATUM_CONTRACT_SOURCE = """
+from typing import Union
+
+from opshin.prelude import *
+
+@dataclass()
+class Contract:
+    offset: int
+
+    def spend(
+        self, datum: Union[int, NoOutputDatum], redeemer: int, context: ScriptContext
+    ) -> int:
+        if isinstance(datum, NoOutputDatum):
+            return self.offset - redeemer
+        else:
+            return datum + redeemer + self.offset
+"""
+
+OUTPUT_DATUM_CONTRACT_SOURCE = """
+from opshin.prelude import *
+
+@dataclass()
+class Contract:
+    def spend(self, datum: OutputDatum, redeemer: int, context: ScriptContext) -> int:
+        if isinstance(datum, NoOutputDatum):
+            return redeemer
+        assert isinstance(datum, SomeOutputDatum)
+        unwrapped_datum: int = datum.datum
+        return unwrapped_datum + redeemer
+"""
+
 
 class ContractClassTests(unittest.TestCase):
     def test_contract_spend_dispatches_through_validator(self):
@@ -101,6 +168,30 @@ class ContractClassTests(unittest.TestCase):
         ret = eval_uplc_value(CONTRACT_SOURCE, 5, make_minting_context(4))
         self.assertEqual(ret, 20)
 
+    def test_contract_raw_dispatches_through_validator(self):
+        ret = eval_uplc_value(RAW_CONTRACT_SOURCE, 5, make_minting_context(4))
+        self.assertEqual(ret, 9)
+
+    def test_contract_spend_supports_optional_raw_datum(self):
+        with_datum = eval_uplc_value(
+            OPTIONAL_DATUM_CONTRACT_SOURCE, 5, make_spending_context(2, 3)
+        )
+        without_datum = eval_uplc_value(
+            OPTIONAL_DATUM_CONTRACT_SOURCE, 5, make_spending_context_without_datum(3)
+        )
+        self.assertEqual(with_datum, 10)
+        self.assertEqual(without_datum, 2)
+
+    def test_contract_spend_supports_output_datum_annotation(self):
+        with_datum = eval_uplc_value(
+            OUTPUT_DATUM_CONTRACT_SOURCE, make_spending_context(2, 3)
+        )
+        without_datum = eval_uplc_value(
+            OUTPUT_DATUM_CONTRACT_SOURCE, make_spending_context_without_datum(3)
+        )
+        self.assertEqual(with_datum, 5)
+        self.assertEqual(without_datum, 3)
+
     def test_runtime_contract_discovery_builds_validator(self):
         module = types.ModuleType("contract_module")
         exec(CONTRACT_SOURCE, module.__dict__)
@@ -108,6 +199,23 @@ class ContractClassTests(unittest.TestCase):
         self.assertIsNotNone(contract_info)
         self.assertEqual(contract_info.purpose_names, ("spending", "minting"))
         self.assertEqual(contract_info.validator(3, make_minting_context(6)), 18)
+
+    def test_runtime_contract_discovery_builds_raw_validator(self):
+        module = types.ModuleType("contract_module")
+        exec(RAW_CONTRACT_SOURCE, module.__dict__)
+        contract_info = discover_contract_module(module)
+        self.assertIsNotNone(contract_info)
+        self.assertEqual(contract_info.purpose_names, ("any",))
+        self.assertEqual(contract_info.validator(3, make_minting_context(6)), 9)
+
+    def test_runtime_contract_discovery_builds_optional_datum_validator(self):
+        module = types.ModuleType("contract_module")
+        exec(OPTIONAL_DATUM_CONTRACT_SOURCE, module.__dict__)
+        contract_info = discover_contract_module(module)
+        self.assertIsNotNone(contract_info)
+        self.assertEqual(
+            contract_info.validator(3, make_spending_context_without_datum(7)), -4
+        )
 
     def test_contract_handles_parameter_name_collisions(self):
         ret = eval_uplc_value(

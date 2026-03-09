@@ -64,14 +64,13 @@ class TearDown(PlutusData):
 ChannelAction = Union[Micropayments, TearDown]
 
 
-def validator(context: ScriptContext) -> None:
-    redeemer: ChannelAction = context.redeemer
+def validate_channel(
+    datum: PaymentChannel, redeemer: ChannelAction, context: ScriptContext
+) -> None:
     # Ensure that the redeemer is well formed
     check_integrity(redeemer)
     purpose = context.purpose
     assert isinstance(purpose, Spending), "Can only spend from the contract"
-    own_utxo = own_spent_utxo(context.transaction.inputs, purpose)
-    datum: PaymentChannel = resolve_datum_unsafe(own_utxo, context.transaction)
     check_integrity(datum)
 
     if isinstance(redeemer, TearDown):
@@ -130,8 +129,6 @@ def validator(context: ScriptContext) -> None:
             else:
                 assert False, "Invalid type of micropayment!"
 
-        # we cast the purpose to spending, every other purpose does not make sense
-        purpose: Spending = context.purpose
         own_tx_out_ref = purpose.tx_out_ref
         # this stunt is just to find the output that goes to the same address as the input we are validating to be spent
         own_tx_out = [
@@ -166,3 +163,11 @@ def validator(context: ScriptContext) -> None:
     else:
         # Other redeemers are not allowed!
         assert False, "Wrong redeemer passed!"
+
+
+@dataclass()
+class Contract:
+    def spend(
+        self, datum: PaymentChannel, redeemer: ChannelAction, context: ScriptContext
+    ) -> None:
+        validate_channel(datum, redeemer, context)
