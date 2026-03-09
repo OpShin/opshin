@@ -9,7 +9,66 @@ Removes if/while branches that are never executed
 """
 
 
-class ExpressionSimplifier(CompilingNodeTransformer):
+class OptimizeRemoveDeadConditions(CompilingNodeTransformer):
+    def visit_FunctionDef(self, node: FunctionDef) -> Any:
+        node = copy(node)
+        node.body = self.visit_sequence(node.body)
+        return node
+
+    def visit_sequence(self, stmts):
+        new_stmts = []
+        for stmt in stmts:
+            s = self.visit(stmt)
+            if s is None:
+                continue
+            if isinstance(s, list):
+                new_stmts.extend(s)
+            else:
+                new_stmts.append(s)
+        return new_stmts
+
+    def visit_If(self, node: If) -> Any:
+        node = copy(node)
+        node.test = self.visit(node.test)
+        node.body = self.visit_sequence(node.body)
+        node.orelse = self.visit_sequence(node.orelse)
+        if isinstance(node.test, Constant):
+            if node.test.value:
+                return node.body
+            else:
+                return node.orelse
+        return node
+
+    def visit_While(self, node: While) -> Any:
+        node = copy(node)
+        node.test = self.visit(node.test)
+        node.body = self.visit_sequence(node.body)
+        node.orelse = self.visit_sequence(node.orelse)
+        if isinstance(node.test, Constant):
+            if node.test.value:
+                raise ValueError(
+                    "While loop with constant True condition is not allowed (infinite loop)"
+                )
+            else:
+                return node.orelse
+        return node
+
+    def visit_IfExp(self, node: IfExp) -> Any:
+        node = copy(node)
+        node.test = self.visit(node.test)
+        node.body = self.visit(node.body)
+        node.orelse = self.visit(node.orelse)
+
+        # Simplify if the test condition is a constant
+        if isinstance(node.test, Constant):
+            if node.test.value:
+                return node.body
+            else:
+                return node.orelse
+
+        return node
+
+    # Expression simplification logic
 
     def expression_guaranteed_tf(self, expr: expr) -> Union[bool, None]:
         """
@@ -81,68 +140,3 @@ class ExpressionSimplifier(CompilingNodeTransformer):
         if len(ex.values) == 1:
             return ex.values[0]
         return ex
-
-
-def simplify_expression(ex: expr) -> expr:
-    simplifier = ExpressionSimplifier()
-    return simplifier.visit(ex)
-
-
-class OptimizeRemoveDeadConditions(CompilingNodeTransformer):
-    def visit_FunctionDef(self, node: FunctionDef) -> Any:
-        node = copy(node)
-        node.body = self.visit_sequence(node.body)
-        return node
-
-    def visit_sequence(self, stmts):
-        new_stmts = []
-        for stmt in stmts:
-            s = self.visit(stmt)
-            if s is None:
-                continue
-            if isinstance(s, list):
-                new_stmts.extend(s)
-            else:
-                new_stmts.append(s)
-        return new_stmts
-
-    def visit_If(self, node: If) -> Any:
-        node = copy(node)
-        node.test = simplify_expression(node.test)
-        node.body = self.visit_sequence(node.body)
-        node.orelse = self.visit_sequence(node.orelse)
-        if isinstance(node.test, Constant):
-            if node.test.value:
-                return node.body
-            else:
-                return node.orelse
-        return node
-
-    def visit_While(self, node: While) -> Any:
-        node = copy(node)
-        node.test = simplify_expression(node.test)
-        node.body = self.visit_sequence(node.body)
-        node.orelse = self.visit_sequence(node.orelse)
-        if isinstance(node.test, Constant):
-            if node.test.value:
-                raise ValueError(
-                    "While loop with constant True condition is not allowed (infinite loop)"
-                )
-            else:
-                return node.orelse
-        return node
-
-    def visit_IfExp(self, node: IfExp) -> Any:
-        node = copy(node)
-        node.test = simplify_expression(node.test)
-        node.body = self.visit(node.body)
-        node.orelse = self.visit(node.orelse)
-
-        # Simplify if the test condition is a constant
-        if isinstance(node.test, Constant):
-            if node.test.value:
-                return node.body
-            else:
-                return node.orelse
-
-        return node

@@ -39,7 +39,7 @@ from .typed_ast import *
 
 from .compiler_config import DEFAULT_CONFIG
 from .optimize.optimize_const_folding import OptimizeConstantFolding
-from .optimize.optimize_remove_deadconstants import OptimizeRemoveDeadconstants
+from .optimize.optimize_remove_deadconstants import OptimizeRemoveDeadConstants
 from .optimize.optimize_remove_deadconds import OptimizeRemoveDeadConditions
 from .optimize.optimize_fold_if_fallthrough import OptimizeFoldIfFallthrough
 from .optimize.optimize_remove_unreachable import OptimizeRemoveUnreachable
@@ -1250,7 +1250,7 @@ def compile(
             if config.remove_dead_code
             else NoOp()
         ),
-        OptimizeRemoveDeadconstants() if config.remove_dead_code else NoOp(),
+        OptimizeRemoveDeadConstants() if config.remove_dead_code else NoOp(),
         OptimizeRemoveDeadConditions() if config.remove_dead_code else NoOp(),
         OptimizeRemovePass(),
     ]
