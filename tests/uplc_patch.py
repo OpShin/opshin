@@ -4,6 +4,7 @@ Auxiliary patch to fix large repr rendering in hypothesis failures.
 
 import dataclasses
 import os
+from functools import lru_cache
 from collections.abc import Mapping, Sequence
 from typing import Optional
 
@@ -13,7 +14,6 @@ import uplc.ast as uplc_ast
 _ELLIPSIS = "..."
 _ENV_NAME = "OPSHIN_TEST_UPLC_REPR_LIMIT"
 _PATCHED = False
-_AST_METADATA = {}
 
 
 def _parse_limit(raw: Optional[str]) -> Optional[int]:
@@ -51,13 +51,10 @@ def _truncate_text(text: str, budget: Optional[int]) -> str:
     return text[: budget - len(_ELLIPSIS)] + _ELLIPSIS
 
 
+@lru_cache(maxsize=None)
 def _get_ast_metadata(
     cls: type,
 ) -> tuple[str, tuple[dataclasses.Field, ...], tuple[str, ...]]:
-    metadata = _AST_METADATA.get(cls)
-    if metadata is not None:
-        return metadata
-
     if dataclasses.is_dataclass(cls):
         fields = tuple(dataclasses.fields(cls))
     else:
@@ -66,9 +63,7 @@ def _get_ast_metadata(
         f"{'' if index == 0 else ', '}{field.name}="
         for index, field in enumerate(fields)
     )
-    metadata = (cls.__name__, fields, labels)
-    _AST_METADATA[cls] = metadata
-    return metadata
+    return cls.__name__, fields, labels
 
 
 def _render_sequence(
@@ -194,18 +189,13 @@ def _render_value(value, budget: Optional[int], seen: set[int]) -> str:
         return ""
     if isinstance(value, uplc_ast.AST):
         return _render_ast(value, budget, seen)
-    value_type = type(value)
-    if value_type is tuple:
+    if type(value) is tuple:
         closer = ",)" if len(value) == 1 else ")"
         return _render_sequence(value, "(", closer, budget, seen)
-    if value_type is list:
-        return _render_sequence(value, "[", "]", budget, seen)
     if isinstance(value, Mapping):
         return _render_mapping(value, "{", "}", budget, seen)
-    if isinstance(value, Sequence) and value_type not in (str, bytes, bytearray):
-        opener = "[" if value_type is not tuple else "("
-        closer = "]" if value_type is not tuple else ")"
-        return _render_sequence(value, opener, closer, budget, seen)
+    if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
+        return _render_sequence(value, "[", "]", budget, seen)
     return _truncate_text(repr(value), budget)
 
 
