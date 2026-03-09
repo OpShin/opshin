@@ -86,3 +86,52 @@ def validator(_: None) -> int:
 """
     with pytest.raises(RuntimeError):
         eval_uplc(source_code, Unit(), config=_DEFAULT_UNFOLD_CONFIG)
+
+
+def test_remove_dead_conds_preserve_short_circuit_failures():
+    source_code = """
+def validator(_: None) -> int:
+    if (1 // 0 == 0) or True:
+        return 1
+    return 0
+"""
+    with pytest.raises(RuntimeError):
+        eval_uplc(source_code, Unit(), config=_DEFAULT_UNFOLD_CONFIG)
+
+
+def test_remove_dead_conds_short_circuit_true_or():
+    source_code = """
+def validator(_: None) -> int:
+    if True or (1 // 0 == 0):
+        return 1
+    return 0
+"""
+    target_code = """
+def validator(_: None) -> int:
+    return 1
+"""
+    source = eval_uplc_raw(source_code, Unit(), config=_DEFAULT_UNFOLD_CONFIG)
+    target = eval_uplc_raw(target_code, Unit(), config=_DEFAULT_CONFIG)
+
+    assert source.result == target.result
+    assert source.cost.cpu >= target.cost.cpu
+    assert source.cost.memory >= target.cost.memory
+
+
+def test_remove_dead_conds_short_circuit_false_and():
+    source_code = """
+def validator(_: None) -> int:
+    if False and (1 // 0 == 0):
+        return 1
+    return 0
+"""
+    target_code = """
+def validator(_: None) -> int:
+    return 0
+"""
+    source = eval_uplc_raw(source_code, Unit(), config=_DEFAULT_UNFOLD_CONFIG)
+    target = eval_uplc_raw(target_code, Unit(), config=_DEFAULT_CONFIG)
+
+    assert source.result == target.result
+    assert source.cost.cpu >= target.cost.cpu
+    assert source.cost.memory >= target.cost.memory

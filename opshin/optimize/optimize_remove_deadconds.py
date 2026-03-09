@@ -54,24 +54,16 @@ class ExpressionSimplifier(CompilingNodeTransformer):
                 return Constant(value=all(values))
             elif isinstance(ex.op, Or):
                 return Constant(value=any(values))
-
-        # Partial simplification: drop neutral constants
-        # e.g. in `x or True`, return Constant(True)
-        # e.g. in `x and False`, return Constant(False)
-        if isinstance(ex.op, And):
-            for v in ex.values:
-                if isinstance(v, Constant) and not v.value:
-                    return Constant(value=False)
-            ex.values = [
-                v for v in ex.values if not (isinstance(v, Constant) and v.value)
-            ]
-        elif isinstance(ex.op, Or):
-            for v in ex.values:
-                if isinstance(v, Constant) and v.value:
-                    return Constant(value=True)
-            ex.values = [
-                v for v in ex.values if not (isinstance(v, Constant) and not v.value)
-            ]
+        if isinstance(ex.op, Or):
+            for i, value in enumerate(ex.values):
+                if isinstance(value, Constant) and value.value:
+                    ex.values = ex.values[: i + 1]
+                    break
+        elif isinstance(ex.op, And):
+            for i, value in enumerate(ex.values):
+                if isinstance(value, Constant) and not value.value:
+                    ex.values = ex.values[: i + 1]
+                    break
         if len(ex.values) == 1:
             return ex.values[0]
         return ex
