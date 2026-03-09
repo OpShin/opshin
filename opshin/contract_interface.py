@@ -134,12 +134,23 @@ class ContractModuleInfo:
 def _contract_parameter_types(
     contract_class: type,
 ) -> typing.List[typing.Tuple[str, typing.Any]]:
+    assert (
+        "CONSTR_ID" not in contract_class.__dict__
+    ), "Contract classes must not define CONSTR_ID."
     annotations = inspect.get_annotations(contract_class)
-    return [
-        (field_name, field_type)
-        for field_name, field_type in annotations.items()
-        if field_name != "CONSTR_ID"
+    unannotated_fields = [
+        name
+        for name, value in contract_class.__dict__.items()
+        if not name.startswith("__")
+        and name not in annotations
+        and name not in CONTRACT_METHOD_SPEC_MAP
+        and not inspect.isfunction(value)
+        and not isinstance(value, (staticmethod, classmethod))
     ]
+    assert (
+        not unannotated_fields
+    ), "Contract fields must be annotated; unannotated Contract fields are not supported."
+    return list(annotations.items())
 
 
 def _method_annotations(

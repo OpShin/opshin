@@ -49,6 +49,26 @@ class RewriteContractMethods(CompilingNodeTransformer):
             self._check_method_signature(
                 contract_methods[supported_method.method_name], supported_method
             )
+        assert not any(
+            (
+                isinstance(statement, ast.AnnAssign)
+                and isinstance(statement.target, ast.Name)
+                and statement.target.id == "CONSTR_ID"
+            )
+            or (
+                isinstance(statement, ast.Assign)
+                and any(
+                    isinstance(target, ast.Name) and target.id == "CONSTR_ID"
+                    for target in statement.targets
+                )
+            )
+            for statement in contract_class.body
+        ), "Contract classes must not define CONSTR_ID."
+        assert not any(
+            isinstance(statement, ast.Assign)
+            and any(isinstance(target, ast.Name) for target in statement.targets)
+            for statement in contract_class.body
+        ), "Contract fields must be annotated; unannotated Contract fields are not supported."
         field_annotations = []
         for statement in contract_class.body:
             if not isinstance(statement, ast.AnnAssign):
@@ -56,8 +76,6 @@ class RewriteContractMethods(CompilingNodeTransformer):
             assert isinstance(
                 statement.target, ast.Name
             ), "Contract fields must be named attributes."
-            if statement.target.id == "CONSTR_ID":
-                continue
             field_annotations.append(
                 (statement.target.id, deepcopy(statement.annotation))
             )

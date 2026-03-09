@@ -5,6 +5,7 @@ import unittest
 
 from opshin.contract_interface import discover_contract_module
 from opshin.prelude import *
+from opshin.util import CompilerError
 from .utils import eval_uplc_value
 
 
@@ -127,6 +128,28 @@ class Contract:
         return self.context + self.redeemer + policy_redeemer
 """
 
+INVALID_CONSTR_ID_CONTRACT_SOURCE = """
+from opshin.prelude import *
+
+@dataclass()
+class Contract:
+    CONSTR_ID = 0
+
+    def raw(self, context: ScriptContext) -> None:
+        pass
+"""
+
+INVALID_UNANNOTATED_FIELD_CONTRACT_SOURCE = """
+from opshin.prelude import *
+
+@dataclass()
+class Contract:
+    offset = 0
+
+    def raw(self, context: ScriptContext) -> None:
+        pass
+"""
+
 OPTIONAL_DATUM_CONTRACT_SOURCE = """
 from typing import Union
 
@@ -226,6 +249,18 @@ class ContractClassTests(unittest.TestCase):
         )
         self.assertEqual(ret, 37)
 
+    def test_contract_rejects_constr_id_definition(self):
+        with self.assertRaises(CompilerError) as exc:
+            eval_uplc_value(INVALID_CONSTR_ID_CONTRACT_SOURCE, make_minting_context(0))
+        self.assertIsInstance(exc.exception.orig_err, AssertionError)
+
+    def test_contract_rejects_unannotated_field_definition(self):
+        with self.assertRaises(CompilerError) as exc:
+            eval_uplc_value(
+                INVALID_UNANNOTATED_FIELD_CONTRACT_SOURCE, make_minting_context(0)
+            )
+        self.assertIsInstance(exc.exception.orig_err, AssertionError)
+
     def test_main_compiles_contract_class_without_explicit_validator(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             contract_path = f"{tmpdir}/contract.py"
@@ -238,3 +273,15 @@ class ContractClassTests(unittest.TestCase):
                 cwd=tmpdir,
             )
             self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_runtime_contract_discovery_rejects_constr_id_definition(self):
+        module = types.ModuleType("contract_module")
+        exec(INVALID_CONSTR_ID_CONTRACT_SOURCE, module.__dict__)
+        with self.assertRaises(AssertionError):
+            discover_contract_module(module)
+
+    def test_runtime_contract_discovery_rejects_unannotated_field_definition(self):
+        module = types.ModuleType("contract_module")
+        exec(INVALID_UNANNOTATED_FIELD_CONTRACT_SOURCE, module.__dict__)
+        with self.assertRaises(AssertionError):
+            discover_contract_module(module)
