@@ -38,6 +38,8 @@ class RewriteImportPlutusData(CompilingNodeTransformer):
         assert (
             len(node.decorator_list) == 1
         ), f"Class definitions must have no decorators but @dataclass, {node.name} has {tuple(node.decorator_list)}"
+        if node.name == "Contract":
+            return node
         assert (
             len(node.bases) == 1
         ), f"Class definitions must inherit exactly from PlutusData (i.e., `class {node.name}(PlutusData)`), {node.name} inherits from {tuple(node.bases)}"

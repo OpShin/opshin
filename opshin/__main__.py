@@ -38,6 +38,7 @@ from . import (
 from .util import CompilerError, data_from_json, OPSHIN_LOG_HANDLER
 from .prelude import ScriptContext
 from .compiler_config import *
+from .contract_interface import discover_contract_module
 from uplc import cost_model
 
 
@@ -277,7 +278,14 @@ def perform_command(args):
         sys.path.pop()
     # load the passed parameters if not a lib
     try:
-        argspec = inspect.signature(sc.validator if lib is None else getattr(sc, lib))
+        contract_info = discover_contract_module(sc) if lib is None else None
+        if lib is None:
+            validator_callable = (
+                sc.validator if contract_info is None else contract_info.validator
+            )
+        else:
+            validator_callable = getattr(sc, lib)
+        argspec = inspect.signature(validator_callable)
     except AttributeError:
         raise AssertionError(
             f"Contract has no function called '{'validator' if lib is None else lib}'. Make sure the compiled contract contains one function called 'validator'."
@@ -324,7 +332,7 @@ def perform_command(args):
         print("Python execution started")
         with redirect_stdout(open(os.devnull, "w")):
             try:
-                py_ret = sc.validator(*parsed_params)
+                py_ret = validator_callable(*parsed_params)
             except Exception as e:
                 py_ret = e
         command = Command.eval_uplc
@@ -419,11 +427,16 @@ Note that opshin errors may be overly restrictive as they aim to prevent code wi
         built_code = builder._build(code)
         script_arts = PlutusContract(
             built_code,
-            # TODO this actually does not work anymore
-            datum_type=None,
-            redeemer_type=None,
+            datum_type=None if contract_info is None else contract_info.datum_type,
+            redeemer_type=(
+                None if contract_info is None else contract_info.redeemer_type
+            ),
             parameter_types=param_types,
-            purpose=(Purpose.any,),
+            purpose=(
+                (Purpose.any,)
+                if contract_info is None
+                else tuple(Purpose[purpose] for purpose in contract_info.purpose_names)
+            ),
             title=pathlib.Path(input_file).stem,
         )
         script_arts.dump(target_dir)
