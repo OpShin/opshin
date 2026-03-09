@@ -13,6 +13,7 @@ import uplc.ast as uplc_ast
 _ELLIPSIS = "..."
 _ENV_NAME = "OPSHIN_TEST_UPLC_REPR_LIMIT"
 _PATCHED = False
+_AST_METADATA = {}
 
 
 def _parse_limit(raw: Optional[str]) -> Optional[int]:
@@ -41,11 +42,33 @@ def set_uplc_ast_repr_limit(limit: Optional[int]) -> Optional[int]:
 
 
 def _truncate_text(text: str, budget: Optional[int]) -> str:
+    if budget is not None and budget <= 0:
+        return ""
     if budget is None or len(text) <= budget:
         return text
     if budget <= len(_ELLIPSIS):
         return _ELLIPSIS[:budget]
     return text[: budget - len(_ELLIPSIS)] + _ELLIPSIS
+
+
+def _get_ast_metadata(
+    cls: type,
+) -> tuple[str, tuple[dataclasses.Field, ...], tuple[str, ...]]:
+    metadata = _AST_METADATA.get(cls)
+    if metadata is not None:
+        return metadata
+
+    if dataclasses.is_dataclass(cls):
+        fields = tuple(dataclasses.fields(cls))
+    else:
+        fields = ()
+    labels = tuple(
+        f"{'' if index == 0 else ', '}{field.name}="
+        for index, field in enumerate(fields)
+    )
+    metadata = (cls.__name__, fields, labels)
+    _AST_METADATA[cls] = metadata
+    return metadata
 
 
 def _render_sequence(
@@ -130,10 +153,10 @@ def _render_ast(node: uplc_ast.AST, budget: Optional[int], seen: set[int]) -> st
     # UPLC ASTs are deeply recursive dataclasses. This renderer keeps reprs
     # deterministic, bounded and cycle-safe so type errors stay readable.
     node_id = id(node)
-    cls_name = type(node).__name__
+    cls_name, fields, labels = _get_ast_metadata(type(node))
     if node_id in seen:
         return _truncate_text(f"{cls_name}(...)", budget)
-    if not dataclasses.is_dataclass(node):
+    if not fields:
         return _truncate_text(cls_name, budget)
 
     opener = f"{cls_name}("
@@ -145,12 +168,10 @@ def _render_ast(node: uplc_ast.AST, budget: Optional[int], seen: set[int]) -> st
     try:
         remaining = None if budget is None else budget - len(opener) - len(closer)
         parts = []
-        for index, field in enumerate(dataclasses.fields(node)):
+        for field, label in zip(fields, labels):
             if remaining is not None and remaining <= len(_ELLIPSIS):
                 parts.append(_truncate_text(_ELLIPSIS, remaining))
                 break
-            sep = ", " if index else ""
-            label = f"{sep}{field.name}="
             if remaining is not None and len(label) >= remaining:
                 parts.append(_truncate_text(label + _ELLIPSIS, remaining))
                 break
@@ -169,15 +190,22 @@ def _render_ast(node: uplc_ast.AST, budget: Optional[int], seen: set[int]) -> st
 
 
 def _render_value(value, budget: Optional[int], seen: set[int]) -> str:
+    if budget is not None and budget <= 0:
+        return ""
     if isinstance(value, uplc_ast.AST):
         return _render_ast(value, budget, seen)
-    if isinstance(value, Mapping):
-        return _render_mapping(value, "{", "}", budget, seen)
-    if isinstance(value, tuple):
+    value_type = type(value)
+    if value_type is tuple:
         closer = ",)" if len(value) == 1 else ")"
         return _render_sequence(value, "(", closer, budget, seen)
-    if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
+    if value_type is list:
         return _render_sequence(value, "[", "]", budget, seen)
+    if isinstance(value, Mapping):
+        return _render_mapping(value, "{", "}", budget, seen)
+    if isinstance(value, Sequence) and value_type not in (str, bytes, bytearray):
+        opener = "[" if value_type is not tuple else "("
+        closer = "]" if value_type is not tuple else ")"
+        return _render_sequence(value, opener, closer, budget, seen)
     return _truncate_text(repr(value), budget)
 
 
