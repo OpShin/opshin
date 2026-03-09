@@ -7,6 +7,7 @@ import subprocess
 import tempfile
 
 import unittest
+from unittest.mock import patch
 
 import frozendict
 import frozenlist2
@@ -37,7 +38,8 @@ from .utils import (
     B,
     DEFAULT_TEST_CONFIG,
 )
-from opshin.compiler_config import OPT_O2_CONFIG
+from opshin.compiler_config import OPT_O0_CONFIG, OPT_O2_CONFIG
+from opshin.util import NoOp
 
 hypothesis.settings.load_profile(PLUTUS_VM_PROFILE)
 
@@ -2575,6 +2577,270 @@ def validator(x: Union[A, B, C]) -> int:
         assert False, "bad"
     return z
         """
+        builder._compile(source_code)
+
+    def test_assert_false_return_analysis_compile_o0(self):
+        source_code = """
+from typing import List
+
+def validator(xs: List[int], n: int) -> int:
+    for x in xs:
+        if x == n:
+            return x
+    assert False, "missing"
+"""
+        builder._compile(source_code, config=OPT_O0_CONFIG)
+
+    def test_assert_if_return(self):
+        source_code = """
+from typing import Union
+
+def validator(v: Union[int, bytes], n: int) -> int:
+    if isinstance(v, bytes):
+        return 2
+    return v + 2
+"""
+        builder._compile(source_code)
+
+    def test_assert_if_return_nested_if_all_paths_return(self):
+        source_code = """
+from typing import Union
+
+def validator(v: Union[int, bytes], a: int, b: int) -> int:
+    if isinstance(v, bytes):
+        if a > b:
+            return 2
+        else:
+            return 3
+    return v + 2
+"""
+        builder._compile(source_code)
+
+    def test_assert_if_return_nested_if_then_return(self):
+        source_code = """
+from typing import Union
+
+def validator(v: Union[int, bytes], a: int, b: int) -> int:
+    if isinstance(v, bytes):
+        if a > b:
+            return 2
+        return 3
+    return v + 2
+"""
+        builder._compile(source_code)
+
+    def test_assert_if_return_nested_in_else(self):
+        source_code = """
+from typing import Union
+
+def validator(v: Union[int, bytes], a: int, b: int) -> int:
+    if isinstance(v, bytes):
+        return 2
+    else:
+        if a > b:
+            return v + 2
+        return v + 3
+"""
+        builder._compile(source_code)
+
+    def test_assert_if_else_does_not_fall_through(self):
+        source_code = """
+from typing import Union
+
+def validator(v: Union[int, bytes], n: int) -> int:
+    if isinstance(v, bytes):
+        return len(v)
+    else:
+        return 2
+"""
+        builder._compile(source_code)
+
+    def test_assert_if_else_does_not_fall_through_then_use_narrowed_type(self):
+        source_code = """
+from typing import Union
+
+def validator(v: Union[int, bytes], n: int) -> int:
+    if isinstance(v, bytes):
+        x = len(v)
+    else:
+        return 2
+    return x + 1
+"""
+        builder._compile(source_code)
+
+    def test_assert_if_assert_false_does_not_fall_through(self):
+        source_code = """
+from typing import Union
+
+def validator(v: Union[int, bytes], n: int) -> int:
+    if isinstance(v, bytes):
+        assert False, "boom"
+    return v + 2
+"""
+        builder._compile(source_code)
+
+    def test_assert_if_while_else_return_does_not_fall_through(self):
+        source_code = """
+from typing import Union
+
+def validator(v: Union[int, bytes], n: int) -> int:
+    if isinstance(v, bytes):
+        while n > 0:
+            n -= 1
+        else:
+            return 2
+    return v + 2
+"""
+        builder._compile(source_code)
+
+    def test_assert_if_for_else_return_does_not_fall_through(self):
+        source_code = """
+from typing import List, Union
+
+def validator(v: Union[int, bytes], xs: List[int]) -> int:
+    if isinstance(v, bytes):
+        for _ in xs:
+            pass
+        else:
+            return 2
+    return v + 2
+"""
+        builder._compile(source_code)
+
+    def test_opt_remove_unreachable_after_return(self):
+        source_code = """
+def validator(_: None) -> int:
+    return 1
+    assert False, "dead-after-return"
+"""
+        code = builder._compile(source_code)
+        self.assertNotIn("dead-after-return", code.dumps())
+
+    def test_opt_remove_unreachable_after_if_both_branches_return(self):
+        source_code = """
+def validator(x: int) -> int:
+    if x > 0:
+        return 1
+    else:
+        return 2
+    assert False, "dead-after-if"
+"""
+        code = builder._compile(source_code)
+        self.assertNotIn("dead-after-if", code.dumps())
+
+    def test_opt_remove_unreachable_after_while_else_return(self):
+        source_code = """
+def validator(x: int) -> int:
+    while x > 0:
+        x -= 1
+    else:
+        return 2
+    assert False, "dead-after-while"
+"""
+        code = builder._compile(source_code)
+        self.assertNotIn("dead-after-while", code.dumps())
+
+    def test_opt_remove_unreachable_after_for_else_return(self):
+        source_code = """
+from typing import List
+
+def validator(xs: List[int]) -> int:
+    for _ in xs:
+        pass
+    else:
+        return 2
+    assert False, "dead-after-for"
+"""
+        code = builder._compile(source_code)
+        self.assertNotIn("dead-after-for", code.dumps())
+
+    def test_opt_fold_if_tail_into_else_branch(self):
+        source_code = """
+from typing import Union
+
+def validator(v: Union[int, bytes], n: int) -> int:
+    if isinstance(v, bytes):
+        return 2
+    x = v + 1
+    return x
+"""
+        folded_source_code = """
+from typing import Union
+
+def validator(v: Union[int, bytes], n: int) -> int:
+    if isinstance(v, bytes):
+        return 2
+    else:
+        x = v + 1
+        return x
+"""
+        with patch("opshin.compiler.OptimizeFoldIfFallthrough", NoOp):
+            nonfolded_without_pass = builder._compile(source_code).dumps()
+            folded_without_pass = builder._compile(folded_source_code).dumps()
+        self.assertLess(
+            len(folded_without_pass),
+            len(nonfolded_without_pass),
+        )
+
+    def test_opt_fold_if_tail_into_body_branch(self):
+        source_code = """
+from typing import Union
+
+def validator(v: Union[int, bytes], n: int) -> int:
+    if isinstance(v, bytes):
+        x = len(v)
+    else:
+        return 2
+    return x if x > 0 else 0
+"""
+        folded_source_code = """
+from typing import Union
+
+def validator(v: Union[int, bytes], n: int) -> int:
+    if isinstance(v, bytes):
+        x = len(v)
+        return x if x > 0 else 0
+    else:
+        return 2
+"""
+        with patch("opshin.compiler.OptimizeFoldIfFallthrough", NoOp):
+            nonfolded_without_pass = builder._compile(source_code).dumps()
+            folded_without_pass = builder._compile(folded_source_code).dumps()
+        self.assertLess(
+            len(folded_without_pass),
+            len(nonfolded_without_pass),
+        )
+        self.assertLessEqual(
+            len(builder._compile(source_code).dumps()),
+            len(nonfolded_without_pass),
+        )
+
+    def test_type_inference_stops_after_if_both_branches_return(self):
+        source_code = """
+from typing import Union
+
+def validator(v: Union[int, bytes], n: int) -> int:
+    if isinstance(v, bytes):
+        return 2
+    else:
+        return 3
+    return v + 2
+"""
+        builder._compile(source_code)
+
+    def test_type_inference_stops_after_if_both_branches_return_nested(self):
+        source_code = """
+from typing import Union
+
+def validator(v: Union[int, bytes], a: int, b: int) -> int:
+    if isinstance(v, bytes):
+        if a > b:
+            return 2
+        return 3
+    else:
+        return 4
+    return v + 2
+"""
         builder._compile(source_code)
 
     @unittest.expectedFailure

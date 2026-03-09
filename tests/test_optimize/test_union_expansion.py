@@ -1,18 +1,20 @@
 import unittest
 import ast
+from typing import Dict, List
+
 import hypothesis
 import pytest
 from hypothesis import given
 from hypothesis import strategies as st
-from ..utils import eval_uplc_raw, DEFAULT_TEST_CONFIG
+
+from opshin import DEFAULT_CONFIG
+from opshin.ledger.api_v3 import *
+
 from .. import PLUTUS_VM_PROFILE
+from ..test_misc import A
+from ..utils import DEFAULT_TEST_CONFIG, eval_uplc_raw
 
 hypothesis.settings.load_profile(PLUTUS_VM_PROFILE)
-
-from ..test_misc import A
-
-from opshin.ledger.api_v3 import *
-from opshin import DEFAULT_CONFIG
 
 
 def to_int(x):
@@ -391,7 +393,7 @@ def odd_i_int(x: int, n: int) -> int:
     if n == 0:
         return x + 100
     return even_i_bytes(bytes([x + 1]), n - 1)
-    
+
 def even_i_bytes(x: bytes, n: int) -> int:
     if n == 0:
         return len(x)

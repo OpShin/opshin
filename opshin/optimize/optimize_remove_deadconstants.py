@@ -7,7 +7,7 @@ Removes expressions that return constants in sequences of statements (i.e. strin
 """
 
 
-class OptimizeRemoveDeadconstants(CompilingNodeTransformer):
+class OptimizeRemoveDeadConstants(CompilingNodeTransformer):
     step = "Removing constants (i.e. string comments)"
 
     def visit_Expr(self, node: Expr):
