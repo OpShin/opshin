@@ -40,9 +40,11 @@ from .typed_ast import *
 from .compiler_config import DEFAULT_CONFIG
 from .optimize.optimize_const_folding import OptimizeConstantFolding
 from .optimize.optimize_remove_deadconstants import OptimizeRemoveDeadconstants
+from .optimize.optimize_remove_deadconds import OptimizeRemoveDeadConditions
 from .optimize.optimize_fold_if_fallthrough import OptimizeFoldIfFallthrough
 from .optimize.optimize_remove_unreachable import OptimizeRemoveUnreachable
 from .optimize.optimize_union_expansion import OptimizeUnionExpansion
+from .optimize.optimize_fold_bool import OptimizeFoldBoolCast
 
 from .rewrite.rewrite_assert_none import RewriteAssertNone
 from .rewrite.rewrite_annotate_fallthrough import RewriteAnnotateFallthrough
@@ -1233,6 +1235,7 @@ def compile(
         # The type inference needs to be run after complex python operations were rewritten
         AggressiveTypeInferencer(config.allow_isinstance_anything),
         # Rewrites that circumvent the type inference or use its results
+        OptimizeFoldBoolCast(),
         RewriteAssertNone(),
         RewriteEmptyLists(),
         RewriteEmptyDicts(),
@@ -1248,6 +1251,7 @@ def compile(
             else NoOp()
         ),
         OptimizeRemoveDeadconstants() if config.remove_dead_code else NoOp(),
+        OptimizeRemoveDeadConditions() if config.remove_dead_code else NoOp(),
         OptimizeRemovePass(),
     ]
     for s in compile_pipeline:

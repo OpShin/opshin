@@ -1,18 +1,23 @@
 import unittest
+from typing import Dict, List
+
 import hypothesis
 import pytest
 from hypothesis import given
 from hypothesis import strategies as st
-from ..utils import eval_uplc_raw, DEFAULT_TEST_CONFIG
+
+from opshin import DEFAULT_CONFIG
+from opshin.ledger.api_v3 import *
+from opshin.std.fractions import Fraction as StdFraction
+
 from .. import PLUTUS_VM_PROFILE
+from ..test_misc import A
+from ..utils import DEFAULT_TEST_CONFIG, eval_uplc_raw
 
 hypothesis.settings.load_profile(PLUTUS_VM_PROFILE)
 
-from ..test_misc import A
-
-from opshin.ledger.api_v3 import *
-from opshin import DEFAULT_CONFIG
-from opshin.std.fractions import Fraction as StdFraction
+_DEFAULT_CONFIG = DEFAULT_CONFIG
+_DEFAULT_UNFOLD_CONFIG = DEFAULT_CONFIG.update(expand_union_types=True)
 
 
 def to_int(x):
@@ -78,14 +83,12 @@ def foo(x: int) -> int:
 def validator(x: int) -> int:
     return foo(x)
     """
-        config = DEFAULT_CONFIG
-        euo_config = config.update(expand_union_types=True)
-        source = eval_uplc_raw(source_code, 4, config=euo_config)
-        target = eval_uplc_raw(target_code, 4, config=config)
+        source = eval_uplc_raw(source_code, 4, config=_DEFAULT_UNFOLD_CONFIG)
+        target = eval_uplc_raw(target_code, 4, config=_DEFAULT_CONFIG)
 
         self.assertEqual(source.result, target.result)
-        self.assertEqual(source.cost.cpu, target.cost.cpu)
-        self.assertEqual(source.cost.memory, target.cost.memory)
+        self.assertLessEqual(source.cost.cpu, target.cost.cpu)
+        self.assertLessEqual(source.cost.memory, target.cost.memory)
 
     @hypothesis.given(st.sampled_from(range(4, 7)))
     def test_Union_expansion_BoolOp_and(self, x):
@@ -117,14 +120,12 @@ def foo(x: int) -> int:
 def validator(x: int) -> int:
     return foo(x)
     """
-        config = DEFAULT_CONFIG
-        euo_config = config.update(expand_union_types=True)
-        source = eval_uplc_raw(source_code, x, config=euo_config)
-        target = eval_uplc_raw(target_code, x, config=config)
+        source = eval_uplc_raw(source_code, x, config=_DEFAULT_UNFOLD_CONFIG)
+        target = eval_uplc_raw(target_code, x, config=_DEFAULT_CONFIG)
 
         self.assertEqual(source.result, target.result)
-        self.assertEqual(source.cost.cpu, target.cost.cpu)
-        self.assertEqual(source.cost.memory, target.cost.memory)
+        self.assertLessEqual(source.cost.cpu, target.cost.cpu)
+        self.assertLessEqual(source.cost.memory, target.cost.memory)
 
     @hypothesis.given(st.sampled_from(range(4, 7)))
     def test_Union_expansion_BoolOp_or(self, x):
@@ -156,14 +157,12 @@ def foo(x: int) -> int:
 def validator(x: int) -> int:
     return foo(x)
     """
-        config = DEFAULT_CONFIG
-        euo_config = config.update(expand_union_types=True)
-        source = eval_uplc_raw(source_code, x, config=euo_config)
-        target = eval_uplc_raw(target_code, x, config=config)
+        source = eval_uplc_raw(source_code, x, config=_DEFAULT_UNFOLD_CONFIG)
+        target = eval_uplc_raw(target_code, x, config=_DEFAULT_CONFIG)
 
         self.assertEqual(source.result, target.result)
-        self.assertEqual(source.cost.cpu, target.cost.cpu)
-        self.assertEqual(source.cost.memory, target.cost.memory)
+        self.assertLessEqual(source.cost.cpu, target.cost.cpu)
+        self.assertLessEqual(source.cost.memory, target.cost.memory)
 
     @hypothesis.given(st.sampled_from([b"123", b"1"]), st.sampled_from([b"123", b"1"]))
     def test_Union_expansion_BoolOp_and_all(self, x, y):
@@ -190,14 +189,12 @@ def foo(x: bytes, y: bytes) -> int:
 def validator(x: bytes, y: bytes) -> int:
     return foo(x, y)
     """
-        config = DEFAULT_CONFIG
-        euo_config = config.update(expand_union_types=True)
-        source = eval_uplc_raw(source_code, x, y, config=euo_config)
-        target = eval_uplc_raw(target_code, x, y, config=config)
+        source = eval_uplc_raw(source_code, x, y, config=_DEFAULT_UNFOLD_CONFIG)
+        target = eval_uplc_raw(target_code, x, y, config=_DEFAULT_CONFIG)
 
         self.assertEqual(source.result, target.result)
-        self.assertEqual(source.cost.cpu, target.cost.cpu)
-        self.assertEqual(source.cost.memory, target.cost.memory)
+        self.assertLessEqual(source.cost.cpu, target.cost.cpu)
+        self.assertLessEqual(source.cost.memory, target.cost.memory)
 
     @hypothesis.given(st.sampled_from(range(4, 7)))
     def test_Union_expansion_BoolOp_or_all(self, x):
@@ -327,7 +324,7 @@ def validator(x: {x}, y: {y} ) -> int:
 from typing import Dict, List, Union
 
 def foo(x: {x}, y: {y} ) -> int:
-    k = {'len(x)' if x=='bytes' else 'x'} + {'len(y)' if y == 'bytes' else 'y'}
+    k = {'len(x)' if x == 'bytes' else 'x'} + {'len(y)' if y == 'bytes' else 'y'}
     return k
 
 def validator(x: {x},  y: {y}) -> int:
@@ -341,68 +338,6 @@ def validator(x: {x},  y: {y}) -> int:
         self.assertEqual(source.result, target.result)
         self.assertEqual(source.cost.cpu, target.cost.cpu)
         self.assertEqual(source.cost.memory, target.cost.memory)
-
-    @hypothesis.given(st.sampled_from(range(4, 7)))
-    @hypothesis.example(4)
-    @hypothesis.example(5)
-    @hypothesis.example(6)
-    @pytest.mark.skip(
-        """
-        This fails because union expansion is broken. produces this code:
-
-    from typing import Dict, List, Union
-
-    def foo(x: Union[int, bytes]) -> int:
-        if isinstance(x, bytes) or isinstance(x, int):
-            k = 2
-        else:
-            k = len(x)
-        return k
-
-    def foo+_int(x: int) -> int:
-        k = 2
-        return k
-
-    def foo+_bytes(x: bytes) -> int:
-        k = 2
-        return k
-
-    def validator(x: int) -> int:
-        return foo(x)
-        """
-    )
-    def test_Union_expansion_BoolOp_or_all(self, x):
-        source_code = """
-from typing import Dict, List, Union
-
-def foo(x: Union[int, bytes]) -> int:
-    if isinstance(x, bytes) or isinstance(x, int):
-        k = 2
-    else:
-        k = len(x)
-    return k
-
-def validator(x: int) -> int:
-    return foo(x)
-    """
-        target_code = """
-from typing import Dict, List, Union
-
-def foo(x: int) -> int:
-    k = 2
-    return k
-
-def validator(x: int) -> int:
-    return foo(x)
-    """
-        config = DEFAULT_CONFIG.update(constant_folding=True)
-        euo_config = config.update(expand_union_types=True)
-        source = eval_uplc_raw(source_code, x, config=euo_config)
-        target = eval_uplc_raw(target_code, x, config=config)
-
-        self.assertEqual(source.result, target.result)
-        self.assertLessEqual(source.cost.cpu, target.cost.cpu)
-        self.assertLessEqual(source.cost.memory, target.cost.memory)
 
     @pytest.mark.skip("Currently not supported")
     def test_Union_expansion_ifimplicit(
