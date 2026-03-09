@@ -1,7 +1,7 @@
 from ast import *
 from copy import copy
 
-from ..type_impls import FunctionType, InstanceType
+from ..type_impls import CLOSURE_PLACEHOLDER, FunctionType, InstanceType
 from ..rewrite.rewrite_cast_condition import SPECIAL_BOOL
 from ..type_inference import INITIAL_SCOPE, union_types
 from ..typed_util import (
@@ -11,6 +11,7 @@ from ..typed_util import (
 from ..util import (
     CompilingNodeVisitor,
     externally_bound_vars,
+    read_vars,
 )
 
 
@@ -184,6 +185,7 @@ class OptimizeRewriteFunctionClosures(ScopedSequenceNodeTransformer):
         direct_external_bound_vars = {}
         direct_required_names = {}
         called_function_targets = {}
+        direct_bind_self = {}
         for function in function_nodes:
             function_id = function.typ.typ.function_id
             assert function_id is not None, "Function type is missing function_id"
@@ -197,10 +199,11 @@ class OptimizeRewriteFunctionClosures(ScopedSequenceNodeTransformer):
             direct_external_bound_vars[function_id] = self._collect_external_name_types(
                 function, direct_external_names
             )
+            direct_bind_self[function_id] = function.name in read_vars(function)
             direct_required_names[function_id] = set(
                 direct_external_bound_vars[function_id]
             )
-            if function.typ.typ.bind_self is not None:
+            if direct_bind_self[function_id]:
                 direct_required_names[function_id].add(function.name)
 
             collector = _DirectFunctionCallCollector(function_ids)
@@ -279,8 +282,73 @@ class OptimizeRewriteFunctionClosures(ScopedSequenceNodeTransformer):
             function_types_by_id[node.typ.typ.function_id] = node.typ.typ
         _FunctionTypeRewriter(function_types_by_id).visit(module)
 
+    def _assert_no_closure_placeholders(self, node: AST):
+        for child in walk(node):
+            if not (
+                hasattr(child, "typ")
+                and isinstance(child.typ, InstanceType)
+                and isinstance(child.typ.typ, FunctionType)
+            ):
+                continue
+            assert (
+                child.typ.typ.bound_vars is not CLOSURE_PLACEHOLDER
+                and child.typ.typ.bind_self is not CLOSURE_PLACEHOLDER
+            ), "Closure rewrite left unresolved function closure metadata"
+
+    def _merge_function_definition_envs(
+        self, s1: dict[str, InstanceType], s2: dict[str, InstanceType]
+    ) -> dict[str, InstanceType]:
+        merged = dict(s1)
+        for key, value in s2.items():
+            if key not in merged:
+                merged[key] = value
+                continue
+            if merged[key] == value or merged[key] >= value:
+                continue
+            if value >= merged[key]:
+                merged[key] = value
+                continue
+            raise AssertionError(
+                f"Type '{merged[key].python_type()}' of variable '{key}' in local scope does not match inferred type '{value.python_type()}'"
+            )
+        return merged
+
+    def _validate_function_redefinitions_in_sequence(
+        self, body: list[stmt], inherited: dict[str, InstanceType]
+    ) -> dict[str, InstanceType]:
+        current_env = dict(inherited)
+        for node in body:
+            if (
+                isinstance(node, FunctionDef)
+                and hasattr(node, "typ")
+                and isinstance(node.typ, InstanceType)
+                and isinstance(node.typ.typ, FunctionType)
+            ):
+                current_env = self._merge_function_definition_envs(
+                    current_env, {node.name: node.typ}
+                )
+                continue
+            if isinstance(node, (If, While, For)):
+                body_env = self._validate_function_redefinitions_in_sequence(
+                    node.body, current_env
+                )
+                else_env = self._validate_function_redefinitions_in_sequence(
+                    node.orelse, current_env
+                )
+                current_env = self._merge_function_definition_envs(body_env, else_env)
+        return current_env
+
+    def _validate_function_redefinitions(self, body: list[stmt]):
+        self._validate_function_redefinitions_in_sequence(body, {})
+
     def visit_sequence(self, body: list[stmt]) -> list[stmt]:
         rewritten_body = super().visit_sequence(body)
         self._update_function_bound_vars(rewritten_body)
         self._reassign_function_types(rewritten_body)
+        self._validate_function_redefinitions(rewritten_body)
         return rewritten_body
+
+    def visit_Module(self, node: Module) -> Module:
+        module = super().visit_Module(node)
+        self._assert_no_closure_placeholders(module)
+        return module
