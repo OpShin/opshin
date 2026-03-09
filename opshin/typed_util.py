@@ -17,6 +17,38 @@ def collect_typed_functions(body: list[ast.stmt]) -> list[FunctionDef]:
     ]
 
 
+def statement_can_fall_through(node: ast.stmt) -> bool:
+    return getattr(node, "can_fall_through", True)
+
+
+def sequence_can_fall_through(body: list[ast.stmt]) -> bool:
+    return all(node is None or statement_can_fall_through(node) for node in body)
+
+
+def annotate_compound_statement_fallthrough(node: ast.AST) -> ast.AST:
+    if isinstance(node, ast.Module):
+        node.can_fall_through = sequence_can_fall_through(node.body)
+        return node
+    if isinstance(node, (FunctionDef, ClassDef)):
+        node.body_can_fall_through = sequence_can_fall_through(node.body)
+        node.can_fall_through = True
+        return node
+    if isinstance(node, ast.If):
+        node.body_can_fall_through = sequence_can_fall_through(node.body)
+        node.orelse_can_fall_through = sequence_can_fall_through(node.orelse)
+        node.can_fall_through = (
+            node.body_can_fall_through or node.orelse_can_fall_through
+        )
+        return node
+    if isinstance(node, (ast.While, ast.For)):
+        node.body_can_fall_through = sequence_can_fall_through(node.body)
+        node.orelse_can_fall_through = sequence_can_fall_through(node.orelse)
+        # Without break support, normal loop completion always enters the else branch.
+        node.can_fall_through = node.orelse_can_fall_through
+        return node
+    raise TypeError(f"Unsupported node type for fallthrough annotation: {type(node)}")
+
+
 class ScopedSequenceNodeTransformer(CompilingNodeTransformer):
     """Rewrite nested statement sequences while preserving the surrounding node."""
 

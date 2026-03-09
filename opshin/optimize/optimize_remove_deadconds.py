@@ -1,5 +1,5 @@
 from ast import *
-from copy import deepcopy, copy
+from copy import copy
 from typing import Any, Union
 
 from ..typed_util import FlatteningScopedSequenceNodeTransformer
@@ -10,17 +10,28 @@ Removes if/while branches that are never executed
 
 
 class OptimizeRemoveDeadConditions(FlatteningScopedSequenceNodeTransformer):
+    def expression_guaranteed_tf(self, expr: expr) -> Union[bool, None]:
+        """
+        Returns True if the expression is guaranteed to be truthy.
+        Returns False if the expression is guaranteed to be falsy.
+        Returns None if it cannot be determined.
+
+        Needs to be run after self.visit has been called on expr.
+        """
+        if isinstance(expr, Constant):
+            return bool(expr.value)
+        return None
 
     def visit_If(self, node: If) -> Any:
         node = copy(node)
         node.test = self.visit(node.test)
         node.body = self.visit_sequence(node.body)
         node.orelse = self.visit_sequence(node.orelse)
-        if isinstance(node.test, Constant):
-            if node.test.value:
-                return node.body
-            else:
-                return node.orelse
+        test_value = self.expression_guaranteed_tf(node.test)
+        if test_value is True:
+            return node.body
+        if test_value is False:
+            return node.orelse
         return node
 
     def visit_While(self, node: While) -> Any:
@@ -28,43 +39,16 @@ class OptimizeRemoveDeadConditions(FlatteningScopedSequenceNodeTransformer):
         node.test = self.visit(node.test)
         node.body = self.visit_sequence(node.body)
         node.orelse = self.visit_sequence(node.orelse)
-        if isinstance(node.test, Constant):
-            if node.test.value:
-                raise ValueError(
-                    "While loop with constant True condition is not allowed (infinite loop)"
-                )
-            else:
-                return node.orelse
-        return node
-
-    def visit_IfExp(self, node: IfExp) -> Any:
-        node = copy(node)
-        node.test = self.visit(node.test)
-        node.body = self.visit(node.body)
-        node.orelse = self.visit(node.orelse)
-
-        # Simplify if the test condition is a constant
-        if isinstance(node.test, Constant):
-            if node.test.value:
-                return node.body
-            else:
-                return node.orelse
-
+        test_value = self.expression_guaranteed_tf(node.test)
+        if test_value is True:
+            raise ValueError(
+                "While loop with constant True condition is not allowed (infinite loop)"
+            )
+        if test_value is False:
+            return node.orelse
         return node
 
     # Expression simplification logic
-
-    def expression_guaranteed_tf(self, expr: expr) -> Union[bool, None]:
-        """
-        Returns True if the expression is guaranteed to be truthy
-        Returns False if the expression is guaranteed to be falsy
-        Returns None if it cannot be determined
-
-        Needs to be run after self.visit has been called on expr
-        """
-        if isinstance(expr, Constant):
-            return expr.value
-        return None
 
     def visit_IfExp(self, node: IfExp) -> expr:
         ex = copy(node)

@@ -223,16 +223,7 @@ class OptimizeRewriteFunctionClosures(ScopedSequenceNodeTransformer):
                 current_env[stmt.target.id] = stmt.value.typ
             return current_env
 
-        if isinstance(stmt, If):
-            body_env = self._refresh_sequence_binding_uses_with_env(
-                stmt.body, dict(current_env)
-            )
-            else_env = self._refresh_sequence_binding_uses_with_env(
-                stmt.orelse, dict(current_env)
-            )
-            return self._merge_envs(body_env, else_env)
-
-        if isinstance(stmt, (While, For)):
+        if isinstance(stmt, (If, While, For)):
             body_env = self._refresh_sequence_binding_uses_with_env(
                 stmt.body, dict(current_env)
             )

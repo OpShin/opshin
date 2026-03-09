@@ -761,7 +761,6 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                 class_nodes.append(stmt)
                 seen_names.add(stmt.name)
         pending = class_nodes
-        unresolved = {}
         while pending:
             next_pending = []
             progress = False
@@ -769,8 +768,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                 try:
                     self.declare_class_type(class_node, force=True)
                     progress = True
-                except TypeInferenceError as e:
-                    unresolved[class_node.name] = e
+                except TypeInferenceError:
                     next_pending.append(class_node)
             if not progress and next_pending:
                 # Some imported class graphs can only be resolved later in strict statement order.
@@ -907,6 +905,32 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             node_seq_cp.extend(additional_functions)
             node_seq_cp.append(last)
         return node_seq_cp
+
+    def visit_sequence_under_typechecks(
+        self, node_seq: typing.List[stmt], typchecks: TypeMap
+    ) -> tuple[typing.List[stmt], typing.Dict[str, Type]]:
+        wrapped = self.implement_typechecks(typchecks)
+        self.wrapped.extend(wrapped.keys())
+        try:
+            typed_seq = self.visit_sequence(node_seq)
+            return typed_seq, copy(self.scopes[-1])
+        finally:
+            self.wrapped = [x for x in self.wrapped if x not in wrapped.keys()]
+
+    @staticmethod
+    def merge_fallthrough_scopes(
+        initial_scope: typing.Dict[str, Type],
+        *branches: tuple[bool, typing.Dict[str, Type]],
+    ) -> typing.Dict[str, Type]:
+        live_scopes = [
+            scope for can_fall_through, scope in branches if can_fall_through
+        ]
+        if not live_scopes:
+            return initial_scope
+        merged_scope = live_scopes[0]
+        for scope in live_scopes[1:]:
+            merged_scope = merge_scope(merged_scope, scope)
+        return merged_scope
 
     def visit_sequence(self, node_seq: typing.List[stmt]) -> plt.AST:
         node_seq = self.lower_class_methods_in_sequence(node_seq)
@@ -1073,35 +1097,24 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         ).visit(typed_if.test)
         # for the time of the branch, these types are cast
         initial_scope = copy(self.scopes[-1])
-        wrapped = self.implement_typechecks(typchecks)
-        self.wrapped.extend(wrapped.keys())
-        typed_if.body = self.visit_sequence(node.body)
-        self.wrapped = [x for x in self.wrapped if x not in wrapped.keys()]
-
-        # save resulting types
-        final_scope_body = copy(self.scopes[-1])
-        # reverse typechecks and remove typing of one branch
+        typed_if.body, final_scope_body = self.visit_sequence_under_typechecks(
+            node.body, typchecks
+        )
         self.scopes[-1] = initial_scope
-        # for the time of the else branch, the inverse types hold
-        wrapped = self.implement_typechecks(inv_typchecks)
-        self.wrapped.extend(wrapped.keys())
-        typed_if.orelse = self.visit_sequence(node.orelse)
-        self.wrapped = [x for x in self.wrapped if x not in wrapped.keys()]
-        final_scope_else = self.scopes[-1]
+        typed_if.orelse, final_scope_else = self.visit_sequence_under_typechecks(
+            node.orelse, inv_typchecks
+        )
         assert hasattr(
             typed_if, "body_can_fall_through"
         ), "Missing body fallthrough annotation on if statement"
         assert hasattr(
             typed_if, "orelse_can_fall_through"
         ), "Missing else fallthrough annotation on if statement"
-        if typed_if.body_can_fall_through and typed_if.orelse_can_fall_through:
-            self.scopes[-1] = merge_scope(final_scope_body, final_scope_else)
-        elif typed_if.body_can_fall_through:
-            self.scopes[-1] = final_scope_body
-        elif typed_if.orelse_can_fall_through:
-            self.scopes[-1] = final_scope_else
-        else:
-            self.scopes[-1] = initial_scope
+        self.scopes[-1] = self.merge_fallthrough_scopes(
+            initial_scope,
+            (typed_if.body_can_fall_through, final_scope_body),
+            (typed_if.orelse_can_fall_through, final_scope_else),
+        )
         return typed_if
 
     def visit_While(self, node: While) -> TypedWhile:
@@ -1115,26 +1128,23 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         ).visit(typed_while.test)
         # for the time of the branch, these types are cast
         initial_scope = copy(self.scopes[-1])
-        wrapped = self.implement_typechecks(typchecks)
-        self.wrapped.extend(wrapped.keys())
-        typed_while.body = self.visit_sequence(node.body)
-        self.wrapped = [x for x in self.wrapped if x not in wrapped.keys()]
-        final_scope_body = copy(self.scopes[-1])
-        # revert changes
+        typed_while.body, final_scope_body = self.visit_sequence_under_typechecks(
+            node.body, typchecks
+        )
         self.scopes[-1] = initial_scope
-        # for the time of the else branch, the inverse types hold
-        wrapped = self.implement_typechecks(inv_typchecks)
-        self.wrapped.extend(wrapped.keys())
-        typed_while.orelse = self.visit_sequence(node.orelse)
-        self.wrapped = [x for x in self.wrapped if x not in wrapped.keys()]
-        final_scope_else = self.scopes[-1]
+        typed_while.orelse, final_scope_else = self.visit_sequence_under_typechecks(
+            node.orelse, inv_typchecks
+        )
         assert hasattr(
             typed_while, "orelse_can_fall_through"
         ), "Missing else fallthrough annotation on while statement"
-        if typed_while.orelse_can_fall_through:
-            self.scopes[-1] = merge_scope(final_scope_body, final_scope_else)
-        else:
-            self.scopes[-1] = initial_scope
+        self.scopes[-1] = self.merge_fallthrough_scopes(
+            initial_scope,
+            (
+                typed_while.orelse_can_fall_through,
+                merge_scope(final_scope_body, final_scope_else),
+            ),
+        )
         return typed_while
 
     def visit_For(self, node: For) -> TypedFor:
@@ -1164,18 +1174,23 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         self.set_variable_type(node.target.id, vartyp)
         typed_for.target = self.visit(node.target)
         initial_scope = copy(self.scopes[-1])
-        typed_for.body = self.visit_sequence(node.body)
-        final_scope_body = copy(self.scopes[-1])
+        typed_for.body, final_scope_body = self.visit_sequence_under_typechecks(
+            node.body, {}
+        )
         self.scopes[-1] = initial_scope
-        typed_for.orelse = self.visit_sequence(node.orelse)
-        final_scope_else = self.scopes[-1]
+        typed_for.orelse, final_scope_else = self.visit_sequence_under_typechecks(
+            node.orelse, {}
+        )
         assert hasattr(
             typed_for, "orelse_can_fall_through"
         ), "Missing else fallthrough annotation on for statement"
-        if typed_for.orelse_can_fall_through:
-            self.scopes[-1] = merge_scope(final_scope_body, final_scope_else)
-        else:
-            self.scopes[-1] = initial_scope
+        self.scopes[-1] = self.merge_fallthrough_scopes(
+            initial_scope,
+            (
+                typed_for.orelse_can_fall_through,
+                merge_scope(final_scope_body, final_scope_else),
+            ),
+        )
         return typed_for
 
     def visit_Name(self, node: Name) -> TypedName:
