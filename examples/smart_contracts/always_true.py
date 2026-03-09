@@ -2,5 +2,7 @@
 from opshin.prelude import *
 
 
-def validator(context: ScriptContext) -> None:
-    pass
+@dataclass()
+class Contract:
+    def raw(self, _context: ScriptContext) -> None:
+        pass

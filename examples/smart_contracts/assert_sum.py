@@ -2,9 +2,9 @@
 from opshin.prelude import *
 
 
-def validator(context: ScriptContext) -> None:
-    datum: int = own_datum_unsafe(context)
-    redeemer: int = context.redeemer
-    assert (
-        datum + redeemer == 42
-    ), f"Expected datum and redeemer to sum to 42, but they sum to {datum + redeemer}"
+@dataclass()
+class Contract:
+    def spend(self, datum: int, redeemer: int, _context: ScriptContext) -> None:
+        assert (
+            datum + redeemer == 42
+        ), f"Expected datum and redeemer to sum to 42, but they sum to {datum + redeemer}"

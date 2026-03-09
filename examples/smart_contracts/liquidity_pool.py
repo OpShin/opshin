@@ -607,37 +607,39 @@ def get_spending_purpose(context: ScriptContext) -> Spending:
     return purpose
 
 
-def validator(context: ScriptContext) -> None:
-    """
-    Validates that the pool is spent correctly
-    DISCLAIMER: This is a simple example to demonstrate onchain based contract upgradeability and should not be used in production.
-    """
-    purpose = get_spending_purpose(context)
-    redeemer: PoolAction = context.redeemer
-    check_integrity(redeemer)
-    datum: PoolState = own_datum_unsafe(context)
-    check_integrity(datum)
-    own_input_info = context.transaction.inputs[redeemer.pool_input_index]
-    assert (
-        own_input_info.out_ref == purpose.tx_out_ref
-    ), "Index of own input does not match purpose"
+@dataclass()
+class Contract:
+    def spend(
+        self, datum: PoolState, redeemer: PoolAction, context: ScriptContext
+    ) -> None:
+        """
+        Validates that the pool is spent correctly
+        DISCLAIMER: This is a simple example to demonstrate onchain based contract upgradeability and should not be used in production.
+        """
+        purpose = get_spending_purpose(context)
+        check_integrity(redeemer)
+        check_integrity(datum)
+        own_input_info = context.transaction.inputs[redeemer.pool_input_index]
+        assert (
+            own_input_info.out_ref == purpose.tx_out_ref
+        ), "Index of own input does not match purpose"
 
-    own_output = context.transaction.outputs[redeemer.pool_output_index]
-    if isinstance(redeemer, AddLiquidity) or isinstance(redeemer, RemoveLiquidity):
-        check_valid_license_present(
-            redeemer.license_input_index,
-            context.transaction,
-            datum.up_pool_params.license_policy_id,
-        )
-        check_change_liquidity(datum, redeemer, context, own_input_info, own_output)
-    elif isinstance(redeemer, SwapAsset):
-        check_valid_license_present(
-            redeemer.license_input_index,
-            context.transaction,
-            datum.up_pool_params.license_policy_id,
-        )
-        check_swap(datum, redeemer, context, own_input_info, own_output)
-    elif isinstance(redeemer, PoolUpgrade):
-        check_upgrade(datum, redeemer, context, own_input_info, own_output)
-    else:
-        assert False, "Unknown redeemer"
+        own_output = context.transaction.outputs[redeemer.pool_output_index]
+        if isinstance(redeemer, AddLiquidity) or isinstance(redeemer, RemoveLiquidity):
+            check_valid_license_present(
+                redeemer.license_input_index,
+                context.transaction,
+                datum.up_pool_params.license_policy_id,
+            )
+            check_change_liquidity(datum, redeemer, context, own_input_info, own_output)
+        elif isinstance(redeemer, SwapAsset):
+            check_valid_license_present(
+                redeemer.license_input_index,
+                context.transaction,
+                datum.up_pool_params.license_policy_id,
+            )
+            check_swap(datum, redeemer, context, own_input_info, own_output)
+        elif isinstance(redeemer, PoolUpgrade):
+            check_upgrade(datum, redeemer, context, own_input_info, own_output)
+        else:
+            assert False, "Unknown redeemer"

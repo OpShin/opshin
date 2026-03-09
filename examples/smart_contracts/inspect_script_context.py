@@ -2,5 +2,11 @@
 from opshin.prelude import *
 
 
-def validator(context: ScriptContext):
-    print(context.to_cbor())
+# this validator will print the datum, redeemer and script context passed from the node in a readable format
+@dataclass()
+class Contract:
+    def raw(self, context: ScriptContext) -> None:
+        print(f"script context (CBOR hex): {context.to_cbor().hex()}")
+        print(f"script context (native): {context}")
+
+        assert False, "Failing in order to show script logs"

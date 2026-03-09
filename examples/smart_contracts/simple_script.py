@@ -108,9 +108,16 @@ def validate_script(
     return res
 
 
-# to fully emulate simple script behaviour, compile with --force-three-params
 # the script is a contract parameter, pass it into the build command
-def validator(script: Script, context: ScriptContext) -> None:
-    assert validate_script(
-        script, context.transaction.signatories, context.transaction.validity_range
-    ), "Simple Script validation failed!"
+@dataclass()
+class Contract:
+    script: Script
+
+    def spend(
+        self, _datum: Anything, _redeemer: Anything, context: ScriptContext
+    ) -> None:
+        assert validate_script(
+            self.script,
+            context.transaction.signatories,
+            context.transaction.validity_range,
+        ), "Simple Script validation failed!"

@@ -1438,6 +1438,7 @@ def compile(
     compile_pipeline = [
         # Important to call this one first - it imports all further files
         RewriteImport(filename=filename),
+        RewriteContractMethods(),
         # Rewrites that simplify the python code
         RewriteForbiddenReturn(),
         OptimizeUnionExpansion() if config.expand_union_types else NoOp(),
@@ -1452,7 +1453,6 @@ def compile(
         RewriteImportTyping(),
         RewriteForbiddenOverwrites(),
         RewriteImportDataclasses(),
-        RewriteContractMethods(),
         RewriteInjectBuiltins(),
         RewriteConditions(),
         # Save the original names of variables

@@ -1,5 +1,5 @@
-import unittest
 import os
+import unittest
 
 from frozendict import frozendict
 import uplc.ast as uplc_ast
