@@ -6,18 +6,22 @@ from ..util import CompilingNodeTransformer, custom_fix_missing_locations
 
 
 class _RewriteContractSelfReferences(ast.NodeTransformer):
-    def __init__(self, field_names, helper_function_names):
-        self.field_names = tuple(field_names)
-        self._field_name_set = set(field_names)
+    def __init__(self, field_name_map, helper_function_names, local_name_map):
+        self.field_parameter_names = tuple(field_name_map.values())
+        self.field_name_map = dict(field_name_map)
         self.helper_function_names = dict(helper_function_names)
+        self.local_name_map = dict(local_name_map)
 
     def visit_Attribute(self, node: ast.Attribute):
         if isinstance(node.value, ast.Name) and node.value.id == "self":
             assert isinstance(
                 node.ctx, ast.Load
             ), "Contract fields are immutable and may not be assigned through self."
-            if node.attr in self._field_name_set:
-                return ast.copy_location(ast.Name(id=node.attr, ctx=ast.Load()), node)
+            if node.attr in self.field_name_map:
+                return ast.copy_location(
+                    ast.Name(id=self.field_name_map[node.attr], ctx=ast.Load()),
+                    node,
+                )
             if node.attr in self.helper_function_names:
                 return ast.copy_location(
                     ast.Name(id=self.helper_function_names[node.attr], ctx=ast.Load()),
@@ -25,6 +29,14 @@ class _RewriteContractSelfReferences(ast.NodeTransformer):
                 )
             assert False, f"Contract has no field or method named '{node.attr}'."
         return self.generic_visit(node)
+
+    def visit_Name(self, node: ast.Name):
+        if node.id not in self.local_name_map:
+            return node
+        return ast.copy_location(
+            ast.Name(id=self.local_name_map[node.id], ctx=node.ctx),
+            node,
+        )
 
     def visit_Call(self, node: ast.Call):
         node = self.generic_visit(node)
@@ -37,7 +49,7 @@ class _RewriteContractSelfReferences(ast.NodeTransformer):
                 func=node.func,
                 args=[
                     ast.Name(id=field_name, ctx=ast.Load())
-                    for field_name in self.field_names
+                    for field_name in self.field_parameter_names
                 ]
                 + node.args,
                 keywords=node.keywords,
@@ -48,6 +60,7 @@ class _RewriteContractSelfReferences(ast.NodeTransformer):
 
 class RewriteContractMethods(CompilingNodeTransformer):
     step = "Rewriting Contract entrypoints"
+    _internal_name_prefix = "__contract+"
 
     def visit_Module(self, node: ast.Module) -> ast.Module:
         node = self.generic_visit(node)
@@ -82,8 +95,15 @@ class RewriteContractMethods(CompilingNodeTransformer):
         self._check_contract_class(contract_class, supported_methods, contract_methods)
         field_annotations = self._field_annotations(contract_class)
         module_names = self._module_bound_names(node)
+        generated_names = set(module_names)
+        field_parameter_names = self._field_parameter_names(
+            field_annotations, generated_names
+        )
         helper_function_names = self._helper_function_names(
-            contract_methods, module_names
+            contract_methods, generated_names
+        )
+        method_argument_name_maps = self._method_argument_name_maps(
+            contract_methods, generated_names
         )
         supported_method_names = {
             supported_method.method_name for supported_method in supported_methods
@@ -93,7 +113,9 @@ class RewriteContractMethods(CompilingNodeTransformer):
             self._lift_contract_method(
                 method,
                 field_annotations,
+                field_parameter_names,
                 helper_function_names,
+                method_argument_name_maps[method.name],
             )
             for method in contract_methods.values()
             if method.name not in supported_method_names
@@ -102,20 +124,14 @@ class RewriteContractMethods(CompilingNodeTransformer):
         rewritten_entrypoint_bodies = {
             supported_method.method_name: self._rewrite_method_body(
                 contract_methods[supported_method.method_name],
-                field_annotations,
+                field_parameter_names,
                 helper_function_names,
+                method_argument_name_maps[supported_method.method_name],
             )
             for supported_method in supported_methods
         }
-        used_names = (
-            {field_name for field_name, _ in field_annotations}
-            | set(helper_function_names.values())
-            | module_names
-        )
-        context_argument_name = self._make_unique_name(
-            contract_methods[supported_methods[0].method_name].args.args[-1].arg,
-            used_names,
-        )
+        context_argument_name = self._make_reserved_name("context", generated_names)
+        generated_names.add(context_argument_name)
         return_annotation = deepcopy(
             contract_methods[supported_methods[0].method_name].returns
         )
@@ -129,7 +145,10 @@ class RewriteContractMethods(CompilingNodeTransformer):
             args=ast.arguments(
                 posonlyargs=[],
                 args=[
-                    ast.arg(arg=field_name, annotation=deepcopy(annotation))
+                    ast.arg(
+                        arg=field_parameter_names[field_name],
+                        annotation=deepcopy(annotation),
+                    )
                     for field_name, annotation in field_annotations
                 ]
                 + [
@@ -143,9 +162,10 @@ class RewriteContractMethods(CompilingNodeTransformer):
                 defaults=[],
             ),
             body=self._validator_body(
-                field_annotations,
+                field_parameter_names,
                 supported_methods,
                 contract_methods,
+                method_argument_name_maps,
                 rewritten_entrypoint_bodies,
                 context_argument_name,
             ),
@@ -237,16 +257,36 @@ class RewriteContractMethods(CompilingNodeTransformer):
             )
         return field_annotations
 
-    def _helper_function_names(self, contract_methods, module_names):
+    def _field_parameter_names(self, field_annotations, used_names):
+        field_parameter_names = {}
+        for field_name, _ in field_annotations:
+            internal_name = self._make_reserved_name(f"field_{field_name}", used_names)
+            field_parameter_names[field_name] = internal_name
+            used_names.add(internal_name)
+        return field_parameter_names
+
+    def _helper_function_names(self, contract_methods, used_names):
         helper_function_names = {}
-        used_names = set(module_names)
         for method_name in contract_methods:
-            helper_function_name = self._make_unique_name(
-                f"contract_{method_name}", used_names
+            helper_function_name = self._make_reserved_name(
+                f"method_{method_name}", used_names
             )
             helper_function_names[method_name] = helper_function_name
             used_names.add(helper_function_name)
         return helper_function_names
+
+    def _method_argument_name_maps(self, contract_methods, used_names):
+        method_argument_name_maps = {}
+        for method_name, method in contract_methods.items():
+            argument_name_map = {}
+            for argument in method.args.args[1:]:
+                internal_name = self._make_reserved_name(
+                    f"arg_{method_name}_{argument.arg}", used_names
+                )
+                argument_name_map[argument.arg] = internal_name
+                used_names.add(internal_name)
+            method_argument_name_maps[method_name] = argument_name_map
+        return method_argument_name_maps
 
     def _self_method_references(self, methods):
         referenced_methods = set()
@@ -264,10 +304,15 @@ class RewriteContractMethods(CompilingNodeTransformer):
                 referenced_methods.add(node.func.attr)
         return referenced_methods
 
-    def _rewrite_method_body(self, method, field_annotations, helper_function_names):
-        field_names = [field_name for field_name, _ in field_annotations]
+    def _rewrite_method_body(
+        self,
+        method,
+        field_parameter_names,
+        helper_function_names,
+        argument_name_map,
+    ):
         body_rewriter = _RewriteContractSelfReferences(
-            field_names, helper_function_names
+            field_parameter_names, helper_function_names, argument_name_map
         )
         return [body_rewriter.visit(deepcopy(statement)) for statement in method.body]
 
@@ -275,7 +320,9 @@ class RewriteContractMethods(CompilingNodeTransformer):
         self,
         method: ast.FunctionDef,
         field_annotations,
+        field_parameter_names,
         helper_function_names,
+        argument_name_map,
     ) -> ast.FunctionDef:
         assert not method.decorator_list, "Contract methods must not have decorators."
         assert (
@@ -291,18 +338,28 @@ class RewriteContractMethods(CompilingNodeTransformer):
             args=ast.arguments(
                 posonlyargs=[],
                 args=[
-                    ast.arg(arg=field_name, annotation=deepcopy(annotation))
+                    ast.arg(
+                        arg=field_parameter_names[field_name],
+                        annotation=deepcopy(annotation),
+                    )
                     for field_name, annotation in field_annotations
                 ]
-                + [deepcopy(argument) for argument in method.args.args[1:]],
+                + [
+                    ast.arg(
+                        arg=argument_name_map[argument.arg],
+                        annotation=deepcopy(argument.annotation),
+                    )
+                    for argument in method.args.args[1:]
+                ],
                 kwonlyargs=[],
                 kw_defaults=[],
                 defaults=[],
             ),
             body=self._rewrite_method_body(
                 method,
-                field_annotations,
+                field_parameter_names,
                 helper_function_names,
+                argument_name_map,
             ),
             decorator_list=[],
             returns=deepcopy(method.returns),
@@ -312,13 +369,14 @@ class RewriteContractMethods(CompilingNodeTransformer):
             ast.copy_location(lifted_method, method), method
         )
 
-    def _make_unique_name(self, preferred_name: str, used_names):
-        if preferred_name not in used_names:
-            return preferred_name
+    def _make_reserved_name(self, preferred_name: str, used_names):
+        reserved_name = f"{self._internal_name_prefix}{preferred_name}"
+        if reserved_name not in used_names:
+            return reserved_name
         suffix = 0
-        while f"{preferred_name}_{suffix}" in used_names:
+        while f"{reserved_name}_{suffix}" in used_names:
             suffix += 1
-        return f"{preferred_name}_{suffix}"
+        return f"{reserved_name}_{suffix}"
 
     def _check_method_signature(self, method: ast.FunctionDef, supported_method):
         assert (
@@ -534,19 +592,19 @@ class RewriteContractMethods(CompilingNodeTransformer):
 
     def _validator_body(
         self,
-        field_annotations,
+        field_parameter_names,
         supported_methods,
         contract_methods,
+        method_argument_name_maps,
         rewritten_entrypoint_bodies,
         context_argument_name,
     ):
-        used_names = {field_name for field_name, _ in field_annotations} | {
-            context_argument_name
-        }
+        used_names = set(field_parameter_names.values()) | {context_argument_name}
         body = []
         if supported_methods[0].method_name == "raw":
-            method = contract_methods["raw"]
-            context_name = method.args.args[1].arg
+            context_name = method_argument_name_maps["raw"][
+                contract_methods["raw"].args.args[1].arg
+            ]
             if context_name != context_argument_name:
                 body.append(
                     ast.Assign(
@@ -556,7 +614,7 @@ class RewriteContractMethods(CompilingNodeTransformer):
                 )
             body.extend(deepcopy(rewritten_entrypoint_bodies["raw"]))
             return body
-        purpose_name = self._make_unique_name("purpose", used_names)
+        purpose_name = self._make_reserved_name("purpose", used_names)
         used_names.add(purpose_name)
         body.append(
             ast.Assign(
@@ -572,17 +630,8 @@ class RewriteContractMethods(CompilingNodeTransformer):
         for index, supported_method in enumerate(supported_methods):
             method = contract_methods[supported_method.method_name]
             method_argument_names = [argument.arg for argument in method.args.args[1:]]
-            branch_names = {}
-            branch_used_names = set(used_names)
-            for argument_name in method_argument_names:
-                if argument_name == method_argument_names[-1]:
-                    unique_argument_name = context_argument_name
-                else:
-                    unique_argument_name = self._make_unique_name(
-                        argument_name, branch_used_names
-                    )
-                branch_names[argument_name] = unique_argument_name
-                branch_used_names.add(unique_argument_name)
+            branch_names = method_argument_name_maps[supported_method.method_name]
+            branch_used_names = set(used_names) | set(branch_names.values())
             branch_body = []
             context_name = branch_names[method_argument_names[-1]]
             if context_name != context_argument_name:
@@ -600,15 +649,15 @@ class RewriteContractMethods(CompilingNodeTransformer):
                 datum_annotation = deepcopy(method.args.args[1].annotation)
                 redeemer_annotation = deepcopy(method.args.args[2].annotation)
                 datum_loading_strategy = self._datum_loading_strategy(datum_annotation)
-                spent_output_name = self._make_unique_name(
+                spent_output_name = self._make_reserved_name(
                     "spent_output", branch_used_names
                 )
                 branch_used_names.add(spent_output_name)
-                attached_datum_name = self._make_unique_name(
+                attached_datum_name = self._make_reserved_name(
                     "attached_datum", branch_used_names
                 )
                 branch_used_names.add(attached_datum_name)
-                resolved_datum_name = self._make_unique_name(
+                resolved_datum_name = self._make_reserved_name(
                     "resolved_datum", branch_used_names
                 )
                 branch_used_names.add(resolved_datum_name)
@@ -647,7 +696,7 @@ class RewriteContractMethods(CompilingNodeTransformer):
                         )
                     )
                 elif datum_loading_strategy == "optional_raw":
-                    unwrapped_datum_name = self._make_unique_name(
+                    unwrapped_datum_name = self._make_reserved_name(
                         "unwrapped_datum", branch_used_names
                     )
                     raw_datum_annotation = self._annotation_without_member(

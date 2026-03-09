@@ -197,6 +197,17 @@ class Contract:
         return self.add_offset(redeemer)
 """
 
+LOCAL_PURPOSE_NAME_CONTRACT_SOURCE = """
+from opshin.prelude import *
+
+@dataclass()
+class Contract:
+    def mint(self, redeemer: int, context: ScriptContext) -> int:
+        purpose = context.purpose
+        assert isinstance(purpose, Minting)
+        return redeemer
+"""
+
 
 class ContractClassTests(unittest.TestCase):
     def test_contract_spend_dispatches_through_validator(self):
@@ -234,6 +245,12 @@ class ContractClassTests(unittest.TestCase):
     def test_contract_helper_methods_are_lifted(self):
         ret = eval_uplc_value(HELPER_METHOD_CONTRACT_SOURCE, 5, make_minting_context(4))
         self.assertEqual(ret, 9)
+
+    def test_contract_rewrite_avoids_local_name_collisions(self):
+        ret = eval_uplc_value(
+            LOCAL_PURPOSE_NAME_CONTRACT_SOURCE, make_minting_context(4)
+        )
+        self.assertEqual(ret, 4)
 
     def test_runtime_contract_discovery_builds_validator(self):
         module = types.ModuleType("contract_module")
@@ -314,3 +331,16 @@ class ContractClassTests(unittest.TestCase):
                 for statement in rewritten_module.body
             )
         )
+
+    def test_contract_rewrite_uses_reserved_internal_names(self):
+        rewritten_module = RewriteContractMethods().visit(
+            ast.parse(LOCAL_PURPOSE_NAME_CONTRACT_SOURCE)
+        )
+        bound_names = {
+            node.id
+            for node in ast.walk(rewritten_module)
+            if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Store)
+        }
+        internal_names = {name for name in bound_names if name.startswith("__contract")}
+        self.assertTrue(internal_names)
+        self.assertTrue(all("+" in name for name in internal_names))
