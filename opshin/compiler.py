@@ -39,11 +39,11 @@ from .typed_ast import *
 
 from .compiler_config import DEFAULT_CONFIG
 from .optimize.optimize_const_folding import OptimizeConstantFolding
-from .optimize.optimize_rewrite_expanded_union_calls import (
-    OptimizeRewriteExpandedUnionCalls,
+from .rewrite.rewrite_expanded_union_calls import (
+    RewriteExpandedUnionCalls,
 )
-from .optimize.optimize_rewrite_function_closures import (
-    OptimizeRewriteFunctionClosures,
+from .rewrite.rewrite_function_closures import (
+    RewriteFunctionClosures,
 )
 from .optimize.optimize_remove_deadconstants import OptimizeRemoveDeadConstants
 from .optimize.optimize_remove_deadconds import OptimizeRemoveDeadConditions
@@ -1240,8 +1240,8 @@ def compile(
         RewriteAnnotateFallthrough(),
         # The type inference needs to be run after complex python operations were rewritten
         AggressiveTypeInferencer(config.allow_isinstance_anything),
-        (OptimizeRewriteExpandedUnionCalls() if config.expand_union_types else NoOp()),
-        OptimizeRewriteFunctionClosures(),
+        (RewriteExpandedUnionCalls() if config.expand_union_types else NoOp()),
+        RewriteFunctionClosures(),
         # Rewrites that circumvent the type inference or use its results
         OptimizeFoldBoolCast(),
         RewriteAssertNone(),

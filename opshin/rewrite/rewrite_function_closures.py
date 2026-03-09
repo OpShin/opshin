@@ -88,7 +88,7 @@ class _FunctionTypeRewriter(NodeTransformer):
         return node
 
 
-class OptimizeRewriteFunctionClosures(ScopedSequenceNodeTransformer):
+class RewriteFunctionClosures(ScopedSequenceNodeTransformer):
     # Function values are compiled as explicit closures. This pass computes
     # which names each function must receive so recursive calls, aliases and
     # lifted methods all see the same environment the type checker inferred.

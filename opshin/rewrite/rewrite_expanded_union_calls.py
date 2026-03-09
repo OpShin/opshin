@@ -6,7 +6,7 @@ from ..typed_util import (
     ScopedSequenceNodeTransformer,
     collect_typed_functions,
 )
-from .optimize_union_expansion import (
+from ..optimize.optimize_union_expansion import (
     get_specialized_function_name_for_types,
     split_specialized_function_name,
 )
@@ -18,7 +18,7 @@ class _ExpandedVariant:
     typ: InstanceType
 
 
-class OptimizeRewriteExpandedUnionCalls(ScopedSequenceNodeTransformer):
+class RewriteExpandedUnionCalls(ScopedSequenceNodeTransformer):
     # This pass keeps track of specialized union variants in the current nested
     # statement sequence, so calls can be rewritten even when the expanded
     # functions live inside another function or control-flow block.
