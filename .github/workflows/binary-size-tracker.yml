@@ -91,7 +91,7 @@ jobs:
       id: size-check
       run: |
         echo "Running binary size comparison..."
-        if uv run scripts/binary_size_tracker.py compare --baseline-file baseline.json > size_report.txt 2>&1; then
+        if uv run scripts/binary_size_tracker.py compare --baseline-file baseline.json > size_report.md 2>&1; then
           echo "has_significant_changes=false" >> $GITHUB_OUTPUT
         else
           echo "has_significant_changes=true" >> $GITHUB_OUTPUT
@@ -99,16 +99,16 @@ jobs:
         
         # Capture the report for commenting
         echo "REPORT<<EOF" >> $GITHUB_OUTPUT
-        cat size_report.txt >> $GITHUB_OUTPUT
+        cat size_report.md >> $GITHUB_OUTPUT
         echo "EOF" >> $GITHUB_OUTPUT
-        cat size_report.txt >> $GITHUB_STEP_SUMMARY
+        cat size_report.md >> $GITHUB_STEP_SUMMARY
 
     - name: Upload size report as artifact
       uses: actions/upload-artifact@v7
       with:
         name: binary-size-report
         path: |
-          size_report.txt
+          size_report.md
           baseline.json
 
     - name: Delete previous bot comments
