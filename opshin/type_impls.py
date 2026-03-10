@@ -1767,6 +1767,42 @@ class InstanceType(Type):
         return self.typ.python_type()
 
 
+@dataclass(frozen=True)
+class DataInstanceType(InstanceType):
+    typ: ClassType
+
+    def __eq__(self, other):
+        return isinstance(other, InstanceType) and self.typ == other.typ
+
+    def __hash__(self):
+        return hash((InstanceType, self.typ))
+
+    def cmp(self, op: ast.cmpop, o: "Type") -> plt.AST:
+        if isinstance(o, InstanceType):
+            return self.typ.cmp(op, o.typ)
+        return super().cmp(op, o)
+
+    def binop_type(self, binop: ast.operator, other: "Type") -> "Type":
+        return self.typ.binop_type(binop, other)
+
+    def rbinop_type(self, binop: ast.operator, other: "Type") -> "Type":
+        return self.typ.rbinop_type(binop, other)
+
+
+def strip_data_instance_type(p: Type):
+    if isinstance(p, DataInstanceType):
+        return InstanceType(p.typ)
+    return p
+
+
+def data_repr_instance_type(p: Type):
+    if isinstance(p, DataInstanceType):
+        return p
+    if isinstance(p, InstanceType) and isinstance(p.typ, (AnyType, UnionType)):
+        return DataInstanceType(p.typ)
+    return p
+
+
 @dataclass(frozen=True, unsafe_hash=True)
 class IntegerType(AtomicType):
     def pluthon_type(self, skip_constructor: bool = False) -> str:
@@ -3352,13 +3388,43 @@ EmptyListMap = {
 }
 
 
+def empty_list_sample_value(p: Type):
+    assert isinstance(p, InstanceType), "Can only create lists of instances"
+    if p == IntegerInstanceType:
+        return uplc.BuiltinInteger(0)
+    if p == ByteStringInstanceType:
+        return uplc.BuiltinByteString(b"")
+    if p == StringInstanceType:
+        return uplc.BuiltinString("")
+    if p == UnitInstanceType:
+        return uplc.BuiltinUnit()
+    if p == BoolInstanceType:
+        return uplc.BuiltinBool(False)
+    if isinstance(p.typ, ListType):
+        return uplc.BuiltinList([], empty_list_sample_value(p.typ.typ))
+    if isinstance(p.typ, DictType):
+        return uplc.BuiltinPair(
+            uplc.PlutusConstr(0, frozenlist([])),
+            uplc.PlutusConstr(0, frozenlist([])),
+        )
+    if (
+        isinstance(p.typ, RecordType)
+        or isinstance(p.typ, AnyType)
+        or isinstance(p.typ, UnionType)
+    ):
+        return uplc.PlutusConstr(0, frozenlist([]))
+    raise NotImplementedError(f"Empty lists of type {p} can't be constructed yet")
+
+
 def empty_list(p: Type):
+    p = strip_data_instance_type(p)
     if p in EmptyListMap:
         return EmptyListMap[p]
     assert isinstance(p, InstanceType), "Can only create lists of instances"
     if isinstance(p.typ, ListType):
-        el = empty_list(p.typ.typ)
-        return plt.EmptyListList(uplc.BuiltinList([], el.sample_value))
+        return plt.EmptyListList(
+            uplc.BuiltinList([], empty_list_sample_value(p.typ.typ))
+        )
     if isinstance(p.typ, DictType):
         return plt.EmptyListList(
             uplc.BuiltinList(
@@ -3388,6 +3454,7 @@ TransformExtParamsMap = {
 
 
 def transform_ext_params_map(p: Type):
+    p = strip_data_instance_type(p)
     assert isinstance(
         p, InstanceType
     ), "Can only transform instances, not classes as input"
@@ -3421,6 +3488,7 @@ TransformOutputMap = {
 
 
 def transform_output_map(p: Type):
+    p = strip_data_instance_type(p)
     assert isinstance(
         p, InstanceType
     ), "Can only transform instances, not classes as input"

@@ -14,8 +14,10 @@ from .prelude import Nothing
 from .rewrite.rewrite_import_bls12_381 import RewriteImportBLS12381
 from .type_impls import (
     InstanceType,
+    DataInstanceType,
     UnionType,
     UnitType,
+    Type,
     RecordType,
     transform_ext_params_map,
     AnyType,
@@ -97,6 +99,73 @@ BoolOpMap = {
     ast.And: plt.And,
     ast.Or: plt.Or,
 }
+
+
+def needs_data_cast(typ: Type) -> bool:
+    if not isinstance(typ, InstanceType):
+        return False
+    if isinstance(typ, DataInstanceType):
+        return True
+    if isinstance(typ.typ, (AnyType, UnionType)):
+        return True
+    if isinstance(typ.typ, ListType):
+        return needs_data_cast(typ.typ.typ)
+    if isinstance(typ.typ, DictType):
+        return needs_data_cast(typ.typ.key_typ) or needs_data_cast(typ.typ.value_typ)
+    return False
+
+
+def transform_output_to_type(source: Type, target: Type):
+    assert isinstance(source, InstanceType), "Can only transform instance types"
+    assert isinstance(target, InstanceType), "Can only transform instance types"
+    if isinstance(target, DataInstanceType):
+        return transform_output_map(source)
+    if isinstance(target.typ, (AnyType, UnionType)):
+        return transform_output_map(source)
+    if isinstance(target.typ, ListType) and isinstance(source.typ, ListType):
+        if not needs_data_cast(target.typ.typ):
+            return lambda x: x
+        return lambda x: plt.MapList(
+            x,
+            OLambda(
+                ["x"],
+                transform_output_to_type(source.typ.typ, target.typ.typ)(OVar("x")),
+            ),
+            empty_list(target.typ.typ),
+        )
+    if isinstance(target.typ, DictType) and isinstance(source.typ, DictType):
+        if not (
+            needs_data_cast(target.typ.key_typ) or needs_data_cast(target.typ.value_typ)
+        ):
+            return lambda x: x
+        return lambda x: plt.MapList(
+            x,
+            OLambda(
+                ["x"],
+                plt.MkPairData(
+                    transform_output_map(target.typ.key_typ)(
+                        transform_output_to_type(
+                            source.typ.key_typ, target.typ.key_typ
+                        )(
+                            transform_ext_params_map(source.typ.key_typ)(
+                                plt.FstPair(OVar("x"))
+                            )
+                        )
+                    ),
+                    transform_output_map(target.typ.value_typ)(
+                        transform_output_to_type(
+                            source.typ.value_typ, target.typ.value_typ
+                        )(
+                            transform_ext_params_map(source.typ.value_typ)(
+                                plt.SndPair(OVar("x"))
+                            )
+                        )
+                    ),
+                ),
+            ),
+            plt.EmptyDataPairList(),
+        )
+    return lambda x: x
 
 
 def rec_constant_map_data(c):
@@ -454,16 +523,10 @@ class PlutoCompiler(CompilingNodeTransformer):
         ), "Assignments to other things then names are not supported"
         compiled_e = self.visit(node.value)
         varname = node.targets[0].id
-        if (hasattr(node.targets[0], "is_wrapped") and node.targets[0].is_wrapped) or (
-            isinstance(node.targets[0].typ, InstanceType)
-            and (
-                isinstance(node.targets[0].typ.typ, AnyType)
-                or isinstance(node.targets[0].typ.typ, UnionType)
+        if needs_data_cast(node.targets[0].typ):
+            compiled_e = transform_output_to_type(node.value.typ, node.targets[0].typ)(
+                compiled_e
             )
-        ):
-            # if this is a wrapped variable or Union/Any, we need to map it back to the external parameter type
-            # TODO this is terribly inefficient. we would rather want to cast once when entering the body and cast back when leaving
-            compiled_e = transform_output_map(node.value.typ)(compiled_e)
         # first evaluate the term, then wrap in a delay
         return lambda x: plt.Let(
             [
@@ -488,13 +551,10 @@ class PlutoCompiler(CompilingNodeTransformer):
             # we need to map this as it will originate from PlutusData
             # AnyType is the only type other than the builtin itself that can be cast to builtin values
             val = transform_ext_params_map(node.target.typ)(val)
-        if isinstance(node.target.typ, InstanceType) and (
-            isinstance(node.target.typ.typ, AnyType)
-            or isinstance(node.target.typ.typ, UnionType)
-        ):
+        if needs_data_cast(node.target.typ):
             # we need to map this back as it will be treated as PlutusData
             # AnyType is the only type other than the builtin itself that can be cast to from builtin values
-            val = transform_output_map(node.value.typ)(val)
+            val = transform_output_to_type(node.value.typ, node.target.typ)(val)
         return lambda x: plt.Let(
             [
                 (opshin_name_scheme_compatible_varname(node.target.id), val),
@@ -510,7 +570,7 @@ class PlutoCompiler(CompilingNodeTransformer):
         if isinstance(node.typ, ClassType):
             # if this is not an instance but a class, call the constructor
             return node.typ.constr()
-        if hasattr(node, "is_wrapped") and node.is_wrapped:
+        if isinstance(node.typ, DataInstanceType):
             return transform_ext_params_map(node.typ)(plt.Force(plt.Var(node.id)))
         return plt.Force(plt.Var(node.id))
 
@@ -552,9 +612,9 @@ class PlutoCompiler(CompilingNodeTransformer):
             assert isinstance(t, InstanceType)
             # pass in all arguments evaluated with the statemonad
             a_int = self.visit(a)
-            if isinstance(t.typ, AnyType) or isinstance(t.typ, UnionType):
+            if needs_data_cast(t):
                 # if the function expects input of generic type data, wrap data before passing it inside
-                a_int = transform_output_map(a.typ)(a_int)
+                a_int = transform_output_to_type(a.typ, t)(a_int)
             args.append(a_int)
         # First assign to let to ensure that the arguments are evaluated before the call, but need to delay
         # as this is a variable assignment
@@ -719,10 +779,10 @@ class PlutoCompiler(CompilingNodeTransformer):
     def visit_Return(self, node: TypedReturn) -> CallAST:
         value_plt = self.visit(node.value)
         assert self.current_function_typ, "Can not handle Return outside of a function"
-        if isinstance(self.current_function_typ[-1].rettyp.typ, AnyType) or isinstance(
-            self.current_function_typ[-1].rettyp.typ, UnionType
-        ):
-            value_plt = transform_output_map(node.value.typ)(value_plt)
+        if needs_data_cast(self.current_function_typ[-1].rettyp):
+            value_plt = transform_output_to_type(
+                node.value.typ, self.current_function_typ[-1].rettyp
+            )(value_plt)
         return lambda _: value_plt
 
     def visit_Subscript(self, node: TypedSubscript) -> plt.AST:
