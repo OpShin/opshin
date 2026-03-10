@@ -3352,13 +3352,40 @@ EmptyListMap = {
 }
 
 
+def empty_list_sample_value(p: Type):
+    assert isinstance(p, InstanceType), "Can only create lists of instances"
+    if p == IntegerInstanceType:
+        return uplc.BuiltinInteger(0)
+    if p == ByteStringInstanceType:
+        return uplc.BuiltinByteString(b"")
+    if p == StringInstanceType:
+        return uplc.BuiltinString("")
+    if p == UnitInstanceType:
+        return uplc.BuiltinUnit()
+    if p == BoolInstanceType:
+        return uplc.BuiltinBool(False)
+    if isinstance(p.typ, ListType):
+        return uplc.BuiltinList([], empty_list_sample_value(p.typ.typ))
+    if isinstance(p.typ, DictType):
+        return uplc.BuiltinPair(
+            uplc.PlutusConstr(0, frozenlist([])),
+            uplc.PlutusConstr(0, frozenlist([])),
+        )
+    if (
+        isinstance(p.typ, RecordType)
+        or isinstance(p.typ, AnyType)
+        or isinstance(p.typ, UnionType)
+    ):
+        return uplc.PlutusConstr(0, frozenlist([]))
+    raise NotImplementedError(f"Empty lists of type {p} can't be constructed yet")
+
+
 def empty_list(p: Type):
     if p in EmptyListMap:
         return EmptyListMap[p]
     assert isinstance(p, InstanceType), "Can only create lists of instances"
     if isinstance(p.typ, ListType):
-        el = empty_list(p.typ.typ)
-        return plt.EmptyListList(uplc.BuiltinList([], el.sample_value))
+        return plt.EmptyListList(uplc.BuiltinList([], empty_list_sample_value(p.typ.typ)))
     if isinstance(p.typ, DictType):
         return plt.EmptyListList(
             uplc.BuiltinList(
