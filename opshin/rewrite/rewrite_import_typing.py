@@ -1,7 +1,8 @@
 from ast import *
+from copy import copy
 from typing import Optional
 
-from ..util import CompilingNodeTransformer, transform_annotation
+from ..util import CompilingNodeTransformer, AnnotationNodeTransformer
 
 """
 Checks that there was an import of dataclass if there are any class definitions
@@ -9,6 +10,22 @@ Checks that there was an import of dataclass if there are any class definitions
 
 
 ALLOWED_TYPING_IMPORTS = {"Dict", "List", "Union", "Self"}
+
+
+class TypingAnnotationMarker(AnnotationNodeTransformer):
+    def __init__(self, imports, class_name: str):
+        self.imports = imports
+        self.class_name = class_name
+
+    def visit_Name(self, node: Name):
+        node_cp = copy(node)
+        if node_cp.id in ALLOWED_TYPING_IMPORTS and node_cp.id not in self.imports:
+            raise ValueError(
+                f"{node_cp.id} used, which is a keyword for special OpShin types, but typing not imported. Please add 'from typing import {node_cp.id}'"
+            )
+        if node_cp.id == "Self":
+            node_cp.idSelf = self.class_name
+        return node_cp
 
 
 class RewriteImportTyping(CompilingNodeTransformer):
@@ -40,17 +57,7 @@ class RewriteImportTyping(CompilingNodeTransformer):
         return node
 
     def mark_typing_annotation_usage(self, annotation: expr, class_name: str):
-        def mark(node: expr):
-            if isinstance(node, Name):
-                if node.id in ALLOWED_TYPING_IMPORTS and node.id not in self.imports:
-                    raise ValueError(
-                        f"{node.id} used, which is a keyword for special OpShin types, but typing not imported. Please add 'from typing import {node.id}'"
-                    )
-                if node.id == "Self":
-                    node.idSelf = class_name
-            return node
-
-        return transform_annotation(annotation, mark)
+        return TypingAnnotationMarker(self.imports, class_name).visit(annotation)
 
     def visit_ClassDef(self, node: ClassDef) -> ClassDef:
         for i, attribute in enumerate(node.body):
