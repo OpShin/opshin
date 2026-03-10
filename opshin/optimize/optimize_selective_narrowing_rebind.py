@@ -8,6 +8,7 @@ from ..type_impls import (
     AnyType,
     DataInstanceType,
     InstanceType,
+    ListType,
     Type,
     UnionType,
     strip_data_instance_type,
@@ -104,12 +105,44 @@ class _NameTypeRewriter(ScopedSequenceNodeTransformer):
         return node_cp
 
 
-def make_typed_rebind_assignment(name: str, source_typ: Type, target_typ: Type):
+class _NameLoadRewriter(ScopedSequenceNodeTransformer):
+    def __init__(self, replacements: typing.Dict[str, typing.Tuple[str, Type]]):
+        self.replacements = replacements
+
+    def visit_FunctionDef(self, node: FunctionDef) -> FunctionDef:
+        return node
+
+    def visit_ClassDef(self, node: ClassDef) -> ClassDef:
+        return node
+
+    def visit_Call(self, node):
+        if isinstance(node.func, Name) and getattr(node.func, "orig_id", None) == "isinstance":
+            return node
+        return self.generic_visit(node)
+
+    def visit_Name(self, node: Name) -> Name:
+        if (
+            node.id not in self.replacements
+            or not hasattr(node, "typ")
+            or not isinstance(node.ctx, Load)
+        ):
+            return node
+        replacement_id, replacement_typ = self.replacements[node.id]
+        node_cp = copy(node)
+        node_cp.id = replacement_id
+        node_cp.orig_id = replacement_id
+        node_cp.typ = replacement_typ
+        return node_cp
+
+
+def make_typed_rebind_assignment(
+    source_name: str, target_name: str, source_typ: Type, target_typ: Type
+):
     target = TypedName(
-        id=name, orig_id=map_to_orig_name(name), ctx=Store(), typ=target_typ
+        id=target_name, orig_id=map_to_orig_name(target_name), ctx=Store(), typ=target_typ
     )
     value = TypedName(
-        id=name, orig_id=map_to_orig_name(name), ctx=Load(), typ=source_typ
+        id=source_name, orig_id=map_to_orig_name(source_name), ctx=Load(), typ=source_typ
     )
     assign = TypedAssign(targets=[target], value=value)
     return assign
@@ -120,6 +153,12 @@ class OptimizeSelectiveNarrowingRebind(ScopedSequenceNodeTransformer):
 
     def __init__(self, allow_isinstance_anything=False):
         self.allow_isinstance_anything = allow_isinstance_anything
+        self._temp_id = 0
+
+    def fresh_temp_name(self, source_name: str) -> str:
+        name = f"__narrowed_{source_name}_{self._temp_id}"
+        self._temp_id += 1
+        return name
 
     @staticmethod
     def eligible_rebinds(
@@ -140,6 +179,8 @@ class OptimizeSelectiveNarrowingRebind(ScopedSequenceNodeTransformer):
             target_typ = strip_data_instance_type(target_typ)
             if isinstance(target_typ.typ, (AnyType, UnionType)):
                 continue
+            if not isinstance(target_typ.typ, ListType):
+                continue
             rebinds[name] = (DataInstanceType(target_typ.typ), target_typ)
         return rebinds
 
@@ -155,11 +196,7 @@ class OptimizeSelectiveNarrowingRebind(ScopedSequenceNodeTransformer):
         reads = events.count("read")
         if reads < 2:
             return False
-        if "write" not in events:
-            return True
-        last_write = max(i for i, event in enumerate(events) if event == "write")
-        reads_after_last_write = events[last_write + 1 :].count("read")
-        return reads_after_last_write >= 2
+        return "write" not in events
 
     def optimize_sequence_under_typechecks(
         self,
@@ -170,32 +207,26 @@ class OptimizeSelectiveNarrowingRebind(ScopedSequenceNodeTransformer):
     ) -> typing.List[AST]:
         rebinds = self.eligible_rebinds(typchecks, test_name_types)
         selected: typing.Dict[str, typing.Tuple[Type, InstanceType]] = {}
-        suffixes: typing.List[AST] = []
         for name, rebind in rebinds.items():
             events = self.access_events(node_seq, name)
             if not self.should_lower(events):
                 continue
             selected[name] = rebind
-            if can_fall_through and "write" in events:
-                _, target_typ = rebind
-                suffixes.append(
-                    make_typed_rebind_assignment(
-                        name,
-                        target_typ,
-                        DataInstanceType(strip_data_instance_type(target_typ).typ),
-                    )
-                )
         if not selected:
             return self.visit_sequence(list(node_seq))
 
-        prefixes = [
-            make_typed_rebind_assignment(name, source_typ, target_typ)
-            for name, (source_typ, target_typ) in selected.items()
-        ]
-        retyped_seq = _NameTypeRewriter(
-            {name: target_typ for name, (_, target_typ) in selected.items()}
-        ).visit_sequence(list(node_seq))
-        return prefixes + self.visit_sequence(retyped_seq) + suffixes
+        temp_replacements = {
+            name: (self.fresh_temp_name(name), target_typ)
+            for name, (_, target_typ) in selected.items()
+        }
+        prefixes = []
+        for name, (source_typ, target_typ) in selected.items():
+            temp_name, _ = temp_replacements[name]
+            prefixes.append(
+                make_typed_rebind_assignment(name, temp_name, source_typ, target_typ)
+            )
+        retyped_seq = _NameLoadRewriter(temp_replacements).visit_sequence(list(node_seq))
+        return prefixes + self.visit_sequence(retyped_seq)
 
     def visit_If(self, node: If) -> If:
         node_cp = copy(node)
