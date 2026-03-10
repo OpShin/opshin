@@ -645,6 +645,74 @@ def validator(_: int) -> int:
         real = 0
         self.assertEqual(res, real)
 
+    @hypothesis.given(st.sampled_from(range(14)))
+    def test_Union_builtin_cast_Dict_call(self, x):
+        source_code = """
+from dataclasses import dataclass
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
+
+def foo(xs: Dict[int, Union[int, bytes]]) -> int:
+    y = xs[0]
+    if isinstance(y, int):
+        k = y + 1
+    else:
+        k = len(y)
+    return k
+
+def validator(x: int) -> int:
+    if x > 5:
+        k = foo({0: x+1})
+    else:
+        k = foo({0: b"0"*x})
+    return k
+"""
+        res = eval_uplc_value(source_code, x)
+        real = x + 2 if x > 5 else len(b"0" * x)
+        self.assertEqual(res, real)
+
+    @hypothesis.given(st.sampled_from(range(14)))
+    def test_Union_builtin_cast_nested_Dict_call(self, x):
+        source_code = """
+from dataclasses import dataclass
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
+
+def foo(xss: Dict[int, Dict[int, Union[int, bytes]]]) -> int:
+    y = xss[0][1]
+    if isinstance(y, int):
+        k = y + 1
+    else:
+        k = len(y)
+    return k
+
+def validator(x: int) -> int:
+    if x > 5:
+        k = foo({0: {1: x+1}})
+    else:
+        k = foo({0: {1: b"0"*x}})
+    return k
+"""
+        res = eval_uplc_value(source_code, x)
+        real = x + 2 if x > 5 else len(b"0" * x)
+        self.assertEqual(res, real)
+
+    def test_Any_builtin_cast_nested_Dict_call(self):
+        source_code = """
+from dataclasses import dataclass
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
+
+def foo(xss: Dict[int, Dict[int, Anything]]) -> int:
+    return len(xss[0])
+
+def validator(_: int) -> int:
+    return foo({0: {1: 2}})
+"""
+        res = eval_uplc_value(source_code, 0)
+        real = 1
+        self.assertEqual(res, real)
+
     def test_Union_types_access_attr(self):
         source_code = """
 from dataclasses import dataclass

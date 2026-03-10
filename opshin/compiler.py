@@ -138,12 +138,24 @@ def transform_output_to_type(source: Type, target: Type):
             OLambda(
                 ["x"],
                 plt.MkPairData(
-                    transform_output_to_type(
-                        source.typ.key_typ, target.typ.key_typ
-                    )(plt.FstPair(OVar("x"))),
-                    transform_output_to_type(
-                        source.typ.value_typ, target.typ.value_typ
-                    )(plt.SndPair(OVar("x"))),
+                    transform_output_map(target.typ.key_typ)(
+                        transform_output_to_type(
+                            source.typ.key_typ, target.typ.key_typ
+                        )(
+                            transform_ext_params_map(source.typ.key_typ)(
+                                plt.FstPair(OVar("x"))
+                            )
+                        )
+                    ),
+                    transform_output_map(target.typ.value_typ)(
+                        transform_output_to_type(
+                            source.typ.value_typ, target.typ.value_typ
+                        )(
+                            transform_ext_params_map(source.typ.value_typ)(
+                                plt.SndPair(OVar("x"))
+                            )
+                        )
+                    ),
                 ),
             ),
             plt.EmptyDataPairList(),
