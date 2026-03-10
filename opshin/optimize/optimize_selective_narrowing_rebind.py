@@ -1,19 +1,44 @@
 from ast import AST, ClassDef, FunctionDef, Load, Name, Store, While, If
+from contextlib import nullcontext
 from copy import copy
+from functools import partial
+from functools import lru_cache
 import typing
 
 from ..typed_ast import TypedAssign, TypedName
 from ..typed_util import ScopedSequenceNodeTransformer
 from ..type_impls import (
     AnyType,
+    ByteStringType,
     DataInstanceType,
+    DictType,
     InstanceType,
+    IntegerType,
     ListType,
     Type,
     UnionType,
     strip_data_instance_type,
 )
 from ..type_inference import TypeCheckVisitor, map_to_orig_name
+
+# Recompute these choices with:
+# `uv run python scripts/recompute_selective_rebind_thresholds.py`
+# If the optimizer choice tests fail, rerun that script and update this file.
+LIST_REBIND_READ_THRESHOLD = 3
+INTEGER_REBIND_READ_THRESHOLD = 6
+BYTESTRING_REBIND_READ_THRESHOLD = 6
+
+
+def is_kind(target_typ: InstanceType, kind: str) -> bool:
+    if kind == "list":
+        return isinstance(target_typ.typ, ListType)
+    if kind == "dict":
+        return isinstance(target_typ.typ, DictType)
+    if kind == "int":
+        return isinstance(target_typ.typ, IntegerType)
+    if kind == "bytes":
+        return isinstance(target_typ.typ, ByteStringType)
+    raise AssertionError(f"Unknown kind {kind}")
 
 
 class TestNameTypeCollector(typing.Protocol):
@@ -151,8 +176,9 @@ def make_typed_rebind_assignment(
 class OptimizeSelectiveNarrowingRebind(ScopedSequenceNodeTransformer):
     step = "Selectively lowering repeated narrowed reads"
 
-    def __init__(self, allow_isinstance_anything=False):
+    def __init__(self, allow_isinstance_anything=False, forced_kind: str | None = None):
         self.allow_isinstance_anything = allow_isinstance_anything
+        self.forced_kind = forced_kind
         self._temp_id = 0
 
     def fresh_temp_name(self, source_name: str) -> str:
@@ -160,9 +186,8 @@ class OptimizeSelectiveNarrowingRebind(ScopedSequenceNodeTransformer):
         self._temp_id += 1
         return name
 
-    @staticmethod
     def eligible_rebinds(
-        typchecks: typing.Dict[str, Type], test_name_types: typing.Dict[str, Type]
+        self, typchecks: typing.Dict[str, Type], test_name_types: typing.Dict[str, Type]
     ) -> typing.Dict[str, typing.Tuple[Type, InstanceType]]:
         rebinds = {}
         for name, narrowed in typchecks.items():
@@ -179,10 +204,24 @@ class OptimizeSelectiveNarrowingRebind(ScopedSequenceNodeTransformer):
             target_typ = strip_data_instance_type(target_typ)
             if isinstance(target_typ.typ, (AnyType, UnionType)):
                 continue
-            if not isinstance(target_typ.typ, ListType):
+            if self.forced_kind is not None:
+                if not is_kind(target_typ, self.forced_kind):
+                    continue
+            elif not isinstance(target_typ.typ, (ListType, IntegerType, ByteStringType)):
                 continue
             rebinds[name] = (DataInstanceType(target_typ.typ), target_typ)
         return rebinds
+
+    def read_threshold(self, target_typ: InstanceType) -> typing.Optional[int]:
+        if self.forced_kind is not None:
+            return 0 if is_kind(target_typ, self.forced_kind) else None
+        if isinstance(target_typ.typ, ListType):
+            return LIST_REBIND_READ_THRESHOLD
+        if isinstance(target_typ.typ, IntegerType):
+            return INTEGER_REBIND_READ_THRESHOLD
+        if isinstance(target_typ.typ, ByteStringType):
+            return BYTESTRING_REBIND_READ_THRESHOLD
+        return None
 
     @staticmethod
     def access_events(node_seq: typing.List[AST], name: str) -> typing.List[str]:
@@ -191,10 +230,10 @@ class OptimizeSelectiveNarrowingRebind(ScopedSequenceNodeTransformer):
             collector.visit(stmt)
         return collector.events
 
-    @staticmethod
-    def should_lower(events: typing.List[str]) -> bool:
+    def should_lower(self, target_typ: InstanceType, events: typing.List[str]) -> bool:
         reads = events.count("read")
-        if reads < 2:
+        threshold = self.read_threshold(target_typ)
+        if threshold is None or reads < threshold:
             return False
         return "write" not in events
 
@@ -209,7 +248,7 @@ class OptimizeSelectiveNarrowingRebind(ScopedSequenceNodeTransformer):
         selected: typing.Dict[str, typing.Tuple[Type, InstanceType]] = {}
         for name, rebind in rebinds.items():
             events = self.access_events(node_seq, name)
-            if not self.should_lower(events):
+            if not self.should_lower(rebind[1], events):
                 continue
             selected[name] = rebind
         if not selected:
@@ -271,3 +310,96 @@ class OptimizeSelectiveNarrowingRebind(ScopedSequenceNodeTransformer):
             getattr(node, "orelse_can_fall_through", True),
         )
         return node_cp
+
+
+def eval_with_mode(source_code: str, *args, mode: str, forced_kind: str | None = None):
+    from unittest.mock import patch
+
+    from .. import builder
+    from ..util import NoOp
+
+    builder._static_compile.cache_clear()
+    context = nullcontext()
+    if mode == "noop":
+        context = patch("opshin.compiler.OptimizeSelectiveNarrowingRebind", NoOp)
+    elif mode == "forced":
+        context = patch(
+            "opshin.compiler.OptimizeSelectiveNarrowingRebind",
+            partial(OptimizeSelectiveNarrowingRebind, forced_kind=forced_kind),
+        )
+    with context:
+        return builder.uplc_eval(builder._compile(source_code, *args))
+
+
+def list_source(reads: int) -> str:
+    expr = " + ".join(["len(v)"] * reads)
+    return f"""
+from typing import List, Union
+from pycardano import Datum as Anything, PlutusData
+
+def validator(v: Union[int, List[Anything]], n: int) -> int:
+    if isinstance(v, List):
+        return {expr}
+    return 0
+"""
+
+
+def int_source(reads: int) -> str:
+    expr = " + ".join(["v"] * reads)
+    return f"""
+from typing import Union
+
+def validator(v: Union[int, bytes]) -> int:
+    if isinstance(v, int):
+        return {expr}
+    return 0
+"""
+
+
+def bytes_source(reads: int) -> str:
+    expr = " + ".join(["len(v)"] * reads)
+    return f"""
+from typing import Union
+
+def validator(v: Union[int, bytes]) -> int:
+    if isinstance(v, bytes):
+        return {expr}
+    return 0
+"""
+
+
+def dict_source(reads: int) -> str:
+    expr = " + ".join(["len(v)"] * reads)
+    return f"""
+from typing import Dict, Union
+from pycardano import Datum as Anything, PlutusData
+
+def validator(v: Union[int, Dict[Anything, Anything]], n: int) -> int:
+    if isinstance(v, Dict):
+        return {expr}
+    return 0
+"""
+
+
+@lru_cache(maxsize=None)
+def forced_beats_noop(kind: str, reads: int) -> bool:
+    if kind == "list":
+        source_code = list_source(reads)
+        args = ([1, 2, 3], 0)
+    elif kind == "int":
+        source_code = int_source(reads)
+        args = (5,)
+    elif kind == "bytes":
+        source_code = bytes_source(reads)
+        args = (b"abcde",)
+    elif kind == "dict":
+        source_code = dict_source(reads)
+        args = ({1: 2, 3: 4}, 0)
+    else:
+        raise AssertionError(f"Unknown kind {kind}")
+    noop_eval = eval_with_mode(source_code, *args, mode="noop")
+    forced_eval = eval_with_mode(source_code, *args, mode="forced", forced_kind=kind)
+    return (
+        forced_eval.cost.cpu <= noop_eval.cost.cpu
+        and forced_eval.cost.memory <= noop_eval.cost.memory
+    )
