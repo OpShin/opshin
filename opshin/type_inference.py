@@ -32,6 +32,8 @@ from .util import (
     TypedNodeVisitor,
     OPSHIN_LOGGER,
     custom_fix_missing_locations,
+    annotation_contains,
+    transform_annotation,
 )
 from .fun_impls import PythonBuiltInTypes
 from .rewrite.rewrite_cast_condition import SPECIAL_BOOL
@@ -686,26 +688,15 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
 
     def resolve_self_annotations(self, node: FunctionDef) -> FunctionDef:
         """Replace Self annotations with the concrete class name captured during scoping."""
-
         def replace_self(annotation: expr, self_type_name: str):
-            if annotation is None:
-                return None
-            annotation_cp = copy(annotation)
-            if isinstance(annotation_cp, Name) and (
-                hasattr(annotation_cp, "idSelf") or hasattr(annotation_cp, "idSelf_new")
-            ):
-                annotation_cp.id = self_type_name
-                return annotation_cp
-            if isinstance(annotation_cp, Subscript):
-                annotation_cp.value = replace_self(annotation_cp.value, self_type_name)
-                annotation_cp.slice = replace_self(annotation_cp.slice, self_type_name)
-                return annotation_cp
-            if isinstance(annotation_cp, ast.Tuple):
-                annotation_cp.elts = [
-                    replace_self(elt, self_type_name) for elt in annotation_cp.elts
-                ]
-                return annotation_cp
-            return annotation_cp
+            def transform(ann: expr):
+                if isinstance(ann, Name) and (
+                    hasattr(ann, "idSelf") or hasattr(ann, "idSelf_new")
+                ):
+                    ann.id = self_type_name
+                return ann
+
+            return transform_annotation(annotation, transform)
 
         node_cp = copy(node)
         node_cp.args = copy(node.args)
@@ -836,21 +827,9 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                 func.name = method_name(n.name, attribute.name)
 
                 def does_literally_reference_self(arg):
-                    if arg is None:
-                        return False
-                    if isinstance(arg, Name) and arg.id == n.name:
-                        return True
-                    if (
-                        isinstance(arg, ast.Subscript)
-                        and isinstance(arg.value, Name)
-                        and arg.value.id in ("Union", "List", "Dict")
-                    ):
-                        # Only possible for List, Dict and Union
-                        if any(
-                            does_literally_reference_self(e) for e in arg.slice.elts
-                        ):
-                            return True
-                    return False
+                    return annotation_contains(
+                        arg, lambda ann: isinstance(ann, Name) and ann.id == n.name
+                    )
 
                 for arg in func.args.args:
                     assert not does_literally_reference_self(

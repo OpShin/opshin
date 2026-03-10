@@ -3,7 +3,7 @@ import sys
 import traceback
 from _ast import Name, Store, ClassDef, FunctionDef, Load
 from collections import defaultdict
-from copy import deepcopy
+from copy import copy, deepcopy
 import logging
 
 import typing
@@ -181,6 +181,40 @@ def custom_fix_missing_locations(node, parent=None):
     )
     _fix(node, lineno, col_offset, end_lineno, end_col_offset)
     return node
+
+
+def transform_annotation(
+    annotation: typing.Optional[ast.expr],
+    transform: typing.Callable[[ast.expr], ast.expr],
+) -> typing.Optional[ast.expr]:
+    if annotation is None:
+        return None
+    annotation_cp = copy(annotation)
+    if isinstance(annotation_cp, ast.Subscript):
+        annotation_cp.value = transform_annotation(annotation_cp.value, transform)
+        annotation_cp.slice = transform_annotation(annotation_cp.slice, transform)
+    elif isinstance(annotation_cp, ast.Tuple):
+        annotation_cp.elts = [
+            transform_annotation(elt, transform) for elt in annotation_cp.elts
+        ]
+    return transform(annotation_cp)
+
+
+def annotation_contains(
+    annotation: typing.Optional[ast.expr],
+    predicate: typing.Callable[[ast.expr], bool],
+) -> bool:
+    if annotation is None:
+        return False
+    if predicate(annotation):
+        return True
+    if isinstance(annotation, ast.Subscript):
+        return annotation_contains(annotation.value, predicate) or annotation_contains(
+            annotation.slice, predicate
+        )
+    if isinstance(annotation, ast.Tuple):
+        return any(annotation_contains(elt, predicate) for elt in annotation.elts)
+    return False
 
 
 _patterns_cached = {}

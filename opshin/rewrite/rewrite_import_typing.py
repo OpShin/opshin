@@ -1,7 +1,7 @@
 from ast import *
 from typing import Optional
 
-from ..util import CompilingNodeTransformer
+from ..util import CompilingNodeTransformer, transform_annotation
 
 """
 Checks that there was an import of dataclass if there are any class definitions
@@ -40,33 +40,27 @@ class RewriteImportTyping(CompilingNodeTransformer):
         return node
 
     def mark_typing_annotation_usage(self, annotation: expr, class_name: str):
-        if annotation is None:
-            return
-        if isinstance(annotation, Name):
-            if (
-                annotation.id in ALLOWED_TYPING_IMPORTS
-                and annotation.id not in self.imports
-            ):
-                raise ValueError(
-                    f"{annotation.id} used, which is a keyword for special OpShin types, but typing not imported. Please add 'from typing import {annotation.id}'"
-                )
-            if annotation.id == "Self":
-                annotation.idSelf = class_name
-            return
-        if isinstance(annotation, Subscript):
-            self.mark_typing_annotation_usage(annotation.value, class_name)
-            self.mark_typing_annotation_usage(annotation.slice, class_name)
-            return
-        if isinstance(annotation, Tuple):
-            for elt in annotation.elts:
-                self.mark_typing_annotation_usage(elt, class_name)
-            return
+        def mark(node: expr):
+            if isinstance(node, Name):
+                if node.id in ALLOWED_TYPING_IMPORTS and node.id not in self.imports:
+                    raise ValueError(
+                        f"{node.id} used, which is a keyword for special OpShin types, but typing not imported. Please add 'from typing import {node.id}'"
+                    )
+                if node.id == "Self":
+                    node.idSelf = class_name
+            return node
+
+        return transform_annotation(annotation, mark)
 
     def visit_ClassDef(self, node: ClassDef) -> ClassDef:
         for i, attribute in enumerate(node.body):
             if isinstance(attribute, FunctionDef):
                 for j, arg in enumerate(attribute.args.args):
-                    self.mark_typing_annotation_usage(arg.annotation, node.name)
-                self.mark_typing_annotation_usage(attribute.returns, node.name)
+                    node.body[i].args.args[j].annotation = (
+                        self.mark_typing_annotation_usage(arg.annotation, node.name)
+                    )
+                node.body[i].returns = self.mark_typing_annotation_usage(
+                    attribute.returns, node.name
+                )
 
         return node
