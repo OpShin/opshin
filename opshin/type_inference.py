@@ -32,8 +32,6 @@ from .util import (
     TypedNodeVisitor,
     OPSHIN_LOGGER,
     custom_fix_missing_locations,
-    read_vars,
-    externally_bound_vars,
 )
 from .fun_impls import PythonBuiltInTypes
 from .rewrite.rewrite_cast_condition import SPECIAL_BOOL
@@ -64,6 +62,7 @@ from .type_impls import (
     TupleType,
     PolymorphicFunctionInstanceType,
     FunctionType,
+    CLOSURE_PLACEHOLDER,
 )
 
 # from frozendict import frozendict
@@ -400,6 +399,8 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         self.allow_isinstance_anything = allow_isinstance_anything
         self.FUNCTION_ARGUMENT_REGISTRY = {}
         self.wrapped = []
+        self.first_function_definition_scopes: typing.List[typing.Set[int]] = []
+        self._function_id_counter = 0
 
         # A stack of dictionaries for storing scoped knowledge of variable types
         self.scopes = [INITIAL_SCOPE]
@@ -683,11 +684,125 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             return AnyType()
         raise NotImplementedError(f"Annotation type {ann.__class__} is not supported")
 
-    def visit_sequence(self, node_seq: typing.List[stmt]) -> plt.AST:
+    def resolve_self_annotations(self, node: FunctionDef) -> FunctionDef:
+        """Replace Self annotations with the concrete class name captured during scoping."""
+        node_cp = copy(node)
+        node_cp.args = copy(node.args)
+        node_cp.args.args = [copy(a) for a in node.args.args]
+        node_cp.returns = copy(node.returns)
+        if not node_cp.args.args:
+            return node_cp
+        self_ann = node_cp.args.args[0].annotation
+        for arg in node_cp.args.args:
+            if hasattr(arg.annotation, "idSelf"):
+                arg.annotation = copy(arg.annotation)
+                arg.annotation.id = self_ann.id
+        if hasattr(node_cp.returns, "idSelf"):
+            node_cp.returns.id = self_ann.id
+        return node_cp
+
+    def ensure_function_id(self, node: FunctionDef) -> str:
+        function_id = getattr(node, "function_id", None)
+        if function_id is None:
+            function_id = f"fn_{self._function_id_counter}"
+            self._function_id_counter += 1
+            node.function_id = function_id
+        return function_id
+
+    def build_function_type(
+        self,
+        node: FunctionDef,
+        arg_types: typing.Iterable[Type],
+        bound_vars=CLOSURE_PLACEHOLDER,
+        bind_self=CLOSURE_PLACEHOLDER,
+    ) -> FunctionType:
+        # Function types carry both the signature and the closure contract used
+        # by later closure rewriting and code generation.
+        return FunctionType(
+            frozenlist(arg_types),
+            InstanceType(self.type_from_annotation(node.returns)),
+            bound_vars=bound_vars,
+            bind_self=bind_self,
+            function_id=self.ensure_function_id(node),
+        )
+
+    def declare_class_type(self, node: ClassDef, force: bool) -> RecordType:
+        class_record = RecordReader(self).extract(node)
+        typ = RecordType(class_record)
+        self.set_variable_type(node.name, typ, force=force)
+        self.FUNCTION_ARGUMENT_REGISTRY[node.name] = [
+            typedarg(arg=field, typ=field_typ, orig_arg=field)
+            for field, field_typ in class_record.fields
+        ]
+        return typ
+
+    def predeclare_class_symbols(self, node_seq: typing.List[stmt]):
+        class_nodes = []
+        seen_names = set()
+        for stmt in node_seq:
+            if isinstance(stmt, ClassDef) and stmt.name not in seen_names:
+                class_nodes.append(stmt)
+                seen_names.add(stmt.name)
+        pending = class_nodes
+        while pending:
+            next_pending = []
+            progress = False
+            for class_node in pending:
+                try:
+                    self.declare_class_type(class_node, force=True)
+                    progress = True
+                except TypeInferenceError:
+                    next_pending.append(class_node)
+            if not progress and next_pending:
+                # Some imported class graphs can only be resolved later in strict statement order.
+                break
+            pending = next_pending
+
+    def predeclare_function_symbols(self, node_seq: typing.List[stmt]):
+        declared_names = set()
+        for stmt in node_seq:
+            if not isinstance(stmt, FunctionDef):
+                continue
+            if stmt.name in declared_names:
+                # Keep first-definition semantics for compatibility checks.
+                continue
+            try:
+                self.ensure_function_id(stmt)
+                resolved = self.resolve_self_annotations(stmt)
+                resolved.function_id = stmt.function_id
+                arg_types = [
+                    InstanceType(self.type_from_annotation(arg.annotation))
+                    for arg in resolved.args.args
+                ]
+                functyp = self.build_function_type(
+                    resolved,
+                    arg_types=arg_types,
+                )
+                self.set_variable_type(stmt.name, InstanceType(functyp), force=True)
+                self.FUNCTION_ARGUMENT_REGISTRY[stmt.name] = stmt.args.args
+                declared_names.add(stmt.name)
+            except TypeInferenceError:
+                # Some imported helpers can only be typed after earlier declarations.
+                # Defer those to the main definition pass.
+                continue
+
+    def predeclare_sequence_symbols(self, node_seq: typing.List[stmt]):
+        self.predeclare_class_symbols(node_seq)
+        self.predeclare_function_symbols(node_seq)
+
+    def lower_class_methods_in_sequence(
+        self, node_seq: typing.List[stmt]
+    ) -> typing.List[stmt]:
+        node_seq_cp = list(node_seq)
         additional_functions = []
-        for n in node_seq:
+        for n in node_seq_cp:
             if not isinstance(n, ast.ClassDef):
                 continue
+            method_names = {
+                attribute.name
+                for attribute in n.body
+                if isinstance(attribute, ast.FunctionDef)
+            }
             non_method_attributes = []
             for attribute in n.body:
                 if not isinstance(attribute, ast.FunctionDef):
@@ -743,42 +858,106 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                     )
                 ann.orig_id = attribute.args.args[0].orig_arg
                 func.args.args[0].annotation = ann
+
+                self_arg_name = attribute.args.args[0].arg
+
+                class SelfMethodCallCollector(NodeVisitor):
+                    def __init__(self):
+                        self.called = set()
+
+                    def visit_Call(self, node: Call):
+                        if (
+                            isinstance(node.func, Attribute)
+                            and isinstance(node.func.value, Name)
+                            and node.func.value.id == self_arg_name
+                            and node.func.attr in method_names
+                        ):
+                            self.called.add(node.func.attr)
+                        self.generic_visit(node)
+
+                called_self_methods = SelfMethodCallCollector()
+                called_self_methods.visit(attribute)
+                func.self_called_method_names = {
+                    f"{n.name}_+_{method_name}"
+                    for method_name in called_self_methods.called
+                }
                 additional_functions.append(func)
             n.body = non_method_attributes
         if additional_functions:
-            last = node_seq.pop()
-            node_seq.extend(additional_functions)
-            node_seq.append(last)
+            last = node_seq_cp.pop()
+            node_seq_cp.extend(additional_functions)
+            node_seq_cp.append(last)
+        return node_seq_cp
 
-        stmts = []
-        prevtyps = {}
-        for n in node_seq:
-            stmt = self.visit(n)
-            stmts.append(stmt)
-            # if an assert is amng the statements apply the isinstance cast
-            if isinstance(stmt, Assert):
-                typchecks, _ = TypeCheckVisitor(self.allow_isinstance_anything).visit(
-                    stmt.test
-                )
-                # for the time after this assert, the variable has the specialized type
-                wrapped = self.implement_typechecks(typchecks)
-                prevtyps.update(wrapped)
-                self.wrapped.extend(wrapped.keys())
-            if not getattr(stmt, "can_fall_through", True):
-                break
-        if prevtyps:
-            self.wrapped = [x for x in self.wrapped if x not in prevtyps.keys()]
+    def visit_sequence_under_typechecks(
+        self, node_seq: typing.List[stmt], typchecks: TypeMap
+    ) -> tuple[typing.List[stmt], typing.Dict[str, Type]]:
+        wrapped = self.implement_typechecks(typchecks)
+        self.wrapped.extend(wrapped.keys())
+        try:
+            typed_seq = self.visit_sequence(node_seq)
+            return typed_seq, copy(self.scopes[-1])
+        finally:
+            self.wrapped = [x for x in self.wrapped if x not in wrapped.keys()]
+
+    @staticmethod
+    def merge_fallthrough_scopes(
+        initial_scope: typing.Dict[str, Type],
+        *branches: tuple[bool, typing.Dict[str, Type]],
+    ) -> typing.Dict[str, Type]:
+        live_scopes = [
+            scope for can_fall_through, scope in branches if can_fall_through
+        ]
+        if not live_scopes:
+            return initial_scope
+        merged_scope = live_scopes[0]
+        for scope in live_scopes[1:]:
+            merged_scope = merge_scope(merged_scope, scope)
+        return merged_scope
+
+    def visit_sequence(self, node_seq: typing.List[stmt]) -> plt.AST:
+        node_seq = self.lower_class_methods_in_sequence(node_seq)
+        first_function_defs = set()
+        seen_function_names = set()
+        for node in node_seq:
+            if isinstance(node, FunctionDef) and node.name not in seen_function_names:
+                first_function_defs.add(id(node))
+                seen_function_names.add(node.name)
+        self.first_function_definition_scopes.append(first_function_defs)
+        try:
+            self.predeclare_sequence_symbols(node_seq)
+
+            typed_stmts = [None] * len(node_seq)
+            prevtyps = {}
+
+            for i, node in enumerate(node_seq):
+                if isinstance(node, FunctionDef):
+                    continue
+                stmt = self.visit(node)
+                typed_stmts[i] = stmt
+                # if an assert is among the statements apply the isinstance cast
+                if isinstance(stmt, Assert):
+                    typchecks, _ = TypeCheckVisitor(
+                        self.allow_isinstance_anything
+                    ).visit(stmt.test)
+                    # for the time after this assert, the variable has the specialized type
+                    wrapped = self.implement_typechecks(typchecks)
+                    prevtyps.update(wrapped)
+                    self.wrapped.extend(wrapped.keys())
+                if not getattr(stmt, "can_fall_through", True):
+                    break
             self.implement_typechecks(prevtyps)
-        return stmts
+
+            for i, node in enumerate(node_seq):
+                if isinstance(node, FunctionDef):
+                    typed_stmts[i] = self.visit(node)
+
+            return typed_stmts
+        finally:
+            self.first_function_definition_scopes.pop()
 
     def visit_ClassDef(self, node: ClassDef) -> TypedClassDef:
-        class_record = RecordReader(self).extract(node)
-        typ = RecordType(class_record)
-        self.set_variable_type(node.name, typ)
-        self.FUNCTION_ARGUMENT_REGISTRY[node.name] = [
-            typedarg(arg=field, typ=field_typ, orig_arg=field)
-            for field, field_typ in class_record.fields
-        ]
+        typ = self.declare_class_type(node, force=True)
         typed_node = copy(node)
         typed_node.class_typ = typ
         return typed_node
@@ -901,35 +1080,24 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         ).visit(typed_if.test)
         # for the time of the branch, these types are cast
         initial_scope = copy(self.scopes[-1])
-        wrapped = self.implement_typechecks(typchecks)
-        self.wrapped.extend(wrapped.keys())
-        typed_if.body = self.visit_sequence(node.body)
-        self.wrapped = [x for x in self.wrapped if x not in wrapped.keys()]
-
-        # save resulting types
-        final_scope_body = copy(self.scopes[-1])
-        # reverse typechecks and remove typing of one branch
+        typed_if.body, final_scope_body = self.visit_sequence_under_typechecks(
+            node.body, typchecks
+        )
         self.scopes[-1] = initial_scope
-        # for the time of the else branch, the inverse types hold
-        wrapped = self.implement_typechecks(inv_typchecks)
-        self.wrapped.extend(wrapped.keys())
-        typed_if.orelse = self.visit_sequence(node.orelse)
-        self.wrapped = [x for x in self.wrapped if x not in wrapped.keys()]
-        final_scope_else = self.scopes[-1]
+        typed_if.orelse, final_scope_else = self.visit_sequence_under_typechecks(
+            node.orelse, inv_typchecks
+        )
         assert hasattr(
             typed_if, "body_can_fall_through"
         ), "Missing body fallthrough annotation on if statement"
         assert hasattr(
             typed_if, "orelse_can_fall_through"
         ), "Missing else fallthrough annotation on if statement"
-        if typed_if.body_can_fall_through and typed_if.orelse_can_fall_through:
-            self.scopes[-1] = merge_scope(final_scope_body, final_scope_else)
-        elif typed_if.body_can_fall_through:
-            self.scopes[-1] = final_scope_body
-        elif typed_if.orelse_can_fall_through:
-            self.scopes[-1] = final_scope_else
-        else:
-            self.scopes[-1] = initial_scope
+        self.scopes[-1] = self.merge_fallthrough_scopes(
+            initial_scope,
+            (typed_if.body_can_fall_through, final_scope_body),
+            (typed_if.orelse_can_fall_through, final_scope_else),
+        )
         return typed_if
 
     def visit_While(self, node: While) -> TypedWhile:
@@ -943,26 +1111,23 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         ).visit(typed_while.test)
         # for the time of the branch, these types are cast
         initial_scope = copy(self.scopes[-1])
-        wrapped = self.implement_typechecks(typchecks)
-        self.wrapped.extend(wrapped.keys())
-        typed_while.body = self.visit_sequence(node.body)
-        self.wrapped = [x for x in self.wrapped if x not in wrapped.keys()]
-        final_scope_body = copy(self.scopes[-1])
-        # revert changes
+        typed_while.body, final_scope_body = self.visit_sequence_under_typechecks(
+            node.body, typchecks
+        )
         self.scopes[-1] = initial_scope
-        # for the time of the else branch, the inverse types hold
-        wrapped = self.implement_typechecks(inv_typchecks)
-        self.wrapped.extend(wrapped.keys())
-        typed_while.orelse = self.visit_sequence(node.orelse)
-        self.wrapped = [x for x in self.wrapped if x not in wrapped.keys()]
-        final_scope_else = self.scopes[-1]
+        typed_while.orelse, final_scope_else = self.visit_sequence_under_typechecks(
+            node.orelse, inv_typchecks
+        )
         assert hasattr(
             typed_while, "orelse_can_fall_through"
         ), "Missing else fallthrough annotation on while statement"
-        if typed_while.orelse_can_fall_through:
-            self.scopes[-1] = merge_scope(final_scope_body, final_scope_else)
-        else:
-            self.scopes[-1] = initial_scope
+        self.scopes[-1] = self.merge_fallthrough_scopes(
+            initial_scope,
+            (
+                typed_while.orelse_can_fall_through,
+                merge_scope(final_scope_body, final_scope_else),
+            ),
+        )
         return typed_while
 
     def visit_For(self, node: For) -> TypedFor:
@@ -992,18 +1157,23 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         self.set_variable_type(node.target.id, vartyp)
         typed_for.target = self.visit(node.target)
         initial_scope = copy(self.scopes[-1])
-        typed_for.body = self.visit_sequence(node.body)
-        final_scope_body = copy(self.scopes[-1])
+        typed_for.body, final_scope_body = self.visit_sequence_under_typechecks(
+            node.body, {}
+        )
         self.scopes[-1] = initial_scope
-        typed_for.orelse = self.visit_sequence(node.orelse)
-        final_scope_else = self.scopes[-1]
+        typed_for.orelse, final_scope_else = self.visit_sequence_under_typechecks(
+            node.orelse, {}
+        )
         assert hasattr(
             typed_for, "orelse_can_fall_through"
         ), "Missing else fallthrough annotation on for statement"
-        if typed_for.orelse_can_fall_through:
-            self.scopes[-1] = merge_scope(final_scope_body, final_scope_else)
-        else:
-            self.scopes[-1] = initial_scope
+        self.scopes[-1] = self.merge_fallthrough_scopes(
+            initial_scope,
+            (
+                typed_for.orelse_can_fall_through,
+                merge_scope(final_scope_body, final_scope_else),
+            ),
+        )
         return typed_for
 
     def visit_Name(self, node: Name) -> TypedName:
@@ -1054,62 +1224,54 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         return ta
 
     def visit_FunctionDef(self, node: FunctionDef) -> TypedFunctionDef:
-        tfd = copy(node)
+        self.ensure_function_id(node)
+        resolved_node = self.resolve_self_annotations(node)
+        resolved_node.function_id = node.function_id
+        tfd = copy(resolved_node)
+        tfd.function_id = node.function_id
         wraps_builtin = (
             all(
                 isinstance(o, Name) and o.orig_id == "wraps_builtin"
-                for o in node.decorator_list
+                for o in resolved_node.decorator_list
             )
-            and node.decorator_list
+            and resolved_node.decorator_list
         )
         assert (
-            not node.decorator_list or wraps_builtin
-        ), f"Functions may not have decorators other than literal @wraps_builtin, found other decorators at {node.orig_name}."
-        for i, arg in enumerate(node.args.args):
-            if hasattr(arg.annotation, "idSelf"):
-                tfd.args.args[i].annotation.id = tfd.args.args[0].annotation.id
-        if hasattr(node.returns, "idSelf"):
-            tfd.returns.id = tfd.args.args[0].annotation.id
+            not resolved_node.decorator_list or wraps_builtin
+        ), f"Functions may not have decorators other than literal @wraps_builtin, found other decorators at {resolved_node.orig_name}."
 
         self.enter_scope()
-        tfd.args = self.visit(node.args)
-
-        functyp = FunctionType(
-            frozenlist([t.typ for t in tfd.args.args]),
-            InstanceType(self.type_from_annotation(tfd.returns)),
-            bound_vars={
-                v: self.variable_type(v)
-                for v in externally_bound_vars(node)
-                if not v in ["List", "Dict"]
-            },
-            bind_self=node.name if node.name in read_vars(node) else None,
+        tfd.args = self.visit(resolved_node.args)
+        arg_types = [t.typ for t in tfd.args.args]
+        base_scope = copy(self.scopes[-1])
+        # Publish a first approximation of the function type before visiting
+        # the body so recursive and forward references have something stable to
+        # point at during inference.
+        functyp = self.build_function_type(
+            resolved_node,
+            arg_types=arg_types,
         )
         tfd.typ = InstanceType(functyp)
         if wraps_builtin:
             # the body of wrapping builtin functions is fully ignored
             pass
         else:
-            # We need the function type inside for recursion
-            self.set_variable_type(node.name, tfd.typ)
-            tfd.body = self.visit_sequence(node.body)
-            # Its possible that bound_variables might have changed after visiting body
-            bv = {
-                v: self.variable_type(v)
-                for v in externally_bound_vars(node)
-                if not v in ["List", "Dict"]
-            }
-            if bv != tfd.typ.typ.bound_vars:
-                # node was modified in place, so we can simply rerun visit_FunctionDef
-                self.exit_scope()
-                return self.visit_FunctionDef(node)
+            # We need the function type inside for (co-)recursion.
+            self.scopes[-1] = copy(base_scope)
+            self.set_variable_type(resolved_node.name, tfd.typ, force=True)
+            tfd.body = self.visit_sequence(resolved_node.body)
             # Check that return type and annotated return type match
             rets_extractor = ReturnExtractor(functyp.rettyp)
             rets_extractor.check_fulfills(tfd)
 
         self.exit_scope()
-        # We need the function type outside for usage
-        self.set_variable_type(node.name, tfd.typ)
-        self.FUNCTION_ARGUMENT_REGISTRY[node.name] = node.args.args
+        is_first_definition = (
+            not self.first_function_definition_scopes
+            or id(node) in self.first_function_definition_scopes[-1]
+        )
+        # We need the function type outside for usage.
+        self.set_variable_type(resolved_node.name, tfd.typ, force=is_first_definition)
+        self.FUNCTION_ARGUMENT_REGISTRY[resolved_node.name] = resolved_node.args.args
         return tfd
 
     def visit_Module(self, node: Module) -> TypedModule:
@@ -1363,27 +1525,6 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                     "If you are certain of what you are doing, please use the flag '--allow-isinstance-anything'."
                 )
             tc.typechecks = TypeCheckVisitor(self.allow_isinstance_anything).visit(tc)
-
-        # Check for expanded Union funcs
-        if isinstance(node.func, ast.Name):
-            expanded_unions = {
-                k: v
-                for scope in self.scopes
-                for k, v in scope.items()
-                if k.startswith(f"{node.func.orig_id}+")
-            }
-            for k, v in expanded_unions.items():
-                argtyps = v.typ.argtyps
-                if len(tc.args) != len(argtyps):
-                    continue
-                for a, ap in zip(tc.args, argtyps):
-                    if ap != a.typ:
-                        break
-                else:
-                    node.func = ast.Name(
-                        id=k, orig_id=f"unknown orig_id for {k}", ctx=ast.Load()
-                    )
-                    break
 
         subbed_method = False
         if isinstance(tc.func, Attribute):
@@ -1746,6 +1887,10 @@ class ReturnExtractor(TypedNodeVisitor):
         self.visit_sequence(node.body)
         # the else path is always visited
         return self.visit_sequence(node.orelse)
+
+    def visit_FunctionDef(self, node: FunctionDef) -> bool:
+        # Nested functions are checked independently when they are inferred.
+        return False
 
     def visit_Return(self, node: Return) -> bool:
         assert (

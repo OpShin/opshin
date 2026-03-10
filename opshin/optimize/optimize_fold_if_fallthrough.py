@@ -1,7 +1,10 @@
 from ast import *
 from copy import copy
 
-from ..util import CompilingNodeTransformer
+from ..typed_util import (
+    ScopedSequenceNodeTransformer,
+    annotate_compound_statement_fallthrough,
+)
 
 """
 If exactly one branch of an if-statement can fall through, fold the following
@@ -9,20 +12,16 @@ statements in the enclosing sequence into that branch.
 """
 
 
-def sequence_can_fall_through(statements):
-    for stmt in statements:
-        if not getattr(stmt, "can_fall_through", True):
-            return False
-    return True
-
-
-class OptimizeFoldIfFallthrough(CompilingNodeTransformer):
+class OptimizeFoldIfFallthrough(ScopedSequenceNodeTransformer):
     step = "Folding trailing statements into sole fallthrough if-branches"
 
     def fold_sequence(self, statements):
         folded = []
         i = 0
         while i < len(statements):
+            if statements[i] is None:
+                i += 1
+                continue
             stmt = self.visit(statements[i])
             if stmt is None:
                 i += 1
@@ -38,60 +37,40 @@ class OptimizeFoldIfFallthrough(CompilingNodeTransformer):
                         stmt.body = self.fold_sequence(stmt.body + trailing)
                     else:
                         stmt.orelse = self.fold_sequence(stmt.orelse + trailing)
-                    stmt.body_can_fall_through = sequence_can_fall_through(stmt.body)
-                    stmt.orelse_can_fall_through = sequence_can_fall_through(
-                        stmt.orelse
-                    )
-                    stmt.can_fall_through = (
-                        stmt.body_can_fall_through or stmt.orelse_can_fall_through
-                    )
-                    folded.append(stmt)
+                    folded.append(annotate_compound_statement_fallthrough(stmt))
                     break
             folded.append(stmt)
             i += 1
         return folded
 
     def visit_Module(self, node: Module) -> Module:
-        node_cp = copy(node)
-        node_cp.body = self.fold_sequence(node.body)
-        node_cp.can_fall_through = sequence_can_fall_through(node_cp.body)
-        return node_cp
+        node_cp = super().visit_Module(node)
+        node_cp.body = self.fold_sequence(node_cp.body)
+        return annotate_compound_statement_fallthrough(node_cp)
 
     def visit_FunctionDef(self, node: FunctionDef) -> FunctionDef:
-        node_cp = copy(node)
-        node_cp.body = self.fold_sequence(node.body)
-        node_cp.body_can_fall_through = sequence_can_fall_through(node_cp.body)
-        node_cp.can_fall_through = True
-        return node_cp
+        node_cp = super().visit_FunctionDef(node)
+        node_cp.body = self.fold_sequence(node_cp.body)
+        return annotate_compound_statement_fallthrough(node_cp)
 
     def visit_ClassDef(self, node: ClassDef) -> ClassDef:
-        node_cp = copy(node)
-        node_cp.body = self.fold_sequence(node.body)
-        node_cp.body_can_fall_through = sequence_can_fall_through(node_cp.body)
-        node_cp.can_fall_through = True
-        return node_cp
+        node_cp = super().visit_ClassDef(node)
+        node_cp.body = self.fold_sequence(node_cp.body)
+        return annotate_compound_statement_fallthrough(node_cp)
 
     def visit_If(self, node: If) -> If:
         node_cp = copy(node)
         node_cp.test = self.visit(node.test)
         node_cp.body = self.fold_sequence(node.body)
         node_cp.orelse = self.fold_sequence(node.orelse)
-        node_cp.body_can_fall_through = sequence_can_fall_through(node_cp.body)
-        node_cp.orelse_can_fall_through = sequence_can_fall_through(node_cp.orelse)
-        node_cp.can_fall_through = (
-            node_cp.body_can_fall_through or node_cp.orelse_can_fall_through
-        )
-        return node_cp
+        return annotate_compound_statement_fallthrough(node_cp)
 
     def visit_While(self, node: While) -> While:
         node_cp = copy(node)
         node_cp.test = self.visit(node.test)
         node_cp.body = self.fold_sequence(node.body)
         node_cp.orelse = self.fold_sequence(node.orelse)
-        node_cp.body_can_fall_through = sequence_can_fall_through(node_cp.body)
-        node_cp.orelse_can_fall_through = sequence_can_fall_through(node_cp.orelse)
-        node_cp.can_fall_through = node_cp.orelse_can_fall_through
-        return node_cp
+        return annotate_compound_statement_fallthrough(node_cp)
 
     def visit_For(self, node: For) -> For:
         node_cp = copy(node)
@@ -99,7 +78,4 @@ class OptimizeFoldIfFallthrough(CompilingNodeTransformer):
         node_cp.iter = self.visit(node.iter)
         node_cp.body = self.fold_sequence(node.body)
         node_cp.orelse = self.fold_sequence(node.orelse)
-        node_cp.body_can_fall_through = sequence_can_fall_through(node_cp.body)
-        node_cp.orelse_can_fall_through = sequence_can_fall_through(node_cp.orelse)
-        node_cp.can_fall_through = node_cp.orelse_can_fall_through
-        return node_cp
+        return annotate_compound_statement_fallthrough(node_cp)

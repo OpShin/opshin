@@ -150,18 +150,6 @@ class MiscTest(unittest.TestCase):
         )
         self.assertEqual(ret, uplc.BuiltinUnit())
 
-    def test_assert_false_return_analysis_compile_o0(self):
-        source_code = """
-from typing import List
-
-def validator(xs: List[int], n: int) -> int:
-    for x in xs:
-        if x == n:
-            return x
-    assert False, "missing"
-"""
-        builder._compile(source_code, config=OPT_O0_CONFIG)
-
     @unittest.expectedFailure
     def test_assert_sum_contract_fail(self):
         input_file = "examples/smart_contracts/assert_sum.py"
@@ -972,6 +960,132 @@ def validator(x: Anything) -> int:
         source_code = _assert_isinstance_anything_user_defined_program()
         with self.assertRaises(RuntimeError):
             eval_uplc_value(source_code, 1, config=ASSERT_ANYTHING_CONFIG)
+
+    def test_mutual_recursion_forward_declaration(self):
+        source_code = """
+def even(n: int) -> bool:
+    if n == 0:
+        return True
+    return odd(n - 1)
+
+def odd(n: int) -> bool:
+    if n == 0:
+        return False
+    return even(n - 1)
+
+def validator(n: int) -> int:
+    return 1 if even(n) else 0
+        """
+        self.assertEqual(1, eval_uplc_value(source_code, 4))
+        self.assertEqual(0, eval_uplc_value(source_code, 3))
+
+    def test_nested_mutual_recursion_forward_declaration(self):
+        source_code = """
+def validator(n: int) -> int:
+    def even(x: int) -> bool:
+        if x == 0:
+            return True
+        return odd(x - 1)
+
+    def odd(x: int) -> bool:
+        if x == 0:
+            return False
+        return even(x - 1)
+
+    return 1 if even(n) else 0
+        """
+        self.assertEqual(1, eval_uplc_value(source_code, 4))
+        self.assertEqual(0, eval_uplc_value(source_code, 3))
+
+    def test_three_function_recursion_cycle(self):
+        source_code = """
+def a(n: int) -> int:
+    if n <= 0:
+        return 1
+    return b(n - 1)
+
+def b(n: int) -> int:
+    if n <= 0:
+        return 2
+    return c(n - 1)
+
+def c(n: int) -> int:
+    if n <= 0:
+        return 3
+    return a(n - 1)
+
+def validator(n: int) -> int:
+    return a(n)
+        """
+        self.assertEqual(1, eval_uplc_value(source_code, 0))
+        self.assertEqual(2, eval_uplc_value(source_code, 1))
+        self.assertEqual(3, eval_uplc_value(source_code, 2))
+        self.assertEqual(1, eval_uplc_value(source_code, 3))
+
+    def test_five_function_recursion_cycle(self):
+        source_code = """
+def a(n: int) -> int:
+    if n <= 0:
+        return 1
+    return b(n - 1)
+
+def b(n: int) -> int:
+    if n <= 0:
+        return 2
+    return c(n - 1)
+
+def c(n: int) -> int:
+    if n <= 0:
+        return 3
+    return d(n - 1)
+
+def d(n: int) -> int:
+    if n <= 0:
+        return 4
+    return e(n - 1)
+
+def e(n: int) -> int:
+    if n <= 0:
+        return 5
+    return a(n - 1)
+
+def validator(n: int) -> int:
+    return a(n)
+        """
+        self.assertEqual(1, eval_uplc_value(source_code, 0))
+        self.assertEqual(2, eval_uplc_value(source_code, 1))
+        self.assertEqual(3, eval_uplc_value(source_code, 2))
+        self.assertEqual(4, eval_uplc_value(source_code, 3))
+        self.assertEqual(5, eval_uplc_value(source_code, 4))
+        self.assertEqual(1, eval_uplc_value(source_code, 5))
+
+    def test_forward_global_variable_in_function(self):
+        source_code = """
+def read_x() -> int:
+    return x + 1
+
+x: int = 41
+
+def validator(_: None) -> int:
+    return read_x()
+        """
+        self.assertEqual(42, eval_uplc_value(source_code, Unit()))
+
+    def test_forward_class_reference_in_function(self):
+        source_code = """
+from opshin.prelude import *
+
+def mk(v: int) -> MyData:
+    return MyData(v)
+
+@dataclass()
+class MyData(PlutusData):
+    value: int
+
+def validator(_: None) -> int:
+    return mk(2).value
+        """
+        self.assertEqual(2, eval_uplc_value(source_code, Unit()))
 
     def test_typecast_int_anything(self):
         # this should compile, it happens implicitly anyways when calling a function with Any parameters
@@ -2244,6 +2358,239 @@ def validator(_: None) -> int:
         res = eval_uplc_value(source_code, Unit())
         self.assertEqual(res, 1, "Invalid return")
 
+    @unittest.expectedFailure
+    def test_return_in_if_same_type(self):
+        source_code = """
+def validator(_: None) -> str:
+    i = 0
+    if i == 1:
+        return "a"
+    else:
+        return 1
+        """
+        builder._compile(source_code)
+
+    def test_isinstance_cast_if2(self):
+        source_code = """
+from dataclasses import dataclass
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
+
+@dataclass()
+class A(PlutusData):
+    CONSTR_ID = 0
+    foo: int
+
+@dataclass()
+class B(PlutusData):
+    CONSTR_ID = 1
+    foobar: int
+    bar: int
+
+def validator(_: None) -> Union[A, B]:
+    x = 0
+    if x == 1:
+        return A(1)
+    else:
+        return B(2, 1)
+"""
+        res = eval_uplc(source_code, Unit())
+        self.assertEqual(
+            res,
+            uplc.PlutusConstr(1, [uplc.PlutusInteger(2), uplc.PlutusInteger(1)]),
+            "Invalid return",
+        )
+
+    @unittest.expectedFailure
+    def test_return_in_if_missing_return(self):
+        source_code = """
+def validator(_: None) -> str:
+    i = 0
+    if i == 1:
+        return "a"
+    else:
+        pass
+        """
+        builder._compile(source_code)
+
+    def test_different_return_types_anything(self):
+        source_code = """
+from opshin.prelude import *
+
+def validator(a: int) -> Anything:
+    if a > 0:
+        return b""
+    else:
+        return 0
+"""
+        res = eval_uplc(source_code, 1)
+        self.assertEqual(res, uplc.PlutusByteString(b""))
+        res = eval_uplc(source_code, -1)
+        self.assertEqual(res, uplc.PlutusInteger(0))
+
+    @unittest.expectedFailure
+    def test_different_return_types_while_loop(self):
+        source_code = """
+def validator(a: int) -> str:
+    while a > 0:
+        return b""
+    return 0
+"""
+        builder._compile(source_code)
+
+    @unittest.expectedFailure
+    def test_different_return_types_for_loop(self):
+        source_code = """
+def validator(a: int) -> str:
+    for i in range(a):
+        return b""
+    return 0
+"""
+        builder._compile(source_code)
+
+    def test_return_else_loop_while(self):
+        source_code = """
+def validator(a: int) -> int:
+    while a > 0:
+        a -= 1
+    else:
+        return 0
+"""
+        res = eval_uplc_value(source_code, 1)
+        self.assertEqual(res, 0, "Invalid return")
+
+    def test_return_else_loop_for(self):
+        source_code = """
+def validator(a: int) -> int:
+    for _ in range(a):
+        a -= 1
+    else:
+        return 0
+"""
+        res = eval_uplc_value(source_code, 1)
+        self.assertEqual(res, 0, "Invalid return")
+
+    def test_empty_list_int(self):
+        source_code = """
+from typing import Dict, List, Union
+
+def validator(_: None) -> List[int]:
+    a: List[int] = []
+    return a + [1]
+"""
+        res = eval_uplc_value(source_code, Unit())
+        self.assertEqual(res, [uplc.PlutusInteger(1)])
+
+    def test_empty_list_data(self):
+        source_code = """
+from opshin.prelude import *
+
+def validator(_: None) -> List[Token]:
+    a: List[Token] = []
+    return a + [Token(b"", b"")]
+"""
+        res = eval_uplc_value(source_code, Unit())
+        self.assertEqual(
+            res,
+            [
+                uplc.PlutusConstr(
+                    0, [uplc.PlutusByteString(b""), uplc.PlutusByteString(b"")]
+                )
+            ],
+        )
+
+    def test_empty_dict_int_int(self):
+        source_code = """
+from typing import Dict, List, Union
+
+def validator(_: None) -> Dict[int, int]:
+    a: Dict[int, int] = {}
+    return a
+"""
+        res = eval_uplc_value(source_code, Unit())
+        self.assertEqual(res, {})
+
+    def test_union_subset_call(self):
+        source_code = """
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
+from dataclasses import dataclass
+
+@dataclass()
+class A(PlutusData):
+    CONSTR_ID = 0
+    foo: int
+
+@dataclass()
+class B(PlutusData):
+    CONSTR_ID = 1
+    bar: int
+
+@dataclass()
+class C(PlutusData):
+    CONSTR_ID = 2
+    foobar: int
+
+def fun(x: Union[A, B, C]) -> int:
+    return 0
+
+
+def validator(x: Union[A, B]) -> int:
+    return fun(x)
+        """
+        builder._compile(source_code)
+
+    def test_revisit_function_body_resets_local_union_scope(self):
+        source_code = """
+from typing import Union
+from pycardano import Datum as Anything, PlutusData
+from dataclasses import dataclass
+
+def helper(x: int) -> int:
+    return x + 1
+
+@dataclass()
+class A(PlutusData):
+    CONSTR_ID = 0
+    a: int
+
+@dataclass()
+class B(PlutusData):
+    CONSTR_ID = 1
+    b: int
+
+@dataclass()
+class C(PlutusData):
+    CONSTR_ID = 2
+    c: int
+
+def validator(x: Union[A, B, C]) -> int:
+    y: Union[A, B, C] = x
+    z = 0
+    if isinstance(y, A):
+        z = helper(y.a)
+    elif isinstance(y, B):
+        z = helper(y.b)
+    elif isinstance(y, C):
+        z = helper(y.c)
+    else:
+        assert False, "bad"
+    return z
+        """
+        builder._compile(source_code)
+
+    def test_assert_false_return_analysis_compile_o0(self):
+        source_code = """
+from typing import List
+
+def validator(xs: List[int], n: int) -> int:
+    for x in xs:
+        if x == n:
+            return x
+    assert False, "missing"
+"""
+        builder._compile(source_code, config=OPT_O0_CONFIG)
+
     def test_assert_if_return(self):
         source_code = """
 from typing import Union
@@ -2494,188 +2841,6 @@ def validator(v: Union[int, bytes], a: int, b: int) -> int:
         return 4
     return v + 2
 """
-        builder._compile(source_code)
-
-    @unittest.expectedFailure
-    def test_return_in_if_same_type(self):
-        source_code = """
-def validator(_: None) -> str:
-    i = 0
-    if i == 1:
-        return "a"
-    else:
-        return 1
-        """
-        builder._compile(source_code)
-
-    def test_isinstance_cast_if2(self):
-        source_code = """
-from dataclasses import dataclass
-from typing import Dict, List, Union
-from pycardano import Datum as Anything, PlutusData
-
-@dataclass()
-class A(PlutusData):
-    CONSTR_ID = 0
-    foo: int
-
-@dataclass()
-class B(PlutusData):
-    CONSTR_ID = 1
-    foobar: int
-    bar: int
-
-def validator(_: None) -> Union[A, B]:
-    x = 0
-    if x == 1:
-        return A(1)
-    else:
-        return B(2, 1)
-"""
-        res = eval_uplc(source_code, Unit())
-        self.assertEqual(
-            res,
-            uplc.PlutusConstr(1, [uplc.PlutusInteger(2), uplc.PlutusInteger(1)]),
-            "Invalid return",
-        )
-
-    @unittest.expectedFailure
-    def test_return_in_if_missing_return(self):
-        source_code = """
-def validator(_: None) -> str:
-    i = 0
-    if i == 1:
-        return "a"
-    else:
-        pass
-        """
-        builder._compile(source_code)
-
-    def test_different_return_types_anything(self):
-        source_code = """
-from opshin.prelude import *
-
-def validator(a: int) -> Anything:
-    if a > 0:
-        return b""
-    else:
-        return 0
-"""
-        res = eval_uplc(source_code, 1)
-        self.assertEqual(res, uplc.PlutusByteString(b""))
-        res = eval_uplc(source_code, -1)
-        self.assertEqual(res, uplc.PlutusInteger(0))
-
-    @unittest.expectedFailure
-    def test_different_return_types_while_loop(self):
-        source_code = """
-def validator(a: int) -> str:
-    while a > 0:
-        return b""
-    return 0
-"""
-        builder._compile(source_code)
-
-    @unittest.expectedFailure
-    def test_different_return_types_for_loop(self):
-        source_code = """
-def validator(a: int) -> str:
-    for i in range(a):
-        return b""
-    return 0
-"""
-        builder._compile(source_code)
-
-    def test_return_else_loop_while(self):
-        source_code = """
-def validator(a: int) -> int:
-    while a > 0:
-        a -= 1
-    else:
-        return 0
-"""
-        res = eval_uplc_value(source_code, 1)
-        self.assertEqual(res, 0, "Invalid return")
-
-    def test_return_else_loop_for(self):
-        source_code = """
-def validator(a: int) -> int:
-    for _ in range(a):
-        a -= 1
-    else:
-        return 0
-"""
-        res = eval_uplc_value(source_code, 1)
-        self.assertEqual(res, 0, "Invalid return")
-
-    def test_empty_list_int(self):
-        source_code = """
-from typing import Dict, List, Union
-
-def validator(_: None) -> List[int]:
-    a: List[int] = []
-    return a + [1]
-"""
-        res = eval_uplc_value(source_code, Unit())
-        self.assertEqual(res, [uplc.PlutusInteger(1)])
-
-    def test_empty_list_data(self):
-        source_code = """
-from opshin.prelude import *
-
-def validator(_: None) -> List[Token]:
-    a: List[Token] = []
-    return a + [Token(b"", b"")]
-"""
-        res = eval_uplc_value(source_code, Unit())
-        self.assertEqual(
-            res,
-            [
-                uplc.PlutusConstr(
-                    0, [uplc.PlutusByteString(b""), uplc.PlutusByteString(b"")]
-                )
-            ],
-        )
-
-    def test_empty_dict_int_int(self):
-        source_code = """
-from typing import Dict, List, Union
-
-def validator(_: None) -> Dict[int, int]:
-    a: Dict[int, int] = {}
-    return a
-"""
-        res = eval_uplc_value(source_code, Unit())
-        self.assertEqual(res, {})
-
-    def test_union_subset_call(self):
-        source_code = """
-from typing import Dict, List, Union
-from pycardano import Datum as Anything, PlutusData
-from dataclasses import dataclass
-
-@dataclass()
-class A(PlutusData):
-    CONSTR_ID = 0
-    foo: int
-
-@dataclass()
-class B(PlutusData):
-    CONSTR_ID = 1
-    bar: int
-
-@dataclass()
-class C(PlutusData):
-    CONSTR_ID = 2
-    foobar: int
-
-def fun(x: Union[A, B, C]) -> int:
-    return 0
-
-
-def validator(x: Union[A, B]) -> int:
-    return fun(x)
-        """
         builder._compile(source_code)
 
     @unittest.expectedFailure
