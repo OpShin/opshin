@@ -639,10 +639,12 @@ from pycardano import Datum as Anything, PlutusData
 def foo(xss: List[List[Union[int, bytes]]]) -> int:
     a = xss[0][0]
     b = xss[0][1]
-    if isinstance(a, int) and isinstance(b, int):
-        return a + b
-    if isinstance(a, bytes) and isinstance(b, bytes):
-        return len(a) + len(b)
+    if isinstance(a, int):
+        if isinstance(b, int):
+            return a + b
+    if isinstance(a, bytes):
+        if isinstance(b, bytes):
+            return len(a) + len(b)
     return 0
 
 def validator(x: int) -> int:
@@ -722,10 +724,12 @@ from pycardano import Datum as Anything, PlutusData
 def foo(xss: Dict[int, Dict[int, Union[int, bytes]]]) -> int:
     a = xss[0][1]
     b = xss[0][2]
-    if isinstance(a, int) and isinstance(b, int):
-        return a + b
-    if isinstance(a, bytes) and isinstance(b, bytes):
-        return len(a) + len(b)
+    if isinstance(a, int):
+        if isinstance(b, int):
+            return a + b
+    if isinstance(a, bytes):
+        if isinstance(b, bytes):
+            return len(a) + len(b)
     return 0
 
 def validator(x: int) -> int:
@@ -796,10 +800,6 @@ def validator(_: int) -> int:
         real = 1
         self.assertEqual(res, real)
 
-    @pytest.mark.xfail(
-        reason="Known bug: Union branches narrowed to List[Anything] remain wrapped as data",
-        strict=False,
-    )
     @hypothesis.given(st.sampled_from(range(14)))
     def test_Union_with_List_builtin_access(self, x):
         source_code = """
@@ -847,10 +847,6 @@ def validator(x: int) -> int:
         real = len(b"0" * x) if x > 5 else 1
         self.assertEqual(res, real)
 
-    @pytest.mark.xfail(
-        reason="Known bug: Union branches narrowed to Dict[Anything, Anything] remain wrapped as data",
-        strict=False,
-    )
     @hypothesis.given(st.sampled_from(range(14)))
     def test_Union_with_Dict_builtin_access(self, x):
         source_code = """

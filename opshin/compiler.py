@@ -14,6 +14,7 @@ from .prelude import Nothing
 from .rewrite.rewrite_import_bls12_381 import RewriteImportBLS12381
 from .type_impls import (
     InstanceType,
+    DataInstanceType,
     UnionType,
     UnitType,
     Type,
@@ -103,6 +104,8 @@ BoolOpMap = {
 def needs_data_cast(typ: Type) -> bool:
     if not isinstance(typ, InstanceType):
         return False
+    if isinstance(typ, DataInstanceType):
+        return True
     if isinstance(typ.typ, (AnyType, UnionType)):
         return True
     if isinstance(typ.typ, ListType):
@@ -115,6 +118,8 @@ def needs_data_cast(typ: Type) -> bool:
 def transform_output_to_type(source: Type, target: Type):
     assert isinstance(source, InstanceType), "Can only transform instance types"
     assert isinstance(target, InstanceType), "Can only transform instance types"
+    if isinstance(target, DataInstanceType):
+        return transform_output_map(source)
     if isinstance(target.typ, (AnyType, UnionType)):
         return transform_output_map(source)
     if isinstance(target.typ, ListType) and isinstance(source.typ, ListType):
@@ -518,7 +523,7 @@ class PlutoCompiler(CompilingNodeTransformer):
         ), "Assignments to other things then names are not supported"
         compiled_e = self.visit(node.value)
         varname = node.targets[0].id
-        if hasattr(node.targets[0], "is_wrapped") and node.targets[0].is_wrapped:
+        if isinstance(node.targets[0].typ, DataInstanceType):
             # if this is a wrapped variable or Union/Any, we need to map it back to the external parameter type
             # TODO this is terribly inefficient. we would rather want to cast once when entering the body and cast back when leaving
             compiled_e = transform_output_map(node.value.typ)(compiled_e)
@@ -569,7 +574,7 @@ class PlutoCompiler(CompilingNodeTransformer):
         if isinstance(node.typ, ClassType):
             # if this is not an instance but a class, call the constructor
             return node.typ.constr()
-        if hasattr(node, "is_wrapped") and node.is_wrapped:
+        if isinstance(node.typ, DataInstanceType):
             return transform_ext_params_map(node.typ)(plt.Force(plt.Var(node.id)))
         return plt.Force(plt.Var(node.id))
 

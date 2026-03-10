@@ -8,6 +8,7 @@ from .util import OLambda, OVar, SafeOLambda, OLet
 from .type_impls import (
     PolymorphicFunction,
     InstanceType,
+    DataInstanceType,
     IntegerInstanceType,
     ByteStringInstanceType,
     ListType,
@@ -25,6 +26,7 @@ from .type_impls import (
     StringInstanceType,
     PolymorphicFunctionType,
     FunctionType,
+    strip_data_instance_type,
 )
 from .typed_ast import *
 from .type_impls import Type
@@ -125,10 +127,13 @@ class IsinstanceImpl(PolymorphicFunction):
         instance: InstanceType = args[0]
         target: ClassType = args[1]
         assert isinstance(instance, InstanceType), "First argument must be an instance"
+        instance_class = strip_data_instance_type(instance).typ
         if not (
-            isinstance(instance.typ, UnionType) or isinstance(instance.typ, AnyType)
+            isinstance(instance, DataInstanceType)
+            or isinstance(instance_class, UnionType)
+            or isinstance(instance_class, AnyType)
         ):
-            if instance.typ == target:
+            if instance_class == target:
                 return OLambda(["x"], plt.Bool(True))
             else:
                 return OLambda(["x"], plt.Bool(False))
@@ -160,15 +165,15 @@ class IsinstanceImpl(PolymorphicFunction):
         elif isinstance(target, RecordType):
             # default: all fields in union are records, so we can safely access CONSTR_ID
             attr_source: ClassType = (
-                target if isinstance(instance.typ, AnyType) else instance.typ
+                target if isinstance(instance_class, AnyType) else instance_class
             )
             node = plt.EqualsInteger(
                 plt.Apply(attr_source.attribute("CONSTR_ID"), OVar("x")),
                 plt.Integer(target.record.constructor),
             )
 
-            if isinstance(instance.typ, AnyType) or not all(
-                isinstance(x, RecordType) for x in instance.typ.typs
+            if isinstance(instance_class, AnyType) or not all(
+                isinstance(x, RecordType) for x in instance_class.typs
             ):
                 node = plt.DelayedChooseData(
                     OVar("x"),

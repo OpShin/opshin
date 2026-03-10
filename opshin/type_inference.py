@@ -63,6 +63,9 @@ from .type_impls import (
     PolymorphicFunctionInstanceType,
     FunctionType,
     CLOSURE_PLACEHOLDER,
+    DataInstanceType,
+    data_repr_instance_type,
+    strip_data_instance_type,
 )
 
 # from frozendict import frozendict
@@ -384,7 +387,19 @@ def merge_scope(s1: typing.Dict[str, Type], s2: typing.Dict[str, Type]):
                 assert isinstance(s1[k], InstanceType) and isinstance(
                     s2[k], InstanceType
                 ), f"""Can only merge instance types, found class type '{s1[k].python_type() if not isinstance(s1[k], InstanceType) else s2[k].python_type() if not isinstance(s2[k], InstanceType) else s1[k].python_type() + "' and '" + s1[k].python_type()}' for '{k}'"""
-                merged[k] = InstanceType(union_types(s1[k].typ, s2[k].typ))
+                merged_type = union_types(
+                    strip_data_instance_type(s1[k]).typ,
+                    strip_data_instance_type(s2[k]).typ,
+                )
+                if (
+                    isinstance(s1[k], DataInstanceType)
+                    or isinstance(s2[k], DataInstanceType)
+                    or isinstance(strip_data_instance_type(s1[k]).typ, (AnyType, UnionType))
+                    or isinstance(strip_data_instance_type(s2[k]).typ, (AnyType, UnionType))
+                ):
+                    merged[k] = DataInstanceType(merged_type)
+                else:
+                    merged[k] = InstanceType(merged_type)
             except AssertionError as e:
                 raise AssertionError(
                     f"Can not merge scopes after branching, conflicting types for '{k}': '{e}'"
@@ -398,7 +413,6 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
     def __init__(self, allow_isinstance_anything=False):
         self.allow_isinstance_anything = allow_isinstance_anything
         self.FUNCTION_ARGUMENT_REGISTRY = {}
-        self.wrapped = []
         self.first_function_definition_scopes: typing.List[typing.Set[int]] = []
         self._function_id_counter = 0
 
@@ -455,8 +469,17 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
     def implement_typechecks(self, typchecks: TypeMap):
         prevtyps = {}
         for n, t in typchecks.items():
-            prevtyps[n] = self.variable_type(n).typ
-            self.set_variable_type(n, InstanceType(t), force=True)
+            prevtyps[n] = self.variable_type(n)
+            if isinstance(t, InstanceType):
+                self.set_variable_type(n, t, force=True)
+                continue
+            narrowed_type = InstanceType(t)
+            if isinstance(prevtyps[n], DataInstanceType) or (
+                isinstance(prevtyps[n], InstanceType)
+                and isinstance(prevtyps[n].typ, (AnyType, UnionType))
+            ):
+                narrowed_type = DataInstanceType(t)
+            self.set_variable_type(n, narrowed_type, force=True)
         return prevtyps
 
     def resolve_compare_dunder(
@@ -892,29 +915,12 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
     def visit_sequence_under_typechecks(
         self, node_seq: typing.List[stmt], typchecks: TypeMap
     ) -> tuple[typing.List[stmt], typing.Dict[str, Type]]:
-        wrapped = self.implement_typechecks(typchecks)
-        self.wrapped.extend(wrapped.keys())
+        prevtyps = self.implement_typechecks(typchecks)
         try:
             typed_seq = self.visit_sequence(node_seq)
             return typed_seq, copy(self.scopes[-1])
         finally:
-            self.wrapped = [x for x in self.wrapped if x not in wrapped.keys()]
-
-    def sync_wrapped_from_scope(
-        self,
-        initial_scope: typing.Dict[str, Type],
-        merged_scope: typing.Dict[str, Type],
-    ):
-        for name, initial_type in initial_scope.items():
-            if name in self.wrapped or name not in merged_scope:
-                continue
-            merged_type = merged_scope[name]
-            if (
-                merged_type != initial_type
-                and isinstance(initial_type, InstanceType)
-                and isinstance(initial_type.typ, (AnyType, UnionType))
-            ):
-                self.wrapped.append(name)
+            self.implement_typechecks(prevtyps)
 
     @staticmethod
     def merge_fallthrough_scopes(
@@ -957,9 +963,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                         self.allow_isinstance_anything
                     ).visit(stmt.test)
                     # for the time after this assert, the variable has the specialized type
-                    wrapped = self.implement_typechecks(typchecks)
-                    prevtyps.update(wrapped)
-                    self.wrapped.extend(wrapped.keys())
+                    prevtyps.update(self.implement_typechecks(typchecks))
                 if not getattr(stmt, "can_fall_through", True):
                     break
             self.implement_typechecks(prevtyps)
@@ -1032,7 +1036,20 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                 t, Name
             ), "Can only assign to variable names (e.g., x = 5 or a, b = 10, 20). OpShin does not allow assigning to dicts, lists, or members (e.g., x[0] = 1; x.foo = 1)"
             # Check compatibility to previous types -> variable can be bound in a function before and needs to maintain type
-            self.set_variable_type(t.id, typed_ass.value.typ)
+            target_typ = data_repr_instance_type(typed_ass.value.typ)
+            if self.is_defined_in_current_scope(t.id):
+                prev_typ = self.variable_type(t.id)
+                if isinstance(prev_typ, DataInstanceType) or (
+                    isinstance(prev_typ, InstanceType)
+                    and isinstance(prev_typ.typ, (AnyType, UnionType))
+                ):
+                    assert isinstance(
+                        typed_ass.value.typ, InstanceType
+                    ), "Can only assign instances to data-backed variables"
+                    target_typ = DataInstanceType(
+                        strip_data_instance_type(typed_ass.value.typ).typ
+                    )
+            self.set_variable_type(t.id, target_typ)
         typed_ass.targets = [self.visit(t) for t in node.targets]
         # for deconstructed tuples, check that the size matches
         if hasattr(typed_ass.value, "is_tuple_with_deconstruction"):
@@ -1077,7 +1094,10 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             node.target, Name
         ), "Can only assign to variable names, no type deconstruction"
         # Check compatibility to previous types -> variable can be bound in a function before and needs to maintain type
-        self.set_variable_type(node.target.id, InstanceType(typed_ass.annotation))
+        self.set_variable_type(
+            node.target.id,
+            data_repr_instance_type(InstanceType(typed_ass.annotation)),
+        )
         typed_ass.target = self.visit(node.target)
         assert (
             typed_ass.value.typ >= InstanceType(typed_ass.annotation)
@@ -1114,7 +1134,6 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             (typed_if.body_can_fall_through, final_scope_body),
             (typed_if.orelse_can_fall_through, final_scope_else),
         )
-        self.sync_wrapped_from_scope(initial_scope, self.scopes[-1])
         return typed_if
 
     def visit_While(self, node: While) -> TypedWhile:
@@ -1145,7 +1164,6 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                 merge_scope(final_scope_body, final_scope_else),
             ),
         )
-        self.sync_wrapped_from_scope(initial_scope, self.scopes[-1])
         return typed_while
 
     def visit_For(self, node: For) -> TypedFor:
@@ -1204,8 +1222,6 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         else:
             # Make sure that the rhs of an assign is evaluated first
             tn.typ = self.variable_type(node.id)
-        if node.id in self.wrapped:
-            tn.is_wrapped = True
         return tn
 
     def visit_keyword(self, node: keyword) -> Typedkeyword:
@@ -1228,7 +1244,9 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
 
     def visit_arg(self, node: arg) -> typedarg:
         ta = copy(node)
-        ta.typ = InstanceType(self.type_from_annotation(node.annotation))
+        ta.typ = data_repr_instance_type(
+            InstanceType(self.type_from_annotation(node.annotation))
+        )
         self.set_variable_type(ta.arg, ta.typ)
         return ta
 
@@ -1335,13 +1353,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                     e_visited
                 )
                 # for the time after the shortcut and the variable type to the specialized type
-                wrapped = self.implement_typechecks(typchecks)
-                self.wrapped.extend(wrapped.keys())
-                prevtyps.update(wrapped)
-            # Clean up wrapped variables after processing all values
-            for var in prevtyps.keys():
-                if var in self.wrapped:
-                    self.wrapped.remove(var)
+                prevtyps.update(self.implement_typechecks(typchecks))
             self.implement_typechecks(prevtyps)
             tt.values = values
         elif isinstance(node.op, Or):
@@ -1353,13 +1365,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                     self.allow_isinstance_anything
                 ).visit(values[-1])
                 # for the time after the shortcut or the variable type is *not* the specialized type
-                wrapped = self.implement_typechecks(inv_typechecks)
-                self.wrapped.extend(wrapped.keys())
-                prevtyps.update(wrapped)
-            # Clean up wrapped variables after processing all values
-            for var in prevtyps.keys():
-                if var in self.wrapped:
-                    self.wrapped.remove(var)
+                prevtyps.update(self.implement_typechecks(inv_typechecks))
             self.implement_typechecks(prevtyps)
             tt.values = values
         else:
@@ -1574,9 +1580,14 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         if isinstance(tc.func.typ, InstanceType) and isinstance(
             tc.func.typ.typ, PolymorphicFunctionType
         ):
+            polymorphic_arg_types = [a.typ for a in tc.args]
+            if not is_isinstance_call:
+                polymorphic_arg_types = [
+                    strip_data_instance_type(t) for t in polymorphic_arg_types
+                ]
             tc.func.typ = PolymorphicFunctionInstanceType(
                 tc.func.typ.typ.polymorphic_function.type_from_args(
-                    [a.typ for a in tc.args]
+                    polymorphic_arg_types
                 ),
                 tc.func.typ.typ.polymorphic_function,
             )
@@ -1639,15 +1650,11 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             self.allow_isinstance_anything
         ).visit(node_cp.test)
         prevtyps = self.implement_typechecks(typchecks)
-        self.wrapped.extend(prevtyps.keys())
         node_cp.body = self.visit(node.body)
-        self.wrapped = [x for x in self.wrapped if x not in prevtyps.keys()]
 
         self.implement_typechecks(prevtyps)
         prevtyps = self.implement_typechecks(inv_typchecks)
-        self.wrapped.extend(prevtyps.keys())
         node_cp.orelse = self.visit(node.orelse)
-        self.wrapped = [x for x in self.wrapped if x not in prevtyps.keys()]
         self.implement_typechecks(prevtyps)
         if node_cp.body.typ >= node_cp.orelse.typ:
             node_cp.typ = node_cp.body.typ
@@ -1706,14 +1713,12 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                 all_typechecks.update(typchecks)
 
         # apply type narrowing before evaluating the element
-        wrapped = self.implement_typechecks(all_typechecks)
-        self.wrapped.extend(wrapped.keys())
+        prevtyps = self.implement_typechecks(all_typechecks)
 
         # then evaluate elements with narrowed types
         typed_listcomp.elt = self.visit(node.elt)
 
-        # clean up wrapped variables
-        self.wrapped = [x for x in self.wrapped if x not in wrapped.keys()]
+        self.implement_typechecks(prevtyps)
 
         self.exit_scope()
         typed_listcomp.typ = InstanceType(ListType(typed_listcomp.elt.typ))
@@ -1736,15 +1741,13 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                 all_typechecks.update(typchecks)
 
         # apply type narrowing before evaluating the elements
-        wrapped = self.implement_typechecks(all_typechecks)
-        self.wrapped.extend(wrapped.keys())
+        prevtyps = self.implement_typechecks(all_typechecks)
 
         # then evaluate elements with narrowed types
         typed_dictcomp.key = self.visit(node.key)
         typed_dictcomp.value = self.visit(node.value)
 
-        # clean up wrapped variables
-        self.wrapped = [x for x in self.wrapped if x not in wrapped.keys()]
+        self.implement_typechecks(prevtyps)
 
         self.exit_scope()
         typed_dictcomp.typ = InstanceType(
