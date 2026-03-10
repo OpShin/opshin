@@ -189,7 +189,9 @@ class AnnotationTypeInferencer(AnnotationNodeReducer):
             assert isinstance(
                 ann_type, ClassType
             ), "List must have a single type as parameter"
-            assert not isinstance(ann_type, TupleType), "List can currently not hold tuples"
+            assert not isinstance(
+                ann_type, TupleType
+            ), "List can currently not hold tuples"
             return ListType(InstanceType(ann_type))
         if ann_node.value.orig_id == "Dict":
             assert isinstance(ann_node.slice, Tuple), "Dict must combine two classes"
@@ -203,13 +205,17 @@ class AnnotationTypeInferencer(AnnotationNodeReducer):
             ), "Dict can currently not hold tuples"
             return DictType(*(InstanceType(a) for a in ann_types))
         if ann_node.value.orig_id == "Tuple":
-            assert isinstance(ann_node.slice, Tuple), "Tuple must combine several classes"
+            assert isinstance(
+                ann_node.slice, Tuple
+            ), "Tuple must combine several classes"
             ann_types = self.visit(ann_node.slice)
             assert all(
                 isinstance(e, ClassType) for e in ann_types
             ), "Tuple must combine classes"
             return TupleType(frozenlist([InstanceType(a) for a in ann_types]))
-        raise NotImplementedError("Only Union, Dict and List are allowed as Generic types")
+        raise NotImplementedError(
+            "Only Union, Dict and List are allowed as Generic types"
+        )
 
     def visit_NoneType(self, ann_node: None):
         return AnyType()
@@ -244,6 +250,7 @@ class LiteralSelfReferenceDetector(AnnotationNodeVisitor):
         if self.found:
             return
         return super().generic_visit(annotation)
+
 
 DUNDER_MAP = {
     # ast.Compare:

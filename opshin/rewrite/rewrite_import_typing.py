@@ -65,8 +65,6 @@ class RewriteImportTyping(CompilingNodeTransformer):
                     ).visit(arg.annotation)
                 node.body[i].returns = TypingAnnotationMarker(
                     self.imports, node.name
-                ).visit(
-                    attribute.returns
-                )
+                ).visit(attribute.returns)
 
         return node
