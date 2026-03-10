@@ -1,4 +1,6 @@
 import argparse
+from typing import Optional
+
 from opshin.optimize.optimize_selective_narrowing_rebind import (
     BYTESTRING_REBIND_READ_THRESHOLD,
     INTEGER_REBIND_READ_THRESHOLD,
@@ -13,7 +15,7 @@ def find_threshold(
     kind: str,
     max_reads: int,
     low: int = 1,
-) -> int | None:
+) -> Optional[int]:
     if max_reads < low:
         raise AssertionError("max_reads must be at least 1")
     if not forced_beats_noop(kind, max_reads):
@@ -29,7 +31,9 @@ def find_threshold(
     return left
 
 
-def report(kind: str, measured: int | None, configured: int | None, max_reads: int):
+def report(
+    kind: str, measured: Optional[int], configured: Optional[int], max_reads: int
+):
     if measured is None:
         print(f"{kind}: none up to {max_reads} (configured={configured})")
         return

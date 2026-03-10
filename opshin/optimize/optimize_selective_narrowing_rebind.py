@@ -94,7 +94,10 @@ class _AccessEventCollector:
         return node
 
     def visit_Call(self, node):
-        if isinstance(node.func, Name) and getattr(node.func, "orig_id", None) == "isinstance":
+        if (
+            isinstance(node.func, Name)
+            and getattr(node.func, "orig_id", None) == "isinstance"
+        ):
             return node
         return self.generic_visit(node)
 
@@ -118,7 +121,10 @@ class _NameTypeRewriter(ScopedSequenceNodeTransformer):
         return node
 
     def visit_Call(self, node):
-        if isinstance(node.func, Name) and getattr(node.func, "orig_id", None) == "isinstance":
+        if (
+            isinstance(node.func, Name)
+            and getattr(node.func, "orig_id", None) == "isinstance"
+        ):
             return node
         return self.generic_visit(node)
 
@@ -141,7 +147,10 @@ class _NameLoadRewriter(ScopedSequenceNodeTransformer):
         return node
 
     def visit_Call(self, node):
-        if isinstance(node.func, Name) and getattr(node.func, "orig_id", None) == "isinstance":
+        if (
+            isinstance(node.func, Name)
+            and getattr(node.func, "orig_id", None) == "isinstance"
+        ):
             return node
         return self.generic_visit(node)
 
@@ -164,10 +173,16 @@ def make_typed_rebind_assignment(
     source_name: str, target_name: str, source_typ: Type, target_typ: Type
 ):
     target = TypedName(
-        id=target_name, orig_id=map_to_orig_name(target_name), ctx=Store(), typ=target_typ
+        id=target_name,
+        orig_id=map_to_orig_name(target_name),
+        ctx=Store(),
+        typ=target_typ,
     )
     value = TypedName(
-        id=source_name, orig_id=map_to_orig_name(source_name), ctx=Load(), typ=source_typ
+        id=source_name,
+        orig_id=map_to_orig_name(source_name),
+        ctx=Load(),
+        typ=source_typ,
     )
     assign = TypedAssign(targets=[target], value=value)
     return assign
@@ -176,7 +191,11 @@ def make_typed_rebind_assignment(
 class OptimizeSelectiveNarrowingRebind(ScopedSequenceNodeTransformer):
     step = "Selectively lowering repeated narrowed reads"
 
-    def __init__(self, allow_isinstance_anything=False, forced_kind: str | None = None):
+    def __init__(
+        self,
+        allow_isinstance_anything=False,
+        forced_kind: typing.Optional[str] = None,
+    ):
         self.allow_isinstance_anything = allow_isinstance_anything
         self.forced_kind = forced_kind
         self._temp_id = 0
@@ -200,14 +219,20 @@ class OptimizeSelectiveNarrowingRebind(ScopedSequenceNodeTransformer):
                 )
             ):
                 continue
-            target_typ = narrowed if isinstance(narrowed, InstanceType) else InstanceType(narrowed)
+            target_typ = (
+                narrowed
+                if isinstance(narrowed, InstanceType)
+                else InstanceType(narrowed)
+            )
             target_typ = strip_data_instance_type(target_typ)
             if isinstance(target_typ.typ, (AnyType, UnionType)):
                 continue
             if self.forced_kind is not None:
                 if not is_kind(target_typ, self.forced_kind):
                     continue
-            elif not isinstance(target_typ.typ, (ListType, IntegerType, ByteStringType)):
+            elif not isinstance(
+                target_typ.typ, (ListType, IntegerType, ByteStringType)
+            ):
                 continue
             rebinds[name] = (DataInstanceType(target_typ.typ), target_typ)
         return rebinds
@@ -264,7 +289,9 @@ class OptimizeSelectiveNarrowingRebind(ScopedSequenceNodeTransformer):
             prefixes.append(
                 make_typed_rebind_assignment(name, temp_name, source_typ, target_typ)
             )
-        retyped_seq = _NameLoadRewriter(temp_replacements).visit_sequence(list(node_seq))
+        retyped_seq = _NameLoadRewriter(temp_replacements).visit_sequence(
+            list(node_seq)
+        )
         return prefixes + self.visit_sequence(retyped_seq)
 
     def visit_If(self, node: If) -> If:
@@ -312,7 +339,12 @@ class OptimizeSelectiveNarrowingRebind(ScopedSequenceNodeTransformer):
         return node_cp
 
 
-def eval_with_mode(source_code: str, *args, mode: str, forced_kind: str | None = None):
+def eval_with_mode(
+    source_code: str,
+    *args,
+    mode: str,
+    forced_kind: typing.Optional[str] = None,
+):
     from unittest.mock import patch
 
     from .. import builder
