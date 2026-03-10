@@ -47,6 +47,7 @@ from .type_impls import (
     PolymorphicFunctionType,
     Record,
     BoolInstanceType,
+    NoneInstanceType,
     IntegerInstanceType,
     UnitInstanceType,
     ByteStringInstanceType,
@@ -482,6 +483,33 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             self.set_variable_type(n, narrowed_type, force=True)
         return prevtyps
 
+    def data_rebind_types(self, typchecks: TypeMap) -> TypeMap:
+        rebinds = {}
+        for n, t in typchecks.items():
+            prev_typ = self.variable_type(n)
+            if not (
+                isinstance(prev_typ, DataInstanceType)
+                or (
+                    isinstance(prev_typ, InstanceType)
+                    and isinstance(prev_typ.typ, (AnyType, UnionType))
+                )
+            ):
+                continue
+            narrowed_typ = t if isinstance(t, InstanceType) else InstanceType(t)
+            narrowed_typ = strip_data_instance_type(narrowed_typ)
+            if isinstance(narrowed_typ.typ, (AnyType, UnionType)):
+                continue
+            rebinds[n] = narrowed_typ
+        return rebinds
+
+    @staticmethod
+    def make_typed_rebind_assignment(name: str, source_typ: Type, target_typ: Type):
+        target = TypedName(id=name, orig_id=map_to_orig_name(name), ctx=Store(), typ=target_typ)
+        value = TypedName(id=name, orig_id=map_to_orig_name(name), ctx=Load(), typ=source_typ)
+        assign = TypedAssign(targets=[target], value=value)
+        assign.typ = NoneInstanceType
+        return assign
+
     def resolve_compare_dunder(
         self,
         operation: ast.cmpop,
@@ -916,8 +944,29 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         self, node_seq: typing.List[stmt], typchecks: TypeMap
     ) -> tuple[typing.List[stmt], typing.Dict[str, Type]]:
         prevtyps = self.implement_typechecks(typchecks)
+        rebind_types = self.data_rebind_types(typchecks)
         try:
-            typed_seq = self.visit_sequence(node_seq)
+            typed_prefix = []
+            for name, target_typ in rebind_types.items():
+                source_typ = self.variable_type(name)
+                typed_prefix.append(
+                    self.make_typed_rebind_assignment(name, source_typ, target_typ)
+                )
+                self.set_variable_type(name, target_typ, force=True)
+
+            typed_seq = typed_prefix + self.visit_sequence(node_seq)
+
+            typed_suffix = []
+            for name in rebind_types:
+                current_typ = self.variable_type(name)
+                if not isinstance(current_typ, InstanceType):
+                    continue
+                wrapped_typ = DataInstanceType(strip_data_instance_type(current_typ).typ)
+                typed_suffix.append(
+                    self.make_typed_rebind_assignment(name, current_typ, wrapped_typ)
+                )
+                self.set_variable_type(name, wrapped_typ, force=True)
+            typed_seq.extend(typed_suffix)
             return typed_seq, copy(self.scopes[-1])
         finally:
             self.implement_typechecks(prevtyps)

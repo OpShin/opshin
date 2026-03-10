@@ -523,11 +523,7 @@ class PlutoCompiler(CompilingNodeTransformer):
         ), "Assignments to other things then names are not supported"
         compiled_e = self.visit(node.value)
         varname = node.targets[0].id
-        if isinstance(node.targets[0].typ, DataInstanceType):
-            # if this is a wrapped variable or Union/Any, we need to map it back to the external parameter type
-            # TODO this is terribly inefficient. we would rather want to cast once when entering the body and cast back when leaving
-            compiled_e = transform_output_map(node.value.typ)(compiled_e)
-        elif needs_data_cast(node.targets[0].typ):
+        if needs_data_cast(node.targets[0].typ):
             compiled_e = transform_output_to_type(
                 node.value.typ, node.targets[0].typ
             )(compiled_e)

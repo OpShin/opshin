@@ -8,7 +8,6 @@ from .util import OLambda, OVar, SafeOLambda, OLet
 from .type_impls import (
     PolymorphicFunction,
     InstanceType,
-    DataInstanceType,
     IntegerInstanceType,
     ByteStringInstanceType,
     ListType,
@@ -129,8 +128,7 @@ class IsinstanceImpl(PolymorphicFunction):
         assert isinstance(instance, InstanceType), "First argument must be an instance"
         instance_class = strip_data_instance_type(instance).typ
         if not (
-            isinstance(instance, DataInstanceType)
-            or isinstance(instance_class, UnionType)
+            isinstance(instance_class, UnionType)
             or isinstance(instance_class, AnyType)
         ):
             if instance_class == target:
