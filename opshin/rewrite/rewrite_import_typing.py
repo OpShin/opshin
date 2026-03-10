@@ -39,38 +39,34 @@ class RewriteImportTyping(CompilingNodeTransformer):
             )
         return node
 
+    def mark_typing_annotation_usage(self, annotation: expr, class_name: str):
+        if annotation is None:
+            return
+        if isinstance(annotation, Name):
+            if (
+                annotation.id in ALLOWED_TYPING_IMPORTS
+                and annotation.id not in self.imports
+            ):
+                raise ValueError(
+                    f"{annotation.id} used, which is a keyword for special OpShin types, but typing not imported. Please add 'from typing import {annotation.id}'"
+                )
+            if annotation.id == "Self":
+                annotation.idSelf = class_name
+            return
+        if isinstance(annotation, Subscript):
+            self.mark_typing_annotation_usage(annotation.value, class_name)
+            self.mark_typing_annotation_usage(annotation.slice, class_name)
+            return
+        if isinstance(annotation, Tuple):
+            for elt in annotation.elts:
+                self.mark_typing_annotation_usage(elt, class_name)
+            return
+
     def visit_ClassDef(self, node: ClassDef) -> ClassDef:
         for i, attribute in enumerate(node.body):
             if isinstance(attribute, FunctionDef):
                 for j, arg in enumerate(attribute.args.args):
-                    if isinstance(arg.annotation, Name) and arg.annotation.id == "Self":
-                        assert (
-                            "Self" in self.imports
-                        ), "Self used but not imported from typing. Please add 'from typing import Self'"
-                        node.body[i].args.args[j].annotation.idSelf = node.name
-                    if (
-                        isinstance(arg.annotation, Subscript)
-                        and arg.annotation.value.id == "Union"
-                    ):
-                        assert (
-                            "Union" in self.imports
-                        ), "Union used but not imported from typing. Please add 'from typing import Union'"
-                        for k, s in enumerate(arg.annotation.slice.elts):
-                            if isinstance(s, Name) and s.id == "Self":
-                                assert (
-                                    "Self" in self.imports
-                                ), "Self used but not imported from typing. Please add 'from typing import Self'"
-                                node.body[i].args.args[j].annotation.slice.elts[
-                                    k
-                                ].idSelf = node.name
-
-                if (
-                    isinstance(attribute.returns, Name)
-                    and attribute.returns.id == "Self"
-                ):
-                    assert (
-                        "Self" in self.imports
-                    ), "Self used but not imported from typing. Please add 'from typing import Self'"
-                    node.body[i].returns.idSelf = node.name
+                    self.mark_typing_annotation_usage(arg.annotation, node.name)
+                self.mark_typing_annotation_usage(attribute.returns, node.name)
 
         return node

@@ -33,6 +33,26 @@ def validator(x: A) -> None:
         builder._compile(source_code)
 
 
+def test_error_message_nested_self_no_import():
+    source_code = """
+from typing import Dict, List, Union
+from dataclasses import dataclass
+from pycardano import Datum as Anything, PlutusData
+
+@dataclass
+class A(PlutusData):
+    foo: int
+
+    def bar(self, x: Dict[Self, int]) -> Union[Self, int]:
+        return x[self]
+
+def validator(x: A) -> None:
+    assert isinstance(x, A)
+        """
+    with pytest.raises(CompilerError, match="not imported") as e:
+        builder._compile(source_code)
+
+
 def test_error_message_self_no_import_outside():
     source_code = """
 from typing import Dict, List, Union

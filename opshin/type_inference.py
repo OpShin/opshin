@@ -686,6 +686,27 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
 
     def resolve_self_annotations(self, node: FunctionDef) -> FunctionDef:
         """Replace Self annotations with the concrete class name captured during scoping."""
+
+        def replace_self(annotation: expr, self_type_name: str):
+            if annotation is None:
+                return None
+            annotation_cp = copy(annotation)
+            if isinstance(annotation_cp, Name) and (
+                hasattr(annotation_cp, "idSelf") or hasattr(annotation_cp, "idSelf_new")
+            ):
+                annotation_cp.id = self_type_name
+                return annotation_cp
+            if isinstance(annotation_cp, Subscript):
+                annotation_cp.value = replace_self(annotation_cp.value, self_type_name)
+                annotation_cp.slice = replace_self(annotation_cp.slice, self_type_name)
+                return annotation_cp
+            if isinstance(annotation_cp, ast.Tuple):
+                annotation_cp.elts = [
+                    replace_self(elt, self_type_name) for elt in annotation_cp.elts
+                ]
+                return annotation_cp
+            return annotation_cp
+
         node_cp = copy(node)
         node_cp.args = copy(node.args)
         node_cp.args.args = [copy(a) for a in node.args.args]
@@ -693,12 +714,11 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         if not node_cp.args.args:
             return node_cp
         self_ann = node_cp.args.args[0].annotation
+        if not isinstance(self_ann, Name):
+            return node_cp
         for arg in node_cp.args.args:
-            if hasattr(arg.annotation, "idSelf"):
-                arg.annotation = copy(arg.annotation)
-                arg.annotation.id = self_ann.id
-        if hasattr(node_cp.returns, "idSelf"):
-            node_cp.returns.id = self_ann.id
+            arg.annotation = replace_self(arg.annotation, self_ann.id)
+        node_cp.returns = replace_self(node_cp.returns, self_ann.id)
         return node_cp
 
     def ensure_function_id(self, node: FunctionDef) -> str:
