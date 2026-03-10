@@ -183,56 +183,121 @@ def custom_fix_missing_locations(node, parent=None):
     return node
 
 
+class AnnotationNodeTransformer:
+    def visit(self, annotation: typing.Optional[ast.expr]):
+        if annotation is None:
+            return self.visit_NoneType(annotation)
+        method = getattr(
+            self, f"visit_{annotation.__class__.__name__}", self.generic_visit
+        )
+        return method(annotation)
+
+    def generic_visit(self, annotation: ast.expr):
+        annotation_cp = copy(annotation)
+        if isinstance(annotation_cp, ast.Subscript):
+            annotation_cp.value = self.visit(annotation_cp.value)
+            annotation_cp.slice = self.visit(annotation_cp.slice)
+        elif isinstance(annotation_cp, ast.Tuple):
+            annotation_cp.elts = [self.visit(elt) for elt in annotation_cp.elts]
+        return annotation_cp
+
+    def visit_NoneType(self, annotation: None):
+        return annotation
+
+
+class AnnotationNodeVisitor:
+    def visit(self, annotation: typing.Optional[ast.expr]):
+        if annotation is None:
+            return self.visit_NoneType(annotation)
+        method = getattr(
+            self, f"visit_{annotation.__class__.__name__}", self.generic_visit
+        )
+        return method(annotation)
+
+    def generic_visit(self, annotation: ast.expr):
+        if isinstance(annotation, ast.Subscript):
+            self.visit(annotation.value)
+            self.visit(annotation.slice)
+        elif isinstance(annotation, ast.Tuple):
+            for elt in annotation.elts:
+                self.visit(elt)
+
+    def visit_NoneType(self, annotation: None):
+        return None
+
+
+class AnnotationNodeReducer:
+    def visit(self, annotation: typing.Optional[ast.expr]):
+        if annotation is None:
+            return self.visit_NoneType(annotation)
+        method = getattr(
+            self, f"visit_{annotation.__class__.__name__}", self.generic_visit
+        )
+        return method(annotation)
+
+    def generic_visit(self, annotation: ast.expr):
+        if isinstance(annotation, ast.Subscript):
+            child_results = (self.visit(annotation.value), self.visit(annotation.slice))
+            return self.reduce(annotation, child_results)
+        if isinstance(annotation, ast.Tuple):
+            child_results = [self.visit(elt) for elt in annotation.elts]
+            return self.reduce(annotation, child_results)
+        return self.reduce(annotation, None)
+
+    def visit_NoneType(self, annotation: None):
+        return self.reduce(annotation, None)
+
+    def reduce(self, annotation: typing.Optional[ast.expr], child_results):
+        raise NotImplementedError
+
+
 def transform_annotation(
     annotation: typing.Optional[ast.expr],
     transform: typing.Callable[[ast.expr], ast.expr],
 ) -> typing.Optional[ast.expr]:
-    if annotation is None:
-        return None
-    annotation_cp = copy(annotation)
-    if isinstance(annotation_cp, ast.Subscript):
-        annotation_cp.value = transform_annotation(annotation_cp.value, transform)
-        annotation_cp.slice = transform_annotation(annotation_cp.slice, transform)
-    elif isinstance(annotation_cp, ast.Tuple):
-        annotation_cp.elts = [
-            transform_annotation(elt, transform) for elt in annotation_cp.elts
-        ]
-    return transform(annotation_cp)
+    class Transformer(AnnotationNodeTransformer):
+        def generic_visit(self, annotation: ast.expr):
+            return transform(super().generic_visit(annotation))
+
+        def visit_NoneType(self, annotation: None):
+            return annotation
+
+    return Transformer().visit(annotation)
 
 
 def annotation_contains(
     annotation: typing.Optional[ast.expr],
     predicate: typing.Callable[[ast.expr], bool],
 ) -> bool:
-    if annotation is None:
-        return False
-    if predicate(annotation):
-        return True
-    if isinstance(annotation, ast.Subscript):
-        return annotation_contains(annotation.value, predicate) or annotation_contains(
-            annotation.slice, predicate
-        )
-    if isinstance(annotation, ast.Tuple):
-        return any(annotation_contains(elt, predicate) for elt in annotation.elts)
-    return False
+    class Visitor(AnnotationNodeVisitor):
+        def __init__(self):
+            self.found = False
+
+        def generic_visit(self, annotation: ast.expr):
+            if self.found:
+                return
+            if predicate(annotation):
+                self.found = True
+                return
+            return super().generic_visit(annotation)
+
+        def visit_NoneType(self, annotation: None):
+            return None
+
+    visitor = Visitor()
+    visitor.visit(annotation)
+    return visitor.found
 
 
 def reduce_annotation(
     annotation: typing.Optional[ast.expr],
     reduce: typing.Callable[[typing.Optional[ast.expr], typing.Any], typing.Any],
 ):
-    if annotation is None:
-        return reduce(None, None)
-    if isinstance(annotation, ast.Subscript):
-        child_results = (
-            reduce_annotation(annotation.value, reduce),
-            reduce_annotation(annotation.slice, reduce),
-        )
-        return reduce(annotation, child_results)
-    if isinstance(annotation, ast.Tuple):
-        child_results = [reduce_annotation(elt, reduce) for elt in annotation.elts]
-        return reduce(annotation, child_results)
-    return reduce(annotation, None)
+    class Reducer(AnnotationNodeReducer):
+        def reduce(self, annotation: typing.Optional[ast.expr], child_results):
+            return reduce(annotation, child_results)
+
+    return Reducer().visit(annotation)
 
 
 _patterns_cached = {}
