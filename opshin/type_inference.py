@@ -900,6 +900,22 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         finally:
             self.wrapped = [x for x in self.wrapped if x not in wrapped.keys()]
 
+    def sync_wrapped_from_scope(
+        self,
+        initial_scope: typing.Dict[str, Type],
+        merged_scope: typing.Dict[str, Type],
+    ):
+        for name, initial_type in initial_scope.items():
+            if name in self.wrapped or name not in merged_scope:
+                continue
+            merged_type = merged_scope[name]
+            if (
+                merged_type != initial_type
+                and isinstance(initial_type, InstanceType)
+                and isinstance(initial_type.typ, (AnyType, UnionType))
+            ):
+                self.wrapped.append(name)
+
     @staticmethod
     def merge_fallthrough_scopes(
         initial_scope: typing.Dict[str, Type],
@@ -1098,6 +1114,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             (typed_if.body_can_fall_through, final_scope_body),
             (typed_if.orelse_can_fall_through, final_scope_else),
         )
+        self.sync_wrapped_from_scope(initial_scope, self.scopes[-1])
         return typed_if
 
     def visit_While(self, node: While) -> TypedWhile:
@@ -1128,6 +1145,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                 merge_scope(final_scope_body, final_scope_else),
             ),
         )
+        self.sync_wrapped_from_scope(initial_scope, self.scopes[-1])
         return typed_while
 
     def visit_For(self, node: For) -> TypedFor:

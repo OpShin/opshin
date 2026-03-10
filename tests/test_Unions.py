@@ -629,6 +629,31 @@ def validator(x: int) -> int:
         real = x + 2 if x > 5 else len(b"0" * x)
         self.assertEqual(res, real)
 
+    @hypothesis.given(st.sampled_from(range(14)))
+    def test_Union_builtin_cast_nested_List_indexed_sum(self, x):
+        source_code = """
+from dataclasses import dataclass
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
+
+def foo(xss: List[List[Union[int, bytes]]]) -> int:
+    a = xss[0][0]
+    b = xss[0][1]
+    if isinstance(a, int) and isinstance(b, int):
+        return a + b
+    if isinstance(a, bytes) and isinstance(b, bytes):
+        return len(a) + len(b)
+    return 0
+
+def validator(x: int) -> int:
+    if x > 5:
+        return foo([[x, x + 1]])
+    return foo([[b"0" * x, b"1" * (x + 1)]])
+"""
+        res = eval_uplc_value(source_code, x)
+        real = x + (x + 1) if x > 5 else len(b"0" * x) + len(b"1" * (x + 1))
+        self.assertEqual(res, real)
+
     def test_Any_builtin_cast_nested_List_call(self):
         source_code = """
 from dataclasses import dataclass
@@ -643,6 +668,22 @@ def validator(_: int) -> int:
 """
         res = eval_uplc_value(source_code, 0)
         real = 0
+        self.assertEqual(res, real)
+
+    def test_Any_builtin_cast_nested_List_indexed_sum(self):
+        source_code = """
+from dataclasses import dataclass
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
+
+def foo(xss: List[List[Anything]]) -> int:
+    return xss[0].index(2) + xss[0].index(3)
+
+def validator(_: int) -> int:
+    return foo([[2, 3], [4]])
+"""
+        res = eval_uplc_value(source_code, 0)
+        real = 1
         self.assertEqual(res, real)
 
     @hypothesis.given(st.sampled_from(range(14)))
@@ -669,6 +710,31 @@ def validator(x: int) -> int:
 """
         res = eval_uplc_value(source_code, x)
         real = x + 2 if x > 5 else len(b"0" * x)
+        self.assertEqual(res, real)
+
+    @hypothesis.given(st.sampled_from(range(14)))
+    def test_Union_builtin_cast_nested_Dict_indexed_sum(self, x):
+        source_code = """
+from dataclasses import dataclass
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
+
+def foo(xss: Dict[int, Dict[int, Union[int, bytes]]]) -> int:
+    a = xss[0][1]
+    b = xss[0][2]
+    if isinstance(a, int) and isinstance(b, int):
+        return a + b
+    if isinstance(a, bytes) and isinstance(b, bytes):
+        return len(a) + len(b)
+    return 0
+
+def validator(x: int) -> int:
+    if x > 5:
+        return foo({0: {1: x, 2: x + 1}})
+    return foo({0: {1: b"0" * x, 2: b"1" * (x + 1)}})
+"""
+        res = eval_uplc_value(source_code, x)
+        real = x + (x + 1) if x > 5 else len(b"0" * x) + len(b"1" * (x + 1))
         self.assertEqual(res, real)
 
     @hypothesis.given(st.sampled_from(range(14)))
@@ -711,6 +777,125 @@ def validator(_: int) -> int:
 """
         res = eval_uplc_value(source_code, 0)
         real = 1
+        self.assertEqual(res, real)
+
+    def test_Any_builtin_cast_nested_Dict_indexed_sum(self):
+        source_code = """
+from dataclasses import dataclass
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
+
+def foo(xss: Dict[int, Dict[int, Anything]]) -> int:
+    inner = xss[0]
+    return inner.keys().index(1) + inner.keys().index(2)
+
+def validator(_: int) -> int:
+    return foo({0: {1: 2, 2: 3}})
+"""
+        res = eval_uplc_value(source_code, 0)
+        real = 1
+        self.assertEqual(res, real)
+
+    @pytest.mark.xfail(
+        reason="Known bug: Union branches narrowed to List[Anything] remain wrapped as data",
+        strict=False,
+    )
+    @hypothesis.given(st.sampled_from(range(14)))
+    def test_Union_with_List_builtin_access(self, x):
+        source_code = """
+from dataclasses import dataclass
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
+
+def foo(v: Union[int, List[Anything]]) -> int:
+    if isinstance(v, int):
+        return v + 1
+    return v.index(2) + v.index(3)
+
+def validator(x: int) -> int:
+    if x > 5:
+        return foo(x)
+    return foo([2, 3])
+"""
+        res = eval_uplc_value(source_code, x)
+        real = x + 1 if x > 5 else 1
+        self.assertEqual(res, real)
+
+    @pytest.mark.xfail(
+        reason="Known bug: nested access on Union[List[Anything], ...] does not unwrap inner values",
+        strict=False,
+    )
+    @hypothesis.given(st.sampled_from(range(14)))
+    def test_Union_with_List_nested_access(self, x):
+        source_code = """
+from dataclasses import dataclass
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
+
+def foo(v: Union[bytes, List[Anything]]) -> int:
+    if isinstance(v, bytes):
+        return len(v)
+    inner = v[0]
+    return inner.index(2) + inner.index(3)
+
+def validator(x: int) -> int:
+    if x > 5:
+        return foo(b"0" * x)
+    return foo([[2, 3], [4]])
+"""
+        res = eval_uplc_value(source_code, x)
+        real = len(b"0" * x) if x > 5 else 1
+        self.assertEqual(res, real)
+
+    @pytest.mark.xfail(
+        reason="Known bug: Union branches narrowed to Dict[Anything, Anything] remain wrapped as data",
+        strict=False,
+    )
+    @hypothesis.given(st.sampled_from(range(14)))
+    def test_Union_with_Dict_builtin_access(self, x):
+        source_code = """
+from dataclasses import dataclass
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
+
+def foo(v: Union[int, Dict[Anything, Anything]]) -> int:
+    if isinstance(v, int):
+        return v + 1
+    return v.keys().index(1) + v.keys().index(2)
+
+def validator(x: int) -> int:
+    if x > 5:
+        return foo(x)
+    return foo({1: 2, 2: 3})
+"""
+        res = eval_uplc_value(source_code, x)
+        real = x + 1 if x > 5 else 1
+        self.assertEqual(res, real)
+
+    @pytest.mark.xfail(
+        reason="Known bug: nested access on Union[Dict[Anything, Anything], ...] does not unwrap inner values",
+        strict=False,
+    )
+    @hypothesis.given(st.sampled_from(range(14)))
+    def test_Union_with_Dict_nested_access(self, x):
+        source_code = """
+from dataclasses import dataclass
+from typing import Dict, List, Union
+from pycardano import Datum as Anything, PlutusData
+
+def foo(v: Union[bytes, Dict[Anything, Anything]]) -> int:
+    if isinstance(v, bytes):
+        return len(v)
+    inner = v[0]
+    return inner.keys().index(1) + inner.keys().index(2)
+
+def validator(x: int) -> int:
+    if x > 5:
+        return foo(b"0" * x)
+    return foo({0: {1: 2, 2: 3}})
+"""
+        res = eval_uplc_value(source_code, x)
+        real = len(b"0" * x) if x > 5 else 1
         self.assertEqual(res, real)
 
     def test_Union_types_access_attr(self):
