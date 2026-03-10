@@ -684,6 +684,27 @@ def validator(a: int) -> bool:
         self.assertIn("literally references the class itself", str(cm.exception))
         self.assertIn("Self", str(cm.exception))
 
+    def test_nested_self_annotations(self):
+        source_code = """
+from opshin.prelude import *
+from typing import Dict, Self, Union
+
+@dataclass
+class A(PlutusData):
+
+    def foo(self, x: Dict[Self, int]) -> Union[Self, int]:
+        for y in x.values():
+            return y
+        return self
+
+def validator(a: int) -> bool:
+    res = A().foo({A(): a})
+    assert isinstance(res, int)
+    return res == a
+"""
+        ret = eval_uplc_value(source_code, 3)
+        self.assertEqual(ret, True)
+
     @given(x=st.integers(), y=st.integers())
     @example(x=0, y=0)
     @example(x=1, y=0)

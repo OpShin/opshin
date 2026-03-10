@@ -1,7 +1,8 @@
 from ast import *
+from copy import copy
 from typing import Optional
 
-from ..util import CompilingNodeTransformer
+from ..util import CompilingNodeTransformer, AnnotationNodeTransformer
 
 """
 Checks that there was an import of dataclass if there are any class definitions
@@ -9,6 +10,22 @@ Checks that there was an import of dataclass if there are any class definitions
 
 
 ALLOWED_TYPING_IMPORTS = {"Dict", "List", "Union", "Self"}
+
+
+class TypingAnnotationMarker(AnnotationNodeTransformer):
+    def __init__(self, imports, class_name: str):
+        self.imports = imports
+        self.class_name = class_name
+
+    def visit_Name(self, node: Name):
+        node_cp = copy(node)
+        if node_cp.id in ALLOWED_TYPING_IMPORTS and node_cp.id not in self.imports:
+            raise ValueError(
+                f"{node_cp.id} used, which is a keyword for special OpShin types, but typing not imported. Please add 'from typing import {node_cp.id}'"
+            )
+        if node_cp.id == "Self":
+            node_cp.idSelf = self.class_name
+        return node_cp
 
 
 class RewriteImportTyping(CompilingNodeTransformer):
@@ -43,34 +60,11 @@ class RewriteImportTyping(CompilingNodeTransformer):
         for i, attribute in enumerate(node.body):
             if isinstance(attribute, FunctionDef):
                 for j, arg in enumerate(attribute.args.args):
-                    if isinstance(arg.annotation, Name) and arg.annotation.id == "Self":
-                        assert (
-                            "Self" in self.imports
-                        ), "Self used but not imported from typing. Please add 'from typing import Self'"
-                        node.body[i].args.args[j].annotation.idSelf = node.name
-                    if (
-                        isinstance(arg.annotation, Subscript)
-                        and arg.annotation.value.id == "Union"
-                    ):
-                        assert (
-                            "Union" in self.imports
-                        ), "Union used but not imported from typing. Please add 'from typing import Union'"
-                        for k, s in enumerate(arg.annotation.slice.elts):
-                            if isinstance(s, Name) and s.id == "Self":
-                                assert (
-                                    "Self" in self.imports
-                                ), "Self used but not imported from typing. Please add 'from typing import Self'"
-                                node.body[i].args.args[j].annotation.slice.elts[
-                                    k
-                                ].idSelf = node.name
-
-                if (
-                    isinstance(attribute.returns, Name)
-                    and attribute.returns.id == "Self"
-                ):
-                    assert (
-                        "Self" in self.imports
-                    ), "Self used but not imported from typing. Please add 'from typing import Self'"
-                    node.body[i].returns.idSelf = node.name
+                    node.body[i].args.args[j].annotation = TypingAnnotationMarker(
+                        self.imports, node.name
+                    ).visit(arg.annotation)
+                node.body[i].returns = TypingAnnotationMarker(
+                    self.imports, node.name
+                ).visit(attribute.returns)
 
         return node
