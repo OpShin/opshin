@@ -56,18 +56,17 @@ class RewriteImportTyping(CompilingNodeTransformer):
             )
         return node
 
-    def mark_typing_annotation_usage(self, annotation: expr, class_name: str):
-        return TypingAnnotationMarker(self.imports, class_name).visit(annotation)
-
     def visit_ClassDef(self, node: ClassDef) -> ClassDef:
         for i, attribute in enumerate(node.body):
             if isinstance(attribute, FunctionDef):
                 for j, arg in enumerate(attribute.args.args):
-                    node.body[i].args.args[j].annotation = (
-                        self.mark_typing_annotation_usage(arg.annotation, node.name)
-                    )
-                node.body[i].returns = self.mark_typing_annotation_usage(
-                    attribute.returns, node.name
+                    node.body[i].args.args[j].annotation = TypingAnnotationMarker(
+                        self.imports, node.name
+                    ).visit(arg.annotation)
+                node.body[i].returns = TypingAnnotationMarker(
+                    self.imports, node.name
+                ).visit(
+                    attribute.returns
                 )
 
         return node

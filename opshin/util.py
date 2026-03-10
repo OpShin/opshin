@@ -251,55 +251,6 @@ class AnnotationNodeReducer:
         raise NotImplementedError
 
 
-def transform_annotation(
-    annotation: typing.Optional[ast.expr],
-    transform: typing.Callable[[ast.expr], ast.expr],
-) -> typing.Optional[ast.expr]:
-    class Transformer(AnnotationNodeTransformer):
-        def generic_visit(self, annotation: ast.expr):
-            return transform(super().generic_visit(annotation))
-
-        def visit_NoneType(self, annotation: None):
-            return annotation
-
-    return Transformer().visit(annotation)
-
-
-def annotation_contains(
-    annotation: typing.Optional[ast.expr],
-    predicate: typing.Callable[[ast.expr], bool],
-) -> bool:
-    class Visitor(AnnotationNodeVisitor):
-        def __init__(self):
-            self.found = False
-
-        def generic_visit(self, annotation: ast.expr):
-            if self.found:
-                return
-            if predicate(annotation):
-                self.found = True
-                return
-            return super().generic_visit(annotation)
-
-        def visit_NoneType(self, annotation: None):
-            return None
-
-    visitor = Visitor()
-    visitor.visit(annotation)
-    return visitor.found
-
-
-def reduce_annotation(
-    annotation: typing.Optional[ast.expr],
-    reduce: typing.Callable[[typing.Optional[ast.expr], typing.Any], typing.Any],
-):
-    class Reducer(AnnotationNodeReducer):
-        def reduce(self, annotation: typing.Optional[ast.expr], child_results):
-            return reduce(annotation, child_results)
-
-    return Reducer().visit(annotation)
-
-
 _patterns_cached = {}
 
 

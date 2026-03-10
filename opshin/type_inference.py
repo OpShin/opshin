@@ -31,10 +31,10 @@ from .util import (
     distinct,
     TypedNodeVisitor,
     OPSHIN_LOGGER,
+    AnnotationNodeVisitor,
     AnnotationNodeReducer,
     AnnotationNodeTransformer,
     custom_fix_missing_locations,
-    annotation_contains,
 )
 from .fun_impls import PythonBuiltInTypes
 from .rewrite.rewrite_cast_condition import SPECIAL_BOOL
@@ -219,6 +219,23 @@ class SelfAnnotationRewriter(AnnotationNodeTransformer):
         if hasattr(ann_cp, "idSelf") or hasattr(ann_cp, "idSelf_new"):
             ann_cp.id = self.self_type_name
         return ann_cp
+
+
+class LiteralSelfReferenceDetector(AnnotationNodeVisitor):
+    def __init__(self, class_name: str):
+        self.class_name = class_name
+        self.found = False
+
+    def visit_Name(self, ann: Name):
+        if ann.id == self.class_name:
+            self.found = True
+            return
+        return super().generic_visit(ann)
+
+    def generic_visit(self, annotation: ast.expr):
+        if self.found:
+            return
+        return super().generic_visit(annotation)
 
 DUNDER_MAP = {
     # ast.Compare:
@@ -837,9 +854,9 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                 func.name = method_name(n.name, attribute.name)
 
                 def does_literally_reference_self(arg):
-                    return annotation_contains(
-                        arg, lambda ann: isinstance(ann, Name) and ann.id == n.name
-                    )
+                    detector = LiteralSelfReferenceDetector(n.name)
+                    detector.visit(arg)
+                    return detector.found
 
                 for arg in func.args.args:
                     assert not does_literally_reference_self(
