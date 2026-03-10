@@ -90,6 +90,12 @@ INITIAL_SCOPE.update(
 )
 
 
+def invalid_generic_annotation_error(name: str):
+    raise TypeInferenceError(
+        f"Annotation {name} is not allowed as a variable type, use List[Anything], Dict[Anything, Anything] or Union[...] instead"
+    )
+
+
 class AnnotationTypeInferencer(AnnotationNodeReducer):
     def __init__(self, inferencer: "AggressiveTypeInferencer"):
         self.inferencer = inferencer
@@ -142,6 +148,8 @@ class AnnotationTypeInferencer(AnnotationNodeReducer):
                     "Union must combine several classes, use Union[Class1, Class2, ...]"
                 )
             for elt in elts:
+                if isinstance(elt, Name) and elt.id in ["Union", "List", "Dict"]:
+                    invalid_generic_annotation_error(elt.id)
                 if isinstance(elt, Subscript) and elt.value.id == "List":
                     assert (
                         isinstance(elt.slice, Name) and elt.slice.orig_id == "Anything"
@@ -718,9 +726,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
     def type_from_annotation(self, ann: expr):
         reduced = AnnotationTypeInferencer(self).visit(ann)
         if isinstance(reduced, Name) and reduced.id in ["Union", "List", "Dict"]:
-            raise TypeInferenceError(
-                f"Annotation {reduced.id} is not allowed as a variable type, use List[Anything], Dict[Anything, Anything] or Union[...] instead"
-            )
+            invalid_generic_annotation_error(reduced.id)
         return reduced
 
     def resolve_self_annotations(self, node: FunctionDef) -> FunctionDef:
