@@ -31,6 +31,7 @@ from .util import (
     distinct,
     TypedNodeVisitor,
     OPSHIN_LOGGER,
+    reduce_annotation,
     custom_fix_missing_locations,
     annotation_contains,
     transform_annotation,
@@ -567,124 +568,130 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         return None
 
     def type_from_annotation(self, ann: expr):
-        if isinstance(ann, Constant):
-            if ann.value is None:
-                return UnitType()
-            else:
+        def reduce(ann_node: expr, child_results):
+            if ann_node is None:
+                return AnyType()
+            if isinstance(ann_node, Constant):
+                if ann_node.value is None:
+                    return UnitType()
                 for scope in reversed(self.scopes):
                     for key, value in scope.items():
                         if (
                             isinstance(value, RecordType)
-                            and value.record.orig_name == ann.value
+                            and value.record.orig_name == ann_node.value
                         ):
                             return value
-
-        if isinstance(ann, Name):
-            if ann.id in ATOMIC_TYPES:
-                return ATOMIC_TYPES[ann.id]
-            if ann.id == "Self":
-                v_t = self.variable_type(ann.idSelf_new)
-            elif ann.id in ["Union", "List", "Dict"]:
-                raise TypeInferenceError(
-                    f"Annotation {ann.id} is not allowed as a variable type, use List[Anything], Dict[Anything, Anything] or Union[...] instead"
-                )
-            else:
-                v_t = self.variable_type(ann.id)
-            if isinstance(v_t, ClassType):
-                return v_t
-            raise TypeInferenceError(
-                f"Class name {ann.orig_id} not initialized before annotating variable"
-            )
-        if isinstance(ann, Subscript):
-            assert isinstance(
-                ann.value, Name
-            ), "Only Union, Dict and List are allowed as Generic types"
-            if ann.value.orig_id == "Union":
-                if isinstance(ann.slice, Name):
-                    elts = [ann.slice]
-                elif isinstance(ann.slice, ast.Tuple):
-                    elts = ann.slice.elts
+            if isinstance(ann_node, Name):
+                if ann_node.id in ATOMIC_TYPES:
+                    return ATOMIC_TYPES[ann_node.id]
+                if ann_node.id == "Self":
+                    v_t = self.variable_type(ann_node.idSelf_new)
+                elif ann_node.id in ["Union", "List", "Dict"]:
+                    return ann_node
                 else:
-                    raise TypeInferenceError(
-                        "Union must combine several classes, use Union[Class1, Class2, ...]"
-                    )
-                # only allow List[Anything] and Dict[Anything, Anything] in unions
-                for elt in elts:
-                    if isinstance(elt, Subscript) and elt.value.id == "List":
-                        assert (
-                            isinstance(elt.slice, Name)
-                            and elt.slice.orig_id == "Anything"
-                        ), f"Only List[Anything] is supported in Unions. Received List[{elt.slice.orig_id}]."
-                    if isinstance(elt, Subscript) and elt.value.id == "Dict":
-                        assert all(
-                            isinstance(e, Name) and e.orig_id == "Anything"
-                            for e in elt.slice.elts
-                        ), f"Only Dict[Anything, Anything] is supported in Unions. Received Dict[{elt.slice.elts[0].orig_id}, {elt.slice.elts[1].orig_id}]."
-                ann_types = frozenlist([self.type_from_annotation(e) for e in elts])
-                # flatten encountered union types
-                ann_types = frozenlist(
-                    sum(
-                        (
-                            tuple(t.typs) if isinstance(t, UnionType) else (t,)
-                            for t in ann_types
-                        ),
-                        start=(),
-                    )
+                    v_t = self.variable_type(ann_node.id)
+                if isinstance(v_t, ClassType):
+                    return v_t
+                raise TypeInferenceError(
+                    f"Class name {ann_node.orig_id} not initialized before annotating variable"
                 )
-                # check for unique constr_ids
-                constr_ids = [
-                    record.record.constructor
-                    for record in ann_types
-                    if isinstance(record, RecordType)
-                ]
-                assert len(constr_ids) == len(set(constr_ids)), (
-                    "Union must combine PlutusData classes with unique CONSTR_ID, but found duplicates: "
-                    + str(
-                        {
-                            e.record.orig_name: e.record.constructor
-                            for e in ann_types
-                            if isinstance(e, RecordType)
-                        }
+            if isinstance(ann_node, Tuple):
+                return child_results
+            if isinstance(ann_node, Subscript):
+                assert isinstance(
+                    ann_node.value, Name
+                ), "Only Union, Dict and List are allowed as Generic types"
+                if ann_node.value.orig_id == "Union":
+                    if isinstance(ann_node.slice, Name):
+                        elts = [ann_node.slice]
+                        ann_types = frozenlist([child_results[1]])
+                    elif isinstance(ann_node.slice, ast.Tuple):
+                        elts = ann_node.slice.elts
+                        ann_types = frozenlist(child_results[1])
+                    else:
+                        raise TypeInferenceError(
+                            "Union must combine several classes, use Union[Class1, Class2, ...]"
+                        )
+                    for elt in elts:
+                        if isinstance(elt, Subscript) and elt.value.id == "List":
+                            assert (
+                                isinstance(elt.slice, Name)
+                                and elt.slice.orig_id == "Anything"
+                            ), f"Only List[Anything] is supported in Unions. Received List[{elt.slice.orig_id}]."
+                        if isinstance(elt, Subscript) and elt.value.id == "Dict":
+                            assert all(
+                                isinstance(e, Name) and e.orig_id == "Anything"
+                                for e in elt.slice.elts
+                            ), f"Only Dict[Anything, Anything] is supported in Unions. Received Dict[{elt.slice.elts[0].orig_id}, {elt.slice.elts[1].orig_id}]."
+                    ann_types = frozenlist(
+                        sum(
+                            (
+                                tuple(t.typs) if isinstance(t, UnionType) else (t,)
+                                for t in ann_types
+                            ),
+                            start=(),
+                        )
                     )
+                    constr_ids = [
+                        record.record.constructor
+                        for record in ann_types
+                        if isinstance(record, RecordType)
+                    ]
+                    assert len(constr_ids) == len(set(constr_ids)), (
+                        "Union must combine PlutusData classes with unique CONSTR_ID, but found duplicates: "
+                        + str(
+                            {
+                                e.record.orig_name: e.record.constructor
+                                for e in ann_types
+                                if isinstance(e, RecordType)
+                            }
+                        )
+                    )
+                    return union_types(*ann_types)
+                if ann_node.value.orig_id == "List":
+                    ann_type = child_results[1]
+                    assert isinstance(
+                        ann_type, ClassType
+                    ), "List must have a single type as parameter"
+                    assert not isinstance(
+                        ann_type, TupleType
+                    ), "List can currently not hold tuples"
+                    return ListType(InstanceType(ann_type))
+                if ann_node.value.orig_id == "Dict":
+                    assert isinstance(
+                        ann_node.slice, Tuple
+                    ), "Dict must combine two classes"
+                    assert len(ann_node.slice.elts) == 2, "Dict must combine two classes"
+                    ann_types = tuple(child_results[1])
+                    assert all(
+                        isinstance(e, ClassType) for e in ann_types
+                    ), "Dict must combine two classes"
+                    assert not any(
+                        isinstance(e, TupleType) for e in ann_types
+                    ), "Dict can currently not hold tuples"
+                    return DictType(*(InstanceType(a) for a in ann_types))
+                if ann_node.value.orig_id == "Tuple":
+                    assert isinstance(
+                        ann_node.slice, Tuple
+                    ), "Tuple must combine several classes"
+                    ann_types = child_results[1]
+                    assert all(
+                        isinstance(e, ClassType) for e in ann_types
+                    ), "Tuple must combine classes"
+                    return TupleType(frozenlist([InstanceType(a) for a in ann_types]))
+                raise NotImplementedError(
+                    "Only Union, Dict and List are allowed as Generic types"
                 )
-                return union_types(*ann_types)
-            if ann.value.orig_id == "List":
-                ann_type = self.type_from_annotation(ann.slice)
-                assert isinstance(
-                    ann_type, ClassType
-                ), "List must have a single type as parameter"
-                assert not isinstance(
-                    ann_type, TupleType
-                ), "List can currently not hold tuples"
-                return ListType(InstanceType(ann_type))
-            if ann.value.orig_id == "Dict":
-                assert isinstance(ann.slice, Tuple), "Dict must combine two classes"
-                assert len(ann.slice.elts) == 2, "Dict must combine two classes"
-                ann_types = self.type_from_annotation(
-                    ann.slice.elts[0]
-                ), self.type_from_annotation(ann.slice.elts[1])
-                assert all(
-                    isinstance(e, ClassType) for e in ann_types
-                ), "Dict must combine two classes"
-                assert not any(
-                    isinstance(e, TupleType) for e in ann_types
-                ), "Dict can currently not hold tuples"
-                return DictType(*(InstanceType(a) for a in ann_types))
-            if ann.value.orig_id == "Tuple":
-                assert isinstance(
-                    ann.slice, Tuple
-                ), "Tuple must combine several classes"
-                ann_types = [self.type_from_annotation(e) for e in ann.slice.elts]
-                assert all(
-                    isinstance(e, ClassType) for e in ann_types
-                ), "Tuple must combine classes"
-                return TupleType(frozenlist([InstanceType(a) for a in ann_types]))
             raise NotImplementedError(
-                "Only Union, Dict and List are allowed as Generic types"
+                f"Annotation type {ann_node.__class__} is not supported"
             )
-        if ann is None:
-            return AnyType()
-        raise NotImplementedError(f"Annotation type {ann.__class__} is not supported")
+
+        reduced = reduce_annotation(ann, reduce)
+        if isinstance(reduced, Name) and reduced.id in ["Union", "List", "Dict"]:
+            raise TypeInferenceError(
+                f"Annotation {reduced.id} is not allowed as a variable type, use List[Anything], Dict[Anything, Anything] or Union[...] instead"
+            )
+        return reduced
 
     def resolve_self_annotations(self, node: FunctionDef) -> FunctionDef:
         """Replace Self annotations with the concrete class name captured during scoping."""

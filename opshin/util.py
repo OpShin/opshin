@@ -217,6 +217,24 @@ def annotation_contains(
     return False
 
 
+def reduce_annotation(
+    annotation: typing.Optional[ast.expr],
+    reduce: typing.Callable[[typing.Optional[ast.expr], typing.Any], typing.Any],
+):
+    if annotation is None:
+        return reduce(None, None)
+    if isinstance(annotation, ast.Subscript):
+        child_results = (
+            reduce_annotation(annotation.value, reduce),
+            reduce_annotation(annotation.slice, reduce),
+        )
+        return reduce(annotation, child_results)
+    if isinstance(annotation, ast.Tuple):
+        child_results = [reduce_annotation(elt, reduce) for elt in annotation.elts]
+        return reduce(annotation, child_results)
+    return reduce(annotation, None)
+
+
 _patterns_cached = {}
 
 
