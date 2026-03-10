@@ -524,9 +524,9 @@ class PlutoCompiler(CompilingNodeTransformer):
         compiled_e = self.visit(node.value)
         varname = node.targets[0].id
         if needs_data_cast(node.targets[0].typ):
-            compiled_e = transform_output_to_type(
-                node.value.typ, node.targets[0].typ
-            )(compiled_e)
+            compiled_e = transform_output_to_type(node.value.typ, node.targets[0].typ)(
+                compiled_e
+            )
         # first evaluate the term, then wrap in a delay
         return lambda x: plt.Let(
             [

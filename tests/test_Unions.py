@@ -1127,6 +1127,36 @@ def validator(a: Union[int, bytes]) -> None:
         # Should execute without raising an exception
         eval_uplc(source_code, 9)
 
+    def test_assert_isinstance_reassignment_vulnerability(self):
+        source_code = """
+from typing import Dict, List, Union
+from opshin.prelude import *
+
+def validator(a: Union[int, bytes]) -> None:
+    assert isinstance(a, int)
+    if a > 0:
+        a -= 1
+        a += 1
+"""
+
+        eval_uplc(source_code, 9)
+
+    def test_assert_isinstance_recheck_vulnerability(self):
+        source_code = """
+from typing import Dict, List, Union
+from opshin.prelude import *
+
+def validator(a: Union[int, bytes]) -> None:
+    assert isinstance(a, int)
+    if a > 0:
+        a -= 1
+        a += 1
+    if isinstance(a, int):
+        print("hi")
+"""
+
+        eval_uplc(source_code, 9)
+
     def test_recasting_union(self):
         """
         Test that recasting a union type works correctly.

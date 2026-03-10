@@ -3422,7 +3422,9 @@ def empty_list(p: Type):
         return EmptyListMap[p]
     assert isinstance(p, InstanceType), "Can only create lists of instances"
     if isinstance(p.typ, ListType):
-        return plt.EmptyListList(uplc.BuiltinList([], empty_list_sample_value(p.typ.typ)))
+        return plt.EmptyListList(
+            uplc.BuiltinList([], empty_list_sample_value(p.typ.typ))
+        )
     if isinstance(p.typ, DictType):
         return plt.EmptyListList(
             uplc.BuiltinList(

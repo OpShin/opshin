@@ -32,6 +32,8 @@ from .util import (
     TypedNodeVisitor,
     OPSHIN_LOGGER,
     custom_fix_missing_locations,
+    read_vars,
+    written_vars,
 )
 from .fun_impls import PythonBuiltInTypes
 from .rewrite.rewrite_cast_condition import SPECIAL_BOOL
@@ -395,8 +397,12 @@ def merge_scope(s1: typing.Dict[str, Type], s2: typing.Dict[str, Type]):
                 if (
                     isinstance(s1[k], DataInstanceType)
                     or isinstance(s2[k], DataInstanceType)
-                    or isinstance(strip_data_instance_type(s1[k]).typ, (AnyType, UnionType))
-                    or isinstance(strip_data_instance_type(s2[k]).typ, (AnyType, UnionType))
+                    or isinstance(
+                        strip_data_instance_type(s1[k]).typ, (AnyType, UnionType)
+                    )
+                    or isinstance(
+                        strip_data_instance_type(s2[k]).typ, (AnyType, UnionType)
+                    )
                 ):
                     merged[k] = DataInstanceType(merged_type)
                 else:
@@ -504,8 +510,12 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
 
     @staticmethod
     def make_typed_rebind_assignment(name: str, source_typ: Type, target_typ: Type):
-        target = TypedName(id=name, orig_id=map_to_orig_name(name), ctx=Store(), typ=target_typ)
-        value = TypedName(id=name, orig_id=map_to_orig_name(name), ctx=Load(), typ=source_typ)
+        target = TypedName(
+            id=name, orig_id=map_to_orig_name(name), ctx=Store(), typ=target_typ
+        )
+        value = TypedName(
+            id=name, orig_id=map_to_orig_name(name), ctx=Load(), typ=source_typ
+        )
         assign = TypedAssign(targets=[target], value=value)
         assign.typ = NoneInstanceType
         return assign
@@ -945,9 +955,16 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
     ) -> tuple[typing.List[stmt], typing.Dict[str, Type]]:
         prevtyps = self.implement_typechecks(typchecks)
         rebind_types = self.data_rebind_types(typchecks)
+        seq_reads = set()
+        seq_writes = set()
+        for stmt in node_seq:
+            seq_reads.update(read_vars(stmt))
+            seq_writes.update(written_vars(stmt))
         try:
             typed_prefix = []
             for name, target_typ in rebind_types.items():
+                if name not in seq_reads and name not in seq_writes:
+                    continue
                 source_typ = self.variable_type(name)
                 typed_prefix.append(
                     self.make_typed_rebind_assignment(name, source_typ, target_typ)
@@ -958,10 +975,14 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
 
             typed_suffix = []
             for name in rebind_types:
+                if name not in seq_writes:
+                    continue
                 current_typ = self.variable_type(name)
                 if not isinstance(current_typ, InstanceType):
                     continue
-                wrapped_typ = DataInstanceType(strip_data_instance_type(current_typ).typ)
+                wrapped_typ = DataInstanceType(
+                    strip_data_instance_type(current_typ).typ
+                )
                 typed_suffix.append(
                     self.make_typed_rebind_assignment(name, current_typ, wrapped_typ)
                 )
