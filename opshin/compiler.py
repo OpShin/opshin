@@ -50,6 +50,9 @@ from .rewrite.rewrite_function_closures import (
 from .optimize.optimize_remove_deadconstants import OptimizeRemoveDeadConstants
 from .optimize.optimize_remove_deadconds import OptimizeRemoveDeadConditions
 from .optimize.optimize_fold_if_fallthrough import OptimizeFoldIfFallthrough
+from .optimize.optimize_selective_narrowing_rebind import (
+    OptimizeSelectiveNarrowingRebind,
+)
 from .optimize.optimize_remove_unreachable import OptimizeRemoveUnreachable
 from .optimize.optimize_union_expansion import OptimizeUnionExpansion
 from .optimize.optimize_fold_bool import OptimizeFoldBoolCast
@@ -1275,6 +1278,11 @@ def compile(
     config=DEFAULT_CONFIG,
     wrap_output=False,
 ) -> plt.Program:
+    selective_narrowing_rebind = OptimizeSelectiveNarrowingRebind()
+    if hasattr(selective_narrowing_rebind, "allow_isinstance_anything"):
+        selective_narrowing_rebind.allow_isinstance_anything = (
+            config.allow_isinstance_anything
+        )
     compile_pipeline = [
         # Important to call this one first - it imports all further files
         RewriteImport(filename=filename),
@@ -1300,6 +1308,7 @@ def compile(
         RewriteAnnotateFallthrough(),
         # The type inference needs to be run after complex python operations were rewritten
         AggressiveTypeInferencer(config.allow_isinstance_anything),
+        selective_narrowing_rebind,
         (RewriteExpandedUnionCalls() if config.expand_union_types else NoOp()),
         RewriteFunctionClosures(),
         # Rewrites that circumvent the type inference or use its results
