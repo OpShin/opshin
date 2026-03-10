@@ -2815,6 +2815,41 @@ def validator(v: Union[int, bytes], n: int) -> int:
             len(nonfolded_without_pass),
         )
 
+    def test_opt_selective_narrowing_rebind_repeated_reads(self):
+        source_code = """
+from typing import List, Union
+from pycardano import Datum as Anything, PlutusData
+
+def validator(v: Union[int, List[Anything]], n: int) -> int:
+    if isinstance(v, List):
+        x = len(v)
+        y = len(v)
+        return x + y + len(v)
+    return 0
+"""
+        builder._static_compile.cache_clear()
+        with patch("opshin.compiler.OptimizeSelectiveNarrowingRebind", NoOp):
+            without_pass = builder._compile(source_code).dumps()
+        builder._static_compile.cache_clear()
+        with_pass = builder._compile(source_code).dumps()
+        self.assertLess(len(with_pass), len(without_pass))
+
+    def test_opt_selective_narrowing_rebind_skips_simple_while_reassign(self):
+        source_code = """
+from typing import Union
+
+def validator(a: Union[int, bytes]) -> int:
+    while isinstance(a, int) and a > 0:
+        a -= 1
+    return 0
+"""
+        builder._static_compile.cache_clear()
+        with patch("opshin.compiler.OptimizeSelectiveNarrowingRebind", NoOp):
+            without_pass = builder._compile(source_code).dumps()
+        builder._static_compile.cache_clear()
+        with_pass = builder._compile(source_code).dumps()
+        self.assertEqual(len(with_pass), len(without_pass))
+
     def test_type_inference_stops_after_if_both_branches_return(self):
         source_code = """
 from typing import Union
