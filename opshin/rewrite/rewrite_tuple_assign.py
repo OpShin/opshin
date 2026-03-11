@@ -1,4 +1,5 @@
 from copy import copy
+from dataclasses import dataclass
 
 import typing
 from ast import *
@@ -8,6 +9,13 @@ from ..util import CompilingNodeTransformer
 """
 Rewrites all occurrences of assignments to tuples to assignments to single values
 """
+
+
+@dataclass(frozen=True)
+class DestructureMetadata:
+    kind: str
+    length: typing.Optional[int] = None
+    index: typing.Optional[int] = None
 
 
 class RewriteTupleAssign(CompilingNodeTransformer):
@@ -23,18 +31,27 @@ class RewriteTupleAssign(CompilingNodeTransformer):
         tuple = self.visit(node.value)
         # store for later that we require
         tuple.is_tuple_with_deconstruction = len(node.targets[0].elts)
-        assignments = [Assign([Name(f"2_{uid}_tup", Store())], tuple)]
+        temp_name = f"2_{uid}_tup"
+        temp_assignment = Assign([Name(temp_name, Store())], tuple)
+        temp_assignment.destructure_metadata = DestructureMetadata(
+            kind="assignment",
+            length=len(node.targets[0].elts),
+        )
+        assignments = [temp_assignment]
         for i, t in enumerate(node.targets[0].elts):
-            assignments.append(
-                Assign(
-                    [t],
-                    Subscript(
-                        value=Name(f"2_{uid}_tup", Load()),
-                        slice=Constant(i),
-                        ctx=Load(),
-                    ),
-                )
+            assignment = Assign(
+                [t],
+                Subscript(
+                    value=Name(temp_name, Load()),
+                    slice=Constant(i),
+                    ctx=Load(),
+                ),
             )
+            assignment.destructure_metadata = DestructureMetadata(
+                kind="extraction",
+                index=i,
+            )
+            assignments.append(assignment)
         # recursively resolve multiple layers of tuples
         transformed = sum([self.visit(a) for a in assignments], [])
         return transformed

@@ -1095,6 +1095,32 @@ class TupleType(ClassType):
 
 
 @dataclass(frozen=True, unsafe_hash=True)
+class RawTupleType(TupleType):
+    def stringify(self, recursive: bool = False) -> plt.AST:
+        if not self.typs:
+            return OLambda(["self"], plt.Text("()"))
+        values = [
+            plt.Apply(
+                typ.stringify(recursive=True),
+                transform_ext_params_map(typ)(
+                    plt.ConstantIndexAccessListFast(OVar("self"), i)
+                ),
+            )
+            for i, typ in enumerate(self.typs)
+        ]
+        if len(values) == 1:
+            tuple_content = plt.ConcatString(values[0], plt.Text(","))
+        else:
+            tuple_content = values[0]
+            for value in values[1:]:
+                tuple_content = plt.ConcatString(tuple_content, plt.Text(", "), value)
+        return OLambda(
+            ["self"],
+            plt.ConcatString(plt.Text("("), tuple_content, plt.Text(")")),
+        )
+
+
+@dataclass(frozen=True, unsafe_hash=True)
 class PairType(ClassType):
     """An internal type representing built-in PlutusData pairs"""
 
@@ -1133,7 +1159,10 @@ class ListType(ClassType):
     typ: Type
 
     def __ge__(self, other):
-        return isinstance(other, ListType) and self.typ >= other.typ
+        return (isinstance(other, ListType) and self.typ >= other.typ) or (
+            isinstance(other, RawTupleType)
+            and all(self.typ >= tuple_typ for tuple_typ in other.typs)
+        )
 
     def pluthon_type(self, skip_constructor: bool = False) -> str:
         return "list<" + self.typ.pluthon_type() + ">"
@@ -3467,6 +3496,8 @@ def transform_ext_params_map(p: Type):
             OLambda(["x"], transform_ext_params_map(list_int_typ)(OVar("x"))),
             empty_list(p.typ.typ),
         )
+    if isinstance(p.typ, RawTupleType):
+        return lambda x: plt.UnListData(x)
     if isinstance(p.typ, DictType):
         # there doesn't appear to be a constructor function to make Pair a b for any types
         # so pairs will always contain Data
@@ -3506,6 +3537,8 @@ def transform_output_map(p: Type):
                 OLambda(["x"], transform_output_map(list_int_typ)(OVar("x"))),
             ),
         )
+    if isinstance(p.typ, RawTupleType):
+        return lambda x: plt.ListData(x)
     if isinstance(p.typ, DictType):
         # there doesn't appear to be a constructor function to make Pair a b for any types
         # so pairs will always contain Data

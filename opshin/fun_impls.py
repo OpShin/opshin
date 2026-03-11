@@ -3,6 +3,7 @@ from enum import Enum
 
 import uplc.ast as uplc
 import pluthon as plt
+from frozenlist2 import frozenlist
 
 from .util import OLambda, OVar, SafeOLambda, OLet
 from .type_impls import (
@@ -13,6 +14,7 @@ from .type_impls import (
     ListType,
     DictType,
     TupleType,
+    RawTupleType,
     empty_list,
     BoolInstanceType,
     ClassType,
@@ -26,6 +28,7 @@ from .type_impls import (
     PolymorphicFunctionType,
     FunctionType,
     strip_data_instance_type,
+    transform_ext_params_map,
 )
 from .typed_ast import *
 from .type_impls import Type

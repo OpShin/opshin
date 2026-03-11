@@ -1,9 +1,20 @@
 #!opshin
+from dataclasses import dataclass, astuple
+from opshin.prelude import *
+
+
+@dataclass
+class Pair(PlutusData):
+    CONSTR_ID = 0
+    left: int
+    right: int
 
 
 def validator(n: int) -> int:
     # Tuple assignment works
     a, b = 3, n
+    # dataclass fields can be destructured via astuple as well
+    c, d = astuple(Pair(a, b))
     # control flow via if, for and while
     if b < 5:
         print("add")
@@ -23,4 +34,4 @@ def validator(n: int) -> int:
 
     # create lists, check their length, add up integers
     y = [1, 2]
-    return a + len(x) + len(y) if y[0] == 1 else 0
+    return a + c + d + len(x) + len(y) if y[0] == 1 else 0
