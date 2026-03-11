@@ -16,6 +16,7 @@ FORBIDDEN_NAMES = {
     "Self",
     # decorator and class name
     "dataclass",
+    "astuple",
     "PlutusData",
     # special decorator marking wrapped builtins
     "wraps_builtin",

@@ -1095,6 +1095,17 @@ class TupleType(ClassType):
 
 
 @dataclass(frozen=True, unsafe_hash=True)
+class RecordAsTupleType(TupleType):
+    record_typ: "RecordType"
+
+    def python_type(self) -> str:
+        return (
+            f"astuple[{self.record_typ.record.orig_name}]"
+            f"({', '.join(t.python_type() for t in self.typs)})"
+        )
+
+
+@dataclass(frozen=True, unsafe_hash=True)
 class PairType(ClassType):
     """An internal type representing built-in PlutusData pairs"""
 

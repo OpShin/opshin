@@ -3,6 +3,7 @@ from enum import Enum
 
 import uplc.ast as uplc
 import pluthon as plt
+from frozenlist2 import frozenlist
 
 from .util import OLambda, OVar, SafeOLambda, OLet
 from .type_impls import (
@@ -21,11 +22,13 @@ from .type_impls import (
     IntegerType,
     ByteStringType,
     RecordType,
+    RecordAsTupleType,
     PowImpl,
     StringInstanceType,
     PolymorphicFunctionType,
     FunctionType,
     strip_data_instance_type,
+    transform_ext_params_map,
 )
 from .typed_ast import *
 from .type_impls import Type
@@ -209,6 +212,37 @@ class IsinstanceImpl(PolymorphicFunction):
             raise NotImplementedError(
                 f"Only isinstance for byte, int, Plutus Dataclass, List and Dict types are supported"
             )
+
+
+class AstupleImpl(PolymorphicFunction):
+    def type_from_args(self, args: typing.List[Type]) -> FunctionType:
+        assert len(args) == 1, f"'astuple' takes one argument, but {len(args)} were given"
+        arg = args[0]
+        assert isinstance(arg, InstanceType) and isinstance(
+            arg.typ, RecordType
+        ), f"'astuple' expects a dataclass instance, found {arg.python_type()}"
+        return FunctionType(
+            args,
+            InstanceType(
+                RecordAsTupleType(
+                    frozenlist([field_typ for _, field_typ in arg.typ.record.fields]),
+                    arg.typ,
+                )
+            ),
+        )
+
+    def impl_from_args(self, args: typing.List[Type]) -> plt.AST:
+        arg = args[0]
+        assert isinstance(arg, InstanceType) and isinstance(
+            arg.typ, RecordType
+        ), "Can only convert dataclass instances with astuple"
+        tuple_values = [
+            transform_ext_params_map(field_typ)(
+                plt.ConstantNthFieldFast(OVar("x"), pos)
+            )
+            for pos, (_, field_typ) in enumerate(arg.typ.record.fields)
+        ]
+        return OLambda(["x"], plt.FunctionalTuple(*tuple_values))
 
 
 class ConvertBasePattern(plt.Pattern):
@@ -506,6 +540,7 @@ class PythonBuiltIn(Enum):
         plt.Range(OVar("limit")),
     )
     reversed = "reversed"
+    astuple = "astuple"
     sum = OLambda(
         ["xs"],
         plt.FoldList(
@@ -580,6 +615,7 @@ PythonBuiltInTypes = {
         )
     ),
     PythonBuiltIn.reversed: InstanceType(PolymorphicFunctionType(ReversedImpl())),
+    PythonBuiltIn.astuple: InstanceType(PolymorphicFunctionType(AstupleImpl())),
     PythonBuiltIn.sum: InstanceType(
         FunctionType(
             [InstanceType(ListType(IntegerInstanceType))],

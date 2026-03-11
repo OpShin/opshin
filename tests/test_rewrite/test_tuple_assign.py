@@ -284,6 +284,94 @@ def validator(x: int) -> int:
             "tuple destructuring should beat repeated tuple indexing on memory",
         )
 
+    def test_astuple_assign(self):
+        source_code = """
+from dataclasses import dataclass, astuple
+from opshin.prelude import *
+
+@dataclass
+class Pair(PlutusData):
+    CONSTR_ID = 0
+    x: int
+    y: int
+
+def validator(x: int, y: int) -> int:
+    a, b = astuple(Pair(x, y))
+    return a + b
+"""
+        ret = eval_uplc_value(source_code, 4, 5)
+        self.assertEqual(ret, 9, "astuple deconstruction did not behave as expected")
+
+    def test_astuple_returns_tuple(self):
+        source_code = """
+from dataclasses import dataclass, astuple
+from opshin.prelude import *
+
+@dataclass
+class Triple(PlutusData):
+    CONSTR_ID = 0
+    x: int
+    y: int
+    z: int
+
+def validator(x: int, y: int, z: int) -> int:
+    t = astuple(Triple(x, y, z))
+    return t[0] + t[1] + t[2]
+"""
+        ret = eval_uplc_value(source_code, 1, 2, 3)
+        self.assertEqual(ret, 6, "astuple did not return the expected tuple")
+
+    def test_astuple_nested_plutusdata_fields(self):
+        source_code = """
+from dataclasses import dataclass, astuple
+from opshin.prelude import *
+
+@dataclass
+class Left(PlutusData):
+    CONSTR_ID = 0
+    x: int
+
+@dataclass
+class Right(PlutusData):
+    CONSTR_ID = 1
+    y: bytes
+
+@dataclass
+class Pair(PlutusData):
+    CONSTR_ID = 2
+    left: Left
+    right: Right
+
+def validator(x: int, y: bytes) -> int:
+    left, right = astuple(Pair(Left(x), Right(y)))
+    return left.x + len(right.y)
+"""
+        ret = eval_uplc_value(source_code, 4, b"abc")
+        self.assertEqual(
+            ret,
+            7,
+            "astuple did not preserve distinct nested PlutusData field types",
+        )
+
+    def test_astuple_requires_import(self):
+        source_code = """
+from dataclasses import dataclass
+from opshin.prelude import *
+
+@dataclass
+class Pair(PlutusData):
+    CONSTR_ID = 0
+    x: int
+    y: int
+
+def validator(x: int, y: int) -> int:
+    a, b = astuple(Pair(x, y))
+    return a + b
+"""
+        with self.assertRaises(CompilerError) as exc:
+            builder._compile(source_code)
+        self.assertIn("astuple must be imported", str(exc.exception).lower())
+
     @given(
         xs=st.dictionaries(
             st.binary(),

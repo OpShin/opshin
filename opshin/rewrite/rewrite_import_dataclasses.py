@@ -11,23 +11,35 @@ Checks that there was an import of dataclass if there are any class definitions
 class RewriteImportDataclasses(CompilingNodeTransformer):
     step = "Resolving the import and usage of dataclass"
 
-    imports_dataclasses = False
+    def __init__(self):
+        self.imports_dataclasses = False
+        self.imports_astuple = False
 
     def visit_ImportFrom(self, node: ImportFrom) -> Optional[ImportFrom]:
         if node.module != "dataclasses":
             return node
-        assert (
-            len(node.names) == 1
-        ), "The program must contain one 'from dataclasses import dataclass'"
-        for i, n in enumerate(["dataclass"]):
+        imported_names = {name.name for name in node.names}
+        assert "dataclass" in imported_names, (
+            "The program must contain 'from dataclasses import dataclass'"
+        )
+        for imported_name in node.names:
             assert (
-                node.names[i].name == n
-            ), "The program must contain one 'from dataclasses import dataclass'"
-            assert (
-                node.names[i].asname == None
-            ), "The program must contain one 'from dataclasses import dataclass'"
+                imported_name.asname == None
+            ), "Imports from dataclasses cannot be aliased"
+            assert imported_name.name in {"dataclass", "astuple"}, (
+                "Only 'dataclass' and 'astuple' may be imported from dataclasses"
+            )
         self.imports_dataclasses = True
+        self.imports_astuple = self.imports_astuple or "astuple" in imported_names
         return None
+
+    def visit_Call(self, node: Call) -> Call:
+        node = self.generic_visit(node)
+        if isinstance(node.func, Name) and node.func.id == "astuple":
+            assert (
+                self.imports_astuple
+            ), "astuple must be imported via 'from dataclasses import astuple'"
+        return node
 
     def visit_ClassDef(self, node: ClassDef) -> ClassDef:
         assert (
