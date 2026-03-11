@@ -434,3 +434,34 @@ def validator(xs: Dict[bytes, Dict[bytes, int]]) -> int:
             sum(v for pid, d in xs.items() for nam, v in d.items()),
             "for loop deconstruction did not behave as expected",
         )
+
+    @given(xs=st.lists(st.tuples(st.integers(), st.integers()), max_size=10))
+    def test_list_comprehension_tuple_deconstruction(self, xs):
+        source_code = """
+from typing import List
+
+def validator(xs: List[List[int]]) -> List[int]:
+    return [a + b for a, b in xs if a <= b]
+"""
+        list_xs = [list(pair) for pair in xs]
+        ret = eval_uplc_value(source_code, list_xs)
+        self.assertEqual(
+            [x.value for x in ret],
+            [a + b for a, b in xs if a <= b],
+            "list comprehension deconstruction did not behave as expected",
+        )
+
+    @given(xs=st.dictionaries(st.integers(), st.integers(), max_size=10))
+    def test_dict_comprehension_pair_deconstruction(self, xs):
+        source_code = """
+from typing import Dict
+
+def validator(xs: Dict[int, int]) -> Dict[int, int]:
+    return {k: v + 1 for k, v in xs.items() if k <= v}
+"""
+        ret = eval_uplc_value(source_code, xs)
+        self.assertEqual(
+            {k.value: v.value for k, v in ret.items()},
+            {k: v + 1 for k, v in xs.items() if k <= v},
+            "dict comprehension deconstruction did not behave as expected",
+        )

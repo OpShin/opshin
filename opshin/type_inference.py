@@ -1720,11 +1720,42 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         return node_cp
 
     def visit_comprehension(self, g: comprehension) -> typedcomprehension:
-        new_g = copy(g)
-        if isinstance(g.target, Tuple):
-            raise NotImplementedError(
-                "Type deconstruction in comprehensions is not supported yet"
+        def bind_target(target: expr, target_typ: Type) -> typedexpr:
+            if isinstance(target, Name):
+                self.set_variable_type(target.id, target_typ)
+                return self.visit(target)
+            if not isinstance(target, Tuple):
+                raise NotImplementedError(
+                    "Only tuple destructuring is supported in comprehensions"
+                )
+            deconstruct_typ = target_typ.typ if isinstance(target_typ, InstanceType) else target_typ
+            if isinstance(deconstruct_typ, PairType):
+                assert (
+                    len(target.elts) == 2
+                ), f"Too many values to unpack or not enough values to unpack. Tuple deconstruction required assigning to 2 elements found '{len(target.elts)}'"
+                element_typs = [deconstruct_typ.l_typ, deconstruct_typ.r_typ]
+            elif isinstance(deconstruct_typ, TupleType):
+                assert len(target.elts) == len(
+                    deconstruct_typ.typs
+                ), f"Too many values to unpack or not enough values to unpack. Tuple deconstruction required tuple with {len(target.elts)} elements found '{deconstruct_typ.python_type()}'"
+                element_typs = list(deconstruct_typ.typs)
+            elif isinstance(deconstruct_typ, ListType):
+                element_typs = [deconstruct_typ.typ] * len(target.elts)
+            else:
+                raise NotImplementedError(
+                    f"Tuple deconstruction expected a tuple, pair, raw tuple, or list type, found '{target_typ.python_type()}'"
+                )
+            typed_target = copy(target)
+            typed_target.elts = [
+                bind_target(element_target, element_typ)
+                for element_target, element_typ in zip(target.elts, element_typs)
+            ]
+            typed_target.typ = InstanceType(
+                RawTupleType(frozenlist([elt.typ for elt in typed_target.elts]))
             )
+            return typed_target
+
+        new_g = copy(g)
         new_g.iter = self.visit(g.iter)
         itertyp = new_g.iter.typ
         assert isinstance(
@@ -1736,8 +1767,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             raise NotImplementedError(
                 "Iterating over non-list objects is not (yet) supported"
             )
-        self.set_variable_type(g.target.id, vartyp)
-        new_g.target = self.visit(g.target)
+        new_g.target = bind_target(g.target, vartyp)
         new_g.ifs = [self.visit(i) for i in g.ifs]
         return new_g
 

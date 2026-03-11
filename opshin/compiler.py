@@ -284,6 +284,7 @@ class PlutoCompiler(CompilingNodeTransformer):
         ), "Parameter fast-access-skip needs to be greater than 1 or omitted"
         # marked knowledge during compilation
         self.current_function_typ: typing.List[FunctionType] = []
+        self._destructure_id = 0
 
     def visit_sequence(self, node_seq: typing.List[typedstmt]) -> CallAST:
         def g(s: plt.AST):
@@ -312,81 +313,101 @@ class PlutoCompiler(CompilingNodeTransformer):
             x,
         )
 
-    def visit_DestructuringAssign(self, node: TypedDestructuringAssign) -> CallAST:
-        assert isinstance(node.value.typ, InstanceType), "Can only deconstruct instances"
-        source_name = f"destruct_{node.lineno}_{node.col_offset}"
-        source_typ = node.value.typ.typ
-        compiled_source = self.visit(node.value)
+    def _bind_target_from_compiled_expr(
+        self,
+        target: typedexpr,
+        source_typ: Type,
+        compiled_e: plt.AST,
+        body: plt.AST,
+    ) -> plt.AST:
+        if isinstance(target, Name):
+            return self._assign_name_from_compiled_expr(target, source_typ, compiled_e)(
+                body
+            )
+        assert isinstance(target, ast.Tuple), "Only tuple destructuring targets are supported"
+        deconstruct_typ = source_typ.typ if isinstance(source_typ, InstanceType) else source_typ
+        source_name = f"destruct_{self._destructure_id}"
+        self._destructure_id += 1
 
-        def compile_tuple_like(
-            access_fn: typing.Callable[[int], plt.AST]
-        ) -> CallAST:
-            def compiled(body: plt.AST) -> plt.AST:
-                wrapped = body
-                for index, target in reversed(list(enumerate(node.targets))):
-                    wrapped = self._assign_name_from_compiled_expr(
-                        target,
-                        node.element_typs[index],
-                        access_fn(index),
-                    )(wrapped)
-                return OLet([(source_name, compiled_source)], wrapped)
+        def bind_fixed_arity(access_fn: typing.Callable[[int], plt.AST]) -> plt.AST:
+            wrapped = body
+            for index, element_target in reversed(list(enumerate(target.elts))):
+                wrapped = self._bind_target_from_compiled_expr(
+                    element_target,
+                    element_target.typ,
+                    access_fn(index),
+                    wrapped,
+                )
+            return OLet([(source_name, compiled_e)], wrapped)
 
-            return compiled
-
-        if isinstance(source_typ, RawTupleType):
+        if isinstance(deconstruct_typ, RawTupleType):
             pass
-        elif isinstance(source_typ, TupleType):
-            tuple_length = len(source_typ.typs)
-            return compile_tuple_like(
+        elif isinstance(deconstruct_typ, TupleType):
+            tuple_length = len(deconstruct_typ.typs)
+            return bind_fixed_arity(
                 lambda index: plt.FunctionalTupleAccess(
                     OVar(source_name), index, tuple_length
                 )
             )
-        elif isinstance(source_typ, PairType):
-            return compile_tuple_like(
-                lambda index: transform_ext_params_map(node.element_typs[index])(
+        elif isinstance(deconstruct_typ, PairType):
+            return bind_fixed_arity(
+                lambda index: transform_ext_params_map(target.elts[index].typ)(
                     (plt.FstPair if index == 0 else plt.SndPair)(OVar(source_name))
                 )
             )
 
-        assert isinstance(source_typ, (ListType, RawTupleType)), (
+        assert isinstance(deconstruct_typ, (ListType, RawTupleType)), (
             "Expected tuple, pair, raw tuple, or list deconstruction"
         )
 
-        def compiled(body: plt.AST) -> plt.AST:
-            def compile_element(index: int, list_name: str, result: plt.AST) -> plt.AST:
-                if index >= len(node.targets):
-                    return plt.IteNullList(
-                        OVar(list_name),
-                        result,
-                        plt.TraceError("ValueError: too many values to unpack"),
-                    )
-                element_name = f"{source_name}_element_{index}"
-                tail_name = f"{source_name}_rest_{index}"
-                element_expr = OVar(element_name)
-                if isinstance(source_typ, RawTupleType):
-                    element_expr = transform_ext_params_map(node.element_typs[index])(
-                        element_expr
-                    )
+        def compile_element(index: int, list_name: str, result: plt.AST) -> plt.AST:
+            if index >= len(target.elts):
                 return plt.IteNullList(
                     OVar(list_name),
-                    plt.TraceError("ValueError: not enough values to unpack"),
-                    OLet(
-                        [
-                            (element_name, plt.HeadList(OVar(list_name))),
-                            (tail_name, plt.TailList(OVar(list_name))),
-                        ],
-                        self._assign_name_from_compiled_expr(
-                            node.targets[index],
-                            node.element_typs[index],
-                            element_expr,
-                        )(compile_element(index + 1, tail_name, result)),
-                    ),
+                    result,
+                    plt.TraceError("ValueError: too many values to unpack"),
                 )
+            element_name = f"{source_name}_element_{index}"
+            tail_name = f"{source_name}_rest_{index}"
+            element_expr = OVar(element_name)
+            if isinstance(deconstruct_typ, RawTupleType):
+                element_expr = transform_ext_params_map(target.elts[index].typ)(
+                    element_expr
+                )
+            return plt.IteNullList(
+                OVar(list_name),
+                plt.TraceError("ValueError: not enough values to unpack"),
+                OLet(
+                    [
+                        (element_name, plt.HeadList(OVar(list_name))),
+                        (tail_name, plt.TailList(OVar(list_name))),
+                    ],
+                    self._bind_target_from_compiled_expr(
+                        target.elts[index],
+                        target.elts[index].typ,
+                        element_expr,
+                        compile_element(index + 1, tail_name, result),
+                    ),
+                ),
+            )
 
-            return OLet([(source_name, compiled_source)], compile_element(0, source_name, body))
+        return OLet([(source_name, compiled_e)], compile_element(0, source_name, body))
 
-        return compiled
+    def visit_DestructuringAssign(self, node: TypedDestructuringAssign) -> CallAST:
+        assert isinstance(node.value.typ, InstanceType), "Can only deconstruct instances"
+        source_typ = node.value.typ.typ
+        compiled_source = self.visit(node.value)
+        destructure_target = TypedTuple(
+            elts=node.targets,
+            ctx=Load(),
+            typ=InstanceType(RawTupleType(node.element_typs)),
+        )
+        return lambda body: self._bind_target_from_compiled_expr(
+            destructure_target,
+            source_typ,
+            compiled_source,
+            body,
+        )
 
     def visit_BinOp(self, node: TypedBinOp) -> plt.AST:
         try:
@@ -1271,9 +1292,7 @@ class PlutoCompiler(CompilingNodeTransformer):
         gen = node.generators[0]
         assert isinstance(gen.iter.typ, InstanceType), "Only lists are valid generators"
         assert isinstance(gen.iter.typ.typ, ListType), "Only lists are valid generators"
-        assert isinstance(
-            gen.target, Name
-        ), "Can only assign value to singleton element"
+        source_typ = gen.iter.typ.typ.typ
         lst = self.visit(gen.iter)
         ifs = None
         for ifexpr in gen.ifs:
@@ -1283,8 +1302,10 @@ class PlutoCompiler(CompilingNodeTransformer):
                 ifs = plt.And(ifs, self.visit(ifexpr))
         map_fun = OLambda(
             ["x"],
-            plt.Let(
-                [(gen.target.id, plt.Delay(OVar("x")))],
+            self._bind_target_from_compiled_expr(
+                gen.target,
+                source_typ,
+                OVar("x"),
                 self.visit(node.elt),
             ),
         )
@@ -1292,8 +1313,10 @@ class PlutoCompiler(CompilingNodeTransformer):
         if ifs is not None:
             filter_fun = OLambda(
                 ["x"],
-                plt.Let(
-                    [(gen.target.id, plt.Delay(OVar("x")))],
+                self._bind_target_from_compiled_expr(
+                    gen.target,
+                    source_typ,
+                    OVar("x"),
                     ifs,
                 ),
             )
@@ -1315,9 +1338,7 @@ class PlutoCompiler(CompilingNodeTransformer):
         gen = node.generators[0]
         assert isinstance(gen.iter.typ, InstanceType), "Only lists are valid generators"
         assert isinstance(gen.iter.typ.typ, ListType), "Only lists are valid generators"
-        assert isinstance(
-            gen.target, Name
-        ), "Can only assign value to singleton element"
+        source_typ = gen.iter.typ.typ.typ
         lst = self.visit(gen.iter)
         ifs = None
         for ifexpr in gen.ifs:
@@ -1327,8 +1348,10 @@ class PlutoCompiler(CompilingNodeTransformer):
                 ifs = plt.And(ifs, self.visit(ifexpr))
         map_fun = OLambda(
             ["x"],
-            plt.Let(
-                [(gen.target.id, plt.Delay(OVar("x")))],
+            self._bind_target_from_compiled_expr(
+                gen.target,
+                source_typ,
+                OVar("x"),
                 plt.MkPairData(
                     transform_output_map(node.key.typ)(
                         self.visit(node.key),
@@ -1343,8 +1366,10 @@ class PlutoCompiler(CompilingNodeTransformer):
         if ifs is not None:
             filter_fun = OLambda(
                 ["x"],
-                plt.Let(
-                    [(gen.target.id, plt.Delay(OVar("x")))],
+                self._bind_target_from_compiled_expr(
+                    gen.target,
+                    source_typ,
+                    OVar("x"),
                     ifs,
                 ),
             )
