@@ -97,33 +97,34 @@ jobs:
           echo "has_significant_changes=true" >> $GITHUB_OUTPUT
         fi
         uv run python - <<'PY'
-from pathlib import Path
-import os
+        from pathlib import Path
+        import os
 
-report = Path("size_report.md").read_text()
-def bounded_preview(text: str, max_chars: int, note: str) -> str:
-    if len(text) <= max_chars:
-        return text
-    head = text[: max_chars // 2]
-    tail = text[-max_chars // 2 :]
-    return f"{head}\n\n{note}\n\n{tail}"
+        report = Path("size_report.md").read_text()
 
-step_summary = bounded_preview(
-    report,
-    200_000,
-    "... truncated for GitHub step summary; full report is attached as the `binary-size-report` artifact ...",
-)
-comment_report = bounded_preview(
-    report,
-    60_000,
-    "... truncated for PR comment; full report is attached as the `binary-size-report` artifact ...",
-)
+        def bounded_preview(text: str, max_chars: int, note: str) -> str:
+            if len(text) <= max_chars:
+                return text
+            head = text[: max_chars // 2]
+            tail = text[-max_chars // 2 :]
+            return f"{head}\n\n{note}\n\n{tail}"
 
-with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as fh:
-    fh.write(step_summary)
+        step_summary = bounded_preview(
+            report,
+            200_000,
+            "... truncated for GitHub step summary; full report is attached as the `binary-size-report` artifact ...",
+        )
+        comment_report = bounded_preview(
+            report,
+            60_000,
+            "... truncated for PR comment; full report is attached as the `binary-size-report` artifact ...",
+        )
 
-Path("size_report_comment.md").write_text(comment_report, encoding="utf-8")
-PY
+        with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as fh:
+            fh.write(step_summary)
+
+        Path("size_report_comment.md").write_text(comment_report, encoding="utf-8")
+        PY
 
     - name: Upload size report as artifact
       uses: actions/upload-artifact@v7
