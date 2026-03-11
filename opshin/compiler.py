@@ -1469,7 +1469,13 @@ def compile(
         RewriteEmptyDicts(),
         RewriteImportUPLCBuiltins(),
         RewriteRemoveTypeStuff(),
-        # Apply optimizations
+    ]
+    for s in compile_pipeline:
+        prog = s.visit(prog)
+        prog = custom_fix_missing_locations(prog)
+
+    # Apply optimizations repeatedly until no further changes occur (fixed-point)
+    optimize_pipeline = [
         OptimizeRemoveTrace() if config.remove_trace else NoOp(),
         OptimizeFoldIfFallthrough() if config.remove_dead_code else NoOp(),
         OptimizeRemoveUnreachable() if config.remove_dead_code else NoOp(),
@@ -1482,9 +1488,19 @@ def compile(
         OptimizeRemoveDeadConditions() if config.remove_dead_code else NoOp(),
         OptimizeRemovePass(),
     ]
-    for s in compile_pipeline:
-        prog = s.visit(prog)
-        prog = custom_fix_missing_locations(prog)
+    _MAX_OPTIMIZER_ITERATIONS = 100
+    for _ in range(_MAX_OPTIMIZER_ITERATIONS):
+        prog_dump = ast.dump(prog)
+        for s in optimize_pipeline:
+            prog = s.visit(prog)
+            prog = custom_fix_missing_locations(prog)
+        if ast.dump(prog) == prog_dump:
+            break
+    else:
+        raise RuntimeError(
+            f"Optimizer did not reach a fixed point after {_MAX_OPTIMIZER_ITERATIONS} iterations. "
+            "This is likely a bug in one of the optimizer steps."
+        )
 
     # the compiler runs last
     s = PlutoCompiler(
