@@ -4,6 +4,7 @@ from hypothesis import given
 from hypothesis import strategies as st
 
 from opshin import builder
+from opshin.ledger.api_v3 import Address, NoStakingCredential, ScriptCredential
 from opshin.util import CompilerError
 from tests.utils import eval_uplc_raw, eval_uplc_value, Unit
 
@@ -391,6 +392,24 @@ def validator(t: Tuple[int, bytes]) -> int:
             "raw tuple validator input did not behave as expected",
         )
 
+    @given(a=st.integers(), b=st.binary())
+    def test_list_anything_cast_to_tuple(self, a, b):
+        source_code = """
+from typing import List, Tuple
+from opshin.prelude import *
+
+def validator(xs: List[Anything]) -> int:
+    t: Tuple[int, bytes] = xs
+    a, b = t
+    return a + len(b)
+"""
+        ret = eval_uplc_value(source_code, [a, b])
+        self.assertEqual(
+            ret,
+            a + len(b),
+            "list-anything tuple cast did not behave as expected",
+        )
+
     def test_astuple_requires_import(self):
         source_code = """
 from dataclasses import dataclass
@@ -409,6 +428,31 @@ def validator(x: int, y: int) -> int:
         with self.assertRaises(CompilerError) as exc:
             builder._compile(source_code)
         self.assertIn("astuple must be imported", str(exc.exception).lower())
+
+    @given(price=st.integers(), cancel_key=st.binary(min_size=28, max_size=28))
+    def test_tuple_type_alias_is_legal(self, price, cancel_key):
+        source_code = """
+from typing import Dict, Tuple
+from opshin.prelude import *
+
+NftMarketplaceDatum = Tuple[Value, Address, PubKeyHash]
+
+def validator(datum: NftMarketplaceDatum) -> int:
+    price, address, cancel_key = datum
+    return price[b""][b""] + len(cancel_key)
+"""
+        address = Address(
+            ScriptCredential(cancel_key),
+            NoStakingCredential(),
+        )
+        value = {b"": {b"": price}}
+        ret = eval_uplc_value(source_code, (value, address, cancel_key))
+        self.assertEqual(
+            ret,
+            price + len(cancel_key),
+            "tuple type alias did not behave as expected",
+        )
+
 
     @given(
         xs=st.dictionaries(

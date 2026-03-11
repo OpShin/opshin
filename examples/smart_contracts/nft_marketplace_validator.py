@@ -1,4 +1,5 @@
 #!opshin
+from typing import Tuple
 from opshin.prelude import *
 from opshin.std.builtins import *
 
@@ -7,7 +8,7 @@ NftMarketplaceRedeemer = int
 NftMarketplaceRedeemerBuy = 0
 NftMarketplaceRedeemerCancel = 1
 
-NftMarketplaceDatum = List[Anything]
+NftMarketplaceDatum = Tuple[Value, Address, PubKeyHash]
 
 
 def has_valid_payment(
@@ -35,11 +36,7 @@ def validator(context: ScriptContext) -> None:
 
     datum: NftMarketplaceDatum = own_datum_unsafe(context)
     redeemer: NftMarketplaceRedeemer = context.redeemer
-    assert len(datum) == 3, "Invalid datum"
-    price_raw, address_raw, cancel_key_raw = datum
-    price: Value = price_raw
-    address: Address = address_raw
-    cancel_key: PubKeyHash = cancel_key_raw
+    price, address, cancel_key = datum
 
     if redeemer == NftMarketplaceRedeemerBuy:
         assert has_valid_payment(tx.outputs, address, price, own_input)

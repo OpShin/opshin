@@ -1437,6 +1437,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             "Union",
             "Dict",
             "List",
+            "Tuple",
         ]:
             ts.value = ts.typ = self.type_from_annotation(ts)
             return ts

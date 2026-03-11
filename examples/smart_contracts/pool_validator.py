@@ -1,4 +1,5 @@
 #!opshin
+from typing import Tuple
 from opshin.prelude import *
 
 
@@ -64,21 +65,10 @@ def validator(context: ScriptContext) -> None:
         assert False, "Invalid purpose"
 
     redeemer: int = context.redeemer
-    input_datum_raw: List[Anything] = resolve_datum_unsafe(own_input, tx)
-    (
-        token_a_raw,
-        token_b_raw,
-        pool_nft_raw,
-        lp_token_raw,
-        minted_lp_tokens_raw,
-        swap_fee_raw,
-    ) = input_datum_raw
-    token_a: AssetClass = token_a_raw
-    token_b: AssetClass = token_b_raw
-    pool_nft: AssetClass = pool_nft_raw
-    lp_token: PolicyId = lp_token_raw
-    minted_lp_tokens: int = minted_lp_tokens_raw
-    swap_fee: int = swap_fee_raw
+    input_datum: Tuple[AssetClass, AssetClass, AssetClass, PolicyId, int, int] = (
+        resolve_datum_unsafe(own_input, tx)
+    )
+    token_a, token_b, pool_nft, lp_token, minted_lp_tokens, swap_fee = input_datum
 
     own_output = find_own_output(tx.outputs, pool_nft)
     new_minted_lp = quantity_of(tx.mint, lp_token, pool_nft.name)
@@ -91,23 +81,19 @@ def validator(context: ScriptContext) -> None:
 
     out_datum_some = own_output.datum
     if isinstance(out_datum_some, SomeOutputDatum):
-        out_datum_raw: List[Anything] = out_datum_some.datum
+        out_datum: Tuple[AssetClass, AssetClass, AssetClass, PolicyId, int, int] = (
+            out_datum_some.datum
+        )
     else:
         assert False, "Missing inline output datum"
     (
-        out_token_a_raw,
-        out_token_b_raw,
-        out_pool_nft_raw,
-        out_lp_token_raw,
-        out_minted_lp_tokens_raw,
-        out_swap_fee_raw,
-    ) = out_datum_raw
-    out_token_a: AssetClass = out_token_a_raw
-    out_token_b: AssetClass = out_token_b_raw
-    out_pool_nft: AssetClass = out_pool_nft_raw
-    out_lp_token: PolicyId = out_lp_token_raw
-    out_minted_lp_tokens: int = out_minted_lp_tokens_raw
-    out_swap_fee: int = out_swap_fee_raw
+        out_token_a,
+        out_token_b,
+        out_pool_nft,
+        out_lp_token,
+        out_minted_lp_tokens,
+        out_swap_fee,
+    ) = out_datum
 
     assert quantity_of_asset(own_input.value, pool_nft) == 1
     own_output_reference_script = own_output.reference_script

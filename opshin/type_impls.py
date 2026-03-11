@@ -1159,7 +1159,10 @@ class ListType(ClassType):
     typ: Type
 
     def __ge__(self, other):
-        return isinstance(other, ListType) and self.typ >= other.typ
+        return (isinstance(other, ListType) and self.typ >= other.typ) or (
+            isinstance(other, RawTupleType)
+            and all(self.typ >= tuple_typ for tuple_typ in other.typs)
+        )
 
     def pluthon_type(self, skip_constructor: bool = False) -> str:
         return "list<" + self.typ.pluthon_type() + ">"
