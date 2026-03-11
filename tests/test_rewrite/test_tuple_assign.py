@@ -392,6 +392,23 @@ def validator(x: int, y: int, z: int) -> int:
         ret = eval_uplc_value(source_code, x, y, z)
         self.assertEqual(ret, x + y + z, "astuple did not return the expected tuple")
 
+    @given(tx_id=st.binary(min_size=32, max_size=32), idx=st.integers())
+    def test_astuple_import_without_local_dataclass(self, tx_id, idx):
+        source_code = """
+from dataclasses import astuple
+from opshin.prelude import *
+
+def validator(tx_id: TxId, idx: int) -> int:
+    actual_id, actual_idx = astuple(TxOutRef(tx_id, idx))
+    return len(actual_id) + actual_idx
+"""
+        ret = eval_uplc_value(source_code, tx_id, idx)
+        self.assertEqual(
+            ret,
+            len(tx_id) + idx,
+            "astuple import should work without importing dataclass when no local dataclasses are defined",
+        )
+
     @given(x=st.integers(), y=st.binary())
     def test_astuple_nested_plutusdata_fields(self, x, y):
         source_code = """

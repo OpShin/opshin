@@ -59,9 +59,6 @@ class RewriteImportDataclasses(CompilingNodeTransformer):
         if node.module != "dataclasses":
             return node
         imported_names = {name.name for name in node.names}
-        assert "dataclass" in imported_names, (
-            "The program must contain 'from dataclasses import dataclass'"
-        )
         additional_assigns = []
         for imported_name in node.names:
             assert imported_name.name in {"dataclass", "astuple"}, (
@@ -88,7 +85,7 @@ class RewriteImportDataclasses(CompilingNodeTransformer):
                         ),
                     )
                 )
-        self.imports_dataclasses = True
+        self.imports_dataclasses = self.imports_dataclasses or "dataclass" in imported_names
         self.imports_astuple = self.imports_astuple or "astuple" in imported_names
         return additional_assigns
 
