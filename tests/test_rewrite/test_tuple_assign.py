@@ -324,6 +324,54 @@ def validator(x: int, y: int) -> int:
         ret = eval_uplc_value(source_code, x, y)
         self.assertEqual(ret, x + y, "astuple deconstruction did not behave as expected")
 
+    @given(x=st.integers(), y=st.integers())
+    def test_astuple_alias_assign(self, x, y):
+        source_code = """
+from dataclasses import dataclass, astuple
+from opshin.prelude import *
+
+@dataclass
+class Pair(PlutusData):
+    CONSTR_ID = 0
+    x: int
+    y: int
+
+pair_to_tuple = astuple
+
+def validator(x: int, y: int) -> int:
+    a, b = pair_to_tuple(Pair(x, y))
+    return a + b
+"""
+        ret = eval_uplc_value(source_code, x, y)
+        self.assertEqual(
+            ret,
+            x + y,
+            "aliased astuple deconstruction did not behave as expected",
+        )
+
+    @given(x=st.integers(), y=st.integers())
+    def test_astuple_alias_import(self, x, y):
+        source_code = """
+from dataclasses import dataclass, astuple as pair_to_tuple
+from opshin.prelude import *
+
+@dataclass
+class Pair(PlutusData):
+    CONSTR_ID = 0
+    x: int
+    y: int
+
+def validator(x: int, y: int) -> int:
+    a, b = pair_to_tuple(Pair(x, y))
+    return a + b
+"""
+        ret = eval_uplc_value(source_code, x, y)
+        self.assertEqual(
+            ret,
+            x + y,
+            "import-aliased astuple deconstruction did not behave as expected",
+        )
+
     @given(x=st.integers(), y=st.integers(), z=st.integers())
     def test_astuple_returns_tuple(self, x, y, z):
         source_code = """

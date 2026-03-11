@@ -212,39 +212,6 @@ class IsinstanceImpl(PolymorphicFunction):
             raise NotImplementedError(
                 f"Only isinstance for byte, int, Plutus Dataclass, List and Dict types are supported"
             )
-
-
-class AstupleImpl(PolymorphicFunction):
-    def type_from_args(self, args: typing.List[Type]) -> FunctionType:
-        assert len(args) == 1, f"'astuple' takes one argument, but {len(args)} were given"
-        arg = args[0]
-        assert isinstance(arg, InstanceType) and isinstance(
-            arg.typ, RecordType
-        ), f"'astuple' expects a dataclass instance, found {arg.python_type()}"
-        return FunctionType(
-            args,
-            InstanceType(
-                RawTupleType(
-                    frozenlist([field_typ for _, field_typ in arg.typ.record.fields]),
-                )
-            ),
-        )
-
-    def impl_from_args(self, args: typing.List[Type]) -> plt.AST:
-        arg = args[0]
-        assert isinstance(arg, InstanceType) and isinstance(
-            arg.typ, RecordType
-        ), "Can only convert dataclass instances with astuple"
-        tuple_values = [
-            plt.ConstantNthFieldFast(OVar("x"), pos)
-            for pos, (_, field_typ) in enumerate(arg.typ.record.fields)
-        ]
-        tuple_value = plt.EmptyDataList()
-        for value in reversed(tuple_values):
-            tuple_value = plt.MkCons(value, tuple_value)
-        return OLambda(["x"], tuple_value)
-
-
 class ConvertBasePattern(plt.Pattern):
     def __init__(self, base: plt.Integer, prefix: plt.ByteString, zero: plt.ByteString):
         self.base = base
@@ -540,7 +507,6 @@ class PythonBuiltIn(Enum):
         plt.Range(OVar("limit")),
     )
     reversed = "reversed"
-    astuple = "astuple"
     sum = OLambda(
         ["xs"],
         plt.FoldList(
@@ -615,7 +581,6 @@ PythonBuiltInTypes = {
         )
     ),
     PythonBuiltIn.reversed: InstanceType(PolymorphicFunctionType(ReversedImpl())),
-    PythonBuiltIn.astuple: InstanceType(PolymorphicFunctionType(AstupleImpl())),
     PythonBuiltIn.sum: InstanceType(
         FunctionType(
             [InstanceType(ListType(IntegerInstanceType))],
