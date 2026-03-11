@@ -51,7 +51,9 @@ class RewriteDestructuringAssign(ScopedSequenceNodeTransformer):
             extractions.append(extraction)
         return assignment, extractions
 
-    def _rewrite_sequence(self, node_seq: typing.List[typedstmt]) -> typing.List[typedstmt]:
+    def _rewrite_sequence(
+        self, node_seq: typing.List[typedstmt]
+    ) -> typing.List[typedstmt]:
         rewritten = []
         i = 0
         while i < len(node_seq):

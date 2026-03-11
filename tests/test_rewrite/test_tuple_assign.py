@@ -322,7 +322,9 @@ def validator(x: int, y: int) -> int:
     return a + b
 """
         ret = eval_uplc_value(source_code, x, y)
-        self.assertEqual(ret, x + y, "astuple deconstruction did not behave as expected")
+        self.assertEqual(
+            ret, x + y, "astuple deconstruction did not behave as expected"
+        )
 
     @given(x=st.integers(), y=st.integers())
     def test_astuple_alias_assign(self, x, y):
@@ -543,7 +545,6 @@ def validator(datum: NftMarketplaceDatum) -> int:
             price + len(cancel_key),
             "tuple type alias did not behave as expected",
         )
-
 
     @given(
         xs=st.dictionaries(

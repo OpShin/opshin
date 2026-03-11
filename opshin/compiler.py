@@ -301,7 +301,9 @@ class PlutoCompiler(CompilingNodeTransformer):
         source_typ: Type,
         compiled_e: plt.AST,
     ) -> CallAST:
-        assert isinstance(target, Name), "Assignments to other things then names are not supported"
+        assert isinstance(
+            target, Name
+        ), "Assignments to other things then names are not supported"
         if needs_data_cast(target.typ):
             compiled_e = transform_output_to_type(source_typ, target.typ)(compiled_e)
         varname = target.id
@@ -324,8 +326,12 @@ class PlutoCompiler(CompilingNodeTransformer):
             return self._assign_name_from_compiled_expr(target, source_typ, compiled_e)(
                 body
             )
-        assert isinstance(target, ast.Tuple), "Only tuple destructuring targets are supported"
-        deconstruct_typ = source_typ.typ if isinstance(source_typ, InstanceType) else source_typ
+        assert isinstance(
+            target, ast.Tuple
+        ), "Only tuple destructuring targets are supported"
+        deconstruct_typ = (
+            source_typ.typ if isinstance(source_typ, InstanceType) else source_typ
+        )
         source_name = f"destruct_{self._destructure_id}"
         self._destructure_id += 1
 
@@ -356,9 +362,9 @@ class PlutoCompiler(CompilingNodeTransformer):
                 )
             )
 
-        assert isinstance(deconstruct_typ, (ListType, RawTupleType)), (
-            "Expected tuple, pair, raw tuple, or list deconstruction"
-        )
+        assert isinstance(
+            deconstruct_typ, (ListType, RawTupleType)
+        ), "Expected tuple, pair, raw tuple, or list deconstruction"
         skip_element_null_checks = bool(self.config.remove_trace)
 
         def compile_element(index: int, list_name: str, result: plt.AST) -> plt.AST:
@@ -398,7 +404,9 @@ class PlutoCompiler(CompilingNodeTransformer):
         return OLet([(source_name, compiled_e)], compile_element(0, source_name, body))
 
     def visit_DestructuringAssign(self, node: TypedDestructuringAssign) -> CallAST:
-        assert isinstance(node.value.typ, InstanceType), "Can only deconstruct instances"
+        assert isinstance(
+            node.value.typ, InstanceType
+        ), "Can only deconstruct instances"
         source_typ = node.value.typ.typ
         compiled_source = self.visit(node.value)
         destructure_target = TypedTuple(

@@ -23,7 +23,9 @@ Checks that there was an import of dataclass if there are any class definitions
 
 class AstupleImpl(PolymorphicFunction):
     def type_from_args(self, args: list[Type]) -> FunctionType:
-        assert len(args) == 1, f"'astuple' takes one argument, but {len(args)} were given"
+        assert (
+            len(args) == 1
+        ), f"'astuple' takes one argument, but {len(args)} were given"
         arg = args[0]
         assert isinstance(arg, InstanceType) and isinstance(
             arg.typ, RecordType
@@ -61,9 +63,10 @@ class RewriteImportDataclasses(CompilingNodeTransformer):
         imported_names = {name.name for name in node.names}
         additional_assigns = []
         for imported_name in node.names:
-            assert imported_name.name in {"dataclass", "astuple"}, (
-                "Only 'dataclass' and 'astuple' may be imported from dataclasses"
-            )
+            assert imported_name.name in {
+                "dataclass",
+                "astuple",
+            }, "Only 'dataclass' and 'astuple' may be imported from dataclasses"
             if imported_name.name == "dataclass":
                 assert (
                     imported_name.asname == None
@@ -85,7 +88,9 @@ class RewriteImportDataclasses(CompilingNodeTransformer):
                         ),
                     )
                 )
-        self.imports_dataclasses = self.imports_dataclasses or "dataclass" in imported_names
+        self.imports_dataclasses = (
+            self.imports_dataclasses or "dataclass" in imported_names
+        )
         self.imports_astuple = self.imports_astuple or "astuple" in imported_names
         return additional_assigns
 

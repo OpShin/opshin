@@ -1729,7 +1729,9 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                 raise NotImplementedError(
                     "Only tuple destructuring is supported in comprehensions"
                 )
-            deconstruct_typ = target_typ.typ if isinstance(target_typ, InstanceType) else target_typ
+            deconstruct_typ = (
+                target_typ.typ if isinstance(target_typ, InstanceType) else target_typ
+            )
             if isinstance(deconstruct_typ, PairType):
                 assert (
                     len(target.elts) == 2

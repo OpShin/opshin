@@ -212,6 +212,8 @@ class IsinstanceImpl(PolymorphicFunction):
             raise NotImplementedError(
                 f"Only isinstance for byte, int, Plutus Dataclass, List and Dict types are supported"
             )
+
+
 class ConvertBasePattern(plt.Pattern):
     def __init__(self, base: plt.Integer, prefix: plt.ByteString, zero: plt.ByteString):
         self.base = base
