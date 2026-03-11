@@ -161,9 +161,6 @@ class OptimizeRemoveDeadvars(CompilingNodeTransformer):
             len(node.targets) != 1
             or not isinstance(node.targets[0], Name)
             or node.targets[0].id in self.loaded_vars
-            or not SafeOperationVisitor(sum(self.guaranteed_avail_names, [])).visit(
-                node.value
-            )
         ):
             for t in node.targets:
                 assert isinstance(
@@ -171,15 +168,17 @@ class OptimizeRemoveDeadvars(CompilingNodeTransformer):
                 ), "Need to have name for dead var remover to work"
                 self.set_guaranteed(t.id)
             return self.generic_visit(node)
+        # variable is dead - replace with expression to preserve any side effects
+        if not SafeOperationVisitor(sum(self.guaranteed_avail_names, [])).visit(
+            node.value
+        ):
+            return Expr(node.value)
         return Pass()
 
     def visit_AnnAssign(self, node: TypedAnnAssign):
         if (
             not isinstance(node.target, Name)
             or node.target.id in self.loaded_vars
-            or not SafeOperationVisitor(sum(self.guaranteed_avail_names, [])).visit(
-                node.value
-            )
             # only upcasts are safe!
             or not node.target.typ >= node.value.typ
         ):
@@ -188,6 +187,11 @@ class OptimizeRemoveDeadvars(CompilingNodeTransformer):
             ), "Need to have assignments to name for dead var remover to work"
             self.set_guaranteed(node.target.id)
             return self.generic_visit(node)
+        # variable is dead - replace with expression to preserve any side effects
+        if not SafeOperationVisitor(sum(self.guaranteed_avail_names, [])).visit(
+            node.value
+        ):
+            return Expr(node.value)
         return Pass()
 
     def visit_ClassDef(self, node: ClassDef):

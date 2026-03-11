@@ -1,16 +1,18 @@
 from ast import *
 
 from ..util import CompilingNodeTransformer
+from .optimize_remove_deadvars import SafeOperationVisitor
 
 """
-Removes expressions that return constants in sequences of statements (i.e. string comments)
+Removes expressions that are safely side effect free in sequences of statements
+(e.g. constants, lambdas, string comments)
 """
 
 
 class OptimizeRemoveDeadConstants(CompilingNodeTransformer):
-    step = "Removing constants (i.e. string comments)"
+    step = "Removing dead expressions"
 
     def visit_Expr(self, node: Expr):
-        if isinstance(node.value, Constant):
+        if SafeOperationVisitor([]).visit(node.value):
             return None
         return node
