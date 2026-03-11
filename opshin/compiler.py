@@ -27,6 +27,7 @@ from .type_impls import (
     ListType,
     TupleType,
     PairType,
+    RawTupleType,
     BoolInstanceType,
     IntegerInstanceType,
     empty_list,
@@ -393,6 +394,13 @@ class PlutoCompiler(CompilingNodeTransformer):
                 return OLet([(source_name, compiled_source)], wrapped)
 
             return compiled
+
+        if isinstance(source_typ, RawTupleType):
+            return compile_tuple_like(
+                lambda extraction, index: transform_ext_params_map(extraction.value.typ)(
+                    plt.ConstantIndexAccessListFast(OVar(source_name), index)
+                )
+            )
 
         if isinstance(source_typ, TupleType):
             tuple_length = len(source_typ.typs)
@@ -939,6 +947,23 @@ class PlutoCompiler(CompilingNodeTransformer):
         assert isinstance(
             node.value.typ, InstanceType
         ), "Can only access elements of instances, not classes"
+        if isinstance(node.value.typ.typ, RawTupleType):
+            assert isinstance(
+                node.slice, Constant
+            ), "Only constant index access for tuples is supported"
+            assert isinstance(
+                node.slice.value, int
+            ), "Only constant index integer access for tuples is supported"
+            index = node.slice.value
+            if index < 0:
+                index += len(node.value.typ.typ.typs)
+            assert isinstance(node.ctx, Load), "Tuples are read-only"
+            return transform_ext_params_map(node.typ)(
+                plt.ConstantIndexAccessListFast(
+                    self.visit(node.value),
+                    index,
+                )
+            )
         if isinstance(node.value.typ.typ, TupleType):
             assert isinstance(
                 node.slice, Constant
@@ -1216,6 +1241,15 @@ class PlutoCompiler(CompilingNodeTransformer):
         )
 
     def visit_Tuple(self, node: TypedTuple) -> plt.AST:
+        assert isinstance(node.typ, InstanceType)
+        if isinstance(node.typ.typ, RawTupleType):
+            tuple_value = plt.EmptyDataList()
+            for e in reversed(node.elts):
+                tuple_value = plt.MkCons(
+                    transform_output_map(e.typ)(self.visit(e)),
+                    tuple_value,
+                )
+            return tuple_value
         return plt.FunctionalTuple(*(self.visit(e) for e in node.elts))
 
     def visit_ClassDef(self, node: TypedClassDef) -> CallAST:

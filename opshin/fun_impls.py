@@ -14,6 +14,7 @@ from .type_impls import (
     ListType,
     DictType,
     TupleType,
+    RawTupleType,
     empty_list,
     BoolInstanceType,
     ClassType,
@@ -22,7 +23,6 @@ from .type_impls import (
     IntegerType,
     ByteStringType,
     RecordType,
-    RecordAsTupleType,
     PowImpl,
     StringInstanceType,
     PolymorphicFunctionType,
@@ -224,9 +224,8 @@ class AstupleImpl(PolymorphicFunction):
         return FunctionType(
             args,
             InstanceType(
-                RecordAsTupleType(
+                RawTupleType(
                     frozenlist([field_typ for _, field_typ in arg.typ.record.fields]),
-                    arg.typ,
                 )
             ),
         )
@@ -237,12 +236,13 @@ class AstupleImpl(PolymorphicFunction):
             arg.typ, RecordType
         ), "Can only convert dataclass instances with astuple"
         tuple_values = [
-            transform_ext_params_map(field_typ)(
-                plt.ConstantNthFieldFast(OVar("x"), pos)
-            )
+            plt.ConstantNthFieldFast(OVar("x"), pos)
             for pos, (_, field_typ) in enumerate(arg.typ.record.fields)
         ]
-        return OLambda(["x"], plt.FunctionalTuple(*tuple_values))
+        tuple_value = plt.EmptyDataList()
+        for value in reversed(tuple_values):
+            tuple_value = plt.MkCons(value, tuple_value)
+        return OLambda(["x"], tuple_value)
 
 
 class ConvertBasePattern(plt.Pattern):

@@ -64,6 +64,7 @@ from .type_impls import (
     ATOMIC_TYPES,
     ClassType,
     TupleType,
+    RawTupleType,
     PolymorphicFunctionInstanceType,
     FunctionType,
     CLOSURE_PLACEHOLDER,
@@ -216,7 +217,7 @@ class AnnotationTypeInferencer(AnnotationNodeReducer):
             assert all(
                 isinstance(e, ClassType) for e in ann_types
             ), "Tuple must combine classes"
-            return TupleType(frozenlist([InstanceType(a) for a in ann_types]))
+            return RawTupleType(frozenlist([InstanceType(a) for a in ann_types]))
         raise NotImplementedError(
             "Only Union, Dict and List are allowed as Generic types"
         )
@@ -1043,7 +1044,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
     def visit_Tuple(self, node: Tuple) -> TypedTuple:
         tt = copy(node)
         tt.elts = [self.visit(e) for e in node.elts]
-        tt.typ = InstanceType(TupleType(frozenlist([e.typ for e in tt.elts])))
+        tt.typ = InstanceType(RawTupleType(frozenlist([e.typ for e in tt.elts])))
         return tt
 
     def visit_List(self, node: List) -> TypedList:

@@ -353,6 +353,17 @@ def validator(x: int, y: bytes) -> int:
             "astuple did not preserve distinct nested PlutusData field types",
         )
 
+    def test_validator_raw_tuple_input(self):
+        source_code = """
+from typing import Tuple
+
+def validator(t: Tuple[int, bytes]) -> int:
+    a, b = t
+    return a + len(b)
+"""
+        ret = eval_uplc_value(source_code, (4, b"abc"))
+        self.assertEqual(ret, 7, "raw tuple validator input did not behave as expected")
+
     def test_astuple_requires_import(self):
         source_code = """
 from dataclasses import dataclass

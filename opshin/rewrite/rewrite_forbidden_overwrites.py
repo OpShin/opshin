@@ -12,6 +12,7 @@ FORBIDDEN_NAMES = {
     # Type annotations
     "List",
     "Dict",
+    "Tuple",
     "Union",
     "Self",
     # decorator and class name
