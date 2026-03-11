@@ -1,5 +1,4 @@
 #!/usr/bin/env -S opshin eval spending
-from dataclasses import astuple, dataclass
 from opshin.prelude import *
 from opshin.std.integrity import check_integrity
 
@@ -58,7 +57,6 @@ def validator(context: ScriptContext) -> None:
     purpose = context.purpose
     datum: Listing = own_datum_unsafe(context)
     check_integrity(datum)
-    price, vendor, owner = astuple(datum)
     redeemer: ListingAction = context.redeemer
     check_integrity(redeemer)
 
@@ -70,8 +68,8 @@ def validator(context: ScriptContext) -> None:
     check_single_utxo_spent(tx_info.inputs, own_addr)
     # It is recommended to explicitly check all options with isinstance for user input
     if isinstance(redeemer, Buy):
-        check_paid(tx_info.outputs, vendor, price)
+        check_paid(tx_info.outputs, datum.vendor, datum.price)
     elif isinstance(redeemer, Unlist):
-        check_owner_signed(tx_info.signatories, owner)
+        check_owner_signed(tx_info.signatories, datum.owner)
     else:
         assert False, "Wrong redeemer"

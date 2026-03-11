@@ -82,6 +82,7 @@ def compile_contract(
     contract_path: str,
     optimization: str,
     extra_flags: Optional[List[str]] = None,
+    recursion_limit: int = 4000,
     work_dir: Optional[str] = None,
 ) -> Optional[int]:
     """
@@ -101,7 +102,7 @@ def compile_contract(
         contract_path,
         f"-{optimization}",
         "--recursion-limit",
-        "4000",
+        str(recursion_limit),
         "-o",
         output_dir,
     ]
@@ -131,6 +132,7 @@ def evaluate_contract(
     optimization: str,
     test_inputs: Dict,
     extra_flags: Optional[List[str]] = None,
+    recursion_limit: int = 4000,
     work_dir: Optional[str] = None,
 ) -> Optional[Dict]:
     """
@@ -160,7 +162,7 @@ def evaluate_contract(
         (
             f"-{optimization}",
             "--recursion-limit",
-            "4000",
+            str(recursion_limit),
         )
     )
     if extra_flags:
@@ -218,13 +220,21 @@ def measure_contract_sizes(
         name = contract["name"]
         path = contract["path"]
         extra_flags = contract.get("extra_flags", [])
+        compile_recursion_limit = contract.get("compile_recursion_limit", 4000)
+        eval_recursion_limit = contract.get("eval_recursion_limit", 4000)
         test_inputs_list = contract.get("test_inputs", [])
 
         print(f"Measuring {name}...")
 
         contract_results = {}
         for opt_level in optimization_levels:
-            size = compile_contract(path, opt_level, extra_flags, work_dir)
+            size = compile_contract(
+                path,
+                opt_level,
+                extra_flags,
+                compile_recursion_limit,
+                work_dir,
+            )
             if size is not None:
                 contract_results[opt_level] = {"size": size}
                 print(f"  {opt_level}: {size} bytes")
@@ -236,7 +246,12 @@ def measure_contract_sizes(
                         test_case_name = test_inputs.get("test_case_name", "unnamed")
                         print(f"    Evaluating test case: {test_case_name}")
                         costs = evaluate_contract(
-                            path, opt_level, test_inputs, extra_flags, work_dir
+                            path,
+                            opt_level,
+                            test_inputs,
+                            extra_flags,
+                            eval_recursion_limit,
+                            work_dir,
                         )
                         if costs:
                             execution_costs.append(

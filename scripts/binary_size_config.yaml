@@ -48,6 +48,7 @@ contracts:
   - name: "pool_validator"
     path: "examples/smart_contracts/pool_validator.py"
     description: "UPLC benchmark DEX pool validator"
+    eval_recursion_limit: 8000
     test_inputs:
       - test_case_name: "swap_a_for_b"
         inputs_hex:

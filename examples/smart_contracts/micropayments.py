@@ -1,4 +1,4 @@
-from dataclasses import astuple, dataclass
+from dataclasses import astuple
 from opshin.ledger.api_v3 import *
 from opshin.std.builtins import *
 from opshin.std.integrity import check_integrity
