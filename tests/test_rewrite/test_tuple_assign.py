@@ -168,7 +168,8 @@ def validator(xs) -> int:
             "for loop deconstruction did not behave as expected",
         )
 
-    def test_list_assign(self):
+    @given(xs=st.lists(st.integers(), min_size=3, max_size=3))
+    def test_list_assign(self, xs):
         source_code = """
 from typing import List
 
@@ -176,10 +177,11 @@ def validator(xs: List[int]) -> int:
     a, b, c = xs
     return a + b + c
 """
-        ret = eval_uplc_value(source_code, [1, 2, 3])
-        self.assertEqual(ret, 6, "list deconstruction did not behave as expected")
+        ret = eval_uplc_value(source_code, xs)
+        self.assertEqual(ret, sum(xs), "list deconstruction did not behave as expected")
 
-    def test_list_assign_too_few(self):
+    @given(xs=st.lists(st.integers(), max_size=1))
+    def test_list_assign_too_few(self, xs):
         source_code = """
 from typing import List
 
@@ -188,10 +190,11 @@ def validator(xs: List[int]) -> int:
     return a + b
 """
         with self.assertRaises(Exception) as exc:
-            eval_uplc_value(source_code, [1])
+            eval_uplc_value(source_code, xs)
         self.assertIn("error", str(exc.exception).lower())
 
-    def test_list_assign_too_many(self):
+    @given(xs=st.lists(st.integers(), min_size=3, max_size=10))
+    def test_list_assign_too_many(self, xs):
         source_code = """
 from typing import List
 
@@ -200,7 +203,7 @@ def validator(xs: List[int]) -> int:
     return a + b
 """
         with self.assertRaises(Exception) as exc:
-            eval_uplc_value(source_code, [1, 2, 3])
+            eval_uplc_value(source_code, xs)
         self.assertIn("error", str(exc.exception).lower())
 
     def test_list_assign_compiles_to_linear_walk(self):
@@ -284,7 +287,8 @@ def validator(x: int) -> int:
             "tuple destructuring should beat repeated tuple indexing on memory",
         )
 
-    def test_astuple_assign(self):
+    @given(x=st.integers(), y=st.integers())
+    def test_astuple_assign(self, x, y):
         source_code = """
 from dataclasses import dataclass, astuple
 from opshin.prelude import *
@@ -299,10 +303,11 @@ def validator(x: int, y: int) -> int:
     a, b = astuple(Pair(x, y))
     return a + b
 """
-        ret = eval_uplc_value(source_code, 4, 5)
-        self.assertEqual(ret, 9, "astuple deconstruction did not behave as expected")
+        ret = eval_uplc_value(source_code, x, y)
+        self.assertEqual(ret, x + y, "astuple deconstruction did not behave as expected")
 
-    def test_astuple_returns_tuple(self):
+    @given(x=st.integers(), y=st.integers(), z=st.integers())
+    def test_astuple_returns_tuple(self, x, y, z):
         source_code = """
 from dataclasses import dataclass, astuple
 from opshin.prelude import *
@@ -318,10 +323,11 @@ def validator(x: int, y: int, z: int) -> int:
     t = astuple(Triple(x, y, z))
     return t[0] + t[1] + t[2]
 """
-        ret = eval_uplc_value(source_code, 1, 2, 3)
-        self.assertEqual(ret, 6, "astuple did not return the expected tuple")
+        ret = eval_uplc_value(source_code, x, y, z)
+        self.assertEqual(ret, x + y + z, "astuple did not return the expected tuple")
 
-    def test_astuple_nested_plutusdata_fields(self):
+    @given(x=st.integers(), y=st.binary())
+    def test_astuple_nested_plutusdata_fields(self, x, y):
         source_code = """
 from dataclasses import dataclass, astuple
 from opshin.prelude import *
@@ -346,14 +352,15 @@ def validator(x: int, y: bytes) -> int:
     left, right = astuple(Pair(Left(x), Right(y)))
     return left.x + len(right.y)
 """
-        ret = eval_uplc_value(source_code, 4, b"abc")
+        ret = eval_uplc_value(source_code, x, y)
         self.assertEqual(
             ret,
-            7,
+            x + len(y),
             "astuple did not preserve distinct nested PlutusData field types",
         )
 
-    def test_validator_raw_tuple_input(self):
+    @given(a=st.integers(), b=st.binary())
+    def test_validator_raw_tuple_input(self, a, b):
         source_code = """
 from typing import Tuple
 
@@ -361,8 +368,12 @@ def validator(t: Tuple[int, bytes]) -> int:
     a, b = t
     return a + len(b)
 """
-        ret = eval_uplc_value(source_code, (4, b"abc"))
-        self.assertEqual(ret, 7, "raw tuple validator input did not behave as expected")
+        ret = eval_uplc_value(source_code, (a, b))
+        self.assertEqual(
+            ret,
+            a + len(b),
+            "raw tuple validator input did not behave as expected",
+        )
 
     def test_astuple_requires_import(self):
         source_code = """

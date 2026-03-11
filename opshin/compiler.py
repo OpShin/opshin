@@ -1,7 +1,7 @@
 import ast
 import copy
 import typing
-from ast import Load, Name, Constant, Slice, Assign, Subscript
+from ast import Load, Name, Constant, Slice
 
 import pluthon as plt
 import uplc.ast as uplc
@@ -61,6 +61,7 @@ from .rewrite.rewrite_augassign import RewriteAugAssign
 from .rewrite.rewrite_cast_condition import RewriteConditions
 from .rewrite.rewrite_empty_dicts import RewriteEmptyDicts
 from .rewrite.rewrite_empty_lists import RewriteEmptyLists
+from .rewrite.rewrite_destructuring_assign import RewriteDestructuringAssign
 from .rewrite.rewrite_forbidden_overwrites import RewriteForbiddenOverwrites
 from .rewrite.rewrite_forbidden_return import RewriteForbiddenReturn
 from .rewrite.rewrite_import import RewriteImport
@@ -76,7 +77,6 @@ from .rewrite.rewrite_remove_type_stuff import RewriteRemoveTypeStuff
 from .rewrite.rewrite_scoping import RewriteScoping
 from .rewrite.rewrite_subscript38 import RewriteSubscript38
 from .rewrite.rewrite_tuple_assign import RewriteTupleAssign
-from .rewrite.rewrite_tuple_assign import DestructureMetadata
 from .optimize.optimize_remove_pass import OptimizeRemovePass
 from .optimize.optimize_remove_deadvars import OptimizeRemoveDeadvars, NameLoadCollector
 from .util import (
@@ -286,73 +286,13 @@ class PlutoCompiler(CompilingNodeTransformer):
         self.current_function_typ: typing.List[FunctionType] = []
 
     def visit_sequence(self, node_seq: typing.List[typedstmt]) -> CallAST:
-        grouped_seq: typing.List[typing.Union[typedstmt, tuple[Assign, typing.List[Assign]]]] = []
-        i = 0
-        while i < len(node_seq):
-            destructuring_group = self._match_destructuring_assignments(node_seq, i)
-            if destructuring_group is None:
-                grouped_seq.append(node_seq[i])
-                i += 1
-                continue
-            grouped_seq.append(destructuring_group)
-            i += len(destructuring_group[1]) + 1
-
         def g(s: plt.AST):
-            for n in reversed(grouped_seq):
-                if isinstance(n, tuple):
-                    compiled_stmt = self._compile_destructuring_assignments(*n)
-                else:
-                    compiled_stmt = self.visit(n)
+            for n in reversed(node_seq):
+                compiled_stmt = self.visit(n)
                 s = compiled_stmt(s)
             return s
 
         return g
-
-    def _match_destructuring_assignments(
-        self, node_seq: typing.List[typedstmt], index: int
-    ) -> typing.Optional[tuple[Assign, typing.List[Assign]]]:
-        if index >= len(node_seq):
-            return None
-        assignment = node_seq[index]
-        if not (
-            isinstance(assignment, Assign)
-            and len(assignment.targets) == 1
-            and isinstance(assignment.targets[0], Name)
-        ):
-            return None
-        destructure_metadata = getattr(assignment, "destructure_metadata", None)
-        if not (
-            isinstance(destructure_metadata, DestructureMetadata)
-            and destructure_metadata.kind == "assignment"
-        ):
-            return None
-        extraction_count = destructure_metadata.length
-        source_name = assignment.targets[0].id
-        if extraction_count is None:
-            return None
-        extractions = []
-        for offset in range(extraction_count):
-            extraction_index = index + offset + 1
-            if extraction_index >= len(node_seq):
-                return None
-            extraction = node_seq[extraction_index]
-            extraction_metadata = getattr(extraction, "destructure_metadata", None)
-            if not (
-                isinstance(extraction, Assign)
-                and len(extraction.targets) == 1
-                and isinstance(extraction.targets[0], Name)
-                and isinstance(extraction.value, Subscript)
-                and isinstance(extraction.value.value, Name)
-                and extraction.value.value.id == source_name
-                and isinstance(extraction.value.slice, Constant)
-                and extraction.value.slice.value == offset
-                and isinstance(extraction_metadata, DestructureMetadata)
-                and extraction_metadata.kind == "extraction"
-                and extraction_metadata.index == offset
-            ):
-                return None
-            extractions.append(extraction)
-        return assignment, extractions
 
     def _assign_name_from_compiled_expr(
         self,
@@ -372,24 +312,22 @@ class PlutoCompiler(CompilingNodeTransformer):
             x,
         )
 
-    def _compile_destructuring_assignments(
-        self, assignment: Assign, extractions: typing.List[Assign]
-    ) -> CallAST:
-        assert isinstance(assignment.value.typ, InstanceType), "Can only deconstruct instances"
-        source_name = assignment.targets[0].id
-        source_typ = assignment.value.typ.typ
-        compiled_source = self.visit(assignment.value)
+    def visit_DestructuringAssign(self, node: TypedDestructuringAssign) -> CallAST:
+        assert isinstance(node.value.typ, InstanceType), "Can only deconstruct instances"
+        source_name = f"destruct_{node.lineno}_{node.col_offset}"
+        source_typ = node.value.typ.typ
+        compiled_source = self.visit(node.value)
 
         def compile_tuple_like(
-            access_fn: typing.Callable[[Assign, int], plt.AST]
+            access_fn: typing.Callable[[int], plt.AST]
         ) -> CallAST:
             def compiled(body: plt.AST) -> plt.AST:
                 wrapped = body
-                for index, extraction in reversed(list(enumerate(extractions))):
+                for index, target in reversed(list(enumerate(node.targets))):
                     wrapped = self._assign_name_from_compiled_expr(
-                        extraction.targets[0],
-                        extraction.value.typ,
-                        access_fn(extraction, index),
+                        target,
+                        node.element_typs[index],
+                        access_fn(index),
                     )(wrapped)
                 return OLet([(source_name, compiled_source)], wrapped)
 
@@ -397,7 +335,7 @@ class PlutoCompiler(CompilingNodeTransformer):
 
         if isinstance(source_typ, RawTupleType):
             return compile_tuple_like(
-                lambda extraction, index: transform_ext_params_map(extraction.value.typ)(
+                lambda index: transform_ext_params_map(node.element_typs[index])(
                     plt.ConstantIndexAccessListFast(OVar(source_name), index)
                 )
             )
@@ -405,14 +343,14 @@ class PlutoCompiler(CompilingNodeTransformer):
         if isinstance(source_typ, TupleType):
             tuple_length = len(source_typ.typs)
             return compile_tuple_like(
-                lambda _extraction, index: plt.FunctionalTupleAccess(
+                lambda index: plt.FunctionalTupleAccess(
                     OVar(source_name), index, tuple_length
                 )
             )
 
         if isinstance(source_typ, PairType):
             return compile_tuple_like(
-                lambda extraction, index: transform_ext_params_map(extraction.value.typ)(
+                lambda index: transform_ext_params_map(node.element_typs[index])(
                     (plt.FstPair if index == 0 else plt.SndPair)(OVar(source_name))
                 )
             )
@@ -421,13 +359,12 @@ class PlutoCompiler(CompilingNodeTransformer):
 
         def compiled(body: plt.AST) -> plt.AST:
             def compile_element(index: int, list_name: str, result: plt.AST) -> plt.AST:
-                if index >= len(extractions):
+                if index >= len(node.targets):
                     return plt.IteNullList(
                         OVar(list_name),
                         result,
                         plt.TraceError("ValueError: too many values to unpack"),
                     )
-                extraction = extractions[index]
                 element_name = f"{source_name}_element_{index}"
                 tail_name = f"{source_name}_rest_{index}"
                 return plt.IteNullList(
@@ -439,8 +376,8 @@ class PlutoCompiler(CompilingNodeTransformer):
                             (tail_name, plt.TailList(OVar(list_name))),
                         ],
                         self._assign_name_from_compiled_expr(
-                            extraction.targets[0],
-                            extraction.value.typ,
+                            node.targets[index],
+                            node.element_typs[index],
                             OVar(element_name),
                         )(compile_element(index + 1, tail_name, result)),
                     ),
@@ -1484,6 +1421,7 @@ def compile(
         RewriteAnnotateFallthrough(),
         # The type inference needs to be run after complex python operations were rewritten
         AggressiveTypeInferencer(config.allow_isinstance_anything),
+        RewriteDestructuringAssign(),
         (RewriteExpandedUnionCalls() if config.expand_union_types else NoOp()),
         RewriteFunctionClosures(),
         # Rewrites that circumvent the type inference or use its results

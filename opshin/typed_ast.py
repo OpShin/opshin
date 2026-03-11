@@ -72,6 +72,15 @@ class TypedAssign(typedstmt, _ast.Assign):
     value: typedexpr
 
 
+class TypedDestructuringAssign(typedstmt):
+    value: typedexpr
+    targets: _typing.List[typedexpr]
+    element_typs: _typing.List[Type]
+
+    _attributes = ["lineno", "col_offset", "end_lineno", "end_col_offset"]
+    _fields = ["value", "targets"]
+
+
 class TypedClassDef(typedstmt, _ast.ClassDef):
     class_typ: "Type"
 
