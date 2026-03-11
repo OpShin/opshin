@@ -1,7 +1,7 @@
 import ast
 import copy
 import typing
-from ast import Load, Name, Constant, Slice
+from ast import Load, Name, Constant, Slice, Assign, Subscript
 
 import pluthon as plt
 import uplc.ast as uplc
@@ -75,6 +75,7 @@ from .rewrite.rewrite_remove_type_stuff import RewriteRemoveTypeStuff
 from .rewrite.rewrite_scoping import RewriteScoping
 from .rewrite.rewrite_subscript38 import RewriteSubscript38
 from .rewrite.rewrite_tuple_assign import RewriteTupleAssign
+from .rewrite.rewrite_tuple_assign import DestructureMetadata
 from .optimize.optimize_remove_pass import OptimizeRemovePass
 from .optimize.optimize_remove_deadvars import OptimizeRemoveDeadvars, NameLoadCollector
 from .util import (
@@ -284,13 +285,162 @@ class PlutoCompiler(CompilingNodeTransformer):
         self.current_function_typ: typing.List[FunctionType] = []
 
     def visit_sequence(self, node_seq: typing.List[typedstmt]) -> CallAST:
+        grouped_seq: typing.List[typing.Union[typedstmt, tuple[Assign, typing.List[Assign]]]] = []
+        i = 0
+        while i < len(node_seq):
+            destructuring_group = self._match_destructuring_assignments(node_seq, i)
+            if destructuring_group is None:
+                grouped_seq.append(node_seq[i])
+                i += 1
+                continue
+            grouped_seq.append(destructuring_group)
+            i += len(destructuring_group[1]) + 1
+
         def g(s: plt.AST):
-            for n in reversed(node_seq):
-                compiled_stmt = self.visit(n)
+            for n in reversed(grouped_seq):
+                if isinstance(n, tuple):
+                    compiled_stmt = self._compile_destructuring_assignments(*n)
+                else:
+                    compiled_stmt = self.visit(n)
                 s = compiled_stmt(s)
             return s
 
         return g
+
+    def _match_destructuring_assignments(
+        self, node_seq: typing.List[typedstmt], index: int
+    ) -> typing.Optional[tuple[Assign, typing.List[Assign]]]:
+        if index >= len(node_seq):
+            return None
+        assignment = node_seq[index]
+        if not (
+            isinstance(assignment, Assign)
+            and len(assignment.targets) == 1
+            and isinstance(assignment.targets[0], Name)
+        ):
+            return None
+        destructure_metadata = getattr(assignment, "destructure_metadata", None)
+        if not (
+            isinstance(destructure_metadata, DestructureMetadata)
+            and destructure_metadata.kind == "assignment"
+        ):
+            return None
+        extraction_count = destructure_metadata.length
+        source_name = assignment.targets[0].id
+        if extraction_count is None:
+            return None
+        extractions = []
+        for offset in range(extraction_count):
+            extraction_index = index + offset + 1
+            if extraction_index >= len(node_seq):
+                return None
+            extraction = node_seq[extraction_index]
+            extraction_metadata = getattr(extraction, "destructure_metadata", None)
+            if not (
+                isinstance(extraction, Assign)
+                and len(extraction.targets) == 1
+                and isinstance(extraction.targets[0], Name)
+                and isinstance(extraction.value, Subscript)
+                and isinstance(extraction.value.value, Name)
+                and extraction.value.value.id == source_name
+                and isinstance(extraction.value.slice, Constant)
+                and extraction.value.slice.value == offset
+                and isinstance(extraction_metadata, DestructureMetadata)
+                and extraction_metadata.kind == "extraction"
+                and extraction_metadata.index == offset
+            ):
+                return None
+            extractions.append(extraction)
+        return assignment, extractions
+
+    def _assign_name_from_compiled_expr(
+        self,
+        target: TypedName,
+        source_typ: Type,
+        compiled_e: plt.AST,
+    ) -> CallAST:
+        assert isinstance(target, Name), "Assignments to other things then names are not supported"
+        if needs_data_cast(target.typ):
+            compiled_e = transform_output_to_type(source_typ, target.typ)(compiled_e)
+        varname = target.id
+        return lambda x: plt.Let(
+            [
+                (opshin_name_scheme_compatible_varname(varname), compiled_e),
+                (varname, plt.Delay(OVar(varname))),
+            ],
+            x,
+        )
+
+    def _compile_destructuring_assignments(
+        self, assignment: Assign, extractions: typing.List[Assign]
+    ) -> CallAST:
+        assert isinstance(assignment.value.typ, InstanceType), "Can only deconstruct instances"
+        source_name = assignment.targets[0].id
+        source_typ = assignment.value.typ.typ
+        compiled_source = self.visit(assignment.value)
+
+        def compile_tuple_like(
+            access_fn: typing.Callable[[Assign, int], plt.AST]
+        ) -> CallAST:
+            def compiled(body: plt.AST) -> plt.AST:
+                wrapped = body
+                for index, extraction in reversed(list(enumerate(extractions))):
+                    wrapped = self._assign_name_from_compiled_expr(
+                        extraction.targets[0],
+                        extraction.value.typ,
+                        access_fn(extraction, index),
+                    )(wrapped)
+                return OLet([(source_name, compiled_source)], wrapped)
+
+            return compiled
+
+        if isinstance(source_typ, TupleType):
+            tuple_length = len(source_typ.typs)
+            return compile_tuple_like(
+                lambda _extraction, index: plt.FunctionalTupleAccess(
+                    OVar(source_name), index, tuple_length
+                )
+            )
+
+        if isinstance(source_typ, PairType):
+            return compile_tuple_like(
+                lambda extraction, index: transform_ext_params_map(extraction.value.typ)(
+                    (plt.FstPair if index == 0 else plt.SndPair)(OVar(source_name))
+                )
+            )
+
+        assert isinstance(source_typ, ListType), "Expected tuple, pair, or list deconstruction"
+
+        def compiled(body: plt.AST) -> plt.AST:
+            def compile_element(index: int, list_name: str, result: plt.AST) -> plt.AST:
+                if index >= len(extractions):
+                    return plt.IteNullList(
+                        OVar(list_name),
+                        result,
+                        plt.TraceError("ValueError: too many values to unpack"),
+                    )
+                extraction = extractions[index]
+                element_name = f"{source_name}_element_{index}"
+                tail_name = f"{source_name}_rest_{index}"
+                return plt.IteNullList(
+                    OVar(list_name),
+                    plt.TraceError("ValueError: not enough values to unpack"),
+                    OLet(
+                        [
+                            (element_name, plt.HeadList(OVar(list_name))),
+                            (tail_name, plt.TailList(OVar(list_name))),
+                        ],
+                        self._assign_name_from_compiled_expr(
+                            extraction.targets[0],
+                            extraction.value.typ,
+                            OVar(element_name),
+                        )(compile_element(index + 1, tail_name, result)),
+                    ),
+                )
+
+            return OLet([(source_name, compiled_source)], compile_element(0, source_name, body))
+
+        return compiled
 
     def visit_BinOp(self, node: TypedBinOp) -> plt.AST:
         try:

@@ -5,7 +5,7 @@ from hypothesis import strategies as st
 
 from opshin import builder
 from opshin.util import CompilerError
-from tests.utils import eval_uplc_value, Unit
+from tests.utils import eval_uplc_raw, eval_uplc_value, Unit
 
 
 class TupleAssignTest(unittest.TestCase):
@@ -166,6 +166,122 @@ def validator(xs) -> int:
             ret,
             1 + 2 + 3 + 4,
             "for loop deconstruction did not behave as expected",
+        )
+
+    def test_list_assign(self):
+        source_code = """
+from typing import List
+
+def validator(xs: List[int]) -> int:
+    a, b, c = xs
+    return a + b + c
+"""
+        ret = eval_uplc_value(source_code, [1, 2, 3])
+        self.assertEqual(ret, 6, "list deconstruction did not behave as expected")
+
+    def test_list_assign_too_few(self):
+        source_code = """
+from typing import List
+
+def validator(xs: List[int]) -> int:
+    a, b = xs
+    return a + b
+"""
+        with self.assertRaises(Exception) as exc:
+            eval_uplc_value(source_code, [1])
+        self.assertIn("error", str(exc.exception).lower())
+
+    def test_list_assign_too_many(self):
+        source_code = """
+from typing import List
+
+def validator(xs: List[int]) -> int:
+    a, b = xs
+    return a + b
+"""
+        with self.assertRaises(Exception) as exc:
+            eval_uplc_value(source_code, [1, 2, 3])
+        self.assertIn("error", str(exc.exception).lower())
+
+    def test_list_assign_compiles_to_linear_walk(self):
+        source_code = """
+from typing import List
+
+def validator(xs: List[int]) -> int:
+    a, b, c = xs
+    return a + b + c
+"""
+        code = builder._compile(source_code)
+        dumped = code.dumps()
+        self.assertIn("headList", dumped)
+        self.assertIn("tailList", dumped)
+        self.assertNotIn("indexList", dumped.lower())
+
+    def test_list_assign_large_deconstruction_improves_budget(self):
+        source_code = """
+from typing import List
+
+def validator(xs: List[int]) -> int:
+    a, b, c, d, e, f, g, h, i, j = xs
+    return a + b + c + d + e + f + g + h + i + j
+"""
+        baseline_source_code = """
+from typing import List
+
+def validator(xs: List[int]) -> int:
+    tmp = xs
+    a = tmp[0]
+    b = tmp[1]
+    c = tmp[2]
+    d = tmp[3]
+    e = tmp[4]
+    f = tmp[5]
+    g = tmp[6]
+    h = tmp[7]
+    i = tmp[8]
+    j = tmp[9]
+    return a + b + c + d + e + f + g + h + i + j
+"""
+        optimized = eval_uplc_raw(source_code, list(range(1, 11)))
+        baseline = eval_uplc_raw(baseline_source_code, list(range(1, 11)))
+        self.assertLess(
+            optimized.cost.cpu,
+            baseline.cost.cpu,
+            "list destructuring should beat repeated indexed access on cpu for large deconstructions",
+        )
+        self.assertLess(
+            optimized.cost.memory,
+            baseline.cost.memory,
+            "list destructuring should beat repeated indexed access on memory for large deconstructions",
+        )
+
+    def test_tuple_assign_improves_budget(self):
+        source_code = """
+def validator(x: int) -> int:
+    a, b, c, d, e = (x, x + 1, x + 2, x + 3, x + 4)
+    return a + b + c + d + e
+"""
+        baseline_source_code = """
+def validator(x: int) -> int:
+    tmp = (x, x + 1, x + 2, x + 3, x + 4)
+    a = tmp[0]
+    b = tmp[1]
+    c = tmp[2]
+    d = tmp[3]
+    e = tmp[4]
+    return a + b + c + d + e
+"""
+        optimized = eval_uplc_raw(source_code, 1)
+        baseline = eval_uplc_raw(baseline_source_code, 1)
+        self.assertLess(
+            optimized.cost.cpu,
+            baseline.cost.cpu,
+            "tuple destructuring should beat repeated tuple indexing on cpu",
+        )
+        self.assertLess(
+            optimized.cost.memory,
+            baseline.cost.memory,
+            "tuple destructuring should beat repeated tuple indexing on memory",
         )
 
     @given(

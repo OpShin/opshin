@@ -1099,12 +1099,13 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             assert isinstance(typed_ass.value.typ, InstanceType) and (
                 isinstance(typed_ass.value.typ.typ, TupleType)
                 or isinstance(typed_ass.value.typ.typ, PairType)
-            ), f"Tuple deconstruction expected a tuple type, found '{typed_ass.value.typ.python_type()}'"
+                or isinstance(typed_ass.value.typ.typ, ListType)
+            ), f"Tuple deconstruction expected a tuple, pair, or list type, found '{typed_ass.value.typ.python_type()}'"
             if isinstance(typed_ass.value.typ.typ, PairType):
                 assert (
                     typed_ass.value.is_tuple_with_deconstruction == 2
                 ), f"Too many values to unpack or not enough values to unpack. Tuple deconstruction required assigning to 2 elements found '{typed_ass.value.is_tuple_with_deconstruction}'"
-            else:
+            elif isinstance(typed_ass.value.typ.typ, TupleType):
                 assert typed_ass.value.is_tuple_with_deconstruction == len(
                     typed_ass.value.typ.typ.typs
                 ), f"Too many values to unpack or not enough values to unpack. Tuple deconstruction required tuple with {typed_ass.value.is_tuple_with_deconstruction} elements found '{typed_ass.value.typ.python_type()}'"
