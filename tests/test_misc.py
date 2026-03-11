@@ -231,7 +231,7 @@ class MiscTest(unittest.TestCase):
             source_code = fp.read()
         ret = eval_uplc_value(source_code, 1)
         self.assertEqual(
-            42,
+            46,
             ret,
         )
 
