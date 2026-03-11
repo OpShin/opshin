@@ -359,6 +359,7 @@ class PlutoCompiler(CompilingNodeTransformer):
         assert isinstance(deconstruct_typ, (ListType, RawTupleType)), (
             "Expected tuple, pair, raw tuple, or list deconstruction"
         )
+        skip_element_null_checks = bool(self.config.remove_trace)
 
         def compile_element(index: int, list_name: str, result: plt.AST) -> plt.AST:
             if index >= len(target.elts):
@@ -374,21 +375,24 @@ class PlutoCompiler(CompilingNodeTransformer):
                 element_expr = transform_ext_params_map(target.elts[index].typ)(
                     element_expr
                 )
+            bind_next = OLet(
+                [
+                    (element_name, plt.HeadList(OVar(list_name))),
+                    (tail_name, plt.TailList(OVar(list_name))),
+                ],
+                self._bind_target_from_compiled_expr(
+                    target.elts[index],
+                    target.elts[index].typ,
+                    element_expr,
+                    compile_element(index + 1, tail_name, result),
+                ),
+            )
+            if skip_element_null_checks:
+                return bind_next
             return plt.IteNullList(
                 OVar(list_name),
                 plt.TraceError("ValueError: not enough values to unpack"),
-                OLet(
-                    [
-                        (element_name, plt.HeadList(OVar(list_name))),
-                        (tail_name, plt.TailList(OVar(list_name))),
-                    ],
-                    self._bind_target_from_compiled_expr(
-                        target.elts[index],
-                        target.elts[index].typ,
-                        element_expr,
-                        compile_element(index + 1, tail_name, result),
-                    ),
-                ),
+                bind_next,
             )
 
         return OLet([(source_name, compiled_e)], compile_element(0, source_name, body))

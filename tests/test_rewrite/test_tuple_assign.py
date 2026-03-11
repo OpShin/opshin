@@ -3,7 +3,8 @@ import unittest
 from hypothesis import given
 from hypothesis import strategies as st
 
-from opshin import builder
+from opshin import builder, compiler
+from opshin.compiler_config import DEFAULT_CONFIG
 from opshin.ledger.api_v3 import Address, NoStakingCredential, ScriptCredential
 from opshin.util import CompilerError
 from tests.utils import eval_uplc_raw, eval_uplc_value, Unit
@@ -409,6 +410,31 @@ def validator(xs: List[Anything]) -> int:
             a + len(b),
             "list-anything tuple cast did not behave as expected",
         )
+
+    def test_raw_tuple_destructure_optimized_skips_trailing_null_check(self):
+        source_code = """
+from typing import List, Tuple
+from opshin.prelude import *
+
+def validator(xs: List[Anything]) -> int:
+    t: Tuple[int, int, int] = xs
+    a, b, c = t
+    return a + b + c
+"""
+        pluto_unoptimized = compiler.compile(
+            compiler.parse(source_code, filename="<unknown>"),
+            config=DEFAULT_CONFIG.update(remove_trace=False),
+        )
+        pluto_optimized = compiler.compile(
+            compiler.parse(source_code, filename="<unknown>"),
+            config=DEFAULT_CONFIG.update(remove_trace=True),
+        )
+        dumped_unoptimized = str(pluto_unoptimized)
+        dumped_optimized = str(pluto_optimized)
+        self.assertIn("not enough values to unpack", dumped_unoptimized)
+        self.assertIn("too many values to unpack", dumped_unoptimized)
+        self.assertNotIn("not enough values to unpack", dumped_optimized)
+        self.assertIn("too many values to unpack", dumped_optimized)
 
     def test_astuple_requires_import(self):
         source_code = """
