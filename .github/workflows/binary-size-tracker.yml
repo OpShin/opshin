@@ -96,31 +96,33 @@ jobs:
         else
           echo "has_significant_changes=true" >> $GITHUB_OUTPUT
         fi
-        
-        # Capture the report for commenting
-        echo "REPORT<<EOF" >> $GITHUB_OUTPUT
-        cat size_report.md >> $GITHUB_OUTPUT
-        echo "EOF" >> $GITHUB_OUTPUT
         uv run python - <<'PY'
 from pathlib import Path
 import os
 
 report = Path("size_report.md").read_text()
-max_chars = 200_000
-if len(report) <= max_chars:
-    preview = report
-else:
-    head = report[: max_chars // 2]
-    tail = report[-max_chars // 2 :]
-    preview = (
-        f"{head}\n\n"
-        f"... truncated for GitHub step summary; full report is attached as the "
-        f"`binary-size-report` artifact and included in the PR comment ...\n\n"
-        f"{tail}"
-    )
+def bounded_preview(text: str, max_chars: int, note: str) -> str:
+    if len(text) <= max_chars:
+        return text
+    head = text[: max_chars // 2]
+    tail = text[-max_chars // 2 :]
+    return f"{head}\n\n{note}\n\n{tail}"
+
+step_summary = bounded_preview(
+    report,
+    200_000,
+    "... truncated for GitHub step summary; full report is attached as the `binary-size-report` artifact ...",
+)
+comment_report = bounded_preview(
+    report,
+    60_000,
+    "... truncated for PR comment; full report is attached as the `binary-size-report` artifact ...",
+)
 
 with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as fh:
-    fh.write(preview)
+    fh.write(step_summary)
+
+Path("size_report_comment.md").write_text(comment_report, encoding="utf-8")
 PY
 
     - name: Upload size report as artifact
@@ -129,6 +131,7 @@ PY
         name: binary-size-report
         path: |
           size_report.md
+          size_report_comment.md
           baseline.json
 
     - name: Delete previous bot comments
@@ -152,7 +155,8 @@ PY
       continue-on-error: true
       with:
         script: |
-          const report = `${{ steps.size-check.outputs.REPORT }}`;
+          const fs = require('fs');
+          const report = fs.readFileSync('size_report_comment.md', 'utf8');
           const hasChanges = ${{ steps.size-check.outputs.has_significant_changes }};
           
           const title = hasChanges ? "⚠️ Binary Size Changes Detected" : "✅ Binary Size Check Passed";
