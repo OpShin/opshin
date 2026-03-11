@@ -261,18 +261,34 @@ def validator(xs: List[int]) -> int:
     def test_tuple_assign_improves_budget(self):
         source_code = """
 def validator(x: int) -> int:
-    a, b, c, d, e = (x, x + 1, x + 2, x + 3, x + 4)
-    return a + b + c + d + e
+    a, b, c, d, e, f, g, h, i, j = (
+        x,
+        x + 1,
+        x + 2,
+        x + 3,
+        x + 4,
+        x + 5,
+        x + 6,
+        x + 7,
+        x + 8,
+        x + 9,
+    )
+    return a + b + c + d + e + f + g + h + i + j
 """
         baseline_source_code = """
 def validator(x: int) -> int:
-    tmp = (x, x + 1, x + 2, x + 3, x + 4)
+    tmp = (x, x + 1, x + 2, x + 3, x + 4, x + 5, x + 6, x + 7, x + 8, x + 9)
     a = tmp[0]
     b = tmp[1]
     c = tmp[2]
     d = tmp[3]
     e = tmp[4]
-    return a + b + c + d + e
+    f = tmp[5]
+    g = tmp[6]
+    h = tmp[7]
+    i = tmp[8]
+    j = tmp[9]
+    return a + b + c + d + e + f + g + h + i + j
 """
         optimized = eval_uplc_raw(source_code, 1)
         baseline = eval_uplc_raw(baseline_source_code, 1)

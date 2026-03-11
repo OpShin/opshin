@@ -334,28 +334,24 @@ class PlutoCompiler(CompilingNodeTransformer):
             return compiled
 
         if isinstance(source_typ, RawTupleType):
-            return compile_tuple_like(
-                lambda index: transform_ext_params_map(node.element_typs[index])(
-                    plt.ConstantIndexAccessListFast(OVar(source_name), index)
-                )
-            )
-
-        if isinstance(source_typ, TupleType):
+            pass
+        elif isinstance(source_typ, TupleType):
             tuple_length = len(source_typ.typs)
             return compile_tuple_like(
                 lambda index: plt.FunctionalTupleAccess(
                     OVar(source_name), index, tuple_length
                 )
             )
-
-        if isinstance(source_typ, PairType):
+        elif isinstance(source_typ, PairType):
             return compile_tuple_like(
                 lambda index: transform_ext_params_map(node.element_typs[index])(
                     (plt.FstPair if index == 0 else plt.SndPair)(OVar(source_name))
                 )
             )
 
-        assert isinstance(source_typ, ListType), "Expected tuple, pair, or list deconstruction"
+        assert isinstance(source_typ, (ListType, RawTupleType)), (
+            "Expected tuple, pair, raw tuple, or list deconstruction"
+        )
 
         def compiled(body: plt.AST) -> plt.AST:
             def compile_element(index: int, list_name: str, result: plt.AST) -> plt.AST:
@@ -367,6 +363,11 @@ class PlutoCompiler(CompilingNodeTransformer):
                     )
                 element_name = f"{source_name}_element_{index}"
                 tail_name = f"{source_name}_rest_{index}"
+                element_expr = OVar(element_name)
+                if isinstance(source_typ, RawTupleType):
+                    element_expr = transform_ext_params_map(node.element_typs[index])(
+                        element_expr
+                    )
                 return plt.IteNullList(
                     OVar(list_name),
                     plt.TraceError("ValueError: not enough values to unpack"),
@@ -378,7 +379,7 @@ class PlutoCompiler(CompilingNodeTransformer):
                         self._assign_name_from_compiled_expr(
                             node.targets[index],
                             node.element_typs[index],
-                            OVar(element_name),
+                            element_expr,
                         )(compile_element(index + 1, tail_name, result)),
                     ),
                 )
