@@ -101,7 +101,27 @@ jobs:
         echo "REPORT<<EOF" >> $GITHUB_OUTPUT
         cat size_report.md >> $GITHUB_OUTPUT
         echo "EOF" >> $GITHUB_OUTPUT
-        cat size_report.md >> $GITHUB_STEP_SUMMARY
+        uv run python - <<'PY'
+from pathlib import Path
+import os
+
+report = Path("size_report.md").read_text()
+max_chars = 200_000
+if len(report) <= max_chars:
+    preview = report
+else:
+    head = report[: max_chars // 2]
+    tail = report[-max_chars // 2 :]
+    preview = (
+        f"{head}\n\n"
+        f"... truncated for GitHub step summary; full report is attached as the "
+        f"`binary-size-report` artifact and included in the PR comment ...\n\n"
+        f"{tail}"
+    )
+
+with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as fh:
+    fh.write(preview)
+PY
 
     - name: Upload size report as artifact
       uses: actions/upload-artifact@v7
