@@ -12,6 +12,39 @@ def strip_ssa_suffix(name: str) -> str:
     return SSA_SUFFIX_RE.sub("", name)
 
 
+class _ScopeInfoCollector(ast.NodeVisitor):
+    def __init__(self):
+        self.bound = set()
+        self.loaded = set()
+        self.nested_functions = []
+
+    def visit_FunctionDef(self, node: ast.FunctionDef):
+        self.bound.add(strip_ssa_suffix(node.name))
+        self.nested_functions.append(node)
+
+    def visit_ClassDef(self, node: ast.ClassDef):
+        for stmt in node.body:
+            if isinstance(stmt, ast.FunctionDef):
+                self.bound.add(strip_ssa_suffix(stmt.name))
+                self.nested_functions.append(stmt)
+
+    def visit_Name(self, node: ast.Name):
+        if isinstance(node.ctx, ast.Store):
+            self.bound.add(strip_ssa_suffix(node.id))
+        elif isinstance(node.ctx, ast.Load):
+            self.loaded.add(strip_ssa_suffix(node.id))
+
+
+def _scope_info(
+    function: ast.FunctionDef,
+) -> tuple[set[str], set[str], list[ast.FunctionDef]]:
+    collector = _ScopeInfoCollector()
+    collector.bound.update(strip_ssa_suffix(arg.arg) for arg in function.args.args)
+    for stmt in function.body:
+        collector.visit(stmt)
+    return collector.bound, collector.loaded, collector.nested_functions
+
+
 class RewriteSSA(FlatteningScopedSequenceNodeTransformer):
     step = "Rewriting scoped variables into SSA-like versions"
 
@@ -130,66 +163,12 @@ class RewriteSSA(FlatteningScopedSequenceNodeTransformer):
     def _in_module_scope(self) -> bool:
         return len(self._env_stack) == 1
 
-    def _walk_scope_statements(self, statements, on_name=None, on_function=None):
-        for stmt in statements:
-            if isinstance(stmt, ast.FunctionDef):
-                if on_function is not None:
-                    on_function(stmt)
-                continue
-            if isinstance(stmt, ast.ClassDef):
-                for class_stmt in stmt.body:
-                    if (
-                        isinstance(class_stmt, ast.FunctionDef)
-                        and on_function is not None
-                    ):
-                        on_function(class_stmt)
-                continue
-            for child in ast.iter_child_nodes(stmt):
-                if isinstance(child, ast.stmt):
-                    continue
-                for grandchild in ast.walk(child):
-                    if isinstance(grandchild, ast.Name) and on_name is not None:
-                        on_name(grandchild)
-            for field in ("body", "orelse", "finalbody"):
-                nested = getattr(stmt, field, None)
-                if isinstance(nested, list):
-                    self._walk_scope_statements(nested, on_name, on_function)
-
-    def _bound_bases_in_scope(self, node: ast.FunctionDef) -> set[str]:
-        bound = {strip_ssa_suffix(arg.arg) for arg in node.args.args}
-
-        def record_name(name: ast.Name):
-            if isinstance(name.ctx, ast.Store):
-                bound.add(strip_ssa_suffix(name.id))
-
-        def record_function(fn: ast.FunctionDef):
-            bound.add(strip_ssa_suffix(fn.name))
-
-        self._walk_scope_statements(node.body, record_name, record_function)
-        return bound
-
-    def _loaded_bases_in_scope(self, node: ast.FunctionDef) -> set[str]:
-        loaded = set()
-
-        def record_name(name: ast.Name):
-            if isinstance(name.ctx, ast.Load):
-                loaded.add(strip_ssa_suffix(name.id))
-
-        self._walk_scope_statements(node.body, record_name, None)
-        return loaded
-
-    def _nested_function_defs(self, node: ast.FunctionDef) -> list[ast.FunctionDef]:
-        nested = []
-        self._walk_scope_statements(node.body, None, nested.append)
-        return nested
-
     def _captured_bases_in_function(self, node: ast.FunctionDef) -> set[str]:
-        current_bound = self._bound_bases_in_scope(node)
+        current_bound, _, nested_functions = _scope_info(node)
         captured = set()
 
         def collect_from_nested(function: ast.FunctionDef, shadowed: set[str]):
-            local_bound = self._bound_bases_in_scope(function)
-            local_loaded = self._loaded_bases_in_scope(function)
+            local_bound, local_loaded, nested = _scope_info(function)
             for base_name in local_loaded:
                 if (
                     base_name in current_bound
@@ -197,12 +176,19 @@ class RewriteSSA(FlatteningScopedSequenceNodeTransformer):
                     and base_name not in local_bound
                 ):
                     captured.add(base_name)
-            for nested_function in self._nested_function_defs(function):
+            for nested_function in nested:
                 collect_from_nested(nested_function, shadowed | local_bound)
 
-        for nested_function in self._nested_function_defs(node):
+        for nested_function in nested_functions:
             collect_from_nested(nested_function, set())
         return captured
+
+    def _keeps_current_name(self, base_name: str) -> bool:
+        return (
+            self._in_module_scope()
+            or base_name in self._current_protected()
+            or base_name in self._current_pinned()
+        )
 
     def visit_sequence(self, body: list[ast.stmt]) -> list[ast.stmt]:
         rewritten = []
@@ -288,15 +274,7 @@ class RewriteSSA(FlatteningScopedSequenceNodeTransformer):
         target_cp = copy(target)
         base_name = strip_ssa_suffix(target.id)
         current_name = self._current_env().get(base_name, base_name)
-        if self._in_module_scope():
-            target_cp.id = current_name
-            self._set_current_name(base_name, current_name)
-            return target_cp
-        if base_name in self._current_protected():
-            target_cp.id = current_name
-            self._set_current_name(base_name, current_name)
-            return target_cp
-        if base_name in self._current_pinned():
+        if self._keeps_current_name(base_name):
             target_cp.id = current_name
             self._set_current_name(base_name, current_name)
             return target_cp
