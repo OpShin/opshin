@@ -3,3 +3,13 @@ repos:
     rev: 25.1.0
     hooks:
       - id: black
+  - repo: local
+    hooks:
+      - id: rewrite-union-types
+        name: Rewrite Python 3.10+ union type syntax to Python 3.9
+        language: python
+        entry: python scripts/rewrite_union_types.py
+        types: [python]
+        description: >
+          Rewrites `x | None` -> `Optional[x]` and `x | y` -> `Union[x, y]`
+          in type annotations so the codebase stays compatible with Python 3.9.
