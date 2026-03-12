@@ -187,6 +187,20 @@ def validator(a: int) -> int:
     assert source.cost.memory <= target.cost.memory
 
 
+def test_no_inline_name_when_dependency_is_reassigned_before_use():
+    """Do not inline a name if its dependency changes before the use site."""
+    source_code = """
+def validator(_: None) -> int:
+    y = 1
+    x = y
+    y = 2
+    return x
+"""
+    source = eval_uplc(source_code, Unit(), config=_DEFAULT_INLINE_CONFIG)
+
+    assert source.value == 1
+
+
 def test_inline_inside_if_branch():
     """Inline within an if branch without propagating beyond the branch boundary."""
     source_code = """
