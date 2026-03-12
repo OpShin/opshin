@@ -1,10 +1,13 @@
 from ast import *
 from copy import copy
 
-from ..typed_util import ScopedSequenceNodeTransformer
+from ..typed_util import (
+    NameLoadCollector,
+    SafeOperationVisitor,
+    ScopedSequenceNodeTransformer,
+)
 from ..util import CompilingNodeVisitor, CompilingNodeTransformer
 from ..type_inference import INITIAL_SCOPE
-from .optimize_remove_deadvars import SafeOperationVisitor, NameLoadCollector
 from .optimize_const_folding import DefinedTimesVisitor
 
 """

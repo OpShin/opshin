@@ -1,9 +1,12 @@
 import ast
+from ast import AST, Compare, Constant, Lambda, Load, Name
 from _ast import ClassDef, FunctionDef
+from collections import defaultdict
 from copy import copy
 
 from .type_impls import FunctionType, InstanceType
-from .util import CompilingNodeTransformer
+from .typed_ast import TypedClassDef, TypedFunctionDef, TypedName
+from .util import CompilingNodeTransformer, CompilingNodeVisitor
 
 
 def collect_typed_functions(body: list[ast.stmt]) -> list[FunctionDef]:
@@ -114,3 +117,59 @@ class FlatteningScopedSequenceNodeTransformer(ScopedSequenceNodeTransformer):
                 continue
             rewritten.append(updated)
         return rewritten
+
+
+class NameLoadCollector(CompilingNodeVisitor):
+    step = "Collecting used variables"
+
+    def __init__(self):
+        self.loaded = defaultdict(int)
+
+    def visit_Name(self, node: TypedName) -> None:
+        if isinstance(node.ctx, Load):
+            self.loaded[node.id] += 1
+
+    def visit_Compare(self, node: Compare):
+        self.generic_visit(node)
+        for dunder_override in node.dunder_overrides:
+            if dunder_override is not None:
+                self.loaded[dunder_override.method_name] += 1
+
+    def visit_ClassDef(self, node: TypedClassDef):
+        # ignore the content (i.e. attribute names) of class definitions
+        pass
+
+    def visit_FunctionDef(self, node: TypedFunctionDef):
+        # ignore the type hints of function arguments
+        for s in node.body:
+            self.visit(s)
+        for v in node.typ.typ.bound_vars.keys():
+            self.loaded[v] += 1
+        if node.typ.typ.bind_self is not None:
+            self.loaded[node.typ.typ.bind_self] += 1
+
+
+class SafeOperationVisitor(CompilingNodeVisitor):
+    step = "Collecting computations that can not throw errors"
+
+    def __init__(self, guaranteed_names):
+        self.guaranteed_names = guaranteed_names
+
+    def generic_visit(self, node: AST) -> bool:
+        # generally every operation is unsafe except we whitelist it
+        return False
+
+    def visit_Lambda(self, node: Lambda) -> bool:
+        # lambda definition is fine as it actually doesn't compute anything
+        return True
+
+    def visit_Constant(self, node: Constant) -> bool:
+        # Constants can not fail
+        return True
+
+    def visit_RawPlutoExpr(self, node) -> bool:
+        # these expressions are not evaluated further
+        return True
+
+    def visit_Name(self, node: Name) -> bool:
+        return node.id in self.guaranteed_names
