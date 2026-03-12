@@ -123,9 +123,6 @@ class NameLoadTypeCollector(CompilingNodeVisitor):
     def visit_ClassDef(self, node):
         pass
 
-    def visit_ClassDef(self, node):
-        pass
-
 
 class NameSubstitutor(CompilingNodeTransformer):
     step = "Substituting inlined expressions"
@@ -232,6 +229,37 @@ class OptimizeInlineExpressions(ScopedSequenceNodeTransformer):
                         pass
         return captured_vars
 
+    def _cyclic_inlineable_vars(self, inlineable):
+        dependencies = {}
+        for var, expr in inlineable.items():
+            dependencies[var] = {
+                child.id
+                for child in walk(expr)
+                if isinstance(child, Name)
+                and isinstance(child.ctx, Load)
+                and child.id in inlineable
+            }
+
+        visiting = set()
+        visited = set()
+        cyclic = set()
+
+        def dfs(var):
+            if var in visited:
+                return
+            if var in visiting:
+                cyclic.update(visiting)
+                return
+            visiting.add(var)
+            for dep in dependencies[var]:
+                dfs(dep)
+            visiting.remove(var)
+            visited.add(var)
+
+        for var in dependencies:
+            dfs(var)
+        return cyclic
+
     def _optimize_statements(
         self,
         statements,
@@ -327,6 +355,16 @@ class OptimizeInlineExpressions(ScopedSequenceNodeTransformer):
             if not inlineable:
                 break
 
+            cyclic_vars = self._cyclic_inlineable_vars(inlineable)
+            if cyclic_vars:
+                inlineable = {
+                    var: expr
+                    for var, expr in inlineable.items()
+                    if var not in cyclic_vars
+                }
+                if not inlineable:
+                    break
+
             referenced_by_inlineable = set()
             for _, expr in inlineable.items():
                 for child in walk(expr):
@@ -350,7 +388,14 @@ class OptimizeInlineExpressions(ScopedSequenceNodeTransformer):
         return statements_cp
 
     def visit_sequence(self, statements):
-        return self._optimize_statements(super().visit_sequence(statements))
+        return self._optimize_statements(
+            super().visit_sequence(statements),
+            assignment_collector_cls=ScopedAssignmentCollector,
+            load_collector_cls=ScopedNameLoadCollector,
+            def_counter_cls=ScopedDefinedTimesVisitor,
+            guaranteed_load_collector_cls=ScopedGuaranteedLoadCollector,
+            substitutor_cls=ScopedNameSubstitutor,
+        )
 
     def visit_Module(self, node: Module):
         node_cp = copy(node)
