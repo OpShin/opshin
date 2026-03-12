@@ -12,6 +12,7 @@ from ..typed_ast import TypedAnnAssign
 Removes assignments to variables that are never read
 """
 
+
 class OptimizeRemoveDeadvars(CompilingNodeTransformer):
     step = "Removing unused variables"
 

@@ -334,9 +334,7 @@ class OptimizeInlineExpressions(ScopedSequenceNodeTransformer):
                 is_simple = isinstance(expr, Constant) or (
                     isinstance(expr, Name)
                     and isinstance(expr.ctx, Load)
-                    and (
-                        def_counter.vars.get(expr.id, 0) == 1 or expr.id in arg_names
-                    )
+                    and (def_counter.vars.get(expr.id, 0) == 1 or expr.id in arg_names)
                 )
 
                 # Variable must be read once or have a simple expression
@@ -375,12 +373,12 @@ class OptimizeInlineExpressions(ScopedSequenceNodeTransformer):
                     ):
                         referenced_by_inlineable.add(child.id)
 
-            removable = {
-                v for v in inlineable if v not in referenced_by_inlineable
-            }
+            removable = {v for v in inlineable if v not in referenced_by_inlineable}
 
             substitutor = substitutor_cls(inlineable, removable)
-            statements_cp = [substitutor.visit(statement) for statement in statements_cp]
+            statements_cp = [
+                substitutor.visit(statement) for statement in statements_cp
+            ]
 
             if not substitutor.changed:
                 break
