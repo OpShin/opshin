@@ -338,8 +338,8 @@ class OptimizeInlineExpressions(ScopedSequenceNodeTransformer):
     def visit_While(self, node: While):
         node_cp = copy(node)
         node_cp.test = self.visit(node.test)
-        # Loop bodies may execute multiple times, so sequence-local fixed-point
-        # inlining is not sound here.
+        # Loop bodies may update values defined outside the body, so treating
+        # them as isolated single-execution sequences is unsound.
         node_cp.body = super().visit_sequence(node_cp.body)
         node_cp.orelse = super().visit_sequence(node_cp.orelse)
         return node_cp
@@ -348,8 +348,8 @@ class OptimizeInlineExpressions(ScopedSequenceNodeTransformer):
         node_cp = copy(node)
         node_cp.target = self.visit(node.target)
         node_cp.iter = self.visit(node.iter)
-        # Loop bodies may execute multiple times, so sequence-local fixed-point
-        # inlining is not sound here.
+        # Loop bodies may update values defined outside the body, so treating
+        # them as isolated single-execution sequences is unsound.
         node_cp.body = super().visit_sequence(node_cp.body)
         node_cp.orelse = super().visit_sequence(node_cp.orelse)
         return node_cp

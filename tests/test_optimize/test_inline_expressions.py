@@ -249,15 +249,14 @@ def validator(flag: int) -> int:
     assert source_false.value == 2
 
 
-def test_no_inline_inside_while_body_across_iterations():
-    """Loop-body sequence inlining is unsafe because the body can run multiple times."""
+def test_no_inline_loop_carried_state_inside_while_body():
+    """Do not inline assignments that update loop-carried state from outside the body."""
     source_code = """
 def validator(n: int) -> int:
     total = 0
     i = 0
     while i < n:
-        x = i
-        total = total + x
+        total = total + i
         i = i + 1
     return total
 """
@@ -268,14 +267,13 @@ def validator(n: int) -> int:
     assert source_three.value == 3
 
 
-def test_no_inline_inside_for_body_across_iterations():
-    """For-body sequence inlining is unsafe for the same reason as while bodies."""
+def test_no_inline_loop_carried_state_inside_for_body():
+    """Do not inline loop-carried state updates inside a for body either."""
     source_code = """
 def validator(n: int) -> int:
     total = 0
     for i in range(n):
-        x = i
-        total = total + x
+        total = total + i
     return total
 """
     source_zero = eval_uplc(source_code, 0, config=_DEFAULT_INLINE_CONFIG)
