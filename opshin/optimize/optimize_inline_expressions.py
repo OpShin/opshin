@@ -1,6 +1,7 @@
 from ast import *
 from copy import copy
 
+from ..typed_util import ScopedSequenceNodeTransformer
 from ..util import CompilingNodeVisitor, CompilingNodeTransformer
 from ..type_inference import INITIAL_SCOPE
 from .optimize_remove_deadvars import SafeOperationVisitor, NameLoadCollector
@@ -91,9 +92,8 @@ class GuaranteedLoadCollector(CompilingNodeVisitor):
         self.visit(node.iter)
 
     def visit_FunctionDef(self, node):
-        # Visit body to find guaranteed loads inside functions
-        for s in node.body:
-            self.visit(s)
+        # Defining a function does not guarantee its body executes.
+        pass
 
     def visit_ClassDef(self, node):
         # Don't descend into class definitions
@@ -191,7 +191,7 @@ class ScopedNameSubstitutor(NameSubstitutor):
         return node
 
 
-class OptimizeInlineExpressions(CompilingNodeTransformer):
+class OptimizeInlineExpressions(ScopedSequenceNodeTransformer):
     step = "Inlining simple expressions"
 
     def _collect_captured_vars(self, statements):
@@ -254,6 +254,10 @@ class OptimizeInlineExpressions(CompilingNodeTransformer):
 
             inlineable = {}
             for var, expr in assign_collector.assignments.items():
+                local_load_count = load_counter.loaded.get(var, 0)
+                if local_load_count == 0:
+                    continue
+
                 # Variable must be assigned exactly once
                 if def_counter.vars.get(var, 0) != 1:
                     continue
@@ -273,7 +277,7 @@ class OptimizeInlineExpressions(CompilingNodeTransformer):
                 )
 
                 # Variable must be read once or have a simple expression
-                is_read_once = load_counter.loaded.get(var, 0) <= 1
+                is_read_once = local_load_count <= 1
                 if not (is_read_once or is_simple):
                     continue
 
@@ -310,17 +314,18 @@ class OptimizeInlineExpressions(CompilingNodeTransformer):
 
         return statements_cp
 
+    def visit_sequence(self, statements):
+        return self._optimize_statements(super().visit_sequence(statements))
+
     def visit_Module(self, node: Module):
         node_cp = copy(node)
-        node_cp.body = [self.visit(statement) for statement in node_cp.body]
-        node_cp.body = self._optimize_statements(node_cp.body)
+        node_cp.body = self.visit_sequence(node_cp.body)
         return node_cp
 
     def visit_FunctionDef(self, node: FunctionDef):
         node_cp = copy(node)
-        node_cp.body = [self.visit(statement) for statement in node_cp.body]
         node_cp.body = self._optimize_statements(
-            node_cp.body,
+            super().visit_sequence(node_cp.body),
             arg_names=[arg.arg for arg in node_cp.args.args],
             assignment_collector_cls=ScopedAssignmentCollector,
             load_collector_cls=ScopedNameLoadCollector,
@@ -328,4 +333,23 @@ class OptimizeInlineExpressions(CompilingNodeTransformer):
             guaranteed_load_collector_cls=ScopedGuaranteedLoadCollector,
             substitutor_cls=ScopedNameSubstitutor,
         )
+        return node_cp
+
+    def visit_While(self, node: While):
+        node_cp = copy(node)
+        node_cp.test = self.visit(node.test)
+        # Loop bodies may execute multiple times, so sequence-local fixed-point
+        # inlining is not sound here.
+        node_cp.body = super().visit_sequence(node_cp.body)
+        node_cp.orelse = super().visit_sequence(node_cp.orelse)
+        return node_cp
+
+    def visit_For(self, node: For):
+        node_cp = copy(node)
+        node_cp.target = self.visit(node.target)
+        node_cp.iter = self.visit(node.iter)
+        # Loop bodies may execute multiple times, so sequence-local fixed-point
+        # inlining is not sound here.
+        node_cp.body = super().visit_sequence(node_cp.body)
+        node_cp.orelse = super().visit_sequence(node_cp.orelse)
         return node_cp

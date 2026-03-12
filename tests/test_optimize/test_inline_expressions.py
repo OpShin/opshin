@@ -183,6 +183,108 @@ def validator(a: int) -> int:
     assert source.cost.memory <= target.cost.memory
 
 
+def test_inline_inside_if_branch():
+    """Inline within an if branch without propagating beyond the branch boundary."""
+    source_code = """
+def validator(a: int) -> int:
+    if a > 0:
+        x = 5
+        return x + a
+    return 0
+"""
+    target_code = """
+def validator(a: int) -> int:
+    if a > 0:
+        return 5 + a
+    return 0
+"""
+    source = eval_uplc_raw(source_code, 4, config=_DEFAULT_INLINE_CONFIG)
+    target = eval_uplc_raw(target_code, 4, config=_DEFAULT_CONFIG)
+
+    assert source.result == target.result
+    assert source.cost.cpu <= target.cost.cpu
+    assert source.cost.memory <= target.cost.memory
+
+
+def test_inline_inside_else_branch():
+    """Inline within an else branch without requiring whole-function propagation."""
+    source_code = """
+def validator(a: int) -> int:
+    if a > 0:
+        return a
+    else:
+        x = 5
+        return x + 1
+"""
+    target_code = """
+def validator(a: int) -> int:
+    if a > 0:
+        return a
+    else:
+        return 5 + 1
+"""
+    source = eval_uplc_raw(source_code, -1, config=_DEFAULT_INLINE_CONFIG)
+    target = eval_uplc_raw(target_code, -1, config=_DEFAULT_CONFIG)
+
+    assert source.result == target.result
+    assert source.cost.cpu <= target.cost.cpu
+    assert source.cost.memory <= target.cost.memory
+
+
+def test_no_inline_across_if_else_merge():
+    """Do not propagate a branch-local assignment across the if/else merge."""
+    source_code = """
+def validator(flag: int) -> int:
+    x = 0
+    if flag > 0:
+        x = 1
+    else:
+        x = 2
+    return x
+"""
+    source_true = eval_uplc(source_code, 1, config=_DEFAULT_INLINE_CONFIG)
+    source_false = eval_uplc(source_code, 0, config=_DEFAULT_INLINE_CONFIG)
+
+    assert source_true.value == 1
+    assert source_false.value == 2
+
+
+def test_no_inline_inside_while_body_across_iterations():
+    """Loop-body sequence inlining is unsafe because the body can run multiple times."""
+    source_code = """
+def validator(n: int) -> int:
+    total = 0
+    i = 0
+    while i < n:
+        x = i
+        total = total + x
+        i = i + 1
+    return total
+"""
+    source_zero = eval_uplc(source_code, 0, config=_DEFAULT_INLINE_CONFIG)
+    source_three = eval_uplc(source_code, 3, config=_DEFAULT_INLINE_CONFIG)
+
+    assert source_zero.value == 0
+    assert source_three.value == 3
+
+
+def test_no_inline_inside_for_body_across_iterations():
+    """For-body sequence inlining is unsafe for the same reason as while bodies."""
+    source_code = """
+def validator(n: int) -> int:
+    total = 0
+    for i in range(n):
+        x = i
+        total = total + x
+    return total
+"""
+    source_zero = eval_uplc(source_code, 0, config=_DEFAULT_INLINE_CONFIG)
+    source_four = eval_uplc(source_code, 4, config=_DEFAULT_INLINE_CONFIG)
+
+    assert source_zero.value == 0
+    assert source_four.value == 6
+
+
 def test_inline_not_blocked_by_nested_function_argument_shadowing():
     """Nested function arguments should not prevent inlining in the outer scope."""
     source_code = """
