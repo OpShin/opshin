@@ -8,15 +8,15 @@ _DEFAULT_INLINE_CONFIG = DEFAULT_CONFIG.update(remove_dead_code=True)
 
 
 def test_inline_constant():
-    """Inline a constant assignment: x = 5; y = x * 2 -> y = 5 * 2"""
+    """Inline a constant assignment even when it is read multiple times."""
     source_code = """
 def validator(a: int) -> int:
     x = 5
-    return x + a
+    return x + a + x
 """
     target_code = """
 def validator(a: int) -> int:
-    return 5 + a
+    return 5 + a + 5
 """
     source = eval_uplc_raw(source_code, 4, config=_DEFAULT_INLINE_CONFIG)
     target = eval_uplc_raw(target_code, 4, config=_DEFAULT_CONFIG)
@@ -155,8 +155,12 @@ def validator(a: int) -> int:
     x = a + 1
     return x + x
 """
-    source = eval_uplc(source_code, 4, config=_DEFAULT_INLINE_CONFIG)
-    assert source.value == 10
+    source = eval_uplc_raw(source_code, 4, config=_DEFAULT_INLINE_CONFIG)
+    target = eval_uplc_raw(source_code, 4, config=_DEFAULT_CONFIG)
+
+    assert source.result == target.result
+    assert source.cost.cpu == target.cost.cpu
+    assert source.cost.memory == target.cost.memory
 
 
 def test_inline_guaranteed_execution():
