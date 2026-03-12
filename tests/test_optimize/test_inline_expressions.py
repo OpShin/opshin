@@ -181,3 +181,51 @@ def validator(a: int) -> int:
     assert source.result == target.result
     assert source.cost.cpu <= target.cost.cpu
     assert source.cost.memory <= target.cost.memory
+
+
+def test_inline_not_blocked_by_nested_function_argument_shadowing():
+    """Nested function arguments should not prevent inlining in the outer scope."""
+    source_code = """
+def validator(a: int) -> int:
+    x = a
+    def inner(x: int) -> int:
+        return x + 1
+    return inner(a) + x
+"""
+    target_code = """
+def validator(a: int) -> int:
+    def inner(x: int) -> int:
+        return x + 1
+    return inner(a) + a
+"""
+    source = eval_uplc_raw(source_code, 4, config=_DEFAULT_INLINE_CONFIG)
+    target = eval_uplc_raw(target_code, 4, config=_DEFAULT_CONFIG)
+
+    assert source.result == target.result
+    assert source.cost.cpu <= target.cost.cpu
+    assert source.cost.memory <= target.cost.memory
+
+
+def test_inline_not_blocked_by_nested_function_local_shadowing():
+    """Nested local assignments should not poison outer-scope inlining."""
+    source_code = """
+def validator(a: int) -> int:
+    x = a
+    def inner(y: int) -> int:
+        x = y + 1
+        return x
+    return inner(a) + x
+"""
+    target_code = """
+def validator(a: int) -> int:
+    def inner(y: int) -> int:
+        x = y + 1
+        return x
+    return inner(a) + a
+"""
+    source = eval_uplc_raw(source_code, 4, config=_DEFAULT_INLINE_CONFIG)
+    target = eval_uplc_raw(target_code, 4, config=_DEFAULT_CONFIG)
+
+    assert source.result == target.result
+    assert source.cost.cpu <= target.cost.cpu
+    assert source.cost.memory <= target.cost.memory

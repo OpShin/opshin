@@ -63,6 +63,17 @@ class GuaranteedLoadCollector(CompilingNodeVisitor):
         if isinstance(node.ctx, Load):
             self.guaranteed.add(node.id)
 
+    def visit_BoolOp(self, node: BoolOp):
+        # Only the first operand is guaranteed; later ones may short-circuit.
+        self.visit(node.values[0])
+
+    def visit_Compare(self, node: Compare):
+        # In a comparison chain, only the left side and first comparator are
+        # guaranteed to execute. Later comparators depend on earlier results.
+        self.visit(node.left)
+        if node.comparators:
+            self.visit(node.comparators[0])
+
     def visit_If(self, node: If):
         # Only the test is guaranteed to execute, branches are not
         self.visit(node.test)
@@ -146,52 +157,99 @@ class NameSubstitutor(CompilingNodeTransformer):
         return self.generic_visit(node)
 
 
+class ScopedAssignmentCollector(AssignmentCollector):
+    def visit_FunctionDef(self, node):
+        pass
+
+
+class ScopedGuaranteedLoadCollector(GuaranteedLoadCollector):
+    def visit_FunctionDef(self, node):
+        pass
+
+
+class ScopedNameLoadCollector(NameLoadCollector):
+    def visit_FunctionDef(self, node):
+        pass
+
+    def visit_ClassDef(self, node):
+        pass
+
+
+class ScopedDefinedTimesVisitor(DefinedTimesVisitor):
+    def visit_FunctionDef(self, node):
+        pass
+
+    def visit_ClassDef(self, node):
+        self.vars[node.name] += 1
+
+
+class ScopedNameSubstitutor(NameSubstitutor):
+    def visit_FunctionDef(self, node):
+        return node
+
+    def visit_ClassDef(self, node):
+        return node
+
+
 class OptimizeInlineExpressions(CompilingNodeTransformer):
     step = "Inlining simple expressions"
 
-    def visit_Module(self, node: Module):
-        node_cp = copy(node)
+    def _collect_captured_vars(self, statements):
+        captured_vars = set()
+        for statement in statements:
+            for child in walk(statement):
+                if isinstance(child, FunctionDef) and hasattr(child, "typ"):
+                    try:
+                        captured_vars.update(child.typ.typ.bound_vars.keys())
+                    except AttributeError:
+                        pass
+        return captured_vars
+
+    def _optimize_statements(
+        self,
+        statements,
+        *,
+        arg_names=(),
+        assignment_collector_cls=AssignmentCollector,
+        load_collector_cls=NameLoadCollector,
+        def_counter_cls=DefinedTimesVisitor,
+        guaranteed_load_collector_cls=GuaranteedLoadCollector,
+        substitutor_cls=NameSubstitutor,
+    ):
+        statements_cp = list(statements)
 
         while True:
             # Count how many times each variable is defined
-            def_counter = DefinedTimesVisitor()
-            def_counter.visit(node_cp)
+            def_counter = def_counter_cls()
+            for statement in statements_cp:
+                def_counter.visit(statement)
+            for arg_name in arg_names:
+                def_counter.vars[arg_name] += 2
 
             # Count how many times each variable is loaded
-            load_counter = NameLoadCollector()
-            load_counter.visit(node_cp)
+            load_counter = load_collector_cls()
+            for statement in statements_cp:
+                load_counter.visit(statement)
 
             # Collect assignments (var_name -> expression)
-            assign_collector = AssignmentCollector()
-            assign_collector.visit(node_cp)
+            assign_collector = assignment_collector_cls()
+            for statement in statements_cp:
+                assign_collector.visit(statement)
 
-            # Collect variables captured by function closures (bound_vars).
-            # These must not be inlined because substitution doesn't update
-            # the function's closure bindings.
-            captured_vars = set()
-            func_arg_names = set()
-            for child in walk(node_cp):
-                if isinstance(child, FunctionDef):
-                    if hasattr(child, "typ"):
-                        try:
-                            captured_vars.update(child.typ.typ.bound_vars.keys())
-                        except AttributeError:
-                            pass
-                    for arg in child.args.args:
-                        func_arg_names.add(arg.arg)
+            captured_vars = self._collect_captured_vars(statements_cp)
 
             # Collect loads that are guaranteed to execute (not inside branches)
-            guaranteed_load_collector = GuaranteedLoadCollector()
-            guaranteed_load_collector.visit(node_cp)
+            guaranteed_load_collector = guaranteed_load_collector_cls()
+            for statement in statements_cp:
+                guaranteed_load_collector.visit(statement)
             guaranteed_loads = guaranteed_load_collector.guaranteed
 
             # Names guaranteed to exist for SafeOperationVisitor.
-            # Includes builtins, singly-defined vars, and function arguments.
             guaranteed_names = (
                 list(INITIAL_SCOPE.keys())
                 + ["isinstance", "Union", "Dict", "List"]
                 + [v for v, c in def_counter.vars.items() if c == 1]
-                + list(func_arg_names)
+                + list(arg_names)
             )
 
             inlineable = {}
@@ -210,8 +268,7 @@ class OptimizeInlineExpressions(CompilingNodeTransformer):
                     isinstance(expr, Name)
                     and isinstance(expr.ctx, Load)
                     and (
-                        def_counter.vars.get(expr.id, 0) == 1
-                        or expr.id in func_arg_names
+                        def_counter.vars.get(expr.id, 0) == 1 or expr.id in arg_names
                     )
                 )
 
@@ -221,9 +278,6 @@ class OptimizeInlineExpressions(CompilingNodeTransformer):
                     continue
 
                 is_safe = SafeOperationVisitor(guaranteed_names).visit(expr)
-                # If the use is guaranteed to execute (at the top level, not
-                # inside a branch), inlining even non-safe expressions is fine
-                # because the expression would be evaluated anyway.
                 is_guaranteed = is_read_once and var in guaranteed_loads
 
                 if not (is_safe or is_guaranteed):
@@ -234,12 +288,8 @@ class OptimizeInlineExpressions(CompilingNodeTransformer):
             if not inlineable:
                 break
 
-            # Determine which assignments can be safely removed now.
-            # An assignment can be removed if its expression doesn't reference
-            # any other inlineable variable. Otherwise, keep it so the next
-            # iteration can substitute those references first.
             referenced_by_inlineable = set()
-            for var, expr in inlineable.items():
+            for _, expr in inlineable.items():
                 for child in walk(expr):
                     if (
                         isinstance(child, Name)
@@ -252,11 +302,30 @@ class OptimizeInlineExpressions(CompilingNodeTransformer):
                 v for v in inlineable if v not in referenced_by_inlineable
             }
 
-            # Perform substitution and remove safe assignments
-            substitutor = NameSubstitutor(inlineable, removable)
-            node_cp = substitutor.visit(node_cp)
+            substitutor = substitutor_cls(inlineable, removable)
+            statements_cp = [substitutor.visit(statement) for statement in statements_cp]
 
             if not substitutor.changed:
                 break
 
+        return statements_cp
+
+    def visit_Module(self, node: Module):
+        node_cp = copy(node)
+        node_cp.body = [self.visit(statement) for statement in node_cp.body]
+        node_cp.body = self._optimize_statements(node_cp.body)
+        return node_cp
+
+    def visit_FunctionDef(self, node: FunctionDef):
+        node_cp = copy(node)
+        node_cp.body = [self.visit(statement) for statement in node_cp.body]
+        node_cp.body = self._optimize_statements(
+            node_cp.body,
+            arg_names=[arg.arg for arg in node_cp.args.args],
+            assignment_collector_cls=ScopedAssignmentCollector,
+            load_collector_cls=ScopedNameLoadCollector,
+            def_counter_cls=ScopedDefinedTimesVisitor,
+            guaranteed_load_collector_cls=ScopedGuaranteedLoadCollector,
+            substitutor_cls=ScopedNameSubstitutor,
+        )
         return node_cp
