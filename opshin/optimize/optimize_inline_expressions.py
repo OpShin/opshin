@@ -119,7 +119,7 @@ class OptimizeInlineExpressions(CompilingNodeTransformer):
             guaranteed_names = (
                 list(INITIAL_SCOPE.keys())
                 + ["isinstance", "Union", "Dict", "List"]
-                + [v for v, c in def_counter.vars.items() if c <= 1]
+                + [v for v, c in def_counter.vars.items() if c == 1]
             )
 
             inlineable = {}
@@ -136,7 +136,7 @@ class OptimizeInlineExpressions(CompilingNodeTransformer):
                 is_simple = isinstance(expr, Constant) or (
                     isinstance(expr, Name)
                     and isinstance(expr.ctx, Load)
-                    and def_counter.vars.get(expr.id, 0) <= 1
+                    and def_counter.vars.get(expr.id, 0) == 1
                 )
 
                 # Variable must be read once or have a simple expression
