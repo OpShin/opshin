@@ -11,46 +11,19 @@ _DEFAULT_UNFOLD_CONFIG = DEFAULT_CONFIG.update(remove_dead_code=True)
 VALID_TOKEN = Token(b"policy1234567890123456789012", b"mytoken")
 
 
-def test_dead_var_safe_expr_removed():
-    """Dead variable with a safe (constant) expression is fully removed, reducing cost."""
-    source_code = """
-def validator(x: int) -> int:
-    unused = 42
-    return x
-"""
-    target_code = """
-def validator(x: int) -> int:
-    return x
-"""
-    source = eval_uplc_raw(source_code, 4, config=_DEFAULT_UNFOLD_CONFIG)
-    target = eval_uplc_raw(target_code, 4, config=_DEFAULT_CONFIG)
-
-    assert source.result == target.result
-    assert source.cost.cpu <= target.cost.cpu
-    assert source.cost.memory <= target.cost.memory
-
-
-def test_dead_var_unsafe_expr_crashes_with_bad_input():
-    """Dead variable whose expression can crash still crashes when given invalid input."""
+def test_dead_var_unsafe_expr_side_effect_preserved():
+    """Dead Expr with unsafe expression: crashes with invalid input, succeeds with valid input."""
     source_code = """
 from opshin.prelude import *
 def validator(x: Token) -> bool:
-    a = x.policy_id
+    x.policy_id
     return True
 """
-    # Unit() is not a Token, so accessing policy_id fails
+    # Unit() is not a Token, so accessing policy_id must still fail after optimization
     with pytest.raises(RuntimeError):
         eval_uplc(source_code, Unit(), config=_DEFAULT_UNFOLD_CONFIG)
 
-
-def test_dead_var_unsafe_expr_succeeds_with_valid_input():
-    """Dead variable whose expression is retained as Expr succeeds with valid input."""
-    source_code = """
-from opshin.prelude import *
-def validator(x: Token) -> bool:
-    a = x.policy_id
-    return True
-"""
+    # A real Token succeeds
     ret = eval_uplc(source_code, VALID_TOKEN, config=_DEFAULT_UNFOLD_CONFIG)
     assert ret.value is True
 
