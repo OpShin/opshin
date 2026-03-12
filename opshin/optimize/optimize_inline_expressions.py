@@ -113,7 +113,14 @@ class NameLoadTypeCollector(CompilingNodeVisitor):
         if isinstance(node.ctx, Load):
             self.loaded_types.setdefault(node.id, []).append(node.typ)
 
+    def visit_AnnAssign(self, node: AnnAssign):
+        if node.value is not None:
+            self.visit(node.value)
+
     def visit_FunctionDef(self, node):
+        pass
+
+    def visit_ClassDef(self, node):
         pass
 
     def visit_ClassDef(self, node):
