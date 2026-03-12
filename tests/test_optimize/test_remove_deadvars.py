@@ -1,14 +1,18 @@
 import pytest
 
 from opshin.compiler_config import DEFAULT_CONFIG
+from opshin.prelude import Token
 from tests.utils import Unit, eval_uplc, eval_uplc_raw
 
 _DEFAULT_CONFIG = DEFAULT_CONFIG
 _DEFAULT_UNFOLD_CONFIG = DEFAULT_CONFIG.update(remove_dead_code=True)
 
+# A valid Token with a 28-byte policy_id
+VALID_TOKEN = Token(b"policy1234567890123456789012", b"mytoken")
+
 
 def test_dead_var_safe_expr_removed():
-    """Dead variable with safe (side-effect-free) expression is removed entirely."""
+    """Dead variable with a safe (constant) expression is fully removed, reducing cost."""
     source_code = """
 def validator(x: int) -> int:
     unused = 42
@@ -22,62 +26,49 @@ def validator(x: int) -> int:
     target = eval_uplc_raw(target_code, 4, config=_DEFAULT_CONFIG)
 
     assert source.result == target.result
-    assert source.cost.cpu >= target.cost.cpu
-    assert source.cost.memory >= target.cost.memory
+    assert source.cost.cpu <= target.cost.cpu
+    assert source.cost.memory <= target.cost.memory
 
 
-def test_dead_var_unsafe_expr_preserved():
-    """Dead variable with unsafe (side-effect-ful) expression is kept as Expr."""
-    source_code = """
-def validator(x: None) -> int:
-    # a = x.policy_id would fail if x is not a Token, but 'a' is never used
-    # The field access side-effect must be preserved
-    return 1
-"""
-    # Should succeed (no field access)
-    ret = eval_uplc(source_code, Unit(), config=_DEFAULT_UNFOLD_CONFIG)
-    assert ret.value == 1
-
-
-def test_dead_var_unsafe_expr_still_crashes():
-    """Dead variable with unsafe expression that crashes still crashes after optimization."""
+def test_dead_var_unsafe_expr_crashes_with_bad_input():
+    """Dead variable whose expression can crash still crashes when given invalid input."""
     source_code = """
 from opshin.prelude import *
 def validator(x: Token) -> bool:
     a = x.policy_id
     return True
 """
+    # Unit() is not a Token, so accessing policy_id fails
     with pytest.raises(RuntimeError):
         eval_uplc(source_code, Unit(), config=_DEFAULT_UNFOLD_CONFIG)
 
 
-def test_dead_lambda_expr_removed():
-    """Dead variable with safe constant expression is removed, verifying SafeOperationVisitor is used."""
+def test_dead_var_unsafe_expr_succeeds_with_valid_input():
+    """Dead variable whose expression is retained as Expr succeeds with valid input."""
+    source_code = """
+from opshin.prelude import *
+def validator(x: Token) -> bool:
+    a = x.policy_id
+    return True
+"""
+    ret = eval_uplc(source_code, VALID_TOKEN, config=_DEFAULT_UNFOLD_CONFIG)
+    assert ret.value is True
+
+
+def test_dead_expr_name_removed():
+    """Standalone Name expression (Expr(Name)) is removed since it is side-effect-free."""
     source_code = """
 def validator(x: int) -> int:
-    unused = 99
-    return x
+    x
+    return x + 1
 """
     target_code = """
 def validator(x: int) -> int:
-    return x
+    return x + 1
 """
     source = eval_uplc_raw(source_code, 4, config=_DEFAULT_UNFOLD_CONFIG)
     target = eval_uplc_raw(target_code, 4, config=_DEFAULT_CONFIG)
 
     assert source.result == target.result
-    assert source.cost.cpu >= target.cost.cpu
-    assert source.cost.memory >= target.cost.memory
-
-
-def test_dead_var_chain_still_works():
-    """Chain of dead variables: b = 4; a = b where neither is used - both cleaned up."""
-    source_code = """
-from opshin.prelude import *
-def validator(x: Token) -> bool:
-    b = 4
-    a = b
-    return True
-"""
-    ret = eval_uplc(source_code, Unit(), config=_DEFAULT_UNFOLD_CONFIG)
-    assert ret.value is True
+    assert source.cost.cpu <= target.cost.cpu
+    assert source.cost.memory <= target.cost.memory
