@@ -79,6 +79,7 @@ from .rewrite.rewrite_subscript38 import RewriteSubscript38
 from .rewrite.rewrite_tuple_assign import RewriteTupleAssign
 from .optimize.optimize_remove_pass import OptimizeRemovePass
 from .optimize.optimize_remove_deadvars import OptimizeRemoveDeadvars, NameLoadCollector
+from .optimize.optimize_inline_expressions import OptimizeInlineExpressions
 from .util import (
     CompilingNodeTransformer,
     NoOp,
@@ -1479,6 +1480,7 @@ def compile(
         OptimizeRemoveTrace() if config.remove_trace else NoOp(),
         OptimizeFoldIfFallthrough() if config.remove_dead_code else NoOp(),
         OptimizeRemoveUnreachable() if config.remove_dead_code else NoOp(),
+        OptimizeInlineExpressions() if config.remove_dead_code else NoOp(),
         (
             OptimizeRemoveDeadvars(validator_function_name=validator_function_name)
             if config.remove_dead_code
