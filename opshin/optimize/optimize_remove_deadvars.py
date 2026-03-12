@@ -42,32 +42,6 @@ class NameLoadCollector(CompilingNodeVisitor):
             self.loaded[node.typ.typ.bind_self] += 1
 
 
-class SafeOperationVisitor(CompilingNodeVisitor):
-    step = "Collecting computations that can not throw errors"
-
-    def __init__(self, guaranteed_names):
-        self.guaranteed_names = guaranteed_names
-
-    def generic_visit(self, node: AST) -> bool:
-        # generally every operation is unsafe except we whitelist it
-        return False
-
-    def visit_Lambda(self, node: Lambda) -> bool:
-        # lambda definition is fine as it actually doesn't compute anything
-        return True
-
-    def visit_Constant(self, node: Constant) -> bool:
-        # Constants can not fail
-        return True
-
-    def visit_RawPlutoExpr(self, node) -> bool:
-        # these expressions are not evaluated further
-        return True
-
-    def visit_Name(self, node: Name) -> bool:
-        return node.id in self.guaranteed_names
-
-
 class OptimizeRemoveDeadvars(CompilingNodeTransformer):
     step = "Removing unused variables"
 

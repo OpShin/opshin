@@ -1,14 +1,39 @@
 from ast import *
 from copy import copy
 
-from ..util import CompilingNodeTransformer
+from ..util import CompilingNodeVisitor, CompilingNodeTransformer
 from ..type_inference import INITIAL_SCOPE
-from .optimize_remove_deadvars import SafeOperationVisitor
 
 """
 Removes expressions that are safely side effect free in sequences of statements
 (e.g. constants, names, lambdas, string comments)
 """
+
+
+class SafeOperationVisitor(CompilingNodeVisitor):
+    step = "Collecting computations that can not throw errors"
+
+    def __init__(self, guaranteed_names):
+        self.guaranteed_names = guaranteed_names
+
+    def generic_visit(self, node: AST) -> bool:
+        # generally every operation is unsafe except we whitelist it
+        return False
+
+    def visit_Lambda(self, node: Lambda) -> bool:
+        # lambda definition is fine as it actually doesn't compute anything
+        return True
+
+    def visit_Constant(self, node: Constant) -> bool:
+        # Constants can not fail
+        return True
+
+    def visit_RawPlutoExpr(self, node) -> bool:
+        # these expressions are not evaluated further
+        return True
+
+    def visit_Name(self, node: Name) -> bool:
+        return node.id in self.guaranteed_names
 
 
 class OptimizeRemoveDeadConstants(CompilingNodeTransformer):
