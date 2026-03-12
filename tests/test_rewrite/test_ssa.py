@@ -84,3 +84,42 @@ def validator(xs: List[int]) -> int:
     assert for_stmt.body[0].value.left.id == total_loop_prelude.targets[0].id
     assert for_stmt.body[0].value.right.id == for_stmt.target.id
     assert ret.value.id == total_loop_prelude.targets[0].id
+
+
+def test_module_globals_keep_stable_names_for_forward_function_reads():
+    prog = run_ssa(
+        """
+def read_x() -> int:
+    return x + 1
+
+x: int = 41
+
+def validator(_: None) -> int:
+    return read_x()
+"""
+    )
+
+    read_x = prog.body[0]
+    x_assign = prog.body[1]
+
+    assert read_x.body[0].value.left.id == "x_0"
+    assert x_assign.target.id == "x_0"
+
+
+def test_nested_function_captures_keep_stable_outer_names():
+    prog = run_ssa(
+        """
+def validator(_: None) -> int:
+    def read_x() -> int:
+        return x + 1
+    x = 41
+    return read_x()
+"""
+    )
+
+    validator = prog.body[0]
+    read_x = validator.body[0]
+    x_assign = validator.body[1]
+
+    assert read_x.body[0].value.left.id == "x_1"
+    assert x_assign.targets[0].id == "x_1"

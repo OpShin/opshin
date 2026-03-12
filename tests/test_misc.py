@@ -1071,6 +1071,17 @@ def validator(_: None) -> int:
         """
         self.assertEqual(42, eval_uplc_value(source_code, Unit()))
 
+    def test_forward_local_variable_in_nested_function(self):
+        source_code = """
+def validator(_: None) -> int:
+    def read_x() -> int:
+        return x + 1
+
+    x: int = 41
+    return read_x()
+        """
+        self.assertEqual(42, eval_uplc_value(source_code, Unit()))
+
     def test_forward_class_reference_in_function(self):
         source_code = """
 from opshin.prelude import *
