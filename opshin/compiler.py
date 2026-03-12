@@ -75,6 +75,7 @@ from .rewrite.rewrite_inject_builtins import RewriteInjectBuiltins
 from .rewrite.rewrite_orig_name import RewriteOrigName
 from .rewrite.rewrite_remove_type_stuff import RewriteRemoveTypeStuff
 from .rewrite.rewrite_scoping import RewriteScoping
+from .rewrite.rewrite_ssa import RewriteSSA
 from .rewrite.rewrite_subscript38 import RewriteSubscript38
 from .rewrite.rewrite_tuple_assign import RewriteTupleAssign
 from .optimize.optimize_remove_pass import OptimizeRemovePass
@@ -1456,6 +1457,9 @@ def compile(
         # Save the original names of variables
         RewriteOrigName(),
         RewriteScoping(),
+        RewriteAnnotateFallthrough(),
+        OptimizeRemoveDeadConditions(),
+        RewriteSSA(),
         RewriteAnnotateFallthrough(),
         # The type inference needs to be run after complex python operations were rewritten
         AggressiveTypeInferencer(config.allow_isinstance_anything),

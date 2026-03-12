@@ -1949,7 +1949,7 @@ class RecordReader(NodeVisitor):
 
 
 def map_to_orig_name(name: str):
-    return re.sub(r"_\d+$", "", name)
+    return re.sub(r"_\d+$", "", re.sub(r"_v\d+$", "", name))
 
 
 class ReturnExtractor(TypedNodeVisitor):
