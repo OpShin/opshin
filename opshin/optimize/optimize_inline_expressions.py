@@ -72,7 +72,7 @@ class GuaranteedLoadCollector(CompilingNodeVisitor):
         self.visit(node.test)
 
     def visit_While(self, node: While):
-        # Only the test is guaranteed for first iteration
+        # Only the test is guaranteed to execute (evaluated before loop entry)
         self.visit(node.test)
 
     def visit_For(self, node: For):
@@ -204,8 +204,8 @@ class OptimizeInlineExpressions(CompilingNodeTransformer):
                 if var in captured_vars:
                     continue
 
-                # Check if expression is "simple" (constant or single-def name
-                # or function argument name)
+                # Check if expression is "simple": constant, single-def name,
+                # or function argument name
                 is_simple = isinstance(expr, Constant) or (
                     isinstance(expr, Name)
                     and isinstance(expr.ctx, Load)
