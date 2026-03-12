@@ -1,5 +1,5 @@
 from ast import *
-from copy import copy, deepcopy
+from copy import copy
 
 from ..util import CompilingNodeVisitor, CompilingNodeTransformer
 from ..type_inference import INITIAL_SCOPE
@@ -50,9 +50,35 @@ class NameSubstitutor(CompilingNodeTransformer):
         self.substitutions = substitutions
         self.changed = False
 
+    def generic_visit(self, node):
+        # Override to use setattr instead of in-place list modification,
+        # since the typed AST may use frozenlist for some fields
+        for field, old_value in iter_fields(node):
+            if isinstance(old_value, list):
+                new_values = []
+                for old_node in old_value:
+                    if isinstance(old_node, AST):
+                        value = self.visit(old_node)
+                        if value is None:
+                            continue
+                        elif not isinstance(value, AST):
+                            new_values.extend(value)
+                            continue
+                    else:
+                        value = old_node
+                    new_values.append(value)
+                setattr(node, field, new_values)
+            elif isinstance(old_value, AST):
+                new_value = self.visit(old_value)
+                if new_value is None:
+                    delattr(node, field)
+                else:
+                    setattr(node, field, new_value)
+        return node
+
     def visit_Name(self, node: Name):
         if isinstance(node.ctx, Load) and node.id in self.substitutions:
-            new_node = deepcopy(self.substitutions[node.id])
+            new_node = copy(self.substitutions[node.id])
             copy_location(new_node, node)
             self.changed = True
             return new_node
@@ -78,6 +104,17 @@ class OptimizeInlineExpressions(CompilingNodeTransformer):
             assign_collector = AssignmentCollector()
             assign_collector.visit(node_cp)
 
+            # Collect variables captured by function closures (bound_vars).
+            # These must not be inlined because substitution doesn't update
+            # the function's closure bindings.
+            captured_vars = set()
+            for child in walk(node_cp):
+                if isinstance(child, FunctionDef) and hasattr(child, "typ"):
+                    try:
+                        captured_vars.update(child.typ.typ.bound_vars.keys())
+                    except AttributeError:
+                        pass
+
             # Names guaranteed to exist for SafeOperationVisitor
             guaranteed_names = (
                 list(INITIAL_SCOPE.keys())
@@ -89,6 +126,10 @@ class OptimizeInlineExpressions(CompilingNodeTransformer):
             for var, expr in assign_collector.assignments.items():
                 # Variable must be assigned exactly once
                 if def_counter.vars.get(var, 0) != 1:
+                    continue
+
+                # Don't inline variables captured by function closures
+                if var in captured_vars:
                     continue
 
                 # Check if expression is "simple" (constant or single-def name)
