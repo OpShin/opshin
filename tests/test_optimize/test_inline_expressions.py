@@ -1,3 +1,5 @@
+import pytest
+
 from opshin.compiler_config import DEFAULT_CONFIG
 from tests.utils import eval_uplc, eval_uplc_raw, Unit
 
@@ -20,8 +22,8 @@ def validator(a: int) -> int:
     target = eval_uplc_raw(target_code, 4, config=_DEFAULT_CONFIG)
 
     assert source.result == target.result
-    assert source.cost.cpu >= target.cost.cpu
-    assert source.cost.memory >= target.cost.memory
+    assert source.cost.cpu <= target.cost.cpu
+    assert source.cost.memory <= target.cost.memory
 
 
 def test_inline_name():
@@ -39,8 +41,8 @@ def validator(a: int) -> int:
     target = eval_uplc_raw(target_code, 4, config=_DEFAULT_CONFIG)
 
     assert source.result == target.result
-    assert source.cost.cpu >= target.cost.cpu
-    assert source.cost.memory >= target.cost.memory
+    assert source.cost.cpu <= target.cost.cpu
+    assert source.cost.memory <= target.cost.memory
 
 
 def test_inline_chain():
@@ -60,8 +62,8 @@ def validator(_: None) -> int:
     target = eval_uplc_raw(target_code, Unit(), config=_DEFAULT_CONFIG)
 
     assert source.result == target.result
-    assert source.cost.cpu >= target.cost.cpu
-    assert source.cost.memory >= target.cost.memory
+    assert source.cost.cpu <= target.cost.cpu
+    assert source.cost.memory <= target.cost.memory
 
 
 def test_inline_constant_multiple_reads():
@@ -79,8 +81,8 @@ def validator(_: None) -> int:
     target = eval_uplc_raw(target_code, Unit(), config=_DEFAULT_CONFIG)
 
     assert source.result == target.result
-    assert source.cost.cpu >= target.cost.cpu
-    assert source.cost.memory >= target.cost.memory
+    assert source.cost.cpu <= target.cost.cpu
+    assert source.cost.memory <= target.cost.memory
 
 
 def test_no_inline_multiple_assign():
@@ -125,5 +127,57 @@ def validator(a: int) -> int:
     target = eval_uplc_raw(target_code, 7, config=_DEFAULT_CONFIG)
 
     assert source.result == target.result
-    assert source.cost.cpu >= target.cost.cpu
-    assert source.cost.memory >= target.cost.memory
+    assert source.cost.cpu <= target.cost.cpu
+    assert source.cost.memory <= target.cost.memory
+
+
+def test_no_inline_unsafe_in_branch():
+    """Do not inline an unsafe expression when only used inside a branch.
+
+    x = 1 // 0 always crashes. If incorrectly inlined into the False branch,
+    the crash would be removed by dead condition elimination, changing semantics.
+    """
+    source_code = """
+def validator(_: None) -> int:
+    x = 1 // 0
+    if False:
+        return x
+    return 0
+"""
+    with pytest.raises(RuntimeError):
+        eval_uplc(source_code, Unit(), config=_DEFAULT_INLINE_CONFIG)
+
+
+def test_no_inline_multiple_reads_non_simple():
+    """Do not inline a non-simple expression used multiple times"""
+    source_code = """
+def validator(a: int) -> int:
+    x = a + 1
+    return x + x
+"""
+    source = eval_uplc(source_code, 4, config=_DEFAULT_INLINE_CONFIG)
+    assert source.value == 10
+
+
+def test_inline_guaranteed_execution():
+    """Inline a non-safe expression when the use is guaranteed to execute.
+
+    a + 1 is not safe (BinOp), but since `return x` is at the top level
+    (not inside a branch), every code path from the assignment reaches
+    the use, so inlining is safe.
+    """
+    source_code = """
+def validator(a: int) -> int:
+    x = a + 1
+    return x
+"""
+    target_code = """
+def validator(a: int) -> int:
+    return a + 1
+"""
+    source = eval_uplc_raw(source_code, 4, config=_DEFAULT_INLINE_CONFIG)
+    target = eval_uplc_raw(target_code, 4, config=_DEFAULT_CONFIG)
+
+    assert source.result == target.result
+    assert source.cost.cpu <= target.cost.cpu
+    assert source.cost.memory <= target.cost.memory
