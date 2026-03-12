@@ -103,6 +103,23 @@ class GuaranteedLoadCollector(CompilingNodeVisitor):
         pass
 
 
+class NameLoadTypeCollector(CompilingNodeVisitor):
+    step = "Collecting loaded variable types"
+
+    def __init__(self):
+        self.loaded_types = {}
+
+    def visit_Name(self, node: Name):
+        if isinstance(node.ctx, Load):
+            self.loaded_types.setdefault(node.id, []).append(node.typ)
+
+    def visit_FunctionDef(self, node):
+        pass
+
+    def visit_ClassDef(self, node):
+        pass
+
+
 class NameSubstitutor(CompilingNodeTransformer):
     step = "Substituting inlined expressions"
 
@@ -241,6 +258,11 @@ class OptimizeInlineExpressions(ScopedSequenceNodeTransformer):
 
             captured_vars = self._collect_captured_vars(statements_cp)
 
+            load_type_collector = NameLoadTypeCollector()
+            for statement in statements_cp:
+                load_type_collector.visit(statement)
+            loaded_types = load_type_collector.loaded_types
+
             # Collect loads that are guaranteed to execute (not inside branches)
             guaranteed_load_collector = guaranteed_load_collector_cls()
             for statement in statements_cp:
@@ -267,6 +289,9 @@ class OptimizeInlineExpressions(ScopedSequenceNodeTransformer):
 
                 # Don't inline variables captured by function closures
                 if var in captured_vars:
+                    continue
+
+                if any(load_typ != expr.typ for load_typ in loaded_types.get(var, [])):
                     continue
 
                 # Check if expression is "simple": constant, single-def name,
