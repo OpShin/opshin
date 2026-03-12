@@ -1,3 +1,4 @@
+from __future__ import annotations
 from ast import *
 from typing import Optional
 

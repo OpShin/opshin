@@ -1,4 +1,5 @@
 """Bridging tools between uplc and opshin"""
+from __future__ import annotations
 
 from functools import wraps
 

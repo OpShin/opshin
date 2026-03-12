@@ -1,3 +1,4 @@
+from __future__ import annotations
 import re
 from _ast import ImportFrom, AST, Name
 from copy import copy

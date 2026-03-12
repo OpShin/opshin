@@ -1,3 +1,4 @@
+from __future__ import annotations
 from ..type_impls import empty_list
 from ..util import CompilingNodeTransformer
 from ..typed_ast import *

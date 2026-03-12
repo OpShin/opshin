@@ -1,3 +1,4 @@
+from __future__ import annotations
 import typing
 from _ast import ImportFrom, AST, Store
 from dataclasses import dataclass

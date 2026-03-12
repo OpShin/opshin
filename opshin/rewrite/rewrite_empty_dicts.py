@@ -1,3 +1,4 @@
+from __future__ import annotations
 from ..util import CompilingNodeTransformer
 from ..typed_ast import *
 import pluthon as plt

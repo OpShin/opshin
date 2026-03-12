@@ -1,3 +1,4 @@
+from __future__ import annotations
 import typing
 from collections import defaultdict
 import logging
@@ -223,7 +224,10 @@ class OptimizeConstantFolding(CompilingNodeTransformer):
         g = a
         l = {}
         try:
-            exec(unparse(node), g, l)
+            # Use dont_inherit=True to prevent inheriting this file's
+            # 'from __future__ import annotations', which would cause exec'd
+            # class annotations to become strings instead of type objects
+            exec(compile(unparse(node), "<string>", "exec", dont_inherit=True), g, l)
         except Exception as e:
             OPSHIN_LOGGER.debug(e)
         else:
@@ -255,7 +259,12 @@ class OptimizeConstantFolding(CompilingNodeTransformer):
             g = a
             try:
                 # we need to pass the global dict as local dict here to make closures possible (rec functions)
-                exec(unparse(node), g, g)
+                # Use dont_inherit=True to prevent inheriting this file's
+                # 'from __future__ import annotations', which would cause exec'd
+                # class annotations to become strings instead of type objects
+                exec(
+                    compile(unparse(node), "<string>", "exec", dont_inherit=True), g, g
+                )
             except Exception as e:
                 OPSHIN_LOGGER.debug(e)
             else:

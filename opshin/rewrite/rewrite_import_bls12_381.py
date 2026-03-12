@@ -1,3 +1,4 @@
+from __future__ import annotations
 import ast
 import typing
 from _ast import ImportFrom, AST, Store, Assign, Name

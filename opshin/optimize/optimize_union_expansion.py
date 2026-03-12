@@ -1,3 +1,4 @@
+from __future__ import annotations
 from _ast import Call, FunctionDef
 from ast import *
 from itertools import product

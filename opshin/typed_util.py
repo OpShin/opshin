@@ -1,3 +1,4 @@
+from __future__ import annotations
 import ast
 from _ast import ClassDef, FunctionDef
 from copy import copy

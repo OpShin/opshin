@@ -1,3 +1,4 @@
+from __future__ import annotations
 from ast import *
 from copy import copy
 from collections import defaultdict

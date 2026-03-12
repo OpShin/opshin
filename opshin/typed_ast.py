@@ -1,3 +1,4 @@
+from __future__ import annotations
 import ast as _ast
 import dataclasses as _dataclasses
 import typing as _typing

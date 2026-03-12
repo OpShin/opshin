@@ -1,4 +1,5 @@
 """Rewrite rule to prevent asserting None values."""
+from __future__ import annotations
 
 import ast
 from typing import Optional, cast
