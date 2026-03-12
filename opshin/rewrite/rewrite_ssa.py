@@ -190,6 +190,22 @@ class RewriteSSA(FlatteningScopedSequenceNodeTransformer):
             or base_name in self._current_pinned()
         )
 
+    def _rewrite_branch(self, body: list[ast.stmt], env: dict[str, str]):
+        self._push_env(env)
+        rewritten = self.visit_sequence(list(body))
+        return rewritten, self._pop_env()
+
+    def _rewrite_loop_scope(self, node: ast.While | ast.For) -> ast.While | ast.For:
+        rewritten_loop = copy(node)
+        if isinstance(node, ast.While):
+            rewritten_loop.test = self.visit(node.test)
+        else:
+            rewritten_loop.iter = self.visit(node.iter)
+            rewritten_loop.target = copy(node.target)
+        rewritten_loop.body = self.visit_sequence(list(node.body))
+        rewritten_loop.orelse = self.visit_sequence(list(node.orelse))
+        return rewritten_loop
+
     def visit_sequence(self, body: list[ast.stmt]) -> list[ast.stmt]:
         rewritten = []
         for node in body:
@@ -221,25 +237,16 @@ class RewriteSSA(FlatteningScopedSequenceNodeTransformer):
         class_def.bases = [self.visit(base) for base in node.bases]
         class_def.keywords = [self.visit(keyword) for keyword in node.keywords]
         class_def.decorator_list = [self.visit(dec) for dec in node.decorator_list]
-        class_def.body = []
-        for stmt in node.body:
-            if isinstance(stmt, ast.FunctionDef):
-                class_def.body.append(self.visit(stmt))
-                continue
+        class_def.body = [
+            self.visit(stmt) if isinstance(stmt, ast.FunctionDef) else copy(stmt)
+            for stmt in node.body
+        ]
+        for stmt in class_def.body:
             if isinstance(stmt, ast.AnnAssign):
-                ann_assign = copy(stmt)
-                ann_assign.annotation = self.visit(stmt.annotation)
-                ann_assign.value = (
-                    self.visit(stmt.value) if stmt.value is not None else None
-                )
-                class_def.body.append(ann_assign)
-                continue
-            if isinstance(stmt, ast.Assign):
-                assign = copy(stmt)
-                assign.value = self.visit(stmt.value)
-                class_def.body.append(assign)
-                continue
-            class_def.body.append(copy(stmt))
+                stmt.annotation = self.visit(stmt.annotation)
+                stmt.value = self.visit(stmt.value) if stmt.value is not None else None
+            elif isinstance(stmt, ast.Assign):
+                stmt.value = self.visit(stmt.value)
         return class_def
 
     def visit_FunctionDef(self, node: ast.FunctionDef) -> ast.FunctionDef:
@@ -301,14 +308,8 @@ class RewriteSSA(FlatteningScopedSequenceNodeTransformer):
         typed_if = copy(node)
         typed_if.test = self.visit(node.test)
         initial_env = dict(self._current_env())
-
-        self._push_env(initial_env)
-        body = self.visit_sequence(list(node.body))
-        body_env = self._pop_env()
-
-        self._push_env(initial_env)
-        orelse = self.visit_sequence(list(node.orelse))
-        else_env = self._pop_env()
+        body, body_env = self._rewrite_branch(node.body, initial_env)
+        orelse, else_env = self._rewrite_branch(node.orelse, initial_env)
 
         if self._in_module_scope():
             typed_if.body = body
@@ -323,15 +324,7 @@ class RewriteSSA(FlatteningScopedSequenceNodeTransformer):
 
     def _rewrite_loop(self, node: ast.While | ast.For) -> list[ast.stmt]:
         if self._in_module_scope():
-            rewritten_loop = copy(node)
-            if isinstance(node, ast.While):
-                rewritten_loop.test = self.visit(node.test)
-            else:
-                rewritten_loop.iter = self.visit(node.iter)
-                rewritten_loop.target = copy(node.target)
-            rewritten_loop.body = self.visit_sequence(list(node.body))
-            rewritten_loop.orelse = self.visit_sequence(list(node.orelse))
-            return [rewritten_loop]
+            return [self._rewrite_loop_scope(node)]
 
         pinned_bases = self._written_bases(node) - self._current_protected()
         prelude = []
@@ -348,18 +341,11 @@ class RewriteSSA(FlatteningScopedSequenceNodeTransformer):
             self._set_current_name(base_name, fresh_name)
 
         self._pin_bases(pinned_bases)
-        rewritten_loop = copy(node)
-        if isinstance(node, ast.While):
-            rewritten_loop.test = self.visit(node.test)
-        else:
-            rewritten_loop.iter = self.visit(node.iter)
+        rewritten_loop = self._rewrite_loop_scope(node)
+        if isinstance(node, ast.For):
             assert isinstance(node.target, ast.Name), "Expected simple for-loop target"
-            target_cp = copy(node.target)
             base_name = strip_ssa_suffix(node.target.id)
-            target_cp.id = self._lookup_name(base_name)
-            rewritten_loop.target = target_cp
-        rewritten_loop.body = self.visit_sequence(list(node.body))
-        rewritten_loop.orelse = self.visit_sequence(list(node.orelse))
+            rewritten_loop.target.id = self._lookup_name(base_name)
         self._unpin_bases()
         return prelude + [rewritten_loop]
 
