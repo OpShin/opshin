@@ -7,13 +7,15 @@ from opshin import builder
 from opshin.util import NoOp
 from tests.utils import DEFAULT_TEST_CONFIG, Unit, eval_uplc
 
+INLINE_CONFIG = DEFAULT_TEST_CONFIG.update(adjacent_inline=True)
 
-def script_size(source_code: str, *args, config=DEFAULT_TEST_CONFIG) -> int:
+
+def script_size(source_code: str, *args, config=INLINE_CONFIG) -> int:
     builder._static_compile.cache_clear()
     return len(builder._build(builder._compile(source_code, *args, config=config)))
 
 
-def script_size_without_adjacent_inline(source_code: str, *args, config=DEFAULT_TEST_CONFIG):
+def script_size_without_adjacent_inline(source_code: str, *args, config=INLINE_CONFIG):
     original = compiler.RewriteAdjacentInline
     compiler.RewriteAdjacentInline = NoOp
     try:
@@ -69,6 +71,67 @@ def validator(a: int) -> int:
 
         self.assertEqual(script_size(source_code, 4), script_size(target_code, 4))
 
+    def test_inline_same_flow_non_adjacent_alias(self):
+        source_code = """
+def validator(a: int) -> int:
+    x = a
+    z = 1
+    return x + z
+"""
+        target_code = """
+def validator(a: int) -> int:
+    z = 1
+    return a + z
+"""
+
+        self.assertEqual(script_size(source_code, 4), script_size(target_code, 4))
+
+    def test_inline_same_flow_non_adjacent_constant(self):
+        source_code = """
+def validator(_: None) -> int:
+    x = 5
+    z = 1
+    return x + z
+"""
+        target_code = """
+def validator(_: None) -> int:
+    z = 1
+    return 5 + z
+"""
+
+        self.assertEqual(script_size(source_code, Unit()), script_size(target_code, Unit()))
+
+    def test_does_not_inline_non_adjacent_nontrivial_expression(self):
+        source_code = """
+def validator(a: int) -> int:
+    x = a + 1
+    z = 1
+    return x + z
+"""
+        target_code = """
+def validator(a: int) -> int:
+    z = 1
+    return a + 1 + z
+"""
+
+        self.assertEqual(
+            script_size(source_code, 4),
+            script_size(target_code, 4),
+        )
+
+    def test_does_not_inline_across_dependency_write(self):
+        source_code = """
+def validator(a: int) -> int:
+    x = a + 1
+    a = a + 2
+    return x
+"""
+
+        self.assertEqual(
+            script_size(source_code, 4),
+            script_size_without_adjacent_inline(source_code, 4),
+        )
+
     def test_does_not_inline_into_short_circuit(self):
         source_code = """
 def validator(_: None) -> int:
@@ -77,7 +140,7 @@ def validator(_: None) -> int:
 """
 
         with pytest.raises(RuntimeError):
-            eval_uplc(source_code, Unit(), config=DEFAULT_TEST_CONFIG)
+            eval_uplc(source_code, Unit(), config=INLINE_CONFIG)
 
     def test_does_not_inline_when_read_later(self):
         source_code = """
@@ -87,21 +150,7 @@ def validator(a: int) -> int:
     return y + x
 """
 
-        self.assertEqual(eval_uplc(source_code, 4, config=DEFAULT_TEST_CONFIG).value, 10)
-
-    def test_does_not_inline_when_written_later(self):
-        source_code = """
-def validator(a: int) -> int:
-    x = a + 1
-    y = x
-    x = a + 2
-    return y + x
-"""
-
-        self.assertEqual(
-            script_size(source_code, 4),
-            script_size_without_adjacent_inline(source_code, 4),
-        )
+        self.assertEqual(eval_uplc(source_code, 4, config=INLINE_CONFIG).value, 10)
 
     def test_does_not_inline_inside_for_loop(self):
         source_code = """

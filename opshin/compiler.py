@@ -1480,7 +1480,7 @@ def compile(
         OptimizeRemoveTrace() if config.remove_trace else NoOp(),
         OptimizeFoldIfFallthrough() if config.remove_dead_code else NoOp(),
         OptimizeRemoveUnreachable() if config.remove_dead_code else NoOp(),
-        RewriteAdjacentInline() if config.remove_dead_code else NoOp(),
+        RewriteAdjacentInline() if config.adjacent_inline else NoOp(),
         (
             OptimizeRemoveDeadvars(validator_function_name=validator_function_name)
             if config.remove_dead_code
