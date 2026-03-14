@@ -307,13 +307,6 @@ def discover_contract_module(module) -> typing.Optional[ContractModuleInfo]:
         and value.__module__ == module.__name__
         and issubclass(value, PreludeContract)
     ]
-    legacy_contract_class = getattr(module, "Contract", None)
-    if (
-        inspect.isclass(legacy_contract_class)
-        and legacy_contract_class.__module__ == module.__name__
-        and legacy_contract_class not in contract_classes
-    ):
-        contract_classes.append(legacy_contract_class)
     if not contract_classes:
         return None
     assert (

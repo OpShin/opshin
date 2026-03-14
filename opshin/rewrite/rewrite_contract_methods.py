@@ -63,21 +63,10 @@ class RewriteContractMethods(CompilingNodeTransformer):
     _internal_name_prefix = "__contract+"
 
     def _is_contract_class(self, statement: ast.stmt) -> bool:
-        if not isinstance(statement, ast.ClassDef):
-            return False
-        if any(
+        return isinstance(statement, ast.ClassDef) and any(
             isinstance(base, ast.Name) and base.id == "Contract"
             for base in statement.bases
-        ):
-            return True
-        if statement.name != "Contract":
-            return False
-        if not statement.decorator_list:
-            return False
-        method_names = {
-            child.name for child in statement.body if isinstance(child, ast.FunctionDef)
-        }
-        return any(spec.method_name in method_names for spec in CONTRACT_METHOD_SPECS)
+        )
 
     def visit_Module(self, node: ast.Module) -> ast.Module:
         node = self.generic_visit(node)

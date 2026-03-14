@@ -14,9 +14,9 @@ class RewriteImportPlutusData(CompilingNodeTransformer):
     imports_plutus_data = False
 
     def _is_contract_class(self, node: ClassDef) -> bool:
-        if any(isinstance(base, Name) and base.id == "Contract" for base in node.bases):
-            return True
-        return node.name == "Contract" and not node.decorator_list and not node.bases
+        return any(
+            isinstance(base, Name) and base.id == "Contract" for base in node.bases
+        )
 
     def visit_ImportFrom(self, node: ImportFrom) -> Optional[ImportFrom]:
         if node.module != "pycardano":
