@@ -9,6 +9,7 @@ class CompilationConfig(pluthon.CompilationConfig):
     constant_folding: Optional[bool] = None
     allow_isinstance_anything: Optional[bool] = None
     remove_dead_code: Optional[bool] = None
+    adjacent_inline: Optional[bool] = None
     fast_access_skip: Optional[int] = None
     expand_union_types: Optional[bool] = None
     wrap_output: Optional[bool] = None
@@ -22,6 +23,7 @@ OPT_O0_CONFIG = (
     .update(
         constant_folding=False,
         remove_dead_code=False,
+        adjacent_inline=False,
     )
 )
 OPT_O1_CONFIG = (
@@ -42,7 +44,10 @@ OPT_O2_CONFIG = (
     )
 )
 OPT_O3_CONFIG = (
-    CompilationConfig().update(OPT_O2_CONFIG).update(pluthon.OPT_O3_CONFIG).update()
+    CompilationConfig()
+    .update(OPT_O2_CONFIG)
+    .update(pluthon.OPT_O3_CONFIG)
+    .update(adjacent_inline=True)
 )
 OPT_CONFIGS = [OPT_O0_CONFIG, OPT_O1_CONFIG, OPT_O2_CONFIG, OPT_O3_CONFIG]
 
@@ -65,6 +70,9 @@ ARGPARSE_ARGS.update(
         },
         "remove_dead_code": {
             "help": "Removes dead code and variables from the contract. Should be enabled for non-debugging purposes.",
+        },
+        "adjacent_inline": {
+            "help": "Inline single-use expressions across guaranteed straight-line flow. This is an O3-level optimisation and may reorder evaluation within a block.",
         },
         "fast_access_skip": {
             "help": "How many steps to skip for fast list index access, default None means no steps are skipped (useful if long lists are common).",
