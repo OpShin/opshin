@@ -94,7 +94,7 @@ class Contract:
         # whenever tokens should be burned/minted, the minting purpose will be triggered
         self.validate_wrapping(own_address(purpose.policy_id), purpose.policy_id, ctx)
 
-    def spend(self, _datum: Anything, _redeemer: Anything, ctx: ScriptContext) -> None:
+    def spend(self, _redeemer: Anything, ctx: ScriptContext) -> None:
         purpose = ctx.purpose
         assert isinstance(purpose, Spending), "Incorrect purpose given"
         # whenever something is unlocked from the contract, the spending purpose will be triggered

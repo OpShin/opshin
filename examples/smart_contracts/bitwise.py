@@ -5,7 +5,7 @@ from opshin.std.math import *
 
 @dataclass()
 class Contract:
-    def spend(
+    def spend_with_datum(
         self, datum: Union[int, NoOutputDatum], redeemer: int, _context: ScriptContext
     ) -> None:
         """

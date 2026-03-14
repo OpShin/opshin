@@ -11,7 +11,7 @@ class WithdrawDatum(PlutusData):
 
 @dataclass()
 class Contract:
-    def spend(
+    def spend_with_datum(
         self, datum: WithdrawDatum, _redeemer: Anything, context: ScriptContext
     ) -> None:
         # check that the datum has correct structure (recommended for user inputs)

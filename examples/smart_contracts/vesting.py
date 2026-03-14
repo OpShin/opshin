@@ -30,7 +30,7 @@ def deadline_reached(params: VestingParams, context: ScriptContext) -> bool:
 
 @dataclass()
 class Contract:
-    def spend(
+    def spend_with_datum(
         self, datum: VestingParams, _redeemer: Anything, context: ScriptContext
     ) -> None:
         assert signed_by_beneficiary(datum, context), "beneficiary's signature missing"

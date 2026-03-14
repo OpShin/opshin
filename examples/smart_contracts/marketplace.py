@@ -55,7 +55,7 @@ def check_owner_signed(signatories: List[PubKeyHash], owner: PubKeyHash) -> None
 
 @dataclass()
 class Contract:
-    def spend(
+    def spend_with_datum(
         self, datum: Listing, redeemer: ListingAction, context: ScriptContext
     ) -> None:
         purpose = context.purpose

@@ -609,7 +609,7 @@ def get_spending_purpose(context: ScriptContext) -> Spending:
 
 @dataclass()
 class Contract:
-    def spend(
+    def spend_with_datum(
         self, datum: PoolState, redeemer: PoolAction, context: ScriptContext
     ) -> None:
         """

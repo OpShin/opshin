@@ -223,6 +223,17 @@ class RewriteContractMethods(CompilingNodeTransformer):
             self._check_method_signature(
                 contract_methods[supported_method.method_name], supported_method
             )
+        spending_method_names = {"spend", "spend_with_datum"}
+        assert (
+            len(
+                [
+                    supported_method
+                    for supported_method in supported_methods
+                    if supported_method.method_name in spending_method_names
+                ]
+            )
+            <= 1
+        ), "Contract may define at most one spending entrypoint: spend or spend_with_datum."
         assert not any(
             (
                 isinstance(statement, ast.AnnAssign)
@@ -468,128 +479,6 @@ class RewriteContractMethods(CompilingNodeTransformer):
             result = ast.BinOp(left=result, op=ast.BitOr(), right=member)
         return result
 
-    def _resolve_spent_output_assignment(self, target_name, context_name, purpose_name):
-        return ast.Assign(
-            targets=[ast.Name(id=target_name, ctx=ast.Store())],
-            value=ast.Subscript(
-                value=ast.ListComp(
-                    elt=ast.Attribute(
-                        value=ast.Name(id="tx_input", ctx=ast.Load()),
-                        attr="resolved",
-                        ctx=ast.Load(),
-                    ),
-                    generators=[
-                        ast.comprehension(
-                            target=ast.Name(id="tx_input", ctx=ast.Store()),
-                            iter=ast.Attribute(
-                                value=ast.Attribute(
-                                    value=ast.Name(id=context_name, ctx=ast.Load()),
-                                    attr="transaction",
-                                    ctx=ast.Load(),
-                                ),
-                                attr="inputs",
-                                ctx=ast.Load(),
-                            ),
-                            ifs=[
-                                ast.Compare(
-                                    left=ast.Attribute(
-                                        value=ast.Name(id="tx_input", ctx=ast.Load()),
-                                        attr="out_ref",
-                                        ctx=ast.Load(),
-                                    ),
-                                    ops=[ast.Eq()],
-                                    comparators=[
-                                        ast.Attribute(
-                                            value=ast.Name(
-                                                id=purpose_name, ctx=ast.Load()
-                                            ),
-                                            attr="tx_out_ref",
-                                            ctx=ast.Load(),
-                                        )
-                                    ],
-                                )
-                            ],
-                            is_async=0,
-                        )
-                    ],
-                ),
-                slice=ast.Constant(value=0),
-                ctx=ast.Load(),
-            ),
-        )
-
-    def _resolve_attached_datum_statements(
-        self,
-        attached_datum_name,
-        resolved_datum_name,
-        spent_output_name,
-        context_name,
-    ):
-        return [
-            ast.AnnAssign(
-                target=ast.Name(id=attached_datum_name, ctx=ast.Store()),
-                annotation=ast.Name(id="OutputDatum", ctx=ast.Load()),
-                value=ast.Attribute(
-                    value=ast.Name(id=spent_output_name, ctx=ast.Load()),
-                    attr="datum",
-                    ctx=ast.Load(),
-                ),
-                simple=1,
-            ),
-            ast.If(
-                test=ast.Call(
-                    func=ast.Name(id="isinstance", ctx=ast.Load()),
-                    args=[
-                        ast.Name(id=attached_datum_name, ctx=ast.Load()),
-                        ast.Name(id="SomeOutputDatumHash", ctx=ast.Load()),
-                    ],
-                    keywords=[],
-                ),
-                body=[
-                    ast.AnnAssign(
-                        target=ast.Name(id=resolved_datum_name, ctx=ast.Store()),
-                        annotation=ast.Name(id="OutputDatum", ctx=ast.Load()),
-                        value=ast.Call(
-                            func=ast.Name(id="SomeOutputDatum", ctx=ast.Load()),
-                            args=[
-                                ast.Subscript(
-                                    value=ast.Attribute(
-                                        value=ast.Attribute(
-                                            value=ast.Name(
-                                                id=context_name, ctx=ast.Load()
-                                            ),
-                                            attr="transaction",
-                                            ctx=ast.Load(),
-                                        ),
-                                        attr="datums",
-                                        ctx=ast.Load(),
-                                    ),
-                                    slice=ast.Attribute(
-                                        value=ast.Name(
-                                            id=attached_datum_name, ctx=ast.Load()
-                                        ),
-                                        attr="datum_hash",
-                                        ctx=ast.Load(),
-                                    ),
-                                    ctx=ast.Load(),
-                                )
-                            ],
-                            keywords=[],
-                        ),
-                        simple=1,
-                    )
-                ],
-                orelse=[
-                    ast.AnnAssign(
-                        target=ast.Name(id=resolved_datum_name, ctx=ast.Store()),
-                        annotation=ast.Name(id="OutputDatum", ctx=ast.Load()),
-                        value=ast.Name(id=attached_datum_name, ctx=ast.Load()),
-                        simple=1,
-                    )
-                ],
-            ),
-        ]
-
     def _validator_body(
         self,
         field_parameter_names,
@@ -641,7 +530,7 @@ class RewriteContractMethods(CompilingNodeTransformer):
                         value=ast.Name(id=context_argument_name, ctx=ast.Load()),
                     )
                 )
-            if supported_method.method_name == "spend":
+            if supported_method.method_name == "spend_with_datum":
                 datum_argument_name = method_argument_names[0]
                 redeemer_argument_name = method_argument_names[1]
                 datum_name = branch_names[datum_argument_name]
@@ -649,16 +538,8 @@ class RewriteContractMethods(CompilingNodeTransformer):
                 datum_annotation = deepcopy(method.args.args[1].annotation)
                 redeemer_annotation = deepcopy(method.args.args[2].annotation)
                 datum_loading_strategy = self._datum_loading_strategy(datum_annotation)
-                spent_output_name = self._make_reserved_name(
-                    "spent_output", branch_used_names
-                )
-                branch_used_names.add(spent_output_name)
-                attached_datum_name = self._make_reserved_name(
-                    "attached_datum", branch_used_names
-                )
-                branch_used_names.add(attached_datum_name)
                 resolved_datum_name = self._make_reserved_name(
-                    "resolved_datum", branch_used_names
+                    "datum", branch_used_names
                 )
                 branch_used_names.add(resolved_datum_name)
                 branch_body.append(
@@ -673,20 +554,19 @@ class RewriteContractMethods(CompilingNodeTransformer):
                         simple=1,
                     )
                 )
-                branch_body.append(
-                    self._resolve_spent_output_assignment(
-                        spent_output_name, context_name, purpose_name
-                    )
-                )
-                branch_body.extend(
-                    self._resolve_attached_datum_statements(
-                        attached_datum_name,
-                        resolved_datum_name,
-                        spent_output_name,
-                        context_name,
-                    )
-                )
                 if datum_loading_strategy == "attachment":
+                    branch_body.append(
+                        ast.AnnAssign(
+                            target=ast.Name(id=resolved_datum_name, ctx=ast.Store()),
+                            annotation=ast.Name(id="OutputDatum", ctx=ast.Load()),
+                            value=ast.Call(
+                                func=ast.Name(id="own_datum", ctx=ast.Load()),
+                                args=[ast.Name(id=context_name, ctx=ast.Load())],
+                                keywords=[],
+                            ),
+                            simple=1,
+                        )
+                    )
                     branch_body.append(
                         ast.AnnAssign(
                             target=ast.Name(id=datum_name, ctx=ast.Store()),
@@ -701,6 +581,18 @@ class RewriteContractMethods(CompilingNodeTransformer):
                     )
                     raw_datum_annotation = self._annotation_without_member(
                         datum_annotation, "NoOutputDatum"
+                    )
+                    branch_body.append(
+                        ast.AnnAssign(
+                            target=ast.Name(id=resolved_datum_name, ctx=ast.Store()),
+                            annotation=ast.Name(id="OutputDatum", ctx=ast.Load()),
+                            value=ast.Call(
+                                func=ast.Name(id="own_datum", ctx=ast.Load()),
+                                args=[ast.Name(id=context_name, ctx=ast.Load())],
+                                keywords=[],
+                            ),
+                            simple=1,
+                        )
                     )
                     branch_body.append(
                         ast.If(
@@ -777,28 +669,13 @@ class RewriteContractMethods(CompilingNodeTransformer):
                     )
                 else:
                     branch_body.append(
-                        ast.Assert(
-                            test=ast.Call(
-                                func=ast.Name(id="isinstance", ctx=ast.Load()),
-                                args=[
-                                    ast.Name(id=resolved_datum_name, ctx=ast.Load()),
-                                    ast.Name(id="SomeOutputDatum", ctx=ast.Load()),
-                                ],
-                                keywords=[],
-                            ),
-                            msg=ast.Constant(
-                                value="No datum was attached to the UTxO being spent by this Contract."
-                            ),
-                        )
-                    )
-                    branch_body.append(
                         ast.AnnAssign(
                             target=ast.Name(id=datum_name, ctx=ast.Store()),
                             annotation=datum_annotation,
-                            value=ast.Attribute(
-                                value=ast.Name(id=resolved_datum_name, ctx=ast.Load()),
-                                attr="datum",
-                                ctx=ast.Load(),
+                            value=ast.Call(
+                                func=ast.Name(id="own_datum_unsafe", ctx=ast.Load()),
+                                args=[ast.Name(id=context_name, ctx=ast.Load())],
+                                keywords=[],
                             ),
                             simple=1,
                         )

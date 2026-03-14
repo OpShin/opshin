@@ -8,6 +8,8 @@ from .prelude import (
     ScriptContext,
     SomeOutputDatum,
     SomeOutputDatumHash,
+    own_datum,
+    own_datum_unsafe,
 )
 
 
@@ -21,7 +23,8 @@ class ContractMethodSpec:
 
 CONTRACT_METHOD_SPECS = (
     ContractMethodSpec("raw", None, "any", 1),
-    ContractMethodSpec("spend", Spending, "spending", 3),
+    ContractMethodSpec("spend", Spending, "spending", 2),
+    ContractMethodSpec("spend_with_datum", Spending, "spending", 3),
     ContractMethodSpec("mint", Minting, "minting", 2),
     ContractMethodSpec("withdraw", Withdrawing, "rewarding", 2),
     ContractMethodSpec("publish", Publishing, "certifying", 2),
@@ -64,32 +67,6 @@ def _datum_loading_strategy(annotation: typing.Any) -> str:
     return "optional_raw"
 
 
-def _resolve_spent_output(context: ScriptContext):
-    purpose = context.purpose
-    assert isinstance(
-        purpose, Spending
-    ), "Contract spend entrypoints require a spending script context."
-    return [
-        tx_input.resolved
-        for tx_input in context.transaction.inputs
-        if tx_input.out_ref == purpose.tx_out_ref
-    ][0]
-
-
-def _resolve_output_datum(context: ScriptContext):
-    attached_datum = _resolve_spent_output(context).datum
-    if isinstance(attached_datum, SomeOutputDatumHash):
-        return SomeOutputDatum(context.transaction.datums[attached_datum.datum_hash])
-    return attached_datum
-
-
-def _resolve_output_datum_unsafe(context: ScriptContext):
-    attached_datum = _resolve_output_datum(context)
-    if isinstance(attached_datum, SomeOutputDatum):
-        return attached_datum.datum
-    assert False, "No datum was attached to the UTxO being spent by this Contract."
-
-
 @dataclasses.dataclass(frozen=True)
 class ContractModuleInfo:
     validator: typing.Callable
@@ -105,7 +82,7 @@ class ContractModuleInfo:
         spending_methods = [
             detail
             for detail in self.method_details
-            if detail.spec.method_name == "spend"
+            if detail.spec.method_name == "spend_with_datum"
         ]
         if not spending_methods:
             return None
@@ -228,17 +205,19 @@ def _build_contract_validator(
             if not isinstance(purpose, detail.spec.purpose_class):
                 continue
             if detail.spec.method_name == "spend":
+                return detail.method(contract, context.redeemer, context)
+            if detail.spec.method_name == "spend_with_datum":
                 datum_loading_strategy = _datum_loading_strategy(detail.datum_type)
                 if datum_loading_strategy == "attachment":
-                    datum = _resolve_output_datum(context)
+                    datum = own_datum(context)
                 elif datum_loading_strategy == "optional_raw":
-                    attached_datum = _resolve_output_datum(context)
+                    attached_datum = own_datum(context)
                     if isinstance(attached_datum, SomeOutputDatum):
                         datum = attached_datum.datum
                     else:
                         datum = attached_datum
                 else:
-                    datum = _resolve_output_datum_unsafe(context)
+                    datum = own_datum_unsafe(context)
                 return detail.method(contract, datum, context.redeemer, context)
             return detail.method(contract, context.redeemer, context)
         assert False, "Unsupported script purpose for Contract"
@@ -315,6 +294,14 @@ def discover_contract_module(module) -> typing.Optional[ContractModuleInfo]:
         assert (
             len(method_details) == 1
         ), "Contract may define either raw or purpose-specific entrypoints, not both."
+    spending_methods = [
+        detail
+        for detail in method_details
+        if detail.spec.method_name in ("spend", "spend_with_datum")
+    ]
+    assert (
+        len(spending_methods) <= 1
+    ), "Contract may define at most one spending entrypoint: spend or spend_with_datum."
     generated_validator = _build_contract_validator(
         contract_class,
         parameter_types,

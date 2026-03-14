@@ -99,11 +99,24 @@ from opshin.prelude import *
 class Contract:
     offset: int
 
-    def spend(self, datum: int, redeemer: int, context: ScriptContext) -> int:
+    def spend_with_datum(
+        self, datum: int, redeemer: int, context: ScriptContext
+    ) -> int:
         return datum + redeemer + self.offset
 
     def mint(self, redeemer: int, context: ScriptContext) -> int:
         return redeemer * self.offset
+"""
+
+SPEND_WITHOUT_DATUM_SOURCE = """
+from opshin.prelude import *
+
+@dataclass()
+class Contract:
+    offset: int
+
+    def spend(self, redeemer: int, context: ScriptContext) -> int:
+        return redeemer + self.offset
 """
 
 RAW_CONTRACT_SOURCE = """
@@ -161,7 +174,7 @@ from opshin.prelude import *
 class Contract:
     offset: int
 
-    def spend(
+    def spend_with_datum(
         self, datum: Union[int, NoOutputDatum], redeemer: int, context: ScriptContext
     ) -> int:
         if isinstance(datum, NoOutputDatum):
@@ -175,12 +188,26 @@ from opshin.prelude import *
 
 @dataclass()
 class Contract:
-    def spend(self, datum: OutputDatum, redeemer: int, context: ScriptContext) -> int:
+    def spend_with_datum(
+        self, datum: OutputDatum, redeemer: int, context: ScriptContext
+    ) -> int:
         if isinstance(datum, NoOutputDatum):
             return redeemer
         assert isinstance(datum, SomeOutputDatum)
         unwrapped_datum: int = datum.datum
         return unwrapped_datum + redeemer
+"""
+
+DOUBLE_SPENDING_ENTRYPOINTS_SOURCE = """
+from opshin.prelude import *
+
+@dataclass()
+class Contract:
+    def spend(self, redeemer: int, context: ScriptContext) -> int:
+        return redeemer
+
+    def spend_with_datum(self, datum: int, redeemer: int, context: ScriptContext) -> int:
+        return datum + redeemer
 """
 
 HELPER_METHOD_CONTRACT_SOURCE = """
@@ -210,9 +237,15 @@ class Contract:
 
 
 class ContractClassTests(unittest.TestCase):
-    def test_contract_spend_dispatches_through_validator(self):
+    def test_contract_spend_with_datum_dispatches_through_validator(self):
         ret = eval_uplc_value(CONTRACT_SOURCE, 7, make_spending_context(2, 3))
         self.assertEqual(ret, 12)
+
+    def test_contract_spend_dispatches_without_loading_datum(self):
+        ret = eval_uplc_value(
+            SPEND_WITHOUT_DATUM_SOURCE, 7, make_spending_context_without_datum(3)
+        )
+        self.assertEqual(ret, 10)
 
     def test_contract_mint_dispatches_through_validator(self):
         ret = eval_uplc_value(CONTRACT_SOURCE, 5, make_minting_context(4))
@@ -277,6 +310,15 @@ class ContractClassTests(unittest.TestCase):
             contract_info.validator(3, make_spending_context_without_datum(7)), -4
         )
 
+    def test_runtime_contract_discovery_builds_spend_without_datum_validator(self):
+        module = types.ModuleType("contract_module")
+        exec(SPEND_WITHOUT_DATUM_SOURCE, module.__dict__)
+        contract_info = discover_contract_module(module)
+        self.assertIsNotNone(contract_info)
+        self.assertEqual(
+            contract_info.validator(3, make_spending_context_without_datum(7)), 10
+        )
+
     def test_contract_handles_parameter_name_collisions(self):
         ret = eval_uplc_value(
             COLLIDING_NAMES_CONTRACT_SOURCE,
@@ -323,6 +365,12 @@ class ContractClassTests(unittest.TestCase):
         with self.assertRaises(AssertionError):
             discover_contract_module(module)
 
+    def test_runtime_contract_discovery_rejects_double_spending_entrypoints(self):
+        module = types.ModuleType("contract_module")
+        exec(DOUBLE_SPENDING_ENTRYPOINTS_SOURCE, module.__dict__)
+        with self.assertRaises(AssertionError):
+            discover_contract_module(module)
+
     def test_contract_rewrite_removes_contract_class(self):
         rewritten_module = RewriteContractMethods().visit(ast.parse(CONTRACT_SOURCE))
         self.assertFalse(
@@ -344,3 +392,13 @@ class ContractClassTests(unittest.TestCase):
         internal_names = {name for name in bound_names if name.startswith("__contract")}
         self.assertTrue(internal_names)
         self.assertTrue(all("+" in name for name in internal_names))
+
+    def test_contract_rewrite_uses_prelude_datum_helpers(self):
+        rewritten_module = RewriteContractMethods().visit(ast.parse(CONTRACT_SOURCE))
+        helper_calls = {
+            node.func.id
+            for node in ast.walk(rewritten_module)
+            if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
+        }
+        self.assertIn("own_datum_unsafe", helper_calls)
+        self.assertNotIn("own_datum", helper_calls)
