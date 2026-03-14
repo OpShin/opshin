@@ -32,7 +32,6 @@ OPT_O1_CONFIG = (
     .update(pluthon.OPT_O1_CONFIG)
     .update(
         remove_dead_code=True,
-        adjacent_inline=False,
     )
 )
 OPT_O2_CONFIG = (
@@ -42,7 +41,6 @@ OPT_O2_CONFIG = (
     .update(
         constant_folding=True,
         fast_access_skip=5,
-        adjacent_inline=False,
     )
 )
 OPT_O3_CONFIG = (

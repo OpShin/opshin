@@ -93,7 +93,7 @@ class RewriteAdjacentInline(ScopedSequenceNodeTransformer):
             return node.value, "value"
         return None, None
 
-    def _inline_pair(self, assignment: stmt, use_statement: stmt, *, allow_embedded_use: bool):
+    def _inline_pair(self, assignment: stmt, use_statement: stmt):
         if not (
             isinstance(assignment, Assign)
             and len(assignment.targets) == 1
@@ -105,13 +105,9 @@ class RewriteAdjacentInline(ScopedSequenceNodeTransformer):
         use_expr, field_name = self._extract_expression(use_statement)
         if use_expr is None:
             return None
-        if allow_embedded_use:
-            if self._load_count(use_expr, assigned_name) != 1 or self._guaranteed_load_count(use_expr, assigned_name) != 1:
-                return None
-        elif not (
-            isinstance(use_expr, Name)
-            and isinstance(use_expr.ctx, Load)
-            and use_expr.id == assigned_name
+        if (
+            self._load_count(use_expr, assigned_name) != 1
+            or self._guaranteed_load_count(use_expr, assigned_name) != 1
         ):
             return None
 
@@ -125,54 +121,45 @@ class RewriteAdjacentInline(ScopedSequenceNodeTransformer):
     def visit_sequence(self, body: list[stmt]) -> list[stmt]:
         statements = super().visit_sequence(body)
 
-        while True:
-            rewritten = []
-            changed = False
-            index = 0
-            while index < len(statements):
-                statement = statements[index]
-                if (
-                    isinstance(statement, Assign)
-                    and len(statement.targets) == 1
-                    and isinstance(statement.targets[0], Name)
-                ):
-                    assigned_name = statement.targets[0].id
-                    use_index = None
-                    for candidate_index in range(index + 1, len(statements)):
-                        if self._mentioned_in_statement(
-                            statements[candidate_index], assigned_name
-                        ):
-                            use_index = candidate_index
-                            break
-                    if (
-                        use_index is not None
-                        and not self._mentioned_later(
-                            statements[use_index + 1 :], assigned_name
-                        )
+        rewritten = []
+        index = 0
+        while index < len(statements):
+            statement = statements[index]
+            if (
+                isinstance(statement, Assign)
+                and len(statement.targets) == 1
+                and isinstance(statement.targets[0], Name)
+            ):
+                assigned_name = statement.targets[0].id
+                use_index = None
+                for candidate_index in range(index + 1, len(statements)):
+                    if self._mentioned_in_statement(
+                        statements[candidate_index], assigned_name
                     ):
-                        between = statements[index + 1 : use_index]
-                        allow_embedded_use = True
-                        if self._dependencies_reassigned(
-                            between, statement.value, assigned_name
-                        ):
-                            inlined = None
-                        else:
-                            inlined = self._inline_pair(
-                                statement,
-                                statements[use_index],
-                                allow_embedded_use=allow_embedded_use,
-                            )
+                        use_index = candidate_index
+                        break
+                if (
+                    use_index is not None
+                    and not self._mentioned_later(
+                        statements[use_index + 1 :], assigned_name
+                    )
+                ):
+                    between = statements[index + 1 : use_index]
+                    if not self._dependencies_reassigned(
+                        between, statement.value, assigned_name
+                    ):
+                        inlined = self._inline_pair(
+                            statement,
+                            statements[use_index],
+                        )
                         if inlined is not None:
                             rewritten.extend(statements[index + 1 : use_index])
                             rewritten.append(inlined)
                             index = use_index + 1
-                            changed = True
                             continue
-                rewritten.append(statements[index])
-                index += 1
-            statements = rewritten
-            if not changed:
-                return statements
+            rewritten.append(statements[index])
+            index += 1
+        return rewritten
 
     def visit_While(self, node: While):
         node_cp = copy(node)
