@@ -113,7 +113,7 @@ def validate_script(
 class Contract:
     script: Script
 
-    def spend(self, _redeemer: Anything, context: ScriptContext) -> None:
+    def raw(self, context: ScriptContext) -> None:
         assert validate_script(
             self.script,
             context.transaction.signatories,

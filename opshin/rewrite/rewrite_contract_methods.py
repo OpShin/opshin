@@ -428,10 +428,6 @@ class RewriteContractMethods(CompilingNodeTransformer):
             if isinstance(annotation.slice, ast.Tuple):
                 return list(annotation.slice.elts)
             return [annotation.slice]
-        if isinstance(annotation, ast.BinOp) and isinstance(annotation.op, ast.BitOr):
-            return self._annotation_union_members(
-                annotation.left
-            ) + self._annotation_union_members(annotation.right)
         return [annotation]
 
     def _datum_loading_strategy(self, annotation):
@@ -474,10 +470,7 @@ class RewriteContractMethods(CompilingNodeTransformer):
                 slice=ast.Tuple(elts=remaining_members, ctx=ast.Load()),
                 ctx=ast.Load(),
             )
-        result = remaining_members[0]
-        for member in remaining_members[1:]:
-            result = ast.BinOp(left=result, op=ast.BitOr(), right=member)
-        return result
+        assert False, "Contract datum unions must use typing.Union syntax."
 
     def _validator_body(
         self,
