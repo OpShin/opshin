@@ -68,9 +68,19 @@ class WrappedToken(Contract):
     token_name: bytes
     wrapping_factor: int
 
-    def validate_wrapping(
-        self, own_addr: Address, own_pid: PolicyId, ctx: ScriptContext
-    ) -> None:
+    def raw(self, ctx: ScriptContext) -> None:
+        purpose = ctx.purpose
+        if isinstance(purpose, Minting):
+            # whenever tokens should be burned/minted, the minting purpose will be triggered
+            own_addr = own_address(purpose.policy_id)
+            own_pid = purpose.policy_id
+        elif isinstance(purpose, Spending):
+            # whenever something is unlocked from the contract, the spending purpose will be triggered
+            own_utxo = own_spent_utxo(ctx.transaction.inputs, purpose)
+            own_pid = own_policy_id(own_utxo)
+            own_addr = own_utxo.address
+        else:
+            assert False, "Incorrect purpose given"
         token = Token(self.token_policy_id, self.token_name)
         all_locked = all_tokens_locked_at_contract_address(
             ctx.transaction.outputs, own_addr, token
@@ -87,16 +97,3 @@ class WrappedToken(Contract):
         assert (
             (all_locked - all_unlocked) * self.wrapping_factor
         ) == all_minted, f"Wrong amount of tokens minted, difference: {(all_locked - all_unlocked) * self.wrapping_factor - all_minted}"
-
-    def mint(self, _redeemer: Anything, ctx: ScriptContext) -> None:
-        purpose = ctx.purpose
-        assert isinstance(purpose, Minting), "Incorrect purpose given"
-        # whenever tokens should be burned/minted, the minting purpose will be triggered
-        self.validate_wrapping(own_address(purpose.policy_id), purpose.policy_id, ctx)
-
-    def spend_no_datum(self, _redeemer: Anything, ctx: ScriptContext) -> None:
-        purpose = ctx.purpose
-        assert isinstance(purpose, Spending), "Incorrect purpose given"
-        # whenever something is unlocked from the contract, the spending purpose will be triggered
-        own_utxo = own_spent_utxo(ctx.transaction.inputs, purpose)
-        self.validate_wrapping(own_utxo.address, own_policy_id(own_utxo), ctx)
