@@ -11,5 +11,5 @@ from opshin.prelude import *
 class Contract:
     parameter: int
 
-    def spend(self, redeemer: int, _context: ScriptContext) -> None:
+    def spend_no_datum(self, redeemer: int, _context: ScriptContext) -> None:
         assert redeemer == self.parameter, "Wrong redeemer"

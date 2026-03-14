@@ -115,7 +115,7 @@ from opshin.prelude import *
 class Contract:
     offset: int
 
-    def spend(self, redeemer: int, context: ScriptContext) -> int:
+    def spend_no_datum(self, redeemer: int, context: ScriptContext) -> int:
         return redeemer + self.offset
 """
 
@@ -165,24 +165,6 @@ class Contract:
         pass
 """
 
-OPTIONAL_DATUM_CONTRACT_SOURCE = """
-from typing import Union
-
-from opshin.prelude import *
-
-@dataclass()
-class Contract:
-    offset: int
-
-    def spend_with_datum(
-        self, datum: Union[int, NoOutputDatum], redeemer: int, context: ScriptContext
-    ) -> int:
-        if isinstance(datum, NoOutputDatum):
-            return self.offset - redeemer
-        else:
-            return datum + redeemer + self.offset
-"""
-
 OUTPUT_DATUM_CONTRACT_SOURCE = """
 from opshin.prelude import *
 
@@ -203,11 +185,26 @@ from opshin.prelude import *
 
 @dataclass()
 class Contract:
-    def spend(self, redeemer: int, context: ScriptContext) -> int:
+    def spend_no_datum(self, redeemer: int, context: ScriptContext) -> int:
         return redeemer
 
     def spend_with_datum(self, datum: int, redeemer: int, context: ScriptContext) -> int:
         return datum + redeemer
+"""
+
+INVALID_OPTIONAL_DATUM_CONTRACT_SOURCE = """
+from typing import Union
+
+from opshin.prelude import *
+
+@dataclass()
+class Contract:
+    offset: int
+
+    def spend_with_datum(
+        self, datum: Union[int, NoOutputDatum], redeemer: int, context: ScriptContext
+    ) -> int:
+        return self.offset + redeemer
 """
 
 HELPER_METHOD_CONTRACT_SOURCE = """
@@ -241,7 +238,7 @@ class ContractClassTests(unittest.TestCase):
         ret = eval_uplc_value(CONTRACT_SOURCE, 7, make_spending_context(2, 3))
         self.assertEqual(ret, 12)
 
-    def test_contract_spend_dispatches_without_loading_datum(self):
+    def test_contract_spend_no_datum_dispatches_without_loading_datum(self):
         ret = eval_uplc_value(
             SPEND_WITHOUT_DATUM_SOURCE, 7, make_spending_context_without_datum(3)
         )
@@ -255,25 +252,9 @@ class ContractClassTests(unittest.TestCase):
         ret = eval_uplc_value(RAW_CONTRACT_SOURCE, 5, make_minting_context(4))
         self.assertEqual(ret, 9)
 
-    def test_contract_spend_supports_optional_raw_datum(self):
-        with_datum = eval_uplc_value(
-            OPTIONAL_DATUM_CONTRACT_SOURCE, 5, make_spending_context(2, 3)
-        )
-        without_datum = eval_uplc_value(
-            OPTIONAL_DATUM_CONTRACT_SOURCE, 5, make_spending_context_without_datum(3)
-        )
-        self.assertEqual(with_datum, 10)
-        self.assertEqual(without_datum, 2)
-
     def test_contract_spend_supports_output_datum_annotation(self):
-        with_datum = eval_uplc_value(
-            OUTPUT_DATUM_CONTRACT_SOURCE, make_spending_context(2, 3)
-        )
-        without_datum = eval_uplc_value(
-            OUTPUT_DATUM_CONTRACT_SOURCE, make_spending_context_without_datum(3)
-        )
-        self.assertEqual(with_datum, 5)
-        self.assertEqual(without_datum, 3)
+        ret = eval_uplc_value(OUTPUT_DATUM_CONTRACT_SOURCE, make_spending_context(2, 3))
+        self.assertEqual(ret, 5)
 
     def test_contract_helper_methods_are_lifted(self):
         ret = eval_uplc_value(HELPER_METHOD_CONTRACT_SOURCE, 5, make_minting_context(4))
@@ -301,16 +282,7 @@ class ContractClassTests(unittest.TestCase):
         self.assertEqual(contract_info.purpose_names, ("any",))
         self.assertEqual(contract_info.validator(3, make_minting_context(6)), 9)
 
-    def test_runtime_contract_discovery_builds_optional_datum_validator(self):
-        module = types.ModuleType("contract_module")
-        exec(OPTIONAL_DATUM_CONTRACT_SOURCE, module.__dict__)
-        contract_info = discover_contract_module(module)
-        self.assertIsNotNone(contract_info)
-        self.assertEqual(
-            contract_info.validator(3, make_spending_context_without_datum(7)), -4
-        )
-
-    def test_runtime_contract_discovery_builds_spend_without_datum_validator(self):
+    def test_runtime_contract_discovery_builds_spend_no_datum_validator(self):
         module = types.ModuleType("contract_module")
         exec(SPEND_WITHOUT_DATUM_SOURCE, module.__dict__)
         contract_info = discover_contract_module(module)
@@ -365,9 +337,26 @@ class ContractClassTests(unittest.TestCase):
         with self.assertRaises(AssertionError):
             discover_contract_module(module)
 
-    def test_runtime_contract_discovery_rejects_double_spending_entrypoints(self):
+    def test_runtime_contract_discovery_dispatches_between_spending_entrypoints(self):
         module = types.ModuleType("contract_module")
         exec(DOUBLE_SPENDING_ENTRYPOINTS_SOURCE, module.__dict__)
+        contract_info = discover_contract_module(module)
+        self.assertIsNotNone(contract_info)
+        self.assertEqual(
+            contract_info.validator(make_spending_context_without_datum(7)), 7
+        )
+        self.assertEqual(contract_info.validator(make_spending_context(5, 7)), 12)
+
+    def test_contract_rejects_optional_nooutputdatum_union(self):
+        with self.assertRaises(CompilerError) as exc:
+            eval_uplc_value(
+                INVALID_OPTIONAL_DATUM_CONTRACT_SOURCE, 5, make_spending_context(2, 3)
+            )
+        self.assertIsInstance(exc.exception.orig_err, AssertionError)
+
+    def test_runtime_contract_discovery_rejects_optional_nooutputdatum_union(self):
+        module = types.ModuleType("contract_module")
+        exec(INVALID_OPTIONAL_DATUM_CONTRACT_SOURCE, module.__dict__)
         with self.assertRaises(AssertionError):
             discover_contract_module(module)
 
@@ -400,5 +389,4 @@ class ContractClassTests(unittest.TestCase):
             for node in ast.walk(rewritten_module)
             if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
         }
-        self.assertIn("own_datum_unsafe", helper_calls)
-        self.assertNotIn("own_datum", helper_calls)
+        self.assertIn("own_datum", helper_calls)

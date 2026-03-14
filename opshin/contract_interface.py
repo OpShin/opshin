@@ -9,7 +9,6 @@ from .prelude import (
     SomeOutputDatum,
     SomeOutputDatumHash,
     own_datum,
-    own_datum_unsafe,
 )
 
 
@@ -23,7 +22,7 @@ class ContractMethodSpec:
 
 CONTRACT_METHOD_SPECS = (
     ContractMethodSpec("raw", None, "any", 1),
-    ContractMethodSpec("spend", Spending, "spending", 2),
+    ContractMethodSpec("spend_no_datum", Spending, "spending", 2),
     ContractMethodSpec("spend_with_datum", Spending, "spending", 3),
     ContractMethodSpec("mint", Minting, "minting", 2),
     ContractMethodSpec("withdraw", Withdrawing, "rewarding", 2),
@@ -48,23 +47,17 @@ class ContractMethodDetails:
     return_type: typing.Any
 
 
-def _annotation_union_members(annotation: typing.Any) -> typing.Tuple[typing.Any, ...]:
+def _datum_loading_strategy(annotation: typing.Any) -> str:
     origin = typing.get_origin(annotation)
     if origin is typing.Union:
-        return typing.get_args(annotation)
-    return ()
-
-
-def _datum_loading_strategy(annotation: typing.Any) -> str:
-    union_members = _annotation_union_members(annotation)
-    if not union_members:
-        return "unsafe_raw"
-    if NoOutputDatum not in union_members:
-        return "unsafe_raw"
-    attachment_types = {NoOutputDatum, SomeOutputDatum, SomeOutputDatumHash}
-    if all(member in attachment_types for member in union_members):
-        return "attachment"
-    return "optional_raw"
+        union_members = typing.get_args(annotation)
+        attachment_types = {NoOutputDatum, SomeOutputDatum, SomeOutputDatumHash}
+        if all(member in attachment_types for member in union_members):
+            return "attachment"
+        assert (
+            NoOutputDatum not in union_members
+        ), "Contracts must use spend_no_datum instead of Union[..., NoOutputDatum]."
+    return "unsafe_raw"
 
 
 @dataclasses.dataclass(frozen=True)
@@ -156,6 +149,8 @@ def _method_annotations(
     redeemer_type = None
     if onchain_argument_count == 3:
         datum_type = method_parameters[0].annotation
+        if datum_type is not inspect.Signature.empty:
+            _datum_loading_strategy(datum_type)
         redeemer_type = method_parameters[1].annotation
     elif onchain_argument_count == 2:
         redeemer_type = method_parameters[0].annotation
@@ -198,27 +193,48 @@ def _build_contract_validator(
             ), "Contract may only define one raw entrypoint method."
             return raw_methods[0].method(contract, context)
         purpose = context.purpose
+        spending_methods = {
+            detail.spec.method_name: detail
+            for detail in method_details
+            if detail.spec.purpose_class is Spending
+        }
+        if isinstance(purpose, Spending) and spending_methods:
+            if (
+                "spend_no_datum" in spending_methods
+                and "spend_with_datum" not in spending_methods
+            ):
+                return spending_methods["spend_no_datum"].method(
+                    contract, context.redeemer, context
+                )
+            attached_datum = own_datum(context)
+            if isinstance(attached_datum, NoOutputDatum):
+                spend_no_datum = spending_methods.get("spend_no_datum")
+                assert (
+                    spend_no_datum is not None
+                ), "No datum was attached to the UTxO being spent by this Contract."
+                return spend_no_datum.method(contract, context.redeemer, context)
+            spend_with_datum = spending_methods.get("spend_with_datum")
+            if spend_with_datum is None:
+                spend_no_datum = spending_methods.get("spend_no_datum")
+                assert (
+                    spend_no_datum is not None
+                ), "Contract has no spending entrypoint for attached datums."
+                return spend_no_datum.method(contract, context.redeemer, context)
+            datum_loading_strategy = _datum_loading_strategy(
+                spend_with_datum.datum_type
+            )
+            datum = (
+                attached_datum
+                if datum_loading_strategy == "attachment"
+                else attached_datum.datum
+            )
+            return spend_with_datum.method(contract, datum, context.redeemer, context)
         for detail in method_details:
             assert (
                 detail.spec.purpose_class is not None
             ), "Non-raw Contract entrypoint methods must define a script purpose."
             if not isinstance(purpose, detail.spec.purpose_class):
                 continue
-            if detail.spec.method_name == "spend":
-                return detail.method(contract, context.redeemer, context)
-            if detail.spec.method_name == "spend_with_datum":
-                datum_loading_strategy = _datum_loading_strategy(detail.datum_type)
-                if datum_loading_strategy == "attachment":
-                    datum = own_datum(context)
-                elif datum_loading_strategy == "optional_raw":
-                    attached_datum = own_datum(context)
-                    if isinstance(attached_datum, SomeOutputDatum):
-                        datum = attached_datum.datum
-                    else:
-                        datum = attached_datum
-                else:
-                    datum = own_datum_unsafe(context)
-                return detail.method(contract, datum, context.redeemer, context)
             return detail.method(contract, context.redeemer, context)
         assert False, "Unsupported script purpose for Contract"
 
@@ -294,14 +310,6 @@ def discover_contract_module(module) -> typing.Optional[ContractModuleInfo]:
         assert (
             len(method_details) == 1
         ), "Contract may define either raw or purpose-specific entrypoints, not both."
-    spending_methods = [
-        detail
-        for detail in method_details
-        if detail.spec.method_name in ("spend", "spend_with_datum")
-    ]
-    assert (
-        len(spending_methods) <= 1
-    ), "Contract may define at most one spending entrypoint: spend or spend_with_datum."
     generated_validator = _build_contract_validator(
         contract_class,
         parameter_types,

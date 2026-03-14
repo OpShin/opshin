@@ -5,14 +5,15 @@ from opshin.std.math import *
 
 @dataclass()
 class Contract:
+    def spend_no_datum(self, _redeemer: int, _context: ScriptContext) -> None:
+        return
+
     def spend_with_datum(
-        self, datum: Union[int, NoOutputDatum], redeemer: int, _context: ScriptContext
+        self, datum: int, redeemer: int, _context: ScriptContext
     ) -> None:
         """
         A contract that checks whether the bitwise AND of the datum and redeemer is zero.
         """
-        if isinstance(datum, NoOutputDatum):
-            return
         datum_bytes = bytes_big_from_unsigned_int(datum)
         redeemer_bytes = bytes_big_from_unsigned_int(redeemer)
         # compute the bitwise XOR of the two byte arrays

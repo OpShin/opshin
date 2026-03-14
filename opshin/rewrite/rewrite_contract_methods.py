@@ -223,17 +223,6 @@ class RewriteContractMethods(CompilingNodeTransformer):
             self._check_method_signature(
                 contract_methods[supported_method.method_name], supported_method
             )
-        spending_method_names = {"spend", "spend_with_datum"}
-        assert (
-            len(
-                [
-                    supported_method
-                    for supported_method in supported_methods
-                    if supported_method.method_name in spending_method_names
-                ]
-            )
-            <= 1
-        ), "Contract may define at most one spending entrypoint: spend or spend_with_datum."
         assert not any(
             (
                 isinstance(statement, ast.AnnAssign)
@@ -434,43 +423,18 @@ class RewriteContractMethods(CompilingNodeTransformer):
         if isinstance(annotation, ast.Name) and annotation.id == "OutputDatum":
             return "attachment"
         union_members = self._annotation_union_members(annotation)
-        if len(union_members) == 1 and union_members[0] is annotation:
-            return "unsafe_raw"
         member_names = {
             member.id for member in union_members if isinstance(member, ast.Name)
         }
-        if "NoOutputDatum" not in member_names:
-            return "unsafe_raw"
         attachment_names = {"NoOutputDatum", "SomeOutputDatum", "SomeOutputDatumHash"}
         if len(member_names) == len(union_members) and member_names.issubset(
             attachment_names
         ):
             return "attachment"
-        return "optional_raw"
-
-    def _annotation_without_member(self, annotation, member_name):
-        union_members = self._annotation_union_members(annotation)
-        remaining_members = [
-            deepcopy(member)
-            for member in union_members
-            if not (isinstance(member, ast.Name) and member.id == member_name)
-        ]
-        if len(remaining_members) == len(union_members):
-            return deepcopy(annotation)
-        assert remaining_members, "Expected at least one remaining union member."
-        if len(remaining_members) == 1:
-            return remaining_members[0]
-        if (
-            isinstance(annotation, ast.Subscript)
-            and isinstance(annotation.value, ast.Name)
-            and annotation.value.id == "Union"
-        ):
-            return ast.Subscript(
-                value=ast.Name(id="Union", ctx=ast.Load()),
-                slice=ast.Tuple(elts=remaining_members, ctx=ast.Load()),
-                ctx=ast.Load(),
-            )
-        assert False, "Contract datum unions must use typing.Union syntax."
+        assert (
+            "NoOutputDatum" not in member_names
+        ), "Contracts must use spend_no_datum instead of Union[..., NoOutputDatum]."
+        return "unsafe_raw"
 
     def _validator_body(
         self,
@@ -509,33 +473,69 @@ class RewriteContractMethods(CompilingNodeTransformer):
             )
         )
         current_branch = None
-        for index, supported_method in enumerate(supported_methods):
-            method = contract_methods[supported_method.method_name]
-            method_argument_names = [argument.arg for argument in method.args.args[1:]]
-            branch_names = method_argument_name_maps[supported_method.method_name]
-            branch_used_names = set(used_names) | set(branch_names.values())
-            branch_body = []
-            context_name = branch_names[method_argument_names[-1]]
-            if context_name != context_argument_name:
-                branch_body.append(
-                    ast.Assign(
-                        targets=[ast.Name(id=context_name, ctx=ast.Store())],
-                        value=ast.Name(id=context_argument_name, ctx=ast.Load()),
+        branch_specs = []
+        spending_methods = [
+            supported_method
+            for supported_method in supported_methods
+            if supported_method.purpose_class.__name__ == "Spending"
+        ]
+        other_methods = [
+            supported_method
+            for supported_method in supported_methods
+            if supported_method.purpose_class.__name__ != "Spending"
+        ]
+        if spending_methods:
+            spend_no_datum_method = next(
+                (
+                    method
+                    for method in spending_methods
+                    if method.method_name == "spend_no_datum"
+                ),
+                None,
+            )
+            spend_with_datum_method = next(
+                (
+                    method
+                    for method in spending_methods
+                    if method.method_name == "spend_with_datum"
+                ),
+                None,
+            )
+            spending_used_names = set(used_names)
+            spending_body = []
+            attached_datum_name = None
+            if spend_with_datum_method is not None:
+                attached_datum_name = self._make_reserved_name(
+                    "attached_datum", spending_used_names
+                )
+                spending_used_names.add(attached_datum_name)
+                spending_body.append(
+                    ast.AnnAssign(
+                        target=ast.Name(id=attached_datum_name, ctx=ast.Store()),
+                        annotation=ast.Name(id="OutputDatum", ctx=ast.Load()),
+                        value=ast.Call(
+                            func=ast.Name(id="own_datum", ctx=ast.Load()),
+                            args=[ast.Name(id=context_argument_name, ctx=ast.Load())],
+                            keywords=[],
+                        ),
+                        simple=1,
                     )
                 )
-            if supported_method.method_name == "spend_with_datum":
-                datum_argument_name = method_argument_names[0]
-                redeemer_argument_name = method_argument_names[1]
-                datum_name = branch_names[datum_argument_name]
-                redeemer_name = branch_names[redeemer_argument_name]
-                datum_annotation = deepcopy(method.args.args[1].annotation)
-                redeemer_annotation = deepcopy(method.args.args[2].annotation)
-                datum_loading_strategy = self._datum_loading_strategy(datum_annotation)
-                resolved_datum_name = self._make_reserved_name(
-                    "datum", branch_used_names
-                )
-                branch_used_names.add(resolved_datum_name)
-                branch_body.append(
+            if spend_no_datum_method is not None:
+                method = contract_methods["spend_no_datum"]
+                branch_names = method_argument_name_maps["spend_no_datum"]
+                redeemer_name = branch_names[method.args.args[1].arg]
+                context_name = branch_names[method.args.args[2].arg]
+                redeemer_annotation = deepcopy(method.args.args[1].annotation)
+                no_datum_body = []
+                if context_name != context_argument_name:
+                    no_datum_body.append(
+                        ast.Assign(
+                            targets=[ast.Name(id=context_name, ctx=ast.Store())],
+                            value=ast.Name(id=context_argument_name, ctx=ast.Load()),
+                        )
+                    )
+                no_datum_body.append(
                     ast.AnnAssign(
                         target=ast.Name(id=redeemer_name, ctx=ast.Store()),
                         annotation=redeemer_annotation,
@@ -547,159 +547,151 @@ class RewriteContractMethods(CompilingNodeTransformer):
                         simple=1,
                     )
                 )
-                if datum_loading_strategy == "attachment":
-                    branch_body.append(
-                        ast.AnnAssign(
-                            target=ast.Name(id=resolved_datum_name, ctx=ast.Store()),
-                            annotation=ast.Name(id="OutputDatum", ctx=ast.Load()),
-                            value=ast.Call(
-                                func=ast.Name(id="own_datum", ctx=ast.Load()),
-                                args=[ast.Name(id=context_name, ctx=ast.Load())],
-                                keywords=[],
-                            ),
-                            simple=1,
-                        )
-                    )
-                    branch_body.append(
-                        ast.AnnAssign(
-                            target=ast.Name(id=datum_name, ctx=ast.Store()),
-                            annotation=datum_annotation,
-                            value=ast.Name(id=resolved_datum_name, ctx=ast.Load()),
-                            simple=1,
-                        )
-                    )
-                elif datum_loading_strategy == "optional_raw":
-                    unwrapped_datum_name = self._make_reserved_name(
-                        "unwrapped_datum", branch_used_names
-                    )
-                    raw_datum_annotation = self._annotation_without_member(
-                        datum_annotation, "NoOutputDatum"
-                    )
-                    branch_body.append(
-                        ast.AnnAssign(
-                            target=ast.Name(id=resolved_datum_name, ctx=ast.Store()),
-                            annotation=ast.Name(id="OutputDatum", ctx=ast.Load()),
-                            value=ast.Call(
-                                func=ast.Name(id="own_datum", ctx=ast.Load()),
-                                args=[ast.Name(id=context_name, ctx=ast.Load())],
-                                keywords=[],
-                            ),
-                            simple=1,
-                        )
-                    )
-                    branch_body.append(
+                no_datum_body.extend(
+                    deepcopy(rewritten_entrypoint_bodies["spend_no_datum"])
+                )
+                if attached_datum_name is None:
+                    spending_body.extend(no_datum_body)
+                    current_spending_branch = None
+                else:
+                    spending_body.append(
                         ast.If(
                             test=ast.Call(
                                 func=ast.Name(id="isinstance", ctx=ast.Load()),
                                 args=[
-                                    ast.Name(id=resolved_datum_name, ctx=ast.Load()),
-                                    ast.Name(id="SomeOutputDatum", ctx=ast.Load()),
+                                    ast.Name(id=attached_datum_name, ctx=ast.Load()),
+                                    ast.Name(id="NoOutputDatum", ctx=ast.Load()),
                                 ],
                                 keywords=[],
                             ),
-                            body=[
-                                ast.AnnAssign(
-                                    target=ast.Name(
-                                        id=unwrapped_datum_name, ctx=ast.Store()
-                                    ),
-                                    annotation=raw_datum_annotation,
-                                    value=ast.Attribute(
-                                        value=ast.Name(
-                                            id=resolved_datum_name, ctx=ast.Load()
-                                        ),
-                                        attr="datum",
-                                        ctx=ast.Load(),
-                                    ),
-                                    simple=1,
-                                ),
-                                ast.AnnAssign(
-                                    target=ast.Name(id=datum_name, ctx=ast.Store()),
-                                    annotation=deepcopy(datum_annotation),
-                                    value=ast.Name(
-                                        id=unwrapped_datum_name, ctx=ast.Load()
-                                    ),
-                                    simple=1,
-                                ),
-                            ]
-                            + deepcopy(
-                                rewritten_entrypoint_bodies[
-                                    supported_method.method_name
-                                ]
-                            ),
-                            orelse=[
-                                ast.Assert(
-                                    test=ast.Call(
-                                        func=ast.Name(id="isinstance", ctx=ast.Load()),
-                                        args=[
-                                            ast.Name(
-                                                id=resolved_datum_name,
-                                                ctx=ast.Load(),
-                                            ),
-                                            ast.Name(
-                                                id="NoOutputDatum",
-                                                ctx=ast.Load(),
-                                            ),
-                                        ],
-                                        keywords=[],
-                                    ),
-                                    msg=None,
-                                ),
-                                ast.AnnAssign(
-                                    target=ast.Name(id=datum_name, ctx=ast.Store()),
-                                    annotation=deepcopy(datum_annotation),
-                                    value=ast.Name(
-                                        id=resolved_datum_name, ctx=ast.Load()
-                                    ),
-                                    simple=1,
-                                ),
-                            ],
+                            body=no_datum_body,
+                            orelse=[],
                         )
                     )
-                    branch_body[-1].orelse.extend(
-                        deepcopy(
-                            rewritten_entrypoint_bodies[supported_method.method_name]
-                        )
-                    )
-                else:
-                    branch_body.append(
-                        ast.AnnAssign(
-                            target=ast.Name(id=datum_name, ctx=ast.Store()),
-                            annotation=datum_annotation,
-                            value=ast.Call(
-                                func=ast.Name(id="own_datum_unsafe", ctx=ast.Load()),
-                                args=[ast.Name(id=context_name, ctx=ast.Load())],
-                                keywords=[],
-                            ),
-                            simple=1,
-                        )
-                    )
-                if datum_loading_strategy != "optional_raw":
-                    branch_body.extend(
-                        deepcopy(
-                            rewritten_entrypoint_bodies[supported_method.method_name]
-                        )
-                    )
+                    current_spending_branch = spending_body[-1]
             else:
-                redeemer_argument_name = method_argument_names[0]
-                redeemer_name = branch_names[redeemer_argument_name]
-                redeemer_annotation = deepcopy(method.args.args[1].annotation)
-                branch_body.extend(
-                    [
-                        ast.AnnAssign(
-                            target=ast.Name(id=redeemer_name, ctx=ast.Store()),
-                            annotation=redeemer_annotation,
-                            value=ast.Attribute(
-                                value=ast.Name(id=context_name, ctx=ast.Load()),
-                                attr="redeemer",
-                                ctx=ast.Load(),
-                            ),
-                            simple=1,
+                spending_body.append(
+                    ast.Assert(
+                        test=ast.Call(
+                            func=ast.Name(id="isinstance", ctx=ast.Load()),
+                            args=[
+                                ast.Name(id=attached_datum_name, ctx=ast.Load()),
+                                ast.Name(id="SomeOutputDatum", ctx=ast.Load()),
+                            ],
+                            keywords=[],
                         ),
-                    ]
-                    + deepcopy(
-                        rewritten_entrypoint_bodies[supported_method.method_name]
+                        msg=ast.Constant(
+                            value="No datum was attached to the UTxO being spent by this Contract."
+                        ),
                     )
                 )
+                current_spending_branch = None
+            if spend_with_datum_method is not None:
+                method = contract_methods["spend_with_datum"]
+                branch_names = method_argument_name_maps["spend_with_datum"]
+                datum_name = branch_names[method.args.args[1].arg]
+                redeemer_name = branch_names[method.args.args[2].arg]
+                context_name = branch_names[method.args.args[3].arg]
+                datum_annotation = deepcopy(method.args.args[1].annotation)
+                redeemer_annotation = deepcopy(method.args.args[2].annotation)
+                datum_loading_strategy = self._datum_loading_strategy(datum_annotation)
+                with_datum_body = []
+                if context_name != context_argument_name:
+                    with_datum_body.append(
+                        ast.Assign(
+                            targets=[ast.Name(id=context_name, ctx=ast.Store())],
+                            value=ast.Name(id=context_argument_name, ctx=ast.Load()),
+                        )
+                    )
+                with_datum_body.append(
+                    ast.AnnAssign(
+                        target=ast.Name(id=redeemer_name, ctx=ast.Store()),
+                        annotation=redeemer_annotation,
+                        value=ast.Attribute(
+                            value=ast.Name(id=context_name, ctx=ast.Load()),
+                            attr="redeemer",
+                            ctx=ast.Load(),
+                        ),
+                        simple=1,
+                    )
+                )
+                with_datum_body.append(
+                    ast.Assert(
+                        test=ast.Call(
+                            func=ast.Name(id="isinstance", ctx=ast.Load()),
+                            args=[
+                                ast.Name(id=attached_datum_name, ctx=ast.Load()),
+                                ast.Name(id="SomeOutputDatum", ctx=ast.Load()),
+                            ],
+                            keywords=[],
+                        ),
+                        msg=ast.Constant(
+                            value="No datum was attached to the UTxO being spent by this Contract."
+                        ),
+                    )
+                    if datum_loading_strategy == "unsafe_raw"
+                    else ast.Pass()
+                )
+                with_datum_value = (
+                    ast.Name(id=attached_datum_name, ctx=ast.Load())
+                    if datum_loading_strategy == "attachment"
+                    else ast.Attribute(
+                        value=ast.Name(id=attached_datum_name, ctx=ast.Load()),
+                        attr="datum",
+                        ctx=ast.Load(),
+                    )
+                )
+                with_datum_body.append(
+                    ast.AnnAssign(
+                        target=ast.Name(id=datum_name, ctx=ast.Store()),
+                        annotation=datum_annotation,
+                        value=with_datum_value,
+                        simple=1,
+                    )
+                )
+                with_datum_body.extend(
+                    deepcopy(rewritten_entrypoint_bodies["spend_with_datum"])
+                )
+                if current_spending_branch is None:
+                    spending_body.extend(with_datum_body)
+                else:
+                    current_spending_branch.orelse = with_datum_body
+            elif current_spending_branch is not None:
+                current_spending_branch.orelse = deepcopy(no_datum_body)
+            branch_specs.append((spending_methods[0], spending_body))
+        for supported_method in other_methods:
+            method = contract_methods[supported_method.method_name]
+            method_argument_names = [argument.arg for argument in method.args.args[1:]]
+            branch_names = method_argument_name_maps[supported_method.method_name]
+            branch_body = []
+            context_name = branch_names[method_argument_names[-1]]
+            if context_name != context_argument_name:
+                branch_body.append(
+                    ast.Assign(
+                        targets=[ast.Name(id=context_name, ctx=ast.Store())],
+                        value=ast.Name(id=context_argument_name, ctx=ast.Load()),
+                    )
+                )
+            redeemer_argument_name = method_argument_names[0]
+            redeemer_name = branch_names[redeemer_argument_name]
+            redeemer_annotation = deepcopy(method.args.args[1].annotation)
+            branch_body.extend(
+                [
+                    ast.AnnAssign(
+                        target=ast.Name(id=redeemer_name, ctx=ast.Store()),
+                        annotation=redeemer_annotation,
+                        value=ast.Attribute(
+                            value=ast.Name(id=context_name, ctx=ast.Load()),
+                            attr="redeemer",
+                            ctx=ast.Load(),
+                        ),
+                        simple=1,
+                    ),
+                ]
+                + deepcopy(rewritten_entrypoint_bodies[supported_method.method_name])
+            )
+            branch_specs.append((supported_method, branch_body))
+        for index, (supported_method, branch_body) in enumerate(branch_specs):
             branch = ast.If(
                 test=ast.Call(
                     func=ast.Name(id="isinstance", ctx=ast.Load()),
