@@ -96,7 +96,7 @@ CONTRACT_SOURCE = """
 from opshin.prelude import *
 
 @dataclass()
-class Contract:
+class ArithmeticContract(Contract):
     offset: int
 
     def spend_with_datum(
@@ -112,7 +112,7 @@ SPEND_WITHOUT_DATUM_SOURCE = """
 from opshin.prelude import *
 
 @dataclass()
-class Contract:
+class NoDatumContract(Contract):
     offset: int
 
     def spend_no_datum(self, redeemer: int, context: ScriptContext) -> int:
@@ -123,7 +123,7 @@ RAW_CONTRACT_SOURCE = """
 from opshin.prelude import *
 
 @dataclass()
-class Contract:
+class RawContract(Contract):
     offset: int
 
     def raw(self, script_context: ScriptContext) -> int:
@@ -135,7 +135,7 @@ COLLIDING_NAMES_CONTRACT_SOURCE = """
 from opshin.prelude import *
 
 @dataclass()
-class Contract:
+class CollidingNamesContract(Contract):
     context: int
     redeemer: int
 
@@ -147,7 +147,7 @@ INVALID_CONSTR_ID_CONTRACT_SOURCE = """
 from opshin.prelude import *
 
 @dataclass()
-class Contract:
+class InvalidConstrIdContract(Contract):
     CONSTR_ID = 0
 
     def raw(self, context: ScriptContext) -> None:
@@ -158,7 +158,7 @@ INVALID_UNANNOTATED_FIELD_CONTRACT_SOURCE = """
 from opshin.prelude import *
 
 @dataclass()
-class Contract:
+class InvalidUnannotatedFieldContract(Contract):
     offset = 0
 
     def raw(self, context: ScriptContext) -> None:
@@ -169,7 +169,7 @@ OUTPUT_DATUM_CONTRACT_SOURCE = """
 from opshin.prelude import *
 
 @dataclass()
-class Contract:
+class OutputDatumContract(Contract):
     def spend_with_datum(
         self, datum: OutputDatum, redeemer: int, context: ScriptContext
     ) -> int:
@@ -184,7 +184,7 @@ DOUBLE_SPENDING_ENTRYPOINTS_SOURCE = """
 from opshin.prelude import *
 
 @dataclass()
-class Contract:
+class DualSpendingContract(Contract):
     def spend_no_datum(self, redeemer: int, context: ScriptContext) -> int:
         return redeemer
 
@@ -198,7 +198,7 @@ from typing import Union
 from opshin.prelude import *
 
 @dataclass()
-class Contract:
+class InvalidOptionalDatumContract(Contract):
     offset: int
 
     def spend_with_datum(
@@ -211,7 +211,7 @@ HELPER_METHOD_CONTRACT_SOURCE = """
 from opshin.prelude import *
 
 @dataclass()
-class Contract:
+class HelperMethodContract(Contract):
     offset: int
 
     def add_offset(self, value: int) -> int:
@@ -225,11 +225,22 @@ LOCAL_PURPOSE_NAME_CONTRACT_SOURCE = """
 from opshin.prelude import *
 
 @dataclass()
-class Contract:
+class LocalPurposeNameContract(Contract):
     def mint(self, redeemer: int, context: ScriptContext) -> int:
         purpose = context.purpose
         assert isinstance(purpose, Minting)
         return redeemer
+"""
+
+RENAMED_CONTRACT_SOURCE = """
+from opshin.prelude import *
+
+@dataclass()
+class MyContract(Contract):
+    offset: int
+
+    def spend_no_datum(self, redeemer: int, context: ScriptContext) -> int:
+        return self.offset + redeemer
 """
 
 
@@ -285,6 +296,15 @@ class ContractClassTests(unittest.TestCase):
     def test_runtime_contract_discovery_builds_spend_no_datum_validator(self):
         module = types.ModuleType("contract_module")
         exec(SPEND_WITHOUT_DATUM_SOURCE, module.__dict__)
+        contract_info = discover_contract_module(module)
+        self.assertIsNotNone(contract_info)
+        self.assertEqual(
+            contract_info.validator(3, make_spending_context_without_datum(7)), 10
+        )
+
+    def test_runtime_contract_discovery_finds_contract_subclass(self):
+        module = types.ModuleType("contract_module")
+        exec(RENAMED_CONTRACT_SOURCE, module.__dict__)
         contract_info = discover_contract_module(module)
         self.assertIsNotNone(contract_info)
         self.assertEqual(
@@ -364,7 +384,11 @@ class ContractClassTests(unittest.TestCase):
         rewritten_module = RewriteContractMethods().visit(ast.parse(CONTRACT_SOURCE))
         self.assertFalse(
             any(
-                isinstance(statement, ast.ClassDef) and statement.name == "Contract"
+                isinstance(statement, ast.ClassDef)
+                and any(
+                    isinstance(base, ast.Name) and base.id == "Contract"
+                    for base in statement.bases
+                )
                 for statement in rewritten_module.body
             )
         )

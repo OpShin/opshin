@@ -29,7 +29,7 @@ def deadline_reached(params: VestingParams, context: ScriptContext) -> bool:
 
 
 @dataclass()
-class Contract:
+class Vesting(Contract):
     def spend_with_datum(
         self, datum: VestingParams, _redeemer: Anything, context: ScriptContext
     ) -> None:

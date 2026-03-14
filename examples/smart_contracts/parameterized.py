@@ -8,7 +8,7 @@ from opshin.prelude import *
 #
 # $ opshin build examples/smart_contracts/parameterized.py '{"int": 42}'
 @dataclass()
-class Contract:
+class Parameterized(Contract):
     parameter: int
 
     def spend_no_datum(self, redeemer: int, _context: ScriptContext) -> None:

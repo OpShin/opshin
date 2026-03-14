@@ -62,6 +62,23 @@ class RewriteContractMethods(CompilingNodeTransformer):
     step = "Rewriting Contract entrypoints"
     _internal_name_prefix = "__contract+"
 
+    def _is_contract_class(self, statement: ast.stmt) -> bool:
+        if not isinstance(statement, ast.ClassDef):
+            return False
+        if any(
+            isinstance(base, ast.Name) and base.id == "Contract"
+            for base in statement.bases
+        ):
+            return True
+        if statement.name != "Contract":
+            return False
+        if not statement.decorator_list:
+            return False
+        method_names = {
+            child.name for child in statement.body if isinstance(child, ast.FunctionDef)
+        }
+        return any(spec.method_name in method_names for spec in CONTRACT_METHOD_SPECS)
+
     def visit_Module(self, node: ast.Module) -> ast.Module:
         node = self.generic_visit(node)
         has_validator = any(
@@ -70,16 +87,15 @@ class RewriteContractMethods(CompilingNodeTransformer):
         )
         if has_validator:
             return node
-        contract_class = next(
-            (
-                statement
-                for statement in node.body
-                if isinstance(statement, ast.ClassDef) and statement.name == "Contract"
-            ),
-            None,
-        )
-        if contract_class is None:
+        contract_classes = [
+            statement for statement in node.body if self._is_contract_class(statement)
+        ]
+        if not contract_classes:
             return node
+        assert (
+            len(contract_classes) == 1
+        ), "A contract module may define only one Contract subclass."
+        contract_class = contract_classes[0]
         contract_methods = {
             statement.name: statement
             for statement in contract_class.body

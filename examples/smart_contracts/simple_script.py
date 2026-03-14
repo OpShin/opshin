@@ -110,7 +110,7 @@ def validate_script(
 
 # the script is a contract parameter, pass it into the build command
 @dataclass()
-class Contract:
+class SimpleScript(Contract):
     script: Script
 
     def raw(self, context: ScriptContext) -> None:

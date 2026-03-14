@@ -3,6 +3,6 @@ from opshin.prelude import *
 
 
 @dataclass()
-class Contract:
+class AlwaysTrue(Contract):
     def raw(self, _context: ScriptContext) -> None:
         pass

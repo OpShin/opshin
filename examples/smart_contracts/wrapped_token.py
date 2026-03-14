@@ -63,7 +63,7 @@ def all_tokens_locked_at_contract_address(
 #
 # $ opshin build spending examples/smart_contracts/wrapped_token.py '{"bytes": "ae810731b5d21c0d182d89c60a1eff7095dffd1c0dce8707a8611099"}' '{"bytes": "4d494c4b"}' '{"int": 1000000}'
 @dataclass()
-class Contract:
+class WrappedToken(Contract):
     token_policy_id: bytes
     token_name: bytes
     wrapping_factor: int

@@ -3,7 +3,7 @@ from opshin.prelude import *
 
 
 @dataclass()
-class Contract:
+class AssertSum(Contract):
     def spend_with_datum(
         self, datum: int, redeemer: int, _context: ScriptContext
     ) -> None:

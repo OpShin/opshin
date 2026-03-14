@@ -54,7 +54,7 @@ def check_owner_signed(signatories: List[PubKeyHash], owner: PubKeyHash) -> None
 
 
 @dataclass()
-class Contract:
+class Marketplace(Contract):
     def spend_with_datum(
         self, datum: Listing, redeemer: ListingAction, context: ScriptContext
     ) -> None:

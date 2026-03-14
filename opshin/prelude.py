@@ -1,6 +1,74 @@
 from opshin.ledger.api_v3 import *
 
 
+class Contract:
+    """
+    Base class for contract entrypoint classes.
+
+    User-defined contracts should inherit from this class and expose the
+    supported entrypoint methods on the subclass.
+
+    There is intentionally no generic `spend(...)` entrypoint. Spending
+    contracts should implement `spend_no_datum(...)`,
+    `spend_with_datum(...)`, or both. Contracts that need fully custom
+    spending dispatch logic should fall back to `raw(...)`.
+    """
+
+    def raw(self, context: ScriptContext) -> Anything:
+        """
+        Generic entrypoint for contracts that want full control over dispatch.
+
+        Implement this instead of the purpose-specific entrypoints when the
+        contract should inspect the full `ScriptContext` directly, or when the
+        spending behavior does not fit the standard
+        `spend_no_datum(...)` / `spend_with_datum(...)` dispatch.
+        """
+        assert False, "Contract.raw must be overridden"
+
+    def spend_no_datum(self, redeemer: Anything, context: ScriptContext) -> Anything:
+        """
+        Spending entrypoint used when the spent output has no datum attached.
+
+        If the contract also defines `spend_with_datum(...)`, the compiler
+        dispatches here only when the spent output datum is `NoOutputDatum`.
+        """
+        assert False, "Contract.spend_no_datum must be overridden"
+
+    def spend_with_datum(
+        self, datum: Anything, redeemer: Anything, context: ScriptContext
+    ) -> Anything:
+        """
+        Spending entrypoint for contracts that need the spent output datum.
+
+        The compiler loads the datum before calling this entrypoint. Use
+        `OutputDatum` to receive the wrapped attachment or a concrete datum type
+        to receive the unwrapped datum value. If the contract also defines
+        `spend_no_datum(...)`, the compiler dispatches here only when a datum
+        is attached.
+        """
+        assert False, "Contract.spend_with_datum must be overridden"
+
+    def mint(self, redeemer: Anything, context: ScriptContext) -> Anything:
+        """Minting entrypoint for contracts executed in a minting context."""
+        assert False, "Contract.mint must be overridden"
+
+    def withdraw(self, redeemer: Anything, context: ScriptContext) -> Anything:
+        """Withdrawal entrypoint for contracts executed in a rewarding context."""
+        assert False, "Contract.withdraw must be overridden"
+
+    def publish(self, redeemer: Anything, context: ScriptContext) -> Anything:
+        """Certificate publication entrypoint for certifying script contexts."""
+        assert False, "Contract.publish must be overridden"
+
+    def vote(self, redeemer: Anything, context: ScriptContext) -> Anything:
+        """Voting entrypoint for contracts executed in a voting context."""
+        assert False, "Contract.vote must be overridden"
+
+    def propose(self, redeemer: Anything, context: ScriptContext) -> Anything:
+        """Proposal entrypoint for contracts executed in a proposing context."""
+        assert False, "Contract.propose must be overridden"
+
+
 @dataclass(unsafe_hash=True)
 class Nothing(PlutusData):
     """

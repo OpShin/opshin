@@ -4,7 +4,7 @@ from opshin.std.math import *
 
 
 @dataclass()
-class Contract:
+class Bitwise(Contract):
     def spend_no_datum(self, _redeemer: int, _context: ScriptContext) -> None:
         return
 

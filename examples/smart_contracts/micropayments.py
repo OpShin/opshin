@@ -174,7 +174,7 @@ def validate_channel(
 
 
 @dataclass()
-class Contract:
+class Micropayments(Contract):
     def spend_with_datum(
         self, datum: PaymentChannel, redeemer: ChannelAction, context: ScriptContext
     ) -> None:

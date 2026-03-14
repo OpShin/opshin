@@ -608,7 +608,7 @@ def get_spending_purpose(context: ScriptContext) -> Spending:
 
 
 @dataclass()
-class Contract:
+class LiquidityPool(Contract):
     def spend_with_datum(
         self, datum: PoolState, redeemer: PoolAction, context: ScriptContext
     ) -> None:

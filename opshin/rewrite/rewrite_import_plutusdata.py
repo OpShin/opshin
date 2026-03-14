@@ -13,6 +13,11 @@ class RewriteImportPlutusData(CompilingNodeTransformer):
 
     imports_plutus_data = False
 
+    def _is_contract_class(self, node: ClassDef) -> bool:
+        if any(isinstance(base, Name) and base.id == "Contract" for base in node.bases):
+            return True
+        return node.name == "Contract" and not node.decorator_list and not node.bases
+
     def visit_ImportFrom(self, node: ImportFrom) -> Optional[ImportFrom]:
         if node.module != "pycardano":
             return node
@@ -35,6 +40,8 @@ class RewriteImportPlutusData(CompilingNodeTransformer):
         return None
 
     def visit_ClassDef(self, node: ClassDef) -> ClassDef:
+        if self._is_contract_class(node):
+            return node
         assert (
             len(node.decorator_list) == 1
         ), f"Class definitions must have no decorators but @dataclass, {node.name} has {tuple(node.decorator_list)}"

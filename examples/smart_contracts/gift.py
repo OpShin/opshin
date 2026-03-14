@@ -10,7 +10,7 @@ class WithdrawDatum(PlutusData):
 
 
 @dataclass()
-class Contract:
+class Gift(Contract):
     def spend_with_datum(
         self, datum: WithdrawDatum, _redeemer: Anything, context: ScriptContext
     ) -> None:

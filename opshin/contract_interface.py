@@ -4,6 +4,7 @@ import typing
 
 from .ledger.api_v3 import Minting, Publishing, Proposing, Spending, Voting, Withdrawing
 from .prelude import (
+    Contract as PreludeContract,
     NoOutputDatum,
     ScriptContext,
     SomeOutputDatum,
@@ -279,13 +280,31 @@ def discover_contract_module(module) -> typing.Optional[ContractModuleInfo]:
     validator = getattr(module, "validator", None)
     if callable(validator):
         return None
-    contract_class = getattr(module, "Contract", None)
-    if contract_class is None or not inspect.isclass(contract_class):
+    contract_classes = [
+        value
+        for value in module.__dict__.values()
+        if inspect.isclass(value)
+        and value is not PreludeContract
+        and value.__module__ == module.__name__
+        and issubclass(value, PreludeContract)
+    ]
+    legacy_contract_class = getattr(module, "Contract", None)
+    if (
+        inspect.isclass(legacy_contract_class)
+        and legacy_contract_class.__module__ == module.__name__
+        and legacy_contract_class not in contract_classes
+    ):
+        contract_classes.append(legacy_contract_class)
+    if not contract_classes:
         return None
+    assert (
+        len(contract_classes) == 1
+    ), "A contract module may define only one Contract subclass."
+    contract_class = contract_classes[0]
     parameter_types = _contract_parameter_types(contract_class)
     method_details = []
     for spec in CONTRACT_METHOD_SPECS:
-        method = getattr(contract_class, spec.method_name, None)
+        method = contract_class.__dict__.get(spec.method_name)
         if method is None:
             continue
         argument_names, datum_type, redeemer_type = _method_annotations(
