@@ -120,5 +120,13 @@ class RewriteImport(CompilingNodeTransformer):
             resolved_imports=self.resolved_imports,
         )
         recursively_resolved: Module = recursive_resolver.visit(resolved)
+        if module.__name__ == "opshin.prelude":
+            recursively_resolved.body = [
+                statement
+                for statement in recursively_resolved.body
+                if not (
+                    isinstance(statement, ast.ClassDef) and statement.name == "Contract"
+                )
+            ]
         self.resolved_imports.update(recursive_resolver.resolved_imports)
         return recursively_resolved.body

@@ -1,5 +1,5 @@
-.DS_Store
 .codex
+.DS_Store
 binary_sizes_baseline.json
 baseline.json
 trigger.sh

@@ -1,0 +1,333 @@
+import dataclasses
+import inspect
+import typing
+
+from .ledger.api_v3 import Minting, Publishing, Proposing, Spending, Voting, Withdrawing
+from .prelude import (
+    Contract as PreludeContract,
+    NoOutputDatum,
+    ScriptContext,
+    SomeOutputDatum,
+    SomeOutputDatumHash,
+    own_datum,
+)
+
+
+@dataclasses.dataclass(frozen=True)
+class ContractMethodSpec:
+    method_name: str
+    purpose_class: typing.Optional[type]
+    purpose_name: str
+    onchain_argument_count: int
+
+
+CONTRACT_METHOD_SPECS = (
+    ContractMethodSpec("raw", None, "any", 1),
+    ContractMethodSpec("spend_no_datum", Spending, "spending", 2),
+    ContractMethodSpec("spend_with_datum", Spending, "spending", 3),
+    ContractMethodSpec("mint", Minting, "minting", 2),
+    ContractMethodSpec("withdraw", Withdrawing, "rewarding", 2),
+    ContractMethodSpec("publish", Publishing, "certifying", 2),
+    ContractMethodSpec("vote", Voting, "voting", 2),
+    ContractMethodSpec("propose", Proposing, "proposing", 2),
+)
+
+CONTRACT_METHOD_SPEC_MAP = {
+    contract_method.method_name: contract_method
+    for contract_method in CONTRACT_METHOD_SPECS
+}
+
+
+@dataclasses.dataclass(frozen=True)
+class ContractMethodDetails:
+    spec: ContractMethodSpec
+    method: typing.Callable
+    argument_names: typing.Tuple[str, ...]
+    datum_type: typing.Optional[type]
+    redeemer_type: typing.Optional[type]
+    return_type: typing.Any
+
+
+def _datum_loading_strategy(annotation: typing.Any) -> str:
+    origin = typing.get_origin(annotation)
+    if origin is typing.Union:
+        union_members = typing.get_args(annotation)
+        attachment_types = {NoOutputDatum, SomeOutputDatum, SomeOutputDatumHash}
+        if all(member in attachment_types for member in union_members):
+            return "attachment"
+        assert (
+            NoOutputDatum not in union_members
+        ), "Contracts must use spend_no_datum instead of Union[..., NoOutputDatum]."
+    return "unsafe_raw"
+
+
+@dataclasses.dataclass(frozen=True)
+class ContractModuleInfo:
+    validator: typing.Callable
+    parameter_types: typing.List[typing.Tuple[str, typing.Any]]
+    method_details: typing.Tuple[ContractMethodDetails, ...]
+    has_raw_override: bool
+
+    @property
+    def purpose_names(self) -> typing.Tuple[str, ...]:
+        if self.has_raw_override or not self.method_details:
+            return ("any",)
+        return tuple(detail.spec.purpose_name for detail in self.method_details)
+
+    @property
+    def datum_type(self) -> typing.Optional[typing.Tuple[str, typing.Any]]:
+        if self.has_raw_override or not self.method_details:
+            return None
+        spending_methods = [
+            detail
+            for detail in self.method_details
+            if detail.spec.method_name == "spend_with_datum"
+        ]
+        if not spending_methods:
+            return None
+        detail = spending_methods[0]
+        if detail.datum_type is inspect.Signature.empty:
+            return None
+        return ("datum", detail.datum_type)
+
+    @property
+    def redeemer_type(self) -> typing.Optional[typing.Tuple[str, typing.Any]]:
+        if self.has_raw_override or not self.method_details:
+            return None
+        redeemer_types = []
+        for detail in self.method_details:
+            if detail.redeemer_type is inspect.Signature.empty:
+                return None
+            redeemer_types.append(detail.redeemer_type)
+        if not redeemer_types:
+            return None
+        first = redeemer_types[0]
+        if any(redeemer_type != first for redeemer_type in redeemer_types[1:]):
+            return None
+        return ("redeemer", first)
+
+
+def _contract_parameter_types(
+    contract_class: type,
+) -> typing.List[typing.Tuple[str, typing.Any]]:
+    assert (
+        "CONSTR_ID" not in contract_class.__dict__
+    ), "Contract classes must not define CONSTR_ID."
+    annotations = inspect.get_annotations(contract_class)
+    unannotated_fields = [
+        name
+        for name, value in contract_class.__dict__.items()
+        if not name.startswith("__")
+        and name not in annotations
+        and name not in CONTRACT_METHOD_SPEC_MAP
+        and not inspect.isfunction(value)
+        and not isinstance(value, (staticmethod, classmethod))
+    ]
+    assert (
+        not unannotated_fields
+    ), "Contract fields must be annotated; unannotated Contract fields are not supported."
+    return list(annotations.items())
+
+
+def _method_annotations(
+    method: typing.Callable, onchain_argument_count: int
+) -> typing.Tuple[typing.Tuple[str, ...], typing.Any, typing.Any]:
+    signature = inspect.signature(method)
+    parameters = list(signature.parameters.values())
+    assert (
+        parameters
+    ), f"Contract method '{method.__name__}' must accept self as first parameter."
+    assert (
+        parameters[0].name == "self"
+    ), f"Contract method '{method.__name__}' must accept self as first parameter."
+    expected_parameter_count = onchain_argument_count + 1
+    assert len(parameters) == expected_parameter_count, (
+        f"Contract method '{method.__name__}' must accept self plus "
+        f"{onchain_argument_count} on-chain parameters."
+    )
+    method_parameters = parameters[1:]
+    context_parameter = method_parameters[-1]
+    if context_parameter.annotation is not inspect.Signature.empty:
+        assert (
+            context_parameter.annotation == ScriptContext
+        ), f"Contract method '{method.__name__}' must annotate context as ScriptContext."
+    datum_type = None
+    redeemer_type = None
+    if onchain_argument_count == 3:
+        datum_type = method_parameters[0].annotation
+        if datum_type is not inspect.Signature.empty:
+            _datum_loading_strategy(datum_type)
+        redeemer_type = method_parameters[1].annotation
+    elif onchain_argument_count == 2:
+        redeemer_type = method_parameters[0].annotation
+    return (
+        tuple(parameter.name for parameter in method_parameters),
+        datum_type,
+        redeemer_type,
+    )
+
+
+def _make_unique_name(preferred_name: str, used_names: typing.Set[str]) -> str:
+    if preferred_name not in used_names:
+        return preferred_name
+    suffix = 0
+    while f"{preferred_name}_{suffix}" in used_names:
+        suffix += 1
+    return f"{preferred_name}_{suffix}"
+
+
+def _build_contract_validator(
+    contract_class: type,
+    parameter_types: typing.List[typing.Tuple[str, typing.Any]],
+    method_details: typing.Tuple[ContractMethodDetails, ...],
+    has_raw_override: bool,
+):
+    preferred_context_name = (
+        method_details[0].argument_names[-1] if method_details else "context"
+    )
+    context_parameter_name = _make_unique_name(
+        preferred_context_name,
+        {field_name for field_name, _ in parameter_types},
+    )
+
+    def validator(*args):
+        contract_parameter_count = len(parameter_types)
+        contract = contract_class(*args[:contract_parameter_count])
+        context = args[contract_parameter_count]
+        if has_raw_override:
+            raw_method = next(
+                detail.method
+                for detail in method_details
+                if detail.spec.method_name == "raw"
+            )
+            return raw_method(contract, context)
+        if not method_details:
+            return PreludeContract.raw(contract, context)
+        purpose = context.purpose
+        spending_methods = {
+            detail.spec.method_name: detail
+            for detail in method_details
+            if detail.spec.purpose_class is Spending
+        }
+        if isinstance(purpose, Spending) and spending_methods:
+            attached_datum = own_datum(context)
+            if isinstance(attached_datum, NoOutputDatum):
+                spend_no_datum = spending_methods.get("spend_no_datum")
+                assert (
+                    spend_no_datum is not None
+                ), "No datum was attached to the UTxO being spent by this Contract."
+                return spend_no_datum.method(contract, context.redeemer, context)
+            spend_with_datum = spending_methods.get("spend_with_datum")
+            if spend_with_datum is None:
+                assert False, "Contract has no spending entrypoint for attached datums."
+            datum_loading_strategy = _datum_loading_strategy(
+                spend_with_datum.datum_type
+            )
+            datum = (
+                attached_datum
+                if datum_loading_strategy == "attachment"
+                else attached_datum.datum
+            )
+            return spend_with_datum.method(contract, datum, context.redeemer, context)
+        for detail in method_details:
+            if not isinstance(purpose, detail.spec.purpose_class):
+                continue
+            return detail.method(contract, context.redeemer, context)
+        return PreludeContract.raw(contract, context)
+
+    validator.__name__ = "validator"
+    if has_raw_override:
+        return_annotations = [
+            detail.return_type
+            for detail in method_details
+            if detail.spec.method_name == "raw"
+        ]
+    else:
+        return_annotations = [detail.return_type for detail in method_details]
+    if return_annotations and any(
+        return_type != return_annotations[0] for return_type in return_annotations[1:]
+    ):
+        raise AssertionError(
+            "All Contract entrypoint methods must have the same return annotation."
+        )
+    validator.__signature__ = inspect.Signature(
+        parameters=[
+            inspect.Parameter(
+                name=field_name,
+                kind=inspect.Parameter.POSITIONAL_OR_KEYWORD,
+                annotation=field_type,
+            )
+            for field_name, field_type in parameter_types
+        ]
+        + [
+            inspect.Parameter(
+                name=context_parameter_name,
+                kind=inspect.Parameter.POSITIONAL_OR_KEYWORD,
+                annotation=ScriptContext,
+            )
+        ],
+        return_annotation=(
+            return_annotations[0] if return_annotations else inspect.Signature.empty
+        ),
+    )
+    validator.__annotations__ = {
+        field_name: field_type for field_name, field_type in parameter_types
+    }
+    validator.__annotations__[context_parameter_name] = ScriptContext
+    if return_annotations and return_annotations[0] is not inspect.Signature.empty:
+        validator.__annotations__["return"] = return_annotations[0]
+    return validator
+
+
+def discover_contract_module(module) -> typing.Optional[ContractModuleInfo]:
+    validator = getattr(module, "validator", None)
+    if callable(validator):
+        return None
+    contract_classes = [
+        value
+        for value in module.__dict__.values()
+        if inspect.isclass(value)
+        and value is not PreludeContract
+        and value.__module__ == module.__name__
+        and issubclass(value, PreludeContract)
+    ]
+    if not contract_classes:
+        return None
+    assert (
+        len(contract_classes) == 1
+    ), "A contract module may define only one Contract subclass."
+    contract_class = contract_classes[0]
+    parameter_types = _contract_parameter_types(contract_class)
+    method_details = []
+    for spec in CONTRACT_METHOD_SPECS:
+        method = contract_class.__dict__.get(spec.method_name)
+        if method is None:
+            continue
+        argument_names, datum_type, redeemer_type = _method_annotations(
+            method, spec.onchain_argument_count
+        )
+        method_details.append(
+            ContractMethodDetails(
+                spec=spec,
+                method=method,
+                argument_names=argument_names,
+                datum_type=datum_type,
+                redeemer_type=redeemer_type,
+                return_type=inspect.signature(method).return_annotation,
+            )
+        )
+    has_raw_override = any(
+        detail.spec.method_name == "raw" for detail in method_details
+    )
+    generated_validator = _build_contract_validator(
+        contract_class,
+        parameter_types,
+        tuple(method_details),
+        has_raw_override,
+    )
+    return ContractModuleInfo(
+        validator=generated_validator,
+        parameter_types=parameter_types,
+        method_details=tuple(method_details),
+        has_raw_override=has_raw_override,
+    )
