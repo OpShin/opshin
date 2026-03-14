@@ -272,11 +272,15 @@ class ContractClassTests(unittest.TestCase):
         ret = eval_uplc_value(CONTRACT_SOURCE, 7, make_spending_context(2, 3))
         self.assertEqual(ret, 12)
 
-    def test_contract_spend_no_datum_dispatches_without_loading_datum(self):
+    def test_contract_spend_no_datum_dispatches_without_datum(self):
         ret = eval_uplc_value(
             SPEND_WITHOUT_DATUM_SOURCE, 7, make_spending_context_without_datum(3)
         )
         self.assertEqual(ret, 10)
+
+    def test_contract_spend_no_datum_rejects_attached_datum(self):
+        with self.assertRaises(RuntimeError):
+            eval_uplc_value(SPEND_WITHOUT_DATUM_SOURCE, 7, make_spending_context(2, 3))
 
     def test_contract_mint_dispatches_through_validator(self):
         ret = eval_uplc_value(CONTRACT_SOURCE, 5, make_minting_context(4))
@@ -340,6 +344,14 @@ class ContractClassTests(unittest.TestCase):
         self.assertEqual(
             contract_info.validator(3, make_spending_context_without_datum(7)), 10
         )
+
+    def test_runtime_contract_discovery_rejects_attached_datum_for_spend_no_datum(self):
+        module = types.ModuleType("contract_module")
+        exec(SPEND_WITHOUT_DATUM_SOURCE, module.__dict__)
+        contract_info = discover_contract_module(module)
+        self.assertIsNotNone(contract_info)
+        with self.assertRaises(AssertionError):
+            contract_info.validator(3, make_spending_context(2, 7))
 
     def test_runtime_contract_discovery_finds_contract_subclass(self):
         module = types.ModuleType("contract_module")

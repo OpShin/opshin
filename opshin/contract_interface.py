@@ -212,13 +212,6 @@ def _build_contract_validator(
             if detail.spec.purpose_class is Spending
         }
         if isinstance(purpose, Spending) and spending_methods:
-            if (
-                "spend_no_datum" in spending_methods
-                and "spend_with_datum" not in spending_methods
-            ):
-                return spending_methods["spend_no_datum"].method(
-                    contract, context.redeemer, context
-                )
             attached_datum = own_datum(context)
             if isinstance(attached_datum, NoOutputDatum):
                 spend_no_datum = spending_methods.get("spend_no_datum")
@@ -228,11 +221,7 @@ def _build_contract_validator(
                 return spend_no_datum.method(contract, context.redeemer, context)
             spend_with_datum = spending_methods.get("spend_with_datum")
             if spend_with_datum is None:
-                spend_no_datum = spending_methods.get("spend_no_datum")
-                assert (
-                    spend_no_datum is not None
-                ), "Contract has no spending entrypoint for attached datums."
-                return spend_no_datum.method(contract, context.redeemer, context)
+                assert False, "Contract has no spending entrypoint for attached datums."
             datum_loading_strategy = _datum_loading_strategy(
                 spend_with_datum.datum_type
             )
