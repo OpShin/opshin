@@ -131,6 +131,21 @@ class RawContract(Contract):
         return self.offset + redeemer
 """
 
+RAW_WITH_HELPER_ENTRYPOINT_SOURCE = """
+from opshin.prelude import *
+
+@dataclass()
+class RawWithHelperContract(Contract):
+    offset: int
+
+    def raw(self, context: ScriptContext) -> int:
+        redeemer: int = context.redeemer
+        return self.spend_no_datum(redeemer, context)
+
+    def spend_no_datum(self, redeemer: int, context: ScriptContext) -> int:
+        return self.offset + redeemer
+"""
+
 COLLIDING_NAMES_CONTRACT_SOURCE = """
 from opshin.prelude import *
 
@@ -243,6 +258,14 @@ class MyContract(Contract):
         return self.offset + redeemer
 """
 
+EMPTY_CONTRACT_SOURCE = """
+from opshin.prelude import *
+
+@dataclass()
+class EmptyContract(Contract):
+    offset: int
+"""
+
 
 class ContractClassTests(unittest.TestCase):
     def test_contract_spend_with_datum_dispatches_through_validator(self):
@@ -261,6 +284,14 @@ class ContractClassTests(unittest.TestCase):
 
     def test_contract_raw_dispatches_through_validator(self):
         ret = eval_uplc_value(RAW_CONTRACT_SOURCE, 5, make_minting_context(4))
+        self.assertEqual(ret, 9)
+
+    def test_contract_raw_override_may_call_specialized_entrypoints(self):
+        ret = eval_uplc_value(
+            RAW_WITH_HELPER_ENTRYPOINT_SOURCE,
+            5,
+            make_spending_context_without_datum(4),
+        )
         self.assertEqual(ret, 9)
 
     def test_contract_spend_supports_output_datum_annotation(self):
@@ -292,6 +323,14 @@ class ContractClassTests(unittest.TestCase):
         self.assertIsNotNone(contract_info)
         self.assertEqual(contract_info.purpose_names, ("any",))
         self.assertEqual(contract_info.validator(3, make_minting_context(6)), 9)
+
+    def test_runtime_contract_discovery_builds_inherited_raw_validator(self):
+        module = types.ModuleType("contract_module")
+        exec(EMPTY_CONTRACT_SOURCE, module.__dict__)
+        contract_info = discover_contract_module(module)
+        self.assertIsNotNone(contract_info)
+        with self.assertRaises(AssertionError):
+            contract_info.validator(3, make_minting_context(6))
 
     def test_runtime_contract_discovery_builds_spend_no_datum_validator(self):
         module = types.ModuleType("contract_module")
@@ -337,6 +376,19 @@ class ContractClassTests(unittest.TestCase):
             contract_path = f"{tmpdir}/contract.py"
             with open(contract_path, "w") as fp:
                 fp.write(CONTRACT_SOURCE)
+            result = subprocess.run(
+                ["opshin", "compile", contract_path, '{"int": 5}'],
+                capture_output=True,
+                text=True,
+                cwd=tmpdir,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_main_compiles_contract_class_with_inherited_raw(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            contract_path = f"{tmpdir}/contract.py"
+            with open(contract_path, "w") as fp:
+                fp.write(EMPTY_CONTRACT_SOURCE)
             result = subprocess.run(
                 ["opshin", "compile", contract_path, '{"int": 5}'],
                 capture_output=True,

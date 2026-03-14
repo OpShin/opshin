@@ -16,14 +16,28 @@ class Contract:
 
     def raw(self, context: ScriptContext) -> Anything:
         """
-        Generic entrypoint for contracts that want full control over dispatch.
+        Generic entrypoint for contracts.
 
-        Implement this instead of the purpose-specific entrypoints when the
-        contract should inspect the full `ScriptContext` directly, or when the
-        spending behavior does not fit the standard
-        `spend_no_datum(...)` / `spend_with_datum(...)` dispatch.
+        By default this dispatches to the purpose-specific entrypoints on the
+        subclass. Override `raw(...)` to take full control over dispatch.
         """
-        assert False, "Contract.raw must be overridden"
+        purpose = context.purpose
+        if isinstance(purpose, Spending):
+            attached_datum = own_datum(context)
+            if isinstance(attached_datum, NoOutputDatum):
+                return self.spend_no_datum(context.redeemer, context)
+            return self.spend_with_datum(attached_datum, context.redeemer, context)
+        if isinstance(purpose, Minting):
+            return self.mint(context.redeemer, context)
+        if isinstance(purpose, Withdrawing):
+            return self.withdraw(context.redeemer, context)
+        if isinstance(purpose, Publishing):
+            return self.publish(context.redeemer, context)
+        if isinstance(purpose, Voting):
+            return self.vote(context.redeemer, context)
+        if isinstance(purpose, Proposing):
+            return self.propose(context.redeemer, context)
+        assert False, "Unsupported script purpose for Contract"
 
     def spend_no_datum(self, redeemer: Anything, context: ScriptContext) -> Anything:
         """

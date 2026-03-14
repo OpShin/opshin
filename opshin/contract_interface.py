@@ -66,13 +66,18 @@ class ContractModuleInfo:
     validator: typing.Callable
     parameter_types: typing.List[typing.Tuple[str, typing.Any]]
     method_details: typing.Tuple[ContractMethodDetails, ...]
+    has_raw_override: bool
 
     @property
     def purpose_names(self) -> typing.Tuple[str, ...]:
+        if self.has_raw_override or not self.method_details:
+            return ("any",)
         return tuple(detail.spec.purpose_name for detail in self.method_details)
 
     @property
     def datum_type(self) -> typing.Optional[typing.Tuple[str, typing.Any]]:
+        if self.has_raw_override or not self.method_details:
+            return None
         spending_methods = [
             detail
             for detail in self.method_details
@@ -87,6 +92,8 @@ class ContractModuleInfo:
 
     @property
     def redeemer_type(self) -> typing.Optional[typing.Tuple[str, typing.Any]]:
+        if self.has_raw_override or not self.method_details:
+            return None
         redeemer_types = []
         for detail in self.method_details:
             if detail.spec.method_name == "raw":
@@ -175,9 +182,13 @@ def _build_contract_validator(
     contract_class: type,
     parameter_types: typing.List[typing.Tuple[str, typing.Any]],
     method_details: typing.Tuple[ContractMethodDetails, ...],
+    has_raw_override: bool,
 ):
+    preferred_context_name = (
+        method_details[0].argument_names[-1] if method_details else "context"
+    )
     context_parameter_name = _make_unique_name(
-        method_details[0].argument_names[-1],
+        preferred_context_name,
         {field_name for field_name, _ in parameter_types},
     )
 
@@ -185,14 +196,15 @@ def _build_contract_validator(
         contract_parameter_count = len(parameter_types)
         contract = contract_class(*args[:contract_parameter_count])
         context = args[contract_parameter_count]
-        raw_methods = [
-            detail for detail in method_details if detail.spec.method_name == "raw"
-        ]
-        if raw_methods:
-            assert (
-                len(raw_methods) == 1
-            ), "Contract may only define one raw entrypoint method."
-            return raw_methods[0].method(contract, context)
+        if has_raw_override:
+            raw_method = next(
+                detail.method
+                for detail in method_details
+                if detail.spec.method_name == "raw"
+            )
+            return raw_method(contract, context)
+        if not method_details:
+            return PreludeContract.raw(contract, context)
         purpose = context.purpose
         spending_methods = {
             detail.spec.method_name: detail
@@ -237,10 +249,17 @@ def _build_contract_validator(
             if not isinstance(purpose, detail.spec.purpose_class):
                 continue
             return detail.method(contract, context.redeemer, context)
-        assert False, "Unsupported script purpose for Contract"
+        return PreludeContract.raw(contract, context)
 
     validator.__name__ = "validator"
-    return_annotations = [detail.return_type for detail in method_details]
+    if has_raw_override:
+        return_annotations = [
+            detail.return_type
+            for detail in method_details
+            if detail.spec.method_name == "raw"
+        ]
+    else:
+        return_annotations = [detail.return_type for detail in method_details]
     if return_annotations and any(
         return_type != return_annotations[0] for return_type in return_annotations[1:]
     ):
@@ -320,22 +339,18 @@ def discover_contract_module(module) -> typing.Optional[ContractModuleInfo]:
                 return_type=inspect.signature(method).return_annotation,
             )
         )
-    if not method_details:
-        return None
-    raw_methods = [
-        detail for detail in method_details if detail.spec.method_name == "raw"
-    ]
-    if raw_methods:
-        assert (
-            len(method_details) == 1
-        ), "Contract may define either raw or purpose-specific entrypoints, not both."
+    has_raw_override = any(
+        detail.spec.method_name == "raw" for detail in method_details
+    )
     generated_validator = _build_contract_validator(
         contract_class,
         parameter_types,
         tuple(method_details),
+        has_raw_override,
     )
     return ContractModuleInfo(
         validator=generated_validator,
         parameter_types=parameter_types,
         method_details=tuple(method_details),
+        has_raw_override=has_raw_override,
     )
