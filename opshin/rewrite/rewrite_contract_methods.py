@@ -460,6 +460,87 @@ class RewriteContractMethods(CompilingNodeTransformer):
             body.extend(deepcopy(rewritten_entrypoint_bodies["raw"]))
             return body
 
+        branch_specs = []
+        supported_method_names = {
+            method_name
+            for method_name in contract_methods
+            if method_name in {spec.method_name for spec in CONTRACT_METHOD_SPECS}
+        }
+        if (
+            "spend_no_datum" in supported_method_names
+            or "spend_with_datum" in supported_method_names
+        ):
+            branch_specs.append(
+                (
+                    "Spending",
+                    self._spending_body(
+                        contract_methods,
+                        method_argument_name_maps,
+                        rewritten_entrypoint_bodies,
+                        context_argument_name,
+                        used_names,
+                    ),
+                )
+            )
+
+        for method_name, purpose_class_name in (
+            ("mint", "Minting"),
+            ("withdraw", "Withdrawing"),
+            ("publish", "Publishing"),
+            ("vote", "Voting"),
+            ("propose", "Proposing"),
+        ):
+            if method_name not in contract_methods:
+                continue
+            branch_specs.append(
+                (
+                    purpose_class_name,
+                    self._specialized_entrypoint_body(
+                        method_name,
+                        contract_methods,
+                        method_argument_name_maps,
+                        rewritten_entrypoint_bodies,
+                        context_argument_name,
+                    ),
+                )
+            )
+
+        if len(branch_specs) == 1:
+            return branch_specs[0][1]
+
+        if not branch_specs:
+            branch_specs = [
+                (
+                    "Spending",
+                    self._spending_body(
+                        contract_methods,
+                        method_argument_name_maps,
+                        rewritten_entrypoint_bodies,
+                        context_argument_name,
+                        used_names,
+                    ),
+                )
+            ]
+            for method_name, purpose_class_name in (
+                ("mint", "Minting"),
+                ("withdraw", "Withdrawing"),
+                ("publish", "Publishing"),
+                ("vote", "Voting"),
+                ("propose", "Proposing"),
+            ):
+                branch_specs.append(
+                    (
+                        purpose_class_name,
+                        self._specialized_entrypoint_body(
+                            method_name,
+                            contract_methods,
+                            method_argument_name_maps,
+                            rewritten_entrypoint_bodies,
+                            context_argument_name,
+                        ),
+                    )
+                )
+
         purpose_name = self._make_reserved_name("purpose", used_names)
         used_names.add(purpose_name)
         body.append(
@@ -473,7 +554,60 @@ class RewriteContractMethods(CompilingNodeTransformer):
             )
         )
         current_branch = None
-        branch_specs = []
+        for index, (purpose_class_name, branch_body) in enumerate(branch_specs):
+            branch = ast.If(
+                test=ast.Call(
+                    func=ast.Name(id="isinstance", ctx=ast.Load()),
+                    args=[
+                        ast.Name(id=purpose_name, ctx=ast.Load()),
+                        ast.Name(id=purpose_class_name, ctx=ast.Load()),
+                    ],
+                    keywords=[],
+                ),
+                body=branch_body,
+                orelse=[],
+            )
+            if index == 0:
+                body.append(branch)
+                current_branch = branch
+            else:
+                current_branch.orelse = [branch]
+                current_branch = branch
+        current_branch.orelse = [
+            ast.Assert(
+                test=ast.Constant(value=False),
+                msg=ast.Constant(value="Unsupported script purpose for Contract"),
+            )
+        ]
+        return body
+
+    def _spending_body(
+        self,
+        contract_methods,
+        method_argument_name_maps,
+        rewritten_entrypoint_bodies,
+        context_argument_name,
+        used_names,
+    ):
+        if (
+            "spend_no_datum" not in contract_methods
+            and "spend_with_datum" not in contract_methods
+        ):
+            return self._missing_entrypoint_body("spend_no_datum")
+        if (
+            "spend_no_datum" not in contract_methods
+            and "spend_with_datum" in contract_methods
+        ):
+            method = contract_methods["spend_with_datum"]
+            datum_annotation = method.args.args[1].annotation
+            if self._datum_loading_strategy(datum_annotation) == "unsafe_raw":
+                return self._spend_with_datum_unsafe_body(
+                    contract_methods,
+                    method_argument_name_maps,
+                    rewritten_entrypoint_bodies,
+                    context_argument_name,
+                )
+
         spending_used_names = set(used_names)
         attached_datum_name = self._make_reserved_name(
             "attached_datum", spending_used_names
@@ -519,54 +653,7 @@ class RewriteContractMethods(CompilingNodeTransformer):
                 orelse=with_datum_body,
             )
         )
-        branch_specs.append(("Spending", spending_body))
-
-        for method_name, purpose_class_name in (
-            ("mint", "Minting"),
-            ("withdraw", "Withdrawing"),
-            ("publish", "Publishing"),
-            ("vote", "Voting"),
-            ("propose", "Proposing"),
-        ):
-            branch_specs.append(
-                (
-                    purpose_class_name,
-                    self._specialized_entrypoint_body(
-                        method_name,
-                        contract_methods,
-                        method_argument_name_maps,
-                        rewritten_entrypoint_bodies,
-                        context_argument_name,
-                    ),
-                )
-            )
-
-        for index, (purpose_class_name, branch_body) in enumerate(branch_specs):
-            branch = ast.If(
-                test=ast.Call(
-                    func=ast.Name(id="isinstance", ctx=ast.Load()),
-                    args=[
-                        ast.Name(id=purpose_name, ctx=ast.Load()),
-                        ast.Name(id=purpose_class_name, ctx=ast.Load()),
-                    ],
-                    keywords=[],
-                ),
-                body=branch_body,
-                orelse=[],
-            )
-            if index == 0:
-                body.append(branch)
-                current_branch = branch
-            else:
-                current_branch.orelse = [branch]
-                current_branch = branch
-        current_branch.orelse = [
-            ast.Assert(
-                test=ast.Constant(value=False),
-                msg=ast.Constant(value="Unsupported script purpose for Contract"),
-            )
-        ]
-        return body
+        return spending_body
 
     def _missing_entrypoint_body(self, method_name):
         return [
@@ -694,3 +781,54 @@ class RewriteContractMethods(CompilingNodeTransformer):
             deepcopy(rewritten_entrypoint_bodies["spend_with_datum"])
         )
         return with_datum_body
+
+    def _spend_with_datum_unsafe_body(
+        self,
+        contract_methods,
+        method_argument_name_maps,
+        rewritten_entrypoint_bodies,
+        context_argument_name,
+    ):
+        method = contract_methods.get("spend_with_datum")
+        if method is None:
+            return self._missing_entrypoint_body("spend_with_datum")
+        branch_names = method_argument_name_maps["spend_with_datum"]
+        datum_name = branch_names[method.args.args[1].arg]
+        redeemer_name = branch_names[method.args.args[2].arg]
+        context_name = branch_names[method.args.args[3].arg]
+        datum_annotation = deepcopy(method.args.args[1].annotation)
+        redeemer_annotation = deepcopy(method.args.args[2].annotation)
+        body = []
+        if context_name != context_argument_name:
+            body.append(
+                ast.Assign(
+                    targets=[ast.Name(id=context_name, ctx=ast.Store())],
+                    value=ast.Name(id=context_argument_name, ctx=ast.Load()),
+                )
+            )
+        body.append(
+            ast.AnnAssign(
+                target=ast.Name(id=datum_name, ctx=ast.Store()),
+                annotation=datum_annotation,
+                value=ast.Call(
+                    func=ast.Name(id="own_datum_unsafe", ctx=ast.Load()),
+                    args=[ast.Name(id=context_name, ctx=ast.Load())],
+                    keywords=[],
+                ),
+                simple=1,
+            )
+        )
+        body.append(
+            ast.AnnAssign(
+                target=ast.Name(id=redeemer_name, ctx=ast.Store()),
+                annotation=redeemer_annotation,
+                value=ast.Attribute(
+                    value=ast.Name(id=context_name, ctx=ast.Load()),
+                    attr="redeemer",
+                    ctx=ast.Load(),
+                ),
+                simple=1,
+            )
+        )
+        body.extend(deepcopy(rewritten_entrypoint_bodies["spend_with_datum"]))
+        return body

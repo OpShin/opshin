@@ -195,6 +195,17 @@ class OutputDatumContract(Contract):
         return unwrapped_datum + redeemer
 """
 
+SPEND_WITH_DATUM_ONLY_SOURCE = """
+from opshin.prelude import *
+
+@dataclass()
+class SpendWithDatumOnlyContract(Contract):
+    def spend_with_datum(
+        self, datum: int, redeemer: int, context: ScriptContext
+    ) -> int:
+        return datum + redeemer
+"""
+
 DOUBLE_SPENDING_ENTRYPOINTS_SOURCE = """
 from opshin.prelude import *
 
@@ -477,4 +488,26 @@ class ContractClassTests(unittest.TestCase):
             for node in ast.walk(rewritten_module)
             if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
         }
-        self.assertIn("own_datum", helper_calls)
+        self.assertIn("own_datum_unsafe", helper_calls)
+
+    def test_contract_rewrite_specializes_spend_with_datum_only_contract(self):
+        rewritten_module = RewriteContractMethods().visit(
+            ast.parse(SPEND_WITH_DATUM_ONLY_SOURCE)
+        )
+        validator = next(
+            statement
+            for statement in rewritten_module.body
+            if isinstance(statement, ast.FunctionDef) and statement.name == "validator"
+        )
+        helper_calls = {
+            node.func.id
+            for node in ast.walk(validator)
+            if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
+        }
+        referenced_names = {
+            node.id for node in ast.walk(validator) if isinstance(node, ast.Name)
+        }
+        self.assertIn("own_datum_unsafe", helper_calls)
+        self.assertNotIn("own_datum", helper_calls)
+        self.assertNotIn("Minting", referenced_names)
+        self.assertNotIn("Spending", referenced_names)
