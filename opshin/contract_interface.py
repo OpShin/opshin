@@ -96,8 +96,6 @@ class ContractModuleInfo:
             return None
         redeemer_types = []
         for detail in self.method_details:
-            if detail.spec.method_name == "raw":
-                continue
             if detail.redeemer_type is inspect.Signature.empty:
                 return None
             redeemer_types.append(detail.redeemer_type)
@@ -232,9 +230,6 @@ def _build_contract_validator(
             )
             return spend_with_datum.method(contract, datum, context.redeemer, context)
         for detail in method_details:
-            assert (
-                detail.spec.purpose_class is not None
-            ), "Non-raw Contract entrypoint methods must define a script purpose."
             if not isinstance(purpose, detail.spec.purpose_class):
                 continue
             return detail.method(contract, context.redeemer, context)
