@@ -78,18 +78,6 @@ class RewriteImport(CompilingNodeTransformer):
         self.package = package
         self.resolved_imports = resolved_imports or OrderedSet()
 
-    def _strip_prelude_contract(self, node: ast.Module, module_name: str) -> ast.Module:
-        if module_name != "opshin.prelude":
-            return node
-        node.body = [
-            statement
-            for statement in node.body
-            if not (
-                isinstance(statement, ast.ClassDef) and statement.name == "Contract"
-            )
-        ]
-        return node
-
     def visit_Import(self, node):
         error_msg = f"The import must have the form 'from <pkg> import *' or import from one of the special modules {', '.join(SPECIAL_IMPORTS)}"
         raise SyntaxError(error_msg)
@@ -132,8 +120,13 @@ class RewriteImport(CompilingNodeTransformer):
             resolved_imports=self.resolved_imports,
         )
         recursively_resolved: Module = recursive_resolver.visit(resolved)
-        recursively_resolved = self._strip_prelude_contract(
-            recursively_resolved, module.__name__
-        )
+        if module.__name__ == "opshin.prelude":
+            recursively_resolved.body = [
+                statement
+                for statement in recursively_resolved.body
+                if not (
+                    isinstance(statement, ast.ClassDef) and statement.name == "Contract"
+                )
+            ]
         self.resolved_imports.update(recursive_resolver.resolved_imports)
         return recursively_resolved.body
