@@ -54,6 +54,10 @@ class PlutusContract:
         return self.contract.hex()
 
     @property
+    def cardano_cli_cbor_hex(self) -> str:
+        return cbor2.dumps(self.cbor).hex()
+
+    @property
     def script_hash(self):
         return pycardano.plutus_script_hash(self.contract)
 
@@ -75,7 +79,7 @@ class PlutusContract:
             {
                 "type": "PlutusScriptV2",
                 "description": self.description,
-                "cborHex": self.cbor_hex,
+                "cborHex": self.cardano_cli_cbor_hex,
             },
             indent=2,
         )
