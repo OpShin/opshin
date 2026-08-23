@@ -1,3 +1,4 @@
+import copy
 import typing
 from collections import defaultdict
 import logging
@@ -92,6 +93,11 @@ SAFE_GLOBALS_LIST = [
 ]
 SAFE_GLOBALS = {x.__name__: x for x in SAFE_GLOBALS_LIST}
 
+# constants of these types may be mutated in place by method calls (append, insert,
+# pop, update, ...). Evaluating such calls at compile time would apply the mutation
+# to a copy of the constant (or lose it entirely), silently changing the program.
+MUTABLE_CONSTANT_TYPES = (list, dict, set, bytearray)
+
 
 class ShallowNameDefCollector(CompilingNodeVisitor):
     step = "Collecting occurring variable names"
@@ -175,6 +181,9 @@ class OptimizeConstantFolding(CompilingNodeTransformer):
         ]
         self.scopes_constants = [dict()]
         self.constants = OrderedSet()
+        # names of user-defined functions that must never be executed at compile
+        # time because they may have side effects (e.g. printing)
+        self.impure_functions = OrderedSet()
 
     def enter_scope(self):
         self.scopes_visible.append(OrderedSet())
@@ -247,9 +256,25 @@ class OptimizeConstantFolding(CompilingNodeTransformer):
         self.exit_scope()
         return res
 
+    def _may_have_side_effects(self, node: FunctionDef) -> bool:
+        """Best-effort check whether executing the given function definition
+        could have side effects (e.g. printing). Such functions must not be
+        executed at compile time, their effects would silently be lost."""
+        for subnode in walk(node):
+            if isinstance(subnode, Call) and isinstance(subnode.func, Name):
+                if (
+                    subnode.func.id == "print"
+                    or subnode.func.id in self.impure_functions
+                ):
+                    return True
+        return False
+
     def visit_FunctionDef(self, node: FunctionDef) -> FunctionDef:
         self.add_var_visible(node.name)
-        if node.name in self.constants:
+        if node.name in self.constants and self._may_have_side_effects(node):
+            # never execute functions with potential side effects at compile time
+            self.impure_functions.add(node.name)
+        elif node.name in self.constants:
             a = self._non_overwritten_globals()
             a.update(self._constant_vars())
             g = a
@@ -311,6 +336,61 @@ class OptimizeConstantFolding(CompilingNodeTransformer):
         node.value = self.visit(node.value)
         return node
 
+    def _contains_call_on_mutable_constant(self, node: AST) -> bool:
+        """Checks whether the node contains a method call on a mutable constant
+        (e.g. ``l.append(x)``, ``d.pop()``). Evaluating such calls at compile time
+        would apply the mutation to a throwaway copy of the constant while the
+        original statement is replaced by the (discarded) return value, silently
+        changing the program. Such nodes are left untouched so downstream stages
+        either compile them correctly or reject them with a proper error."""
+        for subnode in walk(node):
+            if isinstance(subnode, Call) and isinstance(subnode.func, Attribute):
+                receiver = subnode.func.value
+                if isinstance(receiver, Constant) and isinstance(
+                    receiver.value, MUTABLE_CONSTANT_TYPES
+                ):
+                    return True
+        return False
+
+    def _snapshot_mutable_constants(self):
+        """Snapshots the values of all mutable constants to detect (and undo)
+        mutations performed while evaluating a candidate expression."""
+        res = {}
+        for scope in self.scopes_constants:
+            for k, v in scope.items():
+                if isinstance(v, MUTABLE_CONSTANT_TYPES) and id(v) not in res:
+                    try:
+                        res[id(v)] = (v, copy.deepcopy(v))
+                    except Exception as e:
+                        OPSHIN_LOGGER.debug(
+                            "Could not snapshot constant %s for mutation detection: %s",
+                            k,
+                            e,
+                        )
+        return res
+
+    def _constants_mutated(self, snapshot) -> bool:
+        return any(
+            obj is not snap and repr(obj) != repr(snap)
+            for obj, snap in snapshot.values()
+        )
+
+    def _restore_mutable_constants(self, snapshot) -> None:
+        for obj, snap in snapshot.values():
+            if repr(obj) == repr(snap):
+                continue
+            # restore in place to keep aliases of the same object consistent
+            if isinstance(obj, list):
+                obj[:] = snap
+            elif isinstance(obj, dict):
+                obj.clear()
+                obj.update(snap)
+            elif isinstance(obj, set):
+                obj.clear()
+                obj.update(snap)
+            elif isinstance(obj, bytearray):
+                obj[:] = snap
+
     def generic_visit(self, node: AST):
         node = super().generic_visit(node)
         if not isinstance(node, expr):
@@ -327,6 +407,11 @@ class OptimizeConstantFolding(CompilingNodeTransformer):
         if "print(" in node_source:
             # do not optimize away print statements
             return node
+        if self._contains_call_on_mutable_constant(node):
+            # never evaluate expressions that mutate constants at compile time,
+            # leave them untouched for the following compilation steps
+            return node
+        snapshot = self._snapshot_mutable_constants()
         try:
             # we add preceding constant plutusdata definitions here!
             g = self._non_overwritten_globals()
@@ -334,6 +419,18 @@ class OptimizeConstantFolding(CompilingNodeTransformer):
             node_eval = eval(node_source, g, l)
         except Exception as e:
             OPSHIN_LOGGER.debug("Error trying to evaluate node: %s", e)
+            self._restore_mutable_constants(snapshot)
+            return node
+
+        if self._constants_mutated(snapshot):
+            # evaluating this expression mutated a constant (e.g. through a call
+            # to a user-defined function with side effects), so it must neither be
+            # folded away nor may the constants table keep the mutated value
+            OPSHIN_LOGGER.warning(
+                "Not constant folding %s because evaluating it has side effects",
+                node_source,
+            )
+            self._restore_mutable_constants(snapshot)
             return node
 
         if any(
