@@ -621,3 +621,189 @@ def validator(x: int) -> Union[int, bytes]:
         self.assertEqual(res, 10)
         res = eval_uplc_value(source_code, 1, config=DEFAULT_CONFIG_CONSTANT_FOLDING)
         self.assertEqual(res, b"hello")
+
+    def test_constant_folding_no_fold_mutating_list_method(self):
+        source_code = """
+from typing import List
+def validator(_: None) -> List[int]:
+    l = [1, 2]
+    l.insert(0, 99)
+    return l
+"""
+        # the constant folder used to evaluate the mutating call at compile time
+        # on a copy of the list and silently drop the statement, compiling to [1, 2]
+        # opshin does not support list mutation, so this must be rejected honestly
+        with self.assertRaises(CompilerError) as e:
+            builder._compile(
+                source_code, Unit(), config=DEFAULT_CONFIG_CONSTANT_FOLDING
+            )
+        self.assertIn("insert", str(e.exception))
+
+    def test_constant_folding_no_fold_mutating_aliased_list(self):
+        source_code = """
+from typing import List
+def validator(_: None) -> int:
+    l = [1]
+    m = l
+    m.append(2)
+    return len(l) + len(m)
+"""
+        # aliasing a constant list and mutating the alias must not silently
+        # drop the mutation (previously compiled to 2 instead of 4)
+        with self.assertRaises(CompilerError) as e:
+            builder._compile(
+                source_code, Unit(), config=DEFAULT_CONFIG_CONSTANT_FOLDING
+            )
+        self.assertIn("append", str(e.exception))
+
+    def test_constant_folding_no_fold_side_effecting_user_function(self):
+        source_code = """
+def g() -> int:
+    print("side")
+    return 1
+
+def validator(_: None) -> int:
+    g()
+    return 5
+"""
+        # the call to g() must not be executed at compile time, its trace output
+        # would silently be lost (the returned value may still be folded)
+        raw = eval_uplc_raw(source_code, Unit(), config=DEFAULT_CONFIG_CONSTANT_FOLDING)
+        if isinstance(raw.result, Exception):
+            raise raw.result
+        self.assertEqual(raw.result.value, 5)
+        self.assertTrue(any("side" in l for l in raw.logs))
+
+    def test_constant_folding_no_fold_side_effecting_user_function_transitive(self):
+        source_code = """
+def g() -> int:
+    print("deep")
+    return 1
+
+def h() -> int:
+    return g() + 1
+
+def validator(_: None) -> int:
+    return h()
+"""
+        # impurity is propagated transitively through pure-looking callers
+        raw = eval_uplc_raw(source_code, Unit(), config=DEFAULT_CONFIG_CONSTANT_FOLDING)
+        if isinstance(raw.result, Exception):
+            raise raw.result
+        self.assertEqual(raw.result.value, 2)
+        self.assertTrue(any("deep" in l for l in raw.logs))
+
+    def test_constant_folding_user_function_pure_still_folded(self):
+        source_code = """
+def f(a: int) -> int:
+    return a * 2
+
+def validator(_: None) -> int:
+    return f(21)
+"""
+        code = builder._compile(
+            source_code, Unit(), config=DEFAULT_CONFIG_CONSTANT_FOLDING
+        )
+        code_src = code.dumps()
+        self.assertTrue(
+            "(con integer 42)" in code_src or "(con data (I 42))" in code_src
+        )
+
+    def test_constant_folding_no_fold_closure_mutating_call_single_site(self):
+        # A closure whose body mutates a captured variable used to be EXECUTED at
+        # compile time once per visited AST node containing the call (module,
+        # enclosing function, statement). Each execution appended to the shared
+        # constant list, the folder folded away both the call and its side
+        # effect, and `len(calls)` was folded using the contaminated list:
+        # CPython returned 1 while the compiled program returned 3.
+        source_code = """
+from typing import List
+def validator(x: int) -> int:
+    calls: List[int] = []
+    def b() -> int:
+        calls.append(1)
+        return 2
+    v = b()
+    return len(calls)
+"""
+        with self.assertRaises(CompilerError) as e:
+            builder._compile(source_code, 0, config=DEFAULT_CONFIG_CONSTANT_FOLDING)
+        self.assertIn("append", str(e.exception))
+
+    def test_constant_folding_no_fold_closure_mutating_call_two_sites(self):
+        # n syntactic call sites used to yield 2n+1 fold-time executions of the
+        # closure body; two sites must not silently compile to 5.
+        source_code = """
+from typing import List
+def validator(x: int) -> int:
+    calls: List[int] = []
+    def b() -> int:
+        calls.append(1)
+        return 2
+    v = b()
+    w = b()
+    return len(calls)
+"""
+        with self.assertRaises(CompilerError) as e:
+            builder._compile(source_code, 0, config=DEFAULT_CONFIG_CONSTANT_FOLDING)
+        self.assertIn("append", str(e.exception))
+
+    def test_constant_folding_no_fold_closure_mutating_while_condition(self):
+        # a call in a while condition used to be executed twice at fold time,
+        # so the compiled program reported len(calls) == 2 instead of 1
+        source_code = """
+from typing import List
+def validator(x: int) -> int:
+    calls: List[int] = []
+    def b() -> bool:
+        calls.append(1)
+        return False
+    while b():
+        pass
+    return len(calls)
+"""
+        with self.assertRaises(CompilerError) as e:
+            builder._compile(source_code, 0, config=DEFAULT_CONFIG_CONSTANT_FOLDING)
+        self.assertIn("append", str(e.exception))
+
+    def test_closure_call_executes_exactly_once_per_site(self):
+        # codegen-level guard: each syntactic call to a closure over captured
+        # variables must execute exactly once at runtime, even with constant
+        # folding enabled
+        source_code = """
+from typing import List
+def validator(x: int) -> int:
+    calls: List[int] = []
+    def b() -> int:
+        print("c")
+        return x
+    v = b()
+    w = b()
+    return len(calls) + v + w
+"""
+        raw = eval_uplc_raw(source_code, 3, config=DEFAULT_CONFIG_CONSTANT_FOLDING)
+        if isinstance(raw.result, Exception):
+            raise raw.result
+        self.assertEqual(raw.result.value, 6)
+        self.assertEqual(raw.logs.count("c"), 2)
+
+    def test_closure_call_in_while_condition_executes_once_per_iteration(self):
+        source_code = """
+from typing import List
+def validator(x: int) -> int:
+    calls: List[int] = []
+    n = 0
+    def b() -> bool:
+        print("c")
+        return n < 2
+    while b():
+        print("i")
+        n = n + 1
+    return n
+"""
+        raw = eval_uplc_raw(source_code, 0, config=DEFAULT_CONFIG_CONSTANT_FOLDING)
+        if isinstance(raw.result, Exception):
+            raise raw.result
+        self.assertEqual(raw.result.value, 2)
+        self.assertEqual(raw.logs.count("c"), 3)
+        self.assertEqual(raw.logs.count("i"), 2)

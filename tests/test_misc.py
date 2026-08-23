@@ -1405,6 +1405,61 @@ def validator() -> None:
 """
         eval_uplc(source_code, PlutusData())
 
+    def test_print_string_repr_escaping(self):
+        # strings inside containers must be printed like Python's str.__repr__
+        # (see https://github.com/OpShin/opshin/issues/513)
+        for string_repr in [
+            repr("a\\b"),
+            repr("it's"),
+            repr('say "hi"'),
+            repr("both ' and \""),
+            repr(""),
+            repr("line1\nline2"),
+            repr("tab\there"),
+            repr(f"nul\x00char"),
+            repr(f"del\x7fchar"),
+            repr("\x1b[0m"),
+            repr("héllo"),
+        ]:
+            source_code = f"""
+def validator(x: int) -> None:
+    print([{string_repr}])
+    assert False
+"""
+            self.assertEqual(
+                eval_uplc_raw(source_code, 0).logs,
+                [f"[{string_repr}]"],
+                f"Mismatching stringification of {string_repr}",
+            )
+
+    def test_nested_function_call_execution_count(self):
+        # Each syntactic call to a nested function over captured variables must
+        # execute exactly once (once per call site in an expression, once per
+        # iteration for a while condition), matching CPython. The constant
+        # folder used to execute such calls at compile time and contaminate the
+        # captured state (n sites -> 2n+1 executions).
+        source_code = """
+def validator(x: int) -> int:
+    n = 0
+    def b() -> bool:
+        print("c")
+        return n < 2
+    while b():
+        print("i")
+        n = n + 1
+    return n
+"""
+        raw = eval_uplc_raw(
+            source_code,
+            0,
+            config=DEFAULT_TEST_CONFIG.update(constant_folding=True),
+        )
+        if isinstance(raw.result, Exception):
+            raise raw.result
+        self.assertEqual(raw.result.value, 2)
+        self.assertEqual(raw.logs.count("c"), 3)
+        self.assertEqual(raw.logs.count("i"), 2)
+
     @hypothesis.given(st.integers())
     def test_cast_bool_ite(self, x):
         source_code = """
@@ -1457,10 +1512,52 @@ def validator(x: int) -> bool:
     def test_cast_bool_boolops(self, x):
         source_code = """
 def validator(x: int) -> bool:
-    return x and x or (x or x)
+    return (x > 0) and (x < 10) or ((x == 0) or (x == -5))
 """
         res = eval_uplc_value(source_code, x)
-        self.assertEqual(bool(res), bool(x and x or (x or x)))
+        self.assertEqual(
+            bool(res), bool((x > 0) and (x < 10) or ((x == 0) or (x == -5)))
+        )
+
+    def test_boolop_non_bool_operand_rejected(self):
+        # In Python 'and'/'or' return one of their operands. opshin's typed world
+        # cannot express that, so non-bool operands must be rejected at compile
+        # time instead of being silently coerced to bool (which would miscompile
+        # e.g. 'n or 42' into True while Python returns 42).
+        for source_code in [
+            """
+def validator(n: int) -> bool:
+    return n or 42
+""",
+            """
+def validator(n: int) -> bool:
+    return n and 5
+""",
+            """
+def validator(n: int) -> bool:
+    return n > 0 or n
+""",
+        ]:
+            with self.assertRaises(CompilerError):
+                builder._compile(source_code)
+
+    def test_boolop_bool_operands_short_circuit(self):
+        # bool operands keep working exactly as before, including short-circuit
+        # evaluation order: the second operand would crash on-chain if evaluated
+        source_code = """
+def validator(n: int) -> bool:
+    b = n > 0 or 1 // 0 == 0
+    c = n < 0 and 1 // 0 == 0
+    return b and not c
+"""
+        self.assertEqual(eval_uplc_value(source_code, 1), True)
+        source_code = """
+def validator(n: int) -> bool:
+    b = n < 0 or 1 // 0 == 0
+    c = n > 0 and 1 // 0 == 0
+    return b and not c
+"""
+        self.assertEqual(eval_uplc_value(source_code, -1), True)
 
     @hypothesis.given(a_or_b)
     def test_isinstance_cast_if(self, x):
@@ -3415,3 +3512,63 @@ def validator(x: Dict[int, int]) -> int:
             builder._compile(source_code)
         self.assertIn("assigning to", str(context.exception))
         self.assertIn("dict", str(context.exception))
+
+    def test_slice_step_zero_rejected(self):
+        """Python raises 'ValueError: slice step cannot be zero' for l[::0].
+        opshin must reject it at compile time instead of silently returning
+        the whole list/bytes/str."""
+        for source_code in (
+            """
+from typing import List
+
+def validator(x: int) -> List[int]:
+    l = [1, 2, 3]
+    return l[::0]
+""",
+            """
+def validator(x: int) -> bytes:
+    b = b"abc"
+    return b[::0]
+""",
+        ):
+            with self.assertRaises(CompilerError) as context:
+                builder._compile(source_code)
+            self.assertIn(
+                "slice step cannot be zero",
+                str(context.exception),
+                "Zero slice step was not rejected",
+            )
+
+    def test_slice_dynamic_step_rejected(self):
+        """Slices with a (non-zero) step are only supported where they can be
+        constant folded; a dynamic step would otherwise be silently ignored."""
+        source_code = """
+from typing import List
+
+def validator(x: int) -> List[int]:
+    l = [x + 1, x + 2, x + 3]
+    return l[::-1]
+"""
+        with self.assertRaises(CompilerError) as context:
+            builder._compile(source_code)
+        self.assertIn(
+            "step",
+            str(context.exception),
+            "Dynamic slice step was not rejected",
+        )
+
+    def test_constant_folded_slice_with_negative_step_still_works(self):
+        source_code = """
+from typing import List
+
+def validator(x: int) -> List[int]:
+    l = [1, 2, 3]
+    return l[::-1]
+"""
+        # slices with a step are evaluated at compile time when constant
+        # folding is enabled, so they keep working
+        res = eval_uplc_value(
+            source_code, 0, config=DEFAULT_TEST_CONFIG.update(constant_folding=True)
+        )
+        res = [x.value for x in res]
+        self.assertEqual(res, [3, 2, 1], "Invalid value")
