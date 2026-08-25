@@ -1457,10 +1457,12 @@ def validator(x: int) -> bool:
     def test_cast_bool_boolops(self, x):
         source_code = """
 def validator(x: int) -> bool:
-    return x and x or (x or x)
+    return (x > 0) and (x < 10) or ((x == 0) or (x == -5))
 """
         res = eval_uplc_value(source_code, x)
-        self.assertEqual(bool(res), bool(x and x or (x or x)))
+        self.assertEqual(
+            bool(res), bool((x > 0) and (x < 10) or ((x == 0) or (x == -5)))
+        )
 
     @hypothesis.given(a_or_b)
     def test_isinstance_cast_if(self, x):
@@ -3415,3 +3417,43 @@ def validator(x: Dict[int, int]) -> int:
             builder._compile(source_code)
         self.assertIn("assigning to", str(context.exception))
         self.assertIn("dict", str(context.exception))
+
+    def test_boolop_bool_operands_short_circuit(self):
+        # bool operands keep working exactly as before, including short-circuit
+        # evaluation order: the second operand would crash on-chain if evaluated
+        source_code = """
+def validator(n: int) -> bool:
+    b = n > 0 or 1 // 0 == 0
+    c = n < 0 and 1 // 0 == 0
+    return b and not c
+"""
+        self.assertEqual(eval_uplc_value(source_code, 1), True)
+        source_code = """
+def validator(n: int) -> bool:
+    b = n < 0 or 1 // 0 == 0
+    c = n > 0 and 1 // 0 == 0
+    return b and not c
+"""
+        self.assertEqual(eval_uplc_value(source_code, -1), True)
+
+    def test_boolop_non_bool_operand_rejected(self):
+        # In Python 'and'/'or' return one of their operands. opshin's typed world
+        # cannot express that, so non-bool operands must be rejected at compile
+        # time instead of being silently coerced to bool (which would miscompile
+        # e.g. 'n or 42' into True while Python returns 42).
+        for source_code in [
+            """
+def validator(n: int) -> bool:
+    return n or 42
+""",
+            """
+def validator(n: int) -> bool:
+    return n and 5
+""",
+            """
+def validator(n: int) -> bool:
+    return n > 0 or n
+""",
+        ]:
+            with self.assertRaises(CompilerError):
+                builder._compile(source_code)

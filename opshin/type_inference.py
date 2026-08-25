@@ -1416,9 +1416,11 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         else:
             raise NotImplementedError(f"Boolean operator {node.op} not supported")
         tt.typ = BoolInstanceType
-        assert all(
-            BoolInstanceType >= e.typ for e in tt.values
-        ), f"All values compared must be bools, found {', '.join(e.typ.python_type() for e in tt.values)}"
+        for e in tt.values:
+            if not BoolInstanceType >= e.typ:
+                raise TypeInferenceError(
+                    f"Boolean operators require all operands to be of type bool, found {e.typ.python_type()}. Note that unlike in Python, 'and' and 'or' do not return one of their operands - use explicit comparisons or bool casts instead"
+                )
         return tt
 
     def visit_UnaryOp(self, node: UnaryOp) -> TypedUnaryOp:

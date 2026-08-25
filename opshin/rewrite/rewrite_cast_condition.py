@@ -33,12 +33,11 @@ class RewriteConditions(CompilingNodeTransformer):
         while_cp.test = Call(Name(SPECIAL_BOOL, Load()), [node.test], [])
         return self.generic_visit(while_cp)
 
-    def visit_BoolOp(self, node: BoolOp) -> BoolOp:
-        bo_cp = copy(node)
-        bo_cp.values = [
-            Call(Name(SPECIAL_BOOL, Load()), [self.visit(v)], []) for v in bo_cp.values
-        ]
-        return self.generic_visit(bo_cp)
+    # Note: BoolOp values are intentionally NOT wrapped in bool casts.
+    # In Python, 'and'/'or' return one of their operands, which the typed
+    # world of opshin cannot express. Non-bool operands are rejected with a
+    # TypeInferenceError during type inference instead of being silently
+    # coerced to bool (which would miscompile e.g. 'n or 42' into True).
 
     def visit_Assert(self, node: Assert) -> Assert:
         assert_cp = copy(node)
