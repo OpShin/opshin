@@ -82,6 +82,54 @@ class OptimizeRemoveDeadConstants(CompilingNodeTransformer):
         self.exit_scope()
         return node_cp
 
+    def visit_If(self, node: If):
+        node_cp = copy(node)
+        node_cp.test = self.visit(node.test)
+
+        self.enter_scope()
+        node_cp.body = self.visit_stmts(node.body)
+        body_guaranteed = self.guaranteed_avail_names[-1].copy()
+        self.exit_scope()
+
+        self.enter_scope()
+        node_cp.orelse = self.visit_stmts(node.orelse)
+        orelse_guaranteed = self.guaranteed_avail_names[-1].copy()
+        self.exit_scope()
+
+        for name in body_guaranteed:
+            if name in orelse_guaranteed:
+                self.set_guaranteed(name)
+        return node_cp
+
+    def visit_While(self, node: While):
+        node_cp = copy(node)
+        node_cp.test = self.visit(node.test)
+
+        self.enter_scope()
+        node_cp.body = self.visit_stmts(node.body)
+        self.exit_scope()
+
+        self.enter_scope()
+        node_cp.orelse = self.visit_stmts(node.orelse)
+        self.exit_scope()
+        return node_cp
+
+    def visit_For(self, node: For):
+        node_cp = copy(node)
+        node_cp.iter = self.visit(node.iter)
+
+        self.enter_scope()
+        node_cp.target = self.visit(node.target)
+        if isinstance(node.target, Name):
+            self.set_guaranteed(node.target.id)
+        node_cp.body = self.visit_stmts(node.body)
+        self.exit_scope()
+
+        self.enter_scope()
+        node_cp.orelse = self.visit_stmts(node.orelse)
+        self.exit_scope()
+        return node_cp
+
     def visit_Assign(self, node: Assign):
         for t in node.targets:
             if isinstance(t, Name):
