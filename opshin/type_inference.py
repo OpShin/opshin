@@ -1444,6 +1444,12 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
 
         ts.value = self.visit(node.value)
         assert isinstance(ts.value.typ, InstanceType), "Can only subscript instances"
+        if isinstance(ts.slice, Slice) and ts.slice.step is not None:
+            if isinstance(ts.slice.step, Constant) and ts.slice.step.value == 0:
+                raise TypeInferenceError("slice step cannot be zero")
+            raise TypeInferenceError(
+                f"Slices with a step are not supported for {ts.value.typ.python_type()}. Slices with a step are only allowed if they can be evaluated at compile time, e.g. on constant values. Note that Python raises 'ValueError: slice step cannot be zero' for a step of 0."
+            )
         if isinstance(ts.value.typ.typ, TupleType):
             assert (
                 ts.value.typ.typ.typs

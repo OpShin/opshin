@@ -3415,3 +3415,63 @@ def validator(x: Dict[int, int]) -> int:
             builder._compile(source_code)
         self.assertIn("assigning to", str(context.exception))
         self.assertIn("dict", str(context.exception))
+
+    def test_constant_folded_slice_with_negative_step_still_works(self):
+        source_code = """
+from typing import List
+
+def validator(x: int) -> List[int]:
+    l = [1, 2, 3]
+    return l[::-1]
+"""
+        # slices with a step are evaluated at compile time when constant
+        # folding is enabled, so they keep working
+        res = eval_uplc_value(
+            source_code, 0, config=DEFAULT_TEST_CONFIG.update(constant_folding=True)
+        )
+        res = [x.value for x in res]
+        self.assertEqual(res, [3, 2, 1], "Invalid value")
+
+    def test_slice_dynamic_step_rejected(self):
+        """Slices with a (non-zero) step are only supported where they can be
+        constant folded; a dynamic step would otherwise be silently ignored."""
+        source_code = """
+from typing import List
+
+def validator(x: int) -> List[int]:
+    l = [x + 1, x + 2, x + 3]
+    return l[::-1]
+"""
+        with self.assertRaises(CompilerError) as context:
+            builder._compile(source_code)
+        self.assertIn(
+            "step",
+            str(context.exception),
+            "Dynamic slice step was not rejected",
+        )
+
+    def test_slice_step_zero_rejected(self):
+        """Python raises 'ValueError: slice step cannot be zero' for l[::0].
+        opshin must reject it at compile time instead of silently returning
+        the whole list/bytes/str."""
+        for source_code in (
+            """
+from typing import List
+
+def validator(x: int) -> List[int]:
+    l = [1, 2, 3]
+    return l[::0]
+""",
+            """
+def validator(x: int) -> bytes:
+    b = b"abc"
+    return b[::0]
+""",
+        ):
+            with self.assertRaises(CompilerError) as context:
+                builder._compile(source_code)
+            self.assertIn(
+                "slice step cannot be zero",
+                str(context.exception),
+                "Zero slice step was not rejected",
+            )
