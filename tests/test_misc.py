@@ -3415,3 +3415,31 @@ def validator(x: Dict[int, int]) -> int:
             builder._compile(source_code)
         self.assertIn("assigning to", str(context.exception))
         self.assertIn("dict", str(context.exception))
+
+    def test_nested_function_call_execution_count(self):
+        # Each syntactic call to a nested function over captured variables must
+        # execute exactly once (once per call site in an expression, once per
+        # iteration for a while condition), matching CPython. The constant
+        # folder used to execute such calls at compile time and contaminate the
+        # captured state (n sites -> 2n+1 executions).
+        source_code = """
+def validator(x: int) -> int:
+    n = 0
+    def b() -> bool:
+        print("c")
+        return n < 2
+    while b():
+        print("i")
+        n = n + 1
+    return n
+"""
+        raw = eval_uplc_raw(
+            source_code,
+            0,
+            config=DEFAULT_TEST_CONFIG.update(constant_folding=True),
+        )
+        if isinstance(raw.result, Exception):
+            raise raw.result
+        self.assertEqual(raw.result.value, 2)
+        self.assertEqual(raw.logs.count("c"), 3)
+        self.assertEqual(raw.logs.count("i"), 2)
