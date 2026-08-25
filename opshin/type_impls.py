@@ -2100,6 +2100,167 @@ class IntegerType(AtomicType):
         )
 
 
+def _string_contains_byte(bs: plt.AST, b: plt.AST) -> plt.AST:
+    """Returns a term that evaluates to whether the bytestring bs contains the byte b."""
+    return plt.RecFun(
+        OLambda(
+            ["f", "i"],
+            plt.Ite(
+                plt.LessThanEqualsInteger(plt.LengthOfByteString(bs), OVar("i")),
+                plt.Bool(False),
+                plt.Ite(
+                    plt.EqualsInteger(plt.IndexByteString(bs, OVar("i")), b),
+                    plt.Bool(True),
+                    plt.Apply(
+                        OVar("f"), OVar("f"), plt.AddInteger(OVar("i"), plt.Integer(1))
+                    ),
+                ),
+            ),
+        )
+    )
+
+
+def _string_repr_escape(bs: plt.AST, quote: plt.AST) -> plt.AST:
+    """
+    Returns a recursive function computing the escaped representation of the
+    bytestring bs (interpreted as utf8), escaping the backslash, the given quote
+    character and all control characters like CPython's str.__repr__ does.
+    Note that all bytes of multi-byte utf8 sequences are >= 0x80, so processing
+    single bytes never splits a unicode character.
+    """
+    hex_digit = OLambda(
+        ["d"],
+        plt.Ite(
+            plt.LessThanInteger(OVar("d"), plt.Integer(10)),
+            plt.AddInteger(plt.Integer(ord("0")), OVar("d")),
+            plt.AddInteger(plt.Integer(ord("a") - 10), OVar("d")),
+        ),
+    )
+
+    def escape_byte(f, i):
+        rest = plt.Apply(
+            OVar("f"), OVar("f"), plt.AddInteger(OVar("i"), plt.Integer(1))
+        )
+        return OLet(
+            [("c", plt.IndexByteString(bs, OVar("i")))],
+            plt.Ite(
+                # backslash is always escaped
+                plt.EqualsInteger(OVar("c"), plt.Integer(0x5C)),
+                plt.ConsByteString(
+                    plt.Integer(0x5C), plt.ConsByteString(OVar("c"), rest)
+                ),
+                plt.Ite(
+                    # the chosen quote character is escaped
+                    plt.EqualsInteger(OVar("c"), quote),
+                    plt.ConsByteString(
+                        plt.Integer(0x5C), plt.ConsByteString(OVar("c"), rest)
+                    ),
+                    plt.Ite(
+                        # line breaks and tabs use letter escapes like CPython
+                        plt.EqualsInteger(OVar("c"), plt.Integer(0x0A)),
+                        plt.ConsByteString(
+                            plt.Integer(0x5C),
+                            plt.ConsByteString(plt.Integer(ord("n")), rest),
+                        ),
+                        plt.Ite(
+                            plt.EqualsInteger(OVar("c"), plt.Integer(0x0D)),
+                            plt.ConsByteString(
+                                plt.Integer(0x5C),
+                                plt.ConsByteString(plt.Integer(ord("r")), rest),
+                            ),
+                            plt.Ite(
+                                plt.EqualsInteger(OVar("c"), plt.Integer(0x09)),
+                                plt.ConsByteString(
+                                    plt.Integer(0x5C),
+                                    plt.ConsByteString(plt.Integer(ord("t")), rest),
+                                ),
+                                plt.Ite(
+                                    # remaining control characters are \x-escaped
+                                    plt.LessThanInteger(OVar("c"), plt.Integer(0x20)),
+                                    OLet(
+                                        [
+                                            (
+                                                "hi",
+                                                plt.DivideInteger(
+                                                    OVar("c"), plt.Integer(16)
+                                                ),
+                                            ),
+                                            (
+                                                "lo",
+                                                plt.ModInteger(
+                                                    OVar("c"), plt.Integer(16)
+                                                ),
+                                            ),
+                                        ],
+                                        plt.ConsByteString(
+                                            plt.Integer(0x5C),
+                                            plt.ConsByteString(
+                                                plt.Integer(ord("x")),
+                                                plt.ConsByteString(
+                                                    plt.Apply(hex_digit, OVar("hi")),
+                                                    plt.ConsByteString(
+                                                        plt.Apply(
+                                                            hex_digit, OVar("lo")
+                                                        ),
+                                                        rest,
+                                                    ),
+                                                ),
+                                            ),
+                                        ),
+                                    ),
+                                    plt.Ite(
+                                        plt.EqualsInteger(OVar("c"), plt.Integer(0x7F)),
+                                        OLet(
+                                            [
+                                                (
+                                                    "lo",
+                                                    plt.ModInteger(
+                                                        OVar("c"), plt.Integer(16)
+                                                    ),
+                                                )
+                                            ],
+                                            plt.ConsByteString(
+                                                plt.Integer(0x5C),
+                                                plt.ConsByteString(
+                                                    plt.Integer(ord("x")),
+                                                    plt.ConsByteString(
+                                                        plt.Apply(
+                                                            hex_digit, plt.Integer(7)
+                                                        ),
+                                                        plt.ConsByteString(
+                                                            plt.Apply(
+                                                                hex_digit, OVar("lo")
+                                                            ),
+                                                            rest,
+                                                        ),
+                                                    ),
+                                                ),
+                                            ),
+                                        ),
+                                        # printable characters (incl. all bytes of
+                                        # multi-byte utf8 sequences) pass through
+                                        plt.ConsByteString(OVar("c"), rest),
+                                    ),
+                                ),
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+        )
+
+    return plt.RecFun(
+        OLambda(
+            ["f", "i"],
+            plt.Ite(
+                plt.LessThanEqualsInteger(plt.LengthOfByteString(bs), OVar("i")),
+                plt.ByteString(b""),
+                escape_byte(OVar("f"), OVar("i")),
+            ),
+        )
+    )
+
+
 @dataclass(frozen=True, unsafe_hash=True)
 class StringType(AtomicType):
 
@@ -2132,10 +2293,61 @@ class StringType(AtomicType):
 
     def stringify(self, recursive: bool = False) -> plt.AST:
         if recursive:
-            # TODO this is not correct, as the string is not properly escaped
+            # strings inside containers are printed like Python's str.__repr__:
+            # wrapped in double quotes iff the string contains ' but no ",
+            # otherwise single quotes, with backslash, the chosen quote and
+            # control characters escaped (fixes https://github.com/OpShin/opshin/issues/513)
             return OLambda(
                 ["self"],
-                plt.ConcatString(plt.Text("'"), OVar("self"), plt.Text("'")),
+                plt.DecodeUtf8(
+                    OLet(
+                        [
+                            ("bs", plt.EncodeUtf8(OVar("self"))),
+                            (
+                                "contains_squote",
+                                plt.Apply(
+                                    _string_contains_byte(
+                                        OVar("bs"), plt.Integer(0x27)
+                                    ),
+                                    plt.Integer(0),
+                                ),
+                            ),
+                            (
+                                "contains_dquote",
+                                plt.Apply(
+                                    _string_contains_byte(
+                                        OVar("bs"), plt.Integer(0x22)
+                                    ),
+                                    plt.Integer(0),
+                                ),
+                            ),
+                            # CPython picks double quotes iff the string contains ' but no "
+                            (
+                                "quote",
+                                plt.Ite(
+                                    OVar("contains_squote"),
+                                    plt.Ite(
+                                        OVar("contains_dquote"),
+                                        plt.Integer(0x27),
+                                        plt.Integer(0x22),
+                                    ),
+                                    plt.Integer(0x27),
+                                ),
+                            ),
+                            (
+                                "escape",
+                                _string_repr_escape(OVar("bs"), OVar("quote")),
+                            ),
+                        ],
+                        plt.AppendByteString(
+                            plt.ConsByteString(OVar("quote"), plt.ByteString(b"")),
+                            plt.AppendByteString(
+                                plt.Apply(OVar("escape"), plt.Integer(0)),
+                                plt.ConsByteString(OVar("quote"), plt.ByteString(b"")),
+                            ),
+                        ),
+                    )
+                ),
             )
         else:
             return OLambda(["self"], OVar("self"))

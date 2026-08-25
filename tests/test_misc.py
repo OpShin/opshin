@@ -3415,3 +3415,30 @@ def validator(x: Dict[int, int]) -> int:
             builder._compile(source_code)
         self.assertIn("assigning to", str(context.exception))
         self.assertIn("dict", str(context.exception))
+
+    def test_print_string_repr_escaping(self):
+        # strings inside containers must be printed like Python's str.__repr__
+        # (see https://github.com/OpShin/opshin/issues/513)
+        for string_repr in [
+            repr("a\\b"),
+            repr("it's"),
+            repr('say "hi"'),
+            repr("both ' and \""),
+            repr(""),
+            repr("line1\nline2"),
+            repr("tab\there"),
+            repr(f"nul\x00char"),
+            repr(f"del\x7fchar"),
+            repr("\x1b[0m"),
+            repr("héllo"),
+        ]:
+            source_code = f"""
+def validator(x: int) -> None:
+    print([{string_repr}])
+    assert False
+"""
+            self.assertEqual(
+                eval_uplc_raw(source_code, 0).logs,
+                [f"[{string_repr}]"],
+                f"Mismatching stringification of {string_repr}",
+            )
