@@ -28,11 +28,11 @@ def deadline_reached(params: VestingParams, context: ScriptContext) -> bool:
     return is_after(params.deadline, context.transaction.validity_range)
 
 
-def validator(context: ScriptContext) -> None:
-    purpose = context.purpose
-    assert isinstance(purpose, Spending)
-    own_utxo = own_spent_utxo(context.transaction.inputs, purpose)
-    datum: VestingParams = resolve_datum_unsafe(own_utxo, context.transaction)
-    assert signed_by_beneficiary(datum, context), "beneficiary's signature missing"
-    assert deadline_reached(datum, context), "deadline not reached"
-    return None
+@dataclass()
+class Vesting(Contract):
+    def spend_with_datum(
+        self, datum: VestingParams, _redeemer: Anything, context: ScriptContext
+    ) -> None:
+        assert signed_by_beneficiary(datum, context), "beneficiary's signature missing"
+        assert deadline_reached(datum, context), "deadline not reached"
+        return None

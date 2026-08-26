@@ -17,6 +17,7 @@ import os
 import shutil
 import subprocess
 import sys
+import tempfile
 import yaml
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
@@ -39,27 +40,23 @@ def load_config(config_file: Optional[str] = None) -> Dict:
                 {
                     "name": "assert_sum",
                     "path": "examples/smart_contracts/assert_sum.py",
-                    "purpose": "spending",
                     "description": "Simple spending validator with assertion",
                 },
                 {
                     "name": "marketplace",
                     "path": "examples/smart_contracts/marketplace.py",
-                    "purpose": "spending",
                     "description": "Marketplace contract with complex data structures",
                 },
                 {
                     "name": "gift",
                     "path": "examples/smart_contracts/gift.py",
-                    "purpose": "spending",
                     "description": "Gift contract with simple logic",
                 },
                 {
-                    "name": "dual_use",
-                    "path": "examples/smart_contracts/dual_use.py",
-                    "purpose": "spending",
-                    "extra_flags": ["-fforce-three-params"],
-                    "description": "Dual-use contract with multiple entry points",
+                    "name": "wrapped_token",
+                    "path": "examples/smart_contracts/wrapped_token.py",
+                    "extra_flags": ["--parameters", "3"],
+                    "description": "Dual-use contract to generate a wrapped token",
                 },
             ],
             "optimization_levels": ["O1", "O2", "O3"],
@@ -92,7 +89,7 @@ def compile_contract(
     if work_dir is None:
         work_dir = os.getcwd()
 
-    output_dir = f"size_test_{optimization}"
+    output_dir = tempfile.mkdtemp(prefix=f"size_test_{optimization}_", dir=work_dir)
 
     cmd = [
         "uv",
@@ -114,16 +111,18 @@ def compile_contract(
 
     if exit_code != 0:
         print(f"Failed to compile {contract_path} with {optimization}: {stderr}")
-        raise Exception(f"Compilation failed: {stderr}")
+        shutil.rmtree(output_dir, ignore_errors=True)
+        return None
 
-    cbor_file = Path(work_dir) / output_dir / "script.cbor"
+    cbor_file = Path(output_dir) / "script.cbor"
     if cbor_file.exists():
         size = cbor_file.stat().st_size
         # Clean up
-        shutil.rmtree(Path(work_dir) / output_dir, ignore_errors=True)
+        shutil.rmtree(output_dir, ignore_errors=True)
         return size
     else:
         print(f"CBOR file not found for {contract_path}")
+        shutil.rmtree(output_dir, ignore_errors=True)
         return None
 
 

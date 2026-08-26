@@ -102,7 +102,14 @@ class RewriteImportDataclasses(CompilingNodeTransformer):
             ), "astuple must be imported via 'from dataclasses import astuple'"
         return node
 
+    def _is_contract_class(self, node: ClassDef) -> bool:
+        return any(
+            isinstance(base, Name) and base.id == "Contract" for base in node.bases
+        )
+
     def visit_ClassDef(self, node: ClassDef) -> ClassDef:
+        if self._is_contract_class(node):
+            return node
         assert (
             self.imports_dataclasses
         ), "dataclasses must be imported in order to use datum classes"

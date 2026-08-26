@@ -9,6 +9,7 @@ This downloads the latest baseline and compares against current code.
 import argparse
 import os
 import requests
+import subprocess
 import sys
 import tempfile
 from pathlib import Path
@@ -57,6 +58,20 @@ def download_latest_baseline(repo: str = "OpShin/opshin") -> str:
         return None
 
 
+def run_tracker_comparison(tracker_script: Path, baseline_file: str) -> int:
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(tracker_script),
+            "compare",
+            "--baseline-file",
+            baseline_file,
+        ],
+        check=False,
+    )
+    return result.returncode
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Check binary sizes against latest release baseline"
@@ -95,7 +110,9 @@ def main():
     try:
         # Run the comparison
         print("\nRunning binary size comparison...")
-        os.system(f"python {tracker_script} compare --baseline-file {baseline_file}")
+        return_code = run_tracker_comparison(tracker_script, baseline_file)
+        if return_code != 0:
+            sys.exit(return_code)
 
     finally:
         # Clean up temp file if we downloaded it

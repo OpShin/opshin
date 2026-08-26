@@ -61,38 +61,39 @@ def all_tokens_locked_at_contract_address(
 # parameters controlling which token is to be wrapped and how many decimal places to add
 # compile the contract as follows to obtain the parameterized contract (for preprod milk)
 #
-# moreover this contract should always be called with three virtual parameters, so enable --force-three-params
-#
-# $ opshin build spending examples/smart_contracts/wrapped_token.py '{"bytes": "ae810731b5d21c0d182d89c60a1eff7095dffd1c0dce8707a8611099"}' '{"bytes": "4d494c4b"}' '{"int": 1000000}' --force-three-params
-def validator(
-    token_policy_id: bytes,
-    token_name: bytes,
-    wrapping_factor: int,
-    ctx: ScriptContext,
-) -> None:
-    purpose = ctx.purpose
-    if isinstance(purpose, Minting):
-        # whenever tokens should be burned/minted, the minting purpose will be triggered
-        own_addr = own_address(purpose.policy_id)
-        own_pid = purpose.policy_id
-    elif isinstance(purpose, Spending):
-        # whenever something is unlocked from the contract, the spending purpose will be triggered
-        own_utxo = own_spent_utxo(ctx.transaction.inputs, purpose)
-        own_pid = own_policy_id(own_utxo)
-        own_addr = own_utxo.address
-    else:
-        assert False, "Incorrect purpose given"
-    token = Token(token_policy_id, token_name)
-    all_locked = all_tokens_locked_at_contract_address(
-        ctx.transaction.outputs, own_addr, token
-    )
-    all_unlocked = all_tokens_unlocked_from_contract_address(
-        ctx.transaction.inputs, own_addr, token
-    )
-    all_minted = ctx.transaction.mint.get(own_pid, {b"": 0}).get(b"w" + token_name, 0)
-    print(f"unlocked from contract: {all_unlocked}")
-    print(f"locked at contract: {all_locked}")
-    print(f"minted: {all_minted}")
-    assert (
-        (all_locked - all_unlocked) * wrapping_factor
-    ) == all_minted, f"Wrong amount of tokens minted, difference: {(all_locked - all_unlocked) * wrapping_factor - all_minted}"
+# $ opshin build spending examples/smart_contracts/wrapped_token.py '{"bytes": "ae810731b5d21c0d182d89c60a1eff7095dffd1c0dce8707a8611099"}' '{"bytes": "4d494c4b"}' '{"int": 1000000}'
+@dataclass()
+class WrappedToken(Contract):
+    token_policy_id: bytes
+    token_name: bytes
+    wrapping_factor: int
+
+    def raw(self, ctx: ScriptContext) -> None:
+        purpose = ctx.purpose
+        if isinstance(purpose, Minting):
+            # whenever tokens should be burned/minted, the minting purpose will be triggered
+            own_addr = own_address(purpose.policy_id)
+            own_pid = purpose.policy_id
+        elif isinstance(purpose, Spending):
+            # whenever something is unlocked from the contract, the spending purpose will be triggered
+            own_utxo = own_spent_utxo(ctx.transaction.inputs, purpose)
+            own_pid = own_policy_id(own_utxo)
+            own_addr = own_utxo.address
+        else:
+            assert False, "Incorrect purpose given"
+        token = Token(self.token_policy_id, self.token_name)
+        all_locked = all_tokens_locked_at_contract_address(
+            ctx.transaction.outputs, own_addr, token
+        )
+        all_unlocked = all_tokens_unlocked_from_contract_address(
+            ctx.transaction.inputs, own_addr, token
+        )
+        all_minted = ctx.transaction.mint.get(own_pid, {b"": 0}).get(
+            b"w" + self.token_name, 0
+        )
+        print(f"unlocked from contract: {all_unlocked}")
+        print(f"locked at contract: {all_locked}")
+        print(f"minted: {all_minted}")
+        assert (
+            (all_locked - all_unlocked) * self.wrapping_factor
+        ) == all_minted, f"Wrong amount of tokens minted, difference: {(all_locked - all_unlocked) * self.wrapping_factor - all_minted}"

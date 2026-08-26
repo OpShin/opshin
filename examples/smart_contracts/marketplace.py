@@ -53,23 +53,25 @@ def check_owner_signed(signatories: List[PubKeyHash], owner: PubKeyHash) -> None
     ), f"Owner did not sign transaction, requires {owner.hex()} but got {[s.hex() for s in signatories]}"
 
 
-def validator(context: ScriptContext) -> None:
-    purpose = context.purpose
-    datum: Listing = own_datum_unsafe(context)
-    check_integrity(datum)
-    redeemer: ListingAction = context.redeemer
-    check_integrity(redeemer)
+@dataclass()
+class Marketplace(Contract):
+    def spend_with_datum(
+        self, datum: Listing, redeemer: ListingAction, context: ScriptContext
+    ) -> None:
+        purpose = context.purpose
+        check_integrity(datum)
+        check_integrity(redeemer)
 
-    tx_info = context.transaction
-    assert isinstance(purpose, Spending), f"Wrong script purpose: {purpose}"
-    own_utxo = resolve_spent_utxo(tx_info.inputs, purpose)
-    own_addr = own_utxo.address
+        tx_info = context.transaction
+        assert isinstance(purpose, Spending), f"Wrong script purpose: {purpose}"
+        own_utxo = resolve_spent_utxo(tx_info.inputs, purpose)
+        own_addr = own_utxo.address
 
-    check_single_utxo_spent(tx_info.inputs, own_addr)
-    # It is recommended to explicitly check all options with isinstance for user input
-    if isinstance(redeemer, Buy):
-        check_paid(tx_info.outputs, datum.vendor, datum.price)
-    elif isinstance(redeemer, Unlist):
-        check_owner_signed(tx_info.signatories, datum.owner)
-    else:
-        assert False, "Wrong redeemer"
+        check_single_utxo_spent(tx_info.inputs, own_addr)
+        # It is recommended to explicitly check all options with isinstance for user input
+        if isinstance(redeemer, Buy):
+            check_paid(tx_info.outputs, datum.vendor, datum.price)
+        elif isinstance(redeemer, Unlist):
+            check_owner_signed(tx_info.signatories, datum.owner)
+        else:
+            assert False, "Wrong redeemer"

@@ -59,6 +59,7 @@ from .rewrite.rewrite_assert_none import RewriteAssertNone
 from .rewrite.rewrite_annotate_fallthrough import RewriteAnnotateFallthrough
 from .rewrite.rewrite_augassign import RewriteAugAssign
 from .rewrite.rewrite_cast_condition import RewriteConditions
+from .rewrite.rewrite_contract_methods import RewriteContractMethods
 from .rewrite.rewrite_empty_dicts import RewriteEmptyDicts
 from .rewrite.rewrite_empty_lists import RewriteEmptyLists
 from .rewrite.rewrite_destructuring_assign import RewriteDestructuringAssign
@@ -1437,6 +1438,7 @@ def compile(
     compile_pipeline = [
         # Important to call this one first - it imports all further files
         RewriteImport(filename=filename),
+        RewriteContractMethods(),
         # Rewrites that simplify the python code
         RewriteForbiddenReturn(),
         OptimizeUnionExpansion() if config.expand_union_types else NoOp(),
