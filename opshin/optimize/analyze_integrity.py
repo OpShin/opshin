@@ -1,5 +1,4 @@
 import ast
-import itertools
 import typing
 from dataclasses import dataclass
 
@@ -196,11 +195,13 @@ class _FunctionFlowAnalyzer:
         functions: dict[str, ast.FunctionDef],
         annotate: bool,
         warn_unchecked_uses: bool = False,
+        requested_summaries: typing.Optional[set[tuple[str, tuple[bool, ...]]]] = None,
     ):
         self.summaries = summaries
         self.functions = functions
         self.annotate = annotate
         self.warn_unchecked_uses = warn_unchecked_uses
+        self.requested_summaries = requested_summaries
         self.returns: list[tuple[bool, dict[str, bool]]] = []
 
     def _mark(self, node: ast.AST, integrity_checked: bool) -> bool:
@@ -323,6 +324,11 @@ class _FunctionFlowAnalyzer:
                         argument_checks, function.args.args
                     )
                 )
+                if (
+                    self.requested_summaries is not None
+                    and len(function.args.args) <= MAX_SUMMARIZED_PARAMETERS
+                ):
+                    self.requested_summaries.add((function_id, normalized))
                 summary = self.summaries.get(
                     (function_id, normalized),
                     FunctionIntegritySummary(False, frozenset()),
@@ -373,6 +379,11 @@ class _FunctionFlowAnalyzer:
             integrity_checked or not _requires_integrity_check(parameter.typ)
             for integrity_checked, parameter in zip(argument_checks, function.args.args)
         )
+        if (
+            self.requested_summaries is not None
+            and len(function.args.args) <= MAX_SUMMARIZED_PARAMETERS
+        ):
+            self.requested_summaries.add((function_id, normalized))
         summary = self.summaries.get(
             (function_id, normalized), FunctionIntegritySummary(False, frozenset())
         )
@@ -545,6 +556,16 @@ class AnalyzeIntegrity(CompilingNodeTransformer):
             return False
         return argument.typ.typ.record.orig_name == "ScriptContext"
 
+    def _initial_configuration(self, function: ast.FunctionDef) -> tuple[bool, ...]:
+        return tuple(
+            not _requires_integrity_check(argument.typ)
+            or (
+                function.orig_name == self.validator_function_name
+                and self._integrity_checked_validator_parameter(function, argument)
+            )
+            for argument in function.args.args
+        )
+
     def visit_Module(self, node: ast.Module) -> ast.Module:
         functions = {
             function.function_id: function
@@ -553,49 +574,35 @@ class AnalyzeIntegrity(CompilingNodeTransformer):
             and getattr(function, "function_id", None) is not None
         }
         summaries: dict[tuple[str, tuple[bool, ...]], FunctionIntegritySummary] = {}
-        configurations: dict[str, list[tuple[bool, ...]]] = {}
         for function_id, function in functions.items():
             if len(function.args.args) > MAX_SUMMARIZED_PARAMETERS:
-                configurations[function_id] = []
                 continue
-            relevant = [
-                index
-                for index, argument in enumerate(function.args.args)
-                if _requires_integrity_check(argument.typ)
-            ]
-            configs = []
-            for values in itertools.product((False, True), repeat=len(relevant)):
-                config = [True] * len(function.args.args)
-                for index, integrity_checked in zip(relevant, values):
-                    config[index] = integrity_checked
-                configs.append(tuple(config))
-            configurations[function_id] = configs
-            for config in configs:
-                summaries[(function_id, config)] = FunctionIntegritySummary(
-                    False, frozenset()
-                )
+            summaries[(function_id, self._initial_configuration(function))] = (
+                FunctionIntegritySummary(False, frozenset())
+            )
 
         while True:
             updated = dict(summaries)
-            for function_id, configs in configurations.items():
-                for config in configs:
-                    analyzer = _FunctionFlowAnalyzer(summaries, functions, False)
-                    updated[(function_id, config)] = analyzer.function_summary(
-                        functions[function_id], config
-                    )
+            requested_summaries = set()
+            for function_id, config in summaries:
+                analyzer = _FunctionFlowAnalyzer(
+                    summaries,
+                    functions,
+                    False,
+                    requested_summaries=requested_summaries,
+                )
+                updated[(function_id, config)] = analyzer.function_summary(
+                    functions[function_id], config
+                )
+            for requested_summary in requested_summaries:
+                updated.setdefault(
+                    requested_summary, FunctionIntegritySummary(False, frozenset())
+                )
             if updated == summaries:
                 break
             summaries = updated
 
         for function in functions.values():
-            initial = tuple(
-                not _requires_integrity_check(argument.typ)
-                or (
-                    function.orig_name == self.validator_function_name
-                    and self._integrity_checked_validator_parameter(function, argument)
-                )
-                for argument in function.args.args
-            )
             analyzer = _FunctionFlowAnalyzer(
                 summaries,
                 functions,
@@ -604,7 +611,7 @@ class AnalyzeIntegrity(CompilingNodeTransformer):
                     function.orig_name == self.validator_function_name
                 ),
             )
-            analyzer.function_summary(function, initial)
+            analyzer.function_summary(function, self._initial_configuration(function))
 
         node.integrity_summaries = summaries
         return node
