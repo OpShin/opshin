@@ -59,6 +59,36 @@ def _python_int_whitespace(character: str) -> bool:
 PYTHON_WHITESPACE_RANGES = _codepoint_ranges(_python_int_whitespace)
 
 
+def _printable_block_data():
+    full_blocks = []
+    mixed_blocks = []
+    for block in range(0x1100):
+        bitmap = bytes(
+            sum(
+                int(chr(block * 0x100 + offset * 8 + bit).isprintable()) << bit
+                for bit in range(8)
+            )
+            for offset in range(32)
+        )
+        if bitmap == b"\xff" * 32:
+            full_blocks.append(block)
+        elif bitmap != b"\x00" * 32:
+            mixed_blocks.append((block, bitmap))
+
+    full_ranges = []
+    for block in full_blocks:
+        if full_ranges and block == full_ranges[-1][1] + 1:
+            full_ranges[-1] = (full_ranges[-1][0], block)
+        else:
+            full_ranges.append((block, block))
+    return tuple(full_ranges), tuple(mixed_blocks)
+
+
+PYTHON_FULL_PRINTABLE_BLOCK_RANGES, PYTHON_MIXED_PRINTABLE_BLOCKS = (
+    _printable_block_data()
+)
+
+
 def _codepoint_range_lookup(
     codepoint: plt.AST,
     ranges,
@@ -77,6 +107,23 @@ def _codepoint_range_lookup(
             plt.LessThanEqualsInteger(codepoint, plt.Integer(end)),
             match(start),
             _codepoint_range_lookup(codepoint, ranges[middle + 1 :], match, default),
+        ),
+    )
+
+
+def _integer_bytes_lookup(key: plt.AST, items) -> plt.AST:
+    """Build a balanced UPLC lookup from integers to byte strings."""
+    if not items:
+        return plt.ByteString(b"")
+    middle = len(items) // 2
+    item_key, value = items[middle]
+    return plt.Ite(
+        plt.LessThanInteger(key, plt.Integer(item_key)),
+        _integer_bytes_lookup(key, items[:middle]),
+        plt.Ite(
+            plt.EqualsInteger(key, plt.Integer(item_key)),
+            plt.ByteString(value),
+            _integer_bytes_lookup(key, items[middle + 1 :]),
         ),
     )
 
@@ -2183,10 +2230,305 @@ class StringType(AtomicType):
 
     def stringify(self, recursive: bool = False) -> plt.AST:
         if recursive:
-            # TODO this is not correct, as the string is not properly escaped
+            full_printable_block = _codepoint_range_lookup(
+                OVar("printable_block"),
+                PYTHON_FULL_PRINTABLE_BLOCK_RANGES,
+                lambda _: plt.Bool(True),
+                plt.Bool(False),
+            )
+            printable_bitmap = _integer_bytes_lookup(
+                OVar("printable_block"), PYTHON_MIXED_PRINTABLE_BLOCKS
+            )
+            codepoint_is_printable = plt.Or(
+                OVar("full_printable_block"),
+                plt.And(
+                    plt.LessThanInteger(
+                        plt.Integer(0),
+                        plt.LengthOfByteString(OVar("printable_bitmap")),
+                    ),
+                    plt.EqualsInteger(
+                        plt.ModInteger(
+                            plt.DivideInteger(
+                                plt.IndexByteString(
+                                    OVar("printable_bitmap"),
+                                    plt.DivideInteger(
+                                        OVar("block_offset"), plt.Integer(8)
+                                    ),
+                                ),
+                                plt.IndexByteString(
+                                    plt.ByteString(
+                                        bytes((1, 2, 4, 8, 16, 32, 64, 128))
+                                    ),
+                                    plt.ModInteger(
+                                        OVar("block_offset"), plt.Integer(8)
+                                    ),
+                                ),
+                            ),
+                            plt.Integer(2),
+                        ),
+                        plt.Integer(1),
+                    ),
+                ),
+            )
+
+            def byte(offset: int):
+                return plt.IndexByteString(
+                    OVar("encoded"),
+                    plt.AddInteger(OVar("index"), plt.Integer(offset)),
+                )
+
+            def continuation(offset: int):
+                return plt.SubtractInteger(byte(offset), plt.Integer(0x80))
+
+            decoded_codepoint = plt.Ite(
+                plt.LessThanInteger(OVar("first_byte"), plt.Integer(0x80)),
+                OVar("first_byte"),
+                plt.Ite(
+                    plt.LessThanInteger(OVar("first_byte"), plt.Integer(0xE0)),
+                    plt.AddInteger(
+                        plt.MultiplyInteger(
+                            plt.SubtractInteger(OVar("first_byte"), plt.Integer(0xC0)),
+                            plt.Integer(0x40),
+                        ),
+                        continuation(1),
+                    ),
+                    plt.Ite(
+                        plt.LessThanInteger(OVar("first_byte"), plt.Integer(0xF0)),
+                        plt.AddInteger(
+                            plt.AddInteger(
+                                plt.MultiplyInteger(
+                                    plt.SubtractInteger(
+                                        OVar("first_byte"), plt.Integer(0xE0)
+                                    ),
+                                    plt.Integer(0x1000),
+                                ),
+                                plt.MultiplyInteger(continuation(1), plt.Integer(0x40)),
+                            ),
+                            continuation(2),
+                        ),
+                        plt.AddInteger(
+                            plt.AddInteger(
+                                plt.AddInteger(
+                                    plt.MultiplyInteger(
+                                        plt.SubtractInteger(
+                                            OVar("first_byte"), plt.Integer(0xF0)
+                                        ),
+                                        plt.Integer(0x40000),
+                                    ),
+                                    plt.MultiplyInteger(
+                                        continuation(1), plt.Integer(0x1000)
+                                    ),
+                                ),
+                                plt.MultiplyInteger(continuation(2), plt.Integer(0x40)),
+                            ),
+                            continuation(3),
+                        ),
+                    ),
+                ),
+            )
+
+            def hex_digit(divisor: int):
+                digit = plt.ModInteger(
+                    plt.DivideInteger(OVar("codepoint"), plt.Integer(divisor)),
+                    plt.Integer(16),
+                )
+                return plt.DecodeUtf8(
+                    plt.ConsByteString(
+                        plt.AddInteger(
+                            digit,
+                            plt.Ite(
+                                plt.LessThanInteger(digit, plt.Integer(10)),
+                                plt.Integer(ord("0")),
+                                plt.Integer(ord("a") - 10),
+                            ),
+                        ),
+                        plt.ByteString(b""),
+                    )
+                )
+
+            def hex_escape(prefix: str, digits: int):
+                return plt.ConcatString(
+                    plt.Text(prefix),
+                    *(hex_digit(16**position) for position in reversed(range(digits))),
+                )
+
+            escaped_codepoint = plt.Ite(
+                plt.EqualsInteger(OVar("codepoint"), plt.Integer(ord("\\"))),
+                plt.Text("\\\\"),
+                plt.Ite(
+                    plt.EqualsInteger(OVar("codepoint"), OVar("quote_codepoint")),
+                    plt.AppendString(plt.Text("\\"), OVar("quote")),
+                    plt.Ite(
+                        plt.EqualsInteger(OVar("codepoint"), plt.Integer(ord("\t"))),
+                        plt.Text("\\t"),
+                        plt.Ite(
+                            plt.EqualsInteger(
+                                OVar("codepoint"), plt.Integer(ord("\n"))
+                            ),
+                            plt.Text("\\n"),
+                            plt.Ite(
+                                plt.EqualsInteger(
+                                    OVar("codepoint"), plt.Integer(ord("\r"))
+                                ),
+                                plt.Text("\\r"),
+                                plt.Ite(
+                                    codepoint_is_printable,
+                                    plt.DecodeUtf8(
+                                        plt.SliceByteString(
+                                            OVar("index"),
+                                            OVar("width"),
+                                            OVar("encoded"),
+                                        )
+                                    ),
+                                    plt.Ite(
+                                        plt.LessThanInteger(
+                                            OVar("codepoint"), plt.Integer(0x100)
+                                        ),
+                                        hex_escape("\\x", 2),
+                                        plt.Ite(
+                                            plt.LessThanInteger(
+                                                OVar("codepoint"), plt.Integer(0x10000)
+                                            ),
+                                            hex_escape("\\u", 4),
+                                            hex_escape("\\U", 8),
+                                        ),
+                                    ),
+                                ),
+                            ),
+                        ),
+                    ),
+                ),
+            )
+
+            escape = plt.RecFun(
+                OLambda(
+                    ["escape", "index"],
+                    plt.Ite(
+                        plt.LessThanInteger(OVar("index"), OVar("length")),
+                        OLet(
+                            [
+                                (
+                                    "first_byte",
+                                    plt.IndexByteString(OVar("encoded"), OVar("index")),
+                                ),
+                                (
+                                    "width",
+                                    plt.Ite(
+                                        plt.LessThanInteger(
+                                            OVar("first_byte"), plt.Integer(0x80)
+                                        ),
+                                        plt.Integer(1),
+                                        plt.Ite(
+                                            plt.LessThanInteger(
+                                                OVar("first_byte"), plt.Integer(0xE0)
+                                            ),
+                                            plt.Integer(2),
+                                            plt.Ite(
+                                                plt.LessThanInteger(
+                                                    OVar("first_byte"),
+                                                    plt.Integer(0xF0),
+                                                ),
+                                                plt.Integer(3),
+                                                plt.Integer(4),
+                                            ),
+                                        ),
+                                    ),
+                                ),
+                                ("codepoint", decoded_codepoint),
+                                (
+                                    "printable_block",
+                                    plt.DivideInteger(
+                                        OVar("codepoint"), plt.Integer(0x100)
+                                    ),
+                                ),
+                                ("full_printable_block", full_printable_block),
+                                ("printable_bitmap", printable_bitmap),
+                                (
+                                    "block_offset",
+                                    plt.ModInteger(
+                                        OVar("codepoint"), plt.Integer(0x100)
+                                    ),
+                                ),
+                            ],
+                            plt.AppendString(
+                                escaped_codepoint,
+                                plt.Apply(
+                                    OVar("escape"),
+                                    OVar("escape"),
+                                    plt.AddInteger(OVar("index"), OVar("width")),
+                                ),
+                            ),
+                        ),
+                        OVar("quote"),
+                    ),
+                )
+            )
             return OLambda(
                 ["self"],
-                plt.ConcatString(plt.Text("'"), OVar("self"), plt.Text("'")),
+                OLet(
+                    [
+                        ("encoded", plt.EncodeUtf8(OVar("self"))),
+                        ("length", plt.LengthOfByteString(OVar("encoded"))),
+                        (
+                            "contains_single_quote",
+                            plt.AnyList(
+                                plt.Range(OVar("length")),
+                                OLambda(
+                                    ["index"],
+                                    plt.EqualsInteger(
+                                        plt.IndexByteString(
+                                            OVar("encoded"), OVar("index")
+                                        ),
+                                        plt.Integer(ord("'")),
+                                    ),
+                                ),
+                            ),
+                        ),
+                        (
+                            "contains_double_quote",
+                            plt.AnyList(
+                                plt.Range(OVar("length")),
+                                OLambda(
+                                    ["index"],
+                                    plt.EqualsInteger(
+                                        plt.IndexByteString(
+                                            OVar("encoded"), OVar("index")
+                                        ),
+                                        plt.Integer(ord('"')),
+                                    ),
+                                ),
+                            ),
+                        ),
+                        (
+                            "use_double_quote",
+                            plt.And(
+                                OVar("contains_single_quote"),
+                                plt.Not(OVar("contains_double_quote")),
+                            ),
+                        ),
+                        (
+                            "quote",
+                            plt.Ite(
+                                OVar("use_double_quote"),
+                                plt.Text('"'),
+                                plt.Text("'"),
+                            ),
+                        ),
+                        (
+                            "quote_codepoint",
+                            plt.Ite(
+                                OVar("use_double_quote"),
+                                plt.Integer(ord('"')),
+                                plt.Integer(ord("'")),
+                            ),
+                        ),
+                        ("escape", escape),
+                    ],
+                    plt.AppendString(
+                        OVar("quote"),
+                        plt.Apply(OVar("escape"), plt.Integer(0)),
+                    ),
+                ),
             )
         else:
             return OLambda(["self"], OVar("self"))

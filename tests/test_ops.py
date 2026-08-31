@@ -18,7 +18,7 @@ from uplc.ast import (
 )
 
 from . import PLUTUS_VM_PROFILE
-from .utils import eval_uplc, eval_uplc_value, Unit
+from .utils import DEFAULT_TEST_CONFIG, eval_uplc, eval_uplc_value, Unit
 from opshin import compiler
 
 hypothesis.settings.load_profile(PLUTUS_VM_PROFILE)
@@ -72,8 +72,7 @@ uplc_data = st.recursive(
 )
 uplc_data_list = st.builds(lambda x: PlutusList(frozenlist(x)), st.lists(uplc_data))
 
-# TODO fix handling of these strings
-formattable_text = st.from_regex(r"\A((?!['\\])[ -~])*\Z")
+formattable_text = st.text(max_size=8)
 
 
 class OpTest(unittest.TestCase):
@@ -859,9 +858,8 @@ def validator({",".join(p + ": int" for p in params)}) -> str:
             ret, exp, "integer tuple string formatting returned wrong value"
         )
 
-    @given(xs=st.lists(formattable_text))
+    @given(xs=st.lists(formattable_text, max_size=5))
     def test_fmt_tuple_str(self, xs):
-        # TODO strings are not properly escaped here
         params = [f"a{i}" for i in range(len(xs))]
         source_code = f"""
 def validator({",".join(p + ": str" for p in params)}) -> str:
@@ -890,7 +888,6 @@ def validator(x: int, y: int) -> str:
 
     @given(x=formattable_text, y=formattable_text)
     def test_fmt_pair_str(self, x, y):
-        # TODO strings are not properly escaped here
         source_code = f"""
 def validator(x: str, y: str) -> str:
     a = ""
@@ -906,11 +903,12 @@ def validator(x: str, y: str) -> str:
             ret, exp, "string tuple string formatting returned wrong value"
         )
 
-    @given(xs=st.lists(formattable_text))
+    @given(xs=st.lists(formattable_text, max_size=5))
     @example([])
     @example(["x"])
+    @example(["a\nb", "q'r"])
+    @example(['"', "'", "\\", "\x00", "\x7f", "\u200b", "é", "漢"])
     def test_fmt_list_str(self, xs):
-        # TODO strings are not properly escaped here
         source_code = """
 from typing import Dict, List, Union
 
@@ -922,6 +920,23 @@ def validator(x: List[str]) -> str:
             "utf8"
         )
         self.assertEqual(ret, exp, "string list string formatting returned wrong value")
+
+    def test_fmt_list_str_constant_folding_matches_runtime(self):
+        source_code = r"""
+from typing import List
+def validator(_: None) -> str:
+    values: List[str] = ["a\nb", "q'r", "\u200b"]
+    return f"{values}"
+"""
+        values = ["a\nb", "q'r", "\u200b"]
+        expected = f"{values}"
+        for constant_folding in (False, True):
+            ret = eval_uplc_value(
+                source_code,
+                Unit(),
+                config=DEFAULT_TEST_CONFIG.update(constant_folding=constant_folding),
+            ).decode("utf8")
+            self.assertEqual(ret, expected)
 
     @given(xs=st.lists(st.integers()))
     @example([])
@@ -966,11 +981,10 @@ def validator(x: Dict[int, int], y: int) -> int:
             ret = None
         self.assertEqual(ret, exp, "list index returned wrong value")
 
-    @given(xs=st.dictionaries(formattable_text, st.integers()))
+    @given(xs=st.dictionaries(formattable_text, st.integers(), max_size=5))
     @example(dict())
     @example({"": 0})
     def test_fmt_dict_int(self, xs):
-        # TODO strings are not properly escaped here
         source_code = """
 from typing import Dict, List, Union
 
