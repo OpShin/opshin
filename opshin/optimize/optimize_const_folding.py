@@ -1,9 +1,12 @@
 import typing
+import ast
 from collections import defaultdict
 import builtins
+from contextlib import contextmanager
 import dataclasses
 import importlib
 import logging
+import sys
 import types
 
 from ast import *
@@ -97,6 +100,35 @@ class UnsafeConstantExpression(ValueError):
     pass
 
 
+class ConstantEvaluationLimitExceeded(UnsafeConstantExpression):
+    pass
+
+
+@contextmanager
+def _constant_evaluation_budget(max_steps: int = 100_000):
+    """Bound Python work performed while evaluating an optimization candidate."""
+    previous_trace = sys.gettrace()
+    steps = 0
+
+    def count_steps(frame, event, arg):
+        nonlocal steps
+        if event == "call":
+            frame.f_trace_opcodes = True
+        if event in ("call", "line", "opcode"):
+            steps += 1
+            if steps > max_steps:
+                raise ConstantEvaluationLimitExceeded(
+                    "Compile-time constant evaluation exceeded its execution budget"
+                )
+        return count_steps
+
+    sys.settrace(count_steps)
+    try:
+        yield
+    finally:
+        sys.settrace(previous_trace)
+
+
 def _matches_annotation(value, annotation) -> bool:
     """Check the runtime shape that an Opshin datum annotation promises."""
     origin = typing.get_origin(annotation)
@@ -149,10 +181,12 @@ class ConstantExpressionSafetyValidator(NodeVisitor):
         ImportFrom,
         Lambda,
         Nonlocal,
+        Raise,
+        Try,
         With,
         Yield,
         YieldFrom,
-    )
+    ) + ((ast.TryStar,) if hasattr(ast, "TryStar") else ())
 
     def __init__(self, environment):
         self.environment = environment
@@ -358,7 +392,8 @@ class OptimizeConstantFolding(CompilingNodeTransformer):
         l = {}
         try:
             self._validate(node, {**g, **l})
-            exec(unparse(node), g, l)
+            with _constant_evaluation_budget():
+                exec(unparse(node), g, l)
         except Exception as e:
             OPSHIN_LOGGER.debug(e)
         else:
@@ -391,7 +426,8 @@ class OptimizeConstantFolding(CompilingNodeTransformer):
             try:
                 self._validate(node, g)
                 # we need to pass the global dict as local dict here to make closures possible (rec functions)
-                exec(unparse(node), g, g)
+                with _constant_evaluation_budget():
+                    exec(unparse(node), g, g)
             except Exception as e:
                 OPSHIN_LOGGER.debug(e)
             else:
@@ -483,7 +519,8 @@ class OptimizeConstantFolding(CompilingNodeTransformer):
             g = self._non_overwritten_globals()
             l = self._constant_vars()
             self._validate(node, {**g, **l})
-            node_eval = eval(node_source, g, l)
+            with _constant_evaluation_budget():
+                node_eval = eval(node_source, g, l)
         except Exception as e:
             OPSHIN_LOGGER.debug("Error trying to evaluate node: %s", e)
             return node
