@@ -5,7 +5,7 @@ import pytest
 from opshin import builder
 from opshin.compiler_config import OPT_O3_CONFIG
 from opshin.rewrite.rewrite_adjacent_inline import RewriteAdjacentInline
-from tests.utils import Unit, eval_uplc, eval_uplc_value
+from tests.utils import Unit, eval_uplc, eval_uplc_raw, eval_uplc_value
 
 INLINE_CONFIG = OPT_O3_CONFIG.update(wrap_output=True, unwrap_input=True)
 NO_INLINE_CONFIG = INLINE_CONFIG.update(adjacent_inline=False)
@@ -176,8 +176,10 @@ def validator(_: None) -> int:
     return 0 if True else x
 """
 
-    with pytest.raises(RuntimeError):
-        eval_uplc(source_code, Unit(), config=INLINE_CONFIG)
+    evaluation = eval_uplc_raw(source_code, Unit(), config=INLINE_CONFIG)
+
+    assert isinstance(evaluation.result, RuntimeError)
+    assert "BuiltInFun.DivideInteger" in str(evaluation.result)
 
 
 def test_does_not_inline_into_possibly_empty_comprehension():
@@ -187,8 +189,10 @@ def validator(_: None) -> int:
     return sum([x for _ in range(0)])
 """
 
-    with pytest.raises(RuntimeError):
-        eval_uplc(source_code, Unit(), config=INLINE_CONFIG)
+    evaluation = eval_uplc_raw(source_code, Unit(), config=INLINE_CONFIG)
+
+    assert isinstance(evaluation.result, RuntimeError)
+    assert "BuiltInFun.DivideInteger" in str(evaluation.result)
 
 
 def test_does_not_inline_when_read_later():
@@ -224,8 +228,10 @@ def validator(a: int) -> int:
     return x
 """
 
-    with pytest.raises(RuntimeError):
-        eval_uplc(source_code, 1, config=INLINE_CONFIG)
+    evaluation = eval_uplc_raw(source_code, 1, config=INLINE_CONFIG)
+
+    assert isinstance(evaluation.result, RuntimeError)
+    assert "BuiltInFun.DivideInteger" in str(evaluation.result)
 
 
 @pytest.mark.parametrize("loop", ["for i in range(2):", "while i < 2:"])
