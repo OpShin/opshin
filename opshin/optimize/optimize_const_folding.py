@@ -1,6 +1,7 @@
 import typing
 from collections import defaultdict
 import builtins
+import dataclasses
 import importlib
 import logging
 import types
@@ -94,6 +95,44 @@ TRUSTED_IMPORTS = {
 
 class UnsafeConstantExpression(ValueError):
     pass
+
+
+def _matches_annotation(value, annotation) -> bool:
+    """Check the runtime shape that an Opshin datum annotation promises."""
+    origin = typing.get_origin(annotation)
+    args = typing.get_args(annotation)
+    if annotation is typing.Any:
+        return True
+    if origin in (typing.Union, types.UnionType):
+        return any(_matches_annotation(value, option) for option in args)
+    if origin is list:
+        return type(value) is list and all(
+            _matches_annotation(element, args[0]) for element in value
+        )
+    if origin is dict:
+        return type(value) is dict and all(
+            _matches_annotation(key, args[0]) and _matches_annotation(element, args[1])
+            for key, element in value.items()
+        )
+    if annotation in (int, bytes, bool, str, type(None)):
+        return type(value) is annotation
+    if isinstance(annotation, type) and issubclass(annotation, PlutusData):
+        if annotation is not PlutusData and type(value) is not annotation:
+            return False
+        if not isinstance(value, PlutusData):
+            return False
+        return all(
+            _matches_annotation(getattr(value, field.name), field.type)
+            for field in dataclasses.fields(value)
+        )
+    return False
+
+
+def _checked_integrity_constant(value: PlutusData) -> None:
+    """Python substitute for the on-chain integrity check during folding."""
+    if not _matches_annotation(value, type(value)):
+        raise TypeError("Datum does not match its annotated field types")
+    value.to_cbor()
 
 
 class ConstantExpressionSafetyValidator(NodeVisitor):
@@ -387,7 +426,13 @@ class OptimizeConstantFolding(CompilingNodeTransformer):
                     self.add_constant(name, getattr(module, name))
             elif imported_name.name in trusted_names:
                 bound_name = imported_name.asname or imported_name.name
-                self.add_constant(bound_name, getattr(module, imported_name.name))
+                imported_value = getattr(module, imported_name.name)
+                if (
+                    node.module == "opshin.std.integrity"
+                    and imported_name.name == "check_integrity"
+                ):
+                    imported_value = _checked_integrity_constant
+                self.add_constant(bound_name, imported_value)
         return node
 
     def visit_Import(self, node: Import):

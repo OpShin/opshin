@@ -20,6 +20,24 @@ DEFAULT_CONFIG_CONSTANT_FOLDING = DEFAULT_TEST_CONFIG.update(constant_folding=Tr
 
 
 class ConstantFoldingTest(unittest.TestCase):
+    def test_constant_folding_does_not_bypass_integrity_checks(self):
+        source_code = """
+from dataclasses import dataclass
+from pycardano import Datum as Anything, PlutusData
+from opshin.std.integrity import check_integrity
+
+@dataclass
+class Pair(PlutusData):
+    CONSTR_ID = 0
+    first: int
+    second: int
+
+def validator(_: None) -> None:
+    check_integrity(Pair(b"not an integer", 5))
+"""
+        with self.assertRaises(CompilerError):
+            builder._compile(source_code, config=DEFAULT_CONFIG_CONSTANT_FOLDING)
+
     def test_constant_folding_rejects_process_randomized_hash(self):
         source_code = """
 def validator(_: None) -> int:
