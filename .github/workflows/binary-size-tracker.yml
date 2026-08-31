@@ -92,9 +92,17 @@ jobs:
       run: |
         echo "Running binary size comparison..."
         if uv run scripts/binary_size_tracker.py compare --baseline-file baseline.json > size_report.md 2>&1; then
-          echo "has_significant_changes=false" >> $GITHUB_OUTPUT
+          checker_exit=0
         else
-          echo "has_significant_changes=true" >> $GITHUB_OUTPUT
+          checker_exit=$?
+        fi
+        if [ "$checker_exit" -eq 0 ]; then
+          echo "has_significant_changes=false" >> "$GITHUB_OUTPUT"
+        elif [ "$checker_exit" -eq 3 ]; then
+          echo "has_significant_changes=true" >> "$GITHUB_OUTPUT"
+        else
+          cat size_report.md
+          exit "$checker_exit"
         fi
         uv run python - <<'PY'
         from pathlib import Path

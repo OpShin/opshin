@@ -21,6 +21,8 @@ import yaml
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
+SIZE_CHANGES_EXIT_CODE = 3
+
 
 def load_config(config_file: Optional[str] = None) -> Dict:
     """Load configuration from YAML file"""
@@ -554,8 +556,8 @@ def main():
         has_changes = compare_with_baseline(
             args.baseline_file, args.work_dir, args.config_file
         )
-        # Exit with code 1 if there are significant changes (for CI)
-        sys.exit(1 if has_changes else 0)
+        # Keep reportable changes distinct from crashes, which normally exit with 1.
+        sys.exit(SIZE_CHANGES_EXIT_CODE if has_changes else 0)
 
 
 if __name__ == "__main__":

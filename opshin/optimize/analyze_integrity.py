@@ -14,9 +14,11 @@ from ..type_impls import (
     InstanceType,
     IntegerType,
     ListType,
+    PairType,
     PolymorphicFunctionInstanceType,
     RecordType,
     StringType,
+    TupleType,
     UnionType,
 )
 from ..util import CompilingNodeTransformer, OPSHIN_LOGGER
@@ -86,6 +88,35 @@ def positively_validated_atomic_names(node: ast.AST) -> set[str]:
         if isinstance(node.op, ast.Or) and validated:
             return set.intersection(*validated)
     return set()
+
+
+def negatively_narrowed_single_option(
+    node: ast.AST,
+) -> typing.Optional[tuple[ast.Name, typing.Any]]:
+    """Return the unchecked name and sole type assumed after a failed check."""
+
+    if (
+        isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Name)
+        and getattr(node.func, "orig_id", None) == "~bool"
+    ):
+        return negatively_narrowed_single_option(node.args[0])
+    if not (
+        isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Name)
+        and getattr(node.func, "orig_id", None) == "isinstance"
+        and isinstance(node.args[0], ast.Name)
+        and isinstance(node.args[0].typ, InstanceType)
+        and isinstance(node.args[0].typ.typ, UnionType)
+    ):
+        return None
+    checked_type = node.args[1].typ
+    remaining = [
+        option for option in node.args[0].typ.typ.typs if option != checked_type
+    ]
+    if len(remaining) != 1:
+        return None
+    return node.args[0], remaining[0]
 
 
 def _guaranteed_validated_names(node: typing.Optional[ast.AST]) -> set[str]:
@@ -212,11 +243,16 @@ class _FunctionFlowAnalyzer:
             return self._mark(node, owner_integrity_checked and not result_is_payload)
         if isinstance(node, ast.Subscript):
             source_integrity_checked = self.expression(node.value, env)
-            self.expression(node.slice, env)
+            source_type = node.value.typ.typ
+            if not isinstance(source_type, (TupleType, PairType)):
+                self.expression(node.slice, env)
             result_is_payload = isinstance(node.typ, InstanceType) and isinstance(
                 node.typ.typ, AnyType
             )
             return self._mark(node, source_integrity_checked and not result_is_payload)
+        if isinstance(node, ast.Slice):
+            bounds = [node.lower, node.upper, node.step]
+            return all(self.expression(bound, env) for bound in bounds)
         if isinstance(node, ast.IfExp):
             self.expression(node.test, env)
             body_integrity_checked = self.expression(node.body, dict(env))
@@ -384,6 +420,19 @@ class _FunctionFlowAnalyzer:
         if isinstance(node, ast.If):
             self.expression(node.test, env)
             self._apply_expression_postconditions(node.test, env)
+            negative_narrowing = negatively_narrowed_single_option(node.test)
+            if (
+                self.warn_unchecked_uses
+                and node.orelse
+                and negative_narrowing is not None
+                and not env.get(negative_narrowing[0].id, False)
+            ):
+                name, remaining_type = negative_narrowing
+                OPSHIN_LOGGER.warning(
+                    f"Integrity-unchecked value '{_source_label(name)}' is treated as "
+                    f"'{remaining_type.python_type()}' after a failed isinstance check; "
+                    "malformed data may enter this branch without having that type."
+                )
             body_input = dict(env)
             for name in positively_validated_atomic_names(node.test):
                 body_input[name] = True

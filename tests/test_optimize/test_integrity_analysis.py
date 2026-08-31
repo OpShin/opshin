@@ -49,13 +49,8 @@ def validator(value: Union[int, bytes], early: bool) -> int:
 
 def test_integrity_unchecked_atomic_decode_does_not_warn(caplog):
     source = """
-from typing import Union
-
-def validator(value: Union[int, bytes]) -> int:
-    if isinstance(value, int):
-        return value
-    else:
-        return len(value)
+def validator(value: int) -> int:
+    return value + 1
 """
 
     with caplog.at_level(logging.WARNING, logger="opshin"):
@@ -69,6 +64,43 @@ def validator(value: Union[int, bytes]) -> int:
         )
 
     assert "Integrity-unchecked value" not in caplog.text
+
+
+def test_integrity_unchecked_negative_union_narrowing_warns(caplog):
+    source = """
+from typing import Union
+
+def validator(value: Union[int, bytes]) -> int:
+    if isinstance(value, int):
+        return value
+    else:
+        return len(value)
+"""
+
+    with caplog.at_level(logging.WARNING, logger="opshin"):
+        builder._compile(source, config=DEFAULT_TEST_CONFIG)
+
+    assert "value 'value' is treated as 'bytes'" in caplog.text
+    assert "malformed data may enter this branch" in caplog.text
+
+
+def test_integrity_checked_negative_union_narrowing_does_not_warn(caplog):
+    source = """
+from typing import Union
+from opshin.std.integrity import check_integrity
+
+def validator(value: Union[int, bytes]) -> int:
+    check_integrity(value)
+    if isinstance(value, int):
+        return value
+    else:
+        return len(value)
+"""
+
+    with caplog.at_level(logging.WARNING, logger="opshin"):
+        builder._compile(source, config=DEFAULT_TEST_CONFIG)
+
+    assert "is treated as" not in caplog.text
 
 
 def test_integrity_unchecked_equality_emits_security_warning(caplog):
