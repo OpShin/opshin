@@ -35,6 +35,31 @@ def test_record_type_order():
     assert C >= A
 
 
+@pytest.mark.parametrize(
+    "field_annotation",
+    ["None", "List[None]", "Dict[int, None]"],
+)
+def test_plutus_data_fields_cannot_contain_none(field_annotation):
+    source_code = f"""
+from dataclasses import dataclass
+from typing import Dict, List
+from pycardano import Datum as Anything, PlutusData
+
+@dataclass()
+class Box(PlutusData):
+    CONSTR_ID = 0
+    value: {field_annotation}
+
+def validator(box: Box) -> None:
+    pass
+"""
+    with pytest.raises(
+        CompilerError,
+        match="PlutusData fields cannot contain None",
+    ):
+        builder._compile(source_code)
+
+
 def test_union_type_order():
     A = RecordType(Record("A", "A", 0, [("foo", IntegerInstanceType)]))
     B = RecordType(Record("B", "B", 1, [("bar", IntegerInstanceType)]))
