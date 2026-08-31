@@ -9,6 +9,11 @@ import logging
 import sys
 import types
 
+try:
+    from typing import Self as TypingSelf
+except ImportError:
+    from typing_extensions import Self as TypingSelf
+
 from ast import *
 from ordered_set import OrderedSet
 
@@ -94,6 +99,12 @@ TRUSTED_IMPORTS = {
         "BLS12381MillerLoopResult",
     },
 }
+
+
+def _trusted_import_value(module, name):
+    if module is typing and name == "Self":
+        return TypingSelf
+    return getattr(module, name)
 
 
 class UnsafeConstantExpression(ValueError):
@@ -459,10 +470,10 @@ class OptimizeConstantFolding(CompilingNodeTransformer):
         for imported_name in node.names:
             if imported_name.name == "*":
                 for name in trusted_names:
-                    self.add_constant(name, getattr(module, name))
+                    self.add_constant(name, _trusted_import_value(module, name))
             elif imported_name.name in trusted_names:
                 bound_name = imported_name.asname or imported_name.name
-                imported_value = getattr(module, imported_name.name)
+                imported_value = _trusted_import_value(module, imported_name.name)
                 if (
                     node.module == "opshin.std.integrity"
                     and imported_name.name == "check_integrity"

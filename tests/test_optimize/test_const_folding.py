@@ -203,6 +203,30 @@ def validator(_: None) -> int:
             55,
         )
 
+    @hypothesis.settings(deadline=None)
+    @hypothesis.given(x=st.integers(), y=st.integers())
+    @hypothesis.example(x=0, y=0)
+    def test_constant_folding_self_annotation(self, x, y):
+        source_code = """
+from opshin.prelude import *
+from typing import Self
+
+@dataclass
+class A(PlutusData):
+    CONSTR_ID = 0
+    value: int
+
+    def larger(self, other: Self) -> Self:
+        if self.value > other.value:
+            return self
+        return other
+
+def validator(x: int, y: int) -> int:
+    return A(x).larger(A(y)).value
+"""
+        res = eval_uplc_value(source_code, x, y, config=DEFAULT_CONFIG_CONSTANT_FOLDING)
+        self.assertEqual(res, max(x, y))
+
     def test_constant_folding_ifelse(self):
         source_code = """
 def validator(_: None) -> int:
