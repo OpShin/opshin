@@ -13,6 +13,7 @@ class CompilationConfig(pluthon.CompilationConfig):
     expand_union_types: Optional[bool] = None
     wrap_output: Optional[bool] = None
     unwrap_input: Optional[bool] = None
+    dict_last_value_wins: Optional[bool] = None
 
 
 # The default configuration for the compiler
@@ -22,6 +23,7 @@ OPT_O0_CONFIG = (
     .update(
         constant_folding=False,
         remove_dead_code=False,
+        dict_last_value_wins=True,
     )
 )
 OPT_O1_CONFIG = (
@@ -42,7 +44,10 @@ OPT_O2_CONFIG = (
     )
 )
 OPT_O3_CONFIG = (
-    CompilationConfig().update(OPT_O2_CONFIG).update(pluthon.OPT_O3_CONFIG).update()
+    CompilationConfig()
+    .update(OPT_O2_CONFIG)
+    .update(pluthon.OPT_O3_CONFIG)
+    .update(dict_last_value_wins=False)
 )
 OPT_CONFIGS = [OPT_O0_CONFIG, OPT_O1_CONFIG, OPT_O2_CONFIG, OPT_O3_CONFIG]
 
@@ -81,6 +86,9 @@ ARGPARSE_ARGS.update(
         "unwrap_input": {
             "__alts__": ["--wi"],
             "help": "Unwraps the input of the validator from PlutusData. Disabling this is useful for exporting library functions that take builtin data as input.",
+        },
+        "dict_last_value_wins": {
+            "help": "Enforces Python's ordered, last-value-wins semantics for duplicate dictionary keys. Disabling this saves script size and execution cost but retains duplicate map entries. Disabled by -O3.",
         },
     }
 )

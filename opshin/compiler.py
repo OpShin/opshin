@@ -1323,7 +1323,9 @@ class PlutoCompiler(CompilingNodeTransformer):
                 ),
                 items,
             )
-        return self._normalize_dict_items(items)
+        if self.config.dict_last_value_wins:
+            return self._normalize_dict_items(items)
+        return items
 
     @staticmethod
     def _normalize_dict_items(items: plt.AST) -> plt.AST:
@@ -1490,7 +1492,9 @@ class PlutoCompiler(CompilingNodeTransformer):
                 map_fun,
                 empty_list_con,
             )
-        return self._normalize_dict_items(result)
+        if self.config.dict_last_value_wins:
+            return self._normalize_dict_items(result)
+        return result
 
     def visit_FormattedValue(self, node: TypedFormattedValue) -> plt.AST:
         return plt.Apply(

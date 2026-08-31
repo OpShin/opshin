@@ -10,11 +10,45 @@ from pycardano import PlutusData
 from . import PLUTUS_VM_PROFILE
 from .utils import DEFAULT_TEST_CONFIG, eval_uplc, eval_uplc_raw, eval_uplc_value, Unit
 from opshin import compiler, builder, CompilerError
+from opshin.compiler_config import OPT_O2_CONFIG, OPT_O3_CONFIG
 
 settings.load_profile(PLUTUS_VM_PROFILE)
 
 
 class StdlibTest(unittest.TestCase):
+    def test_dict_last_value_wins_configuration(self):
+        self.assertTrue(OPT_O2_CONFIG.dict_last_value_wins)
+        self.assertFalse(OPT_O3_CONFIG.dict_last_value_wins)
+
+    def test_dict_last_value_wins_can_be_disabled(self):
+        source_code = """
+from typing import Dict, List
+def validator(x: int, y: int) -> List[int]:
+    values: Dict[int, int] = {1: x, 1: y}
+    return values.values()
+"""
+        ret = eval_uplc_value(
+            source_code,
+            10,
+            20,
+            config=DEFAULT_TEST_CONFIG.update(dict_last_value_wins=False),
+        )
+        self.assertEqual([x.value for x in ret], [10, 20])
+
+    def test_dict_comprehension_last_value_wins_can_be_disabled(self):
+        source_code = """
+from typing import Dict, List
+def validator(xs: List[int]) -> List[int]:
+    values: Dict[int, int] = {x: x * 10 for x in xs}
+    return values.keys()
+"""
+        ret = eval_uplc_value(
+            source_code,
+            [1, 2, 1],
+            config=DEFAULT_TEST_CONFIG.update(dict_last_value_wins=False),
+        )
+        self.assertEqual([x.value for x in ret], [1, 2, 1])
+
     def test_dict_literal_preserves_insertion_order(self):
         source_code = """
 from typing import Dict, List
