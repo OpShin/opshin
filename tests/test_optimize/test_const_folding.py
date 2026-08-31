@@ -1,5 +1,6 @@
 import sys
 import unittest
+import ast
 from dataclasses import dataclass
 import hypothesis
 from hypothesis import strategies as st
@@ -8,6 +9,7 @@ from pycardano import PlutusData
 from uplc import ast as uplc
 
 from opshin import CompilerError, builder
+from opshin.optimize.optimize_const_folding import OptimizeConstantFolding
 from tests.utils import (
     eval_uplc_value,
     Unit,
@@ -20,6 +22,24 @@ DEFAULT_CONFIG_CONSTANT_FOLDING = DEFAULT_TEST_CONFIG.update(constant_folding=Tr
 
 
 class ConstantFoldingTest(unittest.TestCase):
+    def test_constant_folding_does_not_limit_python_execution_steps(self):
+        source_code = """
+def triangular_number() -> int:
+    total = 0
+    for number in range(50_000):
+        total += number
+    return total
+
+def validator(_: None) -> int:
+    return triangular_number()
+"""
+
+        tree = OptimizeConstantFolding().visit(ast.parse(source_code))
+        validator = tree.body[-1]
+
+        self.assertIsInstance(validator.body[0].value, ast.Constant)
+        self.assertEqual(validator.body[0].value.value, sum(range(50_000)))
+
     def test_constant_folding_does_not_bypass_integrity_checks(self):
         source_code = """
 from dataclasses import dataclass
