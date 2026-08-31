@@ -333,7 +333,7 @@ def constant_type(c):
     if isinstance(c, list):
         assert len(c) > 0, "Lists must be non-empty"
         types = [constant_type(x) for x in c]
-        first_typ = find_max_type([InstanceType(t) for t in types])
+        first_typ = find_max_type(types)
         if first_typ is None:
             raise ValueError(
                 f"All elements in a list must have a compatible type, found typs {tuple(t.python_type() for t in types)}"
@@ -344,8 +344,8 @@ def constant_type(c):
 
         key_types = [constant_type(k) for k in c.keys()]
         value_types = [constant_type(v) for v in c.values()]
-        first_key_typ = find_max_type([InstanceType(t) for t in key_types])
-        first_value_typ = find_max_type([InstanceType(t) for t in value_types])
+        first_key_typ = find_max_type(key_types)
+        first_value_typ = find_max_type(value_types)
         if first_key_typ is None:
             raise ValueError(
                 f"All keys in a dict must have a compatible type, found typs {tuple(t.python_type() for t in key_types)}"
