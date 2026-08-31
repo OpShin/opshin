@@ -20,6 +20,7 @@ import pycardano
 from pluthon import compile as plt_compile
 
 from .util import datum_to_cbor, get_class_annotations, set_class_annotations
+from .compiler_worker import CompilerWorker
 from .compiler_config import DEFAULT_CONFIG
 
 
@@ -214,14 +215,17 @@ def _static_compile(
     Expects a python module and returns the build artifacts from compiling it
     """
 
+    if config.constant_folding:
+        return CompilerWorker(
+            source_code, contract_file, validator_function_name, config
+        ).compile()
     source_ast = compiler.parse(source_code, filename=contract_file)
-    code = compile(
+    return compile(
         source_ast,
         contract_filename=contract_file,
         validator_function_name=validator_function_name,
         config=config,
     )
-    return code
 
 
 def _compile(

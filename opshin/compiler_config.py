@@ -7,6 +7,7 @@ import pluthon
 @dataclass(frozen=True)
 class CompilationConfig(pluthon.CompilationConfig):
     constant_folding: Optional[bool] = None
+    constant_folding_timeout: Optional[float] = None
     allow_isinstance_anything: Optional[bool] = None
     remove_dead_code: Optional[bool] = None
     adjacent_inline: Optional[bool] = None
@@ -26,6 +27,7 @@ OPT_O0_CONFIG = (
     .update(pluthon.OPT_O0_CONFIG)
     .update(
         constant_folding=False,
+        constant_folding_timeout=10.0,
         remove_dead_code=False,
         adjacent_inline=False,
         dict_last_value_wins=True,

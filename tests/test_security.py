@@ -64,7 +64,43 @@ def validator(_: None) -> int:
 from opshin import builder, CompilerError
 from tests.utils import DEFAULT_TEST_CONFIG
 try:
-    builder._compile({source!r}, config=DEFAULT_TEST_CONFIG.update(constant_folding=True))
+    builder._compile(
+        {source!r},
+        config=DEFAULT_TEST_CONFIG.update(
+            constant_folding=True,
+            constant_folding_timeout=0.5,
+        ),
+    )
+except CompilerError:
+    pass
+"""
+
+    result = subprocess.run(
+        [sys.executable, "-c", script],
+        capture_output=True,
+        text=True,
+        timeout=3,
+    )
+
+    assert result.returncode == 0, result.stderr
+
+
+def test_constant_folding_budget_interrupts_c_builtins():
+    source = """\
+def validator(_: None) -> int:
+    return sum(range(10**12))
+"""
+    script = f"""\
+from opshin import builder, CompilerError
+from tests.utils import DEFAULT_TEST_CONFIG
+try:
+    builder._compile(
+        {source!r},
+        config=DEFAULT_TEST_CONFIG.update(
+            constant_folding=True,
+            constant_folding_timeout=0.5,
+        ),
+    )
 except CompilerError:
     pass
 """

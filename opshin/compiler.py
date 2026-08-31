@@ -233,7 +233,7 @@ def rec_constant_map_data(c):
     raise NotImplementedError(f"Unsupported constant type {type(c)}")
 
 
-def rec_constant_map(c):
+def rec_constant_map(c, typ: typing.Optional[Type] = None):
     if isinstance(c, bool):
         return uplc.BuiltinBool(c)
     if isinstance(c, int):
@@ -245,7 +245,11 @@ def rec_constant_map(c):
     if isinstance(c, str):
         return uplc.BuiltinString(c)
     if isinstance(c, list):
-        return uplc.BuiltinList([rec_constant_map(ce) for ce in c])
+        list_typ = typ.typ if isinstance(typ, InstanceType) else typ
+        if isinstance(list_typ, ListType) and needs_data_cast(list_typ.typ):
+            return uplc.BuiltinList([rec_constant_map_data(ce) for ce in c])
+        element_typ = list_typ.typ if isinstance(list_typ, ListType) else None
+        return uplc.BuiltinList([rec_constant_map(ce, element_typ) for ce in c])
     if isinstance(c, dict):
         return uplc.BuiltinList(
             [
@@ -840,7 +844,7 @@ class PlutoCompiler(CompilingNodeTransformer):
                 OPSHIN_LOGGER.warning(
                     f"The string {node.value} looks like it is supposed to be a hex-encoded bytestring but is actually utf8-encoded. Try using `bytes.fromhex('{node.value.decode()}')` instead."
                 )
-        plt_val = plt.UPLCConstant(rec_constant_map(node.value))
+        plt_val = plt.UPLCConstant(rec_constant_map(node.value, node.typ))
         return plt_val
 
     def visit_NoneType(self, _: typing.Optional[typing.Any]) -> plt.AST:
