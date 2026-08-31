@@ -10,7 +10,6 @@ from typing import Optional
 
 import uplc.ast as uplc_ast
 
-
 _ELLIPSIS = "..."
 _ENV_NAME = "OPSHIN_TEST_UPLC_REPR_LIMIT"
 _PATCHED = False

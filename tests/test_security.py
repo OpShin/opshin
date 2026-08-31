@@ -11,7 +11,6 @@ from opshin.optimize.optimize_const_folding import OptimizeConstantFolding
 from opshin.rewrite.rewrite_import import RewriteImport
 from opshin.type_inference import INITIAL_SCOPE
 
-
 REPOSITORY_ROOT = Path(__file__).parent.parent
 
 
@@ -19,16 +18,14 @@ REPOSITORY_ROOT = Path(__file__).parent.parent
 def test_cli_does_not_execute_contract_source(tmp_path, command):
     marker = tmp_path / "contract-executed"
     contract = tmp_path / "contract.py"
-    contract.write_text(
-        f"""\
+    contract.write_text(f"""\
 from opshin.prelude import *
 
 open({str(marker)!r}, "w").write("executed")
 
 def validator(context: ScriptContext) -> None:
     pass
-"""
-    )
+""")
 
     subprocess.run(
         [sys.executable, "-m", "opshin", command, str(contract)],
@@ -112,12 +109,10 @@ def validator(box: Box) -> None:
 def test_import_resolution_does_not_execute_imported_module(tmp_path):
     marker = tmp_path / "import-executed"
     imported_module = tmp_path / "contract_support.py"
-    imported_module.write_text(
-        f"""\
+    imported_module.write_text(f"""\
 open({str(marker)!r}, "w").write("executed")
 VALUE = 1
-"""
-    )
+""")
     contract = tmp_path / "contract.py"
     source = """\
 from contract_support import *
@@ -173,14 +168,12 @@ def test_binary_size_check_does_not_interpolate_baseline_path_into_shell(
 
 def test_compiler_fails_closed_when_python_disables_assertions(tmp_path):
     contract = tmp_path / "contract.py"
-    contract.write_text(
-        """\
+    contract.write_text("""\
 from opshin.prelude import *
 
 def validator(context: ScriptContext) -> None:
     pass
-"""
-    )
+""")
 
     result = subprocess.run(
         [sys.executable, "-O", "-m", "opshin", "compile", str(contract)],

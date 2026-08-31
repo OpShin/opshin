@@ -13,6 +13,7 @@ class Listing(PlutusData):
     # whoever is allowed to withdraw the listing
     owner: PubKeyHash
 """
+
 # Import the dataclass from the opshin python file
 
 from examples.smart_contracts.marketplace import (

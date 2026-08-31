@@ -536,7 +536,7 @@ class TypeCheckVisitor(TypedNodeVisitor):
         return (res, inv_res)
 
     def visit_UnaryOp(self, node: UnaryOp) -> TypeMapPair:
-        (res, inv_res) = self.visit(node.operand)
+        res, inv_res = self.visit(node.operand)
         if isinstance(node.op, Not):
             return (inv_res, res)
         return (res, inv_res)

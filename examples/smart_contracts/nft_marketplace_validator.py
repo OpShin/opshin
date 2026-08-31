@@ -3,7 +3,6 @@ from typing import Tuple
 from opshin.prelude import *
 from opshin.std.builtins import *
 
-
 NftMarketplaceRedeemer = int
 NftMarketplaceRedeemerBuy = 0
 NftMarketplaceRedeemerCancel = 1

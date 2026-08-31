@@ -6,7 +6,6 @@ from hypothesis import strategies as st
 from .utils import eval_uplc_value
 from . import PLUTUS_VM_PROFILE
 
-
 hypothesis.settings.load_profile(PLUTUS_VM_PROFILE)
 
 

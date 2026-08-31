@@ -64,6 +64,9 @@ include = ["opshin"]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
+[tool.black]
+target-version = ["py310"]
+
 [tool.coverage.run]
 branch = true
 source = ["opshin"]

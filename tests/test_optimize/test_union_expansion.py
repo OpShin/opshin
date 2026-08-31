@@ -201,8 +201,7 @@ def validator(x: bytes, y: bytes) -> int:
     @hypothesis.example(4)
     @hypothesis.example(5)
     @hypothesis.example(6)
-    @pytest.mark.skip(
-        """
+    @pytest.mark.skip("""
         This fails because union expansion is broken. produces this code:
 
     from typing import Dict, List, Union
@@ -224,8 +223,7 @@ def validator(x: bytes, y: bytes) -> int:
 
     def validator(x: int) -> int:
         return foo(x)
-        """
-    )
+        """)
     def test_Union_expansion_BoolOp_or_all(self, x):
         source_code = """
 from typing import Dict, List, Union
