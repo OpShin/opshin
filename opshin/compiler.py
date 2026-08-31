@@ -55,6 +55,7 @@ from .optimize.optimize_fold_if_fallthrough import OptimizeFoldIfFallthrough
 from .optimize.optimize_remove_unreachable import OptimizeRemoveUnreachable
 from .optimize.optimize_union_expansion import OptimizeUnionExpansion
 from .optimize.optimize_fold_bool import OptimizeFoldBoolCast
+from .optimize.optimize_bool_only_ops import OptimizeBoolOnlyOps
 
 from .rewrite.rewrite_assert_none import RewriteAssertNone
 from .rewrite.rewrite_annotate_fallthrough import RewriteAnnotateFallthrough
@@ -1566,6 +1567,7 @@ def compile(
         (RewriteExpandedUnionCalls() if config.expand_union_types else NoOp()),
         RewriteFunctionClosures(),
         # Rewrites that circumvent the type inference or use its results
+        OptimizeBoolOnlyOps() if config.optimize_bool_only_ops else NoOp(),
         OptimizeFoldBoolCast(),
         RewriteAssertNone(),
         RewriteEmptyLists(),

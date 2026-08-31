@@ -14,6 +14,7 @@ class CompilationConfig(pluthon.CompilationConfig):
     wrap_output: Optional[bool] = None
     unwrap_input: Optional[bool] = None
     dict_last_value_wins: Optional[bool] = None
+    optimize_bool_only_ops: Optional[bool] = None
 
 
 # The default configuration for the compiler
@@ -24,6 +25,7 @@ OPT_O0_CONFIG = (
         constant_folding=False,
         remove_dead_code=False,
         dict_last_value_wins=True,
+        optimize_bool_only_ops=False,
     )
 )
 OPT_O1_CONFIG = (
@@ -32,6 +34,7 @@ OPT_O1_CONFIG = (
     .update(pluthon.OPT_O1_CONFIG)
     .update(
         remove_dead_code=True,
+        optimize_bool_only_ops=True,
     )
 )
 OPT_O2_CONFIG = (
@@ -89,6 +92,9 @@ ARGPARSE_ARGS.update(
         },
         "dict_last_value_wins": {
             "help": "Enforces Python's ordered, last-value-wins semantics for duplicate dictionary keys. Disabling this saves script size and execution cost but retains duplicate map entries. Disabled by -O3.",
+        },
+        "optimize_bool_only_ops": {
+            "help": "Compiles and/or expressions directly to booleans when their operand value cannot escape. Enabled at -O1 and above.",
         },
     }
 )
