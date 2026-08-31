@@ -289,6 +289,155 @@ def wrap_validator_double_function(x: plt.AST, pass_through: int = 0):
 CallAST = typing.Callable[[plt.AST], plt.AST]
 
 
+def _clamp_integer(value: plt.AST, lower: plt.AST, upper: plt.AST) -> plt.AST:
+    return plt.Ite(
+        plt.LessThanInteger(value, lower),
+        lower,
+        plt.Ite(plt.LessThanInteger(upper, value), upper, value),
+    )
+
+
+def _normalize_slice_index(
+    raw_index: plt.AST, length: plt.AST, lower: plt.AST, upper: plt.AST
+) -> plt.AST:
+    return OLet(
+        [
+            (
+                "adjusted_slice_index",
+                plt.Ite(
+                    plt.LessThanInteger(raw_index, plt.Integer(0)),
+                    plt.AddInteger(raw_index, length),
+                    raw_index,
+                ),
+            )
+        ],
+        _clamp_integer(OVar("adjusted_slice_index"), lower, upper),
+    )
+
+
+def _normalize_forward_slice_index(raw_index: plt.AST, length: plt.AST) -> plt.AST:
+    return OLet(
+        [
+            (
+                "adjusted_slice_index",
+                plt.Ite(
+                    plt.LessThanInteger(raw_index, plt.Integer(0)),
+                    plt.AddInteger(raw_index, length),
+                    raw_index,
+                ),
+            )
+        ],
+        plt.Ite(
+            plt.LessThanEqualsInteger(OVar("adjusted_slice_index"), plt.Integer(0)),
+            plt.Integer(0),
+            OVar("adjusted_slice_index"),
+        ),
+    )
+
+
+def _slice_list_contiguous(
+    xs: plt.AST, start: plt.AST, stop: plt.AST, empty: plt.AST
+) -> plt.AST:
+    return plt.Ite(
+        plt.LessThanEqualsInteger(stop, start),
+        empty,
+        plt.SliceList(
+            start,
+            plt.SubtractInteger(stop, start),
+            xs,
+            empty,
+        ),
+    )
+
+
+def _slice_list_positive_stride(
+    xs: plt.AST,
+    start: plt.AST,
+    stop: plt.AST,
+    step: plt.AST,
+    empty: plt.AST,
+) -> plt.AST:
+    stride = plt.RecFun(
+        OLambda(
+            ["stride", "remaining_xs", "remaining_length"],
+            plt.Ite(
+                plt.LessThanEqualsInteger(OVar("remaining_length"), plt.Integer(0)),
+                empty,
+                plt.IteNullList(
+                    OVar("remaining_xs"),
+                    empty,
+                    plt.MkCons(
+                        plt.HeadList(OVar("remaining_xs")),
+                        plt.Apply(
+                            OVar("stride"),
+                            OVar("stride"),
+                            plt.DropList(OVar("remaining_xs"), step, empty),
+                            plt.SubtractInteger(OVar("remaining_length"), step),
+                        ),
+                    ),
+                ),
+            ),
+        )
+    )
+    return plt.Ite(
+        plt.LessThanEqualsInteger(stop, start),
+        empty,
+        plt.Apply(
+            stride,
+            plt.DropList(xs, start, empty),
+            plt.SubtractInteger(stop, start),
+        ),
+    )
+
+
+def _reverse_list(xs: plt.AST, empty: plt.AST) -> plt.AST:
+    return plt.FoldList(
+        xs,
+        OLambda(["reversed_xs", "x"], plt.MkCons(OVar("x"), OVar("reversed_xs"))),
+        empty,
+    )
+
+
+def _slice_bytes_contiguous(bs: plt.AST, start: plt.AST, stop: plt.AST) -> plt.AST:
+    return plt.Ite(
+        plt.LessThanEqualsInteger(stop, start),
+        plt.ByteString(b""),
+        plt.SliceByteString(start, plt.SubtractInteger(stop, start), bs),
+    )
+
+
+def _slice_bytes_stride(
+    bs: plt.AST,
+    start: plt.AST,
+    stop: plt.AST,
+    step: plt.AST,
+    positive: bool,
+) -> plt.AST:
+    in_bounds = (
+        plt.LessThanInteger(OVar("slice_index"), stop)
+        if positive
+        else plt.LessThanInteger(stop, OVar("slice_index"))
+    )
+    stride = plt.RecFun(
+        OLambda(
+            ["stride", "slice_index"],
+            plt.Ite(
+                in_bounds,
+                plt.ConsByteString(
+                    plt.IndexByteString(bs, OVar("slice_index")),
+                    plt.Apply(
+                        OVar("stride"),
+                        OVar("stride"),
+                        plt.AddInteger(OVar("slice_index"), step),
+                    ),
+                ),
+                plt.ByteString(b""),
+            ),
+        )
+    )
+    return plt.Apply(stride, start)
+
+
 class PlutoCompiler(CompilingNodeTransformer):
     """
     Expects a TypedAST and returns UPLC/Pluto like code
@@ -958,6 +1107,224 @@ class PlutoCompiler(CompilingNodeTransformer):
             )(value_plt)
         return lambda _: value_plt
 
+    def _compile_list_slice(self, node: TypedSubscript) -> plt.AST:
+        assert isinstance(node.slice, Slice)
+        assert isinstance(node.value.typ.typ, ListType)
+        assert node.slice.step is not None
+        empty = empty_list(node.value.typ.typ.typ)
+        bindings = [("slice_value", self.visit(node.value))]
+        if node.slice.lower is not None:
+            bindings.append(("raw_slice_start", self.visit(node.slice.lower)))
+        if node.slice.upper is not None:
+            bindings.append(("raw_slice_stop", self.visit(node.slice.upper)))
+        if node.slice.step is not None:
+            bindings.append(("slice_step", self.visit(node.slice.step)))
+
+        positive_start = (
+            plt.Integer(0)
+            if node.slice.lower is None
+            else _normalize_forward_slice_index(
+                OVar("raw_slice_start"),
+                plt.LengthList(OVar("slice_value")),
+            )
+        )
+        positive_stop = (
+            plt.LengthList(OVar("slice_value"))
+            if node.slice.upper is None
+            else _normalize_forward_slice_index(
+                OVar("raw_slice_stop"),
+                plt.LengthList(OVar("slice_value")),
+            )
+        )
+        positive_slice = OLet(
+            [("slice_start", positive_start), ("slice_stop", positive_stop)],
+            plt.Ite(
+                plt.EqualsInteger(OVar("slice_step"), plt.Integer(1)),
+                _slice_list_contiguous(
+                    OVar("slice_value"),
+                    OVar("slice_start"),
+                    OVar("slice_stop"),
+                    empty,
+                ),
+                _slice_list_positive_stride(
+                    OVar("slice_value"),
+                    OVar("slice_start"),
+                    OVar("slice_stop"),
+                    OVar("slice_step"),
+                    empty,
+                ),
+            ),
+        )
+
+        negative_limit = plt.SubtractInteger(OVar("slice_length"), plt.Integer(1))
+        negative_start = (
+            negative_limit
+            if node.slice.lower is None
+            else _normalize_slice_index(
+                OVar("raw_slice_start"),
+                OVar("slice_length"),
+                plt.Integer(-1),
+                negative_limit,
+            )
+        )
+        negative_stop = (
+            plt.Integer(-1)
+            if node.slice.upper is None
+            else _normalize_slice_index(
+                OVar("raw_slice_stop"),
+                OVar("slice_length"),
+                plt.Integer(-1),
+                negative_limit,
+            )
+        )
+        negative_slice = OLet(
+            [("slice_length", plt.LengthList(OVar("slice_value")))],
+            OLet(
+                [("slice_start", negative_start), ("slice_stop", negative_stop)],
+                plt.Ite(
+                    plt.LessThanInteger(OVar("slice_stop"), OVar("slice_start")),
+                    OLet(
+                        [
+                            (
+                                "reversed_slice_value",
+                                _reverse_list(OVar("slice_value"), empty),
+                            ),
+                            (
+                                "reversed_slice_start",
+                                plt.SubtractInteger(
+                                    negative_limit, OVar("slice_start")
+                                ),
+                            ),
+                            (
+                                "reversed_slice_stop",
+                                plt.SubtractInteger(negative_limit, OVar("slice_stop")),
+                            ),
+                        ],
+                        _slice_list_positive_stride(
+                            OVar("reversed_slice_value"),
+                            OVar("reversed_slice_start"),
+                            OVar("reversed_slice_stop"),
+                            plt.SubtractInteger(plt.Integer(0), OVar("slice_step")),
+                            empty,
+                        ),
+                    ),
+                    empty,
+                ),
+            ),
+        )
+        return OLet(
+            bindings,
+            plt.Ite(
+                plt.EqualsInteger(OVar("slice_step"), plt.Integer(0)),
+                plt.TraceError("ValueError: slice step cannot be zero"),
+                plt.Ite(
+                    plt.LessThanInteger(OVar("slice_step"), plt.Integer(0)),
+                    negative_slice,
+                    positive_slice,
+                ),
+            ),
+        )
+
+    def _compile_bytes_slice(self, node: TypedSubscript) -> plt.AST:
+        assert isinstance(node.slice, Slice)
+        assert node.slice.step is not None
+        bindings = [("slice_value", self.visit(node.value))]
+        if node.slice.lower is not None:
+            bindings.append(("raw_slice_start", self.visit(node.slice.lower)))
+        if node.slice.upper is not None:
+            bindings.append(("raw_slice_stop", self.visit(node.slice.upper)))
+        if node.slice.step is not None:
+            bindings.append(("slice_step", self.visit(node.slice.step)))
+
+        positive_start = (
+            plt.Integer(0)
+            if node.slice.lower is None
+            else _normalize_slice_index(
+                OVar("raw_slice_start"),
+                OVar("slice_length"),
+                plt.Integer(0),
+                OVar("slice_length"),
+            )
+        )
+        positive_stop = (
+            OVar("slice_length")
+            if node.slice.upper is None
+            else _normalize_slice_index(
+                OVar("raw_slice_stop"),
+                OVar("slice_length"),
+                plt.Integer(0),
+                OVar("slice_length"),
+            )
+        )
+        positive_slice = OLet(
+            [("slice_length", plt.LengthOfByteString(OVar("slice_value")))],
+            OLet(
+                [("slice_start", positive_start), ("slice_stop", positive_stop)],
+                plt.Ite(
+                    plt.EqualsInteger(OVar("slice_step"), plt.Integer(1)),
+                    _slice_bytes_contiguous(
+                        OVar("slice_value"),
+                        OVar("slice_start"),
+                        OVar("slice_stop"),
+                    ),
+                    _slice_bytes_stride(
+                        OVar("slice_value"),
+                        OVar("slice_start"),
+                        OVar("slice_stop"),
+                        OVar("slice_step"),
+                        True,
+                    ),
+                ),
+            ),
+        )
+
+        negative_limit = plt.SubtractInteger(OVar("slice_length"), plt.Integer(1))
+        negative_start = (
+            negative_limit
+            if node.slice.lower is None
+            else _normalize_slice_index(
+                OVar("raw_slice_start"),
+                OVar("slice_length"),
+                plt.Integer(-1),
+                negative_limit,
+            )
+        )
+        negative_stop = (
+            plt.Integer(-1)
+            if node.slice.upper is None
+            else _normalize_slice_index(
+                OVar("raw_slice_stop"),
+                OVar("slice_length"),
+                plt.Integer(-1),
+                negative_limit,
+            )
+        )
+        negative_slice = OLet(
+            [("slice_length", plt.LengthOfByteString(OVar("slice_value")))],
+            OLet(
+                [("slice_start", negative_start), ("slice_stop", negative_stop)],
+                _slice_bytes_stride(
+                    OVar("slice_value"),
+                    OVar("slice_start"),
+                    OVar("slice_stop"),
+                    OVar("slice_step"),
+                    False,
+                ),
+            ),
+        )
+        return OLet(
+            bindings,
+            plt.Ite(
+                plt.EqualsInteger(OVar("slice_step"), plt.Integer(0)),
+                plt.TraceError("ValueError: slice step cannot be zero"),
+                plt.Ite(
+                    plt.LessThanInteger(OVar("slice_step"), plt.Integer(0)),
+                    negative_slice,
+                    positive_slice,
+                ),
+            ),
+        )
+
     def visit_Subscript(self, node: TypedSubscript) -> plt.AST:
         assert isinstance(
             node.value.typ, InstanceType
@@ -1058,6 +1425,8 @@ class PlutoCompiler(CompilingNodeTransformer):
                     ),
                 )
             else:
+                if node.slice.step is not None:
+                    return self._compile_list_slice(node)
                 assert (
                     node.slice.upper is not None
                 ), "Only slices with upper bound supported"
@@ -1066,36 +1435,25 @@ class PlutoCompiler(CompilingNodeTransformer):
                 ), "Only slices with lower bound supported"
                 return OLet(
                     [
-                        (
-                            "xs",
-                            self.visit(node.value),
-                        ),
-                        (
-                            "raw_i",
-                            self.visit(node.slice.lower),
-                        ),
+                        ("xs", self.visit(node.value)),
+                        ("raw_i", self.visit(node.slice.lower)),
                         (
                             "i",
                             plt.Ite(
                                 plt.LessThanInteger(OVar("raw_i"), plt.Integer(0)),
                                 plt.AddInteger(
-                                    OVar("raw_i"),
-                                    plt.LengthList(OVar("xs")),
+                                    OVar("raw_i"), plt.LengthList(OVar("xs"))
                                 ),
                                 OVar("raw_i"),
                             ),
                         ),
-                        (
-                            "raw_j",
-                            self.visit(node.slice.upper),
-                        ),
+                        ("raw_j", self.visit(node.slice.upper)),
                         (
                             "j",
                             plt.Ite(
                                 plt.LessThanInteger(OVar("raw_j"), plt.Integer(0)),
                                 plt.AddInteger(
-                                    OVar("raw_j"),
-                                    plt.LengthList(OVar("xs")),
+                                    OVar("raw_j"), plt.LengthList(OVar("xs"))
                                 ),
                                 OVar("raw_j"),
                             ),
@@ -1108,10 +1466,7 @@ class PlutoCompiler(CompilingNodeTransformer):
                                 OVar("i"),
                             ),
                         ),
-                        (
-                            "take",
-                            plt.SubtractInteger(OVar("j"), OVar("drop")),
-                        ),
+                        ("take", plt.SubtractInteger(OVar("j"), OVar("drop"))),
                     ],
                     plt.Ite(
                         plt.LessThanEqualsInteger(OVar("j"), OVar("i")),
@@ -1192,16 +1547,12 @@ class PlutoCompiler(CompilingNodeTransformer):
                     plt.IndexByteString(OVar("bs"), OVar("ix")),
                 )
             elif isinstance(node.slice, Slice):
+                if node.slice.step is not None:
+                    return self._compile_bytes_slice(node)
                 return OLet(
                     [
-                        (
-                            "bs",
-                            self.visit(node.value),
-                        ),
-                        (
-                            "raw_i",
-                            self.visit(node.slice.lower),
-                        ),
+                        ("bs", self.visit(node.value)),
+                        ("raw_i", self.visit(node.slice.lower)),
                         (
                             "i",
                             plt.Ite(
@@ -1213,10 +1564,7 @@ class PlutoCompiler(CompilingNodeTransformer):
                                 OVar("raw_i"),
                             ),
                         ),
-                        (
-                            "raw_j",
-                            self.visit(node.slice.upper),
-                        ),
+                        ("raw_j", self.visit(node.slice.upper)),
                         (
                             "j",
                             plt.Ite(
@@ -1236,10 +1584,7 @@ class PlutoCompiler(CompilingNodeTransformer):
                                 OVar("i"),
                             ),
                         ),
-                        (
-                            "take",
-                            plt.SubtractInteger(OVar("j"), OVar("drop")),
-                        ),
+                        ("take", plt.SubtractInteger(OVar("j"), OVar("drop"))),
                     ],
                     plt.Ite(
                         plt.LessThanEqualsInteger(OVar("j"), OVar("i")),

@@ -283,6 +283,50 @@ def validator(x: bytes, y: int, z: int) -> bytes:
             ret = None
         self.assertEqual(ret, exp, "byte slice returned wrong value")
 
+    @given(
+        x=st.binary(max_size=20),
+        y=st.integers(min_value=-30, max_value=30),
+        z=st.integers(min_value=-30, max_value=30),
+        step=st.integers(min_value=-8, max_value=8),
+    )
+    @example(b"012345", 1, 6, 2)
+    @example(b"012345", 5, 0, -2)
+    @example(b"012345", 1, 6, 0)
+    def test_slice_bytes_step(self, x, y, z, step):
+        source_code = """
+def validator(x: bytes, y: int, z: int, step: int) -> bytes:
+    return x[y:z:step]
+            """
+        try:
+            exp = x[y:z:step]
+        except ValueError:
+            exp = None
+        try:
+            ret = eval_uplc_value(source_code, x, y, z, step)
+        except Exception:
+            ret = None
+        self.assertEqual(ret, exp, "strided byte slice returned wrong value")
+
+    @given(
+        x=st.binary(max_size=20),
+        y=st.integers(min_value=-30, max_value=30),
+        step=st.integers(min_value=-8, max_value=8),
+    )
+    def test_slice_bytes_step_with_omitted_bounds(self, x, y, step):
+        source_code = """
+def validator(x: bytes, y: int, step: int) -> bytes:
+    return x[::step] + x[y::step] + x[:y:step]
+            """
+        try:
+            exp = x[::step] + x[y::step] + x[:y:step]
+        except ValueError:
+            exp = None
+        try:
+            ret = eval_uplc_value(source_code, x, y, step)
+        except Exception:
+            ret = None
+        self.assertEqual(ret, exp, "byte slice defaults ignored its stride")
+
     @given(x=st.binary(), y=st.integers())
     @example(b"\x00", -2)
     @example(b"1234", 1)
@@ -418,6 +462,59 @@ def validator(x: List[int], y: int, z: int) -> List[int]:
             ret,
             [PlutusInteger(x) for x in exp] if exp is not None else exp,
             "list slice returned wrong value",
+        )
+
+    @given(
+        x=st.lists(st.integers(), max_size=20),
+        y=st.integers(min_value=-30, max_value=30),
+        z=st.integers(min_value=-30, max_value=30),
+        step=st.integers(min_value=-8, max_value=8),
+    )
+    @example([0, 1, 2, 3, 4, 5], 1, 6, 2)
+    @example([0, 1, 2, 3, 4, 5], 5, 0, -2)
+    @example([0, 1, 2, 3, 4, 5], 1, 6, 0)
+    def test_slice_list_step(self, x, y, z, step):
+        source_code = """
+from typing import List
+def validator(x: List[int], y: int, z: int, step: int) -> List[int]:
+    return x[y:z:step]
+            """
+        try:
+            exp = x[y:z:step]
+        except ValueError:
+            exp = None
+        try:
+            ret = eval_uplc_value(source_code, x, y, z, step)
+        except Exception:
+            ret = None
+        self.assertEqual(
+            ret,
+            [PlutusInteger(item) for item in exp] if exp is not None else exp,
+            "strided list slice returned wrong value",
+        )
+
+    @given(
+        x=st.lists(st.integers(), max_size=20),
+        step=st.integers(min_value=-8, max_value=8),
+    )
+    def test_slice_list_step_with_omitted_bounds(self, x, step):
+        source_code = """
+from typing import List
+def validator(x: List[int], step: int) -> List[int]:
+    return x[::step]
+            """
+        try:
+            exp = x[::step]
+        except ValueError:
+            exp = None
+        try:
+            ret = eval_uplc_value(source_code, x, step)
+        except Exception:
+            ret = None
+        self.assertEqual(
+            ret,
+            [PlutusInteger(item) for item in exp] if exp is not None else exp,
+            "list slice defaults ignored its stride",
         )
 
     @given(x=st.lists(st.integers(), max_size=20), y=st.integers())

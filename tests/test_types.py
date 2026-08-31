@@ -90,6 +90,20 @@ def validator(x: Union[int, bytes]) -> Union[int, bytes]:
     assert res == 10
 
 
+@pytest.mark.parametrize(
+    ("argument_type", "return_type"),
+    [("bytes", "bytes"), ("List[int]", "List[int]")],
+)
+def test_slice_step_must_be_an_integer(argument_type, return_type):
+    source_code = f"""
+from typing import List
+def validator(x: {argument_type}) -> {return_type}:
+    return x[::b"not an integer"]
+"""
+    with pytest.raises(CompilerError, match="Slice steps .* must be integers"):
+        builder._compile(source_code)
+
+
 def test_type_inference_list_2():
     source_code = """
 from dataclasses import dataclass

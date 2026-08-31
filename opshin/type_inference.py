@@ -1436,6 +1436,8 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
 
     def visit_Subscript(self, node: Subscript) -> TypedSubscript:
         ts = copy(node)
+        if isinstance(node.slice, Slice):
+            ts.slice = copy(node.slice)
         # special case: Subscript of Union / Dict / List and atomic types
         if isinstance(ts.value, Name) and ts.value.orig_id in [
             "Union",
@@ -1488,21 +1490,32 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                 ), f"List indices must be integers, found {ts.slice.typ.python_type()} for list {ts.value.typ.python_type()}"
             else:
                 ts.typ = ts.value.typ
-                if ts.slice.lower is None:
-                    ts.slice.lower = Constant(0)
-                ts.slice.lower = self.visit(node.slice.lower)
-                assert (
-                    ts.slice.lower.typ == IntegerInstanceType
-                ), f"Lower slice indices for lists must be integers, found {ts.slice.lower.typ.python_type()} for list {ts.value.typ.python_type()}"
-                if ts.slice.upper is None:
-                    ts.slice.upper = Call(
-                        func=Name(id="len", ctx=Load()), args=[ts.value], keywords=[]
-                    )
-                    ts.slice.upper.func.orig_id = "len"
-                ts.slice.upper = self.visit(node.slice.upper)
-                assert (
-                    ts.slice.upper.typ == IntegerInstanceType
-                ), f"Upper slice indices for lists must be integers, found {ts.slice.upper.typ.python_type()} for list {ts.value.typ.python_type()}"
+                lower = node.slice.lower
+                upper = node.slice.upper
+                if node.slice.step is None:
+                    lower = lower if lower is not None else Constant(0)
+                    if upper is None:
+                        upper = Call(
+                            func=Name(id="len", ctx=Load()),
+                            args=[ts.value],
+                            keywords=[],
+                        )
+                        upper.func.orig_id = "len"
+                if lower is not None:
+                    ts.slice.lower = self.visit(lower)
+                    assert (
+                        ts.slice.lower.typ == IntegerInstanceType
+                    ), f"Lower slice indices for lists must be integers, found {ts.slice.lower.typ.python_type()} for list {ts.value.typ.python_type()}"
+                if upper is not None:
+                    ts.slice.upper = self.visit(upper)
+                    assert (
+                        ts.slice.upper.typ == IntegerInstanceType
+                    ), f"Upper slice indices for lists must be integers, found {ts.slice.upper.typ.python_type()} for list {ts.value.typ.python_type()}"
+                if node.slice.step is not None:
+                    ts.slice.step = self.visit(node.slice.step)
+                    assert (
+                        ts.slice.step.typ == IntegerInstanceType
+                    ), f"Slice steps for lists must be integers, found {ts.slice.step.typ.python_type()} for list {ts.value.typ.python_type()}"
         elif isinstance(ts.value.typ.typ, ByteStringType):
             if not isinstance(ts.slice, Slice):
                 ts.typ = IntegerInstanceType
@@ -1512,21 +1525,32 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                 ), f"Bytes indices must be integers, found {ts.slice.typ.python_type()}."
             else:
                 ts.typ = ByteStringInstanceType
-                if ts.slice.lower is None:
-                    ts.slice.lower = Constant(0)
-                ts.slice.lower = self.visit(node.slice.lower)
-                assert (
-                    ts.slice.lower.typ == IntegerInstanceType
-                ), f"Lower slice indices for bytes must be integers, found {ts.slice.lower.typ.python_type()}"
-                if ts.slice.upper is None:
-                    ts.slice.upper = Call(
-                        func=Name(id="len", ctx=Load()), args=[ts.value], keywords=[]
-                    )
-                    ts.slice.upper.func.orig_id = "len"
-                ts.slice.upper = self.visit(node.slice.upper)
-                assert (
-                    ts.slice.upper.typ == IntegerInstanceType
-                ), f"Upper slice indices for bytes must be integers, found {ts.slice.upper.typ.python_type()}"
+                lower = node.slice.lower
+                upper = node.slice.upper
+                if node.slice.step is None:
+                    lower = lower if lower is not None else Constant(0)
+                    if upper is None:
+                        upper = Call(
+                            func=Name(id="len", ctx=Load()),
+                            args=[ts.value],
+                            keywords=[],
+                        )
+                        upper.func.orig_id = "len"
+                if lower is not None:
+                    ts.slice.lower = self.visit(lower)
+                    assert (
+                        ts.slice.lower.typ == IntegerInstanceType
+                    ), f"Lower slice indices for bytes must be integers, found {ts.slice.lower.typ.python_type()}"
+                if upper is not None:
+                    ts.slice.upper = self.visit(upper)
+                    assert (
+                        ts.slice.upper.typ == IntegerInstanceType
+                    ), f"Upper slice indices for bytes must be integers, found {ts.slice.upper.typ.python_type()}"
+                if node.slice.step is not None:
+                    ts.slice.step = self.visit(node.slice.step)
+                    assert (
+                        ts.slice.step.typ == IntegerInstanceType
+                    ), f"Slice steps for bytes must be integers, found {ts.slice.step.typ.python_type()}"
         elif isinstance(ts.value.typ.typ, DictType):
             if not isinstance(ts.slice, Slice):
                 ts.slice = self.visit(node.slice)
