@@ -435,9 +435,8 @@ def find_max_type(elts: typing.List[InstanceType]):
     set_elts = OrderedSet(elts)
     max_typ = None
     for m in elts:
-        l_typ = m.typ
-        if all(l_typ >= e.typ for e in set_elts):
-            max_typ = l_typ
+        if all(m.typ >= e.typ for e in set_elts):
+            max_typ = m
             break
     if max_typ is None:
         # try to derive a union type
@@ -1055,7 +1054,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             isinstance(e.typ, InstanceType) for e in tt.elts
         ), f"All list elements must be instances of a class, found class types {', '.join(e.typ.python_type() for e in tt.elts if not isinstance(e.typ, InstanceType))}"
         # try to derive a max type
-        max_typ = find_max_type(tt.elts)
+        max_typ = find_max_type([e.typ for e in tt.elts])
         tt.typ = InstanceType(ListType(max_typ))
         return tt
 
@@ -1067,8 +1066,8 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             isinstance(e.typ, InstanceType) for e in tt.keys
         ), f"All keys of a dict must be instances of a class, found class types {', '.join(e.typ.python_type() for e in tt.keys if not isinstance(e.typ, InstanceType))}"
         # try to derive a max type
-        k_typ = find_max_type(tt.keys)
-        v_typ = find_max_type(tt.values)
+        k_typ = find_max_type([e.typ for e in tt.keys])
+        v_typ = find_max_type([e.typ for e in tt.values])
         tt.typ = InstanceType(DictType(k_typ, v_typ))
         return tt
 
