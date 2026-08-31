@@ -5,7 +5,7 @@ import pytest
 from opshin import builder
 from opshin.compiler_config import OPT_O3_CONFIG
 from opshin.rewrite.rewrite_adjacent_inline import RewriteAdjacentInline
-from tests.utils import Unit, eval_uplc
+from tests.utils import Unit, eval_uplc, eval_uplc_value
 
 INLINE_CONFIG = OPT_O3_CONFIG.update(wrap_output=True, unwrap_input=True)
 NO_INLINE_CONFIG = INLINE_CONFIG.update(adjacent_inline=False)
@@ -112,6 +112,61 @@ def validator(a: int) -> int:
         source_code, 4, config=NO_INLINE_CONFIG
     )
     assert eval_uplc(source_code, 4, config=INLINE_CONFIG).value == 5
+
+
+@pytest.mark.parametrize(
+    "reader_setup",
+    [
+        """
+    def reader() -> int:
+        return a
+""",
+        """
+    def read_a() -> int:
+        return a
+    reader = read_a
+""",
+        """
+    def read_a() -> int:
+        return a
+    def reader() -> int:
+        return read_a()
+""",
+    ],
+)
+def test_does_not_inline_across_captured_dependency_write(reader_setup):
+    source_code = f"""
+def validator(_: None) -> int:
+    a = 1
+{reader_setup}
+    x = reader()
+    a = 2
+    return x
+"""
+
+    assert eval_uplc_value(source_code, Unit(), config=NO_INLINE_CONFIG) == 1
+    assert eval_uplc_value(source_code, Unit(), config=INLINE_CONFIG) == 1
+
+
+@pytest.mark.parametrize(
+    "read_expression",
+    [
+        "return read_x() + x",
+        "y = read_x()\n    return y + x",
+    ],
+)
+def test_counts_captured_dependency_as_a_read(read_expression):
+    source_code = f"""
+def validator(_: None) -> int:
+    x = 1
+    def read_x() -> int:
+        return x
+    x = x + 1
+    {read_expression}
+"""
+
+    assert eval_uplc_value(source_code, Unit(), config=NO_INLINE_CONFIG) == 4
+    assert eval_uplc_value(source_code, Unit(), config=INLINE_CONFIG) == 4
 
 
 def test_does_not_inline_into_short_circuit_branch():

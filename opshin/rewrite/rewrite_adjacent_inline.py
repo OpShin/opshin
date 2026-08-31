@@ -3,6 +3,7 @@ from bisect import bisect_right
 from collections import defaultdict
 from copy import copy
 
+from ..type_impls import FunctionType, InstanceType
 from ..typed_util import ScopedSequenceNodeTransformer
 from ..util import CompilingNodeTransformer
 
@@ -24,6 +25,31 @@ class _ExpressionNameSubstitutor(CompilingNodeTransformer):
 
 class RewriteAdjacentInline(ScopedSequenceNodeTransformer):
     step = "Inlining adjacent single-use expressions"
+
+    def _implicit_loaded_names(self, node: ast.AST) -> set[str]:
+        loaded_names = set()
+        for child in ast.walk(node):
+            if isinstance(child, ast.Call):
+                function_type = getattr(child.func, "typ", None)
+                if isinstance(function_type, InstanceType) and isinstance(
+                    function_type.typ, FunctionType
+                ):
+                    loaded_names.update(function_type.typ.bound_vars)
+                    if function_type.typ.bind_self is not None:
+                        loaded_names.add(function_type.typ.bind_self)
+            if isinstance(child, ast.Compare):
+                for dunder_override in getattr(child, "dunder_overrides", []):
+                    if dunder_override is None:
+                        continue
+                    loaded_names.add(dunder_override.method_name)
+                    function_type = dunder_override.function_type
+                    if isinstance(function_type, InstanceType) and isinstance(
+                        function_type.typ, FunctionType
+                    ):
+                        loaded_names.update(function_type.typ.bound_vars)
+                        if function_type.typ.bind_self is not None:
+                            loaded_names.add(function_type.typ.bind_self)
+        return loaded_names
 
     def _load_count(self, expression: ast.expr, name: str) -> int:
         return sum(
@@ -58,11 +84,13 @@ class RewriteAdjacentInline(ScopedSequenceNodeTransformer):
         )
 
     def _loaded_names(self, expression: ast.expr) -> set[str]:
-        return {
+        loaded_names = {
             child.id
             for child in ast.walk(expression)
             if isinstance(child, ast.Name) and isinstance(child.ctx, ast.Load)
         }
+        loaded_names.update(self._implicit_loaded_names(expression))
+        return loaded_names
 
     def _stored_names(self, statement: ast.stmt) -> set[str]:
         return {
@@ -72,9 +100,11 @@ class RewriteAdjacentInline(ScopedSequenceNodeTransformer):
         }
 
     def _statement_names(self, statement: ast.stmt) -> set[str]:
-        return {
+        names = {
             child.id for child in ast.walk(statement) if isinstance(child, ast.Name)
         }
+        names.update(self._implicit_loaded_names(statement))
+        return names
 
     def _is_straight_line_statement(self, statement: ast.stmt) -> bool:
         return isinstance(
@@ -105,7 +135,8 @@ class RewriteAdjacentInline(ScopedSequenceNodeTransformer):
         if use_expr is None:
             return None
         if (
-            self._load_count(use_expr, assigned_name) != 1
+            assigned_name in self._implicit_loaded_names(use_expr)
+            or self._load_count(use_expr, assigned_name) != 1
             or self._guaranteed_load_count(use_expr, assigned_name) != 1
         ):
             return None
