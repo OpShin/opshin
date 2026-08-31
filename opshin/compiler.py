@@ -52,6 +52,7 @@ from .rewrite.rewrite_function_closures import (
 from .optimize.optimize_remove_deadconstants import OptimizeRemoveDeadConstants
 from .optimize.optimize_remove_deadconds import OptimizeRemoveDeadConditions
 from .optimize.optimize_fold_if_fallthrough import OptimizeFoldIfFallthrough
+from .optimize.optimize_selective_narrowing import OptimizeSelectiveNarrowing
 from .optimize.optimize_remove_unreachable import OptimizeRemoveUnreachable
 from .optimize.optimize_union_expansion import OptimizeUnionExpansion
 from .optimize.optimize_fold_bool import OptimizeFoldBoolCast
@@ -1908,6 +1909,11 @@ def compile(
         RewriteAnnotateFallthrough(),
         # The type inference needs to be run after complex python operations were rewritten
         AggressiveTypeInferencer(config.allow_isinstance_anything),
+        (
+            OptimizeSelectiveNarrowing(config.allow_isinstance_anything)
+            if config.optimize_selective_narrowing
+            else NoOp()
+        ),
         RewriteDestructuringAssign(),
         (RewriteExpandedUnionCalls() if config.expand_union_types else NoOp()),
         RewriteFunctionClosures(),

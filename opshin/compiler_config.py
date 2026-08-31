@@ -15,6 +15,7 @@ class CompilationConfig(pluthon.CompilationConfig):
     unwrap_input: Optional[bool] = None
     dict_last_value_wins: Optional[bool] = None
     optimize_bool_only_ops: Optional[bool] = None
+    optimize_selective_narrowing: Optional[bool] = None
 
 
 # The default configuration for the compiler
@@ -26,6 +27,7 @@ OPT_O0_CONFIG = (
         remove_dead_code=False,
         dict_last_value_wins=True,
         optimize_bool_only_ops=False,
+        optimize_selective_narrowing=False,
     )
 )
 OPT_O1_CONFIG = (
@@ -35,6 +37,7 @@ OPT_O1_CONFIG = (
     .update(
         remove_dead_code=True,
         optimize_bool_only_ops=True,
+        optimize_selective_narrowing=True,
     )
 )
 OPT_O2_CONFIG = (
@@ -95,6 +98,9 @@ ARGPARSE_ARGS.update(
         },
         "optimize_bool_only_ops": {
             "help": "Compiles and/or expressions directly to booleans when their operand value cannot escape. Enabled at -O1 and above.",
+        },
+        "optimize_selective_narrowing": {
+            "help": "Caches repeatedly used values narrowed by isinstance. Enabled at -O1 and above.",
         },
     }
 )
