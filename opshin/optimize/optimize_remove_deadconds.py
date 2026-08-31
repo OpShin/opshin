@@ -74,14 +74,16 @@ class OptimizeRemoveDeadConditions(FlatteningScopedSequenceNodeTransformer):
         ex = copy(node)
         ex.values = [self.visit(v) for v in ex.values]
         if all(isinstance(v, Constant) for v in ex.values):
-            values = [bool(v.value) for v in ex.values]
             if isinstance(ex.op, And):
-                return Constant(value=all(values))
+                return next((v for v in ex.values if not v.value), ex.values[-1])
             elif isinstance(ex.op, Or):
-                return Constant(value=any(values))
+                return next((v for v in ex.values if v.value), ex.values[-1])
         if isinstance(ex.op, Or):
             new_values = []
-            for value in ex.values:
+            for index, value in enumerate(ex.values):
+                if index == len(ex.values) - 1:
+                    new_values.append(value)
+                    continue
                 if isinstance(value, Constant) and value.value:
                     new_values.append(value)
                     ex.values = new_values
@@ -93,7 +95,10 @@ class OptimizeRemoveDeadConditions(FlatteningScopedSequenceNodeTransformer):
                 ex.values = new_values
         elif isinstance(ex.op, And):
             new_values = []
-            for value in ex.values:
+            for index, value in enumerate(ex.values):
+                if index == len(ex.values) - 1:
+                    new_values.append(value)
+                    continue
                 if isinstance(value, Constant) and not value.value:
                     new_values.append(value)
                     ex.values = new_values

@@ -98,12 +98,6 @@ from .util import (
 )
 
 
-BoolOpMap = {
-    ast.And: plt.And,
-    ast.Or: plt.Or,
-}
-
-
 @dataclass(frozen=True)
 class ValidatorSignature:
     arguments: typing.Tuple[typing.Tuple[str, Type], ...]
@@ -467,15 +461,34 @@ class PlutoCompiler(CompilingNodeTransformer):
         )
 
     def visit_BoolOp(self, node: TypedBoolOp) -> plt.AST:
-        op = BoolOpMap.get(type(node.op))
         assert len(node.values) >= 2, "Need to compare at least to values"
-        ops = op(
-            self.visit(node.values[0]),
-            self.visit(node.values[1]),
-        )
-        for v in node.values[2:]:
-            ops = op(ops, self.visit(v))
-        return ops
+
+        def result_value(index: int, value: plt.AST) -> plt.AST:
+            if needs_data_cast(node.typ):
+                return transform_output_to_type(node.values[index].typ, node.typ)(value)
+            return value
+
+        def compile_value(index: int) -> plt.AST:
+            value = node.values[index]
+            if index == len(node.values) - 1:
+                return result_value(index, self.visit(value))
+
+            value_name = f"__boolop_value_{node.lineno}_{node.col_offset}_{index}"
+            stored_value = OVar(value_name)
+            truthy = plt.Not(
+                plt.Apply(
+                    value.typ.unop(ast.Not()),
+                    stored_value,
+                )
+            )
+            current_result = result_value(index, stored_value)
+            if isinstance(node.op, ast.And):
+                body = plt.Ite(truthy, compile_value(index + 1), current_result)
+            else:
+                body = plt.Ite(truthy, current_result, compile_value(index + 1))
+            return OLet([(value_name, self.visit(value))], body)
+
+        return compile_value(0)
 
     def visit_UnaryOp(self, node: TypedUnaryOp) -> plt.AST:
         op = node.operand.typ.unop(node.op)

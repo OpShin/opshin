@@ -35,10 +35,8 @@ class RewriteConditions(CompilingNodeTransformer):
 
     def visit_BoolOp(self, node: BoolOp) -> BoolOp:
         bo_cp = copy(node)
-        bo_cp.values = [
-            Call(Name(SPECIAL_BOOL, Load()), [self.visit(v)], []) for v in bo_cp.values
-        ]
-        return self.generic_visit(bo_cp)
+        bo_cp.values = [self.visit(v) for v in bo_cp.values]
+        return bo_cp
 
     def visit_Assert(self, node: Assert) -> Assert:
         assert_cp = copy(node)

@@ -1456,11 +1456,11 @@ def validator(x: int) -> bool:
     @hypothesis.given(st.integers())
     def test_cast_bool_boolops(self, x):
         source_code = """
-def validator(x: int) -> bool:
+def validator(x: int) -> int:
     return x and x or (x or x)
 """
         res = eval_uplc_value(source_code, x)
-        self.assertEqual(bool(res), bool(x and x or (x or x)))
+        self.assertEqual(res, x and x or (x or x))
 
     @hypothesis.given(a_or_b)
     def test_isinstance_cast_if(self, x):

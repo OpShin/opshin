@@ -50,6 +50,7 @@ from .type_impls import (
     PolymorphicFunctionType,
     Record,
     BoolInstanceType,
+    BoolImpl,
     NoneInstanceType,
     IntegerInstanceType,
     UnitInstanceType,
@@ -441,7 +442,7 @@ def find_max_type(elts: typing.List[InstanceType]):
     if max_typ is None:
         # try to derive a union type
         try:
-            max_typ = InstanceType(union_types(*(e.typ.typ for e in set_elts)))
+            max_typ = InstanceType(union_types(*(e.typ for e in set_elts)))
         except AssertionError:
             # if this fails, we have a list with incompatible types
             raise ValueError(
@@ -1415,10 +1416,14 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             tt.values = values
         else:
             raise NotImplementedError(f"Boolean operator {node.op} not supported")
-        tt.typ = BoolInstanceType
-        assert all(
-            BoolInstanceType >= e.typ for e in tt.values
-        ), f"All values compared must be bools, found {', '.join(e.typ.python_type() for e in tt.values)}"
+        for value in tt.values:
+            BoolImpl().type_from_args([value.typ])
+        common_type = find_max_type([value.typ for value in tt.values])
+        tt.typ = (
+            common_type
+            if isinstance(common_type, InstanceType)
+            else InstanceType(common_type)
+        )
         return tt
 
     def visit_UnaryOp(self, node: UnaryOp) -> TypedUnaryOp:

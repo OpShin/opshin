@@ -77,6 +77,35 @@ formattable_text = st.from_regex(r"\A((?!['\\])[ -~])*\Z")
 
 
 class OpTest(unittest.TestCase):
+    @given(x=st.integers())
+    def test_and_returns_python_operand(self, x):
+        source_code = """
+def validator(x: int) -> int:
+    return x and 2
+            """
+        ret = eval_uplc_value(source_code, x)
+        self.assertEqual(ret, x and 2)
+
+    @given(x=st.integers())
+    def test_or_returns_python_operand(self, x):
+        source_code = """
+def validator(x: int) -> int:
+    return x or 2
+            """
+        ret = eval_uplc_value(source_code, x)
+        self.assertEqual(ret, x or 2)
+
+    @given(x=st.integers())
+    def test_boolop_returns_union_operand(self, x):
+        source_code = """
+from typing import Union
+
+def validator(x: int) -> Union[int, bytes]:
+    return x and b"nonzero"
+            """
+        ret = eval_uplc_value(source_code, x)
+        self.assertEqual(ret, x and b"nonzero")
+
     @given(x=st.booleans(), y=st.booleans())
     def test_and_bool(self, x, y):
         source_code = """
