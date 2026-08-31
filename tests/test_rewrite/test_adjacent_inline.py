@@ -66,7 +66,7 @@ def validator(a: int) -> int:
     assert rewrite(source_code) == rewrite(target_code)
 
 
-def test_inline_non_adjacent_straight_line_expression():
+def test_inline_non_adjacent_straight_line_expressions():
     source_code = """
 def validator(a: int) -> int:
     x = a + 1
@@ -75,10 +75,10 @@ def validator(a: int) -> int:
 """
     target_code = """
 def validator(a: int) -> int:
-    z = 1
-    return a + 1 + z
+    return a + 1 + 1
 """
 
+    assert rewrite(source_code) == rewrite(target_code)
     assert script_size(source_code, 4) == script_size(target_code, 4)
 
 
