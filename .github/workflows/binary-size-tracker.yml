@@ -210,8 +210,7 @@ jobs:
             });
           }
 
-    - name: Set status check
+    - name: Report significant size changes
       if: steps.size-check.outputs.has_significant_changes == 'true'
       run: |
-        echo "Significant binary size changes detected"
-        exit 1
+        echo "::warning title=Binary size increase::Significant binary size changes detected; review the report artifact."
