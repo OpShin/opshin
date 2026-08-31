@@ -100,7 +100,7 @@ ARGPARSE_ARGS.update(
             "help": "Compiles and/or expressions directly to booleans when their operand value cannot escape. Enabled at -O1 and above.",
         },
         "optimize_selective_narrowing": {
-            "help": "Caches repeatedly used values narrowed by isinstance. Enabled at -O1 and above.",
+            "help": "Caches repeatedly used values narrowed by isinstance, using estimated branch probabilities and loop iterations. Estimates can be set in source with '# opshin: branch-probability=P' and '# opshin: iterations=N'. Enabled at -O1 and above.",
         },
     }
 )
