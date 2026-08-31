@@ -14,6 +14,16 @@ class OptimizeBoolOnlyOps(CompilingNodeTransformer):
 
     step = "Using boolean-only and/or operations"
 
+    def visit_FunctionDef(self, node: ast.FunctionDef) -> ast.FunctionDef:
+        node = copy(node)
+        node.body = [self.visit(statement) for statement in node.body]
+        return node
+
+    def visit_ClassDef(self, node: ast.ClassDef) -> ast.ClassDef:
+        node = copy(node)
+        node.body = [self.visit(statement) for statement in node.body]
+        return node
+
     @staticmethod
     def negate(node: ast.expr) -> ast.UnaryOp:
         negated = ast.UnaryOp(op=ast.Not(), operand=node)
@@ -46,7 +56,7 @@ class OptimizeBoolOnlyOps(CompilingNodeTransformer):
     def visit_Call(self, node: ast.Call) -> ast.expr:
         node = self.generic_visit(copy(node))
         if not (
-            isinstance(getattr(node.func, "typ", None), PolymorphicFunctionInstanceType)
+            isinstance(node.func.typ, PolymorphicFunctionInstanceType)
             and isinstance(node.func.typ.polymorphic_function, BoolImpl)
             and len(node.args) == 1
             and isinstance(node.args[0], ast.BoolOp)

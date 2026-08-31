@@ -1,5 +1,9 @@
 import ast
 import copy
+import io
+import math
+import re
+import tokenize
 import typing
 from dataclasses import dataclass
 from ast import Load, Name, Constant, Slice
@@ -52,6 +56,11 @@ from .rewrite.rewrite_function_closures import (
 from .optimize.optimize_remove_deadconstants import OptimizeRemoveDeadConstants
 from .optimize.optimize_remove_deadconds import OptimizeRemoveDeadConditions
 from .optimize.optimize_fold_if_fallthrough import OptimizeFoldIfFallthrough
+from .optimize.optimize_selective_narrowing import OptimizeSelectiveNarrowing
+from .optimize.analyze_integrity import AnalyzeIntegrity
+from .optimize.optimize_remove_checked_integrity_checks import (
+    OptimizeRemoveCheckedIntegrityChecks,
+)
 from .optimize.optimize_remove_unreachable import OptimizeRemoveUnreachable
 from .optimize.optimize_union_expansion import OptimizeUnionExpansion
 from .optimize.optimize_fold_bool import OptimizeFoldBoolCast
@@ -1859,6 +1868,55 @@ class PlutoCompiler(CompilingNodeTransformer):
         raise NotImplementedError(f"Can not compile {node}")
 
 
+_OPTIMIZATION_HINT_RE = re.compile(
+    r"#\s*opshin:\s*(branch-probability|iterations)\s*=\s*" r"(\S+)\s*$"
+)
+
+
+def _annotate_optimization_hints(tree: ast.AST, source: str) -> None:
+    compound_statements = [
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, (ast.If, ast.For, ast.While))
+    ]
+    for token in tokenize.generate_tokens(io.StringIO(source).readline):
+        if token.type != tokenize.COMMENT:
+            continue
+        match = _OPTIMIZATION_HINT_RE.fullmatch(token.string)
+        if match is None:
+            continue
+        hint, raw_value = match.groups()
+        line = token.start[0]
+        candidates = []
+        for node in compound_statements:
+            first_body_line = min(
+                (statement.lineno for statement in node.body),
+                default=getattr(node, "end_lineno", node.lineno) + 1,
+            )
+            if node.lineno <= line < first_body_line:
+                candidates.append(node)
+        assert (
+            candidates
+        ), f"Optimization hint on line {line} is not on a compound statement header"
+        node = max(candidates, key=lambda candidate: candidate.lineno)
+        value = float(raw_value)
+        assert math.isfinite(value), f"Optimization hint on line {line} must be finite"
+        if hint == "branch-probability":
+            assert isinstance(
+                node, ast.If
+            ), f"branch-probability hint on line {line} is only valid on if statements"
+            assert (
+                0.0 <= value <= 1.0
+            ), f"branch-probability on line {line} must be between 0 and 1"
+            node.branch_probability = value
+        else:
+            assert isinstance(
+                node, (ast.For, ast.While)
+            ), f"iterations hint on line {line} is only valid on loops"
+            assert value >= 0.0, f"iterations on line {line} must be non-negative"
+            node.iterations = value
+
+
 def parse(
     source: str,
     filename=None,
@@ -1866,9 +1924,13 @@ def parse(
     """
     Parse source code into an AST
 
-    Currently passes everything through Python's ast module.
+    Besides parsing Python, this attaches selective-narrowing cost hints from
+    comments on compound statement headers. ``branch-probability`` gives the
+    probability that an ``if`` condition is true, while ``iterations`` gives
+    the expected number of loop-body executions.
     """
     tree = ast.parse(source, filename=filename)
+    _annotate_optimization_hints(tree, source)
     return tree
 
 
@@ -1909,6 +1971,17 @@ def compile(
         RewriteAnnotateFallthrough(),
         # The type inference needs to be run after complex python operations were rewritten
         AggressiveTypeInferencer(config.allow_isinstance_anything),
+        AnalyzeIntegrity(validator_function_name),
+        (
+            OptimizeRemoveCheckedIntegrityChecks()
+            if config.optimize_remove_checked_integrity_checks
+            else NoOp()
+        ),
+        (
+            OptimizeSelectiveNarrowing(config.allow_isinstance_anything)
+            if config.optimize_selective_narrowing
+            else NoOp()
+        ),
         RewriteDestructuringAssign(),
         (RewriteExpandedUnionCalls() if config.expand_union_types else NoOp()),
         RewriteFunctionClosures(),
