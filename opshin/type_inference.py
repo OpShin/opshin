@@ -1890,6 +1890,22 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         )
 
 
+def _record_field_type_contains_unit(typ: Type) -> bool:
+    if isinstance(typ, UnitType):
+        return True
+    if isinstance(typ, InstanceType):
+        return _record_field_type_contains_unit(typ.typ)
+    if isinstance(typ, ListType):
+        return _record_field_type_contains_unit(typ.typ)
+    if isinstance(typ, DictType):
+        return _record_field_type_contains_unit(
+            typ.key_typ
+        ) or _record_field_type_contains_unit(typ.value_typ)
+    if isinstance(typ, UnionType):
+        return any(_record_field_type_contains_unit(t) for t in typ.typs)
+    return False
+
+
 class RecordReader(NodeVisitor):
     name: str
     orig_name: str
@@ -1926,6 +1942,10 @@ class RecordReader(NodeVisitor):
             assert not isinstance(
                 typ, TupleType
             ), "Records can currently not hold tuples"
+            assert not _record_field_type_contains_unit(typ), (
+                "PlutusData fields cannot contain None because None has no "
+                "PyCardano-compatible Plutus Data encoding"
+            )
             self.attributes.append(
                 (
                     node.target.id,
