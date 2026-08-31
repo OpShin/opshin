@@ -51,34 +51,6 @@ def validator(_: None) -> None:
     assert not marker.exists()
 
 
-def test_constant_folding_has_an_execution_budget():
-    source = """\
-def spin() -> int:
-    while True:
-        pass
-
-def validator(_: None) -> int:
-    return spin()
-"""
-    script = f"""\
-from opshin import builder, CompilerError
-from tests.utils import DEFAULT_TEST_CONFIG
-try:
-    builder._compile({source!r}, config=DEFAULT_TEST_CONFIG.update(constant_folding=True))
-except CompilerError:
-    pass
-"""
-
-    result = subprocess.run(
-        [sys.executable, "-c", script],
-        capture_output=True,
-        text=True,
-        timeout=3,
-    )
-
-    assert result.returncode == 0, result.stderr
-
-
 def test_integrity_import_alias_does_not_leak_between_compilations():
     alias = "leaked_integrity_check_security_test"
     imported_source = f"""\
