@@ -9,6 +9,7 @@ This downloads the latest baseline and compares against current code.
 import argparse
 import os
 import requests
+import subprocess
 import sys
 import tempfile
 from pathlib import Path
@@ -95,7 +96,16 @@ def main():
     try:
         # Run the comparison
         print("\nRunning binary size comparison...")
-        os.system(f"python {tracker_script} compare --baseline-file {baseline_file}")
+        subprocess.run(
+            [
+                sys.executable,
+                str(tracker_script),
+                "compare",
+                "--baseline-file",
+                baseline_file,
+            ],
+            check=False,
+        )
 
     finally:
         # Clean up temp file if we downloaded it

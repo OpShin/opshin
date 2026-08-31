@@ -1,6 +1,7 @@
 import ast
 import copy
 import typing
+from dataclasses import dataclass
 from ast import Load, Name, Constant, Slice
 
 import pluthon as plt
@@ -101,6 +102,35 @@ BoolOpMap = {
     ast.And: plt.And,
     ast.Or: plt.Or,
 }
+
+
+@dataclass(frozen=True)
+class ValidatorSignature:
+    arguments: typing.Tuple[typing.Tuple[str, Type], ...]
+    return_type: Type
+
+
+def _extract_validator_signature(
+    prog: TypedModule, validator_function_name: str
+) -> ValidatorSignature:
+    validators = [
+        statement
+        for statement in prog.body
+        if isinstance(statement, ast.FunctionDef)
+        and statement.orig_name == validator_function_name
+    ]
+    assert validators, (
+        f"Contract has no function called '{validator_function_name}'. Make sure the "
+        "compiled contract contains the requested function."
+    )
+    validator = validators[-1]
+    assert isinstance(validator.typ, InstanceType) and isinstance(
+        validator.typ.typ, FunctionType
+    ), f"Variable named {validator_function_name} is not of type function"
+    return ValidatorSignature(
+        tuple((arg.orig_arg, arg.typ) for arg in validator.args.args),
+        validator.typ.typ.rettyp,
+    )
 
 
 def needs_data_cast(typ: Type) -> bool:
@@ -1433,7 +1463,12 @@ def compile(
     validator_function_name="validator",
     config=DEFAULT_CONFIG,
     wrap_output=False,
+    validator_signature: typing.Optional[typing.List[ValidatorSignature]] = None,
 ) -> plt.Program:
+    if not __debug__:
+        raise RuntimeError(
+            "opshin compilation requires Python assertions; do not run Python with -O"
+        )
     compile_pipeline = [
         # Important to call this one first - it imports all further files
         RewriteImport(filename=filename),
@@ -1473,6 +1508,10 @@ def compile(
     for s in compile_pipeline:
         prog = s.visit(prog)
         prog = custom_fix_missing_locations(prog)
+        if isinstance(s, AggressiveTypeInferencer) and validator_signature is not None:
+            validator_signature.append(
+                _extract_validator_signature(prog, validator_function_name)
+            )
 
     # Apply optimizations repeatedly until no further changes occur (fixed-point)
     optimize_pipeline = [

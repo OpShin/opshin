@@ -445,7 +445,8 @@ def load(contract_path: Union[Path, str]) -> PlutusContract:
         try:
             contract = json.loads(contract_content)
             if "validators" in contract:
-                assert len(contract["validators"]) == 1, "Only one validator supported"
+                if len(contract["validators"]) != 1:
+                    raise ValueError("Only one validator supported")
                 validator = contract["validators"][0]
                 # TODO this should be controlled by the version in the preamble
                 contract_cbor = PlutusV3Script(bytes.fromhex(validator["compiledCode"]))
@@ -477,9 +478,8 @@ def load(contract_path: Union[Path, str]) -> PlutusContract:
                 title = contract["preamble"].get("title")
                 description = contract["preamble"].get("description")
                 license = contract["preamble"].get("license")
-                assert (
-                    contract["preamble"].get("plutusVersion") == "v3"
-                ), "Only Plutus V3 supported"
+                if contract["preamble"].get("plutusVersion") != "v3":
+                    raise ValueError("Only Plutus V3 supported")
                 return PlutusContract(
                     contract_cbor,
                     datum_type,

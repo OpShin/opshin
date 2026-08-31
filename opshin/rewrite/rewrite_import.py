@@ -1,6 +1,6 @@
 import ast
 
-import importlib
+import importlib.machinery
 import importlib.util
 import pathlib
 import typing
@@ -15,39 +15,27 @@ Checks that there was an import of dataclass if there are any class definitions
 """
 
 
-def import_module(name, package=None):
-    """An approximate implementation of import."""
+def find_module_spec(name, package=None, search_paths=None):
+    """Find a Python module without importing or executing it."""
     absolute_name = importlib.util.resolve_name(name, package)
-    try:
-        return sys.modules[absolute_name]
-    except KeyError:
-        pass
-
-    path = None
+    parts = absolute_name.split(".")
+    path = search_paths
     spec = None
-    error_msg = None
-    try:
-        if "." in absolute_name:
-            parent_name, _, child_name = absolute_name.rpartition(".")
-            parent_module = import_module(parent_name)
-            path = parent_module.__spec__.submodule_search_locations
-        for finder in sys.meta_path:
-            spec = finder.find_spec(absolute_name, path)
-            if spec is not None:
-                break
-    except (ImportError, AttributeError) as e:
-        error_msg = str(e)
-    if spec is None:
-        msg = f"No module named {absolute_name!r}"
-        if error_msg:
-            msg += f"; {error_msg}"
-        raise ModuleNotFoundError(msg, name=absolute_name)
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[absolute_name] = module
-    spec.loader.exec_module(module)
-    if path is not None:
-        setattr(parent_module, child_name, module)
-    return module
+    for i in range(len(parts)):
+        qualified_name = ".".join(parts[: i + 1])
+        spec = importlib.machinery.PathFinder.find_spec(qualified_name, path)
+        if spec is None:
+            raise ModuleNotFoundError(
+                f"No module named {absolute_name!r}", name=absolute_name
+            )
+        if i != len(parts) - 1:
+            path = spec.submodule_search_locations
+            if path is None:
+                raise ModuleNotFoundError(
+                    f"No module named {absolute_name!r}; {qualified_name!r} is not a package",
+                    name=absolute_name,
+                )
+    return spec
 
 
 class RewriteLocation(CompilingNodeTransformer):
@@ -91,15 +79,17 @@ class RewriteImport(CompilingNodeTransformer):
         assert len(node.names) == 1, error_msg
         assert node.names[0].name == "*", error_msg
         assert node.names[0].asname == None, error_msg
-        # TODO set anchor point according to own package
+        import_name = "." * node.level + (node.module or "")
+        search_paths = list(sys.path)
         if self.filename:
-            sys.path.append(str(pathlib.Path(self.filename).parent.absolute()))
-        module = import_module(node.module, self.package)
-        if self.filename:
-            sys.path.pop()
-        module_file = pathlib.Path(module.__file__)
+            search_paths.insert(0, str(pathlib.Path(self.filename).parent.absolute()))
+        spec = find_module_spec(import_name, self.package, search_paths)
+        if spec.origin is None:
+            raise ImportError(f"Module {spec.name!r} has no Python source file")
+        module_file = pathlib.Path(spec.origin)
         if module_file.suffix == ".pyc":
             module_file = module_file.with_suffix(".py")
+        module_file = module_file.resolve()
         if module_file in self.resolved_imports:
             # Import was already resolved and its names are visible
             return None
@@ -116,7 +106,11 @@ class RewriteImport(CompilingNodeTransformer):
         # recursively import all statements there
         recursive_resolver = RewriteImport(
             filename=str(module_file),
-            package=module.__package__,
+            package=(
+                spec.name
+                if spec.submodule_search_locations is not None
+                else spec.name.rpartition(".")[0]
+            ),
             resolved_imports=self.resolved_imports,
         )
         recursively_resolved: Module = recursive_resolver.visit(resolved)

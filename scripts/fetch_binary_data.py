@@ -88,7 +88,9 @@ const EMBEDDED_RELEASE_DATA = {json.dumps(releases_data, indent=2)};
 
 def fetch_current_dev_build_data():
     if not Path("binary_sizes_baseline.json").exists():
-        subprocess.run("uv run scripts/binary_size_tracker.py generate", shell=True)
+        subprocess.run(
+            ["uv", "run", "scripts/binary_size_tracker.py", "generate"], check=False
+        )
     else:
         print("Using existing binary_sizes_baseline.json file")
     current_dev_data_file = Path("binary_sizes_baseline.json")

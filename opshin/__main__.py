@@ -9,11 +9,13 @@ import uuid
 from contextlib import redirect_stdout
 
 import cbor2
+import dataclasses
 import enum
 import importlib
 import json
 import pathlib
 import sys
+import types
 import typing
 import ast
 
@@ -36,8 +38,26 @@ from . import (
     PlutusContract,
 )
 from .util import CompilerError, data_from_json, OPSHIN_LOG_HANDLER
+from .util import get_class_annotations
 from .prelude import ScriptContext
 from .compiler_config import *
+from .type_impls import (
+    AnyType,
+    BoolType,
+    ByteStringType,
+    DataInstanceType,
+    DictType,
+    InstanceType,
+    IntegerType,
+    ListType,
+    PairType,
+    RawTupleType,
+    RecordType,
+    StringType,
+    TupleType,
+    UnionType,
+    UnitType,
+)
 from uplc import cost_model
 
 
@@ -49,6 +69,93 @@ class Command(enum.Enum):
     eval_uplc = "eval_uplc"
     build = "build"
     lint = "lint"
+
+
+def compiler_type_to_python(compiler_type, record_types=None):
+    """Convert an inferred opshin type to its non-executing Python equivalent."""
+    if record_types is None:
+        record_types = {}
+    if isinstance(compiler_type, (InstanceType, DataInstanceType)):
+        compiler_type = compiler_type.typ
+    if isinstance(compiler_type, AnyType):
+        return pycardano.Datum
+    if isinstance(compiler_type, IntegerType):
+        return int
+    if isinstance(compiler_type, ByteStringType):
+        return bytes
+    if isinstance(compiler_type, StringType):
+        return str
+    if isinstance(compiler_type, BoolType):
+        return bool
+    if isinstance(compiler_type, UnitType):
+        return None
+    if isinstance(compiler_type, ListType):
+        return typing.List[compiler_type_to_python(compiler_type.typ, record_types)]
+    if isinstance(compiler_type, DictType):
+        return typing.Dict[
+            compiler_type_to_python(compiler_type.key_typ, record_types),
+            compiler_type_to_python(compiler_type.value_typ, record_types),
+        ]
+    if isinstance(compiler_type, (TupleType, RawTupleType)):
+        return typing.Tuple[
+            tuple(compiler_type_to_python(t, record_types) for t in compiler_type.typs)
+        ]
+    if isinstance(compiler_type, PairType):
+        return typing.Tuple[
+            compiler_type_to_python(compiler_type.l_typ, record_types),
+            compiler_type_to_python(compiler_type.r_typ, record_types),
+        ]
+    if isinstance(compiler_type, UnionType):
+        return typing.Union[
+            tuple(compiler_type_to_python(t, record_types) for t in compiler_type.typs)
+        ]
+    if isinstance(compiler_type, RecordType):
+        record = compiler_type.record
+        if record in record_types:
+            return record_types[record]
+
+        existing_type = getattr(prelude, record.orig_name, None)
+        if (
+            isinstance(existing_type, type)
+            and issubclass(existing_type, pycardano.PlutusData)
+            and existing_type.CONSTR_ID == record.constructor
+            and list(get_class_annotations(existing_type))
+            == [name for name, _ in record.fields]
+        ):
+            record_types[record] = existing_type
+            return existing_type
+
+        python_type = type(
+            record.orig_name,
+            (pycardano.PlutusData,),
+            {
+                "__module__": __name__,
+                "CONSTR_ID": record.constructor,
+                "__annotations__": {},
+            },
+        )
+        record_types[record] = python_type
+        python_type.__annotations__.update(
+            {
+                name: compiler_type_to_python(field_type, record_types)
+                for name, field_type in record.fields
+            }
+        )
+        return dataclasses.dataclass(python_type)
+    raise TypeError(f"Cannot convert compiler type {compiler_type.python_type()}")
+
+
+def import_contract_for_evaluation(source_code: str):
+    """Execute a contract only for the CLI command that explicitly requests it."""
+    with tempfile.TemporaryDirectory(prefix="build") as tmpdir:
+        tmp_input_file = pathlib.Path(tmpdir).joinpath(f"__tmp_opshin{uuid.uuid4()}.py")
+        with tmp_input_file.open("w") as fp:
+            fp.write(source_code)
+        sys.path.append(str(tmp_input_file.parent.absolute()))
+        try:
+            return importlib.import_module(tmp_input_file.stem)
+        finally:
+            sys.path.pop()
 
 
 def parse_uplc_param(param: str):
@@ -104,21 +211,23 @@ def plutus_data_from_json(annotation: typing.Type, x: dict):
             return bytes.fromhex(x["bytes"])
         if annotation is None:
             return None
-        if isinstance(annotation, typing._GenericAlias):
+        annotation_origin = typing.get_origin(annotation)
+        annotation_args = typing.get_args(annotation)
+        if annotation_origin is not None:
             # Annotation is a List or Dict
-            if annotation._name == "List":
-                annotation_ann = annotation.__dict__["__args__"][0]
+            if annotation_origin is list:
+                annotation_ann = annotation_args[0]
                 return [plutus_data_from_json(annotation_ann, k) for k in x["list"]]
-            if annotation._name == "Dict":
-                annotation_key, annotation_val = annotation.__dict__["__args__"]
+            if annotation_origin is dict:
+                annotation_key, annotation_val = annotation_args
                 return {
                     plutus_data_from_json(
                         annotation_key, d["k"]
                     ): plutus_data_from_json(annotation_val, d["v"])
                     for d in x["map"]
                 }
-            if annotation.__origin__ == typing.Union:
-                for ann in annotation.__dict__["__args__"]:
+            if annotation_origin in (typing.Union, types.UnionType):
+                for ann in annotation_args:
                     try:
                         return plutus_data_from_json(ann, x)
                     except (pycardano.DeserializeException, KeyError, ValueError):
@@ -167,24 +276,26 @@ def plutus_data_from_cbor(annotation: typing.Type, x: bytes):
             if not x == cbor2.dumps(None):
                 raise ValueError(f"Expected None but got {x.hex()}")
             return None
-        if isinstance(annotation, typing._GenericAlias):
+        annotation_origin = typing.get_origin(annotation)
+        annotation_args = typing.get_args(annotation)
+        if annotation_origin is not None:
             # Annotation is a List or Dict
-            if annotation.__origin__ == list:
-                annotation_ann = annotation.__dict__["__args__"][0]
+            if annotation_origin is list:
+                annotation_ann = annotation_args[0]
                 return [
                     plutus_data_from_cbor(annotation_ann, cbor2.dumps(k))
                     for k in cbor2.loads(x)
                 ]
-            if annotation.__origin__ == dict:
-                annotation_key, annotation_val = annotation.__dict__["__args__"]
+            if annotation_origin is dict:
+                annotation_key, annotation_val = annotation_args
                 return {
                     plutus_data_from_cbor(
                         annotation_key, cbor2.dumps(k)
                     ): plutus_data_from_cbor(annotation_val, cbor2.dumps(v))
                     for k, v in cbor2.loads(x).items()
                 }
-            if annotation.__origin__ == typing.Union:
-                for ann in annotation.__dict__["__args__"]:
+            if annotation_origin in (typing.Union, types.UnionType):
+                for ann in annotation_args:
                     try:
                         return plutus_data_from_cbor(ann, x)
                     except (pycardano.DeserializeException, ValueError):
@@ -258,83 +369,19 @@ def perform_command(args):
 
     # execute the command
     command = Command(args.command)
-    input_file = args.input_file if args.input_file != "-" else sys.stdin
-    # read and import the contract
-    with open(input_file, "r") as f:
-        source_code = f.read()
-    with tempfile.TemporaryDirectory(prefix="build") as tmpdir:
-        tmp_input_file = pathlib.Path(tmpdir).joinpath(f"__tmp_opshin{uuid.uuid4()}.py")
-        with tmp_input_file.open("w") as fp:
-            fp.write(source_code)
-        sys.path.append(str(pathlib.Path(tmp_input_file).parent.absolute()))
-        try:
-            sc = importlib.import_module(pathlib.Path(tmp_input_file).stem)
-        except Exception as e:
-            # replace the traceback with an error pointing to the input file
-            raise SyntaxError(
-                f"Could not import the input file as python module. Make sure the input file is valid python code. Error: {e}",
-            ) from e
-        sys.path.pop()
-    # load the passed parameters if not a lib
-    try:
-        argspec = inspect.signature(sc.validator if lib is None else getattr(sc, lib))
-    except AttributeError:
-        raise AssertionError(
-            f"Contract has no function called '{'validator' if lib is None else lib}'. Make sure the compiled contract contains one function called 'validator'."
-        )
-    annotations = [
-        (x.name, x.annotation or prelude.Anything) for x in argspec.parameters.values()
-    ]
-    return_annotation = (
-        argspec.return_annotation
-        if argspec.return_annotation is not argspec.empty
-        else prelude.Anything
-    )
-    parsed_params = []
-    uplc_params = []
-    for i, (c, a) in enumerate(zip(annotations, args.args)):
-        try:
-            uplc_param = parse_uplc_param(a)
-        except ValueError as e:
-            raise ValueError(
-                f"Could not parse parameter {i} ('{a}') as UPLC data. Please provide the parameter either as JSON or CBOR (in hexadecimal notation). Detailed error: {e}"
-            ) from None
-        uplc_params.append(uplc_param)
-        try:
-            param = parse_plutus_param(c[1], a)
-        except ValueError as e:
-            raise ValueError(
-                f"Could not parse parameter {i} ('{a}') as type {c[1]}. Please provide the parameter either as JSON or CBOR (in hexadecimal notation). Detailed error: {e}"
-            ) from None
-        parsed_params.append(param)
-    if lib is None:
-        onchain_params, param_types = check_params(
-            command,
-            annotations,
-            return_annotation,
-            parsed_params,
-            number_parameters,
-        )
-        assert (
-            onchain_params
-        ), "The validator function must have at least one on-chain parameter. You can also add `_:None`."
-
-    py_ret = Command.eval
-    if command == Command.eval:
-        print("Python execution started")
-        with redirect_stdout(open(os.devnull, "w")):
-            try:
-                py_ret = sc.validator(*parsed_params)
-            except Exception as e:
-                py_ret = e
-        command = Command.eval_uplc
+    input_file = args.input_file
+    if input_file == "-":
+        source_code = sys.stdin.read()
+    else:
+        with open(input_file, "r") as f:
+            source_code = f.read()
 
     source_ast = compiler.parse(source_code, filename=input_file)
-
     if command == Command.parse:
         print("Parsed successfully.")
         return
 
+    inferred_signatures = []
     try:
         code = compiler.compile(
             source_ast,
@@ -342,6 +389,7 @@ def perform_command(args):
             validator_function_name="validator" if lib is None else lib,
             # do not remove dead code when compiling a library - none of the code will be used
             config=compiler_config,
+            validator_signature=inferred_signatures,
         )
     except CompilerError as c:
         # Generate nice error message from compiler error
@@ -374,6 +422,75 @@ Note that opshin errors may be overly restrictive as they aim to prevent code wi
         )
         err.orig_err = c.orig_err
         raise err
+
+    signature = inferred_signatures[0]
+    python_record_types = {}
+    annotations = [
+        (name, compiler_type_to_python(annotation, python_record_types))
+        for name, annotation in signature.arguments
+    ]
+    return_annotation = compiler_type_to_python(
+        signature.return_type, python_record_types
+    )
+    sc = None
+    if command == Command.eval:
+        try:
+            sc = import_contract_for_evaluation(source_code)
+            argspec = inspect.signature(
+                sc.validator if lib is None else getattr(sc, lib)
+            )
+        except Exception as e:
+            raise SyntaxError(
+                f"Could not import the input file for Python evaluation. Error: {e}",
+            ) from e
+        annotations = [
+            (x.name, x.annotation or prelude.Anything)
+            for x in argspec.parameters.values()
+        ]
+        return_annotation = (
+            argspec.return_annotation
+            if argspec.return_annotation is not argspec.empty
+            else prelude.Anything
+        )
+
+    parsed_params = []
+    uplc_params = []
+    for i, (c, a) in enumerate(zip(annotations, args.args)):
+        try:
+            uplc_param = parse_uplc_param(a)
+        except ValueError as e:
+            raise ValueError(
+                f"Could not parse parameter {i} ('{a}') as UPLC data. Please provide the parameter either as JSON or CBOR (in hexadecimal notation). Detailed error: {e}"
+            ) from None
+        uplc_params.append(uplc_param)
+        try:
+            param = parse_plutus_param(c[1], a)
+        except ValueError as e:
+            raise ValueError(
+                f"Could not parse parameter {i} ('{a}') as type {c[1]}. Please provide the parameter either as JSON or CBOR (in hexadecimal notation). Detailed error: {e}"
+            ) from None
+        parsed_params.append(param)
+    if lib is None:
+        onchain_params, param_types = check_params(
+            command,
+            annotations,
+            return_annotation,
+            parsed_params,
+            number_parameters,
+        )
+        assert (
+            onchain_params
+        ), "The validator function must have at least one on-chain parameter. You can also add `_:None`."
+
+    py_ret = Command.eval
+    if command == Command.eval:
+        print("Python execution started")
+        with open(os.devnull, "w") as devnull, redirect_stdout(devnull):
+            try:
+                py_ret = sc.validator(*parsed_params)
+            except Exception as e:
+                py_ret = e
+        command = Command.eval_uplc
 
     if command == Command.compile_pluto:
         print(code.dumps())

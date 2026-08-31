@@ -42,7 +42,7 @@ def val(context: ScriptContext -> None:
             cwd=tmpdir,
         )
         assert result.returncode != 0
-        assert "Could not import the input file" in result.stderr
+        assert "invalid syntax" in result.stderr
 
 
 def test_main_invalid_param():

@@ -1,6 +1,9 @@
 import typing
 from collections import defaultdict
+import builtins
+import importlib
 import logging
+import types
 
 from ast import *
 from ordered_set import OrderedSet
@@ -38,24 +41,16 @@ SAFE_GLOBALS_LIST = [
     bytearray,
     callable,
     chr,
-    classmethod,
-    compile,
     complex,
-    delattr,
     dict,
-    dir,
     divmod,
     enumerate,
     filter,
     float,
     format,
     frozenset,
-    getattr,
-    hasattr,
     hash,
     hex,
-    id,
-    input,
     int,
     isinstance,
     issubclass,
@@ -66,31 +61,125 @@ SAFE_GLOBALS_LIST = [
     max,
     min,
     next,
-    object,
     oct,
-    open,
     ord,
     pow,
-    print,
-    property,
     range,
     repr,
     reversed,
     round,
     set,
-    setattr,
     slice,
     sorted,
-    staticmethod,
     str,
     sum,
-    super,
     tuple,
-    type,
-    vars,
     zip,
 ]
 SAFE_GLOBALS = {x.__name__: x for x in SAFE_GLOBALS_LIST}
+
+TRUSTED_IMPORTS = {
+    "pycardano": {"Datum", "PlutusData"},
+    "typing": {"Dict", "List", "Optional", "Self", "Tuple", "Union"},
+    "dataclasses": {"astuple", "dataclass"},
+    "hashlib": {"blake2b", "sha256", "sha3_256"},
+    "opshin.bridge": {"wraps_builtin"},
+    "opshin.std.integrity": {"check_integrity"},
+    "opshin.std.bls12_381": {
+        "BLS12381G1Element",
+        "BLS12381G2Element",
+        "BLS12381MillerLoopResult",
+    },
+}
+
+
+class UnsafeConstantExpression(ValueError):
+    pass
+
+
+class ConstantExpressionSafetyValidator(NodeVisitor):
+    """Reject Python constructs that can reach host capabilities during folding."""
+
+    forbidden_nodes = (
+        AsyncFor,
+        AsyncFunctionDef,
+        AsyncWith,
+        Await,
+        Delete,
+        Global,
+        Import,
+        ImportFrom,
+        Lambda,
+        Nonlocal,
+        With,
+        Yield,
+        YieldFrom,
+    )
+
+    def __init__(self, environment):
+        self.environment = environment
+        self.locally_defined_callables = set()
+
+    def validate(self, node):
+        self.locally_defined_callables.update(
+            n.name for n in walk(node) if isinstance(n, (FunctionDef, ClassDef))
+        )
+        self.visit(node)
+
+    def generic_visit(self, node):
+        if isinstance(node, self.forbidden_nodes):
+            raise UnsafeConstantExpression(
+                f"{node.__class__.__name__} is unsafe during constant folding"
+            )
+        return super().generic_visit(node)
+
+    def visit_Name(self, node):
+        if node.id.startswith("__"):
+            raise UnsafeConstantExpression(
+                "Private runtime names are unavailable during constant folding"
+            )
+
+    def visit_Attribute(self, node):
+        if node.attr.startswith("_"):
+            raise UnsafeConstantExpression(
+                "Private attributes are unavailable during constant folding"
+            )
+        root = node.value
+        while isinstance(root, Attribute):
+            root = root.value
+        if isinstance(root, Name) and isinstance(
+            self.environment.get(root.id), types.ModuleType
+        ):
+            raise UnsafeConstantExpression(
+                "Module attributes are unavailable during constant folding"
+            )
+        if isinstance(node.ctx, Store):
+            raise UnsafeConstantExpression(
+                "Attribute mutation is unavailable during constant folding"
+            )
+        self.generic_visit(node)
+
+    def visit_Subscript(self, node):
+        if isinstance(node.ctx, Store):
+            raise UnsafeConstantExpression(
+                "Subscript mutation is unavailable during constant folding"
+            )
+        self.generic_visit(node)
+
+    def visit_Call(self, node):
+        if isinstance(node.func, Name):
+            function = self.environment.get(node.func.id)
+            if not (
+                callable(function) or node.func.id in self.locally_defined_callables
+            ):
+                raise UnsafeConstantExpression(
+                    f"Call to {node.func.id!r} is unavailable during constant folding"
+                )
+        elif not isinstance(node.func, Attribute):
+            raise UnsafeConstantExpression(
+                "Only direct calls are available during constant folding"
+            )
+        self.generic_visit(node)
 
 
 class ShallowNameDefCollector(CompilingNodeVisitor):
@@ -159,11 +248,11 @@ class DefinedTimesVisitor(CompilingNodeVisitor):
 
     def visit_Import(self, node: Import):
         for n in node.names:
-            self.vars[n] += 1
+            self.vars[n.asname or n.name.split(".")[0]] += 1
 
     def visit_ImportFrom(self, node: ImportFrom):
         for n in node.names:
-            self.vars[n] += 1
+            self.vars[n.asname or n.name] += 1
 
 
 class OptimizeConstantFolding(CompilingNodeTransformer):
@@ -215,7 +304,14 @@ class OptimizeConstantFolding(CompilingNodeTransformer):
             k: (v if k not in overwritten_vars else err)
             for k, v in SAFE_GLOBALS.items()
         }
+        non_overwritten_globals["__builtins__"] = {
+            "__build_class__": builtins.__build_class__,
+        }
+        non_overwritten_globals["__name__"] = "opshin_constant_folding"
         return non_overwritten_globals
+
+    def _validate(self, node, environment):
+        ConstantExpressionSafetyValidator(environment).validate(node)
 
     def update_constants(self, node):
         a = self._non_overwritten_globals()
@@ -223,6 +319,7 @@ class OptimizeConstantFolding(CompilingNodeTransformer):
         g = a
         l = {}
         try:
+            self._validate(node, {**g, **l})
             exec(unparse(node), g, l)
         except Exception as e:
             OPSHIN_LOGGER.debug(e)
@@ -254,6 +351,7 @@ class OptimizeConstantFolding(CompilingNodeTransformer):
             a.update(self._constant_vars())
             g = a
             try:
+                self._validate(node, g)
                 # we need to pass the global dict as local dict here to make closures possible (rec functions)
                 exec(unparse(node), g, g)
             except Exception as e:
@@ -280,13 +378,22 @@ class OptimizeConstantFolding(CompilingNodeTransformer):
         return node
 
     def visit_ImportFrom(self, node: ImportFrom):
-        if all(n in self.constants for n in node.names):
-            self.update_constants(node)
+        if node.module not in TRUSTED_IMPORTS:
+            return node
+        module = importlib.import_module(node.module)
+        trusted_names = TRUSTED_IMPORTS[node.module]
+        for imported_name in node.names:
+            if imported_name.name == "*":
+                for name in trusted_names:
+                    self.add_constant(name, getattr(module, name))
+            elif imported_name.name in trusted_names:
+                bound_name = imported_name.asname or imported_name.name
+                self.add_constant(bound_name, getattr(module, imported_name.name))
         return node
 
     def visit_Import(self, node: Import):
-        if all(n in self.constants for n in node.names):
-            self.update_constants(node)
+        # Module objects expose broad APIs. They are intentionally not made
+        # available to compile-time evaluation.
         return node
 
     def visit_Assign(self, node: Assign):
@@ -331,6 +438,7 @@ class OptimizeConstantFolding(CompilingNodeTransformer):
             # we add preceding constant plutusdata definitions here!
             g = self._non_overwritten_globals()
             l = self._constant_vars()
+            self._validate(node, {**g, **l})
             node_eval = eval(node_source, g, l)
         except Exception as e:
             OPSHIN_LOGGER.debug("Error trying to evaluate node: %s", e)
