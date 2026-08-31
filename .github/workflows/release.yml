@@ -76,7 +76,7 @@ jobs:
     needs: prepare
     runs-on: ubuntu-latest
     outputs:
-      primary-version: ${{ steps.get-versions.outputs.primary-version }}
+      maximum-version: ${{ steps.get-versions.outputs.maximum-version }}
     steps:
     - name: Checkout code
       uses: actions/checkout@v7
@@ -113,7 +113,7 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v6
       with:
-        python-version: ${{ needs.get-python-versions.outputs.primary-version }}
+        python-version: ${{ needs.get-python-versions.outputs.maximum-version }}
         cache: "pip"
 
     - name: Install Dependencies
@@ -150,7 +150,7 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v6
       with:
-        python-version: ${{ needs.get-python-versions.outputs.primary-version }}
+        python-version: ${{ needs.get-python-versions.outputs.maximum-version }}
 
     - name: Install uv
       uses: astral-sh/setup-uv@v7
