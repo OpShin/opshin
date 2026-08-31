@@ -30,6 +30,57 @@ class _ClosurePlaceholder:
 CLOSURE_PLACEHOLDER = _ClosurePlaceholder()
 
 
+def _codepoint_ranges(predicate: Callable[[str], bool]):
+    """Return maximal Unicode code-point ranges accepted by predicate."""
+    ranges = []
+    for codepoint in range(0x110000):
+        if not predicate(chr(codepoint)):
+            continue
+        if ranges and codepoint == ranges[-1][1] + 1:
+            ranges[-1] = (ranges[-1][0], codepoint)
+        else:
+            ranges.append((codepoint, codepoint))
+    return tuple(ranges)
+
+
+PYTHON_DECIMAL_RANGES = _codepoint_ranges(str.isdecimal)
+
+
+def _python_int_whitespace(character: str) -> bool:
+    if not character.isspace():
+        return False
+    try:
+        int(character + "1")
+    except ValueError:
+        return False
+    return True
+
+
+PYTHON_WHITESPACE_RANGES = _codepoint_ranges(_python_int_whitespace)
+
+
+def _codepoint_range_lookup(
+    codepoint: plt.AST,
+    ranges,
+    match: Callable[[int], plt.AST],
+    default: plt.AST,
+) -> plt.AST:
+    """Build a balanced UPLC lookup over disjoint code-point ranges."""
+    if not ranges:
+        return default
+    middle = len(ranges) // 2
+    start, end = ranges[middle]
+    return plt.Ite(
+        plt.LessThanInteger(codepoint, plt.Integer(start)),
+        _codepoint_range_lookup(codepoint, ranges[:middle], match, default),
+        plt.Ite(
+            plt.LessThanEqualsInteger(codepoint, plt.Integer(end)),
+            match(start),
+            _codepoint_range_lookup(codepoint, ranges[middle + 1 :], match, default),
+        ),
+    )
+
+
 class Type:
     def __new__(meta, *args, **kwargs):
         klass = super().__new__(meta)
@@ -3046,228 +3097,279 @@ class IntImpl(PolymorphicFunction):
                 ["x"], plt.IfThenElse(OVar("x"), plt.Integer(1), plt.Integer(0))
             )
         elif isinstance(arg.typ, StringType):
-            whitespace_ordinals = [ord(c) for c in (" ", "\t", "\n", "\v", "\f", "\r")]
-
-            is_whitespace_expr = plt.EqualsInteger(
-                OVar("b"), plt.Integer(whitespace_ordinals[0])
+            error = plt.TraceError("ValueError: invalid literal for int() with base 10")
+            codepoint = OVar("codepoint")
+            decimal_value = _codepoint_range_lookup(
+                codepoint,
+                PYTHON_DECIMAL_RANGES,
+                lambda start: plt.ModInteger(
+                    plt.SubtractInteger(codepoint, plt.Integer(start)),
+                    plt.Integer(10),
+                ),
+                plt.Integer(-1),
             )
-            for whitespace_ordinal in whitespace_ordinals[1:]:
-                is_whitespace_expr = plt.Or(
-                    is_whitespace_expr,
-                    plt.EqualsInteger(OVar("b"), plt.Integer(whitespace_ordinal)),
+            is_whitespace = _codepoint_range_lookup(
+                codepoint,
+                PYTHON_WHITESPACE_RANGES,
+                lambda _: plt.Bool(True),
+                plt.Bool(False),
+            )
+
+            def byte(offset: int):
+                return plt.IndexByteString(
+                    OVar("encoded"),
+                    plt.AddInteger(OVar("index"), plt.Integer(offset)),
                 )
 
+            def continuation(offset: int):
+                return plt.SubtractInteger(byte(offset), plt.Integer(0x80))
+
+            decoded_codepoint = plt.Ite(
+                plt.LessThanInteger(OVar("first_byte"), plt.Integer(0x80)),
+                OVar("first_byte"),
+                plt.Ite(
+                    plt.LessThanInteger(OVar("first_byte"), plt.Integer(0xE0)),
+                    plt.AddInteger(
+                        plt.MultiplyInteger(
+                            plt.SubtractInteger(OVar("first_byte"), plt.Integer(0xC0)),
+                            plt.Integer(0x40),
+                        ),
+                        continuation(1),
+                    ),
+                    plt.Ite(
+                        plt.LessThanInteger(OVar("first_byte"), plt.Integer(0xF0)),
+                        plt.AddInteger(
+                            plt.AddInteger(
+                                plt.MultiplyInteger(
+                                    plt.SubtractInteger(
+                                        OVar("first_byte"), plt.Integer(0xE0)
+                                    ),
+                                    plt.Integer(0x1000),
+                                ),
+                                plt.MultiplyInteger(continuation(1), plt.Integer(0x40)),
+                            ),
+                            continuation(2),
+                        ),
+                        plt.AddInteger(
+                            plt.AddInteger(
+                                plt.AddInteger(
+                                    plt.MultiplyInteger(
+                                        plt.SubtractInteger(
+                                            OVar("first_byte"), plt.Integer(0xF0)
+                                        ),
+                                        plt.Integer(0x40000),
+                                    ),
+                                    plt.MultiplyInteger(
+                                        continuation(1), plt.Integer(0x1000)
+                                    ),
+                                ),
+                                plt.MultiplyInteger(continuation(2), plt.Integer(0x40)),
+                            ),
+                            continuation(3),
+                        ),
+                    ),
+                ),
+            )
+
+            def recur(sign, sign_seen, digit_seen, underscore, trailing, value):
+                return plt.Apply(
+                    OVar("parse"),
+                    OVar("parse"),
+                    OVar("next_index"),
+                    sign,
+                    sign_seen,
+                    digit_seen,
+                    underscore,
+                    trailing,
+                    value,
+                )
+
+            parse = plt.RecFun(
+                OLambda(
+                    [
+                        "parse",
+                        "index",
+                        "sign",
+                        "sign_seen",
+                        "digit_seen",
+                        "underscore",
+                        "trailing",
+                        "value",
+                    ],
+                    plt.Ite(
+                        plt.LessThanInteger(OVar("index"), OVar("length")),
+                        OLet(
+                            [
+                                (
+                                    "first_byte",
+                                    plt.IndexByteString(OVar("encoded"), OVar("index")),
+                                ),
+                                (
+                                    "width",
+                                    plt.Ite(
+                                        plt.LessThanInteger(
+                                            OVar("first_byte"), plt.Integer(0x80)
+                                        ),
+                                        plt.Integer(1),
+                                        plt.Ite(
+                                            plt.LessThanInteger(
+                                                OVar("first_byte"), plt.Integer(0xE0)
+                                            ),
+                                            plt.Integer(2),
+                                            plt.Ite(
+                                                plt.LessThanInteger(
+                                                    OVar("first_byte"),
+                                                    plt.Integer(0xF0),
+                                                ),
+                                                plt.Integer(3),
+                                                plt.Integer(4),
+                                            ),
+                                        ),
+                                    ),
+                                ),
+                                ("codepoint", decoded_codepoint),
+                                (
+                                    "next_index",
+                                    plt.AddInteger(OVar("index"), OVar("width")),
+                                ),
+                                ("digit", decimal_value),
+                                ("whitespace", is_whitespace),
+                            ],
+                            plt.Ite(
+                                OVar("whitespace"),
+                                plt.Ite(
+                                    OVar("digit_seen"),
+                                    plt.Ite(
+                                        OVar("underscore"),
+                                        error,
+                                        recur(
+                                            OVar("sign"),
+                                            OVar("sign_seen"),
+                                            OVar("digit_seen"),
+                                            plt.Bool(False),
+                                            plt.Bool(True),
+                                            OVar("value"),
+                                        ),
+                                    ),
+                                    plt.Ite(
+                                        OVar("sign_seen"),
+                                        error,
+                                        recur(
+                                            OVar("sign"),
+                                            OVar("sign_seen"),
+                                            OVar("digit_seen"),
+                                            OVar("underscore"),
+                                            OVar("trailing"),
+                                            OVar("value"),
+                                        ),
+                                    ),
+                                ),
+                                plt.Ite(
+                                    plt.LessThanInteger(plt.Integer(-1), OVar("digit")),
+                                    plt.Ite(
+                                        OVar("trailing"),
+                                        error,
+                                        recur(
+                                            OVar("sign"),
+                                            OVar("sign_seen"),
+                                            plt.Bool(True),
+                                            plt.Bool(False),
+                                            plt.Bool(False),
+                                            plt.AddInteger(
+                                                plt.MultiplyInteger(
+                                                    OVar("value"), plt.Integer(10)
+                                                ),
+                                                OVar("digit"),
+                                            ),
+                                        ),
+                                    ),
+                                    plt.Ite(
+                                        plt.EqualsInteger(
+                                            codepoint, plt.Integer(ord("_"))
+                                        ),
+                                        plt.Ite(
+                                            plt.And(
+                                                OVar("digit_seen"),
+                                                plt.And(
+                                                    plt.Not(OVar("underscore")),
+                                                    plt.Not(OVar("trailing")),
+                                                ),
+                                            ),
+                                            recur(
+                                                OVar("sign"),
+                                                OVar("sign_seen"),
+                                                OVar("digit_seen"),
+                                                plt.Bool(True),
+                                                OVar("trailing"),
+                                                OVar("value"),
+                                            ),
+                                            error,
+                                        ),
+                                        plt.Ite(
+                                            plt.Or(
+                                                plt.EqualsInteger(
+                                                    codepoint, plt.Integer(ord("-"))
+                                                ),
+                                                plt.EqualsInteger(
+                                                    codepoint, plt.Integer(ord("+"))
+                                                ),
+                                            ),
+                                            plt.Ite(
+                                                plt.Or(
+                                                    OVar("sign_seen"),
+                                                    plt.Or(
+                                                        OVar("digit_seen"),
+                                                        OVar("trailing"),
+                                                    ),
+                                                ),
+                                                error,
+                                                recur(
+                                                    plt.Ite(
+                                                        plt.EqualsInteger(
+                                                            codepoint,
+                                                            plt.Integer(ord("-")),
+                                                        ),
+                                                        plt.Integer(-1),
+                                                        plt.Integer(1),
+                                                    ),
+                                                    plt.Bool(True),
+                                                    OVar("digit_seen"),
+                                                    OVar("underscore"),
+                                                    OVar("trailing"),
+                                                    OVar("value"),
+                                                ),
+                                            ),
+                                            error,
+                                        ),
+                                    ),
+                                ),
+                            ),
+                        ),
+                        plt.Ite(
+                            plt.And(OVar("digit_seen"), plt.Not(OVar("underscore"))),
+                            plt.MultiplyInteger(OVar("sign"), OVar("value")),
+                            error,
+                        ),
+                    ),
+                )
+            )
             return OLambda(
                 ["x"],
                 OLet(
                     [
-                        ("e", plt.EncodeUtf8(OVar("x"))),
-                        ("len", plt.LengthOfByteString(OVar("e"))),
-                        (
-                            "is_whitespace",
-                            OLambda(["b"], is_whitespace_expr),
-                        ),
-                        (
-                            "strip_left",
-                            plt.RecFun(
-                                OLambda(
-                                    ["f", "i"],
-                                    plt.Ite(
-                                        plt.And(
-                                            plt.LessThanInteger(OVar("i"), OVar("len")),
-                                            plt.Apply(
-                                                OVar("is_whitespace"),
-                                                plt.IndexByteString(
-                                                    OVar("e"), OVar("i")
-                                                ),
-                                            ),
-                                        ),
-                                        plt.Apply(
-                                            OVar("f"),
-                                            OVar("f"),
-                                            plt.AddInteger(OVar("i"), plt.Integer(1)),
-                                        ),
-                                        OVar("i"),
-                                    ),
-                                )
-                            ),
-                        ),
-                        (
-                            "strip_right",
-                            plt.RecFun(
-                                OLambda(
-                                    ["f", "i"],
-                                    plt.Ite(
-                                        plt.LessThanInteger(OVar("i"), plt.Integer(0)),
-                                        OVar("i"),
-                                        plt.Ite(
-                                            plt.Apply(
-                                                OVar("is_whitespace"),
-                                                plt.IndexByteString(
-                                                    OVar("e"), OVar("i")
-                                                ),
-                                            ),
-                                            plt.Apply(
-                                                OVar("f"),
-                                                OVar("f"),
-                                                plt.SubtractInteger(
-                                                    OVar("i"), plt.Integer(1)
-                                                ),
-                                            ),
-                                            OVar("i"),
-                                        ),
-                                    ),
-                                )
-                            ),
-                        ),
-                        ("start", plt.Apply(OVar("strip_left"), plt.Integer(0))),
-                        (
-                            "end",
-                            plt.Apply(
-                                OVar("strip_right"),
-                                plt.SubtractInteger(OVar("len"), plt.Integer(1)),
-                            ),
-                        ),
-                        (
-                            "trimmed_len",
-                            plt.AddInteger(
-                                plt.SubtractInteger(OVar("end"), OVar("start")),
-                                plt.Integer(1),
-                            ),
-                        ),
-                        (
-                            "first_int",
-                            plt.Ite(
-                                plt.LessThanInteger(
-                                    plt.Integer(0), OVar("trimmed_len")
-                                ),
-                                plt.IndexByteString(OVar("e"), OVar("start")),
-                                plt.Integer(ord("_")),
-                            ),
-                        ),
-                        (
-                            "last_int",
-                            plt.Ite(
-                                plt.LessThanInteger(
-                                    plt.Integer(0), OVar("trimmed_len")
-                                ),
-                                plt.IndexByteString(OVar("e"), OVar("end")),
-                                plt.Integer(ord("_")),
-                            ),
-                        ),
-                        (
-                            "fold_start",
-                            OLambda(
-                                ["relative_start"],
-                                plt.FoldList(
-                                    plt.Range(
-                                        plt.AddInteger(OVar("end"), plt.Integer(1)),
-                                        plt.AddInteger(
-                                            OVar("start"), OVar("relative_start")
-                                        ),
-                                    ),
-                                    OLambda(
-                                        ["s", "i"],
-                                        OLet(
-                                            [
-                                                (
-                                                    "b",
-                                                    plt.IndexByteString(
-                                                        OVar("e"), OVar("i")
-                                                    ),
-                                                )
-                                            ],
-                                            plt.Ite(
-                                                plt.EqualsInteger(
-                                                    OVar("b"), plt.Integer(ord("_"))
-                                                ),
-                                                OVar("s"),
-                                                plt.Ite(
-                                                    plt.Or(
-                                                        plt.LessThanInteger(
-                                                            OVar("b"),
-                                                            plt.Integer(ord("0")),
-                                                        ),
-                                                        plt.LessThanInteger(
-                                                            plt.Integer(ord("9")),
-                                                            OVar("b"),
-                                                        ),
-                                                    ),
-                                                    plt.TraceError(
-                                                        "ValueError: invalid literal for int() with base 10"
-                                                    ),
-                                                    plt.AddInteger(
-                                                        plt.SubtractInteger(
-                                                            OVar("b"),
-                                                            plt.Integer(ord("0")),
-                                                        ),
-                                                        plt.MultiplyInteger(
-                                                            OVar("s"),
-                                                            plt.Integer(10),
-                                                        ),
-                                                    ),
-                                                ),
-                                            ),
-                                        ),
-                                    ),
-                                    plt.Integer(0),
-                                ),
-                            ),
-                        ),
+                        ("encoded", plt.EncodeUtf8(OVar("x"))),
+                        ("length", plt.LengthOfByteString(OVar("encoded"))),
+                        ("parse", parse),
                     ],
-                    plt.Ite(
-                        plt.Or(
-                            plt.LessThanEqualsInteger(
-                                OVar("trimmed_len"), plt.Integer(0)
-                            ),
-                            plt.Or(
-                                plt.Or(
-                                    plt.EqualsInteger(
-                                        OVar("first_int"),
-                                        plt.Integer(ord("_")),
-                                    ),
-                                    plt.EqualsInteger(
-                                        OVar("last_int"),
-                                        plt.Integer(ord("_")),
-                                    ),
-                                ),
-                                plt.And(
-                                    plt.EqualsInteger(
-                                        OVar("trimmed_len"), plt.Integer(1)
-                                    ),
-                                    plt.Or(
-                                        plt.EqualsInteger(
-                                            OVar("first_int"),
-                                            plt.Integer(ord("-")),
-                                        ),
-                                        plt.EqualsInteger(
-                                            OVar("first_int"),
-                                            plt.Integer(ord("+")),
-                                        ),
-                                    ),
-                                ),
-                            ),
-                        ),
-                        plt.TraceError(
-                            "ValueError: invalid literal for int() with base 10"
-                        ),
-                        plt.Ite(
-                            plt.EqualsInteger(
-                                OVar("first_int"),
-                                plt.Integer(ord("-")),
-                            ),
-                            plt.Negate(
-                                plt.Apply(OVar("fold_start"), plt.Integer(1)),
-                            ),
-                            plt.Ite(
-                                plt.EqualsInteger(
-                                    OVar("first_int"),
-                                    plt.Integer(ord("+")),
-                                ),
-                                plt.Apply(OVar("fold_start"), plt.Integer(1)),
-                                plt.Apply(OVar("fold_start"), plt.Integer(0)),
-                            ),
-                        ),
+                    plt.Apply(
+                        OVar("parse"),
+                        plt.Integer(0),
+                        plt.Integer(1),
+                        plt.Bool(False),
+                        plt.Bool(False),
+                        plt.Bool(False),
+                        plt.Bool(False),
+                        plt.Integer(0),
                     ),
                 ),
             )

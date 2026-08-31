@@ -8,7 +8,7 @@ from hypothesis import strategies as st
 from pycardano import PlutusData
 
 from . import PLUTUS_VM_PROFILE
-from .utils import eval_uplc, eval_uplc_value, Unit
+from .utils import DEFAULT_TEST_CONFIG, eval_uplc, eval_uplc_value, Unit
 
 hypothesis.settings.load_profile(PLUTUS_VM_PROFILE)
 
@@ -145,6 +145,12 @@ def validator(x: int) -> str:
     )
     @example("")
     @example("10_00")
+    @example("1__2")
+    @example("+_1")
+    @example("１２")
+    @example("١_٢")
+    @example("\u2003-7\u3000")
+    @example("\x1c1")
     @example("_")
     @example("_1")
     @example("-")
@@ -175,6 +181,19 @@ def validator(x: str) -> int:
         except Exception as e:
             ret = None
         self.assertEqual(ret, exp, "int (str) returned wrong value")
+
+    def test_int_string_constant_folding_matches_runtime(self):
+        source_code = """
+def validator(_: None) -> int:
+    return int("١_٢")
+        """
+        for constant_folding in (False, True):
+            ret = eval_uplc_value(
+                source_code,
+                Unit(),
+                config=DEFAULT_TEST_CONFIG.update(constant_folding=constant_folding),
+            )
+            self.assertEqual(ret, 12)
 
     @given(xs=st.booleans())
     def test_int_bool(self, xs: bool):
