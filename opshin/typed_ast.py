@@ -8,6 +8,9 @@ from .type_impls import NoneInstanceType, Type
 
 class TypedAST(_ast.AST):
     typ: "Type"
+    # Set by AnalyzeIntegrity. This is declared here so optimization passes can
+    # consume integrity information without relying on an ad-hoc AST attribute.
+    integrity_checked: bool
 
 
 class typedexpr(TypedAST, _ast.expr):

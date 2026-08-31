@@ -337,6 +337,9 @@ class OptimizeSelectiveNarrowing(ScopedSequenceNodeTransformer):
             target_typ = self._eligible_target(narrowed_typ)
             if target_typ is None:
                 continue
+            conversion_safe = name in positively_validated or template.integrity_checked
+            if not conversion_safe:
+                continue
             accesses = _AccessCollector(name)
             for statement in body:
                 accesses.visit(statement)
@@ -377,7 +380,7 @@ class OptimizeSelectiveNarrowing(ScopedSequenceNodeTransformer):
                 source_typ,
                 target_typ,
                 live_after,
-                name in positively_validated,
+                name in positively_validated or template.integrity_checked,
             )
         return self.visit_sequence(rewritten)
 

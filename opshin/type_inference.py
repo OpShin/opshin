@@ -1457,6 +1457,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             if isinstance(ts.slice, UnaryOp) and isinstance(ts.slice.op, USub):
                 ts.slice = self.visit(Constant(-ts.slice.operand.value))
             if isinstance(ts.slice, Constant) and isinstance(ts.slice.value, int):
+                ts.slice = self.visit(ts.slice)
                 assert ts.slice.value < len(
                     ts.value.typ.typ.typs
                 ), f"Subscript index out of bounds for tuple. Accessing index {ts.slice.value} in tuple with {len(ts.value.typ.typ.typs)} elements ({ts.value.typ.python_type()})"
@@ -1469,6 +1470,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             if isinstance(ts.slice, UnaryOp) and isinstance(ts.slice.op, USub):
                 ts.slice = self.visit(Constant(-ts.slice.operand.value))
             if isinstance(ts.slice, Constant) and isinstance(ts.slice.value, int):
+                ts.slice = self.visit(ts.slice)
                 assert (
                     -3 < ts.slice.value < 2
                 ), f"Can only access -2, -1, 0 or 1 index in pairs, found {ts.slice.value}"

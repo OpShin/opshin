@@ -57,6 +57,10 @@ from .optimize.optimize_remove_deadconstants import OptimizeRemoveDeadConstants
 from .optimize.optimize_remove_deadconds import OptimizeRemoveDeadConditions
 from .optimize.optimize_fold_if_fallthrough import OptimizeFoldIfFallthrough
 from .optimize.optimize_selective_narrowing import OptimizeSelectiveNarrowing
+from .optimize.analyze_integrity import AnalyzeIntegrity
+from .optimize.optimize_remove_checked_integrity_checks import (
+    OptimizeRemoveCheckedIntegrityChecks,
+)
 from .optimize.optimize_remove_unreachable import OptimizeRemoveUnreachable
 from .optimize.optimize_union_expansion import OptimizeUnionExpansion
 from .optimize.optimize_fold_bool import OptimizeFoldBoolCast
@@ -1966,6 +1970,12 @@ def compile(
         RewriteAnnotateFallthrough(),
         # The type inference needs to be run after complex python operations were rewritten
         AggressiveTypeInferencer(config.allow_isinstance_anything),
+        AnalyzeIntegrity(validator_function_name),
+        (
+            OptimizeRemoveCheckedIntegrityChecks()
+            if config.optimize_remove_checked_integrity_checks
+            else NoOp()
+        ),
         (
             OptimizeSelectiveNarrowing(config.allow_isinstance_anything)
             if config.optimize_selective_narrowing
