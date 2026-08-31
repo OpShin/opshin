@@ -17,7 +17,6 @@ from ..type_inference import TypeCheckVisitor
 from ..typed_ast import TypedAssign
 from ..typed_util import ScopedSequenceNodeTransformer
 
-
 # Minimum reads for (terminal arm, fallthrough arm). A fallthrough arm also has
 # to convert the narrowed value back to Data before entering its continuation.
 # These conservative cutoffs include the extra Let/Delay/Force bookkeeping.
@@ -38,16 +37,11 @@ class _TestNameCollector(ast.NodeVisitor):
 
 
 class _AccessCollector(ast.NodeVisitor):
-    """Count accesses that can safely share one narrowed representation."""
+    """Detect accesses that cannot safely share a narrowed representation."""
 
     def __init__(self, name: str):
         self.name = name
-        self.reads = 0
         self.unsafe = False
-
-    def visit_Name(self, node: ast.Name):
-        if node.id == self.name and isinstance(node.ctx, ast.Load):
-            self.reads += 1
 
     def _mark_if_captured(self, node: ast.AST):
         if any(
@@ -75,6 +69,77 @@ class _AccessCollector(ast.NodeVisitor):
             self.unsafe = True
             return
         self.generic_visit(node)
+
+
+class _ExpectedReadCounter:
+    """Estimate dynamically executed reads using source-level cost hints."""
+
+    DEFAULT_BRANCH_PROBABILITY = 0.5
+    DEFAULT_ITERATIONS = 1.0
+
+    def __init__(self, name: str):
+        self.name = name
+
+    def expression(self, node: typing.Optional[ast.AST]) -> float:
+        if node is None:
+            return 0.0
+        if isinstance(node, ast.Name):
+            return float(node.id == self.name and isinstance(node.ctx, ast.Load))
+        if isinstance(node, ast.IfExp):
+            probability = self.DEFAULT_BRANCH_PROBABILITY
+            return (
+                self.expression(node.test)
+                + probability * self.expression(node.body)
+                + (1.0 - probability) * self.expression(node.orelse)
+            )
+        if isinstance(node, ast.BoolOp):
+            probability_reached = 1.0
+            reads = 0.0
+            for value in node.values:
+                reads += probability_reached * self.expression(value)
+                probability_reached *= self.DEFAULT_BRANCH_PROBABILITY
+            return reads
+        return sum(self.expression(child) for child in ast.iter_child_nodes(node))
+
+    def sequence(self, body: typing.List[ast.stmt]) -> typing.Tuple[float, float]:
+        reads = 0.0
+        probability_reached = 1.0
+        for statement in body:
+            statement_reads, statement_fallthrough = self.statement(statement)
+            reads += probability_reached * statement_reads
+            probability_reached *= statement_fallthrough
+        return reads, probability_reached
+
+    def statement(self, node: ast.stmt) -> typing.Tuple[float, float]:
+        if isinstance(node, ast.If):
+            probability = getattr(
+                node, "branch_probability", self.DEFAULT_BRANCH_PROBABILITY
+            )
+            body_reads, body_fallthrough = self.sequence(node.body)
+            else_reads, else_fallthrough = self.sequence(node.orelse)
+            return (
+                self.expression(node.test)
+                + probability * body_reads
+                + (1.0 - probability) * else_reads,
+                probability * body_fallthrough + (1.0 - probability) * else_fallthrough,
+            )
+        if isinstance(node, (ast.For, ast.While)):
+            iterations = getattr(node, "iterations", self.DEFAULT_ITERATIONS)
+            body_reads, body_fallthrough = self.sequence(node.body)
+            else_reads, else_fallthrough = self.sequence(node.orelse)
+            completes = body_fallthrough**iterations
+            header_reads = (
+                self.expression(node.iter)
+                if isinstance(node, ast.For)
+                else (iterations + 1.0) * self.expression(node.test)
+            )
+            return (
+                header_reads + iterations * body_reads + completes * else_reads,
+                completes * else_fallthrough,
+            )
+        if isinstance(node, (ast.FunctionDef, ast.ClassDef)):
+            return 0.0, 1.0
+        return self.expression(node), float(getattr(node, "can_fall_through", True))
 
 
 class _RepresentationRewriter(ScopedSequenceNodeTransformer):
@@ -117,6 +182,10 @@ class OptimizeSelectiveNarrowing(ScopedSequenceNodeTransformer):
     generator therefore sees ordinary branch/loop-carried state, rather than a
     fresh local assignment that it would incorrectly expect to exist before the
     branch. A fallthrough arm converts the value back to its data-backed type.
+
+    Expected read counts assume equally likely ``if`` branches and one loop
+    iteration unless source comments provide ``branch-probability`` or
+    ``iterations`` hints.
     """
 
     step = "Caching repeatedly used narrowed values"
@@ -163,13 +232,14 @@ class OptimizeSelectiveNarrowing(ScopedSequenceNodeTransformer):
             accesses = _AccessCollector(name)
             for statement in body:
                 accesses.visit(statement)
+            expected_reads, _ = _ExpectedReadCounter(name).sequence(body)
             thresholds = next(
                 limits
                 for kind, limits in READ_THRESHOLDS.items()
                 if isinstance(target_typ.typ, kind)
             )
             threshold = thresholds[1 if can_fall_through else 0]
-            if accesses.unsafe or accesses.reads < threshold:
+            if accesses.unsafe or expected_reads < threshold:
                 continue
             selected[name] = (template, source_typ, target_typ)
 
