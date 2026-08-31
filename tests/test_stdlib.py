@@ -8,13 +8,63 @@ from uplc import ast as uplc, eval as uplc_eval
 from pycardano import PlutusData
 
 from . import PLUTUS_VM_PROFILE
-from .utils import eval_uplc, eval_uplc_value, Unit
+from .utils import DEFAULT_TEST_CONFIG, eval_uplc, eval_uplc_raw, eval_uplc_value, Unit
 from opshin import compiler, builder, CompilerError
 
 settings.load_profile(PLUTUS_VM_PROFILE)
 
 
 class StdlibTest(unittest.TestCase):
+    def test_dict_literal_preserves_insertion_order(self):
+        source_code = """
+from typing import Dict, List
+def validator(x: int) -> List[int]:
+    values: Dict[int, int] = {1: x, 2: x, 3: x}
+    return values.keys()
+"""
+        for constant_folding in (False, True):
+            ret = eval_uplc_value(
+                source_code,
+                0,
+                config=DEFAULT_TEST_CONFIG.update(constant_folding=constant_folding),
+            )
+            self.assertEqual([x.value for x in ret], [1, 2, 3])
+
+    def test_dict_literal_replaces_duplicate_key_in_place(self):
+        source_code = """
+from typing import Dict
+def validator(x: int, y: int) -> int:
+    values: Dict[int, int] = {1: x, 1: y}
+    return len(values) * 100 + values[1]
+"""
+        self.assertEqual(eval_uplc_value(source_code, 10, 20), 120)
+
+    def test_dict_literal_evaluates_entries_left_to_right(self):
+        source_code = """
+from typing import Dict
+def mark(x: int) -> int:
+    print(x)
+    return x
+def validator(_: None) -> None:
+    values: Dict[int, int] = {mark(1): mark(2), mark(3): mark(4)}
+"""
+        result = eval_uplc_raw(
+            source_code,
+            Unit(),
+            config=DEFAULT_TEST_CONFIG.update(remove_trace=False),
+        )
+        self.assertEqual(result.logs, ["1", "2", "3", "4"])
+
+    def test_dict_comprehension_replaces_duplicate_key_in_place(self):
+        source_code = """
+from typing import Dict, List
+def validator(xs: List[int]) -> List[int]:
+    values: Dict[int, int] = {x: x * 10 for x in xs}
+    return values.keys()
+"""
+        ret = eval_uplc_value(source_code, [1, 2, 1])
+        self.assertEqual([x.value for x in ret], [1, 2])
+
     @given(st.data())
     def test_dict_get(self, data):
         source_code = """

@@ -1310,11 +1310,9 @@ class PlutoCompiler(CompilingNodeTransformer):
     def visit_Dict(self, node: TypedDict) -> plt.AST:
         assert isinstance(node.typ, InstanceType)
         assert isinstance(node.typ.typ, DictType)
-        key_type = node.typ.typ.key_typ
-        value_type = node.typ.typ.value_typ
-        l = plt.EmptyDataPairList()
-        for k, v in zip(node.keys, node.values):
-            l = plt.MkCons(
+        items = plt.EmptyDataPairList()
+        for k, v in reversed(list(zip(node.keys, node.values))):
+            items = plt.MkCons(
                 plt.MkPairData(
                     transform_output_map(k.typ)(
                         self.visit(k),
@@ -1323,9 +1321,60 @@ class PlutoCompiler(CompilingNodeTransformer):
                         self.visit(v),
                     ),
                 ),
-                l,
+                items,
             )
-        return l
+        return self._normalize_dict_items(items)
+
+    @staticmethod
+    def _normalize_dict_items(items: plt.AST) -> plt.AST:
+        """Apply Python's ordered, last-value-wins dictionary insertion rules."""
+        insert_name = "__dict_insert"
+        insert = plt.RecFun(
+            OLambda(
+                ["insert", "items", "pair"],
+                plt.IteNullList(
+                    OVar("items"),
+                    plt.MkCons(OVar("pair"), plt.EmptyDataPairList()),
+                    OLet(
+                        [
+                            ("head", plt.HeadList(OVar("items"))),
+                            ("tail", plt.TailList(OVar("items"))),
+                        ],
+                        plt.Ite(
+                            plt.EqualsData(
+                                plt.FstPair(OVar("head")),
+                                plt.FstPair(OVar("pair")),
+                            ),
+                            plt.MkCons(OVar("pair"), OVar("tail")),
+                            plt.MkCons(
+                                OVar("head"),
+                                plt.Apply(
+                                    OVar("insert"),
+                                    OVar("insert"),
+                                    OVar("tail"),
+                                    OVar("pair"),
+                                ),
+                            ),
+                        ),
+                    ),
+                ),
+            )
+        )
+        return OLet(
+            [(insert_name, insert)],
+            plt.FoldList(
+                items,
+                OLambda(
+                    ["result", "pair"],
+                    plt.Apply(
+                        OVar(insert_name),
+                        OVar("result"),
+                        OVar("pair"),
+                    ),
+                ),
+                plt.EmptyDataPairList(),
+            ),
+        )
 
     def visit_IfExp(self, node: TypedIfExp) -> plt.AST:
         if isinstance(node.typ.typ, UnionType):
@@ -1375,18 +1424,19 @@ class PlutoCompiler(CompilingNodeTransformer):
                     ifs,
                 ),
             )
-            return plt.MapFilterList(
+            result = plt.MapFilterList(
                 lst,
                 filter_fun,
                 map_fun,
                 empty_list_con,
             )
         else:
-            return plt.MapList(
+            result = plt.MapList(
                 lst,
                 map_fun,
                 empty_list_con,
             )
+        return result
 
     def visit_DictComp(self, node: TypedDictComp) -> plt.AST:
         assert len(node.generators) == 1, "Currently only one generator supported"
@@ -1428,18 +1478,19 @@ class PlutoCompiler(CompilingNodeTransformer):
                     ifs,
                 ),
             )
-            return plt.MapFilterList(
+            result = plt.MapFilterList(
                 lst,
                 filter_fun,
                 map_fun,
                 empty_list_con,
             )
         else:
-            return plt.MapList(
+            result = plt.MapList(
                 lst,
                 map_fun,
                 empty_list_con,
             )
+        return self._normalize_dict_items(result)
 
     def visit_FormattedValue(self, node: TypedFormattedValue) -> plt.AST:
         return plt.Apply(
