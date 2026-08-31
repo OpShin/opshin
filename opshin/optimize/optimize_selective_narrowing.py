@@ -71,6 +71,96 @@ class _AccessCollector(ast.NodeVisitor):
         self.generic_visit(node)
 
 
+class _ContinuationUseCollector(ast.NodeVisitor):
+    """Conservatively detect whether a continuation may need a name."""
+
+    def __init__(self, name: str):
+        self.name = name
+        self.used = False
+
+    def visit_Name(self, node: ast.Name):
+        if node.id == self.name and isinstance(node.ctx, ast.Load):
+            self.used = True
+
+    def visit_Call(self, node: ast.Call):
+        # Closure arguments are added after this optimization pass, so a call
+        # may read the name even when it is not explicit in the source AST.
+        self.used = True
+
+
+def _continuation_uses(name: str, body: typing.Iterable[ast.stmt]) -> bool:
+    collector = _ContinuationUseCollector(name)
+    for statement in body:
+        collector.visit(statement)
+    return collector.used
+
+
+def _positively_validated_names(node: ast.AST) -> typing.Set[str]:
+    """Names whose Data constructor is checked on every true path."""
+
+    if (
+        isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Name)
+        and getattr(node.func, "orig_id", None) == "~bool"
+    ):
+        return _positively_validated_names(node.args[0])
+    if (
+        isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Name)
+        and getattr(node.func, "orig_id", None) == "isinstance"
+        and isinstance(node.args[0], ast.Name)
+    ):
+        return {node.args[0].id}
+    if isinstance(node, ast.BoolOp):
+        validated = [_positively_validated_names(value) for value in node.values]
+        if isinstance(node.op, ast.And):
+            return set().union(*validated)
+        if isinstance(node.op, ast.Or) and validated:
+            return set.intersection(*validated)
+    return set()
+
+
+class _EffectBeforeReadDetector:
+    """Detect calls evaluated before the first read of a name."""
+
+    def __init__(self, name: str):
+        self.name = name
+        self.effect_seen = False
+        self.read_seen = False
+        self.unsafe = False
+
+    def visit(self, node: ast.AST) -> None:
+        if self.read_seen:
+            return
+        if (
+            isinstance(node, ast.Name)
+            and node.id == self.name
+            and isinstance(node.ctx, ast.Load)
+        ):
+            self.unsafe = self.effect_seen
+            self.read_seen = True
+            return
+        if isinstance(node, (ast.FunctionDef, ast.ClassDef)):
+            return
+        if isinstance(node, ast.Call):
+            for child in ast.iter_child_nodes(node):
+                self.visit(child)
+                if self.read_seen:
+                    return
+            self.effect_seen = True
+            return
+        for child in ast.iter_child_nodes(node):
+            self.visit(child)
+            if self.read_seen:
+                return
+
+
+def _effect_precedes_first_read(node: ast.AST, name: str) -> bool:
+    detector = _EffectBeforeReadDetector(name)
+    detector.visit(node)
+    return detector.unsafe
+
+
 class _ExpectedReadCounter:
     """Estimate dynamically executed reads using source-level cost hints."""
 
@@ -181,7 +271,8 @@ class OptimizeSelectiveNarrowing(ScopedSequenceNodeTransformer):
     The rebind deliberately keeps the original variable name. OpShin's code
     generator therefore sees ordinary branch/loop-carried state, rather than a
     fresh local assignment that it would incorrectly expect to exist before the
-    branch. A fallthrough arm converts the value back to its data-backed type.
+    branch. A fallthrough region converts the value back to its data-backed type
+    only when its continuation may still read it.
 
     Expected read counts assume equally likely ``if`` branches and one loop
     iteration unless source comments provide ``branch-probability`` or
@@ -192,6 +283,21 @@ class OptimizeSelectiveNarrowing(ScopedSequenceNodeTransformer):
 
     def __init__(self, allow_isinstance_anything: bool = False):
         self.allow_isinstance_anything = allow_isinstance_anything
+        self.continuations: typing.List[typing.List[ast.stmt]] = []
+
+    def visit_sequence(self, body: typing.List[ast.stmt]) -> typing.List[ast.stmt]:
+        rewritten = []
+        live_body = [node for node in body if node is not None]
+        for index, node in enumerate(live_body):
+            self.continuations.append(live_body[index + 1 :])
+            try:
+                updated = self.visit(node)
+            finally:
+                self.continuations.pop()
+            if updated is None:
+                continue
+            rewritten.append(updated)
+        return rewritten
 
     @staticmethod
     def _eligible_target(typ: Type) -> typing.Optional[InstanceType]:
@@ -211,6 +317,8 @@ class OptimizeSelectiveNarrowing(ScopedSequenceNodeTransformer):
         typechecks: typing.Dict[str, Type],
         test_names: typing.Dict[str, ast.Name],
         can_fall_through: bool,
+        positively_validated: typing.Set[str],
+        loop_reentry: bool = False,
     ) -> typing.List[ast.stmt]:
         selected: typing.Dict[str, typing.Tuple[ast.Name, Type, InstanceType]] = {}
         for name, narrowed_typ in typechecks.items():
@@ -238,7 +346,14 @@ class OptimizeSelectiveNarrowing(ScopedSequenceNodeTransformer):
                 for kind, limits in READ_THRESHOLDS.items()
                 if isinstance(target_typ.typ, kind)
             )
-            threshold = thresholds[1 if can_fall_through else 0]
+            live_after = loop_reentry or (
+                can_fall_through
+                and any(
+                    _continuation_uses(name, continuation)
+                    for continuation in self.continuations
+                )
+            )
+            threshold = thresholds[1 if live_after else 0]
             if accesses.unsafe or expected_reads < threshold:
                 continue
             selected[name] = (template, source_typ, target_typ)
@@ -246,22 +361,135 @@ class OptimizeSelectiveNarrowing(ScopedSequenceNodeTransformer):
         if not selected:
             return self.visit_sequence(list(body))
 
-        representations = {
-            name: target_typ for name, (_, _, target_typ) in selected.items()
-        }
-        rewritten = _RepresentationRewriter(representations).visit_sequence(list(body))
-        rewritten = self.visit_sequence(rewritten)
-        prefix = [
-            _assignment(template, target_typ, DataInstanceType(target_typ.typ))
-            for template, _, target_typ in selected.values()
-        ]
-        suffix = []
-        if can_fall_through:
-            suffix = [
-                _assignment(template, source_typ, target_typ)
-                for template, source_typ, target_typ in selected.values()
+        rewritten = list(body)
+        for name, (template, source_typ, target_typ) in selected.items():
+            live_after = loop_reentry or (
+                can_fall_through
+                and any(
+                    _continuation_uses(name, continuation)
+                    for continuation in self.continuations
+                )
+            )
+            rewritten = self._rewrite_candidate_regions(
+                rewritten,
+                name,
+                template,
+                source_typ,
+                target_typ,
+                live_after,
+                name in positively_validated,
+            )
+        return self.visit_sequence(rewritten)
+
+    def _rewrite_candidate_regions(
+        self,
+        body: typing.List[ast.stmt],
+        name: str,
+        template: ast.Name,
+        source_typ: Type,
+        target_typ: InstanceType,
+        live_after: bool,
+        conversion_safe: bool,
+    ) -> typing.List[ast.stmt]:
+        """Cache a representation at the first read on each profitable path."""
+
+        counter = _ExpectedReadCounter(name)
+        thresholds = next(
+            limits
+            for kind, limits in READ_THRESHOLDS.items()
+            if isinstance(target_typ.typ, kind)
+        )
+        rewritten: typing.List[ast.stmt] = []
+        for index, statement in enumerate(body):
+            remainder = list(body[index + 1 :])
+            remainder_uses = _continuation_uses(name, remainder) or live_after
+            if (
+                isinstance(statement, ast.If)
+                and counter.expression(statement.test) == 0
+            ):
+                nested = copy(statement)
+                nested.body = self._rewrite_candidate_regions(
+                    list(statement.body),
+                    name,
+                    template,
+                    source_typ,
+                    target_typ,
+                    remainder_uses,
+                    conversion_safe,
+                )
+                nested.orelse = self._rewrite_candidate_regions(
+                    list(statement.orelse),
+                    name,
+                    template,
+                    source_typ,
+                    target_typ,
+                    remainder_uses,
+                    conversion_safe,
+                )
+                rewritten.append(nested)
+                continue
+            if (
+                isinstance(statement, (ast.For, ast.While))
+                and not conversion_safe
+                and (
+                    counter.expression(
+                        statement.iter
+                        if isinstance(statement, ast.For)
+                        else statement.test
+                    )
+                    == 0
+                )
+            ):
+                nested = copy(statement)
+                nested.body = self._rewrite_candidate_regions(
+                    list(statement.body),
+                    name,
+                    template,
+                    source_typ,
+                    target_typ,
+                    True,
+                    conversion_safe,
+                )
+                nested.orelse = self._rewrite_candidate_regions(
+                    list(statement.orelse),
+                    name,
+                    template,
+                    source_typ,
+                    target_typ,
+                    remainder_uses,
+                    conversion_safe,
+                )
+                rewritten.append(nested)
+                continue
+            if isinstance(statement, (ast.FunctionDef, ast.ClassDef)):
+                rewritten.append(statement)
+                continue
+            if counter.expression(statement) == 0:
+                rewritten.append(statement)
+                continue
+            if _effect_precedes_first_read(statement, name):
+                rewritten.append(statement)
+                continue
+
+            region = list(body[index:])
+            expected_reads, _ = counter.sequence(region)
+            region_falls_through = all(
+                getattr(region_statement, "can_fall_through", True)
+                for region_statement in region
+            )
+            restore = region_falls_through and live_after
+            threshold = thresholds[1 if restore else 0]
+            if expected_reads < threshold:
+                rewritten.extend(region)
+                return rewritten
+            representations = {name: target_typ}
+            narrowed = _RepresentationRewriter(representations).visit_sequence(region)
+            prefix = [
+                _assignment(template, target_typ, DataInstanceType(target_typ.typ))
             ]
-        return prefix + rewritten + suffix
+            suffix = [_assignment(template, source_typ, target_typ)] if restore else []
+            return rewritten + prefix + narrowed + suffix
+        return rewritten
 
     def _visit_conditional(self, node):
         rewritten = copy(node)
@@ -271,17 +499,21 @@ class OptimizeSelectiveNarrowing(ScopedSequenceNodeTransformer):
         ).visit(rewritten.test)
         names = _TestNameCollector()
         names.visit(rewritten.test)
+        positively_validated = _positively_validated_names(rewritten.test)
         rewritten.body = self._rewrite_arm(
             list(node.body),
             typechecks,
             names.names,
             getattr(node, "body_can_fall_through", True),
+            positively_validated,
+            isinstance(node, ast.While),
         )
         rewritten.orelse = self._rewrite_arm(
             list(node.orelse),
             inverse_typechecks,
             names.names,
             getattr(node, "orelse_can_fall_through", True),
+            set(),
         )
         return rewritten
 

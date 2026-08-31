@@ -1,5 +1,7 @@
 import pytest
 import uplc
+from frozenlist2 import frozenlist
+from uplc.ast import PlutusByteString, PlutusList
 
 from opshin import builder, compiler
 from opshin.compiler_config import OPT_O0_CONFIG
@@ -245,6 +247,197 @@ def validator(value: Union[int, bytes], items: List[int]) -> int:
 
     assert optimized.result == baseline.result
     assert optimized.cost.cpu < baseline.cost.cpu
+
+
+@pytest.mark.parametrize(
+    ("source", "malformed"),
+    [
+        (
+            """
+from typing import Union
+
+def validator(value: Union[int, bytes], early: bool) -> int:
+    if isinstance(value, int):
+        return 1
+    else:
+        if early:
+            return 0
+        return len(value) + len(value) + len(value) + len(value) + len(value) + len(value) + len(value) + len(value) + len(value) + len(value) + len(value) + len(value)
+""",
+            PlutusList(frozenlist([])),
+        ),
+        (
+            """
+from typing import List, Union
+from pycardano import Datum as Anything, PlutusData
+
+def validator(value: Union[int, List[Anything]], early: bool) -> int:
+    if isinstance(value, int):
+        return 1
+    else:
+        if early:
+            return 0
+        return len(value) + len(value) + len(value) + len(value) + len(value) + len(value)
+""",
+            PlutusByteString(b"not-a-list"),
+        ),
+        (
+            """
+from typing import Union
+
+def validator(value: Union[int, bytes], early: bool) -> int:
+    if not isinstance(value, int):
+        if early:
+            return 0
+        return len(value) + len(value) + len(value) + len(value) + len(value) + len(value) + len(value) + len(value) + len(value) + len(value) + len(value) + len(value)
+    return 1
+""",
+            PlutusList(frozenlist([])),
+        ),
+    ],
+)
+def test_narrowing_only_decodes_on_paths_that_read_value(source, malformed):
+    baseline = uplc.eval(
+        builder._compile(
+            source,
+            malformed,
+            True,
+            config=DEFAULT_TEST_CONFIG.update(optimize_selective_narrowing=False),
+        )
+    )
+    optimized = uplc.eval(
+        builder._compile(
+            source,
+            malformed,
+            True,
+            config=DEFAULT_TEST_CONFIG.update(optimize_selective_narrowing=True),
+        )
+    )
+
+    assert baseline.result.value == 0
+    assert optimized.result == baseline.result
+
+
+def test_dead_narrowed_value_does_not_need_restoring_after_fallthrough():
+    source = """
+from typing import Union
+
+def validator(value: Union[int, bytes]) -> int:
+    if isinstance(value, int):
+        result = value + value + value + value + value + value + value + value + value
+    else:
+        result = len(value)
+    return result
+"""
+    baseline = uplc.eval(
+        builder._compile(
+            source,
+            4,
+            config=DEFAULT_TEST_CONFIG.update(optimize_selective_narrowing=False),
+        )
+    )
+    optimized = uplc.eval(
+        builder._compile(
+            source,
+            4,
+            config=DEFAULT_TEST_CONFIG.update(optimize_selective_narrowing=True),
+        )
+    )
+
+    assert optimized.result == baseline.result
+    assert optimized.cost.cpu < baseline.cost.cpu
+    assert optimized.cost.memory < baseline.cost.memory
+
+
+def test_live_narrowed_value_is_restored_for_continuation():
+    source = """
+from typing import Union
+
+def validator(value: Union[int, bytes]) -> int:
+    if isinstance(value, int):
+        result = value + value + value + value + value + value + value + value + value
+    else:
+        return len(value)
+    return result + value
+"""
+
+    assert eval_uplc_value(source, 4) == 40
+    assert eval_uplc_value(source, b"abc") == 3
+
+
+def test_narrowing_does_not_move_failure_before_prior_trace():
+    source = """
+from typing import Union
+
+def validator(value: Union[int, bytes]) -> int:
+    if isinstance(value, int):
+        return 1
+    else:
+        print("entered inferred bytes arm")
+        return len(value) + len(value) + len(value) + len(value) + len(value) + len(value)
+"""
+    malformed = PlutusList(frozenlist([]))
+    baseline = uplc.eval(
+        builder._compile(
+            source,
+            malformed,
+            config=DEFAULT_TEST_CONFIG.update(
+                optimize_selective_narrowing=False, remove_trace=False
+            ),
+        )
+    )
+    optimized = uplc.eval(
+        builder._compile(
+            source,
+            malformed,
+            config=DEFAULT_TEST_CONFIG.update(
+                optimize_selective_narrowing=True, remove_trace=False
+            ),
+        )
+    )
+
+    assert isinstance(baseline.result, Exception)
+    assert isinstance(optimized.result, Exception)
+    assert optimized.logs == baseline.logs == ["entered inferred bytes arm"]
+
+
+def test_narrowing_does_not_move_failure_before_call_in_same_expression():
+    source = """
+from typing import Union
+
+def traced_zero() -> int:
+    print("evaluated left operand")
+    return 0
+
+def validator(value: Union[int, bytes]) -> int:
+    if isinstance(value, int):
+        return 1
+    else:
+        return traced_zero() + len(value) + len(value) + len(value) + len(value) + len(value) + len(value)
+"""
+    malformed = PlutusList(frozenlist([]))
+    baseline = uplc.eval(
+        builder._compile(
+            source,
+            malformed,
+            config=DEFAULT_TEST_CONFIG.update(
+                optimize_selective_narrowing=False, remove_trace=False
+            ),
+        )
+    )
+    optimized = uplc.eval(
+        builder._compile(
+            source,
+            malformed,
+            config=DEFAULT_TEST_CONFIG.update(
+                optimize_selective_narrowing=True, remove_trace=False
+            ),
+        )
+    )
+
+    assert isinstance(baseline.result, Exception)
+    assert isinstance(optimized.result, Exception)
+    assert optimized.logs == baseline.logs == ["evaluated left operand"]
 
 
 @pytest.mark.parametrize(
