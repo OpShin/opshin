@@ -36,6 +36,10 @@ The following deviations from Python semantics are known and code that involves 
 - `int(...)` does not automatically trim preceding and trailing space characters. `int("  123  ")` will fail.
 - `bytes.fromhex(...)` does not automatically remove space characters. `bytes.fromhex("00 11\t")` will fail.
 - `pow(x, y)` and `x ** y` do not work and fail when `y` is negative (floats are not supported in opshin)
+
+### Constant folding
+
+Constant folding deliberately uses CPython to evaluate constants in source code. This may result in terms that would fail to compile or execute without constant folding not fail. While this technically results in a compiler flag causing a difference in behavior of a contract, this is not considered a bug.
  
 ## Architecture
 
