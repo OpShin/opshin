@@ -6,8 +6,10 @@ from pathlib import Path
 
 import pytest
 
+from opshin import builder, CompilerError
 from opshin.optimize.optimize_const_folding import OptimizeConstantFolding
 from opshin.rewrite.rewrite_import import RewriteImport
+from opshin.type_inference import INITIAL_SCOPE
 
 
 REPOSITORY_ROOT = Path(__file__).parent.parent
@@ -78,6 +80,33 @@ except CompilerError:
     )
 
     assert result.returncode == 0, result.stderr
+
+
+def test_integrity_import_alias_does_not_leak_between_compilations():
+    alias = "leaked_integrity_check_security_test"
+    imported_source = f"""\
+from opshin.prelude import *
+from opshin.std.integrity import check_integrity as {alias}
+
+@dataclass()
+class Box(PlutusData):
+    CONSTR_ID = 0
+    value: int
+
+def validator(box: Box) -> None:
+    {alias}(box)
+"""
+    unimported_source = imported_source.replace(
+        f"from opshin.std.integrity import check_integrity as {alias}\n", ""
+    )
+
+    INITIAL_SCOPE.pop(alias, None)
+    try:
+        builder._compile(imported_source)
+        with pytest.raises(CompilerError):
+            builder._compile(unimported_source)
+    finally:
+        INITIAL_SCOPE.pop(alias, None)
 
 
 def test_import_resolution_does_not_execute_imported_module(tmp_path):

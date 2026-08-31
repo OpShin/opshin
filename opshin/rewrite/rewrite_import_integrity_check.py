@@ -1,6 +1,5 @@
 import typing
-from _ast import ImportFrom, AST
-from typing import Optional
+from _ast import ImportFrom, AST, Load, Name
 import pluthon as plt
 
 from ..type_impls import (
@@ -53,7 +52,15 @@ class IntegrityCheckImpl(PolymorphicFunction):
 class RewriteImportIntegrityCheck(CompilingNodeTransformer):
     step = "Resolving imports and usage of integrity check"
 
-    def visit_ImportFrom(self, node: ImportFrom) -> Optional[AST]:
+    def __init__(self):
+        self.imported_names = set()
+
+    @staticmethod
+    def integrity_check_expression() -> RawPlutoExpr:
+        typ = InstanceType(PolymorphicFunctionType(IntegrityCheckImpl()))
+        return RawPlutoExpr(typ=typ, expr=plt.Unit())
+
+    def visit_ImportFrom(self, node: ImportFrom) -> typing.Optional[AST]:
         if node.module != "opshin.std.integrity":
             return node
         for n in node.names:
@@ -64,7 +71,10 @@ class RewriteImportIntegrityCheck(CompilingNodeTransformer):
             assert (
                 renamed not in INITIAL_SCOPE or renamed == FunctionName
             ), f"Name '{renamed}' is a reserved name, cannot import {FunctionName} with that name."
-            INITIAL_SCOPE[renamed] = InstanceType(
-                PolymorphicFunctionType(IntegrityCheckImpl())
-            )
+            self.imported_names.add(renamed)
         return None
+
+    def visit_Name(self, node: Name) -> AST:
+        if isinstance(node.ctx, Load) and node.id in self.imported_names:
+            return self.integrity_check_expression()
+        return node
