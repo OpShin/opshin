@@ -58,6 +58,7 @@ from .optimize.optimize_fold_bool import OptimizeFoldBoolCast
 from .optimize.optimize_bool_only_ops import OptimizeBoolOnlyOps
 
 from .rewrite.rewrite_assert_none import RewriteAssertNone
+from .rewrite.rewrite_adjacent_inline import RewriteAdjacentInline
 from .rewrite.rewrite_annotate_fallthrough import RewriteAnnotateFallthrough
 from .rewrite.rewrite_augassign import RewriteAugAssign
 from .rewrite.rewrite_cast_condition import RewriteConditions
@@ -1933,6 +1934,7 @@ def compile(
         OptimizeRemoveTrace() if config.remove_trace else NoOp(),
         OptimizeFoldIfFallthrough() if config.remove_dead_code else NoOp(),
         OptimizeRemoveUnreachable() if config.remove_dead_code else NoOp(),
+        RewriteAdjacentInline() if config.adjacent_inline else NoOp(),
         (
             OptimizeRemoveDeadvars(validator_function_name=validator_function_name)
             if config.remove_dead_code
