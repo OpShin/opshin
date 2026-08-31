@@ -49,7 +49,6 @@ SAFE_GLOBALS_LIST = [
     float,
     format,
     frozenset,
-    hash,
     hex,
     int,
     isinstance,
