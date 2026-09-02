@@ -97,4 +97,7 @@ class RewriteExpandedUnionCalls(ScopedSequenceNodeTransformer):
 
         node.func.id = variant.name
         node.func.typ = variant.typ
+        # Specialized variants have no defaults of their own: omitted defaults
+        # were already materialized while checking the unspecialized call.
+        node.provided_arg_indices = list(range(len(node.args)))
         return node

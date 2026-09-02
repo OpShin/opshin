@@ -1803,6 +1803,9 @@ class FunctionType(ClassType):
     bind_self: typing.Any = None
     # Stable compiler-assigned identity for a concrete function definition.
     function_id: typing.Optional[str] = None
+    # Number of trailing defaulted arguments. Default-bearing functions use a
+    # runtime calling convention carrying an argument-presence mask.
+    default_count: int = 0
 
     def __post_init__(self):
         object.__setattr__(self, "argtyps", frozenlist(self.argtyps))
@@ -1815,6 +1818,9 @@ class FunctionType(ClassType):
             and len(self.argtyps) == len(other.argtyps)
             and all(a >= oa for a, oa in zip(self.argtyps, other.argtyps))
             and other.rettyp >= self.rettyp
+            # Default-bearing functions carry an argument-presence mask at
+            # runtime and therefore have a distinct calling convention.
+            and bool(self.default_count) == bool(other.default_count)
         ):
             return False
         if (

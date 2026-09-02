@@ -265,6 +265,7 @@ class RewriteFunctionClosures(ScopedSequenceNodeTransformer):
                     bound_vars=new_bound_vars,
                     bind_self=bind_self,
                     function_id=old_function_type.function_id,
+                    default_count=old_function_type.default_count,
                 )
             )
 

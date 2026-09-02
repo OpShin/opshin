@@ -290,3 +290,56 @@ def validator() -> int:
 
     with pytest.raises(Exception, match="argument"):
         builder._compile(source_code)
+
+
+@pytest.mark.parametrize("flag, expected", [(False, 1), (True, 2)])
+def test_default_argument_belongs_to_runtime_function_value(flag, expected):
+    source_code = """
+def one(x: int = 1) -> int:
+    return x
+
+def two(x: int = 2) -> int:
+    return x
+
+def validator(flag: bool) -> int:
+    selected = one
+    if flag:
+        selected = two
+    return selected()
+"""
+
+    assert eval_uplc_value(source_code, flag) == expected
+
+
+@pytest.mark.parametrize("flag, expected", [(False, 2), (True, 1)])
+def test_branch_local_function_uses_its_own_default(flag, expected):
+    source_code = """
+def validator(flag: bool) -> int:
+    if flag:
+        def selected(x: int = 1) -> int:
+            return x
+    else:
+        def selected(x: int = 2) -> int:
+            return x
+    return selected()
+"""
+
+    assert eval_uplc_value(source_code, flag) == expected
+
+
+def test_keyword_argument_expressions_keep_source_evaluation_order():
+    source_code = """
+def logged(x: int) -> int:
+    print(x)
+    return x
+
+def add(a: int = 0, b: int = 0, c: int = 0) -> int:
+    return a + b + c
+
+def validator() -> int:
+    return add(c=logged(3), a=logged(1))
+"""
+
+    result = eval_uplc_raw(source_code, Unit())
+    assert result.result.value == 4
+    assert result.logs == ["3", "1"]

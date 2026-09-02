@@ -35,6 +35,8 @@ class NameLoadCollector(CompilingNodeVisitor):
 
     def visit_FunctionDef(self, node: TypedFunctionDef):
         # ignore the type hints of function arguments
+        for default in node.args.defaults:
+            self.visit(default)
         for s in node.body:
             self.visit(s)
         for v in node.typ.typ.bound_vars.keys():

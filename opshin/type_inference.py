@@ -585,6 +585,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
     def __init__(self, allow_isinstance_anything=False):
         self.allow_isinstance_anything = allow_isinstance_anything
         self.FUNCTION_ARGUMENT_REGISTRY = {}
+        self.FUNCTION_DEFINITION_IDS_BY_NAME = {}
         self.FUNCTION_ARGUMENTS_BY_ID = {}
         self.FUNCTION_DEFAULTS_BY_ID = {}
         self.TYPED_FUNCTION_DEFAULTS_BY_ID = {}
@@ -807,6 +808,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             bound_vars=bound_vars,
             bind_self=bind_self,
             function_id=self.ensure_function_id(node),
+            default_count=len(node.args.defaults),
         )
 
     def declare_class_type(self, node: ClassDef, force: bool) -> RecordType:
@@ -863,6 +865,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                 )
                 self.set_variable_type(stmt.name, InstanceType(functyp), force=True)
                 self.FUNCTION_ARGUMENT_REGISTRY[stmt.name] = stmt.args.args
+                self.FUNCTION_DEFINITION_IDS_BY_NAME[stmt.name] = stmt.function_id
                 self.FUNCTION_ARGUMENTS_BY_ID[stmt.function_id] = stmt.args.args
                 self.FUNCTION_DEFAULTS_BY_ID[stmt.function_id] = stmt.args.defaults
                 declared_names.add(stmt.name)
@@ -1382,6 +1385,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         # We need the function type outside for usage.
         self.set_variable_type(resolved_node.name, tfd.typ, force=is_first_definition)
         self.FUNCTION_ARGUMENT_REGISTRY[resolved_node.name] = resolved_node.args.args
+        self.FUNCTION_DEFINITION_IDS_BY_NAME[resolved_node.name] = node.function_id
         return tfd
 
     def visit_Module(self, node: Module) -> TypedModule:
@@ -1603,7 +1607,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         positional_args: typing.List[typedexpr],
         parameters: typing.Sequence[arg],
         defaults: typing.Sequence[typedexpr],
-    ) -> typing.List[typedexpr]:
+    ) -> tuple[typing.List[typedexpr], typing.List[int], typing.List[int]]:
         assert len(positional_args) <= len(
             parameters
         ), f"Function takes {len(parameters)} arguments but got {len(positional_args)} positional arguments"
@@ -1613,6 +1617,8 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         parameter_indices = {
             parameter.orig_arg: i for i, parameter in enumerate(parameters)
         }
+        evaluation_order = list(range(len(positional_args)))
+        provided_indices = list(evaluation_order)
         for keyword in node.keywords:
             assert (
                 keyword.arg is not None
@@ -1625,6 +1631,8 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                 bound_args[index] is None
             ), f"Multiple values supplied for argument {keyword.arg}"
             bound_args[index] = self.visit(keyword.value)
+            evaluation_order.append(index)
+            provided_indices.append(index)
 
         first_default = len(parameters) - len(defaults)
         for index, value in enumerate(bound_args):
@@ -1634,11 +1642,18 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                 index >= first_default
             ), f"Missing required argument {parameters[index].orig_arg}"
             bound_args[index] = deepcopy(defaults[index - first_default])
-        return typing.cast(typing.List[typedexpr], bound_args)
+            evaluation_order.append(index)
+        return (
+            typing.cast(typing.List[typedexpr], bound_args),
+            evaluation_order,
+            provided_indices,
+        )
 
     def visit_Call(self, node: Call) -> TypedCall:
         tc = copy(node)
         tc.args = [self.visit(a) for a in node.args]
+        tc.arg_evaluation_order = list(range(len(tc.args)))
+        tc.provided_arg_indices = list(range(len(tc.args)))
         tc.keywords = []
         subbed_method = False
         if isinstance(tc.func, Attribute):
@@ -1671,18 +1686,29 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             tc.func.typ.typ, FunctionType
         ):
             functyp = tc.func.typ.typ
-            if functyp.function_id in self.FUNCTION_ARGUMENTS_BY_ID:
-                parameters = self.FUNCTION_ARGUMENTS_BY_ID[functyp.function_id]
-                defaults = self.typed_function_defaults(
-                    functyp.function_id, functyp.argtyps
+            function_id = functyp.function_id
+            if isinstance(node.func, Name):
+                function_id = self.FUNCTION_DEFINITION_IDS_BY_NAME.get(
+                    node.func.id, function_id
                 )
-                tc.args = self.bind_call_arguments(node, tc.args, parameters, defaults)
+            if function_id in self.FUNCTION_ARGUMENTS_BY_ID:
+                parameters = self.FUNCTION_ARGUMENTS_BY_ID[function_id]
+                defaults = self.typed_function_defaults(function_id, functyp.argtyps)
+                (
+                    tc.args,
+                    tc.arg_evaluation_order,
+                    tc.provided_arg_indices,
+                ) = self.bind_call_arguments(node, tc.args, parameters, defaults)
             elif node.keywords:
                 assert (
                     isinstance(node.func, Name)
                     and node.func.id in self.FUNCTION_ARGUMENT_REGISTRY
                 ), "Keyword arguments can only be used with user defined functions"
-                tc.args = self.bind_call_arguments(
+                (
+                    tc.args,
+                    tc.arg_evaluation_order,
+                    tc.provided_arg_indices,
+                ) = self.bind_call_arguments(
                     node,
                     tc.args,
                     self.FUNCTION_ARGUMENT_REGISTRY[node.func.id],

@@ -155,3 +155,17 @@ def validator(a: int, b: bytes, c: int) -> int:
 """
         with self.assertRaises(Exception):
             ret = eval_uplc_value(source_code, 1, b"2", 3)
+
+    def test_keyword_names_follow_latest_function_definition(self):
+        source_code = """
+def selected(x: int) -> int:
+    return x
+
+def selected(y: int) -> int:
+    return y
+
+def validator() -> int:
+    return selected(y=2)
+"""
+
+        self.assertEqual(eval_uplc_value(source_code, 0), 2)
