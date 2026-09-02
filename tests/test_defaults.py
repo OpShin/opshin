@@ -120,6 +120,68 @@ def validator(x: int) -> int:
     assert eval_uplc_value(source_code, 3) == 7
 
 
+def test_method_default_uses_class_constr_id():
+    source_code = """
+from opshin.prelude import *
+
+@dataclass
+class A(PlutusData):
+    CONSTR_ID = 7
+    x: int
+
+    def constr_id(self, value: int = CONSTR_ID) -> int:
+        return value
+
+def validator() -> int:
+    return A(1).constr_id()
+"""
+
+    assert eval_uplc_value(source_code, Unit()) == 7
+
+
+def test_method_default_class_constr_id_shadows_outer_binding():
+    source_code = """
+from opshin.prelude import *
+
+CONSTR_ID = 5
+
+@dataclass
+class A(PlutusData):
+    CONSTR_ID = 7
+    x: int
+
+    def next_constr_id(self, value: int = CONSTR_ID + 1) -> int:
+        return value
+
+def validator() -> int:
+    return A(1).next_constr_id()
+"""
+
+    assert eval_uplc_value(source_code, Unit()) == 8
+
+
+def test_method_default_ignores_later_class_constr_id_binding():
+    source_code = """
+from opshin.prelude import *
+
+CONSTR_ID = 5
+
+@dataclass
+class A(PlutusData):
+    x: int
+
+    def constr_id(self, value: int = CONSTR_ID) -> int:
+        return value
+
+    CONSTR_ID = 7
+
+def validator() -> int:
+    return A(1).constr_id()
+"""
+
+    assert eval_uplc_value(source_code, Unit()) == 5
+
+
 def test_defaults_with_mixed_types():
     source_code = """
 from typing import List

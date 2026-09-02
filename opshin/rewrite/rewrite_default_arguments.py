@@ -1,8 +1,36 @@
+import ast
 from ast import Assign, ClassDef, FunctionDef, Load, Module, Name, Store
-from copy import copy
+from copy import copy, deepcopy
 
 from ..typed_util import FlatteningScopedSequenceNodeTransformer
 from ..util import NameSupply, custom_fix_missing_locations
+
+
+class RewriteClassConstrId(ast.NodeTransformer):
+    """Resolve direct expression loads from the one supported class binding."""
+
+    def __init__(self, constr_id: int):
+        self.constr_id = constr_id
+
+    def visit_Name(self, node: Name):
+        if isinstance(node.ctx, Load) and node.id == "CONSTR_ID":
+            return ast.copy_location(ast.Constant(value=self.constr_id), node)
+        return node
+
+    def visit_Lambda(self, node: ast.Lambda):
+        # Class scopes do not enclose nested function scopes.
+        return node
+
+    def _visit_comprehension(self, node):
+        # Only the outermost iterable is evaluated in the surrounding class
+        # scope; the rest runs in the comprehension's implicit function scope.
+        node.generators[0].iter = self.visit(node.generators[0].iter)
+        return node
+
+    visit_ListComp = _visit_comprehension
+    visit_SetComp = _visit_comprehension
+    visit_DictComp = _visit_comprehension
+    visit_GeneratorExp = _visit_comprehension
 
 
 class RewriteDefaultArguments(FlatteningScopedSequenceNodeTransformer):
@@ -42,11 +70,33 @@ class RewriteDefaultArguments(FlatteningScopedSequenceNodeTransformer):
         class_def = copy(node)
         class_def.body = []
         bindings = []
+        constr_id = None
         for statement in node.body:
             if isinstance(statement, FunctionDef):
-                *method_bindings, method = self.visit_FunctionDef(statement)
+                method_source = statement
+                if constr_id is not None:
+                    method_source = copy(statement)
+                    method_source.args = copy(statement.args)
+                    rewriter = RewriteClassConstrId(constr_id)
+                    method_source.args.defaults = [
+                        rewriter.visit(deepcopy(default))
+                        for default in statement.args.defaults
+                    ]
+                *method_bindings, method = self.visit_FunctionDef(method_source)
                 bindings.extend(method_bindings)
                 class_def.body.append(method)
             else:
                 class_def.body.append(self.visit(statement))
+                target = None
+                if isinstance(statement, ast.Assign) and len(statement.targets) == 1:
+                    target = statement.targets[0]
+                elif isinstance(statement, ast.AnnAssign):
+                    target = statement.target
+                if (
+                    isinstance(target, Name)
+                    and target.id == "CONSTR_ID"
+                    and isinstance(statement.value, ast.Constant)
+                    and isinstance(statement.value.value, int)
+                ):
+                    constr_id = statement.value.value
         return [*bindings, class_def]
