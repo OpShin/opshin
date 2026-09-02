@@ -9,6 +9,7 @@ from .rewrite_cast_condition import SPECIAL_BOOL
 
 class RewriteAnnotateFallthrough(CompilingNodeTransformer):
     step = "Annotating statement fallthrough"
+    compound_statement_types = (Module, FunctionDef, ClassDef, If, For, While)
 
     @staticmethod
     def expr_is_definitely_false(node):
@@ -25,34 +26,14 @@ class RewriteAnnotateFallthrough(CompilingNodeTransformer):
         return False
 
     def generic_visit(self, node):
+        if isinstance(node, self.compound_statement_types):
+            node = copy(node)
         visited = super().generic_visit(node)
         if isinstance(visited, ast.stmt):
             visited.can_fall_through = getattr(visited, "can_fall_through", True)
+        if isinstance(visited, self.compound_statement_types):
+            return annotate_compound_statement_fallthrough(visited)
         return visited
-
-    def visit_Module(self, node: Module) -> Module:
-        module_cp = self.generic_visit(copy(node))
-        return annotate_compound_statement_fallthrough(module_cp)
-
-    def visit_FunctionDef(self, node: FunctionDef) -> FunctionDef:
-        func_cp = self.generic_visit(copy(node))
-        return annotate_compound_statement_fallthrough(func_cp)
-
-    def visit_ClassDef(self, node: ClassDef) -> ClassDef:
-        class_cp = self.generic_visit(copy(node))
-        return annotate_compound_statement_fallthrough(class_cp)
-
-    def visit_If(self, node: If) -> If:
-        if_cp = self.generic_visit(copy(node))
-        return annotate_compound_statement_fallthrough(if_cp)
-
-    def visit_For(self, node: For) -> For:
-        for_cp = self.generic_visit(copy(node))
-        return annotate_compound_statement_fallthrough(for_cp)
-
-    def visit_While(self, node: While) -> While:
-        while_cp = self.generic_visit(copy(node))
-        return annotate_compound_statement_fallthrough(while_cp)
 
     def visit_Return(self, node: Return) -> Return:
         return_cp = self.generic_visit(copy(node))

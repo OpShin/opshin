@@ -17,7 +17,7 @@ import ast
 from ast import *
 import typing
 from collections import defaultdict
-from copy import copy
+from copy import copy, deepcopy
 from hashlib import sha256
 
 from frozenlist2 import frozenlist
@@ -585,6 +585,9 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
     def __init__(self, allow_isinstance_anything=False):
         self.allow_isinstance_anything = allow_isinstance_anything
         self.FUNCTION_ARGUMENT_REGISTRY = {}
+        self.FUNCTION_ARGUMENTS_BY_ID = {}
+        self.FUNCTION_DEFAULTS_BY_ID = {}
+        self.TYPED_FUNCTION_DEFAULTS_BY_ID = {}
         self.first_function_definition_scopes: typing.List[typing.Set[int]] = []
         self._function_id_counter = 0
 
@@ -860,6 +863,8 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                 )
                 self.set_variable_type(stmt.name, InstanceType(functyp), force=True)
                 self.FUNCTION_ARGUMENT_REGISTRY[stmt.name] = stmt.args.args
+                self.FUNCTION_ARGUMENTS_BY_ID[stmt.function_id] = stmt.args.args
+                self.FUNCTION_DEFAULTS_BY_ID[stmt.function_id] = stmt.args.defaults
                 declared_names.add(stmt.name)
             except TypeInferenceError:
                 # Some imported helpers can only be typed after earlier declarations.
@@ -1296,13 +1301,32 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         return ta
 
     def visit_arguments(self, node: arguments) -> typedarguments:
-        if node.kw_defaults or node.kwarg or node.kwonlyargs or node.defaults:
+        if node.kw_defaults or node.kwarg or node.kwonlyargs or node.vararg:
             raise NotImplementedError(
-                "Keyword arguments and defaults not supported yet"
+                "Variadic and keyword-only arguments are not supported yet"
             )
         ta = copy(node)
         ta.args = [self.visit(a) for a in node.args]
+        # Defaults are typed in visit_FunctionDef because they belong to the
+        # containing scope, whereas parameters belong to the function scope.
+        ta.defaults = []
         return ta
+
+    def typed_function_defaults(
+        self, function_id: str, arg_types: typing.Sequence[Type]
+    ) -> typing.List[typedexpr]:
+        if function_id not in self.TYPED_FUNCTION_DEFAULTS_BY_ID:
+            defaults = [
+                self.visit(default)
+                for default in self.FUNCTION_DEFAULTS_BY_ID.get(function_id, [])
+            ]
+            default_types = arg_types[len(arg_types) - len(defaults) :]
+            for default, parameter_type in zip(defaults, default_types):
+                assert (
+                    parameter_type >= default.typ
+                ), f"Default value has type {default.typ.python_type()}, expected {parameter_type.python_type()}"
+            self.TYPED_FUNCTION_DEFAULTS_BY_ID[function_id] = defaults
+        return self.TYPED_FUNCTION_DEFAULTS_BY_ID[function_id]
 
     def visit_FunctionDef(self, node: FunctionDef) -> TypedFunctionDef:
         self.ensure_function_id(node)
@@ -1324,6 +1348,11 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         self.enter_scope()
         tfd.args = self.visit(resolved_node.args)
         arg_types = [t.typ for t in tfd.args.args]
+        self.FUNCTION_ARGUMENTS_BY_ID[node.function_id] = resolved_node.args.args
+        self.FUNCTION_DEFAULTS_BY_ID[node.function_id] = resolved_node.args.defaults
+        tfd.args.defaults = deepcopy(
+            self.typed_function_defaults(node.function_id, arg_types)
+        )
         base_scope = copy(self.scopes[-1])
         # Publish a first approximation of the function type before visiting
         # the body so recursive and forward references have something stable to
@@ -1568,62 +1597,49 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             )
         return ts
 
+    def bind_call_arguments(
+        self,
+        node: Call,
+        positional_args: typing.List[typedexpr],
+        parameters: typing.Sequence[arg],
+        defaults: typing.Sequence[typedexpr],
+    ) -> typing.List[typedexpr]:
+        assert len(positional_args) <= len(
+            parameters
+        ), f"Function takes {len(parameters)} arguments but got {len(positional_args)} positional arguments"
+        bound_args: typing.List[typing.Optional[typedexpr]] = list(positional_args) + [
+            None
+        ] * (len(parameters) - len(positional_args))
+        parameter_indices = {
+            parameter.orig_arg: i for i, parameter in enumerate(parameters)
+        }
+        for keyword in node.keywords:
+            assert (
+                keyword.arg is not None
+            ), "Keyword argument unpacking is not supported"
+            assert (
+                keyword.arg in parameter_indices
+            ), f"Could not match keyword {keyword.arg} to any argument"
+            index = parameter_indices[keyword.arg]
+            assert (
+                bound_args[index] is None
+            ), f"Multiple values supplied for argument {keyword.arg}"
+            bound_args[index] = self.visit(keyword.value)
+
+        first_default = len(parameters) - len(defaults)
+        for index, value in enumerate(bound_args):
+            if value is not None:
+                continue
+            assert (
+                index >= first_default
+            ), f"Missing required argument {parameters[index].orig_arg}"
+            bound_args[index] = deepcopy(defaults[index - first_default])
+        return typing.cast(typing.List[typedexpr], bound_args)
+
     def visit_Call(self, node: Call) -> TypedCall:
         tc = copy(node)
-        if node.keywords:
-            assert (
-                node.func.id in self.FUNCTION_ARGUMENT_REGISTRY
-            ), "Keyword arguments can only be used with user defined functions"
-            keywords = copy(node.keywords)
-            reg_args = self.FUNCTION_ARGUMENT_REGISTRY[node.func.id]
-            args = []
-            for i, a in enumerate(reg_args):
-                if len(node.args) > i:
-                    args.append(self.visit(node.args[i]))
-                else:
-                    candidates = [
-                        (idx, keyword)
-                        for idx, keyword in enumerate(keywords)
-                        if keyword.arg == a.orig_arg
-                    ]
-                    assert (
-                        len(candidates) == 1
-                    ), f"There should be one keyword or positional argument for the arg {a.orig_arg} but found {len(candidates)}"
-                    args.append(self.visit(candidates[0][1].value))
-                    keywords.pop(candidates[0][0])
-            assert (
-                len(keywords) == 0
-            ), f"Could not match the keywords {[keyword.arg for keyword in keywords]} to any argument"
-            tc.args = args
-            tc.keywords = []
-        else:
-            tc.args = [self.visit(a) for a in node.args]
-
-        # might be isinstance
-        # Subscripts are not allowed in isinstance calls
-        is_isinstance_call = (
-            isinstance(tc.func, Name) and tc.func.orig_id == "isinstance"
-        )
-        if is_isinstance_call and isinstance(tc.args[1], Subscript):
-            raise TypeError(
-                "Subscripted generics cannot be used with class and instance checks"
-            )
-
-        # Need to handle the presence of PlutusData classes
-        if is_isinstance_call and not isinstance(
-            tc.args[1].typ, (ByteStringType, IntegerType, ListType, DictType)
-        ):
-            if (
-                isinstance(tc.args[0].typ, InstanceType)
-                and isinstance(tc.args[0].typ.typ, AnyType)
-                and not self.allow_isinstance_anything
-            ):
-                raise AssertionError(
-                    "OpShin does not permit checking the instance of raw Anything/Datum objects as this only checks the equality of the constructor id and nothing more. "
-                    "If you are certain of what you are doing, please use the flag '--allow-isinstance-anything'."
-                )
-            tc.typechecks = TypeCheckVisitor(self.allow_isinstance_anything).visit(tc)
-
+        tc.args = [self.visit(a) for a in node.args]
+        tc.keywords = []
         subbed_method = False
         if isinstance(tc.func, Attribute):
             # might be a method, test whether the variable is a record and if the method exists
@@ -1650,10 +1666,62 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         # might be a class
         if isinstance(tc.func.typ, ClassType):
             tc.func.typ = tc.func.typ.constr_type()
+
+        if isinstance(tc.func.typ, InstanceType) and isinstance(
+            tc.func.typ.typ, FunctionType
+        ):
+            functyp = tc.func.typ.typ
+            if functyp.function_id in self.FUNCTION_ARGUMENTS_BY_ID:
+                parameters = self.FUNCTION_ARGUMENTS_BY_ID[functyp.function_id]
+                defaults = self.typed_function_defaults(
+                    functyp.function_id, functyp.argtyps
+                )
+                tc.args = self.bind_call_arguments(node, tc.args, parameters, defaults)
+            elif node.keywords:
+                assert (
+                    isinstance(node.func, Name)
+                    and node.func.id in self.FUNCTION_ARGUMENT_REGISTRY
+                ), "Keyword arguments can only be used with user defined functions"
+                tc.args = self.bind_call_arguments(
+                    node,
+                    tc.args,
+                    self.FUNCTION_ARGUMENT_REGISTRY[node.func.id],
+                    [],
+                )
+
+        # might be isinstance
+        # Subscripts are not allowed in isinstance calls
+        is_isinstance_call = (
+            isinstance(tc.func, Name)
+            and getattr(tc.func, "orig_id", None) == "isinstance"
+        )
+        if is_isinstance_call and isinstance(tc.args[1], Subscript):
+            raise TypeError(
+                "Subscripted generics cannot be used with class and instance checks"
+            )
+
+        # Need to handle the presence of PlutusData classes
+        if is_isinstance_call and not isinstance(
+            tc.args[1].typ, (ByteStringType, IntegerType, ListType, DictType)
+        ):
+            if (
+                isinstance(tc.args[0].typ, InstanceType)
+                and isinstance(tc.args[0].typ.typ, AnyType)
+                and not self.allow_isinstance_anything
+            ):
+                raise AssertionError(
+                    "OpShin does not permit checking the instance of raw Anything/Datum objects as this only checks the equality of the constructor id and nothing more. "
+                    "If you are certain of what you are doing, please use the flag '--allow-isinstance-anything'."
+                )
+            tc.typechecks = TypeCheckVisitor(self.allow_isinstance_anything).visit(tc)
+
         # type might only turn out after the initialization (note the constr could be polymorphic)
         if isinstance(tc.func.typ, InstanceType) and isinstance(
             tc.func.typ.typ, PolymorphicFunctionType
         ):
+            assert (
+                not node.keywords
+            ), "Keyword arguments can only be used with user defined functions"
             polymorphic_arg_types = [a.typ for a in tc.args]
             if not is_isinstance_call:
                 polymorphic_arg_types = [

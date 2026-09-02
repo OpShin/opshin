@@ -142,6 +142,11 @@ class OptimizeUnionExpansion(CompilingNodeTransformer):
         seen_names = set()
         for concrete_types in product(*union_type_options):
             new_f = deepcopy(stmt)
+            # Calls are first type-checked against the unspecialized function,
+            # which supplies omitted defaults. Specialized variants are an
+            # internal dispatch target and must not independently re-check a
+            # default against every narrowed union member.
+            new_f.args.defaults = []
             suffixes = []
             known_union_types = {}
             for i, typ in zip(union_positions, concrete_types):

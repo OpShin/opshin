@@ -73,6 +73,7 @@ from .rewrite.rewrite_augassign import RewriteAugAssign
 from .rewrite.rewrite_cast_condition import RewriteConditions
 from .rewrite.rewrite_empty_dicts import RewriteEmptyDicts
 from .rewrite.rewrite_empty_lists import RewriteEmptyLists
+from .rewrite.rewrite_default_arguments import RewriteDefaultArguments
 from .rewrite.rewrite_destructuring_assign import RewriteDestructuringAssign
 from .rewrite.rewrite_forbidden_overwrites import RewriteForbiddenOverwrites
 from .rewrite.rewrite_forbidden_return import RewriteForbiddenReturn
@@ -1951,6 +1952,9 @@ def compile(
         RewriteImport(filename=filename),
         # Rewrites that simplify the python code
         RewriteForbiddenReturn(),
+        # Hoist defaults early so all ordinary expression rewrites are also
+        # applied to their definition-time evaluation.
+        RewriteDefaultArguments(),
         OptimizeUnionExpansion() if config.expand_union_types else NoOp(),
         OptimizeConstantFolding() if config.constant_folding else NoOp(),
         RewriteSubscript38(),
