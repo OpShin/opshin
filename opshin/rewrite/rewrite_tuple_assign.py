@@ -22,7 +22,7 @@ class RewriteTupleAssign(CompilingNodeTransformer):
     step = "Rewriting tuple deconstruction in assignments"
 
     def visit_Module(self, node: Module) -> Module:
-        self.name_supply = NameSupply.from_tree(node)
+        self.name_supply = NameSupply.from_tree(node, "tuple")
         return self.generic_visit(node)
 
     def visit_Assign(self, node: Assign) -> typing.List[stmt]:
@@ -31,7 +31,7 @@ class RewriteTupleAssign(CompilingNodeTransformer):
         tuple = self.visit(node.value)
         # store for later that we require
         tuple.is_tuple_with_deconstruction = len(node.targets[0].elts)
-        temp_name = self.name_supply.fresh_name("2_", "_tup")
+        temp_name = self.name_supply.fresh_name()
         temp_assignment = Assign([Name(temp_name, Store())], tuple)
         temp_assignment.destructure_metadata = DestructureMetadata(
             kind="assignment",
@@ -62,7 +62,7 @@ class RewriteTupleAssign(CompilingNodeTransformer):
             return self.generic_visit(node)
         new_for = copy(node)
         new_for.iter = self.visit(node.iter)
-        temp_name = self.name_supply.fresh_name("2_", "_tup")
+        temp_name = self.name_supply.fresh_name()
         # write the tuple into a singleton variable
         new_for.target = Name(temp_name, Store())
         assignments = []

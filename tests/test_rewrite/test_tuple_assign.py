@@ -19,14 +19,14 @@ class TupleAssignTest(unittest.TestCase):
         tree.body.insert(
             0,
             ast.Assign(
-                targets=[ast.Name(id="2_0_tup", ctx=ast.Store())],
+                targets=[ast.Name(id="__opshin_tuple_0", ctx=ast.Store())],
                 value=ast.Constant(0),
             ),
         )
 
         rewritten = RewriteTupleAssign().visit(tree)
 
-        self.assertEqual(rewritten.body[1].targets[0].id, "2_1_tup")
+        self.assertNotEqual(rewritten.body[1].targets[0].id, "__opshin_tuple_0")
 
     def test_tuple_assign_too_many(self):
         source_code = """

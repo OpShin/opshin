@@ -11,7 +11,7 @@ class RewriteDefaultArguments(FlatteningScopedSequenceNodeTransformer):
     step = "Hoisting default arguments"
 
     def visit_Module(self, node: Module) -> Module:
-        self.name_supply = NameSupply.from_tree(node)
+        self.name_supply = NameSupply.from_tree(node, "default")
         return super().visit_Module(node)
 
     def _hoist_function_defaults(self, function: FunctionDef):
@@ -19,7 +19,7 @@ class RewriteDefaultArguments(FlatteningScopedSequenceNodeTransformer):
         bindings = []
         rewritten_defaults = []
         for default in function.args.defaults:
-            name = self.name_supply.fresh_name("__opshin_default_")
+            name = self.name_supply.fresh_name()
             target = custom_fix_missing_locations(Name(id=name, ctx=Store()), default)
             value = self.visit(default)
             binding = custom_fix_missing_locations(

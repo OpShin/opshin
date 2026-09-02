@@ -61,12 +61,13 @@ def distinct(xs: list):
 class NameSupply:
     """Allocate generated names that do not collide with identifiers in an AST."""
 
-    def __init__(self, reserved_names=()):
+    def __init__(self, purpose: str, reserved_names=()):
+        self.purpose = purpose
         self.reserved_names = set(reserved_names)
-        self.next_indices = defaultdict(int)
+        self.next_index = 0
 
     @classmethod
-    def from_tree(cls, node: ast.AST) -> "NameSupply":
+    def from_tree(cls, node: ast.AST, purpose: str) -> "NameSupply":
         reserved_names = set()
         for child in ast.walk(node):
             if isinstance(child, ast.Name):
@@ -83,14 +84,13 @@ class NameSupply:
                 reserved_names.update(child.names)
             elif isinstance(child, ast.ExceptHandler) and child.name is not None:
                 reserved_names.add(child.name)
-        return cls(reserved_names)
+        return cls(purpose, reserved_names)
 
-    def fresh_name(self, prefix: str, suffix: str = "") -> str:
-        key = (prefix, suffix)
+    def fresh_name(self) -> str:
         while True:
-            index = self.next_indices[key]
-            self.next_indices[key] += 1
-            name = f"{prefix}{index}{suffix}"
+            index = self.next_index
+            self.next_index += 1
+            name = f"__opshin_{self.purpose}_{index}"
             if name not in self.reserved_names:
                 self.reserved_names.add(name)
                 return name
