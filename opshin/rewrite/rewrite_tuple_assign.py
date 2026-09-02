@@ -4,7 +4,7 @@ from dataclasses import dataclass
 import typing
 from ast import *
 
-from ..util import CompilingNodeTransformer
+from ..util import CompilingNodeTransformer, NameSupply
 
 """
 Rewrites all occurrences of assignments to tuples to assignments to single values
@@ -21,17 +21,17 @@ class DestructureMetadata:
 class RewriteTupleAssign(CompilingNodeTransformer):
     step = "Rewriting tuple deconstruction in assignments"
 
-    unique_id = 0
+    def visit_Module(self, node: Module) -> Module:
+        self.name_supply = NameSupply.from_tree(node)
+        return self.generic_visit(node)
 
     def visit_Assign(self, node: Assign) -> typing.List[stmt]:
         if not isinstance(node.targets[0], Tuple):
             return [node]
-        uid = self.unique_id
-        self.unique_id += 1
         tuple = self.visit(node.value)
         # store for later that we require
         tuple.is_tuple_with_deconstruction = len(node.targets[0].elts)
-        temp_name = f"2_{uid}_tup"
+        temp_name = self.name_supply.fresh_name("2_", "_tup")
         temp_assignment = Assign([Name(temp_name, Store())], tuple)
         temp_assignment.destructure_metadata = DestructureMetadata(
             kind="assignment",
@@ -62,10 +62,9 @@ class RewriteTupleAssign(CompilingNodeTransformer):
             return self.generic_visit(node)
         new_for = copy(node)
         new_for.iter = self.visit(node.iter)
-        uid = self.unique_id
-        self.unique_id += 1
+        temp_name = self.name_supply.fresh_name("2_", "_tup")
         # write the tuple into a singleton variable
-        new_for.target = Name(f"2_{uid}_tup", Store())
+        new_for.target = Name(temp_name, Store())
         assignments = []
         # TODO for now we only have lists over pairs, so we can just check length = 2
         # in the future need to handle as above
@@ -83,7 +82,7 @@ class RewriteTupleAssign(CompilingNodeTransformer):
                 Assign(
                     [t],
                     Subscript(
-                        value=Name(f"2_{uid}_tup", Load()),
+                        value=Name(temp_name, Load()),
                         slice=Constant(i),
                         ctx=Load(),
                     ),

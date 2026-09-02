@@ -58,6 +58,44 @@ def distinct(xs: list):
     return len(xs) == len(set(xs))
 
 
+class NameSupply:
+    """Allocate generated names that do not collide with identifiers in an AST."""
+
+    def __init__(self, reserved_names=()):
+        self.reserved_names = set(reserved_names)
+        self.next_indices = defaultdict(int)
+
+    @classmethod
+    def from_tree(cls, node: ast.AST) -> "NameSupply":
+        reserved_names = set()
+        for child in ast.walk(node):
+            if isinstance(child, ast.Name):
+                reserved_names.add(child.id)
+            elif isinstance(child, ast.arg):
+                reserved_names.add(child.arg)
+            elif isinstance(
+                child, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)
+            ):
+                reserved_names.add(child.name)
+            elif isinstance(child, ast.alias):
+                reserved_names.add(child.asname or child.name.split(".")[0])
+            elif isinstance(child, (ast.Global, ast.Nonlocal)):
+                reserved_names.update(child.names)
+            elif isinstance(child, ast.ExceptHandler) and child.name is not None:
+                reserved_names.add(child.name)
+        return cls(reserved_names)
+
+    def fresh_name(self, prefix: str, suffix: str = "") -> str:
+        key = (prefix, suffix)
+        while True:
+            index = self.next_indices[key]
+            self.next_indices[key] += 1
+            name = f"{prefix}{index}{suffix}"
+            if name not in self.reserved_names:
+                self.reserved_names.add(name)
+                return name
+
+
 class TypedNodeTransformer(ast.NodeTransformer):
     def visit(self, node):
         """Visit a node."""
