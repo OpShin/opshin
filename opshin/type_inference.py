@@ -1095,6 +1095,54 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         tt.typ = InstanceType(DictType(k_typ, v_typ))
         return tt
 
+    def contextualize_container_literal(
+        self, node: typedexpr, expected_type: Type
+    ) -> typedexpr:
+        """Type empty container literals recursively from their surrounding type."""
+        if not isinstance(expected_type, InstanceType):
+            return node
+
+        expected = expected_type.typ
+        if isinstance(node, List) and isinstance(expected, ListType):
+            node.elts = [
+                self.contextualize_container_literal(element, expected.typ)
+                for element in node.elts
+            ]
+            if node.elts:
+                element_type = find_max_type([element.typ for element in node.elts])
+                node.typ = InstanceType(ListType(element_type))
+            else:
+                node.typ = expected_type
+        elif isinstance(node, Dict) and isinstance(expected, DictType):
+            node.keys = [
+                self.contextualize_container_literal(key, expected.key_typ)
+                for key in node.keys
+            ]
+            node.values = [
+                self.contextualize_container_literal(value, expected.value_typ)
+                for value in node.values
+            ]
+            if node.keys or node.values:
+                key_type = find_max_type([key.typ for key in node.keys])
+                value_type = find_max_type([value.typ for value in node.values])
+                node.typ = InstanceType(DictType(key_type, value_type))
+            else:
+                node.typ = expected_type
+        elif (
+            isinstance(node, Tuple)
+            and isinstance(expected, TupleType)
+            and len(node.elts) == len(expected.typs)
+        ):
+            node.elts = [
+                self.contextualize_container_literal(element, element_type)
+                for element, element_type in zip(node.elts, expected.typs)
+            ]
+            node.typ = InstanceType(
+                RawTupleType(frozenlist([element.typ for element in node.elts]))
+            )
+
+        return node
+
     def visit_Assign(self, node: Assign) -> TypedAssign:
         typed_ass = copy(node)
         typed_ass.value: TypedExpression = self.visit(node.value)
@@ -1145,26 +1193,9 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
     def visit_AnnAssign(self, node: AnnAssign) -> TypedAnnAssign:
         typed_ass = copy(node)
         typed_ass.annotation = self.type_from_annotation(node.annotation)
-        if isinstance(typed_ass.annotation, ListType) and (
-            (isinstance(node.value, Constant) and node.value.value == [])
-            or (isinstance(node.value, List) and node.value.elts == [])
-        ):
-            # Empty lists are only allowed in annotated assignments
-            typed_ass.value: TypedExpression = copy(node.value)
-            typed_ass.value.typ = InstanceType(typed_ass.annotation)
-        elif isinstance(typed_ass.annotation, DictType) and (
-            (isinstance(node.value, Constant) and node.value.value == {})
-            or (
-                isinstance(node.value, Dict)
-                and node.value.keys == []
-                and node.value.values == []
-            )
-        ):
-            # Empty lists are only allowed in annotated assignments
-            typed_ass.value: TypedExpression = copy(node.value)
-            typed_ass.value.typ = InstanceType(typed_ass.annotation)
-        else:
-            typed_ass.value: TypedExpression = self.visit(node.value)
+        typed_ass.value: TypedExpression = self.contextualize_container_literal(
+            self.visit(node.value), InstanceType(typed_ass.annotation)
+        )
         assert isinstance(
             node.target, Name
         ), "Can only assign to variable names, no type deconstruction"
@@ -1349,26 +1380,15 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             for default, parameter_type in zip(defaults, default_types):
                 if isinstance(default, Name):
                     binding = self.DEFAULT_ARGUMENT_BINDINGS.get(default.id)
-                    if binding is not None and isinstance(parameter_type, InstanceType):
-                        is_empty_list = (
-                            isinstance(binding.value, List) and not binding.value.elts
+                    if binding is not None:
+                        binding.value = self.contextualize_container_literal(
+                            binding.value, parameter_type
                         )
-                        is_empty_dict = (
-                            isinstance(binding.value, Dict)
-                            and not binding.value.keys
-                            and not binding.value.values
+                        binding.targets[0].typ = binding.value.typ
+                        self.set_variable_type(
+                            default.id, binding.value.typ, force=True
                         )
-                        if (
-                            is_empty_list and isinstance(parameter_type.typ, ListType)
-                        ) or (
-                            is_empty_dict and isinstance(parameter_type.typ, DictType)
-                        ):
-                            binding.value.typ = parameter_type
-                            binding.targets[0].typ = parameter_type
-                            self.set_variable_type(
-                                default.id, parameter_type, force=True
-                            )
-                            default.typ = parameter_type
+                        default.typ = binding.value.typ
                 assert (
                     parameter_type >= default.typ
                 ), f"Default value has type {default.typ.python_type()}, expected {parameter_type.python_type()}"

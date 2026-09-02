@@ -475,6 +475,72 @@ def validator() -> int:
     assert eval_uplc_value(source_code, Unit()) == 0
 
 
+@pytest.mark.parametrize(
+    "annotation, default, expression",
+    [
+        ("List[List[int]]", "[[]]", "len(value[0])"),
+        ("Dict[int, List[bytes]]", "{1: []}", "len(value[1])"),
+        ("List[Dict[int, bytes]]", "[{}]", "len(value[0])"),
+        (
+            "List[Dict[int, List[bytes]]]",
+            "[{1: []}]",
+            "len(value[0][1])",
+        ),
+        (
+            "Tuple[List[int], Dict[int, bytes]]",
+            "([], {})",
+            "len(value[0]) + len(value[1])",
+        ),
+    ],
+)
+def test_nested_empty_container_defaults_use_parameter_types(
+    annotation, default, expression
+):
+    source_code = f"""
+from typing import Dict, List, Tuple
+
+def nested(value: {annotation} = {default}) -> int:
+    return {expression}
+
+def validator() -> int:
+    return nested()
+"""
+
+    assert eval_uplc_value(source_code, Unit()) == 0
+
+
+def test_nested_empty_container_context_does_not_hide_type_mismatch():
+    source_code = """
+from typing import List
+
+def nested(value: List[List[int]] = [[b"wrong"]]) -> int:
+    return len(value[0])
+
+def validator() -> int:
+    return nested()
+"""
+
+    with pytest.raises(Exception, match="Default value"):
+        builder._compile(source_code)
+
+
+def test_nested_empty_container_defaults_merge_with_nonempty_siblings():
+    source_code = """
+from typing import Dict, List
+
+def nested(
+    values: List[List[int]] = [[], [1]],
+    mapping: Dict[int, List[bytes]] = {1: [], 2: [b"x"]},
+) -> int:
+    return values[1][0] + len(mapping[2])
+
+def validator() -> int:
+    return nested()
+"""
+
+    assert eval_uplc_value(source_code, Unit()) == 2
+
+
 def test_unreachable_function_default_does_not_require_hidden_binding():
     source_code = """
 def validator() -> int:
