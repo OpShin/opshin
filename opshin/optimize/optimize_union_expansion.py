@@ -110,14 +110,34 @@ class RewriteKnownIsinstanceChecks(CompilingNodeTransformer):
 class OptimizeUnionExpansion(CompilingNodeTransformer):
     step = "Expanding Unions"
 
+    def __init__(self):
+        self.current_class_name: Optional[str] = None
+
     def visit(self, node):
-        if hasattr(node, "body") and isinstance(node.body, list):
-            node.body = self.visit_sequence(node.body)
-        if hasattr(node, "orelse") and isinstance(node.orelse, list):
-            node.orelse = self.visit_sequence(node.orelse)
-        if hasattr(node, "finalbody") and isinstance(node.finalbody, list):
-            node.finalbody = self.visit_sequence(node.finalbody)
-        return super().visit(node)
+        previous_class_name = self.current_class_name
+        if isinstance(node, ClassDef):
+            self.current_class_name = node.name
+        try:
+            if hasattr(node, "body") and isinstance(node.body, list):
+                node.body = self.visit_sequence(node.body)
+            if hasattr(node, "orelse") and isinstance(node.orelse, list):
+                node.orelse = self.visit_sequence(node.orelse)
+            if hasattr(node, "finalbody") and isinstance(node.finalbody, list):
+                node.finalbody = self.visit_sequence(node.finalbody)
+            return super().visit(node)
+        finally:
+            self.current_class_name = previous_class_name
+
+    def specialization_suffix(self, typ: expr) -> str:
+        if (
+            isinstance(typ, Name)
+            and typ.id == "Self"
+            and self.current_class_name is not None
+        ):
+            return _sanitize_type_suffix(self.current_class_name)
+        if isinstance(typ, Constant) and isinstance(typ.value, str):
+            return _sanitize_type_suffix(typ.value)
+        return getattr(typ, "id", type_to_suffix(typ))
 
     def is_Union_annotation(self, ann: expr):
         if isinstance(ann, Subscript) and isinstance(ann.value, Name):
@@ -147,7 +167,7 @@ class OptimizeUnionExpansion(CompilingNodeTransformer):
             for i, typ in zip(union_positions, concrete_types):
                 concrete_type = deepcopy(typ)
                 new_f.args.args[i].annotation = concrete_type
-                typ_suffix = getattr(concrete_type, "id", type_to_suffix(concrete_type))
+                typ_suffix = self.specialization_suffix(concrete_type)
                 suffixes.append(typ_suffix)
                 known_union_types[new_f.args.args[i].arg] = typ_suffix
             new_f.name = get_specialized_function_name_from_suffixes(
