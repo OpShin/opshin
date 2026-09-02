@@ -1,14 +1,14 @@
 from ast import *
 from dataclasses import dataclass
 
-from ..type_impls import InstanceType, UnionType
+from ..type_impls import InstanceType
 from ..typed_util import (
     ScopedSequenceNodeTransformer,
     collect_typed_functions,
 )
 from ..optimize.optimize_union_expansion import (
-    get_specialized_function_name_for_types,
-    split_specialized_function_name,
+    UnionExpansion,
+    UnionExpansionVariant,
 )
 
 
@@ -16,6 +16,12 @@ from ..optimize.optimize_union_expansion import (
 class _ExpandedVariant:
     name: str
     typ: InstanceType
+
+
+@dataclass(frozen=True)
+class _ExpandedFunction:
+    expansion: UnionExpansion
+    variants: dict[UnionExpansionVariant, _ExpandedVariant]
 
 
 class RewriteExpandedUnionCalls(ScopedSequenceNodeTransformer):
@@ -26,53 +32,43 @@ class RewriteExpandedUnionCalls(ScopedSequenceNodeTransformer):
 
     def __init__(self):
         super().__init__()
-        self.variants_by_name = {}
-        self.specialized_arg_positions_by_base_name = {}
+        self.expanded_functions_by_name = {}
 
     def _collect_expanded_variants(self, body: list[stmt]):
-        variants_by_name = {}
-        specialized_arg_positions_by_base_name = {}
-
         typed_functions = collect_typed_functions(body)
+        variants_by_id = {}
         for function in typed_functions:
-            if split_specialized_function_name(function.name) is None:
+            variant_id = getattr(function, "union_expansion_variant", None)
+            if variant_id is None:
                 continue
-            variants_by_name[function.name] = _ExpandedVariant(
+            variants_by_id[variant_id] = _ExpandedVariant(
                 name=function.name,
                 typ=function.typ,
             )
 
+        expanded_functions_by_name = {}
         for function in typed_functions:
-            if split_specialized_function_name(function.name) is not None:
+            expansion = getattr(function, "union_expansion", None)
+            if expansion is None:
                 continue
-            specialized_positions = [
-                i
-                for i, argtyp in enumerate(function.typ.typ.argtyps)
-                if isinstance(argtyp, InstanceType)
-                and isinstance(argtyp.typ, UnionType)
-            ]
-            if specialized_positions:
-                specialized_arg_positions_by_base_name[function.name] = (
-                    specialized_positions
-                )
+            expanded_functions_by_name[function.name] = _ExpandedFunction(
+                expansion=expansion,
+                variants={
+                    variant_id: variants_by_id[variant_id]
+                    for variant_id in expansion.variants.values()
+                    if variant_id in variants_by_id
+                },
+            )
 
-        return variants_by_name, specialized_arg_positions_by_base_name
+        return expanded_functions_by_name
 
     def visit_sequence(self, body: list[stmt]) -> list[stmt]:
-        prev_variants = dict(self.variants_by_name)
-        prev_positions = dict(self.specialized_arg_positions_by_base_name)
-        variants_by_name, specialized_arg_positions_by_base_name = (
-            self._collect_expanded_variants(body)
-        )
-        self.variants_by_name.update(variants_by_name)
-        self.specialized_arg_positions_by_base_name.update(
-            specialized_arg_positions_by_base_name
-        )
+        previous = dict(self.expanded_functions_by_name)
+        self.expanded_functions_by_name.update(self._collect_expanded_variants(body))
         try:
             return super().visit_sequence(body)
         finally:
-            self.variants_by_name = prev_variants
-            self.specialized_arg_positions_by_base_name = prev_positions
+            self.expanded_functions_by_name = previous
 
     def visit_Call(self, node: Call) -> Call:
         node = self.generic_visit(node)
@@ -82,18 +78,14 @@ class RewriteExpandedUnionCalls(ScopedSequenceNodeTransformer):
         # Re-dispatch the call based on the typed argument list instead of the
         # original source name. This lets specialization work after type
         # inference has renamed or nested the functions.
-        specialized_positions = self.specialized_arg_positions_by_base_name.get(
-            node.func.id
-        )
-        if specialized_positions is None:
+        expanded_function = self.expanded_functions_by_name.get(node.func.id)
+        if expanded_function is None:
             return node
 
-        specialized_name = get_specialized_function_name_for_types(
-            node.func.id,
-            [arg.typ for arg in node.args],
-            specialized_argument_positions=specialized_positions,
+        variant_id = expanded_function.expansion.variant_for(
+            [arg.typ for arg in node.args]
         )
-        variant = self.variants_by_name.get(specialized_name)
+        variant = expanded_function.variants.get(variant_id)
         if variant is None:
             return node
 

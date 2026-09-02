@@ -59,7 +59,7 @@ def distinct(xs: list):
 
 
 class NameSupply:
-    """Allocate generated names that do not collide with identifiers in an AST."""
+    """Allocate purpose-labelled names outside Python's source identifier space."""
 
     def __init__(self, purpose: str, reserved_names=()):
         self.purpose = purpose
@@ -90,7 +90,7 @@ class NameSupply:
         while True:
             index = self.next_index
             self.next_index += 1
-            name = f"__opshin_{self.purpose}_{index}"
+            name = f"+{self.purpose}_{index}"
             if name not in self.reserved_names:
                 self.reserved_names.add(name)
                 return name
