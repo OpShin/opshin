@@ -68,6 +68,44 @@ def existing() -> int:
         self.assertIsInstance(variant, ast.FunctionDef)
         self.assertNotEqual(variant.name, existing_name)
 
+    def test_Union_expansion_resolves_Self_in_method_annotations(self):
+        source_code = """
+from dataclasses import dataclass
+from typing import Self, Union
+from pycardano import Datum as Anything, PlutusData
+
+@dataclass
+class A(PlutusData):
+    CONSTR_ID = 0
+    value: int
+
+    def add(self, other: Union[Self, int]) -> int:
+        if isinstance(other, A):
+            return self.value + other.value
+        return self.value + other
+
+def validator() -> int:
+    return A(2).add(A(3)) + A(4).add(5)
+"""
+        config = DEFAULT_TEST_CONFIG.update(expand_union_types=True)
+
+        result = eval_uplc_raw(source_code, 0, config=config)
+
+        self.assertEqual(result.result.value, 14)
+
+    def test_Union_expansion_resolves_string_method_annotations(self):
+        source_code = """
+from opshin.std.fractions import *
+
+def validator() -> int:
+    return (Fraction(1, 2) + Fraction(3, 4)).numerator
+"""
+        config = DEFAULT_TEST_CONFIG.update(expand_union_types=True)
+
+        result = eval_uplc_raw(source_code, 0, config=config)
+
+        self.assertEqual(result.result.value, 10)
+
     def test_Union_expansion_dead_base_removed_by_deadvar_pass(self):
         source_code = """
 from typing import Union

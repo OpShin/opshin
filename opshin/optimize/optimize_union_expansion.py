@@ -101,16 +101,36 @@ class RewriteKnownIsinstanceChecks(CompilingNodeTransformer):
 class OptimizeUnionExpansion(CompilingNodeTransformer):
     step = "Expanding Unions"
 
+    def __init__(self):
+        self.current_class_name: Optional[str] = None
+
     def visit(self, node):
-        if isinstance(node, Module):
-            self.name_supply = NameSupply.from_tree(node, "union")
-        if hasattr(node, "body") and isinstance(node.body, list):
-            node.body = self.visit_sequence(node.body)
-        if hasattr(node, "orelse") and isinstance(node.orelse, list):
-            node.orelse = self.visit_sequence(node.orelse)
-        if hasattr(node, "finalbody") and isinstance(node.finalbody, list):
-            node.finalbody = self.visit_sequence(node.finalbody)
-        return super().visit(node)
+        previous_class_name = self.current_class_name
+        if isinstance(node, ClassDef):
+            self.current_class_name = node.name
+        try:
+            if isinstance(node, Module):
+                self.name_supply = NameSupply.from_tree(node, "union")
+            if hasattr(node, "body") and isinstance(node.body, list):
+                node.body = self.visit_sequence(node.body)
+            if hasattr(node, "orelse") and isinstance(node.orelse, list):
+                node.orelse = self.visit_sequence(node.orelse)
+            if hasattr(node, "finalbody") and isinstance(node.finalbody, list):
+                node.finalbody = self.visit_sequence(node.finalbody)
+            return super().visit(node)
+        finally:
+            self.current_class_name = previous_class_name
+
+    def specialization_key(self, typ: expr) -> str:
+        if (
+            isinstance(typ, Name)
+            and typ.id == "Self"
+            and self.current_class_name is not None
+        ):
+            return _sanitize_type_key(self.current_class_name)
+        if isinstance(typ, Constant) and isinstance(typ.value, str):
+            return _sanitize_type_key(typ.value)
+        return type_to_specialization_key(typ)
 
     def is_Union_annotation(self, ann: expr):
         if isinstance(ann, Subscript) and isinstance(ann.value, Name):
@@ -141,13 +161,15 @@ class OptimizeUnionExpansion(CompilingNodeTransformer):
             # default against every narrowed union member.
             new_f.args.defaults = []
             known_union_types = {}
+            specialization_keys = []
             for i, typ in zip(union_positions, concrete_types):
                 concrete_type = deepcopy(typ)
                 new_f.args.args[i].annotation = concrete_type
-                type_key = getattr(concrete_type, "id", type_to_key(concrete_type))
+                type_key = self.specialization_key(concrete_type)
                 known_union_types[new_f.args.args[i].arg] = type_key
+                specialization_keys.append(type_key)
             variant = UnionExpansionVariant(self.name_supply.fresh_name())
-            if not expansion.register(list(concrete_types), variant):
+            if not expansion.register(specialization_keys, variant):
                 continue
             new_f.name = variant.id
             new_f.union_expansion_variant = variant
