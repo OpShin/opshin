@@ -343,3 +343,101 @@ def validator() -> int:
     result = eval_uplc_raw(source_code, Unit())
     assert result.result.value == 4
     assert result.logs == ["3", "1"]
+
+
+def test_function_alias_rejects_fewer_defaults():
+    source_code = """
+def permissive(a: int = 10, b: int = 20) -> int:
+    return a + b
+
+def strict(a: int, b: int = 2) -> int:
+    return a + b
+
+def validator() -> int:
+    selected = permissive
+    selected = strict
+    return selected()
+"""
+
+    with pytest.raises(Exception, match="does not match inferred type"):
+        builder._compile(source_code)
+
+
+def test_function_alias_accepts_more_defaults():
+    source_code = """
+def strict(a: int, b: int = 2) -> int:
+    return a + b
+
+def permissive(a: int = 10, b: int = 20) -> int:
+    return a + b
+
+def validator() -> int:
+    selected = strict
+    selected = permissive
+    return selected(5)
+"""
+
+    assert eval_uplc_value(source_code, Unit()) == 25
+
+
+def test_record_default_argument():
+    source_code = """
+from opshin.prelude import *
+
+@dataclass
+class A(PlutusData):
+    CONSTR_ID = 0
+    x: int
+
+def value(x: A = A(2)) -> int:
+    return x.x
+
+def validator() -> int:
+    return value()
+"""
+
+    assert eval_uplc_value(source_code, Unit()) == 2
+
+
+def test_empty_container_default_arguments_use_parameter_types():
+    source_code = """
+from typing import Dict, List
+
+def value(xs: List[int] = [], ys: Dict[int, bytes] = {}) -> int:
+    return len(xs) + len(ys)
+
+def validator() -> int:
+    return value()
+"""
+
+    assert eval_uplc_value(source_code, Unit()) == 0
+
+
+def test_unreachable_function_default_does_not_require_hidden_binding():
+    source_code = """
+def validator() -> int:
+    return 1
+
+    def unreachable(x: int = 2) -> int:
+        return x
+"""
+
+    assert eval_uplc_value(source_code, Unit()) == 1
+
+
+def test_default_keyword_call_uses_definition_active_at_source_location():
+    source_code = """
+def selected(x: int) -> int:
+    return 10 + x
+
+def selected(y: int) -> int:
+    return 20 + y
+
+def value(z: int = selected(y=2)) -> int:
+    return z
+
+def validator() -> int:
+    return value()
+"""
+
+    assert eval_uplc_value(source_code, Unit()) == 22

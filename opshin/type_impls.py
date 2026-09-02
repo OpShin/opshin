@@ -1821,6 +1821,9 @@ class FunctionType(ClassType):
             # Default-bearing functions carry an argument-presence mask at
             # runtime and therefore have a distinct calling convention.
             and bool(self.default_count) == bool(other.default_count)
+            # A replacement function must accept every omission supported by
+            # the variable's current function type.
+            and other.default_count >= self.default_count
         ):
             return False
         if (

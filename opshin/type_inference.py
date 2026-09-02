@@ -17,7 +17,7 @@ import ast
 from ast import *
 import typing
 from collections import defaultdict
-from copy import copy, deepcopy
+from copy import copy
 from hashlib import sha256
 
 from frozenlist2 import frozenlist
@@ -589,6 +589,8 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         self.FUNCTION_ARGUMENTS_BY_ID = {}
         self.FUNCTION_DEFAULTS_BY_ID = {}
         self.TYPED_FUNCTION_DEFAULTS_BY_ID = {}
+        self.DEFAULT_ARGUMENT_BINDINGS = {}
+        self.FUNCTION_ALIAS_NAMES = set()
         self.first_function_definition_scopes: typing.List[typing.Set[int]] = []
         self._function_id_counter = 0
 
@@ -874,6 +876,14 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                 # Defer those to the main definition pass.
                 continue
 
+    def register_function_definition_metadata(self, node: FunctionDef):
+        """Make argument metadata follow the definition active at this point."""
+        self.ensure_function_id(node)
+        self.FUNCTION_ARGUMENT_REGISTRY[node.name] = node.args.args
+        self.FUNCTION_DEFINITION_IDS_BY_NAME[node.name] = node.function_id
+        self.FUNCTION_ARGUMENTS_BY_ID[node.function_id] = node.args.args
+        self.FUNCTION_DEFAULTS_BY_ID[node.function_id] = node.args.defaults
+
     def predeclare_sequence_symbols(self, node_seq: typing.List[stmt]):
         self.predeclare_class_symbols(node_seq)
         self.predeclare_function_symbols(node_seq)
@@ -1004,8 +1014,14 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             typed_stmts = [None] * len(node_seq)
             prevtyps = {}
 
+            sequence_can_fall_through = True
             for i, node in enumerate(node_seq):
                 if isinstance(node, FunctionDef):
+                    self.register_function_definition_metadata(node)
+                    continue
+                if not sequence_can_fall_through:
+                    if getattr(node, "is_default_argument_binding", False):
+                        typed_stmts[i] = self.visit(node)
                     continue
                 stmt = self.visit(node)
                 typed_stmts[i] = stmt
@@ -1017,7 +1033,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                     # for the time after this assert, the variable has the specialized type
                     prevtyps.update(self.implement_typechecks(typchecks))
                 if not getattr(stmt, "can_fall_through", True):
-                    break
+                    sequence_can_fall_through = False
             self.implement_typechecks(prevtyps)
 
             for i, node in enumerate(node_seq):
@@ -1103,6 +1119,12 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
                     )
             self.set_variable_type(t.id, target_typ)
         typed_ass.targets = [self.visit(t) for t in node.targets]
+        if getattr(node, "is_default_argument_binding", False):
+            self.DEFAULT_ARGUMENT_BINDINGS[node.targets[0].id] = typed_ass
+        if isinstance(typed_ass.value.typ, InstanceType) and isinstance(
+            typed_ass.value.typ.typ, FunctionType
+        ):
+            self.FUNCTION_ALIAS_NAMES.update(t.id for t in node.targets)
         # for deconstructed tuples, check that the size matches
         if hasattr(typed_ass.value, "is_tuple_with_deconstruction"):
             assert isinstance(typed_ass.value.typ, InstanceType) and (
@@ -1325,6 +1347,28 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             ]
             default_types = arg_types[len(arg_types) - len(defaults) :]
             for default, parameter_type in zip(defaults, default_types):
+                if isinstance(default, Name):
+                    binding = self.DEFAULT_ARGUMENT_BINDINGS.get(default.id)
+                    if binding is not None and isinstance(parameter_type, InstanceType):
+                        is_empty_list = (
+                            isinstance(binding.value, List) and not binding.value.elts
+                        )
+                        is_empty_dict = (
+                            isinstance(binding.value, Dict)
+                            and not binding.value.keys
+                            and not binding.value.values
+                        )
+                        if (
+                            is_empty_list and isinstance(parameter_type.typ, ListType)
+                        ) or (
+                            is_empty_dict and isinstance(parameter_type.typ, DictType)
+                        ):
+                            binding.value.typ = parameter_type
+                            binding.targets[0].typ = parameter_type
+                            self.set_variable_type(
+                                default.id, parameter_type, force=True
+                            )
+                            default.typ = parameter_type
                 assert (
                     parameter_type >= default.typ
                 ), f"Default value has type {default.typ.python_type()}, expected {parameter_type.python_type()}"
@@ -1353,9 +1397,10 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         arg_types = [t.typ for t in tfd.args.args]
         self.FUNCTION_ARGUMENTS_BY_ID[node.function_id] = resolved_node.args.args
         self.FUNCTION_DEFAULTS_BY_ID[node.function_id] = resolved_node.args.defaults
-        tfd.args.defaults = deepcopy(
-            self.typed_function_defaults(node.function_id, arg_types)
-        )
+        tfd.args.defaults = [
+            copy(default)
+            for default in self.typed_function_defaults(node.function_id, arg_types)
+        ]
         base_scope = copy(self.scopes[-1])
         # Publish a first approximation of the function type before visiting
         # the body so recursive and forward references have something stable to
@@ -1641,7 +1686,7 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
             assert (
                 index >= first_default
             ), f"Missing required argument {parameters[index].orig_arg}"
-            bound_args[index] = deepcopy(defaults[index - first_default])
+            bound_args[index] = copy(defaults[index - first_default])
             evaluation_order.append(index)
         return (
             typing.cast(typing.List[typedexpr], bound_args),
@@ -1650,6 +1695,11 @@ class AggressiveTypeInferencer(CompilingNodeTransformer):
         )
 
     def visit_Call(self, node: Call) -> TypedCall:
+        assert not (
+            node.keywords
+            and isinstance(node.func, Name)
+            and node.func.id in self.FUNCTION_ALIAS_NAMES
+        ), "Keyword arguments cannot be used with function aliases"
         tc = copy(node)
         tc.args = [self.visit(a) for a in node.args]
         tc.arg_evaluation_order = list(range(len(tc.args)))

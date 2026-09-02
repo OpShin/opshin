@@ -3,6 +3,8 @@ import unittest
 import hypothesis
 from hypothesis import given
 from hypothesis import strategies as st
+from opshin import builder
+
 from .utils import eval_uplc_value
 from . import PLUTUS_VM_PROFILE
 
@@ -169,3 +171,22 @@ def validator() -> int:
 """
 
         self.assertEqual(eval_uplc_value(source_code, 0), 2)
+
+    def test_keyword_arguments_rejected_for_reassigned_function_alias(self):
+        source_code = """
+def one(a: int) -> int:
+    return a
+
+def two(b: int) -> int:
+    return b
+
+def validator() -> int:
+    selected = one
+    selected = two
+    return selected(a=5)
+"""
+
+        with self.assertRaisesRegex(
+            Exception, "Keyword arguments cannot be used with function aliases"
+        ):
+            builder._compile(source_code)

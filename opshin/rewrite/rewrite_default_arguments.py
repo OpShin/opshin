@@ -25,6 +25,7 @@ class RewriteDefaultArguments(FlatteningScopedSequenceNodeTransformer):
             binding = custom_fix_missing_locations(
                 Assign(targets=[target], value=value), default
             )
+            binding.is_default_argument_binding = True
             bindings.append(binding)
             rewritten_defaults.append(
                 custom_fix_missing_locations(Name(id=name, ctx=Load()), default)
