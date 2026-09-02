@@ -62,8 +62,20 @@ class TypedExpression(typedstmt, _ast.Expression):
 
 
 class TypedCall(typedexpr, _ast.Call):
+    _fields = _ast.Call._fields + (
+        "arg_evaluation_order",
+        "provided_arg_indices",
+    )
+
     func: typedexpr
     args: _typing.List[typedexpr]
+    # Formal-parameter indices in source evaluation order. Keyword binding
+    # reorders ``args`` into formal order, so code generation needs this list
+    # to retain Python's evaluation semantics.
+    arg_evaluation_order: _typing.List[int]
+    # Formal-parameter indices for which the caller supplied an expression.
+    # Missing indices are resolved by the runtime function's own defaults.
+    provided_arg_indices: _typing.List[int]
 
 
 class TypedExpr(typedstmt, _ast.Expr):

@@ -73,6 +73,7 @@ from .rewrite.rewrite_augassign import RewriteAugAssign
 from .rewrite.rewrite_cast_condition import RewriteConditions
 from .rewrite.rewrite_empty_dicts import RewriteEmptyDicts
 from .rewrite.rewrite_empty_lists import RewriteEmptyLists
+from .rewrite.rewrite_default_arguments import RewriteDefaultArguments
 from .rewrite.rewrite_destructuring_assign import RewriteDestructuringAssign
 from .rewrite.rewrite_forbidden_overwrites import RewriteForbiddenOverwrites
 from .rewrite.rewrite_forbidden_return import RewriteForbiddenReturn
@@ -690,6 +691,8 @@ class PlutoCompiler(CompilingNodeTransformer):
                         )
                         for arg_index in arg_indices
                     ],
+                    arg_evaluation_order=[0, 1],
+                    provided_arg_indices=[0, 1],
                     keywords=[],
                     typ=BoolInstanceType,
                 )
@@ -773,6 +776,8 @@ class PlutoCompiler(CompilingNodeTransformer):
                                 )
                                 for i, a in enumerate(main_fun_typ.argtyps)
                             ],
+                            arg_evaluation_order=list(range(len(main_fun_typ.argtyps))),
+                            provided_arg_indices=list(range(len(main_fun_typ.argtyps))),
                         )
                     ),
                 ]
@@ -932,7 +937,10 @@ class PlutoCompiler(CompilingNodeTransformer):
             func_plt = self.visit(node.func)
             bind_self = node.func.typ.typ.bind_self
         bound_vs = sorted(list(node.func.typ.typ.bound_vars.keys()))
-        args = []
+        uses_argument_presence = bool(node.func.typ.typ.default_count)
+        provided_arg_indices = node.provided_arg_indices
+        compiled_args = {}
+        applied_arg_indices = []
         for i, (a, t) in enumerate(zip(node.args, node.func.typ.typ.argtyps)):
             # now impl_from_args has been chosen, skip type arg
             if (
@@ -942,23 +950,41 @@ class PlutoCompiler(CompilingNodeTransformer):
             ):
                 continue
             assert isinstance(t, InstanceType)
+            applied_arg_indices.append(i)
+            if uses_argument_presence and i not in provided_arg_indices:
+                compiled_args[i] = plt.Unit()
+                continue
             # pass in all arguments evaluated with the statemonad
             a_int = self.visit(a)
             if needs_data_cast(t):
                 # if the function expects input of generic type data, wrap data before passing it inside
                 a_int = transform_output_to_type(a.typ, t)(a_int)
-            args.append(a_int)
+            compiled_args[i] = a_int
+        evaluation_order = [i for i in node.arg_evaluation_order if i in compiled_args]
         # First assign to let to ensure that the arguments are evaluated before the call, but need to delay
         # as this is a variable assignment
         # Also bring all states of variables read inside the function into scope / update with value in current state
         # before call to simulate statemonad with current state being passed in
         return OLet(
-            [(f"p{i}", a) for i, a in enumerate(args)],
+            [(f"p{i}", compiled_args[i]) for i in evaluation_order],
             SafeApply(
                 func_plt,
                 *([plt.Var(bind_self)] if bind_self is not None else []),
                 *[plt.Var(n) for n in bound_vs],
-                *[plt.Delay(OVar(f"p{i}")) for i in range(len(args))],
+                *(
+                    [
+                        plt.Integer(
+                            sum(
+                                1 << i
+                                for i in applied_arg_indices
+                                if i in provided_arg_indices
+                            )
+                        )
+                    ]
+                    if uses_argument_presence
+                    else []
+                ),
+                *[plt.Delay(OVar(f"p{i}")) for i in applied_arg_indices],
             ),
         )
 
@@ -975,13 +1001,61 @@ class PlutoCompiler(CompilingNodeTransformer):
         self.current_function_typ.append(node.typ.typ)
         compiled_body = self.visit_sequence(body)(ret_val)
         self.current_function_typ.pop()
+        uses_runtime_defaults = bool(node.typ.typ.default_count)
+        presence_mask_name = "+provided_mask"
+        raw_argument_names = [f"+raw_{a.arg}" for a in node.args.args]
+        if uses_runtime_defaults:
+            first_default = len(node.args.args) - len(node.args.defaults)
+            parameter_bindings = []
+            for i, (argument, parameter_type) in enumerate(
+                zip(node.args.args, node.typ.typ.argtyps)
+            ):
+                if i < first_default:
+                    missing_value = plt.TraceError(
+                        f"Missing required argument {argument.orig_arg}"
+                    )
+                else:
+                    default = node.args.defaults[i - first_default]
+                    missing_value = self.visit(default)
+                    if needs_data_cast(parameter_type):
+                        missing_value = transform_output_to_type(
+                            default.typ, parameter_type
+                        )(missing_value)
+                parameter_bindings.append(
+                    (
+                        argument.arg,
+                        plt.Delay(
+                            plt.Ite(
+                                plt.EqualsInteger(
+                                    plt.ModInteger(
+                                        plt.DivideInteger(
+                                            plt.Var(presence_mask_name),
+                                            plt.Integer(1 << i),
+                                        ),
+                                        plt.Integer(2),
+                                    ),
+                                    plt.Integer(1),
+                                ),
+                                plt.Force(plt.Var(raw_argument_names[i])),
+                                missing_value,
+                            )
+                        ),
+                    )
+                )
+            compiled_body = plt.Let(parameter_bindings, compiled_body)
         return lambda x: plt.Let(
             [
                 (
                     node.name,
                     plt.Delay(
                         SafeLambda(
-                            read_vs + [a.arg for a in node.args.args],
+                            read_vs
+                            + ([presence_mask_name] if uses_runtime_defaults else [])
+                            + (
+                                raw_argument_names
+                                if uses_runtime_defaults
+                                else [a.arg for a in node.args.args]
+                            ),
                             compiled_body,
                         )
                     ),
@@ -1951,6 +2025,9 @@ def compile(
         RewriteImport(filename=filename),
         # Rewrites that simplify the python code
         RewriteForbiddenReturn(),
+        # Hoist defaults early so all ordinary expression rewrites are also
+        # applied to their definition-time evaluation.
+        RewriteDefaultArguments(),
         OptimizeUnionExpansion() if config.expand_union_types else NoOp(),
         OptimizeConstantFolding() if config.constant_folding else NoOp(),
         RewriteSubscript38(),

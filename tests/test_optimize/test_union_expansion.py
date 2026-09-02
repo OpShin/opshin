@@ -9,6 +9,8 @@ from hypothesis import strategies as st
 
 from opshin import DEFAULT_CONFIG, builder
 from opshin.ledger.api_v3 import *
+from opshin.optimize.optimize_union_expansion import OptimizeUnionExpansion
+from opshin.util import NameSupply
 
 from .. import PLUTUS_VM_PROFILE
 from ..test_misc import A
@@ -35,6 +37,37 @@ union_types = st.sampled_from([A(0), 10, b"foo", [1, 2, 3, 4, 5], {1: 2, 2: 3}])
 
 
 class Union_tests(unittest.TestCase):
+    def test_specialized_function_names_are_resolved_through_metadata(self):
+        tree = ast.parse("""
+from typing import Union
+
+def foo(x: Union[int, bytes]) -> int:
+    return 0
+""")
+        existing_name = NameSupply("union").fresh_name()
+        existing_function = ast.parse("""
+def existing() -> int:
+    return 0
+""").body[0]
+        existing_function.name = existing_name
+        tree.body.append(existing_function)
+
+        expanded = OptimizeUnionExpansion().visit(tree)
+        base = next(
+            node
+            for node in expanded.body
+            if isinstance(node, ast.FunctionDef) and node.name == "foo"
+        )
+        variant_id = base.union_expansion.variant_for([ast.Name(id="int")])
+        variant = next(
+            node
+            for node in expanded.body
+            if getattr(node, "union_expansion_variant", None) == variant_id
+        )
+
+        self.assertIsInstance(variant, ast.FunctionDef)
+        self.assertNotEqual(variant.name, existing_name)
+
     def test_Union_expansion_resolves_Self_in_method_annotations(self):
         source_code = """
 from dataclasses import dataclass

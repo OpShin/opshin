@@ -29,6 +29,7 @@ class RewriteOrigName(CompilingNodeTransformer):
         node_cp.orig_name = node.name
         node_cp.args = copy(node.args)
         node_cp.args.args = []
+        node_cp.args.defaults = [self.visit(d) for d in node.args.defaults]
         for a in node.args.args:
             a_cp = self.visit(a)
             a_cp.orig_arg = a.arg

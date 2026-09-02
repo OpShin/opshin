@@ -105,8 +105,11 @@ class RewriteScoping(CompilingNodeTransformer):
         node_cp = copy(node)
         # setting is handled in either enclosing module or function
         node_cp.name = self.map_name(node.name) if not method else node.name
-        self.enter_scope()
         node_cp.args = copy(node.args)
+        # Defaults are evaluated in the scope containing the function definition,
+        # not in the function body's scope.
+        node_cp.args.defaults = [self.visit(d) for d in node.args.defaults]
+        self.enter_scope()
         node_cp.args.args = []
         # args are defined in this scope
         for a in node.args.args:

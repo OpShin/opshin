@@ -58,6 +58,44 @@ def distinct(xs: list):
     return len(xs) == len(set(xs))
 
 
+class NameSupply:
+    """Allocate purpose-labelled names outside Python's source identifier space."""
+
+    def __init__(self, purpose: str, reserved_names=()):
+        self.purpose = purpose
+        self.reserved_names = set(reserved_names)
+        self.next_index = 0
+
+    @classmethod
+    def from_tree(cls, node: ast.AST, purpose: str) -> "NameSupply":
+        reserved_names = set()
+        for child in ast.walk(node):
+            if isinstance(child, ast.Name):
+                reserved_names.add(child.id)
+            elif isinstance(child, ast.arg):
+                reserved_names.add(child.arg)
+            elif isinstance(
+                child, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)
+            ):
+                reserved_names.add(child.name)
+            elif isinstance(child, ast.alias):
+                reserved_names.add(child.asname or child.name.split(".")[0])
+            elif isinstance(child, (ast.Global, ast.Nonlocal)):
+                reserved_names.update(child.names)
+            elif isinstance(child, ast.ExceptHandler) and child.name is not None:
+                reserved_names.add(child.name)
+        return cls(purpose, reserved_names)
+
+    def fresh_name(self) -> str:
+        while True:
+            index = self.next_index
+            self.next_index += 1
+            name = f"+{self.purpose}_{index}"
+            if name not in self.reserved_names:
+                self.reserved_names.add(name)
+                return name
+
+
 class TypedNodeTransformer(ast.NodeTransformer):
     def visit(self, node):
         """Visit a node."""

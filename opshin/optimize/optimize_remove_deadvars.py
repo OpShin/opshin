@@ -4,7 +4,8 @@ from collections import defaultdict
 
 from ordered_set import OrderedSet
 
-from ..util import CompilingNodeVisitor, CompilingNodeTransformer
+from ..util import CompilingNodeVisitor
+from ..typed_util import ScopedSequenceNodeTransformer
 from ..typed_ast import TypedAnnAssign, TypedFunctionDef, TypedClassDef, TypedName
 
 """
@@ -34,6 +35,8 @@ class NameLoadCollector(CompilingNodeVisitor):
 
     def visit_FunctionDef(self, node: TypedFunctionDef):
         # ignore the type hints of function arguments
+        for default in node.args.defaults:
+            self.visit(default)
         for s in node.body:
             self.visit(s)
         for v in node.typ.typ.bound_vars.keys():
@@ -42,7 +45,7 @@ class NameLoadCollector(CompilingNodeVisitor):
             self.loaded[node.typ.typ.bind_self] += 1
 
 
-class OptimizeRemoveDeadvars(CompilingNodeTransformer):
+class OptimizeRemoveDeadvars(ScopedSequenceNodeTransformer):
     step = "Removing unused variables"
 
     def __init__(self, validator_function_name: str):
@@ -68,27 +71,7 @@ class OptimizeRemoveDeadvars(CompilingNodeTransformer):
                 break
             # remove unloaded ones
             self.loaded_vars = loaded_vars
-            node_cp.body = [self.visit(s) for s in node_cp.body]
-        return node_cp
-
-    def visit_If(self, node: If):
-        node_cp = copy(node)
-        node_cp.test = self.visit(node.test)
-        node_cp.body = [self.visit(s) for s in node.body]
-        node_cp.orelse = [self.visit(s) for s in node.orelse]
-        return node_cp
-
-    def visit_While(self, node: While):
-        node_cp = copy(node)
-        node_cp.test = self.visit(node.test)
-        node_cp.body = [self.visit(s) for s in node.body]
-        node_cp.orelse = [self.visit(s) for s in node.orelse]
-        return node_cp
-
-    def visit_For(self, node: For):
-        node_cp = copy(node)
-        node_cp.body = [self.visit(s) for s in node.body]
-        node_cp.orelse = [self.visit(s) for s in node.orelse]
+            node_cp.body = self.visit_sequence(node_cp.body)
         return node_cp
 
     def visit_Assign(self, node: Assign):
@@ -127,6 +110,6 @@ class OptimizeRemoveDeadvars(CompilingNodeTransformer):
     def visit_FunctionDef(self, node: FunctionDef):
         node_cp = copy(node)
         if node.name in self.loaded_vars:
-            node_cp.body = [self.visit(s) for s in node.body]
+            node_cp.body = self.visit_sequence(node.body)
             return node_cp
         return Pass()

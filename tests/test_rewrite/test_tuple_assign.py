@@ -1,3 +1,4 @@
+import ast
 import unittest
 
 from hypothesis import given
@@ -6,11 +7,27 @@ from hypothesis import strategies as st
 from opshin import builder, compiler
 from opshin.compiler_config import DEFAULT_CONFIG
 from opshin.ledger.api_v3 import Address, NoStakingCredential, ScriptCredential
-from opshin.util import CompilerError
+from opshin.rewrite.rewrite_tuple_assign import RewriteTupleAssign
+from opshin.util import CompilerError, NameSupply
 from tests.utils import eval_uplc_raw, eval_uplc_value, Unit
 
 
 class TupleAssignTest(unittest.TestCase):
+
+    def test_generated_name_does_not_collide_with_existing_ast_binding(self):
+        existing_name = NameSupply("tuple").fresh_name()
+        tree = ast.parse("left, right = pair")
+        tree.body.insert(
+            0,
+            ast.Assign(
+                targets=[ast.Name(id=existing_name, ctx=ast.Store())],
+                value=ast.Constant(0),
+            ),
+        )
+
+        rewritten = RewriteTupleAssign().visit(tree)
+
+        self.assertNotEqual(rewritten.body[1].targets[0].id, existing_name)
 
     def test_tuple_assign_too_many(self):
         source_code = """
