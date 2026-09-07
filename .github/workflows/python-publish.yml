@@ -46,7 +46,7 @@ jobs:
           uv publish
       # add executables to the release
       - name: Install jq
-        uses: dcarbone/install-jq-action@v3.2.0
+        uses: dcarbone/install-jq-action@v4.0.1
       - name: Trigger executable build
         run: |
           curl -L \
