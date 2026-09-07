@@ -111,7 +111,7 @@ jobs:
         ref: ${{ needs.prepare.outputs.ref }}
 
     - name: Set up Python
-      uses: actions/setup-python@v6
+      uses: actions/setup-python@v7
       with:
         python-version: ${{ needs.get-python-versions.outputs.maximum-version }}
         cache: "pip"
@@ -148,7 +148,7 @@ jobs:
         ref: ${{ needs.prepare.outputs.ref }}
 
     - name: Set up Python
-      uses: actions/setup-python@v6
+      uses: actions/setup-python@v7
       with:
         python-version: ${{ needs.get-python-versions.outputs.maximum-version }}
 
