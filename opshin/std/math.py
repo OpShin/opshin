@@ -33,12 +33,12 @@ def bytes_big_from_unsigned_int(b: int) -> bytes:
     return integer_to_byte_string(True, 0, b)
 
 
-def ceil(a: int, b: int):
+def ceil(a: int, b: int) -> int:
     """Returns a divided by b rounded towards positive infinity"""
     return (a + b - 1) // b if b > 0 else (a + b + 1) // b
 
 
-def floor(a: int, b: int):
+def floor(a: int, b: int) -> int:
     """Returns a divided by b rounded towards negative infinity"""
     return a // b
 

@@ -4,6 +4,7 @@ import hypothesis
 import hypothesis.strategies as hst
 
 from opshin.std import math as oc_math
+from tests.utils import eval_uplc_value
 
 import math
 
@@ -64,3 +65,29 @@ def test_and_bytestring(a: bytes, b: bytes):
     b_adj = b.ljust(max_len, b"\xff")
     expected = bytes(x & y for x, y in zip(a_adj, b_adj))
     assert oc_math.and_bytestring(a, b) == expected, "Invalid and_bytestring"
+
+
+def test_ceil_compiles_and_evaluates():
+    """The opshin-compiled call path must work, not just the pure python one."""
+    src = """
+from opshin.std.math import *
+
+def validator(a: int, b: int) -> int:
+    return ceil(a, b)
+"""
+    assert eval_uplc_value(src, 7, 2) == 4
+    assert eval_uplc_value(src, -7, 2) == -3
+    assert eval_uplc_value(src, 7, -2) == -3
+
+
+def test_floor_compiles_and_evaluates():
+    """The opshin-compiled call path must work, not just the pure python one."""
+    src = """
+from opshin.std.math import *
+
+def validator(a: int, b: int) -> int:
+    return floor(a, b)
+"""
+    assert eval_uplc_value(src, 7, 2) == 3
+    assert eval_uplc_value(src, -7, 2) == -4
+    assert eval_uplc_value(src, 7, -2) == -4
