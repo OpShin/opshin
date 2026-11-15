@@ -30,7 +30,7 @@ jobs:
           skipIfReleaseExists: true
       # Build and publish the package to pypi.
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: ${{ needs.get-python-versions.outputs.maximum-version }}
       
