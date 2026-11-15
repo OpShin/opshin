@@ -284,6 +284,11 @@ class OptimizeSelectiveNarrowing(ScopedSequenceNodeTransformer):
     def __init__(self, allow_isinstance_anything: bool = False):
         self.allow_isinstance_anything = allow_isinstance_anything
         self.continuations: typing.List[typing.List[ast.stmt]] = []
+        # Depth of enclosing loop bodies. A narrowed value rebound inside
+        # a loop body may be read again on the next iteration, where the
+        # data-backed representation is expected again; lexical
+        # continuations do not cover those re-entry reads.
+        self._loop_depth = 0
 
     def visit_sequence(self, body: typing.List[ast.stmt]) -> typing.List[ast.stmt]:
         rewritten = []
@@ -320,6 +325,12 @@ class OptimizeSelectiveNarrowing(ScopedSequenceNodeTransformer):
         positively_validated: typing.Set[str],
         loop_reentry: bool = False,
     ) -> typing.List[ast.stmt]:
+        # Arms nested in loop bodies always count as re-entered: the
+        # narrowed name may be read again on a later iteration (loop
+        # test, header, or an earlier statement of the same body), so
+        # the value must be converted back even when no lexical
+        # continuation reads it.
+        loop_reentry = loop_reentry or self._loop_depth > 0
         selected: typing.Dict[str, typing.Tuple[ast.Name, Type, InstanceType]] = {}
         for name, narrowed_typ in typechecks.items():
             template = test_names.get(name)
@@ -523,5 +534,16 @@ class OptimizeSelectiveNarrowing(ScopedSequenceNodeTransformer):
     def visit_If(self, node: ast.If):
         return self._visit_conditional(node)
 
+    def visit_For(self, node: ast.For):
+        self._loop_depth += 1
+        try:
+            return super().visit_For(node)
+        finally:
+            self._loop_depth -= 1
+
     def visit_While(self, node: ast.While):
-        return self._visit_conditional(node)
+        self._loop_depth += 1
+        try:
+            return self._visit_conditional(node)
+        finally:
+            self._loop_depth -= 1

@@ -126,6 +126,69 @@ def validator(value: Union[int, bytes], count: int) -> int:
     assert eval_uplc_value(source, b"abc", 3) == 0
 
 
+def test_rebinding_narrowed_value_in_for_body_restores_for_next_iteration():
+    source = """
+from typing import Union
+
+def validator(value: Union[int, bytes], count: int) -> int:
+    total = 0
+    for _ in range(count):
+        if isinstance(value, int):
+            total += value + value + value + value + value + value
+    return total
+"""
+    assert eval_uplc_value(source, 3, 3) == 54
+    assert eval_uplc_value(source, 3, 1) == 18
+    assert eval_uplc_value(source, b"abc", 3) == 0
+
+
+def test_rebinding_narrowed_value_in_while_body_restores_for_next_iteration():
+    source = """
+from typing import Union
+
+def validator(value: Union[int, bytes], count: int) -> int:
+    total = 0
+    while count > 0:
+        if isinstance(value, int):
+            total += value + value + value + value + value + value
+        count -= 1
+    return total
+"""
+    assert eval_uplc_value(source, 3, 3) == 54
+    assert eval_uplc_value(source, b"abc", 3) == 0
+
+
+def test_rebinding_narrowed_bytes_in_loop_body_restores_for_next_iteration():
+    source = """
+from typing import Union
+
+def validator(value: Union[int, bytes], count: int) -> bytes:
+    total = b""
+    for _ in range(count):
+        if isinstance(value, bytes):
+            total += value + value + value + value + value + value
+    return total
+"""
+    assert eval_uplc_value(source, b"a", 3) == b"a" * 18
+    assert eval_uplc_value(source, 3, 3) == b""
+
+
+def test_rebinding_narrowed_list_in_loop_body_restores_for_next_iteration():
+    source = """
+from typing import List, Union
+from pycardano import Datum as Anything, PlutusData
+
+def validator(value: Union[List[Anything], int], count: int) -> int:
+    total = 0
+    for _ in range(count):
+        if isinstance(value, List):
+            total += len(value) + len(value) + len(value) + len(value)
+    return total
+"""
+    assert eval_uplc_value(source, [1, 2], 3) == 24
+    assert eval_uplc_value(source, 3, 3) == 0
+
+
 def test_rebinding_is_disabled_at_o0():
     source = """
 from typing import Union
